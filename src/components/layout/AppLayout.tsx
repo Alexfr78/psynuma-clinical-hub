@@ -11,6 +11,8 @@ import {
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb';
 import { useLocation } from 'react-router-dom';
+import { useAuth } from '@/hooks/useAuth';
+import { CenterSetupWizard } from '@/components/setup/CenterSetupWizard';
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -30,7 +32,19 @@ const routeTitles: Record<string, string> = {
 
 export function AppLayout({ children }: AppLayoutProps) {
   const location = useLocation();
+  const { profile, isLoading } = useAuth();
   const currentTitle = routeTitles[location.pathname] || 'Psynuma';
+
+  // Show setup wizard if user doesn't have a center
+  const needsSetup = !isLoading && profile && !profile.center_id;
+
+  if (needsSetup) {
+    return (
+      <div className="min-h-screen bg-background">
+        <CenterSetupWizard />
+      </div>
+    );
+  }
 
   return (
     <SidebarProvider>

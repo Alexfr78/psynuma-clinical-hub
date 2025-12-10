@@ -1,0 +1,249 @@
+import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { Loader2, Building2, CheckCircle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
+
+const centerSchema = z.object({
+  name: z.string().min(1, 'El nombre es obligatorio').max(200),
+  tax_id: z.string().max(20).optional().or(z.literal('')),
+  address: z.string().max(255).optional().or(z.literal('')),
+  city: z.string().max(100).optional().or(z.literal('')),
+  postal_code: z.string().max(10).optional().or(z.literal('')),
+  phone: z.string().max(20).optional().or(z.literal('')),
+  email: z.string().email('Email inválido').max(255).optional().or(z.literal('')),
+});
+
+type CenterFormValues = z.infer<typeof centerSchema>;
+
+export function CenterSetupWizard() {
+  const [isLoading, setIsLoading] = useState(false);
+  const { toast } = useToast();
+  const { user, refreshProfile } = useAuth();
+
+  const form = useForm<CenterFormValues>({
+    resolver: zodResolver(centerSchema),
+    defaultValues: {
+      name: '',
+      tax_id: '',
+      address: '',
+      city: '',
+      postal_code: '',
+      phone: '',
+      email: '',
+    },
+  });
+
+  const onSubmit = async (values: CenterFormValues) => {
+    if (!user) return;
+    
+    setIsLoading(true);
+    try {
+      // 1. Create the center
+      const { data: center, error: centerError } = await supabase
+        .from('centers')
+        .insert({
+          name: values.name,
+          tax_id: values.tax_id || null,
+          address: values.address || null,
+          city: values.city || null,
+          postal_code: values.postal_code || null,
+          phone: values.phone || null,
+          email: values.email || null,
+        })
+        .select()
+        .single();
+
+      if (centerError) throw centerError;
+
+      // 2. Update the user's profile with the center_id
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({ center_id: center.id })
+        .eq('id', user.id);
+
+      if (profileError) throw profileError;
+
+      // 3. Assign admin role to the user
+      const { error: roleError } = await supabase
+        .from('user_roles')
+        .insert({
+          user_id: user.id,
+          role: 'admin',
+        });
+
+      if (roleError) throw roleError;
+
+      // 4. Also assign professional role
+      const { error: profRoleError } = await supabase
+        .from('user_roles')
+        .insert({
+          user_id: user.id,
+          role: 'professional',
+        });
+
+      if (profRoleError) throw profRoleError;
+
+      toast({
+        title: 'Centro configurado',
+        description: 'Tu centro ha sido creado correctamente. ¡Ya puedes empezar!',
+      });
+
+      // Refresh the profile to get the new center_id
+      await refreshProfile();
+      
+    } catch (error: any) {
+      console.error('Setup error:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'No se pudo configurar el centro. Por favor, inténtalo de nuevo.',
+        variant: 'destructive',
+      });
+    }
+    setIsLoading(false);
+  };
+
+  return (
+    <div className="flex min-h-[80vh] items-center justify-center p-4">
+      <Card className="w-full max-w-lg">
+        <CardHeader className="text-center">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
+            <Building2 className="h-8 w-8 text-primary" />
+          </div>
+          <CardTitle className="font-display text-2xl">Configura tu centro</CardTitle>
+          <CardDescription>
+            Para empezar a usar Psynuma, necesitas configurar los datos de tu centro o consulta.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nombre del centro *</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Centro de Psicología Ejemplo" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="tax_id"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>NIF/CIF</FormLabel>
+                      <FormControl>
+                        <Input placeholder="B12345678" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="phone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Teléfono</FormLabel>
+                      <FormControl>
+                        <Input placeholder="+34 912 345 678" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email del centro</FormLabel>
+                    <FormControl>
+                      <Input type="email" placeholder="info@centro.com" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="address"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Dirección</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Calle Principal, 1" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="city"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Ciudad</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Madrid" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="postal_code"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Código Postal</FormLabel>
+                      <FormControl>
+                        <Input placeholder="28001" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoading ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <CheckCircle className="mr-2 h-4 w-4" />
+                )}
+                Crear Centro y Empezar
+              </Button>
+            </form>
+          </Form>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
