@@ -60,7 +60,7 @@ export function useDebts(filters?: { patientId?: string; status?: string }) {
         query = query.eq('patient_id', filters.patientId);
       }
       if (filters?.status) {
-        query = query.eq('status', filters.status);
+        query = query.eq('status', filters.status as 'pending' | 'partial' | 'paid' | 'refunded');
       } else {
         // By default, show only pending and partial
         query = query.in('status', ['pending', 'partial'] as const);

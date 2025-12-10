@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { CalendarIcon, Loader2 } from 'lucide-react';
+import { CalendarIcon, Loader2, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -36,11 +36,13 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useCreateSession } from '@/hooks/useSessions';
 import { usePatients, useProfessionals } from '@/hooks/usePatients';
 import { useAuth } from '@/hooks/useAuth';
+import { usePatientActiveBonos, useDeductBonoSession } from '@/hooks/useBonos';
 
 const sessionSchema = z.object({
   patient_id: z.string().uuid('Selecciona un paciente'),
@@ -52,6 +54,7 @@ const sessionSchema = z.object({
   price: z.coerce.number().min(0, 'El precio debe ser positivo'),
   notes: z.string().max(1000).optional(),
   status: z.string().default('scheduled'),
+  bono_id: z.string().optional(),
 });
 
 type SessionFormValues = z.infer<typeof sessionSchema>;
@@ -78,6 +81,7 @@ export function CreateSessionDialog({
   const { toast } = useToast();
   const { user } = useAuth();
   const createSession = useCreateSession();
+  const deductBonoSession = useDeductBonoSession();
   const { data: patients } = usePatients();
   const { data: professionals } = useProfessionals();
 
@@ -93,8 +97,20 @@ export function CreateSessionDialog({
       price: 60,
       notes: '',
       status: 'scheduled',
+      bono_id: '',
     },
   });
+
+  const watchPatientId = form.watch('patient_id');
+  const watchBonoId = form.watch('bono_id');
+  const { data: patientBonos } = usePatientActiveBonos(watchPatientId || undefined);
+
+  // When bono is selected, set price to 0
+  useEffect(() => {
+    if (watchBonoId && watchBonoId !== 'none') {
+      form.setValue('price', 0);
+    }
+  }, [watchBonoId, form]);
 
   useEffect(() => {
     if (initialDate) {
@@ -114,7 +130,7 @@ export function CreateSessionDialog({
 
   const onSubmit = async (values: SessionFormValues) => {
     try {
-      await createSession.mutateAsync({
+      const sessionData = {
         patient_id: values.patient_id,
         professional_id: values.professional_id,
         session_date: format(values.session_date, 'yyyy-MM-dd'),
@@ -124,11 +140,24 @@ export function CreateSessionDialog({
         price: values.price,
         notes: values.notes || null,
         status: values.status as 'scheduled' | 'confirmed' | 'completed' | 'cancelled' | 'no_show',
-      });
+        bono_id: values.bono_id && values.bono_id !== 'none' ? values.bono_id : null,
+      };
+
+      const newSession = await createSession.mutateAsync(sessionData);
+
+      // If bono was used, deduct a session
+      if (values.bono_id && values.bono_id !== 'none' && newSession?.id) {
+        await deductBonoSession.mutateAsync({
+          bonoId: values.bono_id,
+          sessionId: newSession.id,
+        });
+      }
 
       toast({
         title: 'Sesión creada',
-        description: 'La sesión se ha programado correctamente.',
+        description: values.bono_id && values.bono_id !== 'none' 
+          ? 'Sesión programada y descontada del bono.'
+          : 'La sesión se ha programado correctamente.',
       });
 
       form.reset();
@@ -178,6 +207,48 @@ export function CreateSessionDialog({
                 </FormItem>
               )}
             />
+
+            {/* Bono selection - only show if patient has active bonos */}
+            {watchPatientId && patientBonos && patientBonos.length > 0 && (
+              <FormField
+                control={form.control}
+                name="bono_id"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="flex items-center gap-2">
+                      <Package className="h-4 w-4" />
+                      Usar bono
+                    </FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Seleccionar bono (opcional)" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="none">No usar bono</SelectItem>
+                        {patientBonos.map((bono) => (
+                          <SelectItem key={bono.id} value={bono.id}>
+                            <span className="flex items-center gap-2">
+                              {bono.name}
+                              <Badge variant="secondary" className="ml-2">
+                                {bono.total_sessions - bono.used_sessions} restantes
+                              </Badge>
+                            </span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {field.value && field.value !== 'none' && (
+                      <p className="text-xs text-muted-foreground">
+                        El precio se establecerá a 0€ al usar el bono
+                      </p>
+                    )}
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
 
             <FormField
               control={form.control}
@@ -329,7 +400,13 @@ export function CreateSessionDialog({
                   <FormItem>
                     <FormLabel>Precio (€) *</FormLabel>
                     <FormControl>
-                      <Input type="number" min={0} step={0.01} {...field} />
+                      <Input 
+                        type="number" 
+                        min={0} 
+                        step={0.01} 
+                        {...field} 
+                        disabled={watchBonoId && watchBonoId !== 'none'}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

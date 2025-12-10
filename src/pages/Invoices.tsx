@@ -14,6 +14,7 @@ import { useInvoices, useUpdateInvoiceStatus, useInvoiceStats } from '@/hooks/us
 import { InvoiceCard } from '@/components/invoices/InvoiceCard';
 import { CreateSimpleInvoiceDialog } from '@/components/invoices/CreateSimpleInvoiceDialog';
 import { CreateRecapInvoiceDialog } from '@/components/invoices/CreateRecapInvoiceDialog';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 export default function Invoices() {
@@ -29,8 +30,48 @@ export default function Invoices() {
     await updateStatus.mutateAsync({ id, status });
   };
 
-  const handleGeneratePDF = (invoiceId: string) => {
-    toast.info('Generación de PDF en desarrollo');
+  const handleGeneratePDF = async (invoiceId: string) => {
+    try {
+      toast.info('Generando PDF...');
+      
+      const { data, error } = await supabase.functions.invoke('generate-invoice-pdf', {
+        body: { invoice_id: invoiceId },
+      });
+
+      if (error) throw error;
+
+      // Open HTML in new tab for printing/saving as PDF
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.write(data.html);
+        printWindow.document.close();
+        printWindow.print();
+      }
+      
+      toast.success('PDF generado correctamente');
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      toast.error('Error al generar el PDF');
+    }
+  };
+
+  const handleSealVerifactu = async (invoiceId: string) => {
+    try {
+      toast.info('Sellando factura con Verifactu...');
+      
+      const { data, error } = await supabase.functions.invoke('seal-invoice-verifactu', {
+        body: { invoice_id: invoiceId },
+      });
+
+      if (error) throw error;
+
+      toast.success(`Factura ${data.invoice_number} sellada correctamente`);
+      // Refresh invoices list
+      window.location.reload();
+    } catch (error) {
+      console.error('Error sealing invoice:', error);
+      toast.error('Error al sellar la factura');
+    }
   };
 
   return (
@@ -112,6 +153,7 @@ export default function Invoices() {
                   invoice={invoice}
                   onStatusChange={(status) => handleStatusChange(invoice.id, status)}
                   onGeneratePDF={() => handleGeneratePDF(invoice.id)}
+                  onSealVerifactu={() => handleSealVerifactu(invoice.id)}
                 />
               ))}
             </div>

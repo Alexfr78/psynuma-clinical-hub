@@ -1,1 +1,7 @@
 project_id = "zprkdxmluvirxfhswrzq"
+
+[functions.generate-invoice-pdf]
+verify_jwt = true
+
+[functions.seal-invoice-verifactu]
+verify_jwt = true

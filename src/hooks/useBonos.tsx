@@ -74,7 +74,7 @@ export function useBonos(filters?: { patientId?: string; status?: string }) {
         query = query.eq('patient_id', filters.patientId);
       }
       if (filters?.status) {
-        query = query.eq('status', filters.status);
+        query = query.eq('status', filters.status as 'active' | 'exhausted' | 'expired' | 'cancelled');
       }
 
       const { data, error } = await query;
