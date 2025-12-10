@@ -1,5 +1,11 @@
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
+import { Link } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/useAuth';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 import {
   Users,
   Calendar,
@@ -8,50 +14,105 @@ import {
   Clock,
   AlertCircle,
   CheckCircle2,
+  Package,
 } from 'lucide-react';
 
-const stats = [
-  {
-    title: 'Pacientes Activos',
-    value: '0',
-    description: 'Total de pacientes',
-    icon: Users,
-    trend: null,
-  },
-  {
-    title: 'Citas Hoy',
-    value: '0',
-    description: 'Sesiones programadas',
-    icon: Calendar,
-    trend: null,
-  },
-  {
-    title: 'Facturación Mes',
-    value: '€0',
-    description: 'Ingresos del mes',
-    icon: Receipt,
-    trend: null,
-  },
-  {
-    title: 'Pendientes Cobro',
-    value: '€0',
-    description: 'Deudas pendientes',
-    icon: AlertCircle,
-    trend: null,
-  },
-];
+function useDashboardStats() {
+  const { profile } = useAuth();
 
-const recentActivity = [
-  {
-    id: 1,
-    type: 'info',
-    message: 'Bienvenido a Psynuma',
-    time: 'Ahora',
-  },
-];
+  return useQuery({
+    queryKey: ['dashboard-stats'],
+    queryFn: async () => {
+      const today = new Date().toISOString().split('T')[0];
+      const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
+      const endOfMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString().split('T')[0];
+
+      // Parallel queries for stats
+      const [patientsRes, todaySessionsRes, monthInvoicesRes, debtsRes] = await Promise.all([
+        supabase.from('patients').select('id', { count: 'exact', head: true }).eq('status', 'active'),
+        supabase.from('sessions').select('id', { count: 'exact', head: true }).eq('session_date', today),
+        supabase.from('invoices').select('total, status').gte('issue_date', startOfMonth).lte('issue_date', endOfMonth),
+        supabase.from('debts').select('amount, paid_amount').in('status', ['pending', 'partial']),
+      ]);
+
+      const monthlyRevenue = monthInvoicesRes.data
+        ?.filter(inv => inv.status === 'issued' || inv.status === 'paid')
+        .reduce((sum, inv) => sum + Number(inv.total), 0) || 0;
+
+      const pendingDebts = debtsRes.data
+        ?.reduce((sum, debt) => sum + (Number(debt.amount) - Number(debt.paid_amount)), 0) || 0;
+
+      return {
+        activePatients: patientsRes.count || 0,
+        todaySessions: todaySessionsRes.count || 0,
+        monthlyRevenue,
+        pendingDebts,
+      };
+    },
+    enabled: !!profile?.center_id,
+  });
+}
+
+function useTodaySessions() {
+  const { profile } = useAuth();
+
+  return useQuery({
+    queryKey: ['today-sessions'],
+    queryFn: async () => {
+      const today = new Date().toISOString().split('T')[0];
+
+      const { data, error } = await supabase
+        .from('sessions')
+        .select(`
+          id, session_date, start_time, end_time, status,
+          patients (first_name, last_name)
+        `)
+        .eq('session_date', today)
+        .order('start_time');
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!profile?.center_id,
+  });
+}
 
 export default function Dashboard() {
   const { profile } = useAuth();
+  const { data: stats, isLoading: statsLoading } = useDashboardStats();
+  const { data: todaySessions, isLoading: sessionsLoading } = useTodaySessions();
+
+  const statCards = [
+    {
+      title: 'Pacientes Activos',
+      value: stats?.activePatients || 0,
+      description: 'Total de pacientes',
+      icon: Users,
+      href: '/pacientes',
+    },
+    {
+      title: 'Citas Hoy',
+      value: stats?.todaySessions || 0,
+      description: 'Sesiones programadas',
+      icon: Calendar,
+      href: '/agenda',
+    },
+    {
+      title: 'Facturación Mes',
+      value: `${(stats?.monthlyRevenue || 0).toFixed(0)}€`,
+      description: 'Ingresos del mes',
+      icon: Receipt,
+      href: '/facturas',
+    },
+    {
+      title: 'Pendientes Cobro',
+      value: `${(stats?.pendingDebts || 0).toFixed(0)}€`,
+      description: 'Deudas pendientes',
+      icon: AlertCircle,
+      href: '/cobros',
+      alert: (stats?.pendingDebts || 0) > 0,
+    },
+  ];
 
   return (
     <div className="space-y-6">
@@ -67,19 +128,27 @@ export default function Dashboard() {
 
       {/* Stats Grid */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {stats.map((stat) => (
-          <Card key={stat.title} className="shadow-card transition-shadow hover:shadow-card-hover">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                {stat.title}
-              </CardTitle>
-              <stat.icon className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stat.value}</div>
-              <p className="text-xs text-muted-foreground">{stat.description}</p>
-            </CardContent>
-          </Card>
+        {statCards.map((stat) => (
+          <Link key={stat.title} to={stat.href}>
+            <Card className={`shadow-card transition-shadow hover:shadow-card-hover ${stat.alert ? 'border-destructive/50' : ''}`}>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  {stat.title}
+                </CardTitle>
+                <stat.icon className={`h-4 w-4 ${stat.alert ? 'text-destructive' : 'text-muted-foreground'}`} />
+              </CardHeader>
+              <CardContent>
+                {statsLoading ? (
+                  <Skeleton className="h-8 w-20" />
+                ) : (
+                  <div className={`text-2xl font-bold ${stat.alert ? 'text-destructive' : ''}`}>
+                    {stat.value}
+                  </div>
+                )}
+                <p className="text-xs text-muted-foreground">{stat.description}</p>
+              </CardContent>
+            </Card>
+          </Link>
         ))}
       </div>
 
@@ -95,73 +164,84 @@ export default function Dashboard() {
             <CardDescription>Tus próximas sesiones programadas</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex flex-col items-center justify-center py-8 text-center">
-              <Calendar className="mb-4 h-12 w-12 text-muted-foreground/50" />
-              <p className="text-muted-foreground">
-                No hay sesiones programadas para hoy
-              </p>
-              <p className="mt-1 text-sm text-muted-foreground/70">
-                Las sesiones aparecerán aquí cuando las programes
-              </p>
-            </div>
+            {sessionsLoading ? (
+              <div className="space-y-3">
+                {[1, 2, 3].map(i => <Skeleton key={i} className="h-16" />)}
+              </div>
+            ) : !todaySessions || todaySessions.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-8 text-center">
+                <Calendar className="mb-4 h-12 w-12 text-muted-foreground/50" />
+                <p className="text-muted-foreground">
+                  No hay sesiones programadas para hoy
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {todaySessions.map((session: any) => (
+                  <div
+                    key={session.id}
+                    className="flex items-center justify-between rounded-lg border p-3"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+                        <Users className="h-5 w-5 text-primary" />
+                      </div>
+                      <div>
+                        <p className="font-medium">
+                          {session.patients?.first_name} {session.patients?.last_name}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {session.start_time.slice(0, 5)} - {session.end_time.slice(0, 5)}
+                        </p>
+                      </div>
+                    </div>
+                    <span className={`text-xs px-2 py-1 rounded-full ${
+                      session.status === 'completed' ? 'bg-green-100 text-green-700' :
+                      session.status === 'confirmed' ? 'bg-blue-100 text-blue-700' :
+                      'bg-muted text-muted-foreground'
+                    }`}>
+                      {session.status === 'scheduled' ? 'Programada' :
+                       session.status === 'confirmed' ? 'Confirmada' :
+                       session.status === 'completed' ? 'Completada' : session.status}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
 
-        {/* Recent Activity */}
+        {/* Quick Actions */}
         <Card className="shadow-card">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <TrendingUp className="h-5 w-5 text-primary" />
-              Actividad Reciente
+              Acciones Rápidas
             </CardTitle>
-            <CardDescription>Últimas acciones en el sistema</CardDescription>
+            <CardDescription>Accesos directos a funciones frecuentes</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {recentActivity.map((activity) => (
-                <div
-                  key={activity.id}
-                  className="flex items-start gap-3 rounded-lg bg-muted/50 p-3"
-                >
-                  <CheckCircle2 className="mt-0.5 h-4 w-4 text-success" />
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">{activity.message}</p>
-                    <p className="text-xs text-muted-foreground">{activity.time}</p>
-                  </div>
-                </div>
-              ))}
+            <div className="grid gap-3 grid-cols-2">
+              <Link to="/pacientes" className="flex flex-col items-center gap-2 rounded-lg border border-border bg-card p-4 transition-colors hover:bg-muted">
+                <Users className="h-6 w-6 text-primary" />
+                <span className="text-sm font-medium">Nuevo Paciente</span>
+              </Link>
+              <Link to="/agenda" className="flex flex-col items-center gap-2 rounded-lg border border-border bg-card p-4 transition-colors hover:bg-muted">
+                <Calendar className="h-6 w-6 text-primary" />
+                <span className="text-sm font-medium">Nueva Sesión</span>
+              </Link>
+              <Link to="/facturas" className="flex flex-col items-center gap-2 rounded-lg border border-border bg-card p-4 transition-colors hover:bg-muted">
+                <Receipt className="h-6 w-6 text-primary" />
+                <span className="text-sm font-medium">Nueva Factura</span>
+              </Link>
+              <Link to="/bonos" className="flex flex-col items-center gap-2 rounded-lg border border-border bg-card p-4 transition-colors hover:bg-muted">
+                <Package className="h-6 w-6 text-primary" />
+                <span className="text-sm font-medium">Nuevo Bono</span>
+              </Link>
             </div>
           </CardContent>
         </Card>
       </div>
-
-      {/* Quick Actions */}
-      <Card className="shadow-card">
-        <CardHeader>
-          <CardTitle>Acciones Rápidas</CardTitle>
-          <CardDescription>Accesos directos a las funciones más utilizadas</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <button className="flex flex-col items-center gap-2 rounded-lg border border-border bg-card p-4 transition-colors hover:bg-muted">
-              <Users className="h-6 w-6 text-primary" />
-              <span className="text-sm font-medium">Nuevo Paciente</span>
-            </button>
-            <button className="flex flex-col items-center gap-2 rounded-lg border border-border bg-card p-4 transition-colors hover:bg-muted">
-              <Calendar className="h-6 w-6 text-primary" />
-              <span className="text-sm font-medium">Nueva Sesión</span>
-            </button>
-            <button className="flex flex-col items-center gap-2 rounded-lg border border-border bg-card p-4 transition-colors hover:bg-muted">
-              <Receipt className="h-6 w-6 text-primary" />
-              <span className="text-sm font-medium">Nueva Factura</span>
-            </button>
-            <button className="flex flex-col items-center gap-2 rounded-lg border border-border bg-card p-4 transition-colors hover:bg-muted">
-              <TrendingUp className="h-6 w-6 text-primary" />
-              <span className="text-sm font-medium">Ver Informes</span>
-            </button>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }

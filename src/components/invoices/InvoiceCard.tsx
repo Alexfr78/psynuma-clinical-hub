@@ -1,6 +1,6 @@
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { FileText, User, Download, MoreVertical } from 'lucide-react';
+import { FileText, User, Download, MoreVertical, ShieldCheck } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -8,6 +8,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import type { InvoiceWithPatient } from '@/hooks/useInvoices';
@@ -17,6 +18,7 @@ interface InvoiceCardProps {
   onViewDetails?: () => void;
   onStatusChange?: (status: 'draft' | 'issued' | 'paid' | 'cancelled') => void;
   onGeneratePDF?: () => void;
+  onSealVerifactu?: () => void;
 }
 
 const statusConfig = {
@@ -26,8 +28,9 @@ const statusConfig = {
   cancelled: { label: 'Cancelada', variant: 'destructive' as const },
 };
 
-export function InvoiceCard({ invoice, onViewDetails, onStatusChange, onGeneratePDF }: InvoiceCardProps) {
+export function InvoiceCard({ invoice, onViewDetails, onStatusChange, onGeneratePDF, onSealVerifactu }: InvoiceCardProps) {
   const status = statusConfig[invoice.status] || statusConfig.draft;
+  const isSealed = !!invoice.verifactu_hash;
 
   return (
     <Card className="transition-all hover:shadow-md">
@@ -38,11 +41,17 @@ export function InvoiceCard({ invoice, onViewDetails, onStatusChange, onGenerate
               <FileText className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <span className="font-semibold">{invoice.invoice_number}</span>
                 <Badge variant={status.variant}>{status.label}</Badge>
                 {invoice.is_recapitulative && (
                   <Badge variant="outline">Recapitulativa</Badge>
+                )}
+                {isSealed && (
+                  <Badge variant="default" className="gap-1 bg-green-600 hover:bg-green-700">
+                    <ShieldCheck className="h-3 w-3" />
+                    Verifactu
+                  </Badge>
                 )}
               </div>
               <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
@@ -78,6 +87,16 @@ export function InvoiceCard({ invoice, onViewDetails, onStatusChange, onGenerate
                   <DropdownMenuItem onClick={onViewDetails}>
                     Ver detalles
                   </DropdownMenuItem>
+                  <DropdownMenuItem onClick={onGeneratePDF}>
+                    Descargar PDF
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  {invoice.status === 'draft' && !isSealed && (
+                    <DropdownMenuItem onClick={onSealVerifactu} className="text-green-600">
+                      <ShieldCheck className="h-4 w-4 mr-2" />
+                      Sellar con Verifactu
+                    </DropdownMenuItem>
+                  )}
                   {invoice.status === 'draft' && (
                     <DropdownMenuItem onClick={() => onStatusChange?.('issued')}>
                       Emitir factura
@@ -89,12 +108,15 @@ export function InvoiceCard({ invoice, onViewDetails, onStatusChange, onGenerate
                     </DropdownMenuItem>
                   )}
                   {(invoice.status === 'draft' || invoice.status === 'issued') && (
-                    <DropdownMenuItem 
-                      onClick={() => onStatusChange?.('cancelled')}
-                      className="text-destructive"
-                    >
-                      Cancelar factura
-                    </DropdownMenuItem>
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem 
+                        onClick={() => onStatusChange?.('cancelled')}
+                        className="text-destructive"
+                      >
+                        Cancelar factura
+                      </DropdownMenuItem>
+                    </>
                   )}
                 </DropdownMenuContent>
               </DropdownMenu>

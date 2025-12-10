@@ -12,6 +12,9 @@ import Patients from "./pages/Patients";
 import PatientDetail from "./pages/PatientDetail";
 import Agenda from "./pages/Agenda";
 import Sessions from "./pages/Sessions";
+import Bonos from "./pages/Bonos";
+import Invoices from "./pages/Invoices";
+import Payments from "./pages/Payments";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -66,17 +69,17 @@ const App = () => (
             } />
             <Route path="/bonos" element={
               <ProtectedRoute>
-                <AppLayout><PlaceholderPage title="Bonos" /></AppLayout>
+                <AppLayout><Bonos /></AppLayout>
               </ProtectedRoute>
             } />
             <Route path="/facturas" element={
               <ProtectedRoute>
-                <AppLayout><PlaceholderPage title="Facturas" /></AppLayout>
+                <AppLayout><Invoices /></AppLayout>
               </ProtectedRoute>
             } />
             <Route path="/cobros" element={
               <ProtectedRoute>
-                <AppLayout><PlaceholderPage title="Cobros / Deudas" /></AppLayout>
+                <AppLayout><Payments /></AppLayout>
               </ProtectedRoute>
             } />
             <Route path="/configuracion" element={
