@@ -462,14 +462,14 @@ export function QuickCreateSessionDialog({
                       Dirección
                     </FormLabel>
                     <div className="flex gap-2">
-                      <Select onValueChange={field.onChange} value={field.value || ''}>
+                      <Select onValueChange={(v) => field.onChange(v === '__none__' ? '' : v)} value={field.value || '__none__'}>
                         <FormControl>
                           <SelectTrigger className="h-10 flex-1">
                             <SelectValue placeholder="Sin especificar" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="">Sin especificar</SelectItem>
+                          <SelectItem value="__none__">Sin especificar</SelectItem>
                           {locations?.map((loc) => (
                             <SelectItem key={loc.id} value={loc.id}>
                               {loc.name}

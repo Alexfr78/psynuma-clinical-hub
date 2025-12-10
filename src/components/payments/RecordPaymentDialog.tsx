@@ -146,14 +146,14 @@ export function RecordPaymentDialog({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Factura (opcional)</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
+                    <Select onValueChange={(v) => field.onChange(v === '__none__' ? '' : v)} value={field.value || '__none__'}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Asociar a factura" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="">Sin factura asociada</SelectItem>
+                        <SelectItem value="__none__">Sin factura asociada</SelectItem>
                         {patientInvoices.map((invoice) => (
                           <SelectItem key={invoice.id} value={invoice.id}>
                             {invoice.invoice_number} - {Number(invoice.total).toFixed(2)}€
