@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { CalendarIcon, User, Globe, ChevronDown, Plus } from 'lucide-react';
+import { CalendarIcon, User, Globe, ChevronDown, Plus, Video, MapPin, Ban, Settings2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -30,7 +30,6 @@ import {
 } from '@/components/ui/select';
 import {
   Command,
-  CommandEmpty,
   CommandGroup,
   CommandInput,
   CommandItem,
@@ -47,7 +46,9 @@ import { useToast } from '@/hooks/use-toast';
 import { useCreateSession } from '@/hooks/useSessions';
 import { usePatients, useProfessionals } from '@/hooks/usePatients';
 import { useAuth } from '@/hooks/useAuth';
+import { useLocations } from '@/hooks/useLocations';
 import { QuickCreatePatientDialog } from '@/components/patients/QuickCreatePatientDialog';
+import { EditLocationsDialog } from '@/components/settings/EditLocationsDialog';
 
 const quickSessionSchema = z.object({
   patient_id: z.string().uuid('Selecciona un paciente'),
@@ -56,6 +57,10 @@ const quickSessionSchema = z.object({
   start_time: z.string().min(1, 'Hora de inicio requerida'),
   end_time: z.string().min(1, 'Hora de fin requerida'),
   session_type: z.string().default('individual'),
+  cancellation_policy: z.string().default('24_hours'),
+  session_modality: z.string().default('in_person'),
+  video_call_link: z.string().optional(),
+  location_id: z.string().optional(),
 });
 
 type QuickSessionFormValues = z.infer<typeof quickSessionSchema>;
@@ -82,6 +87,23 @@ const generateTimeSlots = () => {
 
 const TIME_SLOTS = generateTimeSlots();
 
+const CANCELLATION_OPTIONS = [
+  { value: 'not_allowed', label: 'No permitir cancelaciones' },
+  { value: 'until_start', label: 'Hasta la hora de la sesión' },
+  { value: '1_hour', label: 'Hasta 1 hora antes' },
+  { value: '2_hours', label: 'Hasta 2 horas antes' },
+  { value: '24_hours', label: 'Hasta 24 horas antes' },
+  { value: '48_hours', label: 'Hasta 48 horas antes' },
+  { value: '72_hours', label: 'Hasta 72 horas antes' },
+];
+
+const MODALITY_OPTIONS = [
+  { value: 'in_person', label: 'Sesión presencial', icon: MapPin },
+  { value: 'google_meet', label: 'Video llamada de GoogleMeet', icon: Video },
+  { value: 'zoom', label: 'Zoom', icon: Video },
+  { value: 'custom_link', label: 'Añadir link de videollamada', icon: Video },
+];
+
 export function QuickCreateSessionDialog({
   open,
   onOpenChange,
@@ -94,9 +116,11 @@ export function QuickCreateSessionDialog({
   const createSession = useCreateSession();
   const { data: patients } = usePatients();
   const { data: professionals } = useProfessionals();
+  const { data: locations } = useLocations();
   const [patientSearch, setPatientSearch] = useState('');
   const [patientPopoverOpen, setPatientPopoverOpen] = useState(false);
   const [showQuickPatientDialog, setShowQuickPatientDialog] = useState(false);
+  const [showLocationsDialog, setShowLocationsDialog] = useState(false);
 
   const form = useForm<QuickSessionFormValues>({
     resolver: zodResolver(quickSessionSchema),
@@ -107,8 +131,14 @@ export function QuickCreateSessionDialog({
       start_time: initialStartTime || '09:00',
       end_time: initialEndTime || '10:00',
       session_type: 'individual',
+      cancellation_policy: '24_hours',
+      session_modality: 'in_person',
+      video_call_link: '',
+      location_id: '',
     },
   });
+
+  const sessionModality = form.watch('session_modality');
 
   useEffect(() => {
     if (open) {
@@ -119,6 +149,10 @@ export function QuickCreateSessionDialog({
         start_time: initialStartTime || '09:00',
         end_time: initialEndTime || '10:00',
         session_type: 'individual',
+        cancellation_policy: '24_hours',
+        session_modality: 'in_person',
+        video_call_link: '',
+        location_id: '',
       });
       setPatientSearch('');
     }
@@ -145,6 +179,10 @@ export function QuickCreateSessionDialog({
         session_type: values.session_type,
         price: 60,
         status: asDraft ? 'draft' : 'scheduled',
+        cancellation_policy: values.cancellation_policy,
+        session_modality: values.session_modality,
+        video_call_link: values.session_modality === 'custom_link' ? values.video_call_link : null,
+        location_id: values.session_modality === 'in_person' && values.location_id ? values.location_id : null,
       });
 
       toast({
@@ -167,7 +205,7 @@ export function QuickCreateSessionDialog({
   return (
     <>
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[440px] p-0">
+      <DialogContent className="sm:max-w-[480px] p-0 max-h-[90vh] overflow-y-auto">
         <DialogHeader className="px-6 pt-6 pb-4">
           <DialogTitle className="text-xl font-semibold">Nueva reserva</DialogTitle>
         </DialogHeader>
@@ -206,7 +244,7 @@ export function QuickCreateSessionDialog({
                         </Button>
                       </FormControl>
                     </PopoverTrigger>
-                    <PopoverContent className="w-[390px] p-0" align="start">
+                    <PopoverContent className="w-[430px] p-0" align="start">
                       <Command>
                         <CommandInput 
                           placeholder="Buscar paciente..." 
@@ -327,13 +365,133 @@ export function QuickCreateSessionDialog({
                       <SelectItem value="pareja">Pareja</SelectItem>
                       <SelectItem value="familia">Familia</SelectItem>
                       <SelectItem value="grupo">Grupo</SelectItem>
-                      <SelectItem value="online">Online</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
                 </FormItem>
               )}
             />
+
+            {/* Cancellation Policy */}
+            <FormField
+              control={form.control}
+              name="cancellation_policy"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-sm font-medium flex items-center gap-2">
+                    <Ban className="h-4 w-4" />
+                    Cancelación
+                  </FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger className="h-10">
+                        <SelectValue />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {CANCELLATION_OPTIONS.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Session Modality (Video call options) */}
+            <FormField
+              control={form.control}
+              name="session_modality"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-sm font-medium flex items-center gap-2">
+                    <Video className="h-4 w-4" />
+                    Videollamada
+                  </FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger className="h-10">
+                        <SelectValue />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {MODALITY_OPTIONS.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          <span className="flex items-center gap-2">
+                            <opt.icon className="h-4 w-4" />
+                            {opt.label}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Custom Video Call Link (conditional) */}
+            {sessionModality === 'custom_link' && (
+              <FormField
+                control={form.control}
+                name="video_call_link"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-sm font-medium">Link de videollamada</FormLabel>
+                    <FormControl>
+                      <Input placeholder="https://..." {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+
+            {/* Location (only for in_person) */}
+            {sessionModality === 'in_person' && (
+              <FormField
+                control={form.control}
+                name="location_id"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-sm font-medium flex items-center gap-2">
+                      <MapPin className="h-4 w-4" />
+                      Dirección
+                    </FormLabel>
+                    <div className="flex gap-2">
+                      <Select onValueChange={field.onChange} value={field.value || ''}>
+                        <FormControl>
+                          <SelectTrigger className="h-10 flex-1">
+                            <SelectValue placeholder="Sin especificar" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="">Sin especificar</SelectItem>
+                          {locations?.map((loc) => (
+                            <SelectItem key={loc.id} value={loc.id}>
+                              {loc.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="h-10 w-10"
+                        onClick={() => setShowLocationsDialog(true)}
+                      >
+                        <Settings2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
 
             {/* Date & Time Row */}
             <div className="space-y-2">
@@ -431,6 +589,11 @@ export function QuickCreateSessionDialog({
       }}
       initialName={patientSearch}
       defaultProfessionalId={form.watch('professional_id')}
+    />
+
+    <EditLocationsDialog
+      open={showLocationsDialog}
+      onOpenChange={setShowLocationsDialog}
     />
   </>
   );
