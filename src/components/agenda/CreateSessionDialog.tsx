@@ -599,6 +599,9 @@ export function CreateSessionDialog({
         }
       }}
       preselectedPatientId={watchPatientId}
+      onSuccess={(bonoId) => {
+        form.setValue('bono_id', bonoId);
+      }}
     />
     </>
   );

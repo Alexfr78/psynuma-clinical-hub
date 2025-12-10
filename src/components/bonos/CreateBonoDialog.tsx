@@ -49,9 +49,10 @@ interface CreateBonoDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   preselectedPatientId?: string;
+  onSuccess?: (bonoId: string) => void;
 }
 
-export function CreateBonoDialog({ open, onOpenChange, preselectedPatientId }: CreateBonoDialogProps) {
+export function CreateBonoDialog({ open, onOpenChange, preselectedPatientId, onSuccess }: CreateBonoDialogProps) {
   const { data: patients } = usePatients();
   const { data: templates } = useBonoTemplates();
   const createBono = useCreateBono();
@@ -109,7 +110,7 @@ export function CreateBonoDialog({ open, onOpenChange, preselectedPatientId }: C
   };
 
   const onSubmit = async (values: FormValues) => {
-    await createBono.mutateAsync({
+    const result = await createBono.mutateAsync({
       patient_id: values.patient_id,
       name: values.name,
       total_sessions: values.total_sessions,
@@ -119,6 +120,9 @@ export function CreateBonoDialog({ open, onOpenChange, preselectedPatientId }: C
     });
     form.reset();
     onOpenChange(false);
+    if (onSuccess && result?.id) {
+      onSuccess(result.id);
+    }
   };
 
   return (

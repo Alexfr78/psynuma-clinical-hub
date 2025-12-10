@@ -769,6 +769,9 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
         }
       }}
       preselectedPatientId={session.patient_id}
+      onSuccess={(bonoId) => {
+        handleBonoChange(bonoId);
+      }}
     />
     </>
   );
