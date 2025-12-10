@@ -23,6 +23,9 @@ import {
   DoorOpen,
   Plus,
   ExternalLink,
+  Video,
+  MapPin,
+  Ban,
 } from 'lucide-react';
 import {
   Sheet,
@@ -52,6 +55,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { SessionWithRelations, useUpdateSession } from '@/hooks/useSessions';
+import { useLocations } from '@/hooks/useLocations';
 
 interface SessionDetailDrawerProps {
   session: SessionWithRelations | null;
@@ -73,13 +77,30 @@ const sessionTypeLabels: Record<string, string> = {
   pareja: 'Terapia de pareja',
   familia: 'Terapia familiar',
   grupo: 'Terapia grupal',
-  online: 'Sesión online',
+};
+
+const modalityLabels: Record<string, string> = {
+  in_person: 'Presencial',
+  google_meet: 'Google Meet',
+  zoom: 'Zoom',
+  custom_link: 'Videollamada',
+};
+
+const cancellationLabels: Record<string, string> = {
+  not_allowed: 'No permitir cancelaciones',
+  until_start: 'Hasta la hora de la sesión',
+  '1_hour': 'Hasta 1 hora antes',
+  '2_hours': 'Hasta 2 horas antes',
+  '24_hours': 'Hasta 24 horas antes',
+  '48_hours': 'Hasta 48 horas antes',
+  '72_hours': 'Hasta 72 horas antes',
 };
 
 export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDetailDrawerProps) {
   const navigate = useNavigate();
   const { toast } = useToast();
   const updateSession = useUpdateSession();
+  const { data: locations } = useLocations();
   const [isUpdating, setIsUpdating] = useState(false);
   const [editingPrice, setEditingPrice] = useState(false);
   const [editingNotes, setEditingNotes] = useState(false);
@@ -88,6 +109,9 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
   const [notesOpen, setNotesOpen] = useState(false);
 
   if (!session) return null;
+
+  const sessionData = session as any; // For new fields not yet in types
+  const selectedLocation = locations?.find(l => l.id === sessionData.location_id);
 
   const status = statusConfig[session.status as keyof typeof statusConfig] || statusConfig.scheduled;
   const patientName = session.patient
@@ -315,6 +339,42 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
                     <SelectItem value="sala-espera">Sala de espera</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+
+              {/* Session Modality */}
+              <div className="flex items-center gap-3">
+                <Video className="h-5 w-5 text-muted-foreground" />
+                <div className="flex-1">
+                  <span>{modalityLabels[sessionData.session_modality || 'in_person'] || 'Presencial'}</span>
+                  {sessionData.video_call_link && (
+                    <a 
+                      href={sessionData.video_call_link} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="ml-2 text-primary text-sm hover:underline"
+                    >
+                      Ver enlace
+                    </a>
+                  )}
+                </div>
+              </div>
+
+              {/* Location */}
+              {sessionData.session_modality === 'in_person' && (
+                <div className="flex items-center gap-3">
+                  <MapPin className="h-5 w-5 text-muted-foreground" />
+                  <span>
+                    {selectedLocation ? selectedLocation.name : 'Sin especificar'}
+                  </span>
+                </div>
+              )}
+
+              {/* Cancellation Policy */}
+              <div className="flex items-center gap-3">
+                <Ban className="h-5 w-5 text-muted-foreground" />
+                <span className="text-sm">
+                  {cancellationLabels[sessionData.cancellation_policy || '24_hours'] || 'Hasta 24 horas antes'}
+                </span>
               </div>
             </div>
 

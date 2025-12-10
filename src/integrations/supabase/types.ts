@@ -240,6 +240,56 @@ export type Database = {
           },
         ]
       }
+      center_locations: {
+        Row: {
+          center_id: string
+          city: string
+          country: string | null
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          number_details: string | null
+          postal_code: string | null
+          street: string
+          updated_at: string | null
+        }
+        Insert: {
+          center_id: string
+          city: string
+          country?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          number_details?: string | null
+          postal_code?: string | null
+          street: string
+          updated_at?: string | null
+        }
+        Update: {
+          center_id?: string
+          city?: string
+          country?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          number_details?: string | null
+          postal_code?: string | null
+          street?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "center_locations_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       centers: {
         Row: {
           address: string | null
@@ -898,11 +948,13 @@ export type Database = {
       sessions: {
         Row: {
           bono_id: string | null
+          cancellation_policy: string | null
           cancellation_reason: string | null
           center_id: string
           created_at: string
           end_time: string
           id: string
+          location_id: string | null
           notes: string | null
           patient_id: string
           price: number
@@ -912,18 +964,22 @@ export type Database = {
           send_reminder_sms: boolean | null
           send_reminder_whatsapp: boolean | null
           session_date: string
+          session_modality: string | null
           session_type: string | null
           start_time: string
           status: Database["public"]["Enums"]["session_status"] | null
           updated_at: string
+          video_call_link: string | null
         }
         Insert: {
           bono_id?: string | null
+          cancellation_policy?: string | null
           cancellation_reason?: string | null
           center_id: string
           created_at?: string
           end_time: string
           id?: string
+          location_id?: string | null
           notes?: string | null
           patient_id: string
           price?: number
@@ -933,18 +989,22 @@ export type Database = {
           send_reminder_sms?: boolean | null
           send_reminder_whatsapp?: boolean | null
           session_date: string
+          session_modality?: string | null
           session_type?: string | null
           start_time: string
           status?: Database["public"]["Enums"]["session_status"] | null
           updated_at?: string
+          video_call_link?: string | null
         }
         Update: {
           bono_id?: string | null
+          cancellation_policy?: string | null
           cancellation_reason?: string | null
           center_id?: string
           created_at?: string
           end_time?: string
           id?: string
+          location_id?: string | null
           notes?: string | null
           patient_id?: string
           price?: number
@@ -954,10 +1014,12 @@ export type Database = {
           send_reminder_sms?: boolean | null
           send_reminder_whatsapp?: boolean | null
           session_date?: string
+          session_modality?: string | null
           session_type?: string | null
           start_time?: string
           status?: Database["public"]["Enums"]["session_status"] | null
           updated_at?: string
+          video_call_link?: string | null
         }
         Relationships: [
           {
@@ -972,6 +1034,13 @@ export type Database = {
             columns: ["center_id"]
             isOneToOne: false
             referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "center_locations"
             referencedColumns: ["id"]
           },
           {
