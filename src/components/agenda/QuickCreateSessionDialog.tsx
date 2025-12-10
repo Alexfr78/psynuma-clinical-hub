@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { CalendarIcon, User, Globe, ChevronDown, Plus, Video, MapPin, Ban, Settings2 } from 'lucide-react';
+import { CalendarIcon, User, Globe, ChevronDown, Plus, Video, MapPin, Ban, Settings2, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -47,8 +47,10 @@ import { useCreateSession } from '@/hooks/useSessions';
 import { usePatients, useProfessionals } from '@/hooks/usePatients';
 import { useAuth } from '@/hooks/useAuth';
 import { useLocations } from '@/hooks/useLocations';
+import { usePatientActiveBonos, useDeductBonoSession } from '@/hooks/useBonos';
 import { QuickCreatePatientDialog } from '@/components/patients/QuickCreatePatientDialog';
 import { EditLocationsDialog } from '@/components/settings/EditLocationsDialog';
+import { CreateBonoDialog } from '@/components/bonos/CreateBonoDialog';
 
 const quickSessionSchema = z.object({
   patient_id: z.string().uuid('Selecciona un paciente'),
@@ -61,6 +63,7 @@ const quickSessionSchema = z.object({
   session_modality: z.string().default('in_person'),
   video_call_link: z.string().optional(),
   location_id: z.string().optional(),
+  bono_id: z.string().optional(),
 });
 
 type QuickSessionFormValues = z.infer<typeof quickSessionSchema>;
@@ -114,6 +117,7 @@ export function QuickCreateSessionDialog({
   const { toast } = useToast();
   const { user } = useAuth();
   const createSession = useCreateSession();
+  const deductBonoSession = useDeductBonoSession();
   const { data: patients } = usePatients();
   const { data: professionals } = useProfessionals();
   const { data: locations } = useLocations();
@@ -121,6 +125,7 @@ export function QuickCreateSessionDialog({
   const [patientPopoverOpen, setPatientPopoverOpen] = useState(false);
   const [showQuickPatientDialog, setShowQuickPatientDialog] = useState(false);
   const [showLocationsDialog, setShowLocationsDialog] = useState(false);
+  const [showCreateBonoDialog, setShowCreateBonoDialog] = useState(false);
 
   const form = useForm<QuickSessionFormValues>({
     resolver: zodResolver(quickSessionSchema),
@@ -135,10 +140,21 @@ export function QuickCreateSessionDialog({
       session_modality: 'in_person',
       video_call_link: '',
       location_id: '',
+      bono_id: '',
     },
   });
 
   const sessionModality = form.watch('session_modality');
+  const watchPatientId = form.watch('patient_id');
+  const watchBonoId = form.watch('bono_id');
+  const { data: patientBonos, refetch: refetchBonos } = usePatientActiveBonos(watchPatientId || undefined);
+
+  // When bono is selected, set price to 0 in the session
+  useEffect(() => {
+    if (watchBonoId && watchBonoId !== 'none' && watchBonoId !== '') {
+      // Price will be 0 when using bono
+    }
+  }, [watchBonoId]);
 
   useEffect(() => {
     if (open) {
@@ -153,6 +169,7 @@ export function QuickCreateSessionDialog({
         session_modality: 'in_person',
         video_call_link: '',
         location_id: '',
+        bono_id: '',
       });
       setPatientSearch('');
     }
@@ -170,26 +187,39 @@ export function QuickCreateSessionDialog({
 
   const onSubmit = async (values: QuickSessionFormValues, asDraft: boolean) => {
     try {
-      await createSession.mutateAsync({
+      const usesBono = values.bono_id && values.bono_id !== 'none' && values.bono_id !== '';
+      
+      const newSession = await createSession.mutateAsync({
         patient_id: values.patient_id,
         professional_id: values.professional_id,
         session_date: format(values.session_date, 'yyyy-MM-dd'),
         start_time: values.start_time,
         end_time: values.end_time,
         session_type: values.session_type,
-        price: 60,
+        price: usesBono ? 0 : 60,
         status: asDraft ? 'draft' : 'scheduled',
         cancellation_policy: values.cancellation_policy,
         session_modality: values.session_modality,
         video_call_link: values.session_modality === 'custom_link' ? values.video_call_link : null,
         location_id: values.session_modality === 'in_person' && values.location_id ? values.location_id : null,
+        bono_id: usesBono ? values.bono_id : null,
       });
+
+      // If bono was used, deduct a session
+      if (usesBono && newSession?.id) {
+        await deductBonoSession.mutateAsync({
+          bonoId: values.bono_id!,
+          sessionId: newSession.id,
+        });
+      }
 
       toast({
         title: asDraft ? 'Borrador guardado' : 'Sesión creada',
-        description: asDraft 
-          ? 'La sesión se ha guardado como borrador.'
-          : 'La sesión se ha programado correctamente.',
+        description: usesBono 
+          ? 'Sesión programada y descontada del bono.'
+          : asDraft 
+            ? 'La sesión se ha guardado como borrador.'
+            : 'La sesión se ha programado correctamente.',
       });
 
       onOpenChange(false);
@@ -304,6 +334,62 @@ export function QuickCreateSessionDialog({
                 </FormItem>
               )}
             />
+
+            {/* Bono Selection */}
+            {watchPatientId && (
+              <FormField
+                control={form.control}
+                name="bono_id"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-sm font-medium flex items-center gap-2">
+                      <Package className="h-4 w-4" />
+                      Bono
+                    </FormLabel>
+                    <div className="flex gap-2">
+                      <Select 
+                        onValueChange={field.onChange} 
+                        value={field.value || 'none'}
+                      >
+                        <FormControl>
+                          <SelectTrigger className="h-10 flex-1">
+                            <SelectValue placeholder="Sin bono" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="none">Sin bono</SelectItem>
+                          {patientBonos?.map((bono) => (
+                            <SelectItem key={bono.id} value={bono.id}>
+                              <span className="flex items-center gap-2">
+                                {bono.name}
+                                <Badge variant="secondary" className="ml-2">
+                                  {(bono.total_sessions || 0) - (bono.used_sessions || 0)} restantes
+                                </Badge>
+                              </span>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="h-10 w-10"
+                        onClick={() => setShowCreateBonoDialog(true)}
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    {field.value && field.value !== 'none' && (
+                      <p className="text-xs text-muted-foreground">
+                        El precio se establecerá a 0€ al usar el bono
+                      </p>
+                    )}
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
 
             {/* Professional */}
             <FormField
@@ -594,6 +680,17 @@ export function QuickCreateSessionDialog({
     <EditLocationsDialog
       open={showLocationsDialog}
       onOpenChange={setShowLocationsDialog}
+    />
+
+    <CreateBonoDialog
+      open={showCreateBonoDialog}
+      onOpenChange={(open) => {
+        setShowCreateBonoDialog(open);
+        if (!open) {
+          refetchBonos();
+        }
+      }}
+      preselectedPatientId={watchPatientId}
     />
   </>
   );

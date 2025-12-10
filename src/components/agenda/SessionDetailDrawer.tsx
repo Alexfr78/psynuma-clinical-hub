@@ -67,6 +67,8 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { useLocations } from '@/hooks/useLocations';
+import { usePatientActiveBonos, useDeductBonoSession, useUpdateBono } from '@/hooks/useBonos';
+import { CreateBonoDialog } from '@/components/bonos/CreateBonoDialog';
 
 interface SessionDetailDrawerProps {
   session: SessionWithRelations | null;
@@ -112,6 +114,8 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
   const { toast } = useToast();
   const updateSession = useUpdateSession();
   const deleteSession = useDeleteSession();
+  const deductBonoSession = useDeductBonoSession();
+  const updateBono = useUpdateBono();
   const { data: locations } = useLocations();
   const [isUpdating, setIsUpdating] = useState(false);
   const [editingPrice, setEditingPrice] = useState(false);
@@ -119,6 +123,9 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
   const [priceValue, setPriceValue] = useState('');
   const [notesValue, setNotesValue] = useState('');
   const [notesOpen, setNotesOpen] = useState(false);
+  const [showCreateBonoDialog, setShowCreateBonoDialog] = useState(false);
+
+  const { data: patientBonos, refetch: refetchBonos } = usePatientActiveBonos(session?.patient_id);
 
   if (!session) return null;
 
@@ -211,7 +218,38 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
     }
   };
 
+  const handleBonoChange = async (newBonoId: string) => {
+    try {
+      const usesBono = newBonoId !== '__none__';
+      
+      // If removing bono from session, we should restore the session to the old bono
+      // For now, just update the session's bono_id
+      await updateSession.mutateAsync({
+        id: session.id,
+        bono_id: usesBono ? newBonoId : null,
+        price: usesBono ? 0 : session.price,
+      });
+
+      // If assigning a new bono, deduct a session from it
+      if (usesBono && newBonoId !== session.bono_id) {
+        await deductBonoSession.mutateAsync({
+          bonoId: newBonoId,
+          sessionId: session.id,
+        });
+      }
+
+      toast({ 
+        title: usesBono ? 'Bono asignado' : 'Bono quitado',
+        description: usesBono ? 'Se ha descontado una sesión del bono.' : undefined,
+      });
+      refetchBonos();
+    } catch {
+      toast({ title: 'Error al cambiar bono', variant: 'destructive' });
+    }
+  };
+
   return (
+    <>
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full sm:max-w-[520px] p-0 overflow-y-auto">
         <SheetHeader className="px-6 pt-6 pb-4 sticky top-0 bg-background z-10 border-b">
@@ -322,12 +360,40 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
               </div>
 
               {/* Bono */}
-              {session.bono_id && (
-                <div className="flex items-center gap-3">
-                  <Package className="h-5 w-5 text-muted-foreground" />
-                  <Badge variant="secondary">Bono aplicado</Badge>
+              <div className="flex items-center gap-3">
+                <Package className="h-5 w-5 text-muted-foreground" />
+                <div className="flex gap-2 flex-1">
+                  <Select
+                    value={session.bono_id || '__none__'}
+                    onValueChange={handleBonoChange}
+                  >
+                    <SelectTrigger className="flex-1 h-8">
+                      <SelectValue placeholder="Sin bono" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">Sin bono</SelectItem>
+                      {patientBonos?.map((bono) => (
+                        <SelectItem key={bono.id} value={bono.id}>
+                          <span className="flex items-center gap-2">
+                            {bono.name}
+                            <Badge variant="secondary" className="ml-2">
+                              {(bono.total_sessions || 0) - (bono.used_sessions || 0)} restantes
+                            </Badge>
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => setShowCreateBonoDialog(true)}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
                 </div>
-              )}
+              </div>
 
               {/* Room */}
               <div className="flex items-center gap-3">
@@ -693,5 +759,17 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
         </Tabs>
       </SheetContent>
     </Sheet>
+
+    <CreateBonoDialog
+      open={showCreateBonoDialog}
+      onOpenChange={(open) => {
+        setShowCreateBonoDialog(open);
+        if (!open) {
+          refetchBonos();
+        }
+      }}
+      preselectedPatientId={session.patient_id}
+    />
+    </>
   );
 }
