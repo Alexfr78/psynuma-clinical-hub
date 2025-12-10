@@ -203,6 +203,95 @@ export function useCreateInvoice() {
   });
 }
 
+// New hook for creating invoices using invoice series
+export function useCreateInvoiceWithSeries() {
+  const queryClient = useQueryClient();
+  const { profile } = useAuth();
+
+  return useMutation({
+    mutationFn: async ({ 
+      invoice, 
+      items, 
+      seriesId 
+    }: { 
+      invoice: InvoiceInsert; 
+      items: (Omit<InvoiceItemInsert, 'invoice_id'> & { session_id?: string })[]; 
+      seriesId: string;
+    }) => {
+      // Get series info
+      const { data: series, error: seriesError } = await supabase
+        .from('invoice_series')
+        .select('*')
+        .eq('id', seriesId)
+        .single();
+
+      if (seriesError) throw seriesError;
+
+      // Generate invoice number from series format
+      // Format example: {SERIE}-{AAAA}-{NNNNN}
+      const year = new Date().getFullYear();
+      const invoiceNumber = series.format
+        .replace('{SERIE}', series.name)
+        .replace('{AAAA}', year.toString())
+        .replace('{AA}', year.toString().slice(-2))
+        .replace('{NNNNN}', String(series.next_number).padStart(5, '0'))
+        .replace('{NNNN}', String(series.next_number).padStart(4, '0'))
+        .replace('{NNN}', String(series.next_number).padStart(3, '0'));
+
+      // For draft invoices, we don't assign a number yet - leave it empty or use a placeholder
+      const isDraft = invoice.status === 'draft';
+      const finalInvoiceNumber = isDraft ? `BORRADOR-${Date.now()}` : invoiceNumber;
+
+      // Create invoice
+      const { data: newInvoice, error: invoiceError } = await supabase
+        .from('invoices')
+        .insert({
+          ...invoice,
+          center_id: profile!.center_id!,
+          invoice_number: finalInvoiceNumber,
+        })
+        .select()
+        .single();
+
+      if (invoiceError) throw invoiceError;
+
+      // Create invoice items
+      if (items.length > 0) {
+        const { error: itemsError } = await supabase
+          .from('invoice_items')
+          .insert(items.map(item => ({
+            ...item,
+            invoice_id: newInvoice.id,
+          })));
+
+        if (itemsError) throw itemsError;
+      }
+
+      // Only update series next_number if not a draft
+      if (!isDraft) {
+        const { error: updateError } = await supabase
+          .from('invoice_series')
+          .update({ next_number: series.next_number + 1 })
+          .eq('id', seriesId);
+
+        if (updateError) throw updateError;
+      }
+
+      return newInvoice;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      queryClient.invalidateQueries({ queryKey: ['patient-invoices'] });
+      queryClient.invalidateQueries({ queryKey: ['session-invoice-status'] });
+      queryClient.invalidateQueries({ queryKey: ['invoice-series'] });
+      toast.success('Factura creada correctamente');
+    },
+    onError: (error) => {
+      toast.error('Error al crear la factura: ' + error.message);
+    },
+  });
+}
+
 export function useUpdateInvoiceStatus() {
   const queryClient = useQueryClient();
 
@@ -302,5 +391,31 @@ export function useUnbilledSessions(patientId: string | undefined) {
       return sessions.filter(session => !invoicedSessionIds.has(session.id));
     },
     enabled: !!patientId,
+  });
+}
+
+// Hook to check if a session is already invoiced
+export function useSessionInvoiceStatus(sessionId: string | undefined) {
+  return useQuery({
+    queryKey: ['session-invoice-status', sessionId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('invoice_items')
+        .select('invoice_id, invoices(id, invoice_number, status)')
+        .eq('session_id', sessionId!)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      const invoiceData = data?.invoices as { id: string; invoice_number: string; status: string } | null;
+
+      return {
+        isInvoiced: !!data,
+        invoiceId: data?.invoice_id || null,
+        invoiceNumber: invoiceData?.invoice_number || null,
+        invoiceStatus: invoiceData?.status || null,
+      };
+    },
+    enabled: !!sessionId,
   });
 }
