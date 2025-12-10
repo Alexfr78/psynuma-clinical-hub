@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState, useCallback } from 'react';
 import { format, isToday } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -15,8 +15,27 @@ interface DayViewProps {
 const HOURS = Array.from({ length: 13 }, (_, i) => i + 8); // 8:00 - 20:00
 const QUARTER_HOURS = [0, 15, 30, 45];
 
+interface SlotPosition {
+  hour: number;
+  minute: number;
+}
+
+function slotToMinutes(hour: number, minute: number): number {
+  return hour * 60 + minute;
+}
+
+function minutesToTime(totalMinutes: number): string {
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+}
+
 export function DayView({ currentDate, sessions, onSessionClick, onSlotClick }: DayViewProps) {
   const dateKey = format(currentDate, 'yyyy-MM-dd');
+
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState<SlotPosition | null>(null);
+  const [dragEnd, setDragEnd] = useState<SlotPosition | null>(null);
 
   const sessionsBySlot = useMemo(() => {
     const map = new Map<string, SessionWithRelations[]>();
@@ -33,17 +52,55 @@ export function DayView({ currentDate, sessions, onSessionClick, onSlotClick }: 
     return map;
   }, [sessions, dateKey]);
 
-  const handleSlotClick = (hour: number, minute: number) => {
-    const startTime = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
-    // Default to 1 hour duration
-    const endHour = minute === 45 ? hour + 1 : (minute >= 15 ? hour + 1 : hour);
-    const endMinute = (minute + 15) % 60;
-    const endTime = `${endHour.toString().padStart(2, '0')}:${endMinute.toString().padStart(2, '0')}`;
-    onSlotClick(currentDate, startTime, endTime);
-  };
+  const handleMouseDown = useCallback((hour: number, minute: number, e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+    setDragStart({ hour, minute });
+    setDragEnd({ hour, minute });
+  }, []);
+
+  const handleMouseEnter = useCallback((hour: number, minute: number) => {
+    if (isDragging) {
+      setDragEnd({ hour, minute });
+    }
+  }, [isDragging]);
+
+  const handleMouseUp = useCallback(() => {
+    if (isDragging && dragStart && dragEnd) {
+      const startMinutes = slotToMinutes(dragStart.hour, dragStart.minute);
+      const endMinutes = slotToMinutes(dragEnd.hour, dragEnd.minute) + 15; // Add 15 min for end slot
+
+      const [minMinutes, maxMinutes] = startMinutes <= endMinutes 
+        ? [startMinutes, endMinutes]
+        : [endMinutes - 15, startMinutes + 15];
+
+      const startTime = minutesToTime(minMinutes);
+      const endTime = minutesToTime(maxMinutes);
+
+      onSlotClick(currentDate, startTime, endTime);
+    }
+    setIsDragging(false);
+    setDragStart(null);
+    setDragEnd(null);
+  }, [isDragging, dragStart, dragEnd, currentDate, onSlotClick]);
+
+  const isSlotInDragRange = useCallback((hour: number, minute: number): boolean => {
+    if (!isDragging || !dragStart || !dragEnd) return false;
+
+    const slotMinutes = slotToMinutes(hour, minute);
+    const startMinutes = slotToMinutes(dragStart.hour, dragStart.minute);
+    const endMinutes = slotToMinutes(dragEnd.hour, dragEnd.minute);
+
+    const [min, max] = startMinutes <= endMinutes ? [startMinutes, endMinutes] : [endMinutes, startMinutes];
+    return slotMinutes >= min && slotMinutes <= max;
+  }, [isDragging, dragStart, dragEnd]);
 
   return (
-    <div className="flex flex-col overflow-hidden rounded-lg border">
+    <div 
+      className="flex flex-col overflow-hidden rounded-lg border select-none"
+      onMouseUp={handleMouseUp}
+      onMouseLeave={handleMouseUp}
+    >
       {/* Header */}
       <div className="border-b bg-muted/50 p-4 text-center">
         <div className="text-sm font-medium text-muted-foreground">
@@ -73,14 +130,20 @@ export function DayView({ currentDate, sessions, onSessionClick, onSlotClick }: 
                 {QUARTER_HOURS.map((minute) => {
                   const slotKey = `${hour}:${minute}`;
                   const slotSessions = sessionsBySlot.get(slotKey) || [];
+                  const isInDragRange = isSlotInDragRange(hour, minute);
+                  
                   return (
                     <div
                       key={minute}
                       className={cn(
-                        'border-b border-dashed border-muted/50 last:border-b-0 p-1 cursor-pointer transition-colors hover:bg-muted/50 relative',
-                        minute === 0 && 'border-t-0'
+                        'border-b border-dashed border-muted/50 last:border-b-0 p-1 cursor-pointer transition-colors relative',
+                        minute === 0 && 'border-t-0',
+                        isInDragRange 
+                          ? 'bg-primary/20' 
+                          : 'hover:bg-muted/50'
                       )}
-                      onClick={() => handleSlotClick(hour, minute)}
+                      onMouseDown={(e) => handleMouseDown(hour, minute, e)}
+                      onMouseEnter={() => handleMouseEnter(hour, minute)}
                     >
                       {/* Time indicator for non-hour slots */}
                       {minute > 0 && (

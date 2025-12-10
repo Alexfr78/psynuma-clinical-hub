@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState, useCallback } from 'react';
 import { format, startOfWeek, addDays, isToday } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -15,9 +15,29 @@ interface WeekViewProps {
 const HOURS = Array.from({ length: 13 }, (_, i) => i + 8); // 8:00 - 20:00
 const QUARTER_HOURS = [0, 15, 30, 45];
 
+interface SlotPosition {
+  day: Date;
+  hour: number;
+  minute: number;
+}
+
+function slotToMinutes(hour: number, minute: number): number {
+  return hour * 60 + minute;
+}
+
+function minutesToTime(totalMinutes: number): string {
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+}
+
 export function WeekView({ currentDate, sessions, onSessionClick, onSlotClick }: WeekViewProps) {
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState<SlotPosition | null>(null);
+  const [dragEnd, setDragEnd] = useState<SlotPosition | null>(null);
 
   const sessionsByDay = useMemo(() => {
     const map = new Map<string, SessionWithRelations[]>();
@@ -40,17 +60,63 @@ export function WeekView({ currentDate, sessions, onSessionClick, onSlotClick }:
     });
   };
 
-  const handleSlotClick = (day: Date, hour: number, minute: number) => {
-    const startTime = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
-    // Default to 1 hour duration
-    const endHour = minute === 45 ? hour + 1 : (minute >= 15 ? hour + 1 : hour);
-    const endMinute = (minute + 15) % 60;
-    const endTime = `${endHour.toString().padStart(2, '0')}:${endMinute.toString().padStart(2, '0')}`;
-    onSlotClick(day, startTime, endTime);
-  };
+  const handleMouseDown = useCallback((day: Date, hour: number, minute: number, e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+    setDragStart({ day, hour, minute });
+    setDragEnd({ day, hour, minute });
+  }, []);
+
+  const handleMouseEnter = useCallback((day: Date, hour: number, minute: number) => {
+    if (isDragging && dragStart) {
+      // Only allow drag on the same day
+      if (format(day, 'yyyy-MM-dd') === format(dragStart.day, 'yyyy-MM-dd')) {
+        setDragEnd({ day, hour, minute });
+      }
+    }
+  }, [isDragging, dragStart]);
+
+  const handleMouseUp = useCallback(() => {
+    if (isDragging && dragStart && dragEnd) {
+      const startMinutes = slotToMinutes(dragStart.hour, dragStart.minute);
+      const endMinutes = slotToMinutes(dragEnd.hour, dragEnd.minute) + 15; // Add 15 min for end slot
+
+      const [minMinutes, maxMinutes] = startMinutes <= endMinutes 
+        ? [startMinutes, endMinutes]
+        : [endMinutes - 15, startMinutes + 15];
+
+      const startTime = minutesToTime(minMinutes);
+      const endTime = minutesToTime(maxMinutes);
+
+      onSlotClick(dragStart.day, startTime, endTime);
+    }
+    setIsDragging(false);
+    setDragStart(null);
+    setDragEnd(null);
+  }, [isDragging, dragStart, dragEnd, onSlotClick]);
+
+  const isSlotInDragRange = useCallback((day: Date, hour: number, minute: number): boolean => {
+    if (!isDragging || !dragStart || !dragEnd) return false;
+    
+    const dayKey = format(day, 'yyyy-MM-dd');
+    const startDayKey = format(dragStart.day, 'yyyy-MM-dd');
+    
+    if (dayKey !== startDayKey) return false;
+
+    const slotMinutes = slotToMinutes(hour, minute);
+    const startMinutes = slotToMinutes(dragStart.hour, dragStart.minute);
+    const endMinutes = slotToMinutes(dragEnd.hour, dragEnd.minute);
+
+    const [min, max] = startMinutes <= endMinutes ? [startMinutes, endMinutes] : [endMinutes, startMinutes];
+    return slotMinutes >= min && slotMinutes <= max;
+  }, [isDragging, dragStart, dragEnd]);
 
   return (
-    <div className="flex flex-col overflow-hidden rounded-lg border">
+    <div 
+      className="flex flex-col overflow-hidden rounded-lg border select-none"
+      onMouseUp={handleMouseUp}
+      onMouseLeave={handleMouseUp}
+    >
       {/* Header */}
       <div className="grid grid-cols-8 border-b bg-muted/50">
         <div className="p-2 text-center text-xs font-medium text-muted-foreground">
@@ -101,17 +167,23 @@ export function WeekView({ currentDate, sessions, onSessionClick, onSlotClick }:
                   <div className="absolute inset-0 grid grid-rows-4">
                     {QUARTER_HOURS.map((minute) => {
                       const slotSessions = getSessionsForSlot(day, hour, minute);
+                      const isInDragRange = isSlotInDragRange(day, hour, minute);
+                      
                       return (
                         <div
                           key={minute}
                           className={cn(
-                            'border-b border-dashed border-muted/50 last:border-b-0 cursor-pointer transition-colors hover:bg-muted/50 relative',
-                            minute === 0 && 'border-t-0'
+                            'border-b border-dashed border-muted/50 last:border-b-0 cursor-pointer transition-colors relative',
+                            minute === 0 && 'border-t-0',
+                            isInDragRange 
+                              ? 'bg-primary/20' 
+                              : 'hover:bg-muted/50'
                           )}
-                          onClick={() => handleSlotClick(day, hour, minute)}
+                          onMouseDown={(e) => handleMouseDown(day, hour, minute, e)}
+                          onMouseEnter={() => handleMouseEnter(day, hour, minute)}
                         >
                           {slotSessions.length > 0 && (
-                            <div className="absolute inset-0 p-0.5">
+                            <div className="absolute inset-0 p-0.5 z-10">
                               {slotSessions.map((session) => (
                                 <SessionCard
                                   key={session.id}
