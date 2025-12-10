@@ -15,6 +15,7 @@ import Sessions from "./pages/Sessions";
 import Bonos from "./pages/Bonos";
 import Invoices from "./pages/Invoices";
 import Payments from "./pages/Payments";
+import Notifications from "./pages/Notifications";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -80,6 +81,11 @@ const App = () => (
             <Route path="/cobros" element={
               <ProtectedRoute>
                 <AppLayout><Payments /></AppLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/notificaciones" element={
+              <ProtectedRoute>
+                <AppLayout><Notifications /></AppLayout>
               </ProtectedRoute>
             } />
             <Route path="/configuracion" element={

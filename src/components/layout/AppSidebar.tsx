@@ -7,6 +7,7 @@ import {
   Package,
   Receipt,
   CreditCard,
+  Bell,
   Settings,
   ClipboardList,
   LogOut,
@@ -42,6 +43,7 @@ const financeNavItems = [
   { title: 'Bonos', url: '/bonos', icon: Package },
   { title: 'Facturas', url: '/facturas', icon: Receipt },
   { title: 'Cobros / Deudas', url: '/cobros', icon: CreditCard },
+  { title: 'Notificaciones', url: '/notificaciones', icon: Bell },
 ];
 
 const adminNavItems = [
