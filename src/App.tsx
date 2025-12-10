@@ -8,11 +8,13 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AppLayout } from "@/components/layout/AppLayout";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
+import Patients from "./pages/Patients";
+import PatientDetail from "./pages/PatientDetail";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
-// Placeholder pages for Phase 1
+// Placeholder pages for remaining phases
 const PlaceholderPage = ({ title }: { title: string }) => (
   <div className="flex flex-col items-center justify-center py-12">
     <h1 className="font-display text-2xl font-bold">{title}</h1>
@@ -42,11 +44,19 @@ const App = () => (
                 <AppLayout><PlaceholderPage title="Agenda" /></AppLayout>
               </ProtectedRoute>
             } />
+            
+            {/* Patient Routes */}
             <Route path="/pacientes" element={
               <ProtectedRoute>
-                <AppLayout><PlaceholderPage title="Pacientes" /></AppLayout>
+                <AppLayout><Patients /></AppLayout>
               </ProtectedRoute>
             } />
+            <Route path="/pacientes/:id" element={
+              <ProtectedRoute>
+                <AppLayout><PatientDetail /></AppLayout>
+              </ProtectedRoute>
+            } />
+            
             <Route path="/sesiones" element={
               <ProtectedRoute>
                 <AppLayout><PlaceholderPage title="Sesiones" /></AppLayout>
