@@ -177,6 +177,18 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
     }
   };
 
+  const handleFieldSave = async (field: string, value: any) => {
+    try {
+      await updateSession.mutateAsync({
+        id: session.id,
+        [field]: value,
+      });
+      toast({ title: 'Guardado' });
+    } catch {
+      toast({ title: 'Error', variant: 'destructive' });
+    }
+  };
+
   const quickActions = [
     {
       status: 'confirmed',
@@ -344,37 +356,75 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
               {/* Session Modality */}
               <div className="flex items-center gap-3">
                 <Video className="h-5 w-5 text-muted-foreground" />
-                <div className="flex-1">
-                  <span>{modalityLabels[sessionData.session_modality || 'in_person'] || 'Presencial'}</span>
-                  {sessionData.video_call_link && (
-                    <a 
-                      href={sessionData.video_call_link} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="ml-2 text-primary text-sm hover:underline"
-                    >
-                      Ver enlace
-                    </a>
-                  )}
-                </div>
+                <Select
+                  value={sessionData.session_modality || 'in_person'}
+                  onValueChange={(value) => handleFieldSave('session_modality', value)}
+                >
+                  <SelectTrigger className="w-48 h-8">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="in_person">Presencial</SelectItem>
+                    <SelectItem value="google_meet">Google Meet</SelectItem>
+                    <SelectItem value="zoom">Zoom</SelectItem>
+                    <SelectItem value="custom_link">Link personalizado</SelectItem>
+                  </SelectContent>
+                </Select>
+                {sessionData.video_call_link && (
+                  <a 
+                    href={sessionData.video_call_link} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-primary text-sm hover:underline"
+                  >
+                    Ver enlace
+                  </a>
+                )}
               </div>
 
               {/* Location */}
-              {sessionData.session_modality === 'in_person' && (
+              {(sessionData.session_modality === 'in_person' || !sessionData.session_modality) && (
                 <div className="flex items-center gap-3">
                   <MapPin className="h-5 w-5 text-muted-foreground" />
-                  <span>
-                    {selectedLocation ? selectedLocation.name : 'Sin especificar'}
-                  </span>
+                  <Select
+                    value={sessionData.location_id || '__none__'}
+                    onValueChange={(value) => handleFieldSave('location_id', value === '__none__' ? null : value)}
+                  >
+                    <SelectTrigger className="w-48 h-8">
+                      <SelectValue placeholder="Sin especificar" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">Sin especificar</SelectItem>
+                      {locations?.map((loc) => (
+                        <SelectItem key={loc.id} value={loc.id}>
+                          {loc.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               )}
 
               {/* Cancellation Policy */}
               <div className="flex items-center gap-3">
                 <Ban className="h-5 w-5 text-muted-foreground" />
-                <span className="text-sm">
-                  {cancellationLabels[sessionData.cancellation_policy || '24_hours'] || 'Hasta 24 horas antes'}
-                </span>
+                <Select
+                  value={sessionData.cancellation_policy || '24_hours'}
+                  onValueChange={(value) => handleFieldSave('cancellation_policy', value)}
+                >
+                  <SelectTrigger className="w-48 h-8">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="not_allowed">No permitir cancelaciones</SelectItem>
+                    <SelectItem value="until_start">Hasta la hora de la sesión</SelectItem>
+                    <SelectItem value="1_hour">Hasta 1 hora antes</SelectItem>
+                    <SelectItem value="2_hours">Hasta 2 horas antes</SelectItem>
+                    <SelectItem value="24_hours">Hasta 24 horas antes</SelectItem>
+                    <SelectItem value="48_hours">Hasta 48 horas antes</SelectItem>
+                    <SelectItem value="72_hours">Hasta 72 horas antes</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
