@@ -16,6 +16,7 @@ import Bonos from "./pages/Bonos";
 import Invoices from "./pages/Invoices";
 import Payments from "./pages/Payments";
 import Notifications from "./pages/Notifications";
+import Professionals from "./pages/Professionals";
 import Settings from "./pages/Settings";
 import Audit from "./pages/Audit";
 import NotFound from "./pages/NotFound";
@@ -88,6 +89,11 @@ const App = () => (
             <Route path="/notificaciones" element={
               <ProtectedRoute>
                 <AppLayout><Notifications /></AppLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/profesionales" element={
+              <ProtectedRoute requiredRoles={['admin']}>
+                <AppLayout><Professionals /></AppLayout>
               </ProtectedRoute>
             } />
             <Route path="/configuracion" element={
