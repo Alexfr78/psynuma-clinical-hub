@@ -133,6 +133,53 @@ export type Database = {
           },
         ]
       }
+      bono_templates: {
+        Row: {
+          center_id: string
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          price_per_session: number
+          total_price: number
+          total_sessions: number
+          updated_at: string | null
+          validity_days: number | null
+        }
+        Insert: {
+          center_id: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          price_per_session: number
+          total_price: number
+          total_sessions: number
+          updated_at?: string | null
+          validity_days?: number | null
+        }
+        Update: {
+          center_id?: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          price_per_session?: number
+          total_price?: number
+          total_sessions?: number
+          updated_at?: string | null
+          validity_days?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bono_templates_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bonos: {
         Row: {
           center_id: string
