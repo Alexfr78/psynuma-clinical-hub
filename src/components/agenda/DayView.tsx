@@ -40,20 +40,29 @@ export function DayView({ currentDate, sessions, onSessionClick, onSlotClick, on
   const [dragOverSlot, setDragOverSlot] = useState<string | null>(null);
   const [isDraggingSession, setIsDraggingSession] = useState(false);
 
-  const sessionsBySlot = useMemo(() => {
-    const map = new Map<string, SessionWithRelations[]>();
-    sessions
-      .filter((s) => s.session_date === dateKey)
-      .forEach((session) => {
-        const [hour, minute] = (session.start_time || '00:00').split(':').map(Number);
-        const slotKey = `${hour}:${minute}`;
-        if (!map.has(slotKey)) {
-          map.set(slotKey, []);
-        }
-        map.get(slotKey)!.push(session);
-      });
-    return map;
+  const daySessions = useMemo(() => {
+    return sessions.filter((s) => s.session_date === dateKey);
   }, [sessions, dateKey]);
+
+  // Calculate session position and height based on start/end time
+  const getSessionStyle = (session: SessionWithRelations) => {
+    const [startH, startM] = (session.start_time || '08:00').split(':').map(Number);
+    const [endH, endM] = (session.end_time || '09:00').split(':').map(Number);
+    
+    const startMinutes = startH * 60 + startM;
+    const endMinutes = endH * 60 + endM;
+    const durationMinutes = endMinutes - startMinutes;
+    
+    // Grid starts at 8:00 (480 minutes), each hour row is 80px (min-h-[80px])
+    const gridStartMinutes = 8 * 60;
+    const topOffset = ((startMinutes - gridStartMinutes) / 60) * 80;
+    const height = (durationMinutes / 60) * 80;
+    
+    return {
+      top: `${topOffset}px`,
+      height: `${Math.max(height, 20)}px`,
+    };
+  };
 
   const handleMouseDown = useCallback((hour: number, minute: number, e: React.MouseEvent) => {
     if (isDraggingSession) return;
@@ -159,62 +168,79 @@ export function DayView({ currentDate, sessions, onSessionClick, onSlotClick, on
 
       {/* Time Grid */}
       <div className="flex-1 overflow-auto">
-        <div className="min-h-[600px]">
-          {HOURS.map((hour) => (
-            <div key={hour} className="flex border-b">
-              {/* Hour label */}
-              <div className="flex w-20 shrink-0 items-start justify-center border-r p-2 text-sm text-muted-foreground">
-                {hour.toString().padStart(2, '0')}:00
-              </div>
-              {/* 15-minute slots */}
-              <div className="flex-1 grid grid-rows-4 min-h-[80px]">
-                {QUARTER_HOURS.map((minute) => {
-                  const slotKey = `${hour}:${minute}`;
-                  const slotSessions = sessionsBySlot.get(slotKey) || [];
-                  const isInDragRange = isSlotInDragRange(hour, minute);
-                  const isDropTarget = dragOverSlot === slotKey;
-                  
-                  return (
-                    <div
-                      key={minute}
-                      className={cn(
-                        'border-b border-dashed border-muted/50 last:border-b-0 p-1 cursor-pointer transition-colors relative',
-                        minute === 0 && 'border-t-0',
-                        isInDragRange 
-                          ? 'bg-primary/20' 
-                          : isDropTarget
-                          ? 'bg-primary/30 ring-2 ring-primary ring-inset'
-                          : 'hover:bg-muted/50'
-                      )}
-                      onMouseDown={(e) => handleMouseDown(hour, minute, e)}
-                      onMouseEnter={() => handleMouseEnter(hour, minute)}
-                      onDragOver={(e) => handleDragOver(e, hour, minute)}
-                      onDragLeave={handleDragLeave}
-                      onDrop={(e) => handleDrop(e, hour, minute)}
-                    >
-                      {/* Time indicator for non-hour slots */}
-                      {minute > 0 && (
-                        <span className="absolute left-1 top-0 text-[10px] text-muted-foreground/50">
-                          :{minute.toString().padStart(2, '0')}
-                        </span>
-                      )}
-                      <div className="space-y-1 ml-6">
-                        {slotSessions.map((session) => (
-                          <SessionCard
-                            key={session.id}
-                            session={session}
-                            onClick={() => onSessionClick(session)}
-                            draggable={!!onSessionMove}
-                            onDragStart={handleSessionDragStart}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+        <div className="min-h-[600px] relative">
+          <div className="flex">
+            {/* Hour labels column */}
+            <div className="w-20 shrink-0 border-r">
+              {HOURS.map((hour) => (
+                <div key={hour} className="flex h-20 items-start justify-center p-2 text-sm text-muted-foreground border-b">
+                  {hour.toString().padStart(2, '0')}:00
+                </div>
+              ))}
             </div>
-          ))}
+            
+            {/* Main content area */}
+            <div className="flex-1 relative">
+              {/* Hour rows with 15-min slots */}
+              {HOURS.map((hour) => (
+                <div key={hour} className="h-20 relative border-b">
+                  <div className="absolute inset-0 grid grid-rows-4">
+                    {QUARTER_HOURS.map((minute) => {
+                      const slotKey = `${hour}:${minute}`;
+                      const isInDragRange = isSlotInDragRange(hour, minute);
+                      const isDropTarget = dragOverSlot === slotKey;
+                      
+                      return (
+                        <div
+                          key={minute}
+                          className={cn(
+                            'border-b border-dashed border-muted/50 last:border-b-0 cursor-pointer transition-colors relative',
+                            minute === 0 && 'border-t-0',
+                            isInDragRange 
+                              ? 'bg-primary/20' 
+                              : isDropTarget
+                              ? 'bg-primary/30 ring-2 ring-primary ring-inset'
+                              : 'hover:bg-muted/50'
+                          )}
+                          onMouseDown={(e) => handleMouseDown(hour, minute, e)}
+                          onMouseEnter={() => handleMouseEnter(hour, minute)}
+                          onDragOver={(e) => handleDragOver(e, hour, minute)}
+                          onDragLeave={handleDragLeave}
+                          onDrop={(e) => handleDrop(e, hour, minute)}
+                        >
+                          {/* Time indicator for non-hour slots */}
+                          {minute > 0 && (
+                            <span className="absolute left-1 top-0 text-[10px] text-muted-foreground/50">
+                              :{minute.toString().padStart(2, '0')}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+              
+              {/* Sessions overlay - positioned absolutely based on time */}
+              {daySessions.map((session) => {
+                const style = getSessionStyle(session);
+                return (
+                  <div
+                    key={session.id}
+                    className="absolute left-1 right-1 z-10 pointer-events-auto"
+                    style={style}
+                  >
+                    <SessionCard
+                      session={session}
+                      onClick={() => onSessionClick(session)}
+                      draggable={!!onSessionMove}
+                      onDragStart={handleSessionDragStart}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
       </div>
     </div>
