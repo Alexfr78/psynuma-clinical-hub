@@ -47,7 +47,7 @@ export function SessionCard({ session, compact = false, onClick, draggable = fal
     return (
       <div
         className={cn(
-          'cursor-pointer rounded-md border-l-2 px-2 py-1 text-xs transition-all hover:opacity-80',
+          'cursor-pointer rounded-md border-l-2 px-2 py-1 text-xs transition-all hover:opacity-80 h-full',
           draggable && 'cursor-grab active:cursor-grabbing',
           statusColor
         )}
@@ -61,7 +61,7 @@ export function SessionCard({ session, compact = false, onClick, draggable = fal
           <div className="font-medium truncate flex-1">{patientName}</div>
         </div>
         <div className="text-[10px] opacity-75">
-          {session.start_time?.slice(0, 5)}
+          {session.start_time?.slice(0, 5)} - {session.end_time?.slice(0, 5)}
         </div>
       </div>
     );
