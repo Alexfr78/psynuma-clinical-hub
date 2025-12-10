@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   Calendar,
   Clock,
@@ -112,6 +113,7 @@ const cancellationLabels: Record<string, string> = {
 export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDetailDrawerProps) {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const updateSession = useUpdateSession();
   const deleteSession = useDeleteSession();
   const deductBonoSession = useDeductBonoSession();
@@ -124,8 +126,20 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
   const [notesValue, setNotesValue] = useState('');
   const [notesOpen, setNotesOpen] = useState(false);
   const [showCreateBonoDialog, setShowCreateBonoDialog] = useState(false);
+  
+  // Local state for immediate UI update
+  const [localBonoId, setLocalBonoId] = useState<string | null>(null);
+  const [localPrice, setLocalPrice] = useState<number>(0);
 
   const { data: patientBonos, refetch: refetchBonos } = usePatientActiveBonos(session?.patient_id);
+
+  // Sync local state with session prop
+  useEffect(() => {
+    if (session) {
+      setLocalBonoId(session.bono_id || null);
+      setLocalPrice(Number(session.price) || 0);
+    }
+  }, [session?.id, session?.bono_id, session?.price]);
 
   if (!session) return null;
 
@@ -160,10 +174,12 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
 
   const handlePriceSave = async () => {
     try {
+      const newPrice = parseFloat(priceValue);
       await updateSession.mutateAsync({
         id: session.id,
-        price: parseFloat(priceValue),
+        price: newPrice,
       });
+      setLocalPrice(newPrice);
       toast({ title: 'Precio actualizado' });
       setEditingPrice(false);
     } catch {
@@ -218,34 +234,50 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
     }
   };
 
-  const handleBonoChange = async (newBonoId: string) => {
+  // Handle bono change for existing bonos (price = 0, already paid)
+  const handleBonoChange = async (newBonoId: string, priceOverride?: number) => {
     try {
       const usesBono = newBonoId !== '__none__';
+      const newPrice = priceOverride !== undefined ? priceOverride : (usesBono ? 0 : session.price);
       
-      // If removing bono from session, we should restore the session to the old bono
-      // For now, just update the session's bono_id
+      // Update local state immediately for responsive UI
+      setLocalBonoId(usesBono ? newBonoId : null);
+      setLocalPrice(Number(newPrice));
+      
+      // Update session in database
       await updateSession.mutateAsync({
         id: session.id,
         bono_id: usesBono ? newBonoId : null,
-        price: usesBono ? 0 : session.price,
+        price: newPrice,
       });
 
-      // If assigning a new bono, deduct a session from it
-      if (usesBono && newBonoId !== session.bono_id) {
+      // If assigning a bono, deduct a session from it (idempotent - won't duplicate)
+      if (usesBono) {
         await deductBonoSession.mutateAsync({
           bonoId: newBonoId,
           sessionId: session.id,
         });
       }
 
+      // Invalidate queries to refresh data
+      queryClient.invalidateQueries({ queryKey: ['sessions'] });
+      
       toast({ 
         title: usesBono ? 'Bono asignado' : 'Bono quitado',
         description: usesBono ? 'Se ha descontado una sesión del bono.' : undefined,
       });
       refetchBonos();
     } catch {
+      // Revert local state on error
+      setLocalBonoId(session.bono_id || null);
+      setLocalPrice(Number(session.price) || 0);
       toast({ title: 'Error al cambiar bono', variant: 'destructive' });
     }
+  };
+
+  // Handle new bono created - price = totalPrice of bono (needs to be paid)
+  const handleNewBonoCreated = async (bonoId: string, totalPrice: number) => {
+    await handleBonoChange(bonoId, totalPrice);
   };
 
   return (
@@ -364,8 +396,8 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
                 <Package className="h-5 w-5 text-muted-foreground" />
                 <div className="flex gap-2 flex-1">
                   <Select
-                    value={session.bono_id || '__none__'}
-                    onValueChange={handleBonoChange}
+                    value={localBonoId || '__none__'}
+                    onValueChange={(value) => handleBonoChange(value)}
                   >
                     <SelectTrigger className="flex-1 h-8">
                       <SelectValue placeholder="Sin bono" />
@@ -533,7 +565,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
                   </div>
                 ) : (
                   <div className="flex items-center gap-2">
-                    <span className="font-semibold">{Number(session.price).toFixed(2)}€</span>
+                    <span className="font-semibold">{localPrice.toFixed(2)}€</span>
                     <Badge variant="outline" className="text-amber-600 border-amber-300">
                       Pendiente de pago
                     </Badge>
@@ -542,7 +574,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
                       size="icon"
                       className="h-6 w-6"
                       onClick={() => {
-                        setPriceValue(session.price?.toString() || '0');
+                        setPriceValue(localPrice.toString());
                         setEditingPrice(true);
                       }}
                     >
@@ -769,9 +801,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
         }
       }}
       preselectedPatientId={session.patient_id}
-      onSuccess={(bonoId) => {
-        handleBonoChange(bonoId);
-      }}
+      onSuccess={handleNewBonoCreated}
     />
     </>
   );

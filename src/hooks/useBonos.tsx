@@ -232,6 +232,19 @@ export function useDeductBonoSession() {
 
   return useMutation({
     mutationFn: async ({ bonoId, sessionId }: { bonoId: string; sessionId: string }) => {
+      // Check if bono_item already exists for this session (prevent duplicates)
+      const { data: existingItem } = await supabase
+        .from('bono_items')
+        .select('id')
+        .eq('bono_id', bonoId)
+        .eq('session_id', sessionId)
+        .maybeSingle();
+
+      if (existingItem) {
+        // Already deducted, don't create duplicate
+        return;
+      }
+
       // Create bono_item
       const { error: itemError } = await supabase
         .from('bono_items')

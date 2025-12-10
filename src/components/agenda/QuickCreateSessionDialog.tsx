@@ -126,6 +126,9 @@ export function QuickCreateSessionDialog({
   const [showQuickPatientDialog, setShowQuickPatientDialog] = useState(false);
   const [showLocationsDialog, setShowLocationsDialog] = useState(false);
   const [showCreateBonoDialog, setShowCreateBonoDialog] = useState(false);
+  // Track newly created bono and its price
+  const [newlyCreatedBonoId, setNewlyCreatedBonoId] = useState<string | null>(null);
+  const [newlyCreatedBonoPrice, setNewlyCreatedBonoPrice] = useState<number | null>(null);
 
   const form = useForm<QuickSessionFormValues>({
     resolver: zodResolver(quickSessionSchema),
@@ -149,12 +152,13 @@ export function QuickCreateSessionDialog({
   const watchBonoId = form.watch('bono_id');
   const { data: patientBonos, refetch: refetchBonos } = usePatientActiveBonos(watchPatientId || undefined);
 
-  // When bono is selected, set price to 0 in the session
+  // Clear new bono tracking when bono selection changes to something else
   useEffect(() => {
-    if (watchBonoId && watchBonoId !== 'none' && watchBonoId !== '') {
-      // Price will be 0 when using bono
+    if (watchBonoId !== newlyCreatedBonoId) {
+      setNewlyCreatedBonoId(null);
+      setNewlyCreatedBonoPrice(null);
     }
-  }, [watchBonoId]);
+  }, [watchBonoId, newlyCreatedBonoId]);
 
   useEffect(() => {
     if (open) {
@@ -189,6 +193,18 @@ export function QuickCreateSessionDialog({
     try {
       const usesBono = values.bono_id && values.bono_id !== 'none' && values.bono_id !== '';
       
+      // Determine price: new bono = total price, existing bono = 0, no bono = 60
+      let sessionPrice = 60;
+      if (usesBono) {
+        if (values.bono_id === newlyCreatedBonoId && newlyCreatedBonoPrice !== null) {
+          // Newly created bono - needs to be paid
+          sessionPrice = newlyCreatedBonoPrice;
+        } else {
+          // Existing bono - already paid
+          sessionPrice = 0;
+        }
+      }
+      
       const newSession = await createSession.mutateAsync({
         patient_id: values.patient_id,
         professional_id: values.professional_id,
@@ -196,7 +212,7 @@ export function QuickCreateSessionDialog({
         start_time: values.start_time,
         end_time: values.end_time,
         session_type: values.session_type,
-        price: usesBono ? 0 : 60,
+        price: sessionPrice,
         status: asDraft ? 'draft' : 'scheduled',
         cancellation_policy: values.cancellation_policy,
         session_modality: values.session_modality,
@@ -691,8 +707,11 @@ export function QuickCreateSessionDialog({
         }
       }}
       preselectedPatientId={watchPatientId}
-      onSuccess={(bonoId) => {
+      onSuccess={(bonoId, totalPrice) => {
         form.setValue('bono_id', bonoId);
+        // Track this as a newly created bono
+        setNewlyCreatedBonoId(bonoId);
+        setNewlyCreatedBonoPrice(totalPrice);
       }}
     />
   </>
