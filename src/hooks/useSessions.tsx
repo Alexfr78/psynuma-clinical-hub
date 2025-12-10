@@ -104,6 +104,24 @@ export function useUpdateSession() {
   });
 }
 
+export function useDeleteSession() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('sessions')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sessions'] });
+    },
+  });
+}
+
 export function useAvailability(professionalId?: string) {
   return useQuery({
     queryKey: ['availability', professionalId],
