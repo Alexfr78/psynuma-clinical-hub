@@ -338,13 +338,14 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
               <div className="flex items-center gap-3">
                 <DoorOpen className="h-5 w-5 text-muted-foreground" />
                 <Select
-                  value={(session as any).room || ''}
-                  onValueChange={handleRoomSave}
+                  value={sessionData.room || '__none__'}
+                  onValueChange={(value) => handleRoomSave(value === '__none__' ? '' : value)}
                 >
-                  <SelectTrigger className="w-40 h-8">
+                  <SelectTrigger className="flex-1 h-8">
                     <SelectValue placeholder="Sin despacho" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="__none__">Sin despacho</SelectItem>
                     <SelectItem value="despacho-1">Despacho 1</SelectItem>
                     <SelectItem value="despacho-2">Despacho 2</SelectItem>
                     <SelectItem value="despacho-3">Despacho 3</SelectItem>
@@ -360,8 +361,8 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
                   value={sessionData.session_modality || 'in_person'}
                   onValueChange={(value) => handleFieldSave('session_modality', value)}
                 >
-                  <SelectTrigger className="w-48 h-8">
-                    <SelectValue />
+                  <SelectTrigger className="flex-1 h-8">
+                    <SelectValue placeholder="Seleccionar modalidad" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="in_person">Presencial</SelectItem>
@@ -370,19 +371,34 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
                     <SelectItem value="custom_link">Link personalizado</SelectItem>
                   </SelectContent>
                 </Select>
-                {sessionData.video_call_link && (
-                  <a 
-                    href={sessionData.video_call_link} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="text-primary text-sm hover:underline"
-                  >
-                    Ver enlace
-                  </a>
-                )}
               </div>
 
-              {/* Location */}
+              {/* Custom Video Link - Only show when custom_link is selected */}
+              {sessionData.session_modality === 'custom_link' && (
+                <div className="flex items-center gap-3 ml-8">
+                  <LinkIcon className="h-5 w-5 text-muted-foreground" />
+                  <Input
+                    type="url"
+                    placeholder="https://..."
+                    className="flex-1 h-8"
+                    value={sessionData.video_call_link || ''}
+                    onChange={(e) => handleFieldSave('video_call_link', e.target.value)}
+                  />
+                  {sessionData.video_call_link && (
+                    <a 
+                      href={sessionData.video_call_link} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                    >
+                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <ExternalLink className="h-4 w-4" />
+                      </Button>
+                    </a>
+                  )}
+                </div>
+              )}
+
+              {/* Location - Only show when in_person */}
               {(sessionData.session_modality === 'in_person' || !sessionData.session_modality) && (
                 <div className="flex items-center gap-3">
                   <MapPin className="h-5 w-5 text-muted-foreground" />
@@ -390,7 +406,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
                     value={sessionData.location_id || '__none__'}
                     onValueChange={(value) => handleFieldSave('location_id', value === '__none__' ? null : value)}
                   >
-                    <SelectTrigger className="w-48 h-8">
+                    <SelectTrigger className="flex-1 h-8">
                       <SelectValue placeholder="Sin especificar" />
                     </SelectTrigger>
                     <SelectContent>
@@ -412,8 +428,8 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
                   value={sessionData.cancellation_policy || '24_hours'}
                   onValueChange={(value) => handleFieldSave('cancellation_policy', value)}
                 >
-                  <SelectTrigger className="w-48 h-8">
-                    <SelectValue />
+                  <SelectTrigger className="flex-1 h-8">
+                    <SelectValue placeholder="Política de cancelación" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="not_allowed">No permitir cancelaciones</SelectItem>
