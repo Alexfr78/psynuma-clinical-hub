@@ -2,15 +2,29 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Building2, FileText, Save, Loader2 } from 'lucide-react';
+import { 
+  Building2, 
+  FileText, 
+  Save, 
+  Loader2,
+  Receipt,
+  Pencil,
+  List,
+  Zap
+} from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { cn } from '@/lib/utils';
 import { useCenter } from '@/hooks/useCenter';
 import { useAuth } from '@/hooks/useAuth';
+import { InvoicingInfoSection } from '@/components/settings/InvoicingInfoSection';
+import { InvoiceEditSection } from '@/components/settings/InvoiceEditSection';
+import { InvoiceSeriesSection } from '@/components/settings/InvoiceSeriesSection';
+import { InvoiceAutomationSection } from '@/components/settings/InvoiceAutomationSection';
 
 const centerSchema = z.object({
   name: z.string().min(1, 'El nombre es obligatorio'),
@@ -22,18 +36,34 @@ const centerSchema = z.object({
   email: z.string().email('Email inválido').optional().or(z.literal('')),
 });
 
-const invoiceSchema = z.object({
-  invoice_prefix: z.string().min(1, 'El prefijo es obligatorio'),
-  invoice_next_number: z.coerce.number().min(1, 'Número debe ser mayor a 0'),
-});
-
 type CenterFormValues = z.infer<typeof centerSchema>;
-type InvoiceFormValues = z.infer<typeof invoiceSchema>;
+
+type SettingsSection = 
+  | 'centro' 
+  | 'facturacion-info' 
+  | 'facturacion-editar' 
+  | 'facturacion-series' 
+  | 'facturacion-automatizar';
+
+interface NavItem {
+  id: SettingsSection;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  parent?: string;
+}
+
+const navItems: NavItem[] = [
+  { id: 'centro', label: 'Centro', icon: Building2 },
+  { id: 'facturacion-info', label: 'Información de facturación', icon: Receipt, parent: 'Facturación' },
+  { id: 'facturacion-editar', label: 'Editar factura', icon: Pencil, parent: 'Facturación' },
+  { id: 'facturacion-series', label: 'Series y numeración', icon: List, parent: 'Facturación' },
+  { id: 'facturacion-automatizar', label: 'Automatizar facturas', icon: Zap, parent: 'Facturación' },
+];
 
 export default function Settings() {
   const { center, isLoading, updateCenter } = useCenter();
   const { isAdmin } = useAuth();
-  const [activeTab, setActiveTab] = useState('center');
+  const [activeSection, setActiveSection] = useState<SettingsSection>('centro');
 
   const centerForm = useForm<CenterFormValues>({
     resolver: zodResolver(centerSchema),
@@ -48,19 +78,7 @@ export default function Settings() {
     },
   });
 
-  const invoiceForm = useForm<InvoiceFormValues>({
-    resolver: zodResolver(invoiceSchema),
-    values: {
-      invoice_prefix: center?.invoice_prefix || 'FAC',
-      invoice_next_number: center?.invoice_next_number || 1,
-    },
-  });
-
   const onCenterSubmit = (data: CenterFormValues) => {
-    updateCenter.mutate(data);
-  };
-
-  const onInvoiceSubmit = (data: InvoiceFormValues) => {
     updateCenter.mutate(data);
   };
 
@@ -72,28 +90,18 @@ export default function Settings() {
     );
   }
 
-  return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="font-display text-2xl font-bold md:text-3xl">Configuración</h1>
-        <p className="mt-1 text-muted-foreground">
-          Gestiona la configuración de tu centro
-        </p>
-      </div>
+  // Group nav items by parent
+  const groupedNavItems = navItems.reduce((acc, item) => {
+    const key = item.parent || 'root';
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(item);
+    return acc;
+  }, {} as Record<string, NavItem[]>);
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full max-w-md grid-cols-2">
-          <TabsTrigger value="center" className="flex items-center gap-2">
-            <Building2 className="h-4 w-4" />
-            Centro
-          </TabsTrigger>
-          <TabsTrigger value="invoices" className="flex items-center gap-2">
-            <FileText className="h-4 w-4" />
-            Facturación
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="center" className="mt-6">
+  const renderContent = () => {
+    switch (activeSection) {
+      case 'centro':
+        return (
           <Card>
             <CardHeader>
               <CardTitle>Datos del Centro</CardTitle>
@@ -201,88 +209,90 @@ export default function Settings() {
               </form>
             </CardContent>
           </Card>
-        </TabsContent>
+        );
+      case 'facturacion-info':
+        return <InvoicingInfoSection />;
+      case 'facturacion-editar':
+        return <InvoiceEditSection />;
+      case 'facturacion-series':
+        return <InvoiceSeriesSection />;
+      case 'facturacion-automatizar':
+        return <InvoiceAutomationSection />;
+      default:
+        return null;
+    }
+  };
 
-        <TabsContent value="invoices" className="mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Configuración de Facturación</CardTitle>
-              <CardDescription>
-                Configura la numeración y prefijos de tus facturas
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={invoiceForm.handleSubmit(onInvoiceSubmit)} className="space-y-6">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="invoice_prefix">Prefijo de Factura</Label>
-                    <Input
-                      id="invoice_prefix"
-                      {...invoiceForm.register('invoice_prefix')}
-                      placeholder="FAC"
-                    />
-                    {invoiceForm.formState.errors.invoice_prefix && (
-                      <p className="text-sm text-destructive">
-                        {invoiceForm.formState.errors.invoice_prefix.message}
-                      </p>
-                    )}
-                    <p className="text-xs text-muted-foreground">
-                      Este prefijo se usará para todas las facturas nuevas
-                    </p>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="invoice_next_number">Próximo Número de Factura</Label>
-                    <Input
-                      id="invoice_next_number"
-                      type="number"
-                      {...invoiceForm.register('invoice_next_number')}
-                      min={1}
-                    />
-                    {invoiceForm.formState.errors.invoice_next_number && (
-                      <p className="text-sm text-destructive">
-                        {invoiceForm.formState.errors.invoice_next_number.message}
-                      </p>
-                    )}
-                    <p className="text-xs text-muted-foreground">
-                      La próxima factura será: {invoiceForm.watch('invoice_prefix')}-
-                      {String(invoiceForm.watch('invoice_next_number')).padStart(5, '0')}
-                    </p>
-                  </div>
-                </div>
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="font-display text-2xl font-bold md:text-3xl">Configuración</h1>
+        <p className="mt-1 text-muted-foreground">
+          Gestiona la configuración de tu centro
+        </p>
+      </div>
 
-                <Card className="bg-muted/50">
-                  <CardContent className="pt-6">
-                    <div className="flex items-start gap-3">
-                      <FileText className="h-5 w-5 text-primary" />
-                      <div>
-                        <h4 className="font-medium">Cumplimiento Verifactu</h4>
-                        <p className="mt-1 text-sm text-muted-foreground">
-                          Las facturas emitidas se sellan automáticamente con hash SHA-256 
-                          para cumplir con los requisitos de Verifactu. El sello incluye 
-                          marca de tiempo y firma digital.
-                        </p>
+      <div className="flex flex-col gap-6 lg:flex-row">
+        {/* Sidebar Navigation */}
+        <aside className="w-full lg:w-64 shrink-0">
+          <Card className="sticky top-6">
+            <ScrollArea className="h-auto max-h-[calc(100vh-12rem)]">
+              <nav className="p-4 space-y-6">
+                {/* Root items */}
+                {groupedNavItems['root']?.map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => setActiveSection(item.id)}
+                    className={cn(
+                      "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
+                      activeSection === item.id
+                        ? "bg-primary text-primary-foreground"
+                        : "hover:bg-muted text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    <item.icon className="h-4 w-4" />
+                    {item.label}
+                  </button>
+                ))}
+
+                {/* Grouped items */}
+                {Object.entries(groupedNavItems)
+                  .filter(([key]) => key !== 'root')
+                  .map(([group, items]) => (
+                    <div key={group} className="space-y-1">
+                      <div className="flex items-center gap-2 px-3 py-2">
+                        <FileText className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm font-medium">{group}</span>
+                      </div>
+                      <div className="ml-4 space-y-1 border-l pl-4">
+                        {items.map((item) => (
+                          <button
+                            key={item.id}
+                            onClick={() => setActiveSection(item.id)}
+                            className={cn(
+                              "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
+                              activeSection === item.id
+                                ? "bg-primary text-primary-foreground"
+                                : "hover:bg-muted text-muted-foreground hover:text-foreground"
+                            )}
+                          >
+                            <item.icon className="h-4 w-4" />
+                            {item.label}
+                          </button>
+                        ))}
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
-
-                {isAdmin && (
-                  <div className="flex justify-end">
-                    <Button type="submit" disabled={updateCenter.isPending}>
-                      {updateCenter.isPending ? (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      ) : (
-                        <Save className="mr-2 h-4 w-4" />
-                      )}
-                      Guardar Cambios
-                    </Button>
-                  </div>
-                )}
-              </form>
-            </CardContent>
+                  ))}
+              </nav>
+            </ScrollArea>
           </Card>
-        </TabsContent>
-      </Tabs>
+        </aside>
+
+        {/* Main Content */}
+        <main className="flex-1 min-w-0">
+          {renderContent()}
+        </main>
+      </div>
     </div>
   );
 }

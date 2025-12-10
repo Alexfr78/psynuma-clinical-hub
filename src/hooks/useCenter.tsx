@@ -15,6 +15,18 @@ export interface Center {
   logo_url: string | null;
   invoice_prefix: string | null;
   invoice_next_number: number | null;
+  // New billing fields
+  country: string | null;
+  province: string | null;
+  address_details: string | null;
+  default_tax_name: string | null;
+  default_tax_rate: number | null;
+  include_tax_in_price: boolean | null;
+  retention_name: string | null;
+  retention_rate: number | null;
+  invoice_footer: string | null;
+  invoice_logo_url: string | null;
+  auto_invoicing_enabled: boolean | null;
   created_at: string;
   updated_at: string;
 }
@@ -68,5 +80,6 @@ export function useCenter() {
     center,
     isLoading,
     updateCenter,
+    centerId,
   };
 }

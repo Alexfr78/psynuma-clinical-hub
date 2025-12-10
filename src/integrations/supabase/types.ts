@@ -243,46 +243,79 @@ export type Database = {
       centers: {
         Row: {
           address: string | null
+          address_details: string | null
+          auto_invoicing_enabled: boolean | null
           city: string | null
+          country: string | null
           created_at: string
+          default_tax_name: string | null
+          default_tax_rate: number | null
           email: string | null
           id: string
+          include_tax_in_price: boolean | null
+          invoice_footer: string | null
+          invoice_logo_url: string | null
           invoice_next_number: number | null
           invoice_prefix: string | null
           logo_url: string | null
           name: string
           phone: string | null
           postal_code: string | null
+          province: string | null
+          retention_name: string | null
+          retention_rate: number | null
           tax_id: string | null
           updated_at: string
         }
         Insert: {
           address?: string | null
+          address_details?: string | null
+          auto_invoicing_enabled?: boolean | null
           city?: string | null
+          country?: string | null
           created_at?: string
+          default_tax_name?: string | null
+          default_tax_rate?: number | null
           email?: string | null
           id?: string
+          include_tax_in_price?: boolean | null
+          invoice_footer?: string | null
+          invoice_logo_url?: string | null
           invoice_next_number?: number | null
           invoice_prefix?: string | null
           logo_url?: string | null
           name: string
           phone?: string | null
           postal_code?: string | null
+          province?: string | null
+          retention_name?: string | null
+          retention_rate?: number | null
           tax_id?: string | null
           updated_at?: string
         }
         Update: {
           address?: string | null
+          address_details?: string | null
+          auto_invoicing_enabled?: boolean | null
           city?: string | null
+          country?: string | null
           created_at?: string
+          default_tax_name?: string | null
+          default_tax_rate?: number | null
           email?: string | null
           id?: string
+          include_tax_in_price?: boolean | null
+          invoice_footer?: string | null
+          invoice_logo_url?: string | null
           invoice_next_number?: number | null
           invoice_prefix?: string | null
           logo_url?: string | null
           name?: string
           phone?: string | null
           postal_code?: string | null
+          province?: string | null
+          retention_name?: string | null
+          retention_rate?: number | null
           tax_id?: string | null
           updated_at?: string
         }
@@ -406,6 +439,56 @@ export type Database = {
             columns: ["session_id"]
             isOneToOne: false
             referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invoice_series: {
+        Row: {
+          center_id: string
+          created_at: string
+          format: string
+          id: string
+          invoice_type: string
+          is_archived: boolean | null
+          is_default: boolean | null
+          name: string
+          next_number: number
+          series_type: string
+          updated_at: string
+        }
+        Insert: {
+          center_id: string
+          created_at?: string
+          format?: string
+          id?: string
+          invoice_type?: string
+          is_archived?: boolean | null
+          is_default?: boolean | null
+          name: string
+          next_number?: number
+          series_type?: string
+          updated_at?: string
+        }
+        Update: {
+          center_id?: string
+          created_at?: string
+          format?: string
+          id?: string
+          invoice_type?: string
+          is_archived?: boolean | null
+          is_default?: boolean | null
+          name?: string
+          next_number?: number
+          series_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_series_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers"
             referencedColumns: ["id"]
           },
         ]
