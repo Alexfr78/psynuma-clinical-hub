@@ -10,6 +10,8 @@ import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Patients from "./pages/Patients";
 import PatientDetail from "./pages/PatientDetail";
+import Agenda from "./pages/Agenda";
+import Sessions from "./pages/Sessions";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -41,7 +43,7 @@ const App = () => (
             } />
             <Route path="/agenda" element={
               <ProtectedRoute>
-                <AppLayout><PlaceholderPage title="Agenda" /></AppLayout>
+                <AppLayout><Agenda /></AppLayout>
               </ProtectedRoute>
             } />
             
@@ -59,7 +61,7 @@ const App = () => (
             
             <Route path="/sesiones" element={
               <ProtectedRoute>
-                <AppLayout><PlaceholderPage title="Sesiones" /></AppLayout>
+                <AppLayout><Sessions /></AppLayout>
               </ProtectedRoute>
             } />
             <Route path="/bonos" element={
