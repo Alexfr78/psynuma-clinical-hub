@@ -23,13 +23,20 @@ export function SessionCard({ session, compact = false, onClick }: SessionCardPr
     : 'Sin paciente';
 
   if (compact) {
+    const handleClick = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      e.preventDefault();
+      onClick?.();
+    };
+
     return (
       <div
         className={cn(
           'cursor-pointer rounded-md border-l-2 px-2 py-1 text-xs transition-all hover:opacity-80',
           statusColor
         )}
-        onClick={onClick}
+        onClick={handleClick}
+        onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="font-medium truncate">{patientName}</div>
         <div className="text-[10px] opacity-75">
@@ -39,13 +46,20 @@ export function SessionCard({ session, compact = false, onClick }: SessionCardPr
     );
   }
 
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    onClick?.();
+  };
+
   return (
     <div
       className={cn(
         'cursor-pointer rounded-lg border-l-4 bg-card p-3 shadow-sm transition-all hover:shadow-md',
         statusColor
       )}
-      onClick={onClick}
+      onClick={handleClick}
+      onMouseDown={(e) => e.stopPropagation()}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
