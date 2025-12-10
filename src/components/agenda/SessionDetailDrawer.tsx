@@ -17,7 +17,6 @@ import {
   Edit2,
   X,
   Check,
-  XCircle,
   Loader2,
   Package,
   DoorOpen,
@@ -26,6 +25,7 @@ import {
   Video,
   MapPin,
   Ban,
+  Trash2,
 } from 'lucide-react';
 import {
   Sheet,
@@ -54,7 +54,18 @@ import {
 } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
-import { SessionWithRelations, useUpdateSession } from '@/hooks/useSessions';
+import { SessionWithRelations, useUpdateSession, useDeleteSession } from '@/hooks/useSessions';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { useLocations } from '@/hooks/useLocations';
 
 interface SessionDetailDrawerProps {
@@ -100,6 +111,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
   const navigate = useNavigate();
   const { toast } = useToast();
   const updateSession = useUpdateSession();
+  const deleteSession = useDeleteSession();
   const { data: locations } = useLocations();
   const [isUpdating, setIsUpdating] = useState(false);
   const [editingPrice, setEditingPrice] = useState(false);
@@ -189,32 +201,15 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
     }
   };
 
-  const quickActions = [
-    {
-      status: 'confirmed',
-      label: 'Confirmar',
-      icon: Check,
-      show: session.status === 'scheduled' || session.status === 'draft',
-    },
-    {
-      status: 'completed',
-      label: 'Completar',
-      icon: Check,
-      show: ['scheduled', 'confirmed'].includes(session.status || ''),
-    },
-    {
-      status: 'cancelled',
-      label: 'Cancelar',
-      icon: X,
-      show: ['scheduled', 'confirmed', 'draft'].includes(session.status || ''),
-    },
-    {
-      status: 'no_show',
-      label: 'No asistió',
-      icon: XCircle,
-      show: ['scheduled', 'confirmed'].includes(session.status || ''),
-    },
-  ].filter((a) => a.show);
+  const handleDeleteSession = async () => {
+    try {
+      await deleteSession.mutateAsync(session.id);
+      toast({ title: 'Sesión eliminada' });
+      onOpenChange(false);
+    } catch {
+      toast({ title: 'Error al eliminar', variant: 'destructive' });
+    }
+  };
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -628,27 +623,29 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
               </Select>
             </div>
 
-            {/* Quick Actions */}
-            {quickActions.length > 0 && (
-              <div className="flex flex-wrap gap-2 pt-2">
-                {quickActions.map(({ status, label, icon: Icon }) => (
-                  <Button
-                    key={status}
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleStatusChange(status)}
-                    disabled={isUpdating}
-                  >
-                    {isUpdating ? (
-                      <Loader2 className="mr-1 h-4 w-4 animate-spin" />
-                    ) : (
-                      <Icon className="mr-1 h-4 w-4" />
-                    )}
-                    {label}
-                  </Button>
-                ))}
-              </div>
-            )}
+            {/* Delete Session */}
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" className="w-full mt-4">
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Eliminar sesión
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>¿Eliminar esta sesión?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Esta acción no se puede deshacer. La sesión será eliminada permanentemente.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleDeleteSession}>
+                    Eliminar
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
 
             {/* External Links */}
             <div className="flex gap-4 pt-4">
