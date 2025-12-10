@@ -10,6 +10,7 @@ interface WeekViewProps {
   sessions: SessionWithRelations[];
   onSessionClick: (session: SessionWithRelations) => void;
   onSlotClick: (date: Date, startTime: string, endTime: string) => void;
+  onSessionMove?: (sessionId: string, newDate: string, newStartTime: string, newEndTime: string) => void;
 }
 
 const HOURS = Array.from({ length: 13 }, (_, i) => i + 8); // 8:00 - 20:00
@@ -31,13 +32,15 @@ function minutesToTime(totalMinutes: number): string {
   return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
 }
 
-export function WeekView({ currentDate, sessions, onSessionClick, onSlotClick }: WeekViewProps) {
+export function WeekView({ currentDate, sessions, onSessionClick, onSlotClick, onSessionMove }: WeekViewProps) {
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState<SlotPosition | null>(null);
   const [dragEnd, setDragEnd] = useState<SlotPosition | null>(null);
+  const [dragOverSlot, setDragOverSlot] = useState<string | null>(null);
+  const [isDraggingSession, setIsDraggingSession] = useState(false);
 
   const sessionsByDay = useMemo(() => {
     const map = new Map<string, SessionWithRelations[]>();
@@ -61,11 +64,12 @@ export function WeekView({ currentDate, sessions, onSessionClick, onSlotClick }:
   };
 
   const handleMouseDown = useCallback((day: Date, hour: number, minute: number, e: React.MouseEvent) => {
+    if (isDraggingSession) return;
     e.preventDefault();
     setIsDragging(true);
     setDragStart({ day, hour, minute });
     setDragEnd({ day, hour, minute });
-  }, []);
+  }, [isDraggingSession]);
 
   const handleMouseEnter = useCallback((day: Date, hour: number, minute: number) => {
     if (isDragging && dragStart) {
@@ -79,7 +83,7 @@ export function WeekView({ currentDate, sessions, onSessionClick, onSlotClick }:
   const handleMouseUp = useCallback(() => {
     if (isDragging && dragStart && dragEnd) {
       const startMinutes = slotToMinutes(dragStart.hour, dragStart.minute);
-      const endMinutes = slotToMinutes(dragEnd.hour, dragEnd.minute) + 15; // Add 15 min for end slot
+      const endMinutes = slotToMinutes(dragEnd.hour, dragEnd.minute) + 15;
 
       const [minMinutes, maxMinutes] = startMinutes <= endMinutes 
         ? [startMinutes, endMinutes]
@@ -110,6 +114,44 @@ export function WeekView({ currentDate, sessions, onSessionClick, onSlotClick }:
     const [min, max] = startMinutes <= endMinutes ? [startMinutes, endMinutes] : [endMinutes, startMinutes];
     return slotMinutes >= min && slotMinutes <= max;
   }, [isDragging, dragStart, dragEnd]);
+
+  const handleDragOver = useCallback((e: React.DragEvent, day: Date, hour: number, minute: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverSlot(`${format(day, 'yyyy-MM-dd')}-${hour}:${minute}`);
+  }, []);
+
+  const handleDragLeave = useCallback(() => {
+    setDragOverSlot(null);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent, day: Date, hour: number, minute: number) => {
+    e.preventDefault();
+    setDragOverSlot(null);
+    setIsDraggingSession(false);
+    
+    try {
+      const data = JSON.parse(e.dataTransfer.getData('application/json'));
+      if (data.sessionId && onSessionMove) {
+        const newDate = format(day, 'yyyy-MM-dd');
+        const newStartTime = minutesToTime(slotToMinutes(hour, minute));
+        // Calculate duration from original times
+        const [origStartH, origStartM] = (data.originalStartTime || '09:00').split(':').map(Number);
+        const [origEndH, origEndM] = (data.originalEndTime || '10:00').split(':').map(Number);
+        const durationMinutes = slotToMinutes(origEndH, origEndM) - slotToMinutes(origStartH, origStartM);
+        const newEndMinutes = slotToMinutes(hour, minute) + durationMinutes;
+        const newEndTime = minutesToTime(newEndMinutes);
+        
+        onSessionMove(data.sessionId, newDate, newStartTime, newEndTime);
+      }
+    } catch {
+      // Invalid drag data
+    }
+  }, [onSessionMove]);
+
+  const handleSessionDragStart = useCallback(() => {
+    setIsDraggingSession(true);
+  }, []);
 
   return (
     <div 
@@ -155,51 +197,64 @@ export function WeekView({ currentDate, sessions, onSessionClick, onSlotClick }:
                 {hour.toString().padStart(2, '0')}:00
               </div>
               {/* Day columns */}
-              {weekDays.map((day) => (
-                <div
-                  key={day.toISOString()}
-                  className={cn(
-                    'h-16 border-r relative',
-                    isToday(day) && 'bg-primary/5'
-                  )}
-                >
-                  {/* 15-minute slots within each hour */}
-                  <div className="absolute inset-0 grid grid-rows-4">
-                    {QUARTER_HOURS.map((minute) => {
-                      const slotSessions = getSessionsForSlot(day, hour, minute);
-                      const isInDragRange = isSlotInDragRange(day, hour, minute);
-                      
-                      return (
-                        <div
-                          key={minute}
-                          className={cn(
-                            'border-b border-dashed border-muted/50 last:border-b-0 cursor-pointer transition-colors relative',
-                            minute === 0 && 'border-t-0',
-                            isInDragRange 
-                              ? 'bg-primary/20' 
-                              : 'hover:bg-muted/50'
-                          )}
-                          onMouseDown={(e) => handleMouseDown(day, hour, minute, e)}
-                          onMouseEnter={() => handleMouseEnter(day, hour, minute)}
-                        >
-                          {slotSessions.length > 0 && (
-                            <div className="absolute inset-0 p-0.5 z-10">
-                              {slotSessions.map((session) => (
-                                <SessionCard
-                                  key={session.id}
-                                  session={session}
-                                  compact
-                                  onClick={() => onSessionClick(session)}
-                                />
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
+              {weekDays.map((day) => {
+                const dayKey = format(day, 'yyyy-MM-dd');
+                
+                return (
+                  <div
+                    key={day.toISOString()}
+                    className={cn(
+                      'h-16 border-r relative',
+                      isToday(day) && 'bg-primary/5'
+                    )}
+                  >
+                    {/* 15-minute slots within each hour */}
+                    <div className="absolute inset-0 grid grid-rows-4">
+                      {QUARTER_HOURS.map((minute) => {
+                        const slotSessions = getSessionsForSlot(day, hour, minute);
+                        const isInDragRange = isSlotInDragRange(day, hour, minute);
+                        const slotId = `${dayKey}-${hour}:${minute}`;
+                        const isDropTarget = dragOverSlot === slotId;
+                        
+                        return (
+                          <div
+                            key={minute}
+                            className={cn(
+                              'border-b border-dashed border-muted/50 last:border-b-0 cursor-pointer transition-colors relative',
+                              minute === 0 && 'border-t-0',
+                              isInDragRange 
+                                ? 'bg-primary/20' 
+                                : isDropTarget
+                                ? 'bg-primary/30 ring-2 ring-primary ring-inset'
+                                : 'hover:bg-muted/50'
+                            )}
+                            onMouseDown={(e) => handleMouseDown(day, hour, minute, e)}
+                            onMouseEnter={() => handleMouseEnter(day, hour, minute)}
+                            onDragOver={(e) => handleDragOver(e, day, hour, minute)}
+                            onDragLeave={handleDragLeave}
+                            onDrop={(e) => handleDrop(e, day, hour, minute)}
+                          >
+                            {slotSessions.length > 0 && (
+                              <div className="absolute inset-0 p-0.5 z-10">
+                                {slotSessions.map((session) => (
+                                  <SessionCard
+                                    key={session.id}
+                                    session={session}
+                                    compact
+                                    onClick={() => onSessionClick(session)}
+                                    draggable={!!onSessionMove}
+                                    onDragStart={handleSessionDragStart}
+                                  />
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ))}
         </div>

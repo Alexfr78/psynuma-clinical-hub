@@ -10,6 +10,7 @@ interface DayViewProps {
   sessions: SessionWithRelations[];
   onSessionClick: (session: SessionWithRelations) => void;
   onSlotClick: (date: Date, startTime: string, endTime: string) => void;
+  onSessionMove?: (sessionId: string, newDate: string, newStartTime: string, newEndTime: string) => void;
 }
 
 const HOURS = Array.from({ length: 13 }, (_, i) => i + 8); // 8:00 - 20:00
@@ -30,12 +31,14 @@ function minutesToTime(totalMinutes: number): string {
   return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
 }
 
-export function DayView({ currentDate, sessions, onSessionClick, onSlotClick }: DayViewProps) {
+export function DayView({ currentDate, sessions, onSessionClick, onSlotClick, onSessionMove }: DayViewProps) {
   const dateKey = format(currentDate, 'yyyy-MM-dd');
 
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState<SlotPosition | null>(null);
   const [dragEnd, setDragEnd] = useState<SlotPosition | null>(null);
+  const [dragOverSlot, setDragOverSlot] = useState<string | null>(null);
+  const [isDraggingSession, setIsDraggingSession] = useState(false);
 
   const sessionsBySlot = useMemo(() => {
     const map = new Map<string, SessionWithRelations[]>();
@@ -53,11 +56,12 @@ export function DayView({ currentDate, sessions, onSessionClick, onSlotClick }: 
   }, [sessions, dateKey]);
 
   const handleMouseDown = useCallback((hour: number, minute: number, e: React.MouseEvent) => {
+    if (isDraggingSession) return;
     e.preventDefault();
     setIsDragging(true);
     setDragStart({ hour, minute });
     setDragEnd({ hour, minute });
-  }, []);
+  }, [isDraggingSession]);
 
   const handleMouseEnter = useCallback((hour: number, minute: number) => {
     if (isDragging) {
@@ -68,7 +72,7 @@ export function DayView({ currentDate, sessions, onSessionClick, onSlotClick }: 
   const handleMouseUp = useCallback(() => {
     if (isDragging && dragStart && dragEnd) {
       const startMinutes = slotToMinutes(dragStart.hour, dragStart.minute);
-      const endMinutes = slotToMinutes(dragEnd.hour, dragEnd.minute) + 15; // Add 15 min for end slot
+      const endMinutes = slotToMinutes(dragEnd.hour, dragEnd.minute) + 15;
 
       const [minMinutes, maxMinutes] = startMinutes <= endMinutes 
         ? [startMinutes, endMinutes]
@@ -94,6 +98,43 @@ export function DayView({ currentDate, sessions, onSessionClick, onSlotClick }: 
     const [min, max] = startMinutes <= endMinutes ? [startMinutes, endMinutes] : [endMinutes, startMinutes];
     return slotMinutes >= min && slotMinutes <= max;
   }, [isDragging, dragStart, dragEnd]);
+
+  const handleDragOver = useCallback((e: React.DragEvent, hour: number, minute: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverSlot(`${hour}:${minute}`);
+  }, []);
+
+  const handleDragLeave = useCallback(() => {
+    setDragOverSlot(null);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent, hour: number, minute: number) => {
+    e.preventDefault();
+    setDragOverSlot(null);
+    setIsDraggingSession(false);
+    
+    try {
+      const data = JSON.parse(e.dataTransfer.getData('application/json'));
+      if (data.sessionId && onSessionMove) {
+        const newStartTime = minutesToTime(slotToMinutes(hour, minute));
+        // Calculate duration from original times
+        const [origStartH, origStartM] = (data.originalStartTime || '09:00').split(':').map(Number);
+        const [origEndH, origEndM] = (data.originalEndTime || '10:00').split(':').map(Number);
+        const durationMinutes = slotToMinutes(origEndH, origEndM) - slotToMinutes(origStartH, origStartM);
+        const newEndMinutes = slotToMinutes(hour, minute) + durationMinutes;
+        const newEndTime = minutesToTime(newEndMinutes);
+        
+        onSessionMove(data.sessionId, dateKey, newStartTime, newEndTime);
+      }
+    } catch {
+      // Invalid drag data
+    }
+  }, [onSessionMove, dateKey]);
+
+  const handleSessionDragStart = useCallback(() => {
+    setIsDraggingSession(true);
+  }, []);
 
   return (
     <div 
@@ -131,6 +172,7 @@ export function DayView({ currentDate, sessions, onSessionClick, onSlotClick }: 
                   const slotKey = `${hour}:${minute}`;
                   const slotSessions = sessionsBySlot.get(slotKey) || [];
                   const isInDragRange = isSlotInDragRange(hour, minute);
+                  const isDropTarget = dragOverSlot === slotKey;
                   
                   return (
                     <div
@@ -140,10 +182,15 @@ export function DayView({ currentDate, sessions, onSessionClick, onSlotClick }: 
                         minute === 0 && 'border-t-0',
                         isInDragRange 
                           ? 'bg-primary/20' 
+                          : isDropTarget
+                          ? 'bg-primary/30 ring-2 ring-primary ring-inset'
                           : 'hover:bg-muted/50'
                       )}
                       onMouseDown={(e) => handleMouseDown(hour, minute, e)}
                       onMouseEnter={() => handleMouseEnter(hour, minute)}
+                      onDragOver={(e) => handleDragOver(e, hour, minute)}
+                      onDragLeave={handleDragLeave}
+                      onDrop={(e) => handleDrop(e, hour, minute)}
                     >
                       {/* Time indicator for non-hour slots */}
                       {minute > 0 && (
@@ -157,6 +204,8 @@ export function DayView({ currentDate, sessions, onSessionClick, onSlotClick }: 
                             key={session.id}
                             session={session}
                             onClick={() => onSessionClick(session)}
+                            draggable={!!onSessionMove}
+                            onDragStart={handleSessionDragStart}
                           />
                         ))}
                       </div>
