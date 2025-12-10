@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { FileText, AlertTriangle, Building2, User, Check } from 'lucide-react';
+import { FileText, AlertTriangle, Building2, User, Pencil, Trash2, Plus, Check, X } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -43,6 +43,15 @@ interface PatientFormData {
   postal_code: string;
 }
 
+interface InvoiceLineItem {
+  id: string;
+  description: string;
+  unitPrice: number;
+  quantity: number;
+  total: number;
+  sessionId?: string;
+}
+
 export function CreateSessionInvoiceDialog({
   open,
   onOpenChange,
@@ -67,6 +76,32 @@ export function CreateSessionInvoiceDialog({
     postal_code: '',
   });
   const [savingPatient, setSavingPatient] = useState(false);
+
+  // Invoice items state
+  const [items, setItems] = useState<InvoiceLineItem[]>([]);
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  const [addingItem, setAddingItem] = useState(false);
+  const [newItem, setNewItem] = useState({ description: '', unitPrice: 0, quantity: 1 });
+  const [editItemData, setEditItemData] = useState({ description: '', unitPrice: 0, quantity: 1 });
+
+  // Initialize items with session data
+  useEffect(() => {
+    if (session && open) {
+      const sessionDateFormatted = format(new Date(session.session_date), "d 'de' MMMM yyyy", { locale: es });
+      setItems([{
+        id: crypto.randomUUID(),
+        description: `Sesión de psicoterapia - ${sessionDateFormatted}`,
+        unitPrice: Number(session.price) || 0,
+        quantity: 1,
+        total: Number(session.price) || 0,
+        sessionId: session.id,
+      }]);
+      // Reset other states
+      setEditingItemId(null);
+      setAddingItem(false);
+      setNewItem({ description: '', unitPrice: 0, quantity: 1 });
+    }
+  }, [session, open]);
 
   // Filter series by invoice type
   const availableSeries = ordinarySeries.filter(
@@ -103,14 +138,73 @@ export function CreateSessionInvoiceDialog({
     ? requiredFields.filter(field => !patientFormData[field])
     : [];
   
-  const canCreateInvoice = invoiceType === 'simplified' || missingFields.length === 0;
+  const canCreateInvoice = (invoiceType === 'simplified' || missingFields.length === 0) && items.length > 0;
 
-  // Calculate amounts
+  // Calculate amounts from items
   const taxRate = center?.default_tax_rate ?? 0;
   const taxName = center?.default_tax_name ?? 'IVA';
-  const subtotal = Number(session.price) || 0;
+  
+  const subtotal = useMemo(() => 
+    items.reduce((sum, item) => sum + item.total, 0), 
+    [items]
+  );
   const taxAmount = subtotal * (taxRate / 100);
   const total = subtotal + taxAmount;
+
+  // Item management functions
+  const handleAddItem = () => {
+    if (!newItem.description.trim()) {
+      toast.error('El concepto es obligatorio');
+      return;
+    }
+    const itemTotal = newItem.unitPrice * newItem.quantity;
+    setItems([...items, {
+      id: crypto.randomUUID(),
+      description: newItem.description,
+      unitPrice: newItem.unitPrice,
+      quantity: newItem.quantity,
+      total: itemTotal,
+    }]);
+    setAddingItem(false);
+    setNewItem({ description: '', unitPrice: 0, quantity: 1 });
+  };
+
+  const handleStartEditItem = (item: InvoiceLineItem) => {
+    setEditingItemId(item.id);
+    setEditItemData({
+      description: item.description,
+      unitPrice: item.unitPrice,
+      quantity: item.quantity,
+    });
+  };
+
+  const handleUpdateItem = (itemId: string) => {
+    if (!editItemData.description.trim()) {
+      toast.error('El concepto es obligatorio');
+      return;
+    }
+    setItems(items.map(item => {
+      if (item.id === itemId) {
+        return {
+          ...item,
+          description: editItemData.description,
+          unitPrice: editItemData.unitPrice,
+          quantity: editItemData.quantity,
+          total: editItemData.unitPrice * editItemData.quantity,
+        };
+      }
+      return item;
+    }));
+    setEditingItemId(null);
+  };
+
+  const handleDeleteItem = (itemId: string) => {
+    if (items.length <= 1) {
+      toast.error('La factura debe tener al menos un ítem');
+      return;
+    }
+    setItems(items.filter(item => item.id !== itemId));
+  };
 
   const handleSavePatientData = async () => {
     if (!patientData) return;
@@ -131,11 +225,9 @@ export function CreateSessionInvoiceDialog({
   };
 
   const handleCreateInvoice = async () => {
-    if (!patientData || !selectedSeriesId) return;
+    if (!patientData || !selectedSeriesId || items.length === 0) return;
 
     try {
-      const sessionDateFormatted = format(new Date(session.session_date), "d 'de' MMMM yyyy", { locale: es });
-      
       await createInvoice.mutateAsync({
         invoice: {
           patient_id: patientData.id,
@@ -145,13 +237,13 @@ export function CreateSessionInvoiceDialog({
           total,
           status: 'draft',
         },
-        items: [{
-          description: `Sesión de psicoterapia - ${sessionDateFormatted}`,
-          quantity: 1,
-          unit_price: subtotal,
-          total: subtotal,
-          session_id: session.id,
-        }],
+        items: items.map(item => ({
+          description: item.description,
+          quantity: item.quantity,
+          unit_price: item.unitPrice,
+          total: item.total,
+          session_id: item.sessionId || null,
+        })),
         seriesId: selectedSeriesId,
       });
 
@@ -366,20 +458,187 @@ export function CreateSessionInvoiceDialog({
 
         <Separator />
 
-        {/* Invoice Summary */}
+        {/* Invoice Items */}
         <div className="space-y-3">
-          <h4 className="font-medium">Concepto</h4>
-          <div className="p-3 rounded-lg border bg-muted/30 space-y-2">
-            <div className="flex justify-between text-sm">
-              <span>
-                Sesión de psicoterapia - {format(new Date(session.session_date), "d 'de' MMMM yyyy", { locale: es })}
-              </span>
-              <span className="font-medium">{subtotal.toFixed(2)}€</span>
-            </div>
-            <p className="text-xs text-muted-foreground">Cantidad: 1</p>
-          </div>
+          <h4 className="font-medium">Ítems</h4>
           
-          <div className="space-y-1 pt-2">
+          {/* Table Header */}
+          <div className="grid grid-cols-12 gap-2 text-xs text-muted-foreground px-2 font-medium">
+            <div className="col-span-5">Concepto</div>
+            <div className="col-span-2 text-right">Precio</div>
+            <div className="col-span-2 text-center">Cant.</div>
+            <div className="col-span-2 text-right">Total</div>
+            <div className="col-span-1"></div>
+          </div>
+
+          {/* Items List */}
+          <div className="space-y-2">
+            {items.map(item => (
+              editingItemId === item.id ? (
+                // Edit Mode
+                <div key={item.id} className="grid grid-cols-12 gap-2 items-center p-2 rounded-lg border bg-muted/30">
+                  <div className="col-span-5">
+                    <Input
+                      value={editItemData.description}
+                      onChange={(e) => setEditItemData(prev => ({ ...prev, description: e.target.value }))}
+                      placeholder="Concepto"
+                      className="h-8 text-sm"
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={editItemData.unitPrice}
+                      onChange={(e) => setEditItemData(prev => ({ ...prev, unitPrice: parseFloat(e.target.value) || 0 }))}
+                      className="h-8 text-sm text-right"
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <Input
+                      type="number"
+                      min="1"
+                      value={editItemData.quantity}
+                      onChange={(e) => setEditItemData(prev => ({ ...prev, quantity: parseInt(e.target.value) || 1 }))}
+                      className="h-8 text-sm text-center"
+                    />
+                  </div>
+                  <div className="col-span-2 text-right text-sm font-medium">
+                    {(editItemData.unitPrice * editItemData.quantity).toFixed(2)}€
+                  </div>
+                  <div className="col-span-1 flex justify-end gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-primary"
+                      onClick={() => handleUpdateItem(item.id)}
+                    >
+                      <Check className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={() => setEditingItemId(null)}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                // View Mode
+                <div key={item.id} className="grid grid-cols-12 gap-2 items-center p-2 rounded-lg border bg-muted/30 group">
+                  <div className="col-span-5 text-sm truncate" title={item.description}>
+                    {item.description}
+                  </div>
+                  <div className="col-span-2 text-sm text-right">
+                    {item.unitPrice.toFixed(2)}€
+                  </div>
+                  <div className="col-span-2 text-sm text-center">
+                    {item.quantity}
+                  </div>
+                  <div className="col-span-2 text-sm text-right font-medium">
+                    {item.total.toFixed(2)}€
+                  </div>
+                  <div className="col-span-1 flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={() => handleStartEditItem(item)}
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-destructive"
+                      onClick={() => handleDeleteItem(item.id)}
+                      disabled={items.length <= 1}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              )
+            ))}
+
+            {/* Add New Item Form */}
+            {addingItem && (
+              <div className="grid grid-cols-12 gap-2 items-center p-2 rounded-lg border border-dashed bg-muted/20">
+                <div className="col-span-5">
+                  <Input
+                    value={newItem.description}
+                    onChange={(e) => setNewItem(prev => ({ ...prev, description: e.target.value }))}
+                    placeholder="Concepto"
+                    className="h-8 text-sm"
+                    autoFocus
+                  />
+                </div>
+                <div className="col-span-2">
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={newItem.unitPrice}
+                    onChange={(e) => setNewItem(prev => ({ ...prev, unitPrice: parseFloat(e.target.value) || 0 }))}
+                    placeholder="0.00"
+                    className="h-8 text-sm text-right"
+                  />
+                </div>
+                <div className="col-span-2">
+                  <Input
+                    type="number"
+                    min="1"
+                    value={newItem.quantity}
+                    onChange={(e) => setNewItem(prev => ({ ...prev, quantity: parseInt(e.target.value) || 1 }))}
+                    className="h-8 text-sm text-center"
+                  />
+                </div>
+                <div className="col-span-2 text-right text-sm font-medium">
+                  {(newItem.unitPrice * newItem.quantity).toFixed(2)}€
+                </div>
+                <div className="col-span-1 flex justify-end gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-primary"
+                    onClick={handleAddItem}
+                  >
+                    <Check className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={() => {
+                      setAddingItem(false);
+                      setNewItem({ description: '', unitPrice: 0, quantity: 1 });
+                    }}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Add Item Button */}
+          {!addingItem && (
+            <Button
+              variant="link"
+              size="sm"
+              className="h-auto p-0 text-primary"
+              onClick={() => setAddingItem(true)}
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              Añadir ítem
+            </Button>
+          )}
+          
+          {/* Totals */}
+          <div className="space-y-1 pt-4 border-t">
             <div className="flex justify-between text-sm">
               <span>Base imponible</span>
               <span>{subtotal.toFixed(2)}€</span>
