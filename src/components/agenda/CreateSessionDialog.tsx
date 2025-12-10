@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { CalendarIcon, Loader2, Package, Mail, Phone, MessageSquare } from 'lucide-react';
+import { CalendarIcon, Loader2, Package, Mail, Phone, MessageSquare, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -46,6 +46,7 @@ import { usePatients, useProfessionals } from '@/hooks/usePatients';
 import { useAuth } from '@/hooks/useAuth';
 import { usePatientActiveBonos, useDeductBonoSession } from '@/hooks/useBonos';
 import { useScheduleSessionReminder } from '@/hooks/useNotifications';
+import { CreateBonoDialog } from '@/components/bonos/CreateBonoDialog';
 
 const sessionSchema = z.object({
   patient_id: z.string().uuid('Selecciona un paciente'),
@@ -98,6 +99,7 @@ export function CreateSessionDialog({
   const scheduleReminder = useScheduleSessionReminder();
   const { data: patients } = usePatients();
   const { data: professionals } = useProfessionals();
+  const [showCreateBonoDialog, setShowCreateBonoDialog] = useState(false);
 
   const form = useForm<SessionFormValues>({
     resolver: zodResolver(sessionSchema),
@@ -120,7 +122,7 @@ export function CreateSessionDialog({
 
   const watchPatientId = form.watch('patient_id');
   const watchBonoId = form.watch('bono_id');
-  const { data: patientBonos } = usePatientActiveBonos(watchPatientId || undefined);
+  const { data: patientBonos, refetch: refetchBonos } = usePatientActiveBonos(watchPatientId || undefined);
 
   // When bono is selected, set price to 0
   useEffect(() => {
@@ -216,6 +218,7 @@ export function CreateSessionDialog({
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[500px]">
         <DialogHeader>
@@ -252,8 +255,8 @@ export function CreateSessionDialog({
               )}
             />
 
-            {/* Bono selection - only show if patient has active bonos */}
-            {watchPatientId && patientBonos && patientBonos.length > 0 && (
+            {/* Bono selection - show when patient is selected */}
+            {watchPatientId && (
               <FormField
                 control={form.control}
                 name="bono_id"
@@ -263,26 +266,36 @@ export function CreateSessionDialog({
                       <Package className="h-4 w-4" />
                       Usar bono
                     </FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Seleccionar bono (opcional)" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="none">No usar bono</SelectItem>
-                        {patientBonos.map((bono) => (
-                          <SelectItem key={bono.id} value={bono.id}>
-                            <span className="flex items-center gap-2">
-                              {bono.name}
-                              <Badge variant="secondary" className="ml-2">
-                                {bono.total_sessions - bono.used_sessions} restantes
-                              </Badge>
-                            </span>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <div className="flex gap-2">
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger className="flex-1">
+                            <SelectValue placeholder="Seleccionar bono (opcional)" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="none">No usar bono</SelectItem>
+                          {patientBonos?.map((bono) => (
+                            <SelectItem key={bono.id} value={bono.id}>
+                              <span className="flex items-center gap-2">
+                                {bono.name}
+                                <Badge variant="secondary" className="ml-2">
+                                  {(bono.total_sessions || 0) - (bono.used_sessions || 0)} restantes
+                                </Badge>
+                              </span>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={() => setShowCreateBonoDialog(true)}
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </div>
                     {field.value && field.value !== 'none' && (
                       <p className="text-xs text-muted-foreground">
                         El precio se establecerá a 0€ al usar el bono
@@ -576,5 +589,17 @@ export function CreateSessionDialog({
         </Form>
       </DialogContent>
     </Dialog>
+
+    <CreateBonoDialog
+      open={showCreateBonoDialog}
+      onOpenChange={(open) => {
+        setShowCreateBonoDialog(open);
+        if (!open) {
+          refetchBonos();
+        }
+      }}
+      preselectedPatientId={watchPatientId}
+    />
+    </>
   );
 }
