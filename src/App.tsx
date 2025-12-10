@@ -16,6 +16,8 @@ import Bonos from "./pages/Bonos";
 import Invoices from "./pages/Invoices";
 import Payments from "./pages/Payments";
 import Notifications from "./pages/Notifications";
+import Settings from "./pages/Settings";
+import Audit from "./pages/Audit";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -90,12 +92,12 @@ const App = () => (
             } />
             <Route path="/configuracion" element={
               <ProtectedRoute>
-                <AppLayout><PlaceholderPage title="Configuración" /></AppLayout>
+                <AppLayout><Settings /></AppLayout>
               </ProtectedRoute>
             } />
             <Route path="/auditoria" element={
               <ProtectedRoute requiredRoles={['admin']}>
-                <AppLayout><PlaceholderPage title="Auditoría" /></AppLayout>
+                <AppLayout><Audit /></AppLayout>
               </ProtectedRoute>
             } />
             
