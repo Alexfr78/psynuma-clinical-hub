@@ -32,6 +32,7 @@ export interface PaymentWithRelations extends Payment {
 export interface PaymentInsert {
   patient_id: string;
   invoice_id?: string | null;
+  session_id?: string | null;
   amount: number;
   payment_date?: string;
   payment_method?: string;

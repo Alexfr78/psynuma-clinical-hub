@@ -837,6 +837,7 @@ export type Database = {
           payment_date: string
           payment_method: string | null
           reference: string | null
+          session_id: string | null
           updated_at: string
         }
         Insert: {
@@ -850,6 +851,7 @@ export type Database = {
           payment_date?: string
           payment_method?: string | null
           reference?: string | null
+          session_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -863,6 +865,7 @@ export type Database = {
           payment_date?: string
           payment_method?: string | null
           reference?: string | null
+          session_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -885,6 +888,13 @@ export type Database = {
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
             referencedColumns: ["id"]
           },
         ]
