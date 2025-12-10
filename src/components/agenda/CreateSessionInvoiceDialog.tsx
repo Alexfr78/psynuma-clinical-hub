@@ -48,8 +48,44 @@ interface InvoiceLineItem {
   description: string;
   unitPrice: number;
   quantity: number;
+  taxRate: number;
+  taxName: string;
+  retentionRate: number;
+  retentionName: string;
+  // Calculated fields
+  subtotal: number;
+  taxAmount: number;
+  retentionAmount: number;
   total: number;
   sessionId?: string;
+}
+
+// Tax type options (Spain)
+const TAX_OPTIONS = [
+  { value: 0, label: '0% - Exento', name: 'IVA Exento' },
+  { value: 4, label: '4% - Superreducido', name: 'IVA' },
+  { value: 10, label: '10% - Reducido', name: 'IVA' },
+  { value: 21, label: '21% - General', name: 'IVA' },
+];
+
+// Retention options (IRPF Spain)
+const RETENTION_OPTIONS = [
+  { value: 0, label: 'Sin retención' },
+  { value: 7, label: '7% IRPF' },
+  { value: 15, label: '15% IRPF' },
+];
+
+function calculateLineItem(
+  unitPrice: number,
+  quantity: number,
+  taxRate: number,
+  retentionRate: number
+): { subtotal: number; taxAmount: number; retentionAmount: number; total: number } {
+  const subtotal = unitPrice * quantity;
+  const taxAmount = subtotal * (taxRate / 100);
+  const retentionAmount = subtotal * (retentionRate / 100);
+  const total = subtotal + taxAmount - retentionAmount;
+  return { subtotal, taxAmount, retentionAmount, total };
 }
 
 export function CreateSessionInvoiceDialog({
@@ -77,31 +113,62 @@ export function CreateSessionInvoiceDialog({
   });
   const [savingPatient, setSavingPatient] = useState(false);
 
+  // Default tax and retention from center
+  const defaultTaxRate = center?.default_tax_rate ?? 0;
+  const defaultTaxName = defaultTaxRate === 0 ? 'IVA Exento' : (center?.default_tax_name ?? 'IVA');
+  const defaultRetentionRate = center?.retention_rate ?? 0;
+  const defaultRetentionName = center?.retention_name ?? 'IRPF';
+
   // Invoice items state
   const [items, setItems] = useState<InvoiceLineItem[]>([]);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [addingItem, setAddingItem] = useState(false);
-  const [newItem, setNewItem] = useState({ description: '', unitPrice: 0, quantity: 1 });
-  const [editItemData, setEditItemData] = useState({ description: '', unitPrice: 0, quantity: 1 });
+  const [newItem, setNewItem] = useState({
+    description: '',
+    unitPrice: 0,
+    quantity: 1,
+    taxRate: defaultTaxRate,
+    retentionRate: defaultRetentionRate,
+  });
+  const [editItemData, setEditItemData] = useState({
+    description: '',
+    unitPrice: 0,
+    quantity: 1,
+    taxRate: defaultTaxRate,
+    retentionRate: defaultRetentionRate,
+  });
 
   // Initialize items with session data
   useEffect(() => {
     if (session && open) {
       const sessionDateFormatted = format(new Date(session.session_date), "d 'de' MMMM yyyy", { locale: es });
+      const price = Number(session.price) || 0;
+      const calculated = calculateLineItem(price, 1, defaultTaxRate, defaultRetentionRate);
+      
       setItems([{
         id: crypto.randomUUID(),
         description: `Sesión de psicoterapia - ${sessionDateFormatted}`,
-        unitPrice: Number(session.price) || 0,
+        unitPrice: price,
         quantity: 1,
-        total: Number(session.price) || 0,
+        taxRate: defaultTaxRate,
+        taxName: defaultTaxName,
+        retentionRate: defaultRetentionRate,
+        retentionName: defaultRetentionName,
+        ...calculated,
         sessionId: session.id,
       }]);
       // Reset other states
       setEditingItemId(null);
       setAddingItem(false);
-      setNewItem({ description: '', unitPrice: 0, quantity: 1 });
+      setNewItem({
+        description: '',
+        unitPrice: 0,
+        quantity: 1,
+        taxRate: defaultTaxRate,
+        retentionRate: defaultRetentionRate,
+      });
     }
-  }, [session, open]);
+  }, [session, open, defaultTaxRate, defaultTaxName, defaultRetentionRate, defaultRetentionName]);
 
   // Filter series by invoice type
   const availableSeries = ordinarySeries.filter(
@@ -140,16 +207,26 @@ export function CreateSessionInvoiceDialog({
   
   const canCreateInvoice = (invoiceType === 'simplified' || missingFields.length === 0) && items.length > 0;
 
-  // Calculate amounts from items
-  const taxRate = center?.default_tax_rate ?? 0;
-  const taxName = center?.default_tax_name ?? 'IVA';
-  
-  const subtotal = useMemo(() => 
-    items.reduce((sum, item) => sum + item.total, 0), 
-    [items]
-  );
-  const taxAmount = subtotal * (taxRate / 100);
-  const total = subtotal + taxAmount;
+  // Calculate invoice totals from items
+  const invoiceTotals = useMemo(() => {
+    const subtotal = items.reduce((sum, item) => sum + item.subtotal, 0);
+    const taxAmount = items.reduce((sum, item) => sum + item.taxAmount, 0);
+    const retentionAmount = items.reduce((sum, item) => sum + item.retentionAmount, 0);
+    const total = subtotal + taxAmount - retentionAmount;
+    return { subtotal, taxAmount, retentionAmount, total };
+  }, [items]);
+
+  // Get tax name for a rate
+  const getTaxLabel = (rate: number) => {
+    const option = TAX_OPTIONS.find(o => o.value === rate);
+    return option?.label || `${rate}%`;
+  };
+
+  // Get retention label
+  const getRetentionLabel = (rate: number) => {
+    if (rate === 0) return 'Sin retención';
+    return `${rate}% IRPF`;
+  };
 
   // Item management functions
   const handleAddItem = () => {
@@ -157,16 +234,33 @@ export function CreateSessionInvoiceDialog({
       toast.error('El concepto es obligatorio');
       return;
     }
-    const itemTotal = newItem.unitPrice * newItem.quantity;
+    const calculated = calculateLineItem(
+      newItem.unitPrice,
+      newItem.quantity,
+      newItem.taxRate,
+      newItem.retentionRate
+    );
+    const taxOption = TAX_OPTIONS.find(o => o.value === newItem.taxRate);
+    
     setItems([...items, {
       id: crypto.randomUUID(),
       description: newItem.description,
       unitPrice: newItem.unitPrice,
       quantity: newItem.quantity,
-      total: itemTotal,
+      taxRate: newItem.taxRate,
+      taxName: taxOption?.name || 'IVA',
+      retentionRate: newItem.retentionRate,
+      retentionName: 'IRPF',
+      ...calculated,
     }]);
     setAddingItem(false);
-    setNewItem({ description: '', unitPrice: 0, quantity: 1 });
+    setNewItem({
+      description: '',
+      unitPrice: 0,
+      quantity: 1,
+      taxRate: defaultTaxRate,
+      retentionRate: defaultRetentionRate,
+    });
   };
 
   const handleStartEditItem = (item: InvoiceLineItem) => {
@@ -175,6 +269,8 @@ export function CreateSessionInvoiceDialog({
       description: item.description,
       unitPrice: item.unitPrice,
       quantity: item.quantity,
+      taxRate: item.taxRate,
+      retentionRate: item.retentionRate,
     });
   };
 
@@ -183,6 +279,14 @@ export function CreateSessionInvoiceDialog({
       toast.error('El concepto es obligatorio');
       return;
     }
+    const calculated = calculateLineItem(
+      editItemData.unitPrice,
+      editItemData.quantity,
+      editItemData.taxRate,
+      editItemData.retentionRate
+    );
+    const taxOption = TAX_OPTIONS.find(o => o.value === editItemData.taxRate);
+    
     setItems(items.map(item => {
       if (item.id === itemId) {
         return {
@@ -190,7 +294,11 @@ export function CreateSessionInvoiceDialog({
           description: editItemData.description,
           unitPrice: editItemData.unitPrice,
           quantity: editItemData.quantity,
-          total: editItemData.unitPrice * editItemData.quantity,
+          taxRate: editItemData.taxRate,
+          taxName: taxOption?.name || 'IVA',
+          retentionRate: editItemData.retentionRate,
+          retentionName: 'IRPF',
+          ...calculated,
         };
       }
       return item;
@@ -231,16 +339,24 @@ export function CreateSessionInvoiceDialog({
       await createInvoice.mutateAsync({
         invoice: {
           patient_id: patientData.id,
-          subtotal,
-          tax_rate: taxRate,
-          tax_amount: taxAmount,
-          total,
+          subtotal: invoiceTotals.subtotal,
+          tax_rate: 0, // Global rate not used anymore, per-item
+          tax_amount: invoiceTotals.taxAmount,
+          retention_rate: 0,
+          retention_amount: invoiceTotals.retentionAmount,
+          total: invoiceTotals.total,
           status: 'draft',
         },
         items: items.map(item => ({
           description: item.description,
           quantity: item.quantity,
           unit_price: item.unitPrice,
+          tax_rate: item.taxRate,
+          tax_name: item.taxName,
+          tax_amount: item.taxAmount,
+          retention_rate: item.retentionRate,
+          retention_name: item.retentionName,
+          retention_amount: item.retentionAmount,
           total: item.total,
           session_id: item.sessionId || null,
         })),
@@ -260,7 +376,7 @@ export function CreateSessionInvoiceDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
@@ -464,10 +580,12 @@ export function CreateSessionInvoiceDialog({
           
           {/* Table Header */}
           <div className="grid grid-cols-12 gap-2 text-xs text-muted-foreground px-2 font-medium">
-            <div className="col-span-5">Concepto</div>
-            <div className="col-span-2 text-right">Precio</div>
-            <div className="col-span-2 text-center">Cant.</div>
-            <div className="col-span-2 text-right">Total</div>
+            <div className="col-span-4">Concepto</div>
+            <div className="col-span-1 text-right">Precio</div>
+            <div className="col-span-1 text-center">Cant.</div>
+            <div className="col-span-2 text-center">IVA</div>
+            <div className="col-span-2 text-center">Retención</div>
+            <div className="col-span-1 text-right">Total</div>
             <div className="col-span-1"></div>
           </div>
 
@@ -475,9 +593,10 @@ export function CreateSessionInvoiceDialog({
           <div className="space-y-2">
             {items.map(item => (
               editingItemId === item.id ? (
-                // Edit Mode
-                <div key={item.id} className="grid grid-cols-12 gap-2 items-center p-2 rounded-lg border bg-muted/30">
-                  <div className="col-span-5">
+                // Edit Mode - Expanded
+                <div key={item.id} className="p-3 rounded-lg border bg-muted/30 space-y-3">
+                  <div className="space-y-2">
+                    <Label className="text-xs">Concepto</Label>
                     <Input
                       value={editItemData.description}
                       onChange={(e) => setEditItemData(prev => ({ ...prev, description: e.target.value }))}
@@ -485,60 +604,116 @@ export function CreateSessionInvoiceDialog({
                       className="h-8 text-sm"
                     />
                   </div>
-                  <div className="col-span-2">
-                    <Input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={editItemData.unitPrice}
-                      onChange={(e) => setEditItemData(prev => ({ ...prev, unitPrice: parseFloat(e.target.value) || 0 }))}
-                      className="h-8 text-sm text-right"
-                    />
+                  
+                  <div className="grid grid-cols-4 gap-3">
+                    <div className="space-y-2">
+                      <Label className="text-xs">Precio</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={editItemData.unitPrice}
+                        onChange={(e) => setEditItemData(prev => ({ ...prev, unitPrice: parseFloat(e.target.value) || 0 }))}
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs">Cantidad</Label>
+                      <Input
+                        type="number"
+                        min="1"
+                        value={editItemData.quantity}
+                        onChange={(e) => setEditItemData(prev => ({ ...prev, quantity: parseInt(e.target.value) || 1 }))}
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs">Tipo IVA</Label>
+                      <Select
+                        value={String(editItemData.taxRate)}
+                        onValueChange={(v) => setEditItemData(prev => ({ ...prev, taxRate: Number(v) }))}
+                      >
+                        <SelectTrigger className="h-8 text-sm">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {TAX_OPTIONS.map((opt) => (
+                            <SelectItem key={opt.value} value={String(opt.value)}>
+                              {opt.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs">Retención</Label>
+                      <Select
+                        value={String(editItemData.retentionRate)}
+                        onValueChange={(v) => setEditItemData(prev => ({ ...prev, retentionRate: Number(v) }))}
+                      >
+                        <SelectTrigger className="h-8 text-sm">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {RETENTION_OPTIONS.map((opt) => (
+                            <SelectItem key={opt.value} value={String(opt.value)}>
+                              {opt.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
-                  <div className="col-span-2">
-                    <Input
-                      type="number"
-                      min="1"
-                      value={editItemData.quantity}
-                      onChange={(e) => setEditItemData(prev => ({ ...prev, quantity: parseInt(e.target.value) || 1 }))}
-                      className="h-8 text-sm text-center"
-                    />
-                  </div>
-                  <div className="col-span-2 text-right text-sm font-medium">
-                    {(editItemData.unitPrice * editItemData.quantity).toFixed(2)}€
-                  </div>
-                  <div className="col-span-1 flex justify-end gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 text-primary"
-                      onClick={() => handleUpdateItem(item.id)}
-                    >
-                      <Check className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7"
-                      onClick={() => setEditingItemId(null)}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
+
+                  {/* Line totals preview */}
+                  <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t">
+                    <div className="flex gap-4">
+                      <span>Subtotal: {(editItemData.unitPrice * editItemData.quantity).toFixed(2)}€</span>
+                      <span>IVA: {((editItemData.unitPrice * editItemData.quantity) * (editItemData.taxRate / 100)).toFixed(2)}€</span>
+                      <span>Ret: -{((editItemData.unitPrice * editItemData.quantity) * (editItemData.retentionRate / 100)).toFixed(2)}€</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-foreground">
+                        Total: {calculateLineItem(editItemData.unitPrice, editItemData.quantity, editItemData.taxRate, editItemData.retentionRate).total.toFixed(2)}€
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-primary"
+                        onClick={() => handleUpdateItem(item.id)}
+                      >
+                        <Check className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={() => setEditingItemId(null)}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 </div>
               ) : (
                 // View Mode
                 <div key={item.id} className="grid grid-cols-12 gap-2 items-center p-2 rounded-lg border bg-muted/30 group">
-                  <div className="col-span-5 text-sm truncate" title={item.description}>
+                  <div className="col-span-4 text-sm truncate" title={item.description}>
                     {item.description}
                   </div>
-                  <div className="col-span-2 text-sm text-right">
+                  <div className="col-span-1 text-sm text-right">
                     {item.unitPrice.toFixed(2)}€
                   </div>
-                  <div className="col-span-2 text-sm text-center">
+                  <div className="col-span-1 text-sm text-center">
                     {item.quantity}
                   </div>
-                  <div className="col-span-2 text-sm text-right font-medium">
+                  <div className="col-span-2 text-xs text-center">
+                    {getTaxLabel(item.taxRate)}
+                  </div>
+                  <div className="col-span-2 text-xs text-center">
+                    {getRetentionLabel(item.retentionRate)}
+                  </div>
+                  <div className="col-span-1 text-sm text-right font-medium">
                     {item.total.toFixed(2)}€
                   </div>
                   <div className="col-span-1 flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -566,8 +741,9 @@ export function CreateSessionInvoiceDialog({
 
             {/* Add New Item Form */}
             {addingItem && (
-              <div className="grid grid-cols-12 gap-2 items-center p-2 rounded-lg border border-dashed bg-muted/20">
-                <div className="col-span-5">
+              <div className="p-3 rounded-lg border border-dashed bg-muted/20 space-y-3">
+                <div className="space-y-2">
+                  <Label className="text-xs">Concepto</Label>
                   <Input
                     value={newItem.description}
                     onChange={(e) => setNewItem(prev => ({ ...prev, description: e.target.value }))}
@@ -576,49 +752,105 @@ export function CreateSessionInvoiceDialog({
                     autoFocus
                   />
                 </div>
-                <div className="col-span-2">
-                  <Input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={newItem.unitPrice}
-                    onChange={(e) => setNewItem(prev => ({ ...prev, unitPrice: parseFloat(e.target.value) || 0 }))}
-                    placeholder="0.00"
-                    className="h-8 text-sm text-right"
-                  />
+                
+                <div className="grid grid-cols-4 gap-3">
+                  <div className="space-y-2">
+                    <Label className="text-xs">Precio</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={newItem.unitPrice}
+                      onChange={(e) => setNewItem(prev => ({ ...prev, unitPrice: parseFloat(e.target.value) || 0 }))}
+                      placeholder="0.00"
+                      className="h-8 text-sm"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs">Cantidad</Label>
+                    <Input
+                      type="number"
+                      min="1"
+                      value={newItem.quantity}
+                      onChange={(e) => setNewItem(prev => ({ ...prev, quantity: parseInt(e.target.value) || 1 }))}
+                      className="h-8 text-sm"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs">Tipo IVA</Label>
+                    <Select
+                      value={String(newItem.taxRate)}
+                      onValueChange={(v) => setNewItem(prev => ({ ...prev, taxRate: Number(v) }))}
+                    >
+                      <SelectTrigger className="h-8 text-sm">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {TAX_OPTIONS.map((opt) => (
+                          <SelectItem key={opt.value} value={String(opt.value)}>
+                            {opt.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs">Retención</Label>
+                    <Select
+                      value={String(newItem.retentionRate)}
+                      onValueChange={(v) => setNewItem(prev => ({ ...prev, retentionRate: Number(v) }))}
+                    >
+                      <SelectTrigger className="h-8 text-sm">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {RETENTION_OPTIONS.map((opt) => (
+                          <SelectItem key={opt.value} value={String(opt.value)}>
+                            {opt.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
-                <div className="col-span-2">
-                  <Input
-                    type="number"
-                    min="1"
-                    value={newItem.quantity}
-                    onChange={(e) => setNewItem(prev => ({ ...prev, quantity: parseInt(e.target.value) || 1 }))}
-                    className="h-8 text-sm text-center"
-                  />
-                </div>
-                <div className="col-span-2 text-right text-sm font-medium">
-                  {(newItem.unitPrice * newItem.quantity).toFixed(2)}€
-                </div>
-                <div className="col-span-1 flex justify-end gap-1">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 text-primary"
-                    onClick={handleAddItem}
-                  >
-                    <Check className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7"
-                    onClick={() => {
-                      setAddingItem(false);
-                      setNewItem({ description: '', unitPrice: 0, quantity: 1 });
-                    }}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
+
+                {/* Line totals preview */}
+                <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t">
+                  <div className="flex gap-4">
+                    <span>Subtotal: {(newItem.unitPrice * newItem.quantity).toFixed(2)}€</span>
+                    <span>IVA: {((newItem.unitPrice * newItem.quantity) * (newItem.taxRate / 100)).toFixed(2)}€</span>
+                    <span>Ret: -{((newItem.unitPrice * newItem.quantity) * (newItem.retentionRate / 100)).toFixed(2)}€</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-foreground">
+                      Total: {calculateLineItem(newItem.unitPrice, newItem.quantity, newItem.taxRate, newItem.retentionRate).total.toFixed(2)}€
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-primary"
+                      onClick={handleAddItem}
+                    >
+                      <Check className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={() => {
+                        setAddingItem(false);
+                        setNewItem({
+                          description: '',
+                          unitPrice: 0,
+                          quantity: 1,
+                          taxRate: defaultTaxRate,
+                          retentionRate: defaultRetentionRate,
+                        });
+                      }}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               </div>
             )}
@@ -641,16 +873,22 @@ export function CreateSessionInvoiceDialog({
           <div className="space-y-1 pt-4 border-t">
             <div className="flex justify-between text-sm">
               <span>Base imponible</span>
-              <span>{subtotal.toFixed(2)}€</span>
+              <span>{invoiceTotals.subtotal.toFixed(2)}€</span>
             </div>
             <div className="flex justify-between text-sm text-muted-foreground">
-              <span>{taxName} ({taxRate}%{taxRate === 0 ? ' - Exento' : ''})</span>
-              <span>{taxAmount.toFixed(2)}€</span>
+              <span>IVA</span>
+              <span>{invoiceTotals.taxAmount.toFixed(2)}€</span>
             </div>
+            {invoiceTotals.retentionAmount > 0 && (
+              <div className="flex justify-between text-sm text-muted-foreground">
+                <span>Retención IRPF</span>
+                <span>-{invoiceTotals.retentionAmount.toFixed(2)}€</span>
+              </div>
+            )}
             <Separator className="my-2" />
             <div className="flex justify-between font-semibold">
               <span>Total</span>
-              <span>{total.toFixed(2)}€</span>
+              <span>{invoiceTotals.total.toFixed(2)}€</span>
             </div>
           </div>
         </div>
