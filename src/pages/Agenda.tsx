@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
 import { Loader2 } from 'lucide-react';
-import { useSessions, SessionWithRelations } from '@/hooks/useSessions';
+import { useSessions, useUpdateSession, SessionWithRelations } from '@/hooks/useSessions';
 import { CalendarHeader, CalendarView } from '@/components/agenda/CalendarHeader';
 import { WeekView } from '@/components/agenda/WeekView';
 import { DayView } from '@/components/agenda/DayView';
@@ -9,6 +9,7 @@ import { MonthView } from '@/components/agenda/MonthView';
 import { ListView } from '@/components/agenda/ListView';
 import { QuickCreateSessionDialog } from '@/components/agenda/QuickCreateSessionDialog';
 import { SessionDetailDrawer } from '@/components/agenda/SessionDetailDrawer';
+import { useToast } from '@/hooks/use-toast';
 
 export default function Agenda() {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -19,6 +20,9 @@ export default function Agenda() {
   const [initialDate, setInitialDate] = useState<Date | undefined>();
   const [initialStartTime, setInitialStartTime] = useState<string | undefined>();
   const [initialEndTime, setInitialEndTime] = useState<string | undefined>();
+
+  const { toast } = useToast();
+  const updateSession = useUpdateSession();
 
   // Calculate date range based on view
   const dateRange = useMemo(() => {
@@ -84,6 +88,27 @@ export default function Agenda() {
     setCreateDialogOpen(true);
   };
 
+  const handleSessionMove = async (sessionId: string, newDate: string, newStartTime: string, newEndTime: string) => {
+    try {
+      await updateSession.mutateAsync({
+        id: sessionId,
+        session_date: newDate,
+        start_time: newStartTime,
+        end_time: newEndTime,
+      });
+      toast({
+        title: 'Sesión movida',
+        description: `Movida a ${newDate} ${newStartTime}`,
+      });
+    } catch {
+      toast({
+        title: 'Error',
+        description: 'No se pudo mover la sesión',
+        variant: 'destructive',
+      });
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -118,6 +143,7 @@ export default function Agenda() {
               sessions={sessions || []}
               onSessionClick={handleSessionClick}
               onSlotClick={handleSlotClick}
+              onSessionMove={handleSessionMove}
             />
           )}
           {view === 'day' && (
@@ -126,6 +152,7 @@ export default function Agenda() {
               sessions={sessions || []}
               onSessionClick={handleSessionClick}
               onSlotClick={handleSlotClick}
+              onSessionMove={handleSessionMove}
             />
           )}
           {view === 'month' && (
