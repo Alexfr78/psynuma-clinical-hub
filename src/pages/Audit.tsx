@@ -32,7 +32,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuditLog, AuditLogEntry } from '@/hooks/useAuditLog';
 
 const TABLE_NAMES = [
-  { value: '', label: 'Todas las tablas' },
+  { value: 'all', label: 'Todas las tablas' },
   { value: 'patients', label: 'Pacientes' },
   { value: 'sessions', label: 'Sesiones' },
   { value: 'invoices', label: 'Facturas' },
@@ -45,7 +45,7 @@ const TABLE_NAMES = [
 ];
 
 const ACTIONS = [
-  { value: '', label: 'Todas las acciones' },
+  { value: 'all', label: 'Todas las acciones' },
   { value: 'INSERT', label: 'Creación' },
   { value: 'UPDATE', label: 'Actualización' },
   { value: 'DELETE', label: 'Eliminación' },
@@ -83,22 +83,22 @@ const getTableLabel = (tableName: string) => {
 };
 
 export default function Audit() {
-  const [tableName, setTableName] = useState('');
-  const [action, setAction] = useState('');
+  const [tableName, setTableName] = useState('all');
+  const [action, setAction] = useState('all');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [selectedEntry, setSelectedEntry] = useState<AuditLogEntry | null>(null);
 
   const { logs, isLoading, refetch } = useAuditLog({
-    tableName: tableName || undefined,
-    action: action || undefined,
+    tableName: tableName !== 'all' ? tableName : undefined,
+    action: action !== 'all' ? action : undefined,
     startDate: startDate || undefined,
     endDate: endDate ? `${endDate}T23:59:59` : undefined,
   });
 
   const clearFilters = () => {
-    setTableName('');
-    setAction('');
+    setTableName('all');
+    setAction('all');
     setStartDate('');
     setEndDate('');
   };
