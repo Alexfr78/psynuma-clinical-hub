@@ -49,7 +49,7 @@ interface CreateBonoDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   preselectedPatientId?: string;
-  onSuccess?: (bonoId: string) => void;
+  onSuccess?: (bonoId: string, totalPrice: number) => void;
 }
 
 export function CreateBonoDialog({ open, onOpenChange, preselectedPatientId, onSuccess }: CreateBonoDialogProps) {
@@ -118,10 +118,11 @@ export function CreateBonoDialog({ open, onOpenChange, preselectedPatientId, onS
       total_price: values.total_price,
       expires_at: values.expires_at?.toISOString() || null,
     });
+    const totalPrice = values.total_price;
     form.reset();
     onOpenChange(false);
     if (onSuccess && result?.id) {
-      onSuccess(result.id);
+      onSuccess(result.id, totalPrice);
     }
   };
 
