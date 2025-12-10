@@ -612,16 +612,35 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
                   <FileText className="h-4 w-4 mr-1" />
                   Crear factura
                 </Button>
-                <Button 
-                  size="sm" 
-                  variant="outline"
-                  disabled={localBonoId !== null || paymentStatus?.isPaid || localPrice === 0}
-                  onClick={() => setShowPaymentDialog(true)}
-                >
-                  <CreditCard className="h-4 w-4 mr-1" />
-                  {paymentStatus?.isPaid ? 'Sesión cobrada' : 'Cobrar sesión'}
-                </Button>
+                {!paymentStatus?.isPaid && (
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    disabled={localBonoId !== null || localPrice === 0}
+                    onClick={() => setShowPaymentDialog(true)}
+                  >
+                    <CreditCard className="h-4 w-4 mr-1" />
+                    Cobrar sesión
+                  </Button>
+                )}
               </div>
+              
+              {/* Paid Session Info */}
+              {paymentStatus?.isPaid && !localBonoId && (
+                <p className="text-xs text-muted-foreground">
+                  El pago de esta sesión se puede editar o eliminar desde{' '}
+                  <Button
+                    variant="link"
+                    className="h-auto p-0 text-xs"
+                    onClick={() => {
+                      navigate('/cobros');
+                      onOpenChange(false);
+                    }}
+                  >
+                    Cobros →
+                  </Button>
+                </p>
+              )}
 
               {/* Payment Link */}
               <div className="flex items-center gap-2 text-sm">
