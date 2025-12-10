@@ -452,7 +452,13 @@ export type Database = {
           id: string
           invoice_id: string
           quantity: number | null
+          retention_amount: number | null
+          retention_name: string | null
+          retention_rate: number | null
           session_id: string | null
+          tax_amount: number | null
+          tax_name: string | null
+          tax_rate: number | null
           total: number
           unit_price: number
         }
@@ -462,7 +468,13 @@ export type Database = {
           id?: string
           invoice_id: string
           quantity?: number | null
+          retention_amount?: number | null
+          retention_name?: string | null
+          retention_rate?: number | null
           session_id?: string | null
+          tax_amount?: number | null
+          tax_name?: string | null
+          tax_rate?: number | null
           total: number
           unit_price: number
         }
@@ -472,7 +484,13 @@ export type Database = {
           id?: string
           invoice_id?: string
           quantity?: number | null
+          retention_amount?: number | null
+          retention_name?: string | null
+          retention_rate?: number | null
           session_id?: string | null
+          tax_amount?: number | null
+          tax_name?: string | null
+          tax_rate?: number | null
           total?: number
           unit_price?: number
         }
@@ -554,6 +572,8 @@ export type Database = {
           issue_date: string
           notes: string | null
           patient_id: string
+          retention_amount: number | null
+          retention_rate: number | null
           status: Database["public"]["Enums"]["invoice_status"] | null
           subtotal: number
           tax_amount: number | null
@@ -573,6 +593,8 @@ export type Database = {
           issue_date?: string
           notes?: string | null
           patient_id: string
+          retention_amount?: number | null
+          retention_rate?: number | null
           status?: Database["public"]["Enums"]["invoice_status"] | null
           subtotal?: number
           tax_amount?: number | null
@@ -592,6 +614,8 @@ export type Database = {
           issue_date?: string
           notes?: string | null
           patient_id?: string
+          retention_amount?: number | null
+          retention_rate?: number | null
           status?: Database["public"]["Enums"]["invoice_status"] | null
           subtotal?: number
           tax_amount?: number | null

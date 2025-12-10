@@ -42,6 +42,12 @@ export interface InvoiceItem {
   description: string;
   quantity: number;
   unit_price: number;
+  tax_rate: number;
+  tax_name: string;
+  tax_amount: number;
+  retention_rate: number;
+  retention_name: string;
+  retention_amount: number;
   total: number;
   created_at: string;
 }
@@ -53,6 +59,8 @@ export interface InvoiceInsert {
   subtotal: number;
   tax_rate?: number;
   tax_amount?: number;
+  retention_rate?: number;
+  retention_amount?: number;
   total: number;
   status?: 'draft' | 'issued' | 'paid' | 'cancelled';
   is_recapitulative?: boolean;
@@ -65,6 +73,12 @@ export interface InvoiceItemInsert {
   description: string;
   quantity?: number;
   unit_price: number;
+  tax_rate?: number;
+  tax_name?: string;
+  tax_amount?: number;
+  retention_rate?: number;
+  retention_name?: string;
+  retention_amount?: number;
   total: number;
 }
 
