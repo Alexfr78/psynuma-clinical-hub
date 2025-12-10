@@ -4,20 +4,36 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { useDebts, useDebtStats } from '@/hooks/useDebts';
-import { usePayments, usePaymentStats } from '@/hooks/usePayments';
+import { usePayments, usePaymentStats, useDeletePayment, PaymentWithRelations } from '@/hooks/usePayments';
 import { DebtCard } from '@/components/payments/DebtCard';
 import { PaymentHistoryTable } from '@/components/payments/PaymentHistoryTable';
 import { RecordPaymentDialog } from '@/components/payments/RecordPaymentDialog';
+import { EditPaymentDialog } from '@/components/payments/EditPaymentDialog';
 
 export default function Payments() {
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [selectedDebt, setSelectedDebt] = useState<{ patientId: string; amount: number } | null>(null);
+  const [editPaymentOpen, setEditPaymentOpen] = useState(false);
+  const [selectedPayment, setSelectedPayment] = useState<PaymentWithRelations | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [paymentToDelete, setPaymentToDelete] = useState<PaymentWithRelations | null>(null);
 
   const { data: debts, isLoading: debtsLoading } = useDebts();
   const { data: payments, isLoading: paymentsLoading } = usePayments();
   const { data: debtStats } = useDebtStats();
   const { data: paymentStats } = usePaymentStats();
+  const deletePayment = useDeletePayment();
 
   const handleRecordPayment = (patientId: string, amount: number) => {
     setSelectedDebt({ patientId, amount });
@@ -113,7 +129,17 @@ export default function Payments() {
           {paymentsLoading ? (
             <Skeleton className="h-64" />
           ) : (
-            <PaymentHistoryTable payments={payments || []} />
+            <PaymentHistoryTable 
+              payments={payments || []} 
+              onEdit={(payment) => {
+                setSelectedPayment(payment);
+                setEditPaymentOpen(true);
+              }}
+              onDelete={(payment) => {
+                setPaymentToDelete(payment);
+                setDeleteDialogOpen(true);
+              }}
+            />
           )}
         </TabsContent>
       </Tabs>
@@ -124,6 +150,43 @@ export default function Payments() {
         preselectedPatientId={selectedDebt?.patientId}
         preselectedAmount={selectedDebt?.amount}
       />
+
+      <EditPaymentDialog
+        open={editPaymentOpen}
+        onOpenChange={setEditPaymentOpen}
+        payment={selectedPayment}
+      />
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar pago?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {paymentToDelete && (
+                <>
+                  Se eliminará el pago de <strong>{Number(paymentToDelete.amount).toFixed(2)}€</strong> de{' '}
+                  <strong>{paymentToDelete.patients.first_name} {paymentToDelete.patients.last_name}</strong>.
+                  {paymentToDelete.session_id && ' La sesión volverá a estado "Pendiente de pago".'}
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={async () => {
+                if (paymentToDelete) {
+                  await deletePayment.mutateAsync(paymentToDelete);
+                  setPaymentToDelete(null);
+                }
+              }}
+            >
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

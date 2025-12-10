@@ -18,6 +18,7 @@ export interface Payment {
 }
 
 export interface PaymentWithRelations extends Payment {
+  session_id: string | null;
   patients: {
     id: string;
     first_name: string;
@@ -26,6 +27,11 @@ export interface PaymentWithRelations extends Payment {
   invoices: {
     id: string;
     invoice_number: string;
+  } | null;
+  sessions: {
+    id: string;
+    session_date: string;
+    start_time: string;
   } | null;
 }
 
@@ -51,7 +57,8 @@ export function usePayments(filters?: { patientId?: string; startDate?: string; 
         .select(`
           *,
           patients (id, first_name, last_name),
-          invoices (id, invoice_number)
+          invoices (id, invoice_number),
+          sessions (id, session_date, start_time)
         `)
         .order('payment_date', { ascending: false });
 
@@ -122,6 +129,101 @@ export function useCreatePayment() {
     },
     onError: (error) => {
       toast.error('Error al registrar el pago: ' + error.message);
+    },
+  });
+}
+
+export interface PaymentUpdate {
+  amount?: number;
+  payment_method?: string;
+  payment_date?: string;
+  reference?: string | null;
+  notes?: string | null;
+}
+
+export function useUpdatePayment() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, ...updates }: PaymentUpdate & { id: string }) => {
+      const { data, error } = await supabase
+        .from('payments')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['payments'] });
+      queryClient.invalidateQueries({ queryKey: ['payment-stats'] });
+      toast.success('Pago actualizado correctamente');
+    },
+    onError: (error) => {
+      toast.error('Error al actualizar el pago: ' + error.message);
+    },
+  });
+}
+
+export function useDeletePayment() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (payment: PaymentWithRelations) => {
+      // If payment has session_id, reset the debt to pending
+      if (payment.session_id) {
+        const { data: debt } = await supabase
+          .from('debts')
+          .select('id')
+          .eq('session_id', payment.session_id)
+          .maybeSingle();
+
+        if (debt) {
+          await supabase
+            .from('debts')
+            .update({ paid_amount: 0, status: 'pending' })
+            .eq('id', debt.id);
+        }
+      }
+
+      // If payment has invoice_id, decrement paid_amount
+      if (payment.invoice_id) {
+        const { data: debt } = await supabase
+          .from('debts')
+          .select('id, paid_amount, amount')
+          .eq('invoice_id', payment.invoice_id)
+          .maybeSingle();
+
+        if (debt) {
+          const newPaidAmount = Math.max(0, Number(debt.paid_amount) - payment.amount);
+          const newStatus = newPaidAmount >= Number(debt.amount) ? 'paid' : newPaidAmount > 0 ? 'partial' : 'pending';
+          
+          await supabase
+            .from('debts')
+            .update({ paid_amount: newPaidAmount, status: newStatus })
+            .eq('id', debt.id);
+        }
+      }
+
+      // Delete the payment
+      const { error } = await supabase
+        .from('payments')
+        .delete()
+        .eq('id', payment.id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['payments'] });
+      queryClient.invalidateQueries({ queryKey: ['payment-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['debts'] });
+      queryClient.invalidateQueries({ queryKey: ['session-payment-status'] });
+      toast.success('Pago eliminado correctamente');
+    },
+    onError: (error) => {
+      toast.error('Error al eliminar el pago: ' + error.message);
     },
   });
 }
