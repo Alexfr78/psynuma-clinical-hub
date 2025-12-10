@@ -27,6 +27,7 @@ import {
   MapPin,
   Ban,
   Trash2,
+  CheckCircle2,
 } from 'lucide-react';
 import {
   Sheet,
@@ -70,6 +71,8 @@ import {
 import { useLocations } from '@/hooks/useLocations';
 import { usePatientActiveBonos, useDeductBonoSession, useUpdateBono } from '@/hooks/useBonos';
 import { CreateBonoDialog } from '@/components/bonos/CreateBonoDialog';
+import { useSessionPaymentStatus } from '@/hooks/useSessionPayment';
+import { CollectSessionPaymentDialog } from './CollectSessionPaymentDialog';
 
 interface SessionDetailDrawerProps {
   session: SessionWithRelations | null;
@@ -126,12 +129,14 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
   const [notesValue, setNotesValue] = useState('');
   const [notesOpen, setNotesOpen] = useState(false);
   const [showCreateBonoDialog, setShowCreateBonoDialog] = useState(false);
+  const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   
   // Local state for immediate UI update
   const [localBonoId, setLocalBonoId] = useState<string | null>(null);
   const [localPrice, setLocalPrice] = useState<number>(0);
 
   const { data: patientBonos, refetch: refetchBonos } = usePatientActiveBonos(session?.patient_id);
+  const { data: paymentStatus, refetch: refetchPaymentStatus } = useSessionPaymentStatus(session?.id);
 
   // Sync local state with session prop
   useEffect(() => {
@@ -566,9 +571,26 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
                 ) : (
                   <div className="flex items-center gap-2">
                     <span className="font-semibold">{localPrice.toFixed(2)}€</span>
-                    <Badge variant="outline" className="text-amber-600 border-amber-300">
-                      Pendiente de pago
-                    </Badge>
+                    {/* Payment Status Badge */}
+                    {localBonoId ? (
+                      <Badge variant="secondary" className="bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
+                        <Package className="h-3 w-3 mr-1" />
+                        Cubierto por bono
+                      </Badge>
+                    ) : paymentStatus?.isPaid ? (
+                      <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                        <CheckCircle2 className="h-3 w-3 mr-1" />
+                        Pagado
+                      </Badge>
+                    ) : localPrice === 0 ? (
+                      <Badge variant="outline" className="text-muted-foreground">
+                        Sin cargo
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-amber-600 border-amber-300">
+                        Pendiente de pago
+                      </Badge>
+                    )}
                     <Button
                       variant="ghost"
                       size="icon"
@@ -590,9 +612,14 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
                   <FileText className="h-4 w-4 mr-1" />
                   Crear factura
                 </Button>
-                <Button size="sm" variant="outline">
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  disabled={localBonoId !== null || paymentStatus?.isPaid || localPrice === 0}
+                  onClick={() => setShowPaymentDialog(true)}
+                >
                   <CreditCard className="h-4 w-4 mr-1" />
-                  Cobrar sesión
+                  {paymentStatus?.isPaid ? 'Sesión cobrada' : 'Cobrar sesión'}
                 </Button>
               </div>
 
@@ -803,6 +830,18 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
       preselectedPatientId={session.patient_id}
       onSuccess={handleNewBonoCreated}
     />
+
+    {session.patient && (
+      <CollectSessionPaymentDialog
+        open={showPaymentDialog}
+        onOpenChange={setShowPaymentDialog}
+        sessionId={session.id}
+        patientId={session.patient_id}
+        patientName={patientName}
+        amount={localPrice}
+        onSuccess={() => refetchPaymentStatus()}
+      />
+    )}
     </>
   );
 }
