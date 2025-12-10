@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, addDays, subDays } from 'date-fns';
+import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
 import { Loader2 } from 'lucide-react';
 import { useSessions, SessionWithRelations } from '@/hooks/useSessions';
 import { CalendarHeader, CalendarView } from '@/components/agenda/CalendarHeader';
@@ -7,8 +7,8 @@ import { WeekView } from '@/components/agenda/WeekView';
 import { DayView } from '@/components/agenda/DayView';
 import { MonthView } from '@/components/agenda/MonthView';
 import { ListView } from '@/components/agenda/ListView';
-import { CreateSessionDialog } from '@/components/agenda/CreateSessionDialog';
-import { SessionDetailDialog } from '@/components/agenda/SessionDetailDialog';
+import { QuickCreateSessionDialog } from '@/components/agenda/QuickCreateSessionDialog';
+import { SessionDetailDrawer } from '@/components/agenda/SessionDetailDrawer';
 
 export default function Agenda() {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -17,7 +17,8 @@ export default function Agenda() {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [selectedSession, setSelectedSession] = useState<SessionWithRelations | null>(null);
   const [initialDate, setInitialDate] = useState<Date | undefined>();
-  const [initialTime, setInitialTime] = useState<string | undefined>();
+  const [initialStartTime, setInitialStartTime] = useState<string | undefined>();
+  const [initialEndTime, setInitialEndTime] = useState<string | undefined>();
 
   // Calculate date range based on view
   const dateRange = useMemo(() => {
@@ -60,9 +61,10 @@ export default function Agenda() {
     selectedProfessional
   );
 
-  const handleSlotClick = (date: Date, time: string) => {
+  const handleSlotClick = (date: Date, startTime: string, endTime: string) => {
     setInitialDate(date);
-    setInitialTime(time);
+    setInitialStartTime(startTime);
+    setInitialEndTime(endTime);
     setCreateDialogOpen(true);
   };
 
@@ -77,7 +79,8 @@ export default function Agenda() {
 
   const handleNewSession = () => {
     setInitialDate(currentDate);
-    setInitialTime('09:00');
+    setInitialStartTime('09:00');
+    setInitialEndTime('10:00');
     setCreateDialogOpen(true);
   };
 
@@ -142,16 +145,17 @@ export default function Agenda() {
         </>
       )}
 
-      {/* Create Session Dialog */}
-      <CreateSessionDialog
+      {/* Quick Create Session Dialog */}
+      <QuickCreateSessionDialog
         open={createDialogOpen}
         onOpenChange={setCreateDialogOpen}
         initialDate={initialDate}
-        initialTime={initialTime}
+        initialStartTime={initialStartTime}
+        initialEndTime={initialEndTime}
       />
 
-      {/* Session Detail Dialog */}
-      <SessionDetailDialog
+      {/* Session Detail Drawer */}
+      <SessionDetailDrawer
         session={selectedSession}
         open={!!selectedSession}
         onOpenChange={(open) => !open && setSelectedSession(null)}

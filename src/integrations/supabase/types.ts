@@ -907,6 +907,7 @@ export type Database = {
           patient_id: string
           price: number
           professional_id: string
+          room: string | null
           send_reminder_email: boolean | null
           send_reminder_sms: boolean | null
           send_reminder_whatsapp: boolean | null
@@ -927,6 +928,7 @@ export type Database = {
           patient_id: string
           price?: number
           professional_id: string
+          room?: string | null
           send_reminder_email?: boolean | null
           send_reminder_sms?: boolean | null
           send_reminder_whatsapp?: boolean | null
@@ -947,6 +949,7 @@ export type Database = {
           patient_id?: string
           price?: number
           professional_id?: string
+          room?: string | null
           send_reminder_email?: boolean | null
           send_reminder_sms?: boolean | null
           send_reminder_whatsapp?: boolean | null
@@ -1034,6 +1037,7 @@ export type Database = {
       patient_status: "active" | "inactive" | "discharged"
       payment_status: "pending" | "paid" | "partial" | "refunded"
       session_status:
+        | "draft"
         | "scheduled"
         | "confirmed"
         | "completed"
@@ -1174,6 +1178,7 @@ export const Constants = {
       patient_status: ["active", "inactive", "discharged"],
       payment_status: ["pending", "paid", "partial", "refunded"],
       session_status: [
+        "draft",
         "scheduled",
         "confirmed",
         "completed",

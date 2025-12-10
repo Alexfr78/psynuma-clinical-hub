@@ -1,0 +1,403 @@
+import { useState, useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
+import { CalendarIcon, User, Globe, ChevronDown } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast';
+import { useCreateSession } from '@/hooks/useSessions';
+import { usePatients, useProfessionals } from '@/hooks/usePatients';
+import { useAuth } from '@/hooks/useAuth';
+
+const quickSessionSchema = z.object({
+  patient_id: z.string().uuid('Selecciona un paciente'),
+  professional_id: z.string().uuid('Selecciona un profesional'),
+  session_date: z.date({ required_error: 'Selecciona una fecha' }),
+  start_time: z.string().min(1, 'Hora de inicio requerida'),
+  end_time: z.string().min(1, 'Hora de fin requerida'),
+  session_type: z.string().default('individual'),
+});
+
+type QuickSessionFormValues = z.infer<typeof quickSessionSchema>;
+
+interface QuickCreateSessionDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  initialDate?: Date;
+  initialStartTime?: string;
+  initialEndTime?: string;
+}
+
+// Generate 15-minute interval time slots
+const generateTimeSlots = () => {
+  const slots: string[] = [];
+  for (let hour = 8; hour <= 20; hour++) {
+    for (let minute = 0; minute < 60; minute += 15) {
+      if (hour === 20 && minute > 0) break;
+      slots.push(`${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`);
+    }
+  }
+  return slots;
+};
+
+const TIME_SLOTS = generateTimeSlots();
+
+export function QuickCreateSessionDialog({
+  open,
+  onOpenChange,
+  initialDate,
+  initialStartTime,
+  initialEndTime,
+}: QuickCreateSessionDialogProps) {
+  const { toast } = useToast();
+  const { user } = useAuth();
+  const createSession = useCreateSession();
+  const { data: patients } = usePatients();
+  const { data: professionals } = useProfessionals();
+  const [patientSearch, setPatientSearch] = useState('');
+  const [patientPopoverOpen, setPatientPopoverOpen] = useState(false);
+
+  const form = useForm<QuickSessionFormValues>({
+    resolver: zodResolver(quickSessionSchema),
+    defaultValues: {
+      patient_id: '',
+      professional_id: user?.id || '',
+      session_date: initialDate || new Date(),
+      start_time: initialStartTime || '09:00',
+      end_time: initialEndTime || '10:00',
+      session_type: 'individual',
+    },
+  });
+
+  useEffect(() => {
+    if (open) {
+      form.reset({
+        patient_id: '',
+        professional_id: user?.id || professionals?.[0]?.id || '',
+        session_date: initialDate || new Date(),
+        start_time: initialStartTime || '09:00',
+        end_time: initialEndTime || '10:00',
+        session_type: 'individual',
+      });
+      setPatientSearch('');
+    }
+  }, [open, initialDate, initialStartTime, initialEndTime, user?.id, professionals, form]);
+
+  const filteredPatients = patients?.filter(
+    (patient) =>
+      `${patient.first_name} ${patient.last_name}`
+        .toLowerCase()
+        .includes(patientSearch.toLowerCase())
+  );
+
+  const selectedPatient = patients?.find((p) => p.id === form.watch('patient_id'));
+  const selectedProfessional = professionals?.find((p) => p.id === form.watch('professional_id'));
+
+  const onSubmit = async (values: QuickSessionFormValues, asDraft: boolean) => {
+    try {
+      await createSession.mutateAsync({
+        patient_id: values.patient_id,
+        professional_id: values.professional_id,
+        session_date: format(values.session_date, 'yyyy-MM-dd'),
+        start_time: values.start_time,
+        end_time: values.end_time,
+        session_type: values.session_type,
+        price: 60,
+        status: asDraft ? 'draft' : 'scheduled',
+      });
+
+      toast({
+        title: asDraft ? 'Borrador guardado' : 'Sesión creada',
+        description: asDraft 
+          ? 'La sesión se ha guardado como borrador.'
+          : 'La sesión se ha programado correctamente.',
+      });
+
+      onOpenChange(false);
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'No se pudo crear la sesión.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[440px] p-0">
+        <DialogHeader className="px-6 pt-6 pb-4">
+          <DialogTitle className="text-xl font-semibold">Nueva reserva</DialogTitle>
+        </DialogHeader>
+
+        <Form {...form}>
+          <form className="space-y-4 px-6 pb-6">
+            {/* Patient Search */}
+            <FormField
+              control={form.control}
+              name="patient_id"
+              render={({ field }) => (
+                <FormItem className="flex flex-col">
+                  <FormLabel className="text-sm font-medium">Paciente</FormLabel>
+                  <Popover open={patientPopoverOpen} onOpenChange={setPatientPopoverOpen}>
+                    <PopoverTrigger asChild>
+                      <FormControl>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          className={cn(
+                            'w-full justify-between h-10',
+                            !field.value && 'text-muted-foreground'
+                          )}
+                        >
+                          {selectedPatient ? (
+                            <span className="flex items-center gap-2">
+                              <div className="h-6 w-6 rounded-full bg-muted flex items-center justify-center">
+                                <User className="h-3 w-3" />
+                              </div>
+                              {selectedPatient.first_name} {selectedPatient.last_name}
+                            </span>
+                          ) : (
+                            'Buscar paciente...'
+                          )}
+                          <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[390px] p-0" align="start">
+                      <Command>
+                        <CommandInput 
+                          placeholder="Buscar paciente..." 
+                          value={patientSearch}
+                          onValueChange={setPatientSearch}
+                        />
+                        <CommandList>
+                          <CommandEmpty>No se encontraron pacientes.</CommandEmpty>
+                          <CommandGroup>
+                            {filteredPatients?.slice(0, 10).map((patient) => (
+                              <CommandItem
+                                key={patient.id}
+                                value={`${patient.first_name} ${patient.last_name}`}
+                                onSelect={() => {
+                                  field.onChange(patient.id);
+                                  setPatientPopoverOpen(false);
+                                }}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
+                                    <User className="h-4 w-4" />
+                                  </div>
+                                  <div>
+                                    <p className="font-medium">{patient.first_name} {patient.last_name}</p>
+                                    {patient.email && (
+                                      <p className="text-xs text-muted-foreground">{patient.email}</p>
+                                    )}
+                                  </div>
+                                </div>
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Professional */}
+            <FormField
+              control={form.control}
+              name="professional_id"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-sm font-medium">Profesional</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger className="h-10">
+                        <SelectValue>
+                          {selectedProfessional ? (
+                            <span className="flex items-center gap-2">
+                              <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center">
+                                <User className="h-3 w-3 text-primary" />
+                              </div>
+                              {selectedProfessional.first_name} {selectedProfessional.last_name}
+                              <Badge variant="secondary" className="ml-auto text-xs">
+                                Profesional principal
+                              </Badge>
+                            </span>
+                          ) : (
+                            'Seleccionar profesional'
+                          )}
+                        </SelectValue>
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {professionals?.map((prof) => (
+                        <SelectItem key={prof.id} value={prof.id}>
+                          <span className="flex items-center gap-2">
+                            {prof.first_name} {prof.last_name}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Session Type */}
+            <FormField
+              control={form.control}
+              name="session_type"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-sm font-medium">Tipo de sesión</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger className="h-10">
+                        <SelectValue />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="individual">Individual</SelectItem>
+                      <SelectItem value="pareja">Pareja</SelectItem>
+                      <SelectItem value="familia">Familia</SelectItem>
+                      <SelectItem value="grupo">Grupo</SelectItem>
+                      <SelectItem value="online">Online</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Date & Time Row */}
+            <div className="space-y-2">
+              <FormLabel className="text-sm font-medium">Fecha y hora</FormLabel>
+              <div className="flex items-center gap-2">
+                {/* Date Display */}
+                <div className="flex items-center gap-2 px-3 py-2 border rounded-md bg-muted/30 flex-1">
+                  <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm capitalize">
+                    {format(form.watch('session_date'), "EEE d 'de' MMM", { locale: es })}
+                  </span>
+                </div>
+                
+                {/* Time Selects */}
+                <FormField
+                  control={form.control}
+                  name="start_time"
+                  render={({ field }) => (
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <SelectTrigger className="w-24 h-10">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {TIME_SLOTS.map((time) => (
+                          <SelectItem key={time} value={time}>
+                            {time}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+                
+                <span className="text-muted-foreground">-</span>
+                
+                <FormField
+                  control={form.control}
+                  name="end_time"
+                  render={({ field }) => (
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <SelectTrigger className="w-24 h-10">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {TIME_SLOTS.map((time) => (
+                          <SelectItem key={time} value={time}>
+                            {time}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+              </div>
+            </div>
+
+            {/* Non-repeating & Timezone */}
+            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+              <span>No se repite</span>
+              <div className="flex items-center gap-1">
+                <Globe className="h-3 w-3" />
+                <span>Europe/Madrid</span>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex justify-end gap-2 pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => form.handleSubmit((v) => onSubmit(v, true))()}
+                disabled={createSession.isPending}
+              >
+                Guardar borrador
+              </Button>
+              <Button
+                type="button"
+                onClick={() => form.handleSubmit((v) => onSubmit(v, false))()}
+                disabled={createSession.isPending}
+              >
+                Crear sesión
+              </Button>
+            </div>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
+  );
+}
