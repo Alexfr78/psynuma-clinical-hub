@@ -54,6 +54,12 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { SessionWithRelations, useUpdateSession, useDeleteSession } from '@/hooks/useSessions';
@@ -72,7 +78,9 @@ import { useLocations } from '@/hooks/useLocations';
 import { usePatientActiveBonos, useDeductBonoSession, useUpdateBono } from '@/hooks/useBonos';
 import { CreateBonoDialog } from '@/components/bonos/CreateBonoDialog';
 import { useSessionPaymentStatus } from '@/hooks/useSessionPayment';
+import { useSessionInvoiceStatus } from '@/hooks/useInvoices';
 import { CollectSessionPaymentDialog } from './CollectSessionPaymentDialog';
+import { CreateSessionInvoiceDialog } from './CreateSessionInvoiceDialog';
 
 interface SessionDetailDrawerProps {
   session: SessionWithRelations | null;
@@ -130,6 +138,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
   const [notesOpen, setNotesOpen] = useState(false);
   const [showCreateBonoDialog, setShowCreateBonoDialog] = useState(false);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
+  const [showInvoiceDialog, setShowInvoiceDialog] = useState(false);
   
   // Local state for immediate UI update
   const [localBonoId, setLocalBonoId] = useState<string | null>(null);
@@ -137,6 +146,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
 
   const { data: patientBonos, refetch: refetchBonos } = usePatientActiveBonos(session?.patient_id);
   const { data: paymentStatus, refetch: refetchPaymentStatus } = useSessionPaymentStatus(session?.id);
+  const { data: invoiceStatus, refetch: refetchInvoiceStatus } = useSessionInvoiceStatus(session?.id);
 
   // Sync local state with session prop
   useEffect(() => {
@@ -608,10 +618,59 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
 
               {/* Action Buttons */}
               <div className="flex flex-wrap gap-2">
-                <Button size="sm" variant="outline">
-                  <FileText className="h-4 w-4 mr-1" />
-                  Crear factura
-                </Button>
+                {/* Invoice Button with status-based logic */}
+                {invoiceStatus?.isInvoiced ? (
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    className="text-blue-600 border-blue-300"
+                    onClick={() => navigate('/facturas')}
+                  >
+                    <FileText className="h-4 w-4 mr-1" />
+                    {invoiceStatus.invoiceNumber?.startsWith('BORRADOR') 
+                      ? 'Ver borrador' 
+                      : `Factura ${invoiceStatus.invoiceNumber}`
+                    }
+                  </Button>
+                ) : localBonoId ? (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button size="sm" variant="outline" disabled>
+                          <Package className="h-4 w-4 mr-1" />
+                          Cubierto por bono
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Las sesiones cubiertas por bono no generan factura individual</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                ) : localPrice === 0 ? (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button size="sm" variant="outline" disabled>
+                          <FileText className="h-4 w-4 mr-1" />
+                          Sin cargo
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>No se puede facturar una sesión sin cargo</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                ) : (
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={() => setShowInvoiceDialog(true)}
+                  >
+                    <FileText className="h-4 w-4 mr-1" />
+                    Crear factura
+                  </Button>
+                )}
+                
                 {!paymentStatus?.isPaid && (
                   <Button 
                     size="sm" 
@@ -859,6 +918,18 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
         patientName={patientName}
         amount={localPrice}
         onSuccess={() => refetchPaymentStatus()}
+      />
+    )}
+
+    {session && (
+      <CreateSessionInvoiceDialog
+        open={showInvoiceDialog}
+        onOpenChange={setShowInvoiceDialog}
+        session={session}
+        onSuccess={() => {
+          refetchInvoiceStatus();
+          setShowInvoiceDialog(false);
+        }}
       />
     )}
     </>
