@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { CalendarIcon, User, Globe, ChevronDown } from 'lucide-react';
+import { CalendarIcon, User, Globe, ChevronDown, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -47,6 +47,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useCreateSession } from '@/hooks/useSessions';
 import { usePatients, useProfessionals } from '@/hooks/usePatients';
 import { useAuth } from '@/hooks/useAuth';
+import { QuickCreatePatientDialog } from '@/components/patients/QuickCreatePatientDialog';
 
 const quickSessionSchema = z.object({
   patient_id: z.string().uuid('Selecciona un paciente'),
@@ -95,6 +96,7 @@ export function QuickCreateSessionDialog({
   const { data: professionals } = useProfessionals();
   const [patientSearch, setPatientSearch] = useState('');
   const [patientPopoverOpen, setPatientPopoverOpen] = useState(false);
+  const [showQuickPatientDialog, setShowQuickPatientDialog] = useState(false);
 
   const form = useForm<QuickSessionFormValues>({
     resolver: zodResolver(quickSessionSchema),
@@ -163,6 +165,7 @@ export function QuickCreateSessionDialog({
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[440px] p-0">
         <DialogHeader className="px-6 pt-6 pb-4">
@@ -211,31 +214,50 @@ export function QuickCreateSessionDialog({
                           onValueChange={setPatientSearch}
                         />
                         <CommandList>
-                          <CommandEmpty>No se encontraron pacientes.</CommandEmpty>
-                          <CommandGroup>
-                            {filteredPatients?.slice(0, 10).map((patient) => (
-                              <CommandItem
-                                key={patient.id}
-                                value={`${patient.first_name} ${patient.last_name}`}
-                                onSelect={() => {
-                                  field.onChange(patient.id);
+                          {filteredPatients && filteredPatients.length > 0 ? (
+                            <CommandGroup>
+                              {filteredPatients.slice(0, 10).map((patient) => (
+                                <CommandItem
+                                  key={patient.id}
+                                  value={`${patient.first_name} ${patient.last_name}`}
+                                  onSelect={() => {
+                                    field.onChange(patient.id);
+                                    setPatientPopoverOpen(false);
+                                  }}
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
+                                      <User className="h-4 w-4" />
+                                    </div>
+                                    <div>
+                                      <p className="font-medium">{patient.first_name} {patient.last_name}</p>
+                                      {patient.email && (
+                                        <p className="text-xs text-muted-foreground">{patient.email}</p>
+                                      )}
+                                    </div>
+                                  </div>
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          ) : (
+                            <div className="py-6 px-4 text-center">
+                              <p className="text-sm text-muted-foreground mb-3">
+                                No se encontraron pacientes.
+                              </p>
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                type="button"
+                                onClick={() => {
                                   setPatientPopoverOpen(false);
+                                  setShowQuickPatientDialog(true);
                                 }}
                               >
-                                <div className="flex items-center gap-2">
-                                  <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
-                                    <User className="h-4 w-4" />
-                                  </div>
-                                  <div>
-                                    <p className="font-medium">{patient.first_name} {patient.last_name}</p>
-                                    {patient.email && (
-                                      <p className="text-xs text-muted-foreground">{patient.email}</p>
-                                    )}
-                                  </div>
-                                </div>
-                              </CommandItem>
-                            ))}
-                          </CommandGroup>
+                                <Plus className="h-4 w-4 mr-2" />
+                                Crear nueva ficha de paciente
+                              </Button>
+                            </div>
+                          )}
                         </CommandList>
                       </Command>
                     </PopoverContent>
@@ -399,5 +421,17 @@ export function QuickCreateSessionDialog({
         </Form>
       </DialogContent>
     </Dialog>
+
+    <QuickCreatePatientDialog
+      open={showQuickPatientDialog}
+      onOpenChange={setShowQuickPatientDialog}
+      onPatientCreated={(patientId) => {
+        form.setValue('patient_id', patientId);
+        setPatientSearch('');
+      }}
+      initialName={patientSearch}
+      defaultProfessionalId={form.watch('professional_id')}
+    />
+  </>
   );
 }
