@@ -3,6 +3,7 @@ import {
   LayoutDashboard,
   Calendar,
   Users,
+  UserCog,
   FileText,
   Package,
   Receipt,
@@ -47,6 +48,7 @@ const financeNavItems = [
 ];
 
 const adminNavItems = [
+  { title: 'Profesionales', url: '/profesionales', icon: UserCog },
   { title: 'Configuración', url: '/configuracion', icon: Settings },
   { title: 'Auditoría', url: '/auditoria', icon: ClipboardList },
 ];
