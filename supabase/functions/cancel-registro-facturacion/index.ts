@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import * as forge from "https://esm.sh/node-forge@1.3.1";
+import forge from "https://esm.sh/node-forge@1.3.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -59,13 +59,11 @@ async function decryptCertificateData(
 ): Promise<{ certificate: string; password: string }> {
   const encryptionKey = Deno.env.get('CERTIFICATE_ENCRYPTION_KEY');
   
-  // If no encryption key configured, assume data is not encrypted
   if (!encryptionKey) {
     console.log('No encryption key configured, using raw certificate data');
     return { certificate: certificateBase64, password: certificatePassword };
   }
   
-  // Always try to decrypt when encryption key is available
   console.log('Decrypting certificate data...');
   try {
     const certificate = await decryptAES256GCM(certificateBase64, encryptionKey);
@@ -73,7 +71,6 @@ async function decryptCertificateData(
     console.log('Certificate data decrypted successfully');
     return { certificate, password };
   } catch (decryptError) {
-    // If decryption fails, the data might be from before encryption was implemented
     console.log('Decryption failed, trying raw data (legacy):', decryptError);
     return { certificate: certificateBase64, password: certificatePassword };
   }
@@ -154,29 +151,46 @@ function buildRegistroBajaXML(invoice: any, center: any, generationTimestamp: st
 </soapenv:Envelope>`;
 }
 
-function signXML(xml: string, certificateBase64: string, certificatePassword: string): string {
-  try {
-    const p12Der = forge.util.decode64(certificateBase64);
-    const p12Asn1 = forge.asn1.fromDer(p12Der);
-    const p12 = forge.pkcs12.pkcs12FromAsn1(p12Asn1, certificatePassword);
+// Extract certificates from PKCS12 and return PEM format for mTLS
+function extractCertificatesFromPKCS12(certificateBase64: string, certificatePassword: string): {
+  privateKey: forge.pki.PrivateKey;
+  certificate: forge.pki.Certificate;
+  certPem: string;
+  keyPem: string;
+} {
+  console.log('Extracting certificates from PKCS12...');
+  
+  const p12Der = forge.util.decode64(certificateBase64);
+  const p12Asn1 = forge.asn1.fromDer(p12Der);
+  const p12 = forge.pkcs12.pkcs12FromAsn1(p12Asn1, certificatePassword);
 
-    let privateKey: forge.pki.PrivateKey | null = null;
-    let certificate: forge.pki.Certificate | null = null;
+  let privateKey: forge.pki.PrivateKey | null = null;
+  let certificate: forge.pki.Certificate | null = null;
 
-    for (const safeContents of p12.safeContents) {
-      for (const safeBag of safeContents.safeBags) {
-        if (safeBag.type === forge.pki.oids.pkcs8ShroudedKeyBag && safeBag.key) {
-          privateKey = safeBag.key as forge.pki.PrivateKey;
-        } else if (safeBag.type === forge.pki.oids.certBag && safeBag.cert) {
-          certificate = safeBag.cert;
-        }
+  for (const safeContents of p12.safeContents) {
+    for (const safeBag of safeContents.safeBags) {
+      if (safeBag.type === forge.pki.oids.pkcs8ShroudedKeyBag && safeBag.key) {
+        privateKey = safeBag.key as forge.pki.PrivateKey;
+      } else if (safeBag.type === forge.pki.oids.certBag && safeBag.cert) {
+        certificate = safeBag.cert;
       }
     }
+  }
 
-    if (!privateKey || !certificate) {
-      throw new Error("No se pudo extraer la clave privada o el certificado");
-    }
+  if (!privateKey || !certificate) {
+    throw new Error("No se pudo extraer la clave privada o el certificado");
+  }
 
+  const certPem = forge.pki.certificateToPem(certificate);
+  const keyPem = forge.pki.privateKeyToPem(privateKey);
+  
+  console.log('Extracted certificate and key in PEM format');
+
+  return { privateKey, certificate, certPem, keyPem };
+}
+
+function signXML(xml: string, privateKey: forge.pki.PrivateKey, certificate: forge.pki.Certificate): string {
+  try {
     const certDer = forge.asn1.toDer(forge.pki.certificateToAsn1(certificate)).getBytes();
     const certBase64 = forge.util.encode64(certDer);
 
@@ -211,6 +225,7 @@ function signXML(xml: string, certificateBase64: string, certificatePassword: st
     </soapenv:Header>`
     );
 
+    console.log("XML signed successfully");
     return signedXml;
   } catch (error) {
     console.error("Error signing XML:", error);
@@ -224,25 +239,55 @@ function extractCSV(responseXml: string): string | null {
   return csvMatch?.[1] || null;
 }
 
-async function sendToAEAT(signedXml: string, environment: string): Promise<{ success: boolean; response?: string; error?: string; httpStatus?: number }> {
+async function sendToAEAT(
+  signedXml: string, 
+  environment: string,
+  certPem: string,
+  keyPem: string
+): Promise<{ success: boolean; response?: string; error?: string; httpStatus?: number }> {
   const endpoint = environment === 'production' ? AEAT_ENDPOINTS.production : AEAT_ENDPOINTS.test;
   
   try {
+    // Create HTTP client with client certificate for mTLS
+    console.log("Creating mTLS HTTP client for AEAT cancellation...");
+    const client = Deno.createHttpClient({
+      cert: certPem,
+      key: keyPem,
+    });
+
     const response = await fetch(endpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'text/xml;charset=UTF-8',
         'SOAPAction': 'RegFactuSistemaFacturacion'
       },
-      body: signedXml
+      body: signedXml,
+      // @ts-ignore - Deno specific option
+      client: client
     });
 
     const responseText = await response.text();
     console.log("AEAT Cancellation Response status:", response.status);
     console.log("AEAT Response:", responseText.substring(0, 1000));
 
+    // Close the client after use
+    client.close();
+
     if (!response.ok) {
       return { success: false, error: `HTTP ${response.status}: ${responseText}`, httpStatus: response.status };
+    }
+
+    // Detectar página de error HTML
+    if (responseText.includes('<!DOCTYPE html>') || responseText.includes('<html')) {
+      const titleMatch = responseText.match(/<title>[^<]*?(\d{3})[^<]*?<\/title>/i);
+      const errorCode = titleMatch?.[1] || 'HTML';
+      console.error(`AEAT returned HTML error page with code ${errorCode}`);
+      return { 
+        success: false, 
+        error: `AEAT devolvió página de error ${errorCode} - El certificado no está autorizado`, 
+        response: responseText, 
+        httpStatus: response.status 
+      };
     }
 
     if (responseText.includes('<sifac:CodigoErrorRegistro>') || responseText.includes('faultstring')) {
@@ -359,14 +404,28 @@ serve(async (req) => {
       center.verifactu_certificate_password
     );
 
+    // Extract certificates for mTLS
+    let certData: { privateKey: forge.pki.PrivateKey; certificate: forge.pki.Certificate; certPem: string; keyPem: string };
+    try {
+      certData = extractCertificatesFromPKCS12(decryptedCert, decryptedPassword);
+    } catch (certError) {
+      await logVerifactuEvent(supabase, {
+        invoice_id,
+        center_id: invoice.center_id,
+        event_type: 'error',
+        environment,
+        error_details: `Error al extraer certificado: ${certError instanceof Error ? certError.message : 'Unknown'}`
+      });
+      throw certError;
+    }
+
     const generationTimestamp = formatTimestampVerifactu(new Date());
     const xml = buildRegistroBajaXML(invoice, center, generationTimestamp);
     console.log("Generated cancellation XML for invoice:", invoice.invoice_number);
 
     let signedXml: string;
     try {
-      signedXml = signXML(xml, decryptedCert, decryptedPassword);
-      console.log("XML signed successfully");
+      signedXml = signXML(xml, certData.privateKey, certData.certificate);
     } catch (signError) {
       await logVerifactuEvent(supabase, {
         invoice_id,
@@ -379,7 +438,7 @@ serve(async (req) => {
       throw signError;
     }
 
-    const aeatResult = await sendToAEAT(signedXml, environment);
+    const aeatResult = await sendToAEAT(signedXml, environment, certData.certPem, certData.keyPem);
     const csv = aeatResult.response ? extractCSV(aeatResult.response) : null;
 
     if (!aeatResult.success) {

@@ -60,13 +60,11 @@ async function decryptCertificateData(
 ): Promise<{ certificate: string; password: string }> {
   const encryptionKey = Deno.env.get('CERTIFICATE_ENCRYPTION_KEY');
   
-  // If no encryption key configured, assume data is not encrypted
   if (!encryptionKey) {
     console.log('No encryption key configured, using raw certificate data');
     return { certificate: certificateBase64, password: certificatePassword };
   }
   
-  // Always try to decrypt when encryption key is available
   console.log('Decrypting certificate data...');
   try {
     const certificate = await decryptAES256GCM(certificateBase64, encryptionKey);
@@ -74,7 +72,6 @@ async function decryptCertificateData(
     console.log('Certificate data decrypted successfully');
     return { certificate, password };
   } catch (decryptError) {
-    // If decryption fails, the data might be from before encryption was implemented
     console.log('Decryption failed, trying raw data (legacy):', decryptError);
     return { certificate: certificateBase64, password: certificatePassword };
   }
@@ -128,29 +125,46 @@ function buildConsultaXML(invoice: any, center: any): string {
 </soapenv:Envelope>`;
 }
 
-function signXML(xml: string, certificateBase64: string, certificatePassword: string): string {
-  try {
-    const p12Der = forge.util.decode64(certificateBase64);
-    const p12Asn1 = forge.asn1.fromDer(p12Der);
-    const p12 = forge.pkcs12.pkcs12FromAsn1(p12Asn1, certificatePassword);
+// Extract certificates from PKCS12 and return PEM format for mTLS
+function extractCertificatesFromPKCS12(certificateBase64: string, certificatePassword: string): {
+  privateKey: forge.pki.PrivateKey;
+  certificate: forge.pki.Certificate;
+  certPem: string;
+  keyPem: string;
+} {
+  console.log('Extracting certificates from PKCS12...');
+  
+  const p12Der = forge.util.decode64(certificateBase64);
+  const p12Asn1 = forge.asn1.fromDer(p12Der);
+  const p12 = forge.pkcs12.pkcs12FromAsn1(p12Asn1, certificatePassword);
 
-    let privateKey: forge.pki.PrivateKey | null = null;
-    let certificate: forge.pki.Certificate | null = null;
+  let privateKey: forge.pki.PrivateKey | null = null;
+  let certificate: forge.pki.Certificate | null = null;
 
-    for (const safeContents of p12.safeContents) {
-      for (const safeBag of safeContents.safeBags) {
-        if (safeBag.type === forge.pki.oids.pkcs8ShroudedKeyBag && safeBag.key) {
-          privateKey = safeBag.key as forge.pki.PrivateKey;
-        } else if (safeBag.type === forge.pki.oids.certBag && safeBag.cert) {
-          certificate = safeBag.cert;
-        }
+  for (const safeContents of p12.safeContents) {
+    for (const safeBag of safeContents.safeBags) {
+      if (safeBag.type === forge.pki.oids.pkcs8ShroudedKeyBag && safeBag.key) {
+        privateKey = safeBag.key as forge.pki.PrivateKey;
+      } else if (safeBag.type === forge.pki.oids.certBag && safeBag.cert) {
+        certificate = safeBag.cert;
       }
     }
+  }
 
-    if (!privateKey || !certificate) {
-      throw new Error("No se pudo extraer la clave privada o el certificado");
-    }
+  if (!privateKey || !certificate) {
+    throw new Error("No se pudo extraer la clave privada o el certificado");
+  }
 
+  const certPem = forge.pki.certificateToPem(certificate);
+  const keyPem = forge.pki.privateKeyToPem(privateKey);
+  
+  console.log('Extracted certificate and key in PEM format');
+
+  return { privateKey, certificate, certPem, keyPem };
+}
+
+function signXML(xml: string, privateKey: forge.pki.PrivateKey, certificate: forge.pki.Certificate): string {
+  try {
     const certDer = forge.asn1.toDer(forge.pki.certificateToAsn1(certificate)).getBytes();
     const certBase64 = forge.util.encode64(certDer);
 
@@ -185,6 +199,7 @@ function signXML(xml: string, certificateBase64: string, certificatePassword: st
     </soapenv:Header>`
     );
 
+    console.log("XML signed successfully");
     return signedXml;
   } catch (error) {
     console.error("Error signing XML:", error);
@@ -192,24 +207,54 @@ function signXML(xml: string, certificateBase64: string, certificatePassword: st
   }
 }
 
-async function sendToAEAT(signedXml: string, environment: string): Promise<{ success: boolean; response?: string; error?: string; httpStatus?: number }> {
+async function sendToAEAT(
+  signedXml: string, 
+  environment: string,
+  certPem: string,
+  keyPem: string
+): Promise<{ success: boolean; response?: string; error?: string; httpStatus?: number }> {
   const endpoint = environment === 'production' ? AEAT_ENDPOINTS.production : AEAT_ENDPOINTS.test;
   
   try {
+    // Create HTTP client with client certificate for mTLS
+    console.log("Creating mTLS HTTP client for AEAT consultation...");
+    const client = Deno.createHttpClient({
+      cert: certPem,
+      key: keyPem,
+    });
+
     const response = await fetch(endpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'text/xml;charset=UTF-8',
         'SOAPAction': 'ConsultaFactuSistemaFacturacion'
       },
-      body: signedXml
+      body: signedXml,
+      // @ts-ignore - Deno specific option
+      client: client
     });
 
     const responseText = await response.text();
     console.log("AEAT Consulta Response status:", response.status);
 
+    // Close the client after use
+    client.close();
+
     if (!response.ok) {
       return { success: false, error: `HTTP ${response.status}: ${responseText}`, httpStatus: response.status };
+    }
+
+    // Detectar página de error HTML
+    if (responseText.includes('<!DOCTYPE html>') || responseText.includes('<html')) {
+      const titleMatch = responseText.match(/<title>[^<]*?(\d{3})[^<]*?<\/title>/i);
+      const errorCode = titleMatch?.[1] || 'HTML';
+      console.error(`AEAT returned HTML error page with code ${errorCode}`);
+      return { 
+        success: false, 
+        error: `AEAT devolvió página de error ${errorCode} - El certificado no está autorizado`, 
+        response: responseText, 
+        httpStatus: response.status 
+      };
     }
 
     return { success: true, response: responseText, httpStatus: response.status };
@@ -227,14 +272,12 @@ function parseConsultaResponse(responseXml: string): {
   csv?: string;
   error?: string;
 } {
-  // Check for errors
   if (responseXml.includes('faultstring') || responseXml.includes('CodigoError')) {
     const errorMatch = responseXml.match(/<[^>]*DescripcionError[^>]*>([^<]+)<\/[^>]*DescripcionError[^>]*>/i);
     const faultMatch = responseXml.match(/<faultstring>([^<]+)<\/faultstring>/i);
     return { found: false, error: errorMatch?.[1] || faultMatch?.[1] || 'Error desconocido' };
   }
 
-  // Check if record found
   if (responseXml.includes('RegistroFactura') || responseXml.includes('DatosFactura')) {
     const csvMatch = responseXml.match(/<[^>]*CSV[^>]*>([^<]+)<\/[^>]*CSV[^>]*>/i);
     const statusMatch = responseXml.match(/<[^>]*Estado[^>]*>([^<]+)<\/[^>]*Estado[^>]*>/i);
@@ -336,12 +379,15 @@ serve(async (req) => {
       center.verifactu_certificate_password
     );
 
+    // Extract certificates for mTLS
+    const certData = extractCertificatesFromPKCS12(decryptedCert, decryptedPassword);
+
     // Build and sign consultation XML
     const xml = buildConsultaXML(invoice, center);
-    const signedXml = signXML(xml, decryptedCert, decryptedPassword);
+    const signedXml = signXML(xml, certData.privateKey, certData.certificate);
 
-    // Send to AEAT
-    const aeatResult = await sendToAEAT(signedXml, environment);
+    // Send to AEAT with mTLS
+    const aeatResult = await sendToAEAT(signedXml, environment, certData.certPem, certData.keyPem);
 
     // Parse response
     const consultaResult = aeatResult.response ? parseConsultaResponse(aeatResult.response) : { found: false, error: 'Sin respuesta' };
