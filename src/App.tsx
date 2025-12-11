@@ -20,6 +20,7 @@ import Professionals from "./pages/Professionals";
 import Settings from "./pages/Settings";
 import Audit from "./pages/Audit";
 import NotFound from "./pages/NotFound";
+import SessionManagement from "./pages/SessionManagement";
 
 const queryClient = new QueryClient();
 
@@ -41,6 +42,9 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/auth" element={<Auth />} />
+            
+            {/* Public Routes (No Auth Required) */}
+            <Route path="/cita/:token" element={<SessionManagement />} />
             
             {/* Protected Routes */}
             <Route path="/dashboard" element={
