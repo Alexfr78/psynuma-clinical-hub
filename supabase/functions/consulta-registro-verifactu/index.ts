@@ -99,42 +99,30 @@ function escapeXML(str: string): string {
     .replace(/'/g, '&apos;');
 }
 
-// Uses DUAL namespaces as required by AEAT schema:
-// - sum (SuministroLR.xsd): Container elements like ConsultaFactuSistemaFacturacion, Cabecera, FiltroConsulta
-// - sum1 (SuministroInformacion.xsd): Data elements like ObligadoEmision, IDVersion, NIF, etc.
+// Uses SINGLE namespace sum1 → SuministroLR.xsd for ALL Verifactu elements
+// The namespace is declared on soapenv:Body, not on soapenv:Envelope
 function buildConsultaXML(invoice: any, center: any): string {
   const nifEmisor = center.tax_id?.replace(/[^A-Z0-9]/gi, '') || '';
   const nombreEmisor = center.name || '';
   const fechaExpedicion = formatDateVerifactu(invoice.issue_date);
 
-  // DUAL NAMESPACES - Required by AEAT Verifactu schema
-  const xmlnsSum = 'https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/SuministroLR.xsd';
-  const xmlnsSum1 = 'https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/SuministroInformacion.xsd';
-
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" 
-                  xmlns:sum="${xmlnsSum}"
-                  xmlns:sum1="${xmlnsSum1}">
-  <soapenv:Header/>
-  <soapenv:Body>
-    <sum:ConsultaFactuSistemaFacturacion>
-      <sum:Cabecera>
+  // Build the body content (will be wrapped with namespace in buildSignedSOAPEnvelope)
+  return `<sum1:ConsultaFactuSistemaFacturacion>
+      <sum1:Cabecera>
         <sum1:IDVersion>1.0</sum1:IDVersion>
         <sum1:ObligadoEmision>
           <sum1:NombreRazon>${escapeXML(nombreEmisor)}</sum1:NombreRazon>
           <sum1:NIF>${nifEmisor}</sum1:NIF>
         </sum1:ObligadoEmision>
-      </sum:Cabecera>
-      <sum:FiltroConsulta>
+      </sum1:Cabecera>
+      <sum1:FiltroConsulta>
         <sum1:IDFactura>
           <sum1:IDEmisorFactura>${nifEmisor}</sum1:IDEmisorFactura>
           <sum1:NumSerieFactura>${escapeXML(invoice.invoice_number)}</sum1:NumSerieFactura>
           <sum1:FechaExpedicionFactura>${fechaExpedicion}</sum1:FechaExpedicionFactura>
         </sum1:IDFactura>
-      </sum:FiltroConsulta>
-    </sum:ConsultaFactuSistemaFacturacion>
-  </soapenv:Body>
-</soapenv:Envelope>`;
+      </sum1:FiltroConsulta>
+    </sum1:ConsultaFactuSistemaFacturacion>`;
 }
 
 // Extract certificates from PKCS12 and return PEM format for mTLS
@@ -204,44 +192,76 @@ function extractCertificatesFromPKCS12(certificateBase64: string, certificatePas
   return { privateKey, certificate: endEntityCert, certPem: certChainPem, keyPem };
 }
 
-function signXML(xml: string, privateKey: forge.pki.PrivateKey, certificate: forge.pki.Certificate): string {
+// Build complete signed SOAP envelope with namespace on Body
+function buildSignedSOAPEnvelope(body: string, privateKey: forge.pki.PrivateKey, certificate: forge.pki.Certificate): string {
+  const xmlnsSum1 = 'https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/SuministroLR.xsd';
+
+  // Create the full body with namespace
+  const fullBody = `<soapenv:Body xmlns:sum1="${xmlnsSum1}">${body}</soapenv:Body>`;
+
+  // Sign the body
+  const signature = signXMLBody(fullBody, privateKey, certificate);
+
+  // Build complete SOAP envelope
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/">
+  <soapenv:Header>
+    ${signature}
+  </soapenv:Header>
+  <soapenv:Body xmlns:sum1="${xmlnsSum1}">
+    ${body}
+  </soapenv:Body>
+</soapenv:Envelope>`;
+}
+
+// Sign XML body and return signature element
+function signXMLBody(body: string, privateKey: forge.pki.PrivateKey, certificate: forge.pki.Certificate): string {
   try {
     const certDer = forge.asn1.toDer(forge.pki.certificateToAsn1(certificate)).getBytes();
     const certBase64 = forge.util.encode64(certDer);
 
+    // Canonicalize body for digest
+    const canonicalBody = body.replace(/>\s+</g, '><').trim();
+    
+    // Calculate body digest
+    const bodyMd = forge.md.sha256.create();
+    bodyMd.update(canonicalBody, 'utf8');
+    const bodyDigest = forge.util.encode64(bodyMd.digest().bytes());
+
+    // Build SignedInfo
+    const signedInfo = `<ds:SignedInfo xmlns:ds="http://www.w3.org/2000/09/xmldsig#">
+<ds:CanonicalizationMethod Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/>
+<ds:SignatureMethod Algorithm="http://www.w3.org/2001/04/xmldsig-more#rsa-sha256"/>
+<ds:Reference URI="">
+<ds:Transforms>
+<ds:Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature"/>
+<ds:Transform Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/>
+</ds:Transforms>
+<ds:DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256"/>
+<ds:DigestValue>${bodyDigest}</ds:DigestValue>
+</ds:Reference>
+</ds:SignedInfo>`;
+
+    // Canonicalize SignedInfo for signing
+    const canonicalSignedInfo = signedInfo.replace(/>\s+</g, '><').trim();
+
+    // Create signature using RSA-SHA256
     const md = forge.md.sha256.create();
-    md.update(xml, 'utf8');
-    const digest = forge.util.encode64(md.digest().bytes());
-
+    md.update(canonicalSignedInfo, 'utf8');
     const signature = (privateKey as any).sign(md);
-    const signatureBase64 = forge.util.encode64(signature);
-
-    const signedXml = xml.replace(
-      '</soapenv:Header>',
-      `<ds:Signature xmlns:ds="http://www.w3.org/2000/09/xmldsig#">
-        <ds:SignedInfo>
-          <ds:CanonicalizationMethod Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/>
-          <ds:SignatureMethod Algorithm="http://www.w3.org/2001/04/xmldsig-more#rsa-sha256"/>
-          <ds:Reference URI="">
-            <ds:Transforms>
-              <ds:Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature"/>
-            </ds:Transforms>
-            <ds:DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256"/>
-            <ds:DigestValue>${digest}</ds:DigestValue>
-          </ds:Reference>
-        </ds:SignedInfo>
-        <ds:SignatureValue>${signatureBase64}</ds:SignatureValue>
-        <ds:KeyInfo>
-          <ds:X509Data>
-            <ds:X509Certificate>${certBase64}</ds:X509Certificate>
-          </ds:X509Data>
-        </ds:KeyInfo>
-      </ds:Signature>
-    </soapenv:Header>`
-    );
+    const signatureValue = forge.util.encode64(signature);
 
     console.log("XML signed successfully");
-    return signedXml;
+
+    return `<ds:Signature xmlns:ds="http://www.w3.org/2000/09/xmldsig#">
+${signedInfo}
+<ds:SignatureValue>${signatureValue}</ds:SignatureValue>
+<ds:KeyInfo>
+<ds:X509Data>
+<ds:X509Certificate>${certBase64}</ds:X509Certificate>
+</ds:X509Data>
+</ds:KeyInfo>
+</ds:Signature>`;
   } catch (error) {
     console.error("Error signing XML:", error);
     throw new Error(`Error al firmar el XML: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -424,8 +444,8 @@ serve(async (req) => {
     const certData = extractCertificatesFromPKCS12(decryptedCert, decryptedPassword);
 
     // Build and sign consultation XML
-    const xml = buildConsultaXML(invoice, center);
-    const signedXml = signXML(xml, certData.privateKey, certData.certificate);
+    const xmlBody = buildConsultaXML(invoice, center);
+    const signedXml = buildSignedSOAPEnvelope(xmlBody, certData.privateKey, certData.certificate);
 
     // Send to AEAT with mTLS
     const aeatResult = await sendToAEAT(signedXml, environment, certData.certPem, certData.keyPem);
