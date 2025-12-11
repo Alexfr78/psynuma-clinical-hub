@@ -316,6 +316,12 @@ export type Database = {
           retention_rate: number | null
           tax_id: string | null
           updated_at: string
+          verifactu_certificate_base64: string | null
+          verifactu_certificate_password: string | null
+          verifactu_environment: string | null
+          verifactu_software_name: string | null
+          verifactu_software_nif: string | null
+          verifactu_software_version: string | null
           whatsapp_access_token: string | null
           whatsapp_business_account_id: string | null
           whatsapp_phone_number_id: string | null
@@ -346,6 +352,12 @@ export type Database = {
           retention_rate?: number | null
           tax_id?: string | null
           updated_at?: string
+          verifactu_certificate_base64?: string | null
+          verifactu_certificate_password?: string | null
+          verifactu_environment?: string | null
+          verifactu_software_name?: string | null
+          verifactu_software_nif?: string | null
+          verifactu_software_version?: string | null
           whatsapp_access_token?: string | null
           whatsapp_business_account_id?: string | null
           whatsapp_phone_number_id?: string | null
@@ -376,6 +388,12 @@ export type Database = {
           retention_rate?: number | null
           tax_id?: string | null
           updated_at?: string
+          verifactu_certificate_base64?: string | null
+          verifactu_certificate_password?: string | null
+          verifactu_environment?: string | null
+          verifactu_software_name?: string | null
+          verifactu_software_nif?: string | null
+          verifactu_software_version?: string | null
           whatsapp_access_token?: string | null
           whatsapp_business_account_id?: string | null
           whatsapp_phone_number_id?: string | null
@@ -635,11 +653,13 @@ export type Database = {
           created_at: string
           due_date: string | null
           id: string
+          invoice_hash: string | null
           invoice_number: string
           is_recapitulative: boolean | null
           issue_date: string
           notes: string | null
           patient_id: string
+          previous_invoice_hash: string | null
           retention_amount: number | null
           retention_rate: number | null
           status: Database["public"]["Enums"]["invoice_status"] | null
@@ -649,6 +669,8 @@ export type Database = {
           total: number
           updated_at: string
           verifactu_hash: string | null
+          verifactu_qr: string | null
+          verifactu_registration_id: string | null
           verifactu_timestamp: string | null
         }
         Insert: {
@@ -656,11 +678,13 @@ export type Database = {
           created_at?: string
           due_date?: string | null
           id?: string
+          invoice_hash?: string | null
           invoice_number: string
           is_recapitulative?: boolean | null
           issue_date?: string
           notes?: string | null
           patient_id: string
+          previous_invoice_hash?: string | null
           retention_amount?: number | null
           retention_rate?: number | null
           status?: Database["public"]["Enums"]["invoice_status"] | null
@@ -670,6 +694,8 @@ export type Database = {
           total?: number
           updated_at?: string
           verifactu_hash?: string | null
+          verifactu_qr?: string | null
+          verifactu_registration_id?: string | null
           verifactu_timestamp?: string | null
         }
         Update: {
@@ -677,11 +703,13 @@ export type Database = {
           created_at?: string
           due_date?: string | null
           id?: string
+          invoice_hash?: string | null
           invoice_number?: string
           is_recapitulative?: boolean | null
           issue_date?: string
           notes?: string | null
           patient_id?: string
+          previous_invoice_hash?: string | null
           retention_amount?: number | null
           retention_rate?: number | null
           status?: Database["public"]["Enums"]["invoice_status"] | null
@@ -691,6 +719,8 @@ export type Database = {
           total?: number
           updated_at?: string
           verifactu_hash?: string | null
+          verifactu_qr?: string | null
+          verifactu_registration_id?: string | null
           verifactu_timestamp?: string | null
         }
         Relationships: [

@@ -32,6 +32,13 @@ export interface Center {
   whatsapp_access_token: string | null;
   whatsapp_phone_number_id: string | null;
   whatsapp_business_account_id: string | null;
+  // Verifactu configuration
+  verifactu_certificate_base64: string | null;
+  verifactu_certificate_password: string | null;
+  verifactu_environment: string | null;
+  verifactu_software_name: string | null;
+  verifactu_software_version: string | null;
+  verifactu_software_nif: string | null;
   created_at: string;
   updated_at: string;
 }
