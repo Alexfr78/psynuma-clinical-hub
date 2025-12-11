@@ -662,6 +662,7 @@ export type Database = {
           previous_invoice_hash: string | null
           retention_amount: number | null
           retention_rate: number | null
+          series_id: string | null
           status: Database["public"]["Enums"]["invoice_status"] | null
           subtotal: number
           tax_amount: number | null
@@ -687,6 +688,7 @@ export type Database = {
           previous_invoice_hash?: string | null
           retention_amount?: number | null
           retention_rate?: number | null
+          series_id?: string | null
           status?: Database["public"]["Enums"]["invoice_status"] | null
           subtotal?: number
           tax_amount?: number | null
@@ -712,6 +714,7 @@ export type Database = {
           previous_invoice_hash?: string | null
           retention_amount?: number | null
           retention_rate?: number | null
+          series_id?: string | null
           status?: Database["public"]["Enums"]["invoice_status"] | null
           subtotal?: number
           tax_amount?: number | null
@@ -736,6 +739,13 @@ export type Database = {
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_series_id_fkey"
+            columns: ["series_id"]
+            isOneToOne: false
+            referencedRelation: "invoice_series"
             referencedColumns: ["id"]
           },
         ]

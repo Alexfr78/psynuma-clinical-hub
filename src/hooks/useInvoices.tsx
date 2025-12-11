@@ -8,6 +8,7 @@ export interface Invoice {
   invoice_number: string;
   patient_id: string;
   center_id: string;
+  series_id: string | null;
   issue_date: string;
   due_date: string | null;
   subtotal: number;
@@ -54,6 +55,7 @@ export interface InvoiceItem {
 
 export interface InvoiceInsert {
   patient_id: string;
+  series_id?: string | null;
   issue_date?: string;
   due_date?: string | null;
   subtotal: number;
@@ -263,6 +265,7 @@ export function useCreateInvoiceWithSeries() {
           ...invoice,
           center_id: profile!.center_id!,
           invoice_number: finalInvoiceNumber,
+          series_id: seriesId,
         })
         .select()
         .single();
@@ -308,12 +311,78 @@ export function useCreateInvoiceWithSeries() {
 
 export function useUpdateInvoiceStatus() {
   const queryClient = useQueryClient();
+  const { profile } = useAuth();
 
   return useMutation({
     mutationFn: async ({ id, status }: { id: string; status: Invoice['status'] }) => {
+      // Get current invoice to check if it's a draft being issued
+      const { data: currentInvoice, error: fetchError } = await supabase
+        .from('invoices')
+        .select('invoice_number, series_id')
+        .eq('id', id)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      let updateData: { status: Invoice['status']; invoice_number?: string } = { status };
+
+      // If issuing a draft, assign proper series number
+      if (status === 'issued' && currentInvoice?.invoice_number?.startsWith('BORRADOR-')) {
+        let series;
+
+        if (currentInvoice.series_id) {
+          // Use the series saved with the invoice
+          const { data: seriesData, error: seriesError } = await supabase
+            .from('invoice_series')
+            .select('*')
+            .eq('id', currentInvoice.series_id)
+            .single();
+
+          if (seriesError) throw seriesError;
+          series = seriesData;
+        } else {
+          // Fallback to default ordinary series
+          const { data: defaultSeries, error: defaultError } = await supabase
+            .from('invoice_series')
+            .select('*')
+            .eq('center_id', profile!.center_id!)
+            .eq('series_type', 'ordinary')
+            .eq('is_default', true)
+            .eq('is_archived', false)
+            .maybeSingle();
+
+          if (defaultError) throw defaultError;
+          
+          if (!defaultSeries) {
+            throw new Error('No hay una serie de facturación configurada. Por favor, crea una serie en Configuración > Facturación > Series y numeración.');
+          }
+          series = defaultSeries;
+        }
+
+        // Generate invoice number from series format
+        const year = new Date().getFullYear();
+        const invoiceNumber = series.format
+          .replace('{SERIE}', series.name)
+          .replace('{AAAA}', year.toString())
+          .replace('{AA}', year.toString().slice(-2))
+          .replace('{NNNNN}', String(series.next_number).padStart(5, '0'))
+          .replace('{NNNN}', String(series.next_number).padStart(4, '0'))
+          .replace('{NNN}', String(series.next_number).padStart(3, '0'));
+
+        updateData.invoice_number = invoiceNumber;
+
+        // Increment series next_number
+        const { error: updateSeriesError } = await supabase
+          .from('invoice_series')
+          .update({ next_number: series.next_number + 1 })
+          .eq('id', series.id);
+
+        if (updateSeriesError) throw updateSeriesError;
+      }
+
       const { data, error } = await supabase
         .from('invoices')
-        .update({ status })
+        .update(updateData)
         .eq('id', id)
         .select()
         .single();
@@ -325,6 +394,7 @@ export function useUpdateInvoiceStatus() {
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
       queryClient.invalidateQueries({ queryKey: ['invoice'] });
       queryClient.invalidateQueries({ queryKey: ['patient-invoices'] });
+      queryClient.invalidateQueries({ queryKey: ['invoice-series'] });
       toast.success('Estado actualizado');
     },
     onError: (error) => {
