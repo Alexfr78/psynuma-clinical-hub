@@ -95,17 +95,25 @@ async function decryptCertificateData(
 ): Promise<{ certificate: string; password: string }> {
   const encryptionKey = Deno.env.get('CERTIFICATE_ENCRYPTION_KEY');
   
-  if (!encryptionKey || !isEncrypted(certificateBase64)) {
-    console.log('Using unencrypted certificate data');
+  // If no encryption key configured, assume data is not encrypted
+  if (!encryptionKey) {
+    console.log('No encryption key configured, using raw certificate data');
     return { certificate: certificateBase64, password: certificatePassword };
   }
   
+  // Always try to decrypt when encryption key is available
+  // The encrypt-certificate function always encrypts when saving
   console.log('Decrypting certificate data...');
-  const certificate = await decryptAES256GCM(certificateBase64, encryptionKey);
-  const password = await decryptAES256GCM(certificatePassword, encryptionKey);
-  console.log('Certificate data decrypted successfully');
-  
-  return { certificate, password };
+  try {
+    const certificate = await decryptAES256GCM(certificateBase64, encryptionKey);
+    const password = await decryptAES256GCM(certificatePassword, encryptionKey);
+    console.log('Certificate data decrypted successfully');
+    return { certificate, password };
+  } catch (decryptError) {
+    // If decryption fails, the data might be from before encryption was implemented
+    console.log('Decryption failed, trying raw data (legacy):', decryptError);
+    return { certificate: certificateBase64, password: certificatePassword };
+  }
 }
 // ============= End Decryption =============
 
