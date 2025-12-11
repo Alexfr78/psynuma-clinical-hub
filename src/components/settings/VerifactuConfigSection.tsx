@@ -2,7 +2,7 @@ import { useState, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Save, Loader2, Upload, Shield, AlertTriangle, CheckCircle2, FileKey } from 'lucide-react';
+import { Save, Loader2, Upload, Shield, AlertTriangle, CheckCircle2, FileKey, Lock } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { useCenter } from '@/hooks/useCenter';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 const verifactuSchema = z.object({
   verifactu_environment: z.enum(['test', 'production']),
@@ -85,11 +86,43 @@ export function VerifactuConfigSection() {
       // If new certificate file uploaded
       if (certificateFile && data.verifactu_certificate_password) {
         const certificateBase64 = await fileToBase64(certificateFile);
-        updateData.verifactu_certificate_base64 = certificateBase64;
-        updateData.verifactu_certificate_password = data.verifactu_certificate_password;
+        
+        // Encrypt certificate and password using edge function
+        const { data: encryptedData, error: encryptError } = await supabase.functions.invoke('encrypt-certificate', {
+          body: { 
+            certificate_base64: certificateBase64,
+            password: data.verifactu_certificate_password 
+          }
+        });
+
+        if (encryptError || !encryptedData) {
+          console.error('Encryption error:', encryptError);
+          toast.error('Error al cifrar el certificado');
+          setIsUploading(false);
+          return;
+        }
+
+        updateData.verifactu_certificate_base64 = encryptedData.encrypted_certificate;
+        updateData.verifactu_certificate_password = encryptedData.encrypted_password;
+        console.log('Certificate encrypted with AES-256-GCM');
       } else if (data.verifactu_certificate_password && hasCertificate) {
-        // Update password only
-        updateData.verifactu_certificate_password = data.verifactu_certificate_password;
+        // Update password only - need to re-encrypt
+        const { data: encryptedData, error: encryptError } = await supabase.functions.invoke('encrypt-certificate', {
+          body: { 
+            certificate_base64: center?.verifactu_certificate_base64 || '',
+            password: data.verifactu_certificate_password 
+          }
+        });
+
+        if (encryptError || !encryptedData) {
+          console.error('Encryption error:', encryptError);
+          toast.error('Error al cifrar la contraseña');
+          setIsUploading(false);
+          return;
+        }
+
+        // Only update the password, keep the certificate as-is if it's already encrypted
+        updateData.verifactu_certificate_password = encryptedData.encrypted_password;
       }
 
       await updateCenter.mutateAsync(updateData);

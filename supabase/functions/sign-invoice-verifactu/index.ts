@@ -13,6 +13,83 @@ const AEAT_ENDPOINTS = {
   production: "https://www1.agenciatributaria.gob.es/wlpl/TIKE-CONT/ws/SistemaFacturacion/VerifactuSOAP"
 };
 
+// ============= AES-256-GCM Decryption =============
+function hexToBytes(hex: string): Uint8Array {
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < hex.length; i += 2) {
+    bytes[i / 2] = parseInt(hex.substr(i, 2), 16);
+  }
+  return bytes;
+}
+
+function base64ToBytes(base64: string): Uint8Array {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+}
+
+async function decryptAES256GCM(encryptedBase64: string, keyHex: string): Promise<string> {
+  const keyBytes = hexToBytes(keyHex);
+  const key = await crypto.subtle.importKey(
+    'raw',
+    keyBytes.buffer as ArrayBuffer,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['decrypt']
+  );
+  
+  const combined = base64ToBytes(encryptedBase64);
+  const iv = combined.slice(0, 12);
+  const ciphertext = combined.slice(12);
+  
+  const decrypted = await crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv: iv, tagLength: 128 },
+    key,
+    ciphertext
+  );
+  
+  return new TextDecoder().decode(decrypted);
+}
+
+function isEncrypted(data: string): boolean {
+  try {
+    const decoded = atob(data);
+    if (decoded.length > 2) {
+      const firstByte = decoded.charCodeAt(0);
+      // PFX files start with 0x30 (ASN.1 SEQUENCE)
+      if (firstByte === 0x30) {
+        return false;
+      }
+    }
+    return true;
+  } catch {
+    return true;
+  }
+}
+
+async function decryptCertificateData(
+  certificateBase64: string, 
+  certificatePassword: string
+): Promise<{ certificate: string; password: string }> {
+  const encryptionKey = Deno.env.get('CERTIFICATE_ENCRYPTION_KEY');
+  
+  if (!encryptionKey || !isEncrypted(certificateBase64)) {
+    console.log('Using unencrypted certificate data');
+    return { certificate: certificateBase64, password: certificatePassword };
+  }
+  
+  console.log('Decrypting certificate data...');
+  const certificate = await decryptAES256GCM(certificateBase64, encryptionKey);
+  const password = await decryptAES256GCM(certificatePassword, encryptionKey);
+  console.log('Certificate data decrypted successfully');
+  
+  return { certificate, password };
+}
+// ============= End Decryption =============
+
 // Generate SHA-256 hash
 async function generateSHA256(data: string): Promise<string> {
   const encoder = new TextEncoder();
@@ -473,10 +550,16 @@ serve(async (req) => {
     const xml = buildRegistroAltaXML(invoice, center, patient, invoiceItems || [], previousHash, generationTimestamp);
     console.log("Generated XML for invoice:", invoice.invoice_number);
 
+    // Decrypt certificate data if encrypted
+    const { certificate: decryptedCert, password: decryptedPassword } = await decryptCertificateData(
+      center.verifactu_certificate_base64,
+      center.verifactu_certificate_password
+    );
+
     // Sign XML
     let signedXml: string;
     try {
-      signedXml = signXML(xml, center.verifactu_certificate_base64, center.verifactu_certificate_password);
+      signedXml = signXML(xml, decryptedCert, decryptedPassword);
       console.log("XML signed successfully");
     } catch (signError) {
       await logVerifactuEvent(supabase, {
