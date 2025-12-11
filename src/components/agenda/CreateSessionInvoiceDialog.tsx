@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { FileText, AlertTriangle, Building2, User, Pencil, Trash2, Plus, Check, X, ShieldCheck, Loader2 } from 'lucide-react';
+import { FileText, AlertTriangle, Building2, User, Pencil, Trash2, Plus, Check, X, ShieldCheck, Loader2, FlaskConical } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -377,7 +377,12 @@ export function CreateSessionInvoiceDialog({
             console.error('Error Verifactu:', verifactuError);
             toast.warning(`Factura ${result.invoice_number} emitida, pero hubo un error al registrar en AEAT. Puede reintentar desde Facturas.`);
           } else {
-            toast.success(`Factura ${result.invoice_number} emitida y registrada en AEAT`);
+            const isTestMode = center?.verifactu_environment === 'test';
+            if (isTestMode) {
+              toast.success(`Factura ${result.invoice_number} emitida y firmada (modo pruebas)`);
+            } else {
+              toast.success(`Factura ${result.invoice_number} emitida y registrada en AEAT`);
+            }
           }
         } catch (verifactuError) {
           console.error('Error Verifactu:', verifactuError);
@@ -566,12 +571,21 @@ export function CreateSessionInvoiceDialog({
         <div className="space-y-3">
           <h4 className="font-medium">Serie de facturación</h4>
           {center?.verifactu_certificate_base64 ? (
-            <Alert className="border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950">
-              <ShieldCheck className="h-4 w-4 text-green-600" />
-              <AlertDescription className="text-green-800 dark:text-green-200">
-                La factura se emitirá y registrará automáticamente en AEAT con Verifactu.
-              </AlertDescription>
-            </Alert>
+            center?.verifactu_environment === 'test' ? (
+              <Alert className="border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950">
+                <FlaskConical className="h-4 w-4 text-amber-600" />
+                <AlertDescription className="text-amber-800 dark:text-amber-200">
+                  <strong>Modo pruebas:</strong> La factura se firmará pero NO se enviará a AEAT producción.
+                </AlertDescription>
+              </Alert>
+            ) : (
+              <Alert className="border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950">
+                <ShieldCheck className="h-4 w-4 text-green-600" />
+                <AlertDescription className="text-green-800 dark:text-green-200">
+                  La factura se emitirá y registrará automáticamente en AEAT con Verifactu.
+                </AlertDescription>
+              </Alert>
+            )
           ) : (
             <p className="text-xs text-muted-foreground">
               La factura se emitirá con el siguiente número de la serie seleccionada.
@@ -965,7 +979,11 @@ export function CreateSessionInvoiceDialog({
               </>
             ) : (
               <>
-                {center?.verifactu_certificate_base64 && <ShieldCheck className="mr-2 h-4 w-4" />}
+                {center?.verifactu_certificate_base64 && (
+                  center?.verifactu_environment === 'test' 
+                    ? <FlaskConical className="mr-2 h-4 w-4" /> 
+                    : <ShieldCheck className="mr-2 h-4 w-4" />
+                )}
                 Emitir factura
               </>
             )}
