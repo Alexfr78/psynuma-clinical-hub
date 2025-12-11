@@ -15,7 +15,8 @@ import {
   Calendar,
   Mail,
   MessageCircle,
-  Smartphone
+  Smartphone,
+  Shield
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -36,6 +37,7 @@ import { EmailTemplateEditor } from '@/components/settings/communications/EmailT
 import { WhatsAppTemplateEditor } from '@/components/settings/communications/WhatsAppTemplateEditor';
 import { WhatsAppSettingsSection } from '@/components/settings/communications/WhatsAppSettingsSection';
 import { SmsTemplateEditor } from '@/components/settings/communications/SmsTemplateEditor';
+import { VerifactuConfigSection } from '@/components/settings/VerifactuConfigSection';
 
 const centerSchema = z.object({
   name: z.string().min(1, 'El nombre es obligatorio'),
@@ -57,6 +59,7 @@ type SettingsSection =
   | 'facturacion-editar' 
   | 'facturacion-series' 
   | 'facturacion-automatizar'
+  | 'facturacion-verifactu'
   | 'comunicaciones-whatsapp-config'
   | 'comunicaciones-email'
   | 'comunicaciones-whatsapp'
@@ -77,6 +80,7 @@ const navItems: NavItem[] = [
   { id: 'facturacion-editar', label: 'Editar factura', icon: Pencil, parent: 'Facturación' },
   { id: 'facturacion-series', label: 'Series y numeración', icon: List, parent: 'Facturación' },
   { id: 'facturacion-automatizar', label: 'Automatizar facturas', icon: Zap, parent: 'Facturación' },
+  { id: 'facturacion-verifactu', label: 'Verifactu', icon: Shield, parent: 'Facturación' },
   { id: 'comunicaciones-whatsapp-config', label: 'Configuración WhatsApp', icon: MessageCircle, parent: 'Comunicaciones' },
   { id: 'comunicaciones-email', label: 'Plantillas Email', icon: Mail, parent: 'Comunicaciones' },
   { id: 'comunicaciones-whatsapp', label: 'Plantillas WhatsApp', icon: MessageCircle, parent: 'Comunicaciones' },
@@ -245,6 +249,8 @@ export default function Settings() {
         return <InvoiceSeriesSection />;
       case 'facturacion-automatizar':
         return <InvoiceAutomationSection />;
+      case 'facturacion-verifactu':
+        return <VerifactuConfigSection />;
       case 'comunicaciones-whatsapp-config':
         return <WhatsAppSettingsSection />;
       case 'comunicaciones-email':
