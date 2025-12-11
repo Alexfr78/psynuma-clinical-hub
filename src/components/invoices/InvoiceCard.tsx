@@ -1,6 +1,6 @@
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { FileText, User, Download, MoreVertical, ShieldCheck, Search, FileX, FilePlus2 } from 'lucide-react';
+import { FileText, User, Download, MoreVertical, ShieldCheck, Search, FileX, FilePlus2, RefreshCw, Clock } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -22,6 +22,7 @@ interface InvoiceCardProps {
   onQueryVerifactu?: () => void;
   onCancelVerifactu?: () => void;
   onCreateRectificativa?: () => void;
+  onRetryVerifactu?: () => void;
 }
 
 const statusConfig = {
@@ -39,10 +40,13 @@ export function InvoiceCard({
   onSealVerifactu,
   onQueryVerifactu,
   onCancelVerifactu,
-  onCreateRectificativa 
+  onCreateRectificativa,
+  onRetryVerifactu
 }: InvoiceCardProps) {
   const status = statusConfig[invoice.status] || statusConfig.draft;
   const isSealed = !!invoice.verifactu_hash;
+  const isPendingVerifactu = invoice.verifactu_pending && !isSealed;
+  const maxRetriesReached = (invoice.verifactu_retry_count || 0) >= 5;
 
   return (
     <Card className="transition-all hover:shadow-md">
@@ -63,6 +67,18 @@ export function InvoiceCard({
                   <Badge variant="default" className="gap-1 bg-green-600 hover:bg-green-700">
                     <ShieldCheck className="h-3 w-3" />
                     Verifactu
+                  </Badge>
+                )}
+                {isPendingVerifactu && !maxRetriesReached && (
+                  <Badge variant="outline" className="gap-1 border-amber-500 text-amber-600">
+                    <Clock className="h-3 w-3" />
+                    Pendiente AEAT ({invoice.verifactu_retry_count || 0}/5)
+                  </Badge>
+                )}
+                {isPendingVerifactu && maxRetriesReached && (
+                  <Badge variant="destructive" className="gap-1">
+                    <RefreshCw className="h-3 w-3" />
+                    Error AEAT
                   </Badge>
                 )}
               </div>
@@ -103,10 +119,16 @@ export function InvoiceCard({
                     Descargar PDF
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  {invoice.status === 'draft' && !isSealed && (
+                  {invoice.status === 'draft' && !isSealed && !isPendingVerifactu && (
                     <DropdownMenuItem onClick={onSealVerifactu} className="text-green-600">
                       <ShieldCheck className="h-4 w-4 mr-2" />
                       Sellar con Verifactu
+                    </DropdownMenuItem>
+                  )}
+                  {isPendingVerifactu && (
+                    <DropdownMenuItem onClick={onRetryVerifactu} className="text-amber-600">
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Reintentar Verifactu
                     </DropdownMenuItem>
                   )}
                   {invoice.status === 'draft' && (

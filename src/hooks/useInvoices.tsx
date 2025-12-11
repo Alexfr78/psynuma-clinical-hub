@@ -107,9 +107,14 @@ export function useInvoices(filters?: { patientId?: string; status?: string; sta
       if (filters?.patientId) {
         query = query.eq('patient_id', filters.patientId);
       }
-      if (filters?.status) {
+      
+      // Special filter for verifactu pending invoices
+      if (filters?.status === 'verifactu_pending') {
+        query = query.eq('verifactu_pending', true);
+      } else if (filters?.status) {
         query = query.eq('status', filters.status as 'draft' | 'issued' | 'paid' | 'cancelled');
       }
+      
       if (filters?.startDate) {
         query = query.gte('issue_date', filters.startDate);
       }
