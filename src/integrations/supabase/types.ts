@@ -1137,6 +1137,7 @@ export type Database = {
       }
       sessions: {
         Row: {
+          access_token: string | null
           bono_id: string | null
           cancellation_policy: string | null
           cancellation_reason: string | null
@@ -1162,6 +1163,7 @@ export type Database = {
           video_call_link: string | null
         }
         Insert: {
+          access_token?: string | null
           bono_id?: string | null
           cancellation_policy?: string | null
           cancellation_reason?: string | null
@@ -1187,6 +1189,7 @@ export type Database = {
           video_call_link?: string | null
         }
         Update: {
+          access_token?: string | null
           bono_id?: string | null
           cancellation_policy?: string | null
           cancellation_reason?: string | null
