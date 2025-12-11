@@ -10,7 +10,8 @@ import {
   Receipt,
   Pencil,
   List,
-  Zap
+  Zap,
+  MapPin
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -25,6 +26,7 @@ import { InvoicingInfoSection } from '@/components/settings/InvoicingInfoSection
 import { InvoiceEditSection } from '@/components/settings/InvoiceEditSection';
 import { InvoiceSeriesSection } from '@/components/settings/InvoiceSeriesSection';
 import { InvoiceAutomationSection } from '@/components/settings/InvoiceAutomationSection';
+import { LocationsSection } from '@/components/settings/LocationsSection';
 
 const centerSchema = z.object({
   name: z.string().min(1, 'El nombre es obligatorio'),
@@ -39,7 +41,8 @@ const centerSchema = z.object({
 type CenterFormValues = z.infer<typeof centerSchema>;
 
 type SettingsSection = 
-  | 'centro' 
+  | 'centro-info'
+  | 'centro-ubicaciones'
   | 'facturacion-info' 
   | 'facturacion-editar' 
   | 'facturacion-series' 
@@ -53,7 +56,8 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { id: 'centro', label: 'Centro', icon: Building2 },
+  { id: 'centro-info', label: 'Datos del centro', icon: Building2, parent: 'Centro' },
+  { id: 'centro-ubicaciones', label: 'Ubicaciones', icon: MapPin, parent: 'Centro' },
   { id: 'facturacion-info', label: 'Información de facturación', icon: Receipt, parent: 'Facturación' },
   { id: 'facturacion-editar', label: 'Editar factura', icon: Pencil, parent: 'Facturación' },
   { id: 'facturacion-series', label: 'Series y numeración', icon: List, parent: 'Facturación' },
@@ -63,7 +67,7 @@ const navItems: NavItem[] = [
 export default function Settings() {
   const { center, isLoading, updateCenter } = useCenter();
   const { isAdmin } = useAuth();
-  const [activeSection, setActiveSection] = useState<SettingsSection>('centro');
+  const [activeSection, setActiveSection] = useState<SettingsSection>('centro-info');
 
   const centerForm = useForm<CenterFormValues>({
     resolver: zodResolver(centerSchema),
@@ -100,7 +104,7 @@ export default function Settings() {
 
   const renderContent = () => {
     switch (activeSection) {
-      case 'centro':
+      case 'centro-info':
         return (
           <Card>
             <CardHeader>
@@ -210,6 +214,8 @@ export default function Settings() {
             </CardContent>
           </Card>
         );
+      case 'centro-ubicaciones':
+        return <LocationsSection />;
       case 'facturacion-info':
         return <InvoicingInfoSection />;
       case 'facturacion-editar':
@@ -238,27 +244,8 @@ export default function Settings() {
           <Card className="sticky top-6">
             <ScrollArea className="h-auto max-h-[calc(100vh-12rem)]">
               <nav className="p-4 space-y-6">
-                {/* Root items */}
-                {groupedNavItems['root']?.map((item) => (
-                  <button
-                    key={item.id}
-                    onClick={() => setActiveSection(item.id)}
-                    className={cn(
-                      "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
-                      activeSection === item.id
-                        ? "bg-primary text-primary-foreground"
-                        : "hover:bg-muted text-muted-foreground hover:text-foreground"
-                    )}
-                  >
-                    <item.icon className="h-4 w-4" />
-                    {item.label}
-                  </button>
-                ))}
 
-                {/* Grouped items */}
-                {Object.entries(groupedNavItems)
-                  .filter(([key]) => key !== 'root')
-                  .map(([group, items]) => (
+                {Object.entries(groupedNavItems).map(([group, items]) => (
                     <div key={group} className="space-y-1">
                       <div className="flex items-center gap-2 px-3 py-2">
                         <FileText className="h-4 w-4 text-muted-foreground" />
