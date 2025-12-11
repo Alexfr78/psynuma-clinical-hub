@@ -10,6 +10,7 @@ import { ListView } from '@/components/agenda/ListView';
 import { QuickCreateSessionDialog } from '@/components/agenda/QuickCreateSessionDialog';
 import { SessionDetailDrawer } from '@/components/agenda/SessionDetailDrawer';
 import { useToast } from '@/hooks/use-toast';
+import { useAgendaHours } from '@/hooks/useAgendaHours';
 
 export default function Agenda() {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -64,6 +65,9 @@ export default function Agenda() {
     dateRange.end,
     selectedProfessional
   );
+
+  // Dynamic hours based on center/professional configuration
+  const { hours, startHour } = useAgendaHours(selectedProfessional, currentDate);
 
   const handleSlotClick = (date: Date, startTime: string, endTime: string) => {
     setInitialDate(date);
@@ -144,6 +148,8 @@ export default function Agenda() {
               onSessionClick={handleSessionClick}
               onSlotClick={handleSlotClick}
               onSessionMove={handleSessionMove}
+              hours={hours}
+              startHour={startHour}
             />
           )}
           {view === 'day' && (
@@ -153,6 +159,8 @@ export default function Agenda() {
               onSessionClick={handleSessionClick}
               onSlotClick={handleSlotClick}
               onSessionMove={handleSessionMove}
+              hours={hours}
+              startHour={startHour}
             />
           )}
           {view === 'month' && (

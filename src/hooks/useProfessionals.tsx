@@ -149,3 +149,24 @@ export function useDeleteAvailability() {
     },
   });
 }
+
+export function useAllProfessionalAvailability(professionalIds: string[]) {
+  return useQuery({
+    queryKey: ['availability', 'all', professionalIds],
+    queryFn: async () => {
+      if (professionalIds.length === 0) return [];
+
+      const { data, error } = await supabase
+        .from('availability')
+        .select('*')
+        .in('professional_id', professionalIds)
+        .eq('is_available', true)
+        .order('day_of_week', { ascending: true })
+        .order('start_time', { ascending: true });
+
+      if (error) throw error;
+      return data as Availability[];
+    },
+    enabled: professionalIds.length > 0,
+  });
+}
