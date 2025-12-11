@@ -126,7 +126,7 @@ export function CenterSetupWizard() {
           </div>
           <CardTitle className="font-display text-2xl">Configura tu centro</CardTitle>
           <CardDescription>
-            Para empezar a usar Psynuma, necesitas configurar los datos de tu centro o consulta.
+            Para empezar a usar Psycma, necesitas configurar los datos de tu centro o consulta.
           </CardDescription>
         </CardHeader>
         <CardContent>

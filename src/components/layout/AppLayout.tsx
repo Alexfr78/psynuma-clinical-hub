@@ -33,7 +33,7 @@ const routeTitles: Record<string, string> = {
 export function AppLayout({ children }: AppLayoutProps) {
   const location = useLocation();
   const { profile, isLoading } = useAuth();
-  const currentTitle = routeTitles[location.pathname] || 'Psynuma';
+  const currentTitle = routeTitles[location.pathname] || 'Psycma';
 
   // Show setup wizard if user doesn't have a center
   const needsSetup = !isLoading && profile && !profile.center_id;
@@ -57,7 +57,7 @@ export function AppLayout({ children }: AppLayoutProps) {
             <Breadcrumb>
               <BreadcrumbList>
                 <BreadcrumbItem className="hidden md:block">
-                  <BreadcrumbLink href="/dashboard">Psynuma</BreadcrumbLink>
+                  <BreadcrumbLink href="/dashboard">Psycma</BreadcrumbLink>
                 </BreadcrumbItem>
                 <BreadcrumbSeparator className="hidden md:block" />
                 <BreadcrumbItem>

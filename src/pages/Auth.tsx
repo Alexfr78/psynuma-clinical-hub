@@ -160,7 +160,7 @@ export default function Auth() {
         <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl gradient-clinical shadow-clinical">
           <Brain className="h-9 w-9 text-primary-foreground" />
         </div>
-        <h1 className="font-display text-3xl font-bold text-foreground">Psynuma</h1>
+        <h1 className="font-display text-3xl font-bold text-foreground">Psycma</h1>
         <p className="mt-1 text-muted-foreground">Gestión Clínica Profesional</p>
       </div>
 
