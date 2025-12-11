@@ -4,7 +4,13 @@ import { Check, ChevronRight, Circle } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
-const DropdownMenu = DropdownMenuPrimitive.Root;
+const DropdownMenu = React.forwardRef<
+  React.ElementRef<typeof DropdownMenuPrimitive.Root>,
+  React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Root>
+>(({ modal = false, ...props }, _ref) => (
+  <DropdownMenuPrimitive.Root modal={modal} {...props} />
+));
+DropdownMenu.displayName = "DropdownMenu";
 
 const DropdownMenuTrigger = DropdownMenuPrimitive.Trigger;
 
@@ -56,7 +62,7 @@ const DropdownMenuContent = React.forwardRef<
   React.ElementRef<typeof DropdownMenuPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Content>
 >(({ className, sideOffset = 4, ...props }, ref) => (
-  <DropdownMenuPrimitive.Portal>
+  <DropdownMenuPrimitive.Portal forceMount={undefined}>
     <DropdownMenuPrimitive.Content
       ref={ref}
       sideOffset={sideOffset}
