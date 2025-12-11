@@ -316,6 +316,10 @@ export type Database = {
           retention_rate: number | null
           tax_id: string | null
           updated_at: string
+          whatsapp_access_token: string | null
+          whatsapp_business_account_id: string | null
+          whatsapp_phone_number_id: string | null
+          whatsapp_send_method: string | null
         }
         Insert: {
           address?: string | null
@@ -342,6 +346,10 @@ export type Database = {
           retention_rate?: number | null
           tax_id?: string | null
           updated_at?: string
+          whatsapp_access_token?: string | null
+          whatsapp_business_account_id?: string | null
+          whatsapp_phone_number_id?: string | null
+          whatsapp_send_method?: string | null
         }
         Update: {
           address?: string | null
@@ -368,6 +376,10 @@ export type Database = {
           retention_rate?: number | null
           tax_id?: string | null
           updated_at?: string
+          whatsapp_access_token?: string | null
+          whatsapp_business_account_id?: string | null
+          whatsapp_phone_number_id?: string | null
+          whatsapp_send_method?: string | null
         }
         Relationships: []
       }

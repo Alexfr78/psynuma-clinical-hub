@@ -5,8 +5,10 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, Save, RotateCcw, Info, MessageCircle } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Loader2, Save, RotateCcw, Info, MessageCircle, Globe, Zap } from 'lucide-react';
 import { TemplateVariableBadges } from './TemplateVariableBadges';
+import { useCenter } from '@/hooks/useCenter';
 import { 
   useCommunicationTemplate, 
   useUpsertCommunicationTemplate, 
@@ -19,6 +21,9 @@ export function WhatsAppTemplateEditor() {
   const [notificationMessage, setNotificationMessage] = useState('');
   const [reminderMessage, setReminderMessage] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  const { center } = useCenter();
+  const whatsappMethod = center?.whatsapp_send_method || 'web';
 
   const { data: notificationTemplate, isLoading: loadingNotification } = useCommunicationTemplate('whatsapp', 'notification');
   const { data: reminderTemplate, isLoading: loadingReminder } = useCommunicationTemplate('whatsapp', 'reminder');
@@ -95,9 +100,22 @@ export function WhatsAppTemplateEditor() {
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center gap-2">
-          <MessageCircle className="h-5 w-5 text-green-600" />
-          <CardTitle>Plantillas de WhatsApp</CardTitle>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <MessageCircle className="h-5 w-5 text-green-600" />
+            <CardTitle>Plantillas de WhatsApp</CardTitle>
+          </div>
+          {whatsappMethod === 'web' ? (
+            <Badge variant="secondary" className="gap-1">
+              <Globe className="h-3 w-3" />
+              WhatsApp Web
+            </Badge>
+          ) : (
+            <Badge variant="default" className="gap-1 bg-blue-600">
+              <Zap className="h-3 w-3" />
+              API Meta
+            </Badge>
+          )}
         </div>
         <CardDescription>
           Configura los mensajes de WhatsApp que se enviarán a tus pacientes
