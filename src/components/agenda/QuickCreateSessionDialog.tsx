@@ -50,6 +50,7 @@ import { useLocations } from '@/hooks/useLocations';
 import { usePatientActiveBonos, useDeductBonoSession } from '@/hooks/useBonos';
 import { useScheduleSessionReminder } from '@/hooks/useNotifications';
 import { useSendSessionNotification, WhatsAppDialogData } from '@/hooks/useSendSessionNotification';
+import { useSessionTypes } from '@/hooks/useSessionTypes';
 import { QuickCreatePatientDialog } from '@/components/patients/QuickCreatePatientDialog';
 import { EditLocationsDialog } from '@/components/settings/EditLocationsDialog';
 import { CreateBonoDialog } from '@/components/bonos/CreateBonoDialog';
@@ -135,6 +136,7 @@ export function QuickCreateSessionDialog({
   const { data: patients } = usePatients();
   const { data: professionals } = useProfessionals();
   const { data: locations } = useLocations();
+  const { data: sessionTypes } = useSessionTypes();
   const [patientSearch, setPatientSearch] = useState('');
   const [patientPopoverOpen, setPatientPopoverOpen] = useState(false);
   const [showQuickPatientDialog, setShowQuickPatientDialog] = useState(false);
@@ -172,7 +174,18 @@ export function QuickCreateSessionDialog({
   const sessionModality = form.watch('session_modality');
   const watchPatientId = form.watch('patient_id');
   const watchBonoId = form.watch('bono_id');
+  const watchSessionType = form.watch('session_type');
+  const watchStartTime = form.watch('start_time');
   const { data: patientBonos, refetch: refetchBonos } = usePatientActiveBonos(watchPatientId || undefined);
+
+  // Helper function to calculate end time based on start time and duration
+  const calculateEndTime = (startTime: string, durationMinutes: number): string => {
+    const [hours, minutes] = startTime.split(':').map(Number);
+    const totalMinutes = hours * 60 + minutes + durationMinutes;
+    const endHours = Math.floor(totalMinutes / 60);
+    const endMinutes = totalMinutes % 60;
+    return `${endHours.toString().padStart(2, '0')}:${endMinutes.toString().padStart(2, '0')}`;
+  };
 
   // Clear new bono tracking when bono selection changes to something else
   useEffect(() => {
@@ -182,15 +195,34 @@ export function QuickCreateSessionDialog({
     }
   }, [watchBonoId, newlyCreatedBonoId]);
 
+  // Update end time when session type changes
+  useEffect(() => {
+    if (watchSessionType && sessionTypes) {
+      const selectedType = sessionTypes.find(t => t.id === watchSessionType);
+      if (selectedType) {
+        const newEndTime = calculateEndTime(watchStartTime, selectedType.duration_minutes);
+        form.setValue('end_time', newEndTime);
+      }
+    }
+  }, [watchSessionType, watchStartTime, sessionTypes, form]);
+
+  // Get the default session type (first one or 'individual' fallback)
+  const defaultSessionTypeId = sessionTypes?.[0]?.id || '';
+
   useEffect(() => {
     if (open) {
+      const firstSessionType = sessionTypes?.[0];
+      const initialEndTimeCalculated = firstSessionType && initialStartTime 
+        ? calculateEndTime(initialStartTime, firstSessionType.duration_minutes)
+        : initialEndTime || '10:00';
+        
       form.reset({
         patient_id: '',
         professional_id: user?.id || professionals?.[0]?.id || '',
         session_date: initialDate || new Date(),
         start_time: initialStartTime || '09:00',
-        end_time: initialEndTime || '10:00',
-        session_type: 'individual',
+        end_time: initialEndTimeCalculated,
+        session_type: firstSessionType?.id || '',
         cancellation_policy: '24_hours',
         session_modality: 'in_person',
         video_call_link: '',
@@ -205,7 +237,7 @@ export function QuickCreateSessionDialog({
       });
       setPatientSearch('');
     }
-  }, [open, initialDate, initialStartTime, initialEndTime, user?.id, professionals, form]);
+  }, [open, initialDate, initialStartTime, initialEndTime, user?.id, professionals, sessionTypes, form]);
 
   const filteredPatients = patients?.filter(
     (patient) =>
@@ -220,9 +252,10 @@ export function QuickCreateSessionDialog({
   const onSubmit = async (values: QuickSessionFormValues, asDraft: boolean) => {
     try {
       const usesBono = values.bono_id && values.bono_id !== 'none' && values.bono_id !== '';
+      const selectedSessionType = sessionTypes?.find(t => t.id === values.session_type);
       
-      // Determine price: new bono = total price, existing bono = 0, no bono = 60
-      let sessionPrice = 60;
+      // Determine price: new bono = total price, existing bono = 0, no bono = session type default
+      let sessionPrice = selectedSessionType?.default_price || 60;
       if (usesBono) {
         if (values.bono_id === newlyCreatedBonoId && newlyCreatedBonoPrice !== null) {
           // Newly created bono - needs to be paid
@@ -239,7 +272,7 @@ export function QuickCreateSessionDialog({
         session_date: format(values.session_date, 'yyyy-MM-dd'),
         start_time: values.start_time,
         end_time: values.end_time,
-        session_type: values.session_type,
+        session_type: selectedSessionType?.name?.toLowerCase() || 'individual',
         price: sessionPrice,
         status: asDraft ? 'draft' : 'scheduled',
         cancellation_policy: values.cancellation_policy,
@@ -292,7 +325,7 @@ export function QuickCreateSessionDialog({
           sessionDate: format(values.session_date, 'dd/MM/yyyy'),
           sessionTime: values.start_time,
           professionalName: selectedProfessional ? `${selectedProfessional.first_name} ${selectedProfessional.last_name}` : undefined,
-          sessionType: values.session_type,
+          sessionType: selectedSessionType?.name || values.session_type,
           type: 'notification',
           channels: {
             whatsapp: values.notify_whatsapp,
@@ -531,25 +564,53 @@ export function QuickCreateSessionDialog({
             <FormField
               control={form.control}
               name="session_type"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-sm font-medium">Tipo de sesión</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger className="h-10">
-                        <SelectValue />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="individual">Individual</SelectItem>
-                      <SelectItem value="pareja">Pareja</SelectItem>
-                      <SelectItem value="familia">Familia</SelectItem>
-                      <SelectItem value="grupo">Grupo</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
+              render={({ field }) => {
+                const selectedType = sessionTypes?.find(t => t.id === field.value);
+                return (
+                  <FormItem>
+                    <FormLabel className="text-sm font-medium">Tipo de sesión</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger className="h-10">
+                          <SelectValue>
+                            {selectedType ? (
+                              <span className="flex items-center gap-2">
+                                <div 
+                                  className="h-3 w-3 rounded-full" 
+                                  style={{ backgroundColor: selectedType.color }}
+                                />
+                                {selectedType.name}
+                                <span className="text-muted-foreground text-xs ml-1">
+                                  ({selectedType.duration_minutes} min)
+                                </span>
+                              </span>
+                            ) : (
+                              'Seleccionar tipo'
+                            )}
+                          </SelectValue>
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {sessionTypes?.map((type) => (
+                          <SelectItem key={type.id} value={type.id}>
+                            <span className="flex items-center gap-2">
+                              <div 
+                                className="h-3 w-3 rounded-full" 
+                                style={{ backgroundColor: type.color }}
+                              />
+                              {type.name}
+                              <span className="text-muted-foreground text-xs ml-1">
+                                ({type.duration_minutes} min)
+                              </span>
+                            </span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                );
+              }}
             />
 
             {/* Cancellation Policy */}
