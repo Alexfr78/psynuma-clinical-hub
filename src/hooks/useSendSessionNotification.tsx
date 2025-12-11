@@ -47,7 +47,7 @@ export function useSendSessionNotification() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (params: SendNotificationParams): Promise<{ 
+    mutationFn: async (params: SendNotificationParams & { sessionAccessToken?: string }): Promise<{ 
       results: { channel: string; success: boolean }[];
       whatsappData?: WhatsAppDialogData;
     }> => {
@@ -58,6 +58,22 @@ export function useSendSessionNotification() {
       const results: { channel: string; success: boolean }[] = [];
       let whatsappData: WhatsAppDialogData | undefined;
 
+      // Get session access token if not provided
+      let accessToken = params.sessionAccessToken;
+      if (!accessToken) {
+        const { data: sessionData } = await supabase
+          .from('sessions')
+          .select('access_token')
+          .eq('id', params.sessionId)
+          .maybeSingle();
+        accessToken = sessionData?.access_token || '';
+      }
+
+      // Build appointment management link
+      const appointmentLink = accessToken 
+        ? `${window.location.origin}/cita/${accessToken}`
+        : `${window.location.origin}`;
+
       // Build template variables
       const templateVars: Record<string, string> = {
         '{nombre_paciente}': params.patientName.split(' ')[0],
@@ -66,8 +82,8 @@ export function useSendSessionNotification() {
         '{zona_horaria}': params.sessionTime,
         '{sesion_tipo}': params.sessionType || 'Individual',
         '{centro_nombre}': center.name || '',
-        '{link_sesion}': `${window.location.origin}/sesiones`,
-        '{link_confirmar}': `${window.location.origin}/confirmar`,
+        '{link_sesion}': appointmentLink,
+        '{link_confirmar}': appointmentLink,
       };
 
       // Handle WhatsApp
