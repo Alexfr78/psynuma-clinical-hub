@@ -303,6 +303,7 @@ export function QuickCreateSessionDialog({
           patientEmail: selectedPatient.email,
           patientPhone: selectedPatient.phone,
           sessionDate: format(values.session_date, 'dd/MM/yyyy'),
+          sessionDateISO: format(values.session_date, 'yyyy-MM-dd'),
           sessionTime: values.start_time,
           reminderTypes: {
             email: values.send_reminder_email,
