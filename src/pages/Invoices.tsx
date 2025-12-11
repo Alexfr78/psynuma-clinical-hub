@@ -274,19 +274,27 @@ export default function Invoices() {
         </TabsContent>
       </Tabs>
 
-      <CreateSimpleInvoiceDialog open={simpleOpen} onOpenChange={setSimpleOpen} />
-      <CreateRecapInvoiceDialog open={recapOpen} onOpenChange={setRecapOpen} />
-      <CreateRectificativaDialog 
-        open={rectificativaOpen} 
-        onOpenChange={setRectificativaOpen}
-        originalInvoice={selectedInvoiceForRectificativa}
-      />
+      {simpleOpen && (
+        <CreateSimpleInvoiceDialog open={simpleOpen} onOpenChange={setSimpleOpen} />
+      )}
+      {recapOpen && (
+        <CreateRecapInvoiceDialog open={recapOpen} onOpenChange={setRecapOpen} />
+      )}
+      {rectificativaOpen && (
+        <CreateRectificativaDialog 
+          open={rectificativaOpen} 
+          onOpenChange={setRectificativaOpen}
+          originalInvoice={selectedInvoiceForRectificativa}
+        />
+      )}
       
-      <InvoiceDetailDialog 
-        open={detailDialogOpen} 
-        onOpenChange={setDetailDialogOpen}
-        invoiceId={selectedInvoiceId}
-      />
+      {detailDialogOpen && selectedInvoiceId && (
+        <InvoiceDetailDialog 
+          open={detailDialogOpen} 
+          onOpenChange={setDetailDialogOpen}
+          invoiceId={selectedInvoiceId}
+        />
+      )}
 
       {/* Confirmation dialog for Verifactu cancellation */}
       <AlertDialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
