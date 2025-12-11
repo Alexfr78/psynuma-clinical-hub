@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useInvoices, useUpdateInvoiceStatus, useInvoiceStats, type InvoiceWithPatient } from '@/hooks/useInvoices';
 import { InvoiceCard } from '@/components/invoices/InvoiceCard';
+import { InvoiceDetailDialog } from '@/components/invoices/InvoiceDetailDialog';
 import { CreateSimpleInvoiceDialog } from '@/components/invoices/CreateSimpleInvoiceDialog';
 import { CreateRecapInvoiceDialog } from '@/components/invoices/CreateRecapInvoiceDialog';
 import { CreateRectificativaDialog } from '@/components/invoices/CreateRectificativaDialog';
@@ -36,6 +37,10 @@ export default function Invoices() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [invoiceToCancel, setInvoiceToCancel] = useState<{ id: string; number: string } | null>(null);
+  
+  // Detail dialog state
+  const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+  const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
 
   const { data: invoices, isLoading, refetch } = useInvoices({ status: statusFilter === 'all' ? undefined : statusFilter });
   const { data: stats } = useInvoiceStats();
@@ -141,6 +146,11 @@ export default function Invoices() {
     setRectificativaOpen(true);
   };
 
+  const handleViewDetails = (invoiceId: string) => {
+    setSelectedInvoiceId(invoiceId);
+    setDetailDialogOpen(true);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -218,6 +228,7 @@ export default function Invoices() {
                 <InvoiceCard
                   key={invoice.id}
                   invoice={invoice}
+                  onViewDetails={() => handleViewDetails(invoice.id)}
                   onStatusChange={(status) => handleStatusChange(invoice.id, status)}
                   onGeneratePDF={() => handleGeneratePDF(invoice.id)}
                   onSealVerifactu={() => handleSealVerifactu(invoice.id)}
@@ -237,6 +248,12 @@ export default function Invoices() {
         open={rectificativaOpen} 
         onOpenChange={setRectificativaOpen}
         originalInvoice={selectedInvoiceForRectificativa}
+      />
+      
+      <InvoiceDetailDialog 
+        open={detailDialogOpen} 
+        onOpenChange={setDetailDialogOpen}
+        invoiceId={selectedInvoiceId}
       />
 
       {/* Confirmation dialog for Verifactu cancellation */}

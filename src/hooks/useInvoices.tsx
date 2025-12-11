@@ -14,12 +14,18 @@ export interface Invoice {
   subtotal: number;
   tax_rate: number;
   tax_amount: number;
+  retention_rate: number | null;
+  retention_amount: number | null;
   total: number;
   status: 'draft' | 'issued' | 'paid' | 'cancelled';
   is_recapitulative: boolean;
   notes: string | null;
   verifactu_hash: string | null;
+  verifactu_qr: string | null;
   verifactu_timestamp: string | null;
+  verifactu_registration_id: string | null;
+  verifactu_pending: boolean | null;
+  verifactu_retry_count: number | null;
   created_at: string;
   updated_at: string;
 }
