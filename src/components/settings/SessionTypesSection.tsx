@@ -53,12 +53,14 @@ export function SessionTypesSection() {
 
   const [editableTypes, setEditableTypes] = useState<EditableSessionType[]>([]);
   const [hasChanges, setHasChanges] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
-    if (sessionTypes) {
+    if (sessionTypes && !isInitialized) {
       setEditableTypes(sessionTypes.map(st => ({ ...st })));
+      setIsInitialized(true);
     }
-  }, [sessionTypes]);
+  }, [sessionTypes, isInitialized]);
 
   const handleChange = (index: number, field: keyof EditableSessionType, value: string | number) => {
     setEditableTypes(prev => {
@@ -116,9 +118,9 @@ export function SessionTypesSection() {
         if (original) {
           const hasChanged =
             original.name !== item.name ||
-            original.default_price !== item.default_price ||
-            original.commission_rate !== item.commission_rate ||
-            original.duration_minutes !== item.duration_minutes ||
+            Number(original.default_price) !== Number(item.default_price) ||
+            Number(original.commission_rate || 0) !== Number(item.commission_rate || 0) ||
+            Number(original.duration_minutes) !== Number(item.duration_minutes) ||
             original.color !== item.color;
 
           if (hasChanged) {
@@ -126,9 +128,9 @@ export function SessionTypesSection() {
               updateMutation.mutateAsync({
                 id: item.id,
                 name: item.name,
-                default_price: item.default_price,
-                commission_rate: item.commission_rate || 0,
-                duration_minutes: item.duration_minutes,
+                default_price: Number(item.default_price),
+                commission_rate: Number(item.commission_rate || 0),
+                duration_minutes: Number(item.duration_minutes),
                 color: item.color,
               })
             );
@@ -138,6 +140,7 @@ export function SessionTypesSection() {
     }
 
     await Promise.all(promises);
+    setIsInitialized(false);
     setHasChanges(false);
   };
 
