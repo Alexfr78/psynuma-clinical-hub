@@ -106,10 +106,11 @@ export function VerifactuConfigSection() {
         updateData.verifactu_certificate_password = encryptedData.encrypted_password;
         console.log('Certificate encrypted with AES-256-GCM');
       } else if (data.verifactu_certificate_password && hasCertificate) {
-        // Update password only - need to re-encrypt
+        // Update password only - encrypt just the new password
+        // Note: We use a dummy certificate value since we only need the encrypted password
         const { data: encryptedData, error: encryptError } = await supabase.functions.invoke('encrypt-certificate', {
           body: { 
-            certificate_base64: center?.verifactu_certificate_base64 || '',
+            certificate_base64: 'dummy', // We only need the password encrypted
             password: data.verifactu_certificate_password 
           }
         });
@@ -121,7 +122,7 @@ export function VerifactuConfigSection() {
           return;
         }
 
-        // Only update the password, keep the certificate as-is if it's already encrypted
+        // Only update the password, keep the existing encrypted certificate
         updateData.verifactu_certificate_password = encryptedData.encrypted_password;
       }
 
