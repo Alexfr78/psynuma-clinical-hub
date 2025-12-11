@@ -46,7 +46,9 @@ import { usePatients, useProfessionals } from '@/hooks/usePatients';
 import { useAuth } from '@/hooks/useAuth';
 import { usePatientActiveBonos, useDeductBonoSession } from '@/hooks/useBonos';
 import { useScheduleSessionReminder } from '@/hooks/useNotifications';
+import { useSendSessionNotification } from '@/hooks/useSendSessionNotification';
 import { CreateBonoDialog } from '@/components/bonos/CreateBonoDialog';
+import { SessionNotificationSettings } from './SessionNotificationSettings';
 
 const sessionSchema = z.object({
   patient_id: z.string().uuid('Selecciona un paciente'),
@@ -59,6 +61,11 @@ const sessionSchema = z.object({
   notes: z.string().max(1000).optional(),
   status: z.string().default('scheduled'),
   bono_id: z.string().optional(),
+  // Immediate notifications
+  notify_whatsapp: z.boolean().default(false),
+  notify_email: z.boolean().default(false),
+  notify_sms: z.boolean().default(false),
+  // Reminders
   send_reminder_email: z.boolean().default(true),
   send_reminder_sms: z.boolean().default(false),
   send_reminder_whatsapp: z.boolean().default(false),
@@ -97,6 +104,7 @@ export function CreateSessionDialog({
   const createSession = useCreateSession();
   const deductBonoSession = useDeductBonoSession();
   const scheduleReminder = useScheduleSessionReminder();
+  const sendNotification = useSendSessionNotification();
   const { data: patients } = usePatients();
   const { data: professionals } = useProfessionals();
   const [showCreateBonoDialog, setShowCreateBonoDialog] = useState(false);
@@ -117,6 +125,9 @@ export function CreateSessionDialog({
       notes: '',
       status: 'scheduled',
       bono_id: '',
+      notify_whatsapp: false,
+      notify_email: false,
+      notify_sms: false,
       send_reminder_email: true,
       send_reminder_sms: false,
       send_reminder_whatsapp: false,
@@ -180,6 +191,8 @@ export function CreateSessionDialog({
       };
 
       const newSession = await createSession.mutateAsync(sessionData);
+      const patient = patients?.find(p => p.id === values.patient_id);
+      const professional = professionals?.find(p => p.id === values.professional_id);
 
       // If bono was used, deduct a session
       if (values.bono_id && values.bono_id !== 'none' && newSession?.id) {
@@ -191,24 +204,43 @@ export function CreateSessionDialog({
 
       // Schedule reminders if any are enabled
       const hasReminders = values.send_reminder_email || values.send_reminder_sms || values.send_reminder_whatsapp;
-      if (hasReminders && newSession?.id) {
-        const patient = patients?.find(p => p.id === values.patient_id);
-        if (patient) {
-          await scheduleReminder.mutateAsync({
-            sessionId: newSession.id,
-            patientId: values.patient_id,
-            patientName: `${patient.first_name} ${patient.last_name}`,
-            patientEmail: patient.email,
-            patientPhone: patient.phone,
-            sessionDate: format(values.session_date, 'dd/MM/yyyy'),
-            sessionTime: values.start_time,
-            reminderTypes: {
-              email: values.send_reminder_email,
-              sms: values.send_reminder_sms,
-              whatsapp: values.send_reminder_whatsapp,
-            },
-          });
-        }
+      if (hasReminders && newSession?.id && patient) {
+        await scheduleReminder.mutateAsync({
+          sessionId: newSession.id,
+          patientId: values.patient_id,
+          patientName: `${patient.first_name} ${patient.last_name}`,
+          patientEmail: patient.email,
+          patientPhone: patient.phone,
+          sessionDate: format(values.session_date, 'dd/MM/yyyy'),
+          sessionTime: values.start_time,
+          reminderTypes: {
+            email: values.send_reminder_email,
+            sms: values.send_reminder_sms,
+            whatsapp: values.send_reminder_whatsapp,
+          },
+        });
+      }
+
+      // Send immediate notifications if any are enabled
+      const hasNotifications = values.notify_whatsapp || values.notify_email || values.notify_sms;
+      if (hasNotifications && newSession?.id && patient) {
+        await sendNotification.mutateAsync({
+          patientId: values.patient_id,
+          patientName: `${patient.first_name} ${patient.last_name}`,
+          patientPhone: patient.phone,
+          patientEmail: patient.email,
+          sessionId: newSession.id,
+          sessionDate: format(values.session_date, 'dd/MM/yyyy'),
+          sessionTime: values.start_time,
+          professionalName: professional ? `${professional.first_name} ${professional.last_name}` : undefined,
+          sessionType: values.session_type,
+          type: 'notification',
+          channels: {
+            whatsapp: values.notify_whatsapp,
+            email: values.notify_email,
+            sms: values.notify_sms,
+          },
+        });
       }
 
       toast({
@@ -507,69 +539,22 @@ export function CreateSessionDialog({
               )}
             />
 
-            {/* Reminder Options */}
-            <div className="space-y-3 rounded-lg border p-4">
-              <FormLabel className="text-sm font-medium">Recordatorios automáticos</FormLabel>
-              <FormDescription className="text-xs">
-                Se enviarán un día antes de la cita
-              </FormDescription>
-              <div className="flex flex-wrap gap-4">
-                <FormField
-                  control={form.control}
-                  name="send_reminder_email"
-                  render={({ field }) => (
-                    <FormItem className="flex items-center space-x-2 space-y-0">
-                      <FormControl>
-                        <Checkbox
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                        />
-                      </FormControl>
-                      <FormLabel className="flex items-center gap-1 text-sm font-normal cursor-pointer">
-                        <Mail className="h-4 w-4" />
-                        Email
-                      </FormLabel>
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="send_reminder_sms"
-                  render={({ field }) => (
-                    <FormItem className="flex items-center space-x-2 space-y-0">
-                      <FormControl>
-                        <Checkbox
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                        />
-                      </FormControl>
-                      <FormLabel className="flex items-center gap-1 text-sm font-normal cursor-pointer">
-                        <Phone className="h-4 w-4" />
-                        SMS
-                      </FormLabel>
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="send_reminder_whatsapp"
-                  render={({ field }) => (
-                    <FormItem className="flex items-center space-x-2 space-y-0">
-                      <FormControl>
-                        <Checkbox
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                        />
-                      </FormControl>
-                      <FormLabel className="flex items-center gap-1 text-sm font-normal cursor-pointer">
-                        <MessageSquare className="h-4 w-4" />
-                        WhatsApp
-                      </FormLabel>
-                    </FormItem>
-                  )}
-                />
-              </div>
-            </div>
+            {/* Notification Settings */}
+            <SessionNotificationSettings
+              compact
+              notifyWhatsapp={form.watch('notify_whatsapp')}
+              notifyEmail={form.watch('notify_email')}
+              notifySms={form.watch('notify_sms')}
+              onNotifyWhatsappChange={(checked) => form.setValue('notify_whatsapp', checked)}
+              onNotifyEmailChange={(checked) => form.setValue('notify_email', checked)}
+              onNotifySmsChange={(checked) => form.setValue('notify_sms', checked)}
+              reminderWhatsapp={form.watch('send_reminder_whatsapp')}
+              reminderEmail={form.watch('send_reminder_email')}
+              reminderSms={form.watch('send_reminder_sms')}
+              onReminderWhatsappChange={(checked) => form.setValue('send_reminder_whatsapp', checked)}
+              onReminderEmailChange={(checked) => form.setValue('send_reminder_email', checked)}
+              onReminderSmsChange={(checked) => form.setValue('send_reminder_sms', checked)}
+            />
 
             <FormField
               control={form.control}
