@@ -1,23 +1,43 @@
 /**
- * Generate a WhatsApp Web link with a pre-filled message
- * @param phone - Phone number (will be cleaned to digits only)
- * @param message - Message to pre-fill
- * @returns WhatsApp Web URL
+ * Clean and format phone number for WhatsApp
  */
-export function generateWhatsAppWebLink(phone: string, message: string): string {
-  // Clean phone number: remove all non-digit characters
-  // If doesn't start with country code, assume Spain (+34)
+function cleanPhoneNumber(phone: string): string {
   let cleanPhone = phone.replace(/\D/g, '');
-  
   // If the number is 9 digits and starts with 6 or 7, add Spanish country code
   if (cleanPhone.length === 9 && /^[67]/.test(cleanPhone)) {
     cleanPhone = '34' + cleanPhone;
   }
-  
-  // Encode message for URL
+  return cleanPhone;
+}
+
+/**
+ * Generate a WhatsApp Web link with a pre-filled message
+ * @deprecated Use generateWhatsAppUniversalLink instead
+ */
+export function generateWhatsAppWebLink(phone: string, message: string): string {
+  const cleanPhone = cleanPhoneNumber(phone);
   const encodedMessage = encodeURIComponent(message);
-  
   return `https://web.whatsapp.com/send?phone=${cleanPhone}&text=${encodedMessage}`;
+}
+
+/**
+ * Generate a WhatsApp Universal link (wa.me) - Official format
+ * Works on both mobile and desktop, redirects to app or web
+ */
+export function generateWhatsAppUniversalLink(phone: string, message: string): string {
+  const cleanPhone = cleanPhoneNumber(phone);
+  const encodedMessage = encodeURIComponent(message);
+  return `https://wa.me/${cleanPhone}?text=${encodedMessage}`;
+}
+
+/**
+ * Generate a WhatsApp native protocol link
+ * Opens WhatsApp app directly if installed
+ */
+export function generateWhatsAppNativeLink(phone: string, message: string): string {
+  const cleanPhone = cleanPhoneNumber(phone);
+  const encodedMessage = encodeURIComponent(message);
+  return `whatsapp://send?phone=${cleanPhone}&text=${encodedMessage}`;
 }
 
 /**
