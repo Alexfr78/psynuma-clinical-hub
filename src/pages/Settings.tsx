@@ -38,6 +38,8 @@ import { WhatsAppTemplateEditor } from '@/components/settings/communications/Wha
 import { WhatsAppSettingsSection } from '@/components/settings/communications/WhatsAppSettingsSection';
 import { SmsTemplateEditor } from '@/components/settings/communications/SmsTemplateEditor';
 import { VerifactuConfigSection } from '@/components/settings/VerifactuConfigSection';
+import { ResponsibleDeclarationSection } from '@/components/settings/ResponsibleDeclarationSection';
+import { VerifactuExportSection } from '@/components/settings/VerifactuExportSection';
 
 const centerSchema = z.object({
   name: z.string().min(1, 'El nombre es obligatorio'),
@@ -60,6 +62,8 @@ type SettingsSection =
   | 'facturacion-series' 
   | 'facturacion-automatizar'
   | 'facturacion-verifactu'
+  | 'facturacion-verifactu-declaracion'
+  | 'facturacion-verifactu-exportar'
   | 'comunicaciones-whatsapp-config'
   | 'comunicaciones-email'
   | 'comunicaciones-whatsapp'
@@ -81,6 +85,8 @@ const navItems: NavItem[] = [
   { id: 'facturacion-series', label: 'Series y numeración', icon: List, parent: 'Facturación' },
   { id: 'facturacion-automatizar', label: 'Automatizar facturas', icon: Zap, parent: 'Facturación' },
   { id: 'facturacion-verifactu', label: 'Verifactu (AEAT)', icon: Shield, parent: 'Facturación' },
+  { id: 'facturacion-verifactu-declaracion', label: 'Declaración Responsable', icon: FileText, parent: 'Facturación' },
+  { id: 'facturacion-verifactu-exportar', label: 'Exportar Registros', icon: FileText, parent: 'Facturación' },
   { id: 'comunicaciones-whatsapp-config', label: 'Configuración WhatsApp', icon: MessageCircle, parent: 'Comunicaciones' },
   { id: 'comunicaciones-email', label: 'Plantillas Email', icon: Mail, parent: 'Comunicaciones' },
   { id: 'comunicaciones-whatsapp', label: 'Plantillas WhatsApp', icon: MessageCircle, parent: 'Comunicaciones' },
@@ -251,6 +257,10 @@ export default function Settings() {
         return <InvoiceAutomationSection />;
       case 'facturacion-verifactu':
         return <VerifactuConfigSection />;
+      case 'facturacion-verifactu-declaracion':
+        return <ResponsibleDeclarationSection />;
+      case 'facturacion-verifactu-exportar':
+        return <VerifactuExportSection />;
       case 'comunicaciones-whatsapp-config':
         return <WhatsAppSettingsSection />;
       case 'comunicaciones-email':

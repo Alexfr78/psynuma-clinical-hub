@@ -660,6 +660,8 @@ export type Database = {
           notes: string | null
           patient_id: string
           previous_invoice_hash: string | null
+          rectification_type: string | null
+          rectified_invoice_id: string | null
           retention_amount: number | null
           retention_rate: number | null
           series_id: string | null
@@ -670,8 +672,10 @@ export type Database = {
           total: number
           updated_at: string
           verifactu_hash: string | null
+          verifactu_pending: boolean | null
           verifactu_qr: string | null
           verifactu_registration_id: string | null
+          verifactu_retry_count: number | null
           verifactu_timestamp: string | null
         }
         Insert: {
@@ -686,6 +690,8 @@ export type Database = {
           notes?: string | null
           patient_id: string
           previous_invoice_hash?: string | null
+          rectification_type?: string | null
+          rectified_invoice_id?: string | null
           retention_amount?: number | null
           retention_rate?: number | null
           series_id?: string | null
@@ -696,8 +702,10 @@ export type Database = {
           total?: number
           updated_at?: string
           verifactu_hash?: string | null
+          verifactu_pending?: boolean | null
           verifactu_qr?: string | null
           verifactu_registration_id?: string | null
+          verifactu_retry_count?: number | null
           verifactu_timestamp?: string | null
         }
         Update: {
@@ -712,6 +720,8 @@ export type Database = {
           notes?: string | null
           patient_id?: string
           previous_invoice_hash?: string | null
+          rectification_type?: string | null
+          rectified_invoice_id?: string | null
           retention_amount?: number | null
           retention_rate?: number | null
           series_id?: string | null
@@ -722,8 +732,10 @@ export type Database = {
           total?: number
           updated_at?: string
           verifactu_hash?: string | null
+          verifactu_pending?: boolean | null
           verifactu_qr?: string | null
           verifactu_registration_id?: string | null
+          verifactu_retry_count?: number | null
           verifactu_timestamp?: string | null
         }
         Relationships: [
@@ -739,6 +751,13 @@ export type Database = {
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_rectified_invoice_id_fkey"
+            columns: ["rectified_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
             referencedColumns: ["id"]
           },
           {
@@ -1312,6 +1331,72 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      verifactu_events: {
+        Row: {
+          aeat_csv: string | null
+          aeat_response_code: string | null
+          aeat_response_message: string | null
+          aeat_response_xml: string | null
+          center_id: string
+          created_at: string
+          environment: string | null
+          error_details: string | null
+          event_type: string
+          http_status: number | null
+          id: string
+          invoice_id: string | null
+          retry_count: number | null
+          xml_sent: string | null
+        }
+        Insert: {
+          aeat_csv?: string | null
+          aeat_response_code?: string | null
+          aeat_response_message?: string | null
+          aeat_response_xml?: string | null
+          center_id: string
+          created_at?: string
+          environment?: string | null
+          error_details?: string | null
+          event_type: string
+          http_status?: number | null
+          id?: string
+          invoice_id?: string | null
+          retry_count?: number | null
+          xml_sent?: string | null
+        }
+        Update: {
+          aeat_csv?: string | null
+          aeat_response_code?: string | null
+          aeat_response_message?: string | null
+          aeat_response_xml?: string | null
+          center_id?: string
+          created_at?: string
+          environment?: string | null
+          error_details?: string | null
+          event_type?: string
+          http_status?: number | null
+          id?: string
+          invoice_id?: string | null
+          retry_count?: number | null
+          xml_sent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "verifactu_events_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "verifactu_events_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {

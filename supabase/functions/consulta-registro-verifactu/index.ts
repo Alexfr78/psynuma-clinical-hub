@@ -7,6 +7,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// AEAT Verifactu endpoints for consultation
 const AEAT_ENDPOINTS = {
   test: "https://prewww1.aeat.es/wlpl/TIKE-CONT/ws/SistemaFacturacion/VerifactuSOAP",
   production: "https://www1.agenciatributaria.gob.es/wlpl/TIKE-CONT/ws/SistemaFacturacion/VerifactuSOAP"
@@ -20,16 +21,6 @@ function formatDateVerifactu(dateStr: string): string {
   return `${day}-${month}-${year}`;
 }
 
-function formatTimestampVerifactu(date: Date): string {
-  const day = date.getDate().toString().padStart(2, '0');
-  const month = (date.getMonth() + 1).toString().padStart(2, '0');
-  const year = date.getFullYear();
-  const hours = date.getHours().toString().padStart(2, '0');
-  const minutes = date.getMinutes().toString().padStart(2, '0');
-  const seconds = date.getSeconds().toString().padStart(2, '0');
-  return `${day}-${month}-${year}T${hours}:${minutes}:${seconds}`;
-}
-
 function escapeXML(str: string): string {
   if (!str) return '';
   return str
@@ -40,48 +31,31 @@ function escapeXML(str: string): string {
     .replace(/'/g, '&apos;');
 }
 
-function buildRegistroBajaXML(invoice: any, center: any, generationTimestamp: string): string {
+function buildConsultaXML(invoice: any, center: any): string {
   const nifEmisor = center.tax_id?.replace(/[^A-Z0-9]/gi, '') || '';
   const nombreEmisor = center.name || '';
   const fechaExpedicion = formatDateVerifactu(invoice.issue_date);
-  const softwareName = center.verifactu_software_name || 'Psycma';
-  const softwareVersion = center.verifactu_software_version || '1.0.0';
-  const softwareNif = center.verifactu_software_nif || nifEmisor;
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" 
                   xmlns:sifac="https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/SuministroInformacion.xsd">
   <soapenv:Header/>
   <soapenv:Body>
-    <sifac:RegFactuSistemaFacturacion>
+    <sifac:ConsultaFactuSistemaFacturacion>
       <sifac:Cabecera>
         <sifac:ObligadoEmision>
           <sifac:NombreRazon>${escapeXML(nombreEmisor)}</sifac:NombreRazon>
           <sifac:NIF>${nifEmisor}</sifac:NIF>
         </sifac:ObligadoEmision>
       </sifac:Cabecera>
-      <sifac:RegistroFactura>
-        <sifac:RegistroAnulacion>
-          <sifac:IDVersion>1.0</sifac:IDVersion>
-          <sifac:IDFactura>
-            <sifac:IDEmisorFactura>${nifEmisor}</sifac:IDEmisorFactura>
-            <sifac:NumSerieFactura>${escapeXML(invoice.invoice_number)}</sifac:NumSerieFactura>
-            <sifac:FechaExpedicionFactura>${fechaExpedicion}</sifac:FechaExpedicionFactura>
-          </sifac:IDFactura>
-          <sifac:SistemaInformatico>
-            <sifac:NombreRazon>${escapeXML(softwareName)}</sifac:NombreRazon>
-            <sifac:NIF>${softwareNif}</sifac:NIF>
-            <sifac:IdSistemaInformatico>${escapeXML(softwareName)}</sifac:IdSistemaInformatico>
-            <sifac:Version>${softwareVersion}</sifac:Version>
-            <sifac:NumeroInstalacion>1</sifac:NumeroInstalacion>
-            <sifac:TipoUsoPosibleSoloVerifactu>S</sifac:TipoUsoPosibleSoloVerifactu>
-            <sifac:TipoUsoPosibleMultiOT>N</sifac:TipoUsoPosibleMultiOT>
-            <sifac:IndicadorMultiplesOT>N</sifac:IndicadorMultiplesOT>
-          </sifac:SistemaInformatico>
-          <sifac:FechaHoraHusoGenRegistro>${generationTimestamp}</sifac:FechaHoraHusoGenRegistro>
-        </sifac:RegistroAnulacion>
-      </sifac:RegistroFactura>
-    </sifac:RegFactuSistemaFacturacion>
+      <sifac:FiltroConsulta>
+        <sifac:IDFactura>
+          <sifac:IDEmisorFactura>${nifEmisor}</sifac:IDEmisorFactura>
+          <sifac:NumSerieFactura>${escapeXML(invoice.invoice_number)}</sifac:NumSerieFactura>
+          <sifac:FechaExpedicionFactura>${fechaExpedicion}</sifac:FechaExpedicionFactura>
+        </sifac:IDFactura>
+      </sifac:FiltroConsulta>
+    </sifac:ConsultaFactuSistemaFacturacion>
   </soapenv:Body>
 </soapenv:Envelope>`;
 }
@@ -150,12 +124,6 @@ function signXML(xml: string, certificateBase64: string, certificatePassword: st
   }
 }
 
-// Extract CSV from AEAT response
-function extractCSV(responseXml: string): string | null {
-  const csvMatch = responseXml.match(/<[^>]*CSV[^>]*>([^<]+)<\/[^>]*CSV[^>]*>/i);
-  return csvMatch?.[1] || null;
-}
-
 async function sendToAEAT(signedXml: string, environment: string): Promise<{ success: boolean; response?: string; error?: string; httpStatus?: number }> {
   const endpoint = environment === 'production' ? AEAT_ENDPOINTS.production : AEAT_ENDPOINTS.test;
   
@@ -164,24 +132,16 @@ async function sendToAEAT(signedXml: string, environment: string): Promise<{ suc
       method: 'POST',
       headers: {
         'Content-Type': 'text/xml;charset=UTF-8',
-        'SOAPAction': 'RegFactuSistemaFacturacion'
+        'SOAPAction': 'ConsultaFactuSistemaFacturacion'
       },
       body: signedXml
     });
 
     const responseText = await response.text();
-    console.log("AEAT Cancellation Response status:", response.status);
-    console.log("AEAT Response:", responseText.substring(0, 1000));
+    console.log("AEAT Consulta Response status:", response.status);
 
     if (!response.ok) {
       return { success: false, error: `HTTP ${response.status}: ${responseText}`, httpStatus: response.status };
-    }
-
-    if (responseText.includes('<sifac:CodigoErrorRegistro>') || responseText.includes('faultstring')) {
-      const errorMatch = responseText.match(/<sifac:DescripcionErrorRegistro>([^<]+)<\/sifac:DescripcionErrorRegistro>/);
-      const faultMatch = responseText.match(/<faultstring>([^<]+)<\/faultstring>/);
-      const errorMessage = errorMatch?.[1] || faultMatch?.[1] || 'Error desconocido de AEAT';
-      return { success: false, error: errorMessage, response: responseText, httpStatus: response.status };
     }
 
     return { success: true, response: responseText, httpStatus: response.status };
@@ -189,6 +149,38 @@ async function sendToAEAT(signedXml: string, environment: string): Promise<{ suc
     console.error("Error sending to AEAT:", error);
     return { success: false, error: error instanceof Error ? error.message : 'Error de conexión' };
   }
+}
+
+// Parse consultation response
+function parseConsultaResponse(responseXml: string): {
+  found: boolean;
+  status?: string;
+  registrationDate?: string;
+  csv?: string;
+  error?: string;
+} {
+  // Check for errors
+  if (responseXml.includes('faultstring') || responseXml.includes('CodigoError')) {
+    const errorMatch = responseXml.match(/<[^>]*DescripcionError[^>]*>([^<]+)<\/[^>]*DescripcionError[^>]*>/i);
+    const faultMatch = responseXml.match(/<faultstring>([^<]+)<\/faultstring>/i);
+    return { found: false, error: errorMatch?.[1] || faultMatch?.[1] || 'Error desconocido' };
+  }
+
+  // Check if record found
+  if (responseXml.includes('RegistroFactura') || responseXml.includes('DatosFactura')) {
+    const csvMatch = responseXml.match(/<[^>]*CSV[^>]*>([^<]+)<\/[^>]*CSV[^>]*>/i);
+    const statusMatch = responseXml.match(/<[^>]*Estado[^>]*>([^<]+)<\/[^>]*Estado[^>]*>/i);
+    const dateMatch = responseXml.match(/<[^>]*FechaHora[^>]*>([^<]+)<\/[^>]*FechaHora[^>]*>/i);
+
+    return {
+      found: true,
+      status: statusMatch?.[1] || 'Registrada',
+      registrationDate: dateMatch?.[1],
+      csv: csvMatch?.[1]
+    };
+  }
+
+  return { found: false, error: 'Registro no encontrado en AEAT' };
 }
 
 // Log event to verifactu_events table
@@ -237,8 +229,9 @@ serve(async (req) => {
       );
     }
 
-    console.log(`Processing cancellation for invoice ${invoice_id}`);
+    console.log(`Consulting Verifactu status for invoice ${invoice_id}`);
 
+    // Fetch invoice
     const { data: invoice, error: invoiceError } = await supabase
       .from("invoices")
       .select(`
@@ -246,25 +239,16 @@ serve(async (req) => {
         centers (
           id, name, tax_id,
           verifactu_certificate_base64, verifactu_certificate_password,
-          verifactu_environment, verifactu_software_name, 
-          verifactu_software_version, verifactu_software_nif
+          verifactu_environment
         )
       `)
       .eq("id", invoice_id)
       .single();
 
     if (invoiceError || !invoice) {
-      console.error("Invoice fetch error:", invoiceError);
       return new Response(
         JSON.stringify({ error: "Factura no encontrada" }),
         { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    if (!invoice.invoice_hash) {
-      return new Response(
-        JSON.stringify({ error: "La factura no está registrada en Verifactu" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -272,58 +256,36 @@ serve(async (req) => {
     const environment = center?.verifactu_environment || 'test';
 
     if (!center?.verifactu_certificate_base64 || !center?.verifactu_certificate_password) {
-      await logVerifactuEvent(supabase, {
-        invoice_id,
-        center_id: invoice.center_id,
-        event_type: 'error',
-        environment,
-        error_details: 'Certificado Verifactu no configurado'
-      });
       return new Response(
         JSON.stringify({ error: "Certificado Verifactu no configurado" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const generationTimestamp = formatTimestampVerifactu(new Date());
-    const xml = buildRegistroBajaXML(invoice, center, generationTimestamp);
-    console.log("Generated cancellation XML for invoice:", invoice.invoice_number);
+    // Build and sign consultation XML
+    const xml = buildConsultaXML(invoice, center);
+    const signedXml = signXML(xml, center.verifactu_certificate_base64, center.verifactu_certificate_password);
 
-    let signedXml: string;
-    try {
-      signedXml = signXML(xml, center.verifactu_certificate_base64, center.verifactu_certificate_password);
-      console.log("XML signed successfully");
-    } catch (signError) {
-      await logVerifactuEvent(supabase, {
-        invoice_id,
-        center_id: invoice.center_id,
-        event_type: 'error',
-        environment,
-        xml_sent: xml,
-        error_details: `Error al firmar: ${signError instanceof Error ? signError.message : 'Unknown'}`
-      });
-      throw signError;
-    }
-
+    // Send to AEAT
     const aeatResult = await sendToAEAT(signedXml, environment);
-    const csv = aeatResult.response ? extractCSV(aeatResult.response) : null;
+
+    // Parse response
+    const consultaResult = aeatResult.response ? parseConsultaResponse(aeatResult.response) : { found: false, error: 'Sin respuesta' };
+
+    // Log consultation event
+    await logVerifactuEvent(supabase, {
+      invoice_id,
+      center_id: invoice.center_id,
+      event_type: 'consulta',
+      aeat_csv: consultaResult.csv,
+      aeat_response_message: consultaResult.found ? `Estado: ${consultaResult.status}` : consultaResult.error,
+      aeat_response_xml: aeatResult.response,
+      xml_sent: signedXml,
+      environment,
+      http_status: aeatResult.httpStatus
+    });
 
     if (!aeatResult.success) {
-      console.error("AEAT cancellation error:", aeatResult.error);
-      
-      await logVerifactuEvent(supabase, {
-        invoice_id,
-        center_id: invoice.center_id,
-        event_type: 'error',
-        aeat_csv: csv,
-        aeat_response_message: aeatResult.error,
-        aeat_response_xml: aeatResult.response,
-        xml_sent: signedXml,
-        environment,
-        http_status: aeatResult.httpStatus,
-        error_details: `Error anulación: ${aeatResult.error}`
-      });
-
       return new Response(
         JSON.stringify({ 
           error: `Error de AEAT: ${aeatResult.error}`,
@@ -333,51 +295,27 @@ serve(async (req) => {
       );
     }
 
-    const { error: updateError } = await supabase
-      .from("invoices")
-      .update({
-        status: 'cancelled',
-        verifactu_timestamp: new Date().toISOString()
-      })
-      .eq("id", invoice_id);
-
-    if (updateError) {
-      console.error("Update error:", updateError);
-      return new Response(
-        JSON.stringify({ error: "Error al actualizar la factura" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Log successful cancellation event
-    await logVerifactuEvent(supabase, {
-      invoice_id,
-      center_id: invoice.center_id,
-      event_type: 'anulacion',
-      aeat_csv: csv,
-      aeat_response_message: 'Anulación aceptada',
-      aeat_response_xml: aeatResult.response,
-      xml_sent: signedXml,
-      environment,
-      http_status: aeatResult.httpStatus
-    });
-
-    console.log(`Invoice ${invoice.invoice_number} cancelled in Verifactu`);
-
     return new Response(
       JSON.stringify({
         success: true,
         invoice_number: invoice.invoice_number,
-        csv: csv,
-        timestamp: new Date().toISOString(),
+        found: consultaResult.found,
+        status: consultaResult.status,
+        csv: consultaResult.csv,
+        registration_date: consultaResult.registrationDate,
+        error: consultaResult.error,
         environment,
-        message: "Factura anulada en AEAT correctamente"
+        local_data: {
+          hash: invoice.invoice_hash,
+          timestamp: invoice.verifactu_timestamp,
+          qr: invoice.verifactu_qr
+        }
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
 
   } catch (error) {
-    console.error("Error cancelling invoice:", error);
+    console.error("Error consulting invoice:", error);
     const errorMessage = error instanceof Error ? error.message : "Error desconocido";
     return new Response(
       JSON.stringify({ error: errorMessage }),

@@ -14,3 +14,9 @@ verify_jwt = true
 
 [functions.cancel-registro-facturacion]
 verify_jwt = true
+
+[functions.consulta-registro-verifactu]
+verify_jwt = true
+
+[functions.export-verifactu-records]
+verify_jwt = true
