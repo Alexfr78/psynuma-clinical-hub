@@ -1,6 +1,6 @@
 import { format, addWeeks, subWeeks, addMonths, subMonths, addDays, subDays } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Select,
@@ -10,6 +10,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useProfessionals } from '@/hooks/usePatients';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 export type CalendarView = 'day' | 'week' | 'month' | 'list';
 
@@ -33,6 +34,7 @@ export function CalendarHeader({
   onNewSession,
 }: CalendarHeaderProps) {
   const { data: professionals } = useProfessionals();
+  const isMobile = useIsMobile();
 
   const navigatePrevious = () => {
     switch (view) {
@@ -86,25 +88,35 @@ export function CalendarHeader({
   };
 
   return (
-    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-      <div className="flex items-center gap-2">
-        <Button variant="outline" size="icon" onClick={navigatePrevious}>
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
-        <Button variant="outline" size="icon" onClick={navigateNext}>
-          <ChevronRight className="h-4 w-4" />
-        </Button>
-        <Button variant="outline" onClick={goToToday}>
-          Hoy
-        </Button>
-        <h2 className="ml-2 font-display text-xl font-semibold capitalize">
+    <div className="flex flex-col gap-3">
+      {/* Row 1: Navigation and Title */}
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1 sm:gap-2">
+          <Button variant="outline" size="icon" className="h-8 w-8 sm:h-9 sm:w-9" onClick={navigatePrevious}>
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <Button variant="outline" size="icon" className="h-8 w-8 sm:h-9 sm:w-9" onClick={navigateNext}>
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+          <Button variant="outline" size="sm" className="h-8 px-2 sm:px-3" onClick={goToToday}>
+            {isMobile ? <CalendarIcon className="h-4 w-4" /> : 'Hoy'}
+          </Button>
+        </div>
+        <h2 className="font-display text-base sm:text-xl font-semibold capitalize truncate max-w-[150px] sm:max-w-none">
           {getTitle()}
         </h2>
+        {/* Desktop New Session Button */}
+        {!isMobile && (
+          <Button onClick={onNewSession}>
+            Nueva Sesión
+          </Button>
+        )}
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
+      {/* Row 2: Filters */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-1">
         <Select value={selectedProfessional} onValueChange={onProfessionalChange}>
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="w-[140px] sm:w-[180px] h-8 sm:h-9 text-sm shrink-0">
             <SelectValue placeholder="Profesional" />
           </SelectTrigger>
           <SelectContent>
@@ -118,22 +130,29 @@ export function CalendarHeader({
         </Select>
 
         <Select value={view} onValueChange={(v) => onViewChange(v as CalendarView)}>
-          <SelectTrigger className="w-[120px]">
-            <CalendarIcon className="mr-2 h-4 w-4" />
+          <SelectTrigger className="w-[100px] sm:w-[120px] h-8 sm:h-9 text-sm shrink-0">
+            <CalendarIcon className="mr-1 sm:mr-2 h-4 w-4" />
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="day">Día</SelectItem>
-            <SelectItem value="week">Semana</SelectItem>
+            {!isMobile && <SelectItem value="week">Semana</SelectItem>}
             <SelectItem value="month">Mes</SelectItem>
             <SelectItem value="list">Lista</SelectItem>
           </SelectContent>
         </Select>
-
-        <Button onClick={onNewSession}>
-          Nueva Sesión
-        </Button>
       </div>
+
+      {/* Mobile FAB for New Session */}
+      {isMobile && (
+        <Button
+          onClick={onNewSession}
+          className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg z-50"
+          size="icon"
+        >
+          <Plus className="h-6 w-6" />
+        </Button>
+      )}
     </div>
   );
 }

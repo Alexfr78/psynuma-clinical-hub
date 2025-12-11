@@ -85,6 +85,7 @@ import { CreateSessionInvoiceDialog } from './CreateSessionInvoiceDialog';
 import { useSendWhatsAppNow } from '@/hooks/useSendSessionNotification';
 import { useCenter } from '@/hooks/useCenter';
 import { DEFAULT_TEMPLATES } from '@/hooks/useCommunicationTemplates';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface SessionDetailDrawerProps {
   session: SessionWithRelations | null;
@@ -136,6 +137,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
   const { data: locations } = useLocations();
   const { center } = useCenter();
   const sendWhatsAppNow = useSendWhatsAppNow();
+  const isMobile = useIsMobile();
   const [isUpdating, setIsUpdating] = useState(false);
   const [editingPrice, setEditingPrice] = useState(false);
   const [editingNotes, setEditingNotes] = useState(false);
@@ -345,31 +347,53 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
         </SheetHeader>
 
         <Tabs defaultValue="info" className="w-full">
-          <TabsList className="w-full justify-start px-6 rounded-none border-b bg-transparent h-auto p-0">
-            <TabsTrigger
-              value="info"
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3"
-            >
-              Info
-            </TabsTrigger>
-            <TabsTrigger
-              value="historial"
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3"
-            >
-              Historial
-            </TabsTrigger>
-            <TabsTrigger
-              value="sms"
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3"
-            >
-              SMS enviados
-            </TabsTrigger>
-            <TabsTrigger
-              value="otras"
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3"
-            >
-              Otras sesiones
-            </TabsTrigger>
+          <TabsList className="w-full justify-start px-4 sm:px-6 rounded-none border-b bg-transparent h-auto p-0 overflow-x-auto flex-nowrap">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <TabsTrigger
+                    value="info"
+                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-3 sm:px-4 py-3 shrink-0"
+                  >
+                    {isMobile ? <FileText className="h-4 w-4" /> : 'Info'}
+                  </TabsTrigger>
+                </TooltipTrigger>
+                {isMobile && <TooltipContent>Info</TooltipContent>}
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <TabsTrigger
+                    value="historial"
+                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-3 sm:px-4 py-3 shrink-0"
+                  >
+                    {isMobile ? <Clock className="h-4 w-4" /> : 'Historial'}
+                  </TabsTrigger>
+                </TooltipTrigger>
+                {isMobile && <TooltipContent>Historial</TooltipContent>}
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <TabsTrigger
+                    value="sms"
+                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-3 sm:px-4 py-3 shrink-0"
+                  >
+                    {isMobile ? <MessageSquare className="h-4 w-4" /> : 'SMS enviados'}
+                  </TabsTrigger>
+                </TooltipTrigger>
+                {isMobile && <TooltipContent>SMS enviados</TooltipContent>}
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <TabsTrigger
+                    value="otras"
+                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-3 sm:px-4 py-3 shrink-0"
+                  >
+                    {isMobile ? <Calendar className="h-4 w-4" /> : 'Otras sesiones'}
+                  </TabsTrigger>
+                </TooltipTrigger>
+                {isMobile && <TooltipContent>Otras sesiones</TooltipContent>}
+              </Tooltip>
+            </TooltipProvider>
           </TabsList>
 
           <TabsContent value="info" className="mt-0 px-6 py-4 space-y-6">

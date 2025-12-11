@@ -226,14 +226,14 @@ export default function Invoices() {
       </div>
 
       <Tabs value={statusFilter} onValueChange={setStatusFilter}>
-        <TabsList>
-          <TabsTrigger value="all">Todas</TabsTrigger>
-          <TabsTrigger value="draft">Borrador</TabsTrigger>
-          <TabsTrigger value="issued">Emitidas</TabsTrigger>
-          <TabsTrigger value="paid">Pagadas</TabsTrigger>
-          <TabsTrigger value="verifactu_pending" className="gap-1">
+        <TabsList className="w-full justify-start overflow-x-auto flex-nowrap h-auto p-1">
+          <TabsTrigger value="all" className="shrink-0 text-xs sm:text-sm">Todas</TabsTrigger>
+          <TabsTrigger value="draft" className="shrink-0 text-xs sm:text-sm">Borrador</TabsTrigger>
+          <TabsTrigger value="issued" className="shrink-0 text-xs sm:text-sm">Emitidas</TabsTrigger>
+          <TabsTrigger value="paid" className="shrink-0 text-xs sm:text-sm">Pagadas</TabsTrigger>
+          <TabsTrigger value="verifactu_pending" className="gap-1 shrink-0 text-xs sm:text-sm">
             <RefreshCw className="h-3 w-3" />
-            Pendientes AEAT
+            <span className="hidden sm:inline">Pendientes</span> AEAT
           </TabsTrigger>
         </TabsList>
 
