@@ -69,13 +69,18 @@ export function WhatsAppLinkDialog({
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Option 1: Native App */}
+          {/* Option 1: Native App - PRIMARY */}
           <div className="space-y-2">
-            <label className="text-sm font-medium">Opción 1: Abrir en la app</label>
-            <Button asChild className="w-full bg-green-600 hover:bg-green-700">
+            <label className="text-sm font-medium flex items-center gap-2">
+              Opción recomendada
+              <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
+                Funciona siempre
+              </span>
+            </label>
+            <Button asChild className="w-full h-12 text-base bg-green-600 hover:bg-green-700">
               <a href={nativeLink}>
-                <Smartphone className="h-4 w-4 mr-2" />
-                Abrir WhatsApp (App instalada)
+                <Smartphone className="h-5 w-5 mr-2" />
+                Abrir WhatsApp
               </a>
             </Button>
             <p className="text-xs text-muted-foreground">
@@ -85,7 +90,7 @@ export function WhatsAppLinkDialog({
 
           {/* Option 2: WhatsApp Web */}
           <div className="space-y-2">
-            <label className="text-sm font-medium">Opción 2: WhatsApp Web</label>
+            <label className="text-sm font-medium text-muted-foreground">Alternativa: WhatsApp Web</label>
             <div className="flex gap-2">
               <a
                 href={webLink}
@@ -103,6 +108,7 @@ export function WhatsAppLinkDialog({
                 size="icon"
                 onClick={handleCopyLink}
                 className="shrink-0"
+                title="Copiar enlace"
               >
                 {copiedLink ? (
                   <Check className="h-4 w-4 text-green-600" />
@@ -112,12 +118,12 @@ export function WhatsAppLinkDialog({
               </Button>
             </div>
             <p className="text-xs text-muted-foreground">
-              Abre WhatsApp Web en una nueva pestaña con el mensaje prellenado.
+              Si el enlace no abre, cópialo y pégalo en una nueva pestaña.
             </p>
           </div>
 
           {/* Message Preview */}
-          <div className="space-y-2">
+          <div className="space-y-2 pt-2 border-t">
             <label className="text-sm font-medium">Vista previa del mensaje</label>
             <div className="flex gap-2">
               <div className="flex-1 p-3 text-sm bg-muted rounded-md max-h-24 overflow-y-auto whitespace-pre-wrap">
@@ -128,6 +134,7 @@ export function WhatsAppLinkDialog({
                 size="icon"
                 onClick={handleCopyMessage}
                 className="shrink-0"
+                title="Copiar mensaje"
               >
                 {copiedMessage ? (
                   <Check className="h-4 w-4 text-green-600" />
