@@ -12,7 +12,7 @@ function cleanPhoneNumber(phone: string): string {
 
 /**
  * Generate a WhatsApp Web link with a pre-filled message
- * @deprecated Use generateWhatsAppUniversalLink instead
+ * Opens WhatsApp Web directly in the browser
  */
 export function generateWhatsAppWebLink(phone: string, message: string): string {
   const cleanPhone = cleanPhoneNumber(phone);

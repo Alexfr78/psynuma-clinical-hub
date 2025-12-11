@@ -10,7 +10,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { generateWhatsAppUniversalLink, generateWhatsAppNativeLink } from '@/lib/whatsapp';
+import { generateWhatsAppWebLink, generateWhatsAppNativeLink } from '@/lib/whatsapp';
 
 interface WhatsAppLinkDialogProps {
   open: boolean;
@@ -30,12 +30,12 @@ export function WhatsAppLinkDialog({
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedMessage, setCopiedMessage] = useState(false);
 
-  const universalLink = generateWhatsAppUniversalLink(phone, message);
+  const webLink = generateWhatsAppWebLink(phone, message);
   const nativeLink = generateWhatsAppNativeLink(phone, message);
 
   const handleCopyLink = async () => {
     try {
-      await navigator.clipboard.writeText(universalLink);
+      await navigator.clipboard.writeText(webLink);
       setCopiedLink(true);
       toast.success('Enlace copiado');
       setTimeout(() => setCopiedLink(false), 2000);
@@ -83,19 +83,19 @@ export function WhatsAppLinkDialog({
             </p>
           </div>
 
-          {/* Option 2: Universal Link (wa.me) */}
+          {/* Option 2: WhatsApp Web */}
           <div className="space-y-2">
-            <label className="text-sm font-medium">Opción 2: Enlace universal</label>
+            <label className="text-sm font-medium">Opción 2: WhatsApp Web</label>
             <div className="flex gap-2">
               <a
-                href={universalLink}
+                href={webLink}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex-1 p-3 text-sm bg-muted rounded-md hover:bg-muted/80 transition-colors flex items-center gap-2"
               >
                 <ExternalLink className="h-4 w-4 shrink-0 text-primary" />
                 <span className="text-primary underline underline-offset-2">
-                  wa.me (nueva pestaña)
+                  WhatsApp Web (nueva pestaña)
                 </span>
               </a>
               <Button
@@ -112,7 +112,7 @@ export function WhatsAppLinkDialog({
               </Button>
             </div>
             <p className="text-xs text-muted-foreground">
-              Si no abre automáticamente, copia el enlace y pégalo en una nueva pestaña.
+              Abre WhatsApp Web en una nueva pestaña con el mensaje prellenado.
             </p>
           </div>
 
