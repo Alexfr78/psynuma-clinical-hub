@@ -12,7 +12,10 @@ import {
   List,
   Zap,
   MapPin,
-  Calendar
+  Calendar,
+  Mail,
+  MessageCircle,
+  Smartphone
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -29,6 +32,9 @@ import { InvoiceSeriesSection } from '@/components/settings/InvoiceSeriesSection
 import { InvoiceAutomationSection } from '@/components/settings/InvoiceAutomationSection';
 import { LocationsSection } from '@/components/settings/LocationsSection';
 import { SessionTypesSection } from '@/components/settings/SessionTypesSection';
+import { EmailTemplateEditor } from '@/components/settings/communications/EmailTemplateEditor';
+import { WhatsAppTemplateEditor } from '@/components/settings/communications/WhatsAppTemplateEditor';
+import { SmsTemplateEditor } from '@/components/settings/communications/SmsTemplateEditor';
 
 const centerSchema = z.object({
   name: z.string().min(1, 'El nombre es obligatorio'),
@@ -49,7 +55,10 @@ type SettingsSection =
   | 'facturacion-info' 
   | 'facturacion-editar' 
   | 'facturacion-series' 
-  | 'facturacion-automatizar';
+  | 'facturacion-automatizar'
+  | 'comunicaciones-email'
+  | 'comunicaciones-whatsapp'
+  | 'comunicaciones-sms';
 
 interface NavItem {
   id: SettingsSection;
@@ -66,6 +75,9 @@ const navItems: NavItem[] = [
   { id: 'facturacion-editar', label: 'Editar factura', icon: Pencil, parent: 'Facturación' },
   { id: 'facturacion-series', label: 'Series y numeración', icon: List, parent: 'Facturación' },
   { id: 'facturacion-automatizar', label: 'Automatizar facturas', icon: Zap, parent: 'Facturación' },
+  { id: 'comunicaciones-email', label: 'Emails', icon: Mail, parent: 'Comunicaciones' },
+  { id: 'comunicaciones-whatsapp', label: 'WhatsApp', icon: MessageCircle, parent: 'Comunicaciones' },
+  { id: 'comunicaciones-sms', label: 'SMS', icon: Smartphone, parent: 'Comunicaciones' },
 ];
 
 export default function Settings() {
@@ -230,6 +242,12 @@ export default function Settings() {
         return <InvoiceSeriesSection />;
       case 'facturacion-automatizar':
         return <InvoiceAutomationSection />;
+      case 'comunicaciones-email':
+        return <EmailTemplateEditor />;
+      case 'comunicaciones-whatsapp':
+        return <WhatsAppTemplateEditor />;
+      case 'comunicaciones-sms':
+        return <SmsTemplateEditor />;
       default:
         return null;
     }

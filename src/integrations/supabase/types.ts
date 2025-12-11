@@ -371,6 +371,62 @@ export type Database = {
         }
         Relationships: []
       }
+      communication_templates: {
+        Row: {
+          center_id: string
+          channel: string
+          created_at: string | null
+          email_confirmation_text: string | null
+          email_initial_text: string | null
+          email_payment_text: string | null
+          email_videocall_text: string | null
+          id: string
+          is_active: boolean | null
+          sms_message: string | null
+          template_type: string
+          updated_at: string | null
+          whatsapp_message: string | null
+        }
+        Insert: {
+          center_id: string
+          channel: string
+          created_at?: string | null
+          email_confirmation_text?: string | null
+          email_initial_text?: string | null
+          email_payment_text?: string | null
+          email_videocall_text?: string | null
+          id?: string
+          is_active?: boolean | null
+          sms_message?: string | null
+          template_type: string
+          updated_at?: string | null
+          whatsapp_message?: string | null
+        }
+        Update: {
+          center_id?: string
+          channel?: string
+          created_at?: string | null
+          email_confirmation_text?: string | null
+          email_initial_text?: string | null
+          email_payment_text?: string | null
+          email_videocall_text?: string | null
+          id?: string
+          is_active?: boolean | null
+          sms_message?: string | null
+          template_type?: string
+          updated_at?: string | null
+          whatsapp_message?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "communication_templates_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       debts: {
         Row: {
           amount: number
