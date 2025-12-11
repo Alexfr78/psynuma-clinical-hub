@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { FileText, AlertTriangle, Building2, User, Pencil, Trash2, Plus, Check, X } from 'lucide-react';
+import { FileText, AlertTriangle, Building2, User, Pencil, Trash2, Plus, Check, X, ShieldCheck, Loader2 } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -28,6 +28,7 @@ import { useCreateInvoiceWithSeries } from '@/hooks/useInvoices';
 import { useUpdatePatient, usePatient } from '@/hooks/usePatients';
 import { SessionWithRelations } from '@/hooks/useSessions';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 interface CreateSessionInvoiceDialogProps {
   open: boolean;
@@ -112,6 +113,7 @@ export function CreateSessionInvoiceDialog({
     postal_code: '',
   });
   const [savingPatient, setSavingPatient] = useState(false);
+  const [isSigningVerifactu, setIsSigningVerifactu] = useState(false);
 
   // Default tax and retention from center
   const defaultTaxRate = center?.default_tax_rate ?? 0;
@@ -336,7 +338,7 @@ export function CreateSessionInvoiceDialog({
     if (!patientData || !selectedSeriesId || items.length === 0) return;
 
     try {
-      await createInvoice.mutateAsync({
+      const result = await createInvoice.mutateAsync({
         invoice: {
           patient_id: patientData.id,
           subtotal: invoiceTotals.subtotal,
@@ -345,7 +347,7 @@ export function CreateSessionInvoiceDialog({
           retention_rate: 0,
           retention_amount: invoiceTotals.retentionAmount,
           total: invoiceTotals.total,
-          status: 'draft',
+          status: 'issued',
         },
         items: items.map(item => ({
           description: item.description,
@@ -362,6 +364,30 @@ export function CreateSessionInvoiceDialog({
         })),
         seriesId: selectedSeriesId,
       });
+
+      // Si el centro tiene Verifactu configurado, firmar la factura
+      if (center?.verifactu_certificate_base64) {
+        setIsSigningVerifactu(true);
+        try {
+          const { error: verifactuError } = await supabase.functions.invoke('sign-invoice-verifactu', {
+            body: { invoice_id: result.id }
+          });
+          
+          if (verifactuError) {
+            console.error('Error Verifactu:', verifactuError);
+            toast.warning(`Factura ${result.invoice_number} emitida, pero hubo un error al registrar en AEAT. Puede reintentar desde Facturas.`);
+          } else {
+            toast.success(`Factura ${result.invoice_number} emitida y registrada en AEAT`);
+          }
+        } catch (verifactuError) {
+          console.error('Error Verifactu:', verifactuError);
+          toast.warning(`Factura ${result.invoice_number} emitida, pero hubo un error al registrar en AEAT. Puede reintentar desde Facturas.`);
+        } finally {
+          setIsSigningVerifactu(false);
+        }
+      } else {
+        toast.success(`Factura ${result.invoice_number} emitida correctamente`);
+      }
 
       onOpenChange(false);
       onSuccess?.();
@@ -539,10 +565,18 @@ export function CreateSessionInvoiceDialog({
         {/* Series Selection */}
         <div className="space-y-3">
           <h4 className="font-medium">Serie de facturación</h4>
-          <p className="text-xs text-muted-foreground">
-            Los borradores se crean sin número y sin fecha de emisión.
-            Cuando conviertas esta factura a definitiva podrás escoger su fecha.
-          </p>
+          {center?.verifactu_certificate_base64 ? (
+            <Alert className="border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950">
+              <ShieldCheck className="h-4 w-4 text-green-600" />
+              <AlertDescription className="text-green-800 dark:text-green-200">
+                La factura se emitirá y registrará automáticamente en AEAT con Verifactu.
+              </AlertDescription>
+            </Alert>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              La factura se emitirá con el siguiente número de la serie seleccionada.
+            </p>
+          )}
           {availableSeries.length > 0 ? (
             <Select value={selectedSeriesId} onValueChange={setSelectedSeriesId}>
               <SelectTrigger>
@@ -917,9 +951,24 @@ export function CreateSessionInvoiceDialog({
           </Button>
           <Button 
             onClick={handleCreateInvoice}
-            disabled={!canCreateInvoice || !selectedSeriesId || createInvoice.isPending}
+            disabled={!canCreateInvoice || !selectedSeriesId || createInvoice.isPending || isSigningVerifactu}
           >
-            {createInvoice.isPending ? 'Creando...' : 'Crear factura'}
+            {createInvoice.isPending ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Creando...
+              </>
+            ) : isSigningVerifactu ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Firmando con Verifactu...
+              </>
+            ) : (
+              <>
+                {center?.verifactu_certificate_base64 && <ShieldCheck className="mr-2 h-4 w-4" />}
+                Emitir factura
+              </>
+            )}
           </Button>
         </div>
       </DialogContent>
