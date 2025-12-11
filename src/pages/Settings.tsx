@@ -11,7 +11,8 @@ import {
   Pencil,
   List,
   Zap,
-  MapPin
+  MapPin,
+  Calendar
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -27,6 +28,7 @@ import { InvoiceEditSection } from '@/components/settings/InvoiceEditSection';
 import { InvoiceSeriesSection } from '@/components/settings/InvoiceSeriesSection';
 import { InvoiceAutomationSection } from '@/components/settings/InvoiceAutomationSection';
 import { LocationsSection } from '@/components/settings/LocationsSection';
+import { SessionTypesSection } from '@/components/settings/SessionTypesSection';
 
 const centerSchema = z.object({
   name: z.string().min(1, 'El nombre es obligatorio'),
@@ -43,6 +45,7 @@ type CenterFormValues = z.infer<typeof centerSchema>;
 type SettingsSection = 
   | 'centro-info'
   | 'centro-ubicaciones'
+  | 'sesiones-tipos'
   | 'facturacion-info' 
   | 'facturacion-editar' 
   | 'facturacion-series' 
@@ -58,6 +61,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { id: 'centro-info', label: 'Datos del centro', icon: Building2, parent: 'Centro' },
   { id: 'centro-ubicaciones', label: 'Ubicaciones', icon: MapPin, parent: 'Centro' },
+  { id: 'sesiones-tipos', label: 'Tipos de sesión', icon: Calendar, parent: 'Sesiones' },
   { id: 'facturacion-info', label: 'Información de facturación', icon: Receipt, parent: 'Facturación' },
   { id: 'facturacion-editar', label: 'Editar factura', icon: Pencil, parent: 'Facturación' },
   { id: 'facturacion-series', label: 'Series y numeración', icon: List, parent: 'Facturación' },
@@ -216,6 +220,8 @@ export default function Settings() {
         );
       case 'centro-ubicaciones':
         return <LocationsSection />;
+      case 'sesiones-tipos':
+        return <SessionTypesSection />;
       case 'facturacion-info':
         return <InvoicingInfoSection />;
       case 'facturacion-editar':

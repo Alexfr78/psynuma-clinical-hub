@@ -1020,6 +1020,53 @@ export type Database = {
           },
         ]
       }
+      session_types: {
+        Row: {
+          center_id: string
+          color: string
+          commission_rate: number | null
+          created_at: string | null
+          default_price: number
+          duration_minutes: number
+          id: string
+          is_active: boolean | null
+          name: string
+          updated_at: string | null
+        }
+        Insert: {
+          center_id: string
+          color?: string
+          commission_rate?: number | null
+          created_at?: string | null
+          default_price?: number
+          duration_minutes?: number
+          id?: string
+          is_active?: boolean | null
+          name: string
+          updated_at?: string | null
+        }
+        Update: {
+          center_id?: string
+          color?: string
+          commission_rate?: number | null
+          created_at?: string | null
+          default_price?: number
+          duration_minutes?: number
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_types_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sessions: {
         Row: {
           bono_id: string | null
