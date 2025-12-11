@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -70,7 +70,7 @@ export function QuickCreatePatientDialog({
   });
 
   // Reset form when dialog opens with new initial values
-  useState(() => {
+  useEffect(() => {
     if (open) {
       form.reset({
         full_name: initialName,
@@ -79,7 +79,7 @@ export function QuickCreatePatientDialog({
         phone: '',
       });
     }
-  });
+  }, [open, initialName, defaultProfessionalId, form]);
 
   const parseFullName = (fullName: string) => {
     const trimmed = fullName.trim();
