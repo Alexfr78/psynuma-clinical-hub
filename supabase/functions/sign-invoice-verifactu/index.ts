@@ -169,7 +169,21 @@ async function calculateInvoiceHash(invoice: any, center: any, previousHash: str
   const nifEmisor = center.tax_id?.replace(/[^A-Z0-9]/gi, '') || '';
   const numSerie = invoice.invoice_number || '';
   const fechaExpedicion = formatDateVerifactu(invoice.issue_date);
-  const tipoFactura = invoice.is_recapitulative ? 'F2' : 'F1';
+  
+  // Determine invoice type based on rectification status and reason code
+  let tipoFactura = 'F1'; // Factura normal
+  if (invoice.is_recapitulative) {
+    tipoFactura = 'F2'; // Factura recapitulativa
+  } else if (invoice.rectified_invoice_id) {
+    // Use the reason code if available, otherwise default based on type
+    if (invoice.rectification_reason_code) {
+      tipoFactura = invoice.rectification_reason_code; // R1, R2, R3, R4, or R5
+    } else {
+      // Legacy fallback
+      tipoFactura = invoice.rectification_type === 'S' ? 'R1' : 'R5';
+    }
+  }
+  
   const cuotaTotal = (Number(invoice.tax_amount) || 0).toFixed(2);
   const importeTotal = Number(invoice.total).toFixed(2);
   const huellaAnterior = previousHash || '';
@@ -236,12 +250,18 @@ function buildRegistroAltaXML(invoice: any, center: any, patient: any, invoiceIt
   const softwareVersion = center.verifactu_software_version || '1.0.0';
   const softwareNif = center.verifactu_software_nif || nifEmisor;
 
-  // Determine invoice type
+  // Determine invoice type based on rectification status and reason code
   let tipoFactura = 'F1'; // Factura normal
   if (invoice.is_recapitulative) {
     tipoFactura = 'F2'; // Factura recapitulativa
   } else if (invoice.rectified_invoice_id) {
-    tipoFactura = invoice.rectification_type === 'substitution' ? 'R1' : 'R5'; // Rectificativa
+    // Use the reason code if available, otherwise default based on type
+    if (invoice.rectification_reason_code) {
+      tipoFactura = invoice.rectification_reason_code; // R1, R2, R3, R4, or R5
+    } else {
+      // Legacy fallback
+      tipoFactura = invoice.rectification_type === 'S' ? 'R1' : 'R5';
+    }
   }
 
   // Build rectified invoice reference if applicable
@@ -255,6 +275,28 @@ function buildRegistroAltaXML(invoice: any, center: any, patient: any, invoiceIt
               <sum1:FechaExpedicionFactura>${formatDateVerifactu(invoice.rectified_invoice.issue_date)}</sum1:FechaExpedicionFactura>
             </sum1:IDFacturaRectificada>
           </sum1:FacturasRectificadas>`;
+  }
+
+  // Build TipoRectificativa and ImporteRectificacion for substitution invoices
+  let tipoRectificativaXML = '';
+  if (invoice.rectified_invoice_id) {
+    const tipoRect = invoice.rectification_type || 'I'; // I = por diferencias, S = sustitutiva
+    tipoRectificativaXML = `
+          <sum1:TipoRectificativa>${tipoRect}</sum1:TipoRectificativa>`;
+    
+    // For substitution (S) type, include BaseRectificada and CuotaRectificada
+    if (tipoRect === 'S' && (invoice.base_rectificada !== null || invoice.cuota_rectificada !== null)) {
+      const baseRect = Number(invoice.base_rectificada) || 0;
+      const cuotaRect = Number(invoice.cuota_rectificada) || 0;
+      const cuotaRecargoRect = Number(invoice.cuota_recargo_rectificado) || 0;
+      
+      tipoRectificativaXML += `
+          <sum1:ImporteRectificacion>
+            <sum1:BaseRectificada>${baseRect.toFixed(2)}</sum1:BaseRectificada>
+            <sum1:CuotaRectificada>${cuotaRect.toFixed(2)}</sum1:CuotaRectificada>${cuotaRecargoRect > 0 ? `
+            <sum1:CuotaRecargoRectificado>${cuotaRecargoRect.toFixed(2)}</sum1:CuotaRecargoRectificado>` : ''}
+          </sum1:ImporteRectificacion>`;
+    }
   }
 
   // Build Destinatarios section - only include if patient has NIF
@@ -286,7 +328,7 @@ function buildRegistroAltaXML(invoice: any, center: any, patient: any, invoiceIt
             <sum1:FechaExpedicionFactura>${fechaExpedicion}</sum1:FechaExpedicionFactura>
           </sum1:IDFactura>
           <sum1:NombreRazonEmisor>${escapeXML(nombreEmisor)}</sum1:NombreRazonEmisor>
-          <sum1:TipoFactura>${tipoFactura}</sum1:TipoFactura>${facturasRectificadasXML}
+          <sum1:TipoFactura>${tipoFactura}</sum1:TipoFactura>${tipoRectificativaXML}${facturasRectificadasXML}
           <sum1:DescripcionOperacion>Servicios de psicología</sum1:DescripcionOperacion>${destinatariosXML}
           <sum1:Desglose>${desgloseXML}
           </sum1:Desglose>

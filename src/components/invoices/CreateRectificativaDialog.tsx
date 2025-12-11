@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import {
@@ -17,6 +17,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from '@/components/ui/form';
 import {
   Select,
@@ -28,13 +29,14 @@ import {
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Loader2, AlertTriangle } from 'lucide-react';
+import { Loader2, AlertTriangle, Info } from 'lucide-react';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useCenter } from '@/hooks/useCenter';
 import { useInvoiceSeries } from '@/hooks/useInvoiceSeries';
 import type { InvoiceWithPatient } from '@/hooks/useInvoices';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface CreateRectificativaDialogProps {
   open: boolean;
@@ -42,13 +44,48 @@ interface CreateRectificativaDialogProps {
   originalInvoice: InvoiceWithPatient | null;
 }
 
+// Rectification reason codes according to Verifactu
+const RECTIFICATION_REASONS = [
+  { 
+    code: 'R1', 
+    label: 'R1 - Error fundado en derecho', 
+    description: 'Error en los requisitos del art. 6 o 7 del RD 1619/2012'
+  },
+  { 
+    code: 'R2', 
+    label: 'R2 - Art. 80.Uno LIVA', 
+    description: 'Concurso de acreedores del destinatario'
+  },
+  { 
+    code: 'R3', 
+    label: 'R3 - Art. 80.Dos LIVA', 
+    description: 'Créditos incobrables'
+  },
+  { 
+    code: 'R4', 
+    label: 'R4 - Resto de causas', 
+    description: 'Otras causas de rectificación'
+  },
+  { 
+    code: 'R5', 
+    label: 'R5 - Factura simplificada', 
+    description: 'Rectificación de factura simplificada (Art. 80.Tres LIVA)'
+  },
+];
+
 const formSchema = z.object({
   rectification_type: z.enum(['I', 'S'], {
     required_error: 'Selecciona el tipo de rectificación',
   }),
+  rectification_reason_code: z.enum(['R1', 'R2', 'R3', 'R4', 'R5'], {
+    required_error: 'Selecciona el motivo de rectificación',
+  }),
   series_id: z.string().min(1, 'Selecciona una serie'),
   description: z.string().min(1, 'Añade una descripción'),
   amount: z.coerce.number(),
+  // Fields for substitution type (S)
+  base_rectificada: z.coerce.number().optional(),
+  cuota_rectificada: z.coerce.number().optional(),
   notes: z.string().optional(),
 });
 
@@ -71,12 +108,22 @@ export function CreateRectificativaDialog({
     resolver: zodResolver(formSchema),
     defaultValues: {
       rectification_type: 'I',
+      rectification_reason_code: 'R4',
       series_id: '',
       description: '',
       amount: 0,
+      base_rectificada: 0,
+      cuota_rectificada: 0,
       notes: '',
     },
   });
+
+  const rectificationType = useWatch({
+    control: form.control,
+    name: 'rectification_type',
+  });
+
+  const isSubstitution = rectificationType === 'S';
 
   // Reset form when dialog opens with new invoice
   useEffect(() => {
@@ -84,9 +131,12 @@ export function CreateRectificativaDialog({
       const defaultSeries = rectificativaSeries.find(s => s.is_default) || rectificativaSeries[0];
       form.reset({
         rectification_type: 'I',
+        rectification_reason_code: 'R4',
         series_id: defaultSeries?.id || '',
         description: `Rectificación de factura ${originalInvoice.invoice_number}`,
         amount: -Number(originalInvoice.total),
+        base_rectificada: Number(originalInvoice.subtotal),
+        cuota_rectificada: Number(originalInvoice.tax_amount) || 0,
         notes: '',
       });
     }
@@ -123,26 +173,36 @@ export function CreateRectificativaDialog({
       const retentionAmount = baseAmount * (retentionRate / 100);
       const total = values.amount - retentionAmount;
 
+      // Prepare invoice data
+      const invoiceData: any = {
+        center_id: center.id,
+        patient_id: originalInvoice.patient_id,
+        invoice_number: invoiceNumber,
+        series_id: values.series_id,
+        status: 'issued',
+        issue_date: new Date().toISOString().split('T')[0],
+        subtotal: baseAmount,
+        tax_rate: taxRate,
+        tax_amount: taxAmount,
+        retention_rate: retentionRate,
+        retention_amount: retentionAmount,
+        total: total,
+        rectified_invoice_id: originalInvoice.id,
+        rectification_type: values.rectification_type,
+        rectification_reason_code: values.rectification_reason_code,
+        notes: values.notes || `Rectificación ${values.rectification_reason_code} tipo ${values.rectification_type === 'I' ? 'por diferencias' : 'sustitutiva'} de ${originalInvoice.invoice_number}`,
+      };
+
+      // Add substitution-specific fields
+      if (values.rectification_type === 'S') {
+        invoiceData.base_rectificada = values.base_rectificada;
+        invoiceData.cuota_rectificada = values.cuota_rectificada;
+      }
+
       // Create the rectificativa invoice
       const { data: invoice, error: invoiceError } = await supabase
         .from('invoices')
-        .insert({
-          center_id: center.id,
-          patient_id: originalInvoice.patient_id,
-          invoice_number: invoiceNumber,
-          series_id: values.series_id,
-          status: 'issued',
-          issue_date: new Date().toISOString().split('T')[0],
-          subtotal: baseAmount,
-          tax_rate: taxRate,
-          tax_amount: taxAmount,
-          retention_rate: retentionRate,
-          retention_amount: retentionAmount,
-          total: total,
-          rectified_invoice_id: originalInvoice.id,
-          rectification_type: values.rectification_type,
-          notes: values.notes || `Rectificación tipo ${values.rectification_type === 'I' ? 'por diferencias' : 'sustitutiva'} de ${originalInvoice.invoice_number}`,
-        })
+        .insert(invoiceData)
         .select()
         .single();
 
@@ -176,15 +236,26 @@ export function CreateRectificativaDialog({
       // If Verifactu is configured, seal the invoice
       if (center.verifactu_certificate_base64) {
         toast.info('Sellando factura rectificativa con Verifactu...');
-        const { error: sealError } = await supabase.functions.invoke('sign-invoice-verifactu', {
+        const { data: verifactuData, error: sealError } = await supabase.functions.invoke('sign-invoice-verifactu', {
           body: { invoice_id: invoice.id },
         });
 
         if (sealError) {
           console.error('Error sealing rectificativa:', sealError);
           toast.warning('Factura creada pero no se pudo sellar con Verifactu');
+        } else if (verifactuData?.aeat_unavailable) {
+          toast.info(`Factura ${invoiceNumber} emitida. La Agencia Tributaria no está disponible temporalmente. Se reintentará automáticamente.`, {
+            duration: 6000,
+          });
+        } else if (verifactuData?.success) {
+          const isTestMode = center?.verifactu_environment === 'test';
+          if (isTestMode) {
+            toast.success(`Factura rectificativa ${invoiceNumber} creada y sellada (modo pruebas)`);
+          } else {
+            toast.success(`Factura rectificativa ${invoiceNumber} creada y registrada en AEAT`);
+          }
         } else {
-          toast.success('Factura rectificativa creada y sellada con Verifactu');
+          toast.success('Factura rectificativa creada correctamente');
         }
       } else {
         toast.success('Factura rectificativa creada correctamente');
@@ -204,7 +275,7 @@ export function CreateRectificativaDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Crear Factura Rectificativa</DialogTitle>
           <DialogDescription>
@@ -236,6 +307,34 @@ export function CreateRectificativaDialog({
 
               <FormField
                 control={form.control}
+                name="rectification_reason_code"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Motivo de rectificación (Verifactu)</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecciona el motivo" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {RECTIFICATION_REASONS.map(reason => (
+                          <SelectItem key={reason.code} value={reason.code}>
+                            <div className="flex flex-col">
+                              <span>{reason.label}</span>
+                              <span className="text-xs text-muted-foreground">{reason.description}</span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
                 name="rectification_type"
                 render={({ field }) => (
                   <FormItem>
@@ -261,10 +360,63 @@ export function CreateRectificativaDialog({
                         </SelectItem>
                       </SelectContent>
                     </Select>
+                    <FormDescription>
+                      {field.value === 'I' 
+                        ? 'Incluye solo las diferencias (positivas o negativas) respecto a la factura original'
+                        : 'Sustituye completamente la factura original con nuevos importes'
+                      }
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
               />
+
+              {isSubstitution && (
+                <Alert>
+                  <Info className="h-4 w-4" />
+                  <AlertDescription>
+                    Para facturas sustitutivas, debes indicar los importes de la factura original que se rectifican (BaseRectificada y CuotaRectificada según Verifactu).
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {isSubstitution && (
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="base_rectificada"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Base rectificada (€)</FormLabel>
+                        <FormControl>
+                          <Input {...field} type="number" step="0.01" />
+                        </FormControl>
+                        <FormDescription className="text-xs">
+                          Base imponible de la factura original
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="cuota_rectificada"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Cuota rectificada (€)</FormLabel>
+                        <FormControl>
+                          <Input {...field} type="number" step="0.01" />
+                        </FormControl>
+                        <FormDescription className="text-xs">
+                          IVA de la factura original
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              )}
 
               <FormField
                 control={form.control}
@@ -314,9 +466,12 @@ export function CreateRectificativaDialog({
                     <FormControl>
                       <Input {...field} type="number" step="0.01" placeholder="Importe con IVA" />
                     </FormControl>
-                    <p className="text-xs text-muted-foreground">
-                      Usa valores negativos para correcciones a favor del cliente
-                    </p>
+                    <FormDescription>
+                      {isSubstitution 
+                        ? 'Nuevo importe total de la factura (sustituye al original)'
+                        : 'Usa valores negativos para correcciones a favor del cliente'
+                      }
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
