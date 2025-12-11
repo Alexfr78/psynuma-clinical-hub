@@ -80,7 +80,7 @@ const navItems: NavItem[] = [
   { id: 'facturacion-editar', label: 'Editar factura', icon: Pencil, parent: 'Facturación' },
   { id: 'facturacion-series', label: 'Series y numeración', icon: List, parent: 'Facturación' },
   { id: 'facturacion-automatizar', label: 'Automatizar facturas', icon: Zap, parent: 'Facturación' },
-  { id: 'facturacion-verifactu', label: 'Verifactu', icon: Shield, parent: 'Facturación' },
+  { id: 'facturacion-verifactu', label: 'Verifactu (AEAT)', icon: Shield, parent: 'Facturación' },
   { id: 'comunicaciones-whatsapp-config', label: 'Configuración WhatsApp', icon: MessageCircle, parent: 'Comunicaciones' },
   { id: 'comunicaciones-email', label: 'Plantillas Email', icon: Mail, parent: 'Comunicaciones' },
   { id: 'comunicaciones-whatsapp', label: 'Plantillas WhatsApp', icon: MessageCircle, parent: 'Comunicaciones' },
