@@ -109,6 +109,9 @@ function escapeXML(str: string): string {
     .replace(/'/g, '&apos;');
 }
 
+// Uses DUAL namespaces as required by AEAT schema:
+// - sum (SuministroLR.xsd): Container elements like RegFactuSistemaFacturacion, Cabecera, RegistroFactura
+// - sum1 (SuministroInformacion.xsd): Data elements like ObligadoEmision, IDVersion, NIF, etc.
 function buildRegistroBajaXML(invoice: any, center: any, generationTimestamp: string): string {
   const nifEmisor = center.tax_id?.replace(/[^A-Z0-9]/gi, '') || '';
   const nombreEmisor = center.name || '';
@@ -117,23 +120,26 @@ function buildRegistroBajaXML(invoice: any, center: any, generationTimestamp: st
   const softwareVersion = center.verifactu_software_version || '1.0.0';
   const softwareNif = center.verifactu_software_nif || nifEmisor;
 
-  const xmlnsSum1 = 'https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/SuministroLR.xsd';
+  // DUAL NAMESPACES - Required by AEAT Verifactu schema
+  const xmlnsSum = 'https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/SuministroLR.xsd';
+  const xmlnsSum1 = 'https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/SuministroInformacion.xsd';
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" 
+                  xmlns:sum="${xmlnsSum}"
                   xmlns:sum1="${xmlnsSum1}">
   <soapenv:Header/>
   <soapenv:Body>
-    <sum1:RegFactuSistemaFacturacion>
-      <sum1:Cabecera>
+    <sum:RegFactuSistemaFacturacion>
+      <sum:Cabecera>
         <sum1:IDVersion>1.0</sum1:IDVersion>
         <sum1:ObligadoEmision>
           <sum1:NombreRazon>${escapeXML(nombreEmisor)}</sum1:NombreRazon>
           <sum1:NIF>${nifEmisor}</sum1:NIF>
         </sum1:ObligadoEmision>
-      </sum1:Cabecera>
-      <sum1:RegistroFactura>
-        <sum1:RegistroAnulacion>
+      </sum:Cabecera>
+      <sum:RegistroFactura>
+        <sum:RegistroAnulacion>
           <sum1:IDFactura>
             <sum1:IDEmisorFactura>${nifEmisor}</sum1:IDEmisorFactura>
             <sum1:NumSerieFactura>${escapeXML(invoice.invoice_number)}</sum1:NumSerieFactura>
@@ -151,9 +157,9 @@ function buildRegistroBajaXML(invoice: any, center: any, generationTimestamp: st
             <sum1:IndicadorMultiplesOT>N</sum1:IndicadorMultiplesOT>
           </sum1:SistemaInformatico>
           <sum1:FechaHoraHusoGenRegistro>${generationTimestamp}</sum1:FechaHoraHusoGenRegistro>
-        </sum1:RegistroAnulacion>
-      </sum1:RegistroFactura>
-    </sum1:RegFactuSistemaFacturacion>
+        </sum:RegistroAnulacion>
+      </sum:RegistroFactura>
+    </sum:RegFactuSistemaFacturacion>
   </soapenv:Body>
 </soapenv:Envelope>`;
 }

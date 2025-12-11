@@ -144,6 +144,9 @@ function generateQRUrl(nifEmisor: string, numSerie: string, fechaExpedicion: str
 }
 
 // Build RegistroAlta XML for invoice registration
+// Uses DUAL namespaces as required by AEAT schema:
+// - sum (SuministroLR.xsd): Container elements like RegFactuSistemaFacturacion, Cabecera, RegistroFactura
+// - sum1 (SuministroInformacion.xsd): Data elements like ObligadoEmision, IDVersion, NIF, etc.
 function buildRegistroAltaXML(invoice: any, center: any, patient: any, invoiceItems: any[], previousHash: string | null, generationTimestamp: string): string {
   const nifEmisor = center.tax_id?.replace(/[^A-Z0-9]/gi, '') || '';
   const nombreEmisor = center.name || '';
@@ -160,46 +163,46 @@ function buildRegistroAltaXML(invoice: any, center: any, patient: any, invoiceIt
   if (totalIVA === 0) {
     // Exempt operation (healthcare services)
     desgloseXML = `
-        <sum1:Desglose>
-          <sum1:DetalleDesglose>
-            <sum1:Impuesto>01</sum1:Impuesto>
-            <sum1:ClaveRegimen>01</sum1:ClaveRegimen>
-            <sum1:CalificacionOperacion>E1</sum1:CalificacionOperacion>
-            <sum1:BaseImponibleOImporteNoSujeto>${totalBase.toFixed(2)}</sum1:BaseImponibleOImporteNoSujeto>
-          </sum1:DetalleDesglose>
-        </sum1:Desglose>`;
+            <sum1:Desglose>
+              <sum1:DetalleDesglose>
+                <sum1:Impuesto>01</sum1:Impuesto>
+                <sum1:ClaveRegimen>01</sum1:ClaveRegimen>
+                <sum1:CalificacionOperacion>E1</sum1:CalificacionOperacion>
+                <sum1:BaseImponibleOImporteNoSujeto>${totalBase.toFixed(2)}</sum1:BaseImponibleOImporteNoSujeto>
+              </sum1:DetalleDesglose>
+            </sum1:Desglose>`;
   } else {
     const taxRate = Number(invoice.tax_rate) || 21;
     desgloseXML = `
-        <sum1:Desglose>
-          <sum1:DetalleDesglose>
-            <sum1:Impuesto>01</sum1:Impuesto>
-            <sum1:ClaveRegimen>01</sum1:ClaveRegimen>
-            <sum1:CalificacionOperacion>S1</sum1:CalificacionOperacion>
-            <sum1:TipoImpositivo>${taxRate.toFixed(2)}</sum1:TipoImpositivo>
-            <sum1:BaseImponibleOImporteNoSujeto>${totalBase.toFixed(2)}</sum1:BaseImponibleOImporteNoSujeto>
-            <sum1:CuotaRepercutida>${totalIVA.toFixed(2)}</sum1:CuotaRepercutida>
-          </sum1:DetalleDesglose>
-        </sum1:Desglose>`;
+            <sum1:Desglose>
+              <sum1:DetalleDesglose>
+                <sum1:Impuesto>01</sum1:Impuesto>
+                <sum1:ClaveRegimen>01</sum1:ClaveRegimen>
+                <sum1:CalificacionOperacion>S1</sum1:CalificacionOperacion>
+                <sum1:TipoImpositivo>${taxRate.toFixed(2)}</sum1:TipoImpositivo>
+                <sum1:BaseImponibleOImporteNoSujeto>${totalBase.toFixed(2)}</sum1:BaseImponibleOImporteNoSujeto>
+                <sum1:CuotaRepercutida>${totalIVA.toFixed(2)}</sum1:CuotaRepercutida>
+              </sum1:DetalleDesglose>
+            </sum1:Desglose>`;
   }
 
   // Build encadenamiento (chaining)
   let encadenamientoXML = '';
   if (previousHash) {
     encadenamientoXML = `
-        <sum1:Encadenamiento>
-          <sum1:RegistroAnterior>
-            <sum1:IDEmisorFactura>${nifEmisor}</sum1:IDEmisorFactura>
-            <sum1:NumSerieFactura>${escapeXML(invoice.invoice_number)}</sum1:NumSerieFactura>
-            <sum1:FechaExpedicionFactura>${fechaExpedicion}</sum1:FechaExpedicionFactura>
-            <sum1:Huella>${previousHash}</sum1:Huella>
-          </sum1:RegistroAnterior>
-        </sum1:Encadenamiento>`;
+            <sum1:Encadenamiento>
+              <sum1:RegistroAnterior>
+                <sum1:IDEmisorFactura>${nifEmisor}</sum1:IDEmisorFactura>
+                <sum1:NumSerieFactura>${escapeXML(invoice.invoice_number)}</sum1:NumSerieFactura>
+                <sum1:FechaExpedicionFactura>${fechaExpedicion}</sum1:FechaExpedicionFactura>
+                <sum1:Huella>${previousHash}</sum1:Huella>
+              </sum1:RegistroAnterior>
+            </sum1:Encadenamiento>`;
   } else {
     encadenamientoXML = `
-        <sum1:Encadenamiento>
-          <sum1:PrimerRegistro>S</sum1:PrimerRegistro>
-        </sum1:Encadenamiento>`;
+            <sum1:Encadenamiento>
+              <sum1:PrimerRegistro>S</sum1:PrimerRegistro>
+            </sum1:Encadenamiento>`;
   }
 
   // Software info
@@ -219,32 +222,35 @@ function buildRegistroAltaXML(invoice: any, center: any, patient: any, invoiceIt
   let facturasRectificadasXML = '';
   if (invoice.rectified_invoice_id && invoice.rectified_invoice) {
     facturasRectificadasXML = `
-          <sum1:FacturasRectificadas>
-            <sum1:IDFacturaRectificada>
-              <sum1:IDEmisorFactura>${nifEmisor}</sum1:IDEmisorFactura>
-              <sum1:NumSerieFactura>${escapeXML(invoice.rectified_invoice.invoice_number)}</sum1:NumSerieFactura>
-              <sum1:FechaExpedicionFactura>${formatDateVerifactu(invoice.rectified_invoice.issue_date)}</sum1:FechaExpedicionFactura>
-            </sum1:IDFacturaRectificada>
-          </sum1:FacturasRectificadas>`;
+              <sum1:FacturasRectificadas>
+                <sum1:IDFacturaRectificada>
+                  <sum1:IDEmisorFactura>${nifEmisor}</sum1:IDEmisorFactura>
+                  <sum1:NumSerieFactura>${escapeXML(invoice.rectified_invoice.invoice_number)}</sum1:NumSerieFactura>
+                  <sum1:FechaExpedicionFactura>${formatDateVerifactu(invoice.rectified_invoice.issue_date)}</sum1:FechaExpedicionFactura>
+                </sum1:IDFacturaRectificada>
+              </sum1:FacturasRectificadas>`;
   }
 
-  const xmlnsSum1 = 'https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/SuministroLR.xsd';
+  // DUAL NAMESPACES - Required by AEAT Verifactu schema
+  const xmlnsSum = 'https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/SuministroLR.xsd';
+  const xmlnsSum1 = 'https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/SuministroInformacion.xsd';
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" 
+                  xmlns:sum="${xmlnsSum}"
                   xmlns:sum1="${xmlnsSum1}">
   <soapenv:Header/>
   <soapenv:Body>
-    <sum1:RegFactuSistemaFacturacion>
-      <sum1:Cabecera>
+    <sum:RegFactuSistemaFacturacion>
+      <sum:Cabecera>
         <sum1:IDVersion>1.0</sum1:IDVersion>
         <sum1:ObligadoEmision>
           <sum1:NombreRazon>${escapeXML(nombreEmisor)}</sum1:NombreRazon>
           <sum1:NIF>${nifEmisor}</sum1:NIF>
         </sum1:ObligadoEmision>
-      </sum1:Cabecera>
-      <sum1:RegistroFactura>
-        <sum1:RegistroAlta>
+      </sum:Cabecera>
+      <sum:RegistroFactura>
+        <sum:RegistroAlta>
           <sum1:IDFactura>
             <sum1:IDEmisorFactura>${nifEmisor}</sum1:IDEmisorFactura>
             <sum1:NumSerieFactura>${escapeXML(invoice.invoice_number)}</sum1:NumSerieFactura>
@@ -274,9 +280,9 @@ function buildRegistroAltaXML(invoice: any, center: any, patient: any, invoiceIt
           </sum1:SistemaInformatico>
           <sum1:FechaHoraHusoGenRegistro>${generationTimestamp}</sum1:FechaHoraHusoGenRegistro>
           <sum1:TipoHuella>01</sum1:TipoHuella>
-        </sum1:RegistroAlta>
-      </sum1:RegistroFactura>
-    </sum1:RegFactuSistemaFacturacion>
+        </sum:RegistroAlta>
+      </sum:RegistroFactura>
+    </sum:RegFactuSistemaFacturacion>
   </soapenv:Body>
 </soapenv:Envelope>`;
 }
