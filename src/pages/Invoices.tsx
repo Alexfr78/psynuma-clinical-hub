@@ -161,10 +161,15 @@ export default function Invoices() {
 
       if (error) throw error;
 
-      if (data.error) {
-        toast.error(`AEAT no disponible: ${data.error}`);
-      } else {
+      if (data?.aeat_unavailable) {
+        // AEAT is temporarily unavailable
+        toast.info('La Agencia Tributaria no está disponible temporalmente. Se reintentará automáticamente más tarde.', {
+          duration: 6000,
+        });
+      } else if (data?.success) {
         toast.success('Factura registrada correctamente en AEAT');
+      } else if (data?.error) {
+        toast.error(`Error de AEAT: ${data.error}`);
       }
       refetch();
     } catch (error) {

@@ -741,6 +741,12 @@ serve(async (req) => {
     });
 
     if (!aeatResult.success) {
+      // Check if it's a temporary AEAT unavailability (404 with "Desactivada temporalmente")
+      const isTemporaryUnavailable = aeatResult.httpStatus === 404 && 
+        (aeatResult.error?.includes('Desactivada temporalmente') || 
+         aeatResult.error?.includes('no habilitado') ||
+         aeatResult.response?.includes('Desactivada temporalmente'));
+
       // Update invoice with pending status for retry
       await supabase
         .from("invoices")
@@ -750,6 +756,23 @@ serve(async (req) => {
         })
         .eq("id", invoice_id);
 
+      // Return different response based on error type
+      if (isTemporaryUnavailable) {
+        // AEAT is temporarily down - return success with pending status
+        return new Response(
+          JSON.stringify({ 
+            success: false,
+            pending: true,
+            aeat_unavailable: true,
+            invoice_number: invoice.invoice_number,
+            message: "La Agencia Tributaria no está disponible temporalmente. Se reintentará automáticamente más tarde.",
+            retry_count: (invoice.verifactu_retry_count || 0) + 1
+          }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Other AEAT errors
       return new Response(
         JSON.stringify({ 
           error: `Error de AEAT: ${aeatResult.error}`,
