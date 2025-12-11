@@ -126,7 +126,7 @@ export function WhatsAppLinkDialog({
           <div className="space-y-2 pt-2 border-t">
             <label className="text-sm font-medium">Vista previa del mensaje</label>
             <div className="flex gap-2">
-              <div className="flex-1 p-3 text-sm bg-muted rounded-md max-h-24 overflow-y-auto whitespace-pre-wrap">
+              <div className="flex-1 p-3 text-sm bg-muted rounded-md max-h-24 overflow-y-auto whitespace-pre-wrap break-all">
                 {message}
               </div>
               <Button
