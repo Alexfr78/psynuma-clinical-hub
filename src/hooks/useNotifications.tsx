@@ -134,6 +134,7 @@ export function useScheduleSessionReminder() {
       patientEmail,
       patientPhone,
       sessionDate,
+      sessionDateISO,
       sessionTime,
       reminderTypes,
     }: {
@@ -143,11 +144,12 @@ export function useScheduleSessionReminder() {
       patientEmail?: string | null;
       patientPhone?: string | null;
       sessionDate: string;
+      sessionDateISO: string; // Format: yyyy-MM-dd
       sessionTime: string;
       reminderTypes: { email: boolean; sms: boolean; whatsapp: boolean };
     }) => {
       const notifications: NotificationInsert[] = [];
-      const reminderDate = new Date(sessionDate);
+      const reminderDate = new Date(sessionDateISO);
       reminderDate.setDate(reminderDate.getDate() - 1);
       reminderDate.setHours(10, 0, 0, 0);
 
