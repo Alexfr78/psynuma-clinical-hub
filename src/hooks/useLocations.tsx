@@ -67,6 +67,27 @@ export function useCreateLocation() {
   });
 }
 
+export function useUpdateLocation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, ...data }: Partial<LocationInsert> & { id: string }) => {
+      const { data: result, error } = await supabase
+        .from('center_locations')
+        .update(data)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return result;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['locations'] });
+    },
+  });
+}
+
 export function useDeleteLocation() {
   const queryClient = useQueryClient();
 
