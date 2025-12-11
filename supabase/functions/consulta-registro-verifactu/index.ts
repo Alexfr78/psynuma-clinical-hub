@@ -1,20 +1,30 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import forge from "https://esm.sh/node-forge@1.3.1";
+
+// Dynamic import of node-forge with bundle for Deno compatibility
+const forgeModule = await import("https://esm.sh/node-forge@1.3.1?bundle");
+const forge = forgeModule.default || forgeModule;
+
+// Patch for Deno compatibility - forge.random.getBytes
+forge.random.getBytes = (count: number) => {
+  const bytes = new Uint8Array(count);
+  crypto.getRandomValues(bytes);
+  return String.fromCharCode.apply(null, Array.from(bytes));
+};
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// AEAT Verifactu endpoints
+// AEAT Verifactu endpoints for consultation - CORRECTED URLs
 const AEAT_ENDPOINTS = {
-  test: "https://prewww1.aeat.es/wlpl/TIKE-CONT/ws/SistemaFacturacion/VerifactuSOAP",
-  production: "https://www1.agenciatributaria.gob.es/wlpl/TIKE-CONT/ws/SistemaFacturacion/VerifactuSOAP"
+  test: "https://prewww2.aeat.es/wlpl/TIKE-CONT/ws/ConsultaLRSOAP",
+  production: "https://www2.agenciatributaria.gob.es/wlpl/TIKE-CONT/ws/ConsultaLRSOAP"
 };
 
-// SOAPAction for Consulta (invoice query)
-const SOAP_ACTION_CONSULTA = "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/SistemaFacturacion/consultaRegistroFactura";
+// SOAPAction for Consulta (invoice query) - CORRECTED to simple string
+const SOAP_ACTION_CONSULTA = "ConsultaLR";
 
 // ============= AES-256-GCM Decryption =============
 function hexToBytes(hex: string): Uint8Array {
@@ -99,14 +109,12 @@ function escapeXML(str: string): string {
     .replace(/'/g, '&apos;');
 }
 
-// Uses SINGLE namespace sum1 → SuministroLR.xsd for ALL Verifactu elements
-// The namespace is declared on soapenv:Body, not on soapenv:Envelope
+// Build ConsultaFactu XML for invoice query
 function buildConsultaXML(invoice: any, center: any): string {
   const nifEmisor = center.tax_id?.replace(/[^A-Z0-9]/gi, '') || '';
   const nombreEmisor = center.name || '';
   const fechaExpedicion = formatDateVerifactu(invoice.issue_date);
 
-  // Build the body content (will be wrapped with namespace in buildSignedSOAPEnvelope)
   return `<sum1:ConsultaFactuSistemaFacturacion>
       <sum1:Cabecera>
         <sum1:IDVersion>1.0</sum1:IDVersion>
@@ -125,12 +133,10 @@ function buildConsultaXML(invoice: any, center: any): string {
     </sum1:ConsultaFactuSistemaFacturacion>`;
 }
 
-// Extract certificates from PKCS12 and return PEM format for mTLS
+// Extract certificates from PKCS12 for XML signing
 function extractCertificatesFromPKCS12(certificateBase64: string, certificatePassword: string): {
-  privateKey: forge.pki.PrivateKey;
-  certificate: forge.pki.Certificate;
-  certPem: string;
-  keyPem: string;
+  privateKey: any;
+  certificate: any;
 } {
   console.log('Extracting certificates from PKCS12...');
   
@@ -138,14 +144,14 @@ function extractCertificatesFromPKCS12(certificateBase64: string, certificatePas
   const p12Asn1 = forge.asn1.fromDer(p12Der);
   const p12 = forge.pkcs12.pkcs12FromAsn1(p12Asn1, certificatePassword);
 
-  let privateKey: forge.pki.PrivateKey | null = null;
-  let endEntityCert: forge.pki.Certificate | null = null;
-  const allCertificates: forge.pki.Certificate[] = [];
+  let privateKey: any = null;
+  let endEntityCert: any = null;
+  const allCertificates: any[] = [];
 
   for (const safeContents of p12.safeContents) {
     for (const safeBag of safeContents.safeBags) {
       if (safeBag.type === forge.pki.oids.pkcs8ShroudedKeyBag && safeBag.key) {
-        privateKey = safeBag.key as forge.pki.PrivateKey;
+        privateKey = safeBag.key;
       } else if (safeBag.type === forge.pki.oids.certBag && safeBag.cert) {
         allCertificates.push(safeBag.cert);
       }
@@ -163,8 +169,8 @@ function extractCertificatesFromPKCS12(certificateBase64: string, certificatePas
     try {
       const certPublicKey = forge.pki.publicKeyToPem(cert.publicKey);
       const derivedPublicKey = forge.pki.publicKeyToPem(forge.pki.rsa.setPublicKey(
-        (privateKey as any).n,
-        (privateKey as any).e
+        privateKey.n,
+        privateKey.e
       ));
       if (certPublicKey === derivedPublicKey) {
         endEntityCert = cert;
@@ -177,23 +183,13 @@ function extractCertificatesFromPKCS12(certificateBase64: string, certificatePas
     endEntityCert = allCertificates[0];
   }
 
-  // Build certificate chain PEM
-  let certChainPem = forge.pki.certificateToPem(endEntityCert);
-  for (const cert of allCertificates) {
-    if (cert !== endEntityCert) {
-      certChainPem += forge.pki.certificateToPem(cert);
-    }
-  }
+  console.log('Extracted certificate and private key for signing');
 
-  const keyPem = forge.pki.privateKeyToPem(privateKey);
-  
-  console.log('Extracted certificate chain and key in PEM format');
-
-  return { privateKey, certificate: endEntityCert, certPem: certChainPem, keyPem };
+  return { privateKey, certificate: endEntityCert };
 }
 
 // Build complete signed SOAP envelope with namespace on Body
-function buildSignedSOAPEnvelope(body: string, privateKey: forge.pki.PrivateKey, certificate: forge.pki.Certificate): string {
+function buildSignedSOAPEnvelope(body: string, privateKey: any, certificate: any): string {
   const xmlnsSum1 = 'https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/SuministroLR.xsd';
 
   // Create the full body with namespace
@@ -215,7 +211,7 @@ function buildSignedSOAPEnvelope(body: string, privateKey: forge.pki.PrivateKey,
 }
 
 // Sign XML body and return signature element
-function signXMLBody(body: string, privateKey: forge.pki.PrivateKey, certificate: forge.pki.Certificate): string {
+function signXMLBody(body: string, privateKey: any, certificate: any): string {
   try {
     const certDer = forge.asn1.toDer(forge.pki.certificateToAsn1(certificate)).getBytes();
     const certBase64 = forge.util.encode64(certDer);
@@ -248,7 +244,7 @@ function signXMLBody(body: string, privateKey: forge.pki.PrivateKey, certificate
     // Create signature using RSA-SHA256
     const md = forge.md.sha256.create();
     md.update(canonicalSignedInfo, 'utf8');
-    const signature = (privateKey as any).sign(md);
+    const signature = privateKey.sign(md);
     const signatureValue = forge.util.encode64(signature);
 
     console.log("XML signed successfully");
@@ -268,51 +264,43 @@ ${signedInfo}
   }
 }
 
+// Send XML to AEAT - CORRECTED: Standard fetch without mTLS
 async function sendToAEAT(
   signedXml: string, 
-  environment: string,
-  certPem: string,
-  keyPem: string
+  environment: string
 ): Promise<{ success: boolean; response?: string; error?: string; httpStatus?: number }> {
   const endpoint = environment === 'production' ? AEAT_ENDPOINTS.production : AEAT_ENDPOINTS.test;
   
   try {
-    // Create HTTP client with client certificate for mTLS
-    console.log("Creating mTLS HTTP client for AEAT consultation...");
-    const client = Deno.createHttpClient({
-      cert: certPem,
-      key: keyPem,
-    });
+    console.log("Sending consultation to AEAT endpoint:", endpoint);
+    console.log("Using SOAPAction:", SOAP_ACTION_CONSULTA);
 
+    // Standard fetch - certificate is used for XML signing, NOT for connection authentication
     const response = await fetch(endpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'text/xml; charset=utf-8',
         'SOAPAction': SOAP_ACTION_CONSULTA
       },
-      body: signedXml,
-      // @ts-ignore - Deno specific option
-      client: client
+      body: signedXml
     });
 
     const responseText = await response.text();
     console.log("AEAT Consulta Response status:", response.status);
-
-    // Close the client after use
-    client.close();
+    console.log("AEAT Response (first 2000 chars):", responseText.substring(0, 2000));
 
     if (!response.ok) {
       return { success: false, error: `HTTP ${response.status}: ${responseText}`, httpStatus: response.status };
     }
 
-    // Detectar página de error HTML
+    // Detect HTML error page
     if (responseText.includes('<!DOCTYPE html>') || responseText.includes('<html')) {
       const titleMatch = responseText.match(/<title>[^<]*?(\d{3})[^<]*?<\/title>/i);
       const errorCode = titleMatch?.[1] || 'HTML';
       console.error(`AEAT returned HTML error page with code ${errorCode}`);
       return { 
         success: false, 
-        error: `AEAT devolvió página de error ${errorCode} - El certificado no está autorizado`, 
+        error: `AEAT devolvió página de error ${errorCode}`, 
         response: responseText, 
         httpStatus: response.status 
       };
@@ -440,15 +428,15 @@ serve(async (req) => {
       center.verifactu_certificate_password
     );
 
-    // Extract certificates for mTLS
+    // Extract certificates for signing
     const certData = extractCertificatesFromPKCS12(decryptedCert, decryptedPassword);
 
     // Build and sign consultation XML
     const xmlBody = buildConsultaXML(invoice, center);
     const signedXml = buildSignedSOAPEnvelope(xmlBody, certData.privateKey, certData.certificate);
 
-    // Send to AEAT with mTLS
-    const aeatResult = await sendToAEAT(signedXml, environment, certData.certPem, certData.keyPem);
+    // Send to AEAT
+    const aeatResult = await sendToAEAT(signedXml, environment);
 
     // Parse response
     const consultaResult = aeatResult.response ? parseConsultaResponse(aeatResult.response) : { found: false, error: 'Sin respuesta' };
@@ -496,10 +484,9 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    console.error("Error consulting invoice:", error);
-    const errorMessage = error instanceof Error ? error.message : "Error desconocido";
+    console.error("Error in consulta-registro-verifactu:", error);
     return new Response(
-      JSON.stringify({ error: errorMessage }),
+      JSON.stringify({ error: error instanceof Error ? error.message : "Error interno" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }

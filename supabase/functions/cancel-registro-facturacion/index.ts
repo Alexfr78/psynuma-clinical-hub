@@ -1,20 +1,30 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import forge from "https://esm.sh/node-forge@1.3.1";
+
+// Dynamic import of node-forge with bundle for Deno compatibility
+const forgeModule = await import("https://esm.sh/node-forge@1.3.1?bundle");
+const forge = forgeModule.default || forgeModule;
+
+// Patch for Deno compatibility - forge.random.getBytes
+forge.random.getBytes = (count: number) => {
+  const bytes = new Uint8Array(count);
+  crypto.getRandomValues(bytes);
+  return String.fromCharCode.apply(null, Array.from(bytes));
+};
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// AEAT Verifactu endpoints
+// AEAT Verifactu endpoints - CORRECTED URLs
 const AEAT_ENDPOINTS = {
-  test: "https://prewww1.aeat.es/wlpl/TIKE-CONT/ws/SistemaFacturacion/VerifactuSOAP",
-  production: "https://www1.agenciatributaria.gob.es/wlpl/TIKE-CONT/ws/SistemaFacturacion/VerifactuSOAP"
+  test: "https://prewww2.aeat.es/wlpl/TIKE-CONT/ws/SistemaFacturacionSOAP",
+  production: "https://www2.agenciatributaria.gob.es/wlpl/TIKE-CONT/ws/SistemaFacturacionSOAP"
 };
 
-// SOAPAction for Baja (invoice cancellation)
-const SOAP_ACTION_BAJA = "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/SistemaFacturacion/bajaRegistroFactura";
+// SOAPAction for Baja (invoice cancellation) - CORRECTED to simple string
+const SOAP_ACTION_BAJA = "AnulacionRegFactuSistemaFacturacion";
 
 // ============= AES-256-GCM Decryption =============
 function hexToBytes(hex: string): Uint8Array {
@@ -109,8 +119,7 @@ function escapeXML(str: string): string {
     .replace(/'/g, '&apos;');
 }
 
-// Uses SINGLE namespace sum1 → SuministroLR.xsd for ALL Verifactu elements
-// The namespace is declared on soapenv:Body, not on soapenv:Envelope
+// Build RegistroAnulacion XML for invoice cancellation
 function buildRegistroBajaXML(invoice: any, center: any, generationTimestamp: string): string {
   const nifEmisor = center.tax_id?.replace(/[^A-Z0-9]/gi, '') || '';
   const nombreEmisor = center.name || '';
@@ -119,7 +128,6 @@ function buildRegistroBajaXML(invoice: any, center: any, generationTimestamp: st
   const softwareVersion = center.verifactu_software_version || '1.0.0';
   const softwareNif = center.verifactu_software_nif || nifEmisor;
 
-  // Build the body content (will be wrapped with namespace in buildSignedSOAPEnvelope)
   return `<sum1:RegFactuSistemaFacturacion>
       <sum1:Cabecera>
         <sum1:IDVersion>1.0</sum1:IDVersion>
@@ -152,12 +160,10 @@ function buildRegistroBajaXML(invoice: any, center: any, generationTimestamp: st
     </sum1:RegFactuSistemaFacturacion>`;
 }
 
-// Extract certificates from PKCS12 and return PEM format for mTLS
+// Extract certificates from PKCS12 for XML signing
 function extractCertificatesFromPKCS12(certificateBase64: string, certificatePassword: string): {
-  privateKey: forge.pki.PrivateKey;
-  certificate: forge.pki.Certificate;
-  certPem: string;
-  keyPem: string;
+  privateKey: any;
+  certificate: any;
 } {
   console.log('Extracting certificates from PKCS12...');
   
@@ -165,14 +171,14 @@ function extractCertificatesFromPKCS12(certificateBase64: string, certificatePas
   const p12Asn1 = forge.asn1.fromDer(p12Der);
   const p12 = forge.pkcs12.pkcs12FromAsn1(p12Asn1, certificatePassword);
 
-  let privateKey: forge.pki.PrivateKey | null = null;
-  let endEntityCert: forge.pki.Certificate | null = null;
-  const allCertificates: forge.pki.Certificate[] = [];
+  let privateKey: any = null;
+  let endEntityCert: any = null;
+  const allCertificates: any[] = [];
 
   for (const safeContents of p12.safeContents) {
     for (const safeBag of safeContents.safeBags) {
       if (safeBag.type === forge.pki.oids.pkcs8ShroudedKeyBag && safeBag.key) {
-        privateKey = safeBag.key as forge.pki.PrivateKey;
+        privateKey = safeBag.key;
       } else if (safeBag.type === forge.pki.oids.certBag && safeBag.cert) {
         allCertificates.push(safeBag.cert);
       }
@@ -190,8 +196,8 @@ function extractCertificatesFromPKCS12(certificateBase64: string, certificatePas
     try {
       const certPublicKey = forge.pki.publicKeyToPem(cert.publicKey);
       const derivedPublicKey = forge.pki.publicKeyToPem(forge.pki.rsa.setPublicKey(
-        (privateKey as any).n,
-        (privateKey as any).e
+        privateKey.n,
+        privateKey.e
       ));
       if (certPublicKey === derivedPublicKey) {
         endEntityCert = cert;
@@ -204,23 +210,13 @@ function extractCertificatesFromPKCS12(certificateBase64: string, certificatePas
     endEntityCert = allCertificates[0];
   }
 
-  // Build certificate chain PEM
-  let certChainPem = forge.pki.certificateToPem(endEntityCert);
-  for (const cert of allCertificates) {
-    if (cert !== endEntityCert) {
-      certChainPem += forge.pki.certificateToPem(cert);
-    }
-  }
+  console.log('Extracted certificate and private key for signing');
 
-  const keyPem = forge.pki.privateKeyToPem(privateKey);
-  
-  console.log('Extracted certificate chain and key in PEM format');
-
-  return { privateKey, certificate: endEntityCert, certPem: certChainPem, keyPem };
+  return { privateKey, certificate: endEntityCert };
 }
 
 // Build complete signed SOAP envelope with namespace on Body
-function buildSignedSOAPEnvelope(body: string, privateKey: forge.pki.PrivateKey, certificate: forge.pki.Certificate): string {
+function buildSignedSOAPEnvelope(body: string, privateKey: any, certificate: any): string {
   const xmlnsSum1 = 'https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/SuministroLR.xsd';
 
   // Create the full body with namespace
@@ -242,7 +238,7 @@ function buildSignedSOAPEnvelope(body: string, privateKey: forge.pki.PrivateKey,
 }
 
 // Sign XML body and return signature element
-function signXMLBody(body: string, privateKey: forge.pki.PrivateKey, certificate: forge.pki.Certificate): string {
+function signXMLBody(body: string, privateKey: any, certificate: any): string {
   try {
     const certDer = forge.asn1.toDer(forge.pki.certificateToAsn1(certificate)).getBytes();
     const certBase64 = forge.util.encode64(certDer);
@@ -275,7 +271,7 @@ function signXMLBody(body: string, privateKey: forge.pki.PrivateKey, certificate
     // Create signature using RSA-SHA256
     const md = forge.md.sha256.create();
     md.update(canonicalSignedInfo, 'utf8');
-    const signature = (privateKey as any).sign(md);
+    const signature = privateKey.sign(md);
     const signatureValue = forge.util.encode64(signature);
 
     console.log("XML signed successfully");
@@ -301,52 +297,43 @@ function extractCSV(responseXml: string): string | null {
   return csvMatch?.[1] || null;
 }
 
+// Send XML to AEAT - CORRECTED: Standard fetch without mTLS
 async function sendToAEAT(
   signedXml: string, 
-  environment: string,
-  certPem: string,
-  keyPem: string
+  environment: string
 ): Promise<{ success: boolean; response?: string; error?: string; httpStatus?: number }> {
   const endpoint = environment === 'production' ? AEAT_ENDPOINTS.production : AEAT_ENDPOINTS.test;
   
   try {
-    // Create HTTP client with client certificate for mTLS
-    console.log("Creating mTLS HTTP client for AEAT cancellation...");
-    const client = Deno.createHttpClient({
-      cert: certPem,
-      key: keyPem,
-    });
+    console.log("Sending cancellation to AEAT endpoint:", endpoint);
+    console.log("Using SOAPAction:", SOAP_ACTION_BAJA);
 
+    // Standard fetch - certificate is used for XML signing, NOT for connection authentication
     const response = await fetch(endpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'text/xml; charset=utf-8',
         'SOAPAction': SOAP_ACTION_BAJA
       },
-      body: signedXml,
-      // @ts-ignore - Deno specific option
-      client: client
+      body: signedXml
     });
 
     const responseText = await response.text();
     console.log("AEAT Cancellation Response status:", response.status);
-    console.log("AEAT Response:", responseText.substring(0, 1000));
-
-    // Close the client after use
-    client.close();
+    console.log("AEAT Response (first 2000 chars):", responseText.substring(0, 2000));
 
     if (!response.ok) {
       return { success: false, error: `HTTP ${response.status}: ${responseText}`, httpStatus: response.status };
     }
 
-    // Detectar página de error HTML
+    // Detect HTML error page
     if (responseText.includes('<!DOCTYPE html>') || responseText.includes('<html')) {
       const titleMatch = responseText.match(/<title>[^<]*?(\d{3})[^<]*?<\/title>/i);
       const errorCode = titleMatch?.[1] || 'HTML';
       console.error(`AEAT returned HTML error page with code ${errorCode}`);
       return { 
         success: false, 
-        error: `AEAT devolvió página de error ${errorCode} - El certificado no está autorizado`, 
+        error: `AEAT devolvió página de error ${errorCode}`, 
         response: responseText, 
         httpStatus: response.status 
       };
@@ -466,116 +453,92 @@ serve(async (req) => {
       center.verifactu_certificate_password
     );
 
-    // Extract certificates for mTLS
-    let certData: { privateKey: forge.pki.PrivateKey; certificate: forge.pki.Certificate; certPem: string; keyPem: string };
+    // Extract certificates for signing
+    let certData: { privateKey: any; certificate: any };
     try {
       certData = extractCertificatesFromPKCS12(decryptedCert, decryptedPassword);
     } catch (certError) {
+      console.error("Certificate extraction error:", certError);
       await logVerifactuEvent(supabase, {
         invoice_id,
         center_id: invoice.center_id,
         event_type: 'error',
         environment,
-        error_details: `Error al extraer certificado: ${certError instanceof Error ? certError.message : 'Unknown'}`
+        error_details: `Error extrayendo certificado: ${certError instanceof Error ? certError.message : 'Error desconocido'}`
       });
-      throw certError;
+      return new Response(
+        JSON.stringify({ error: "Error procesando el certificado" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
+    // Generate timestamp
     const generationTimestamp = formatTimestampVerifactu(new Date());
+
+    // Build and sign cancellation XML
     const xmlBody = buildRegistroBajaXML(invoice, center, generationTimestamp);
-    console.log("Generated cancellation XML for invoice:", invoice.invoice_number);
+    const signedXml = buildSignedSOAPEnvelope(xmlBody, certData.privateKey, certData.certificate);
 
-    let signedXml: string;
-    try {
-      signedXml = buildSignedSOAPEnvelope(xmlBody, certData.privateKey, certData.certificate);
-    } catch (signError) {
-      await logVerifactuEvent(supabase, {
-        invoice_id,
-        center_id: invoice.center_id,
-        event_type: 'error',
-        environment,
-        xml_sent: xmlBody,
-        error_details: `Error al firmar: ${signError instanceof Error ? signError.message : 'Unknown'}`
-      });
-      throw signError;
-    }
+    console.log("Sending cancellation request to AEAT...");
 
-    const aeatResult = await sendToAEAT(signedXml, environment, certData.certPem, certData.keyPem);
+    // Send to AEAT
+    const aeatResult = await sendToAEAT(signedXml, environment);
+
+    // Extract CSV from response
     const csv = aeatResult.response ? extractCSV(aeatResult.response) : null;
 
-    if (!aeatResult.success) {
-      console.error("AEAT cancellation error:", aeatResult.error);
-      
-      await logVerifactuEvent(supabase, {
-        invoice_id,
-        center_id: invoice.center_id,
-        event_type: 'error',
-        aeat_csv: csv,
-        aeat_response_message: aeatResult.error,
-        aeat_response_xml: aeatResult.response,
-        xml_sent: signedXml,
-        environment,
-        http_status: aeatResult.httpStatus,
-        error_details: `Error anulación: ${aeatResult.error}`
-      });
+    // Log cancellation event
+    await logVerifactuEvent(supabase, {
+      invoice_id,
+      center_id: invoice.center_id,
+      event_type: aeatResult.success ? 'anulacion' : 'error',
+      aeat_csv: csv,
+      aeat_response_message: aeatResult.success ? 'Factura anulada correctamente' : aeatResult.error,
+      aeat_response_xml: aeatResult.response,
+      xml_sent: signedXml,
+      environment,
+      http_status: aeatResult.httpStatus,
+      error_details: aeatResult.success ? null : aeatResult.error
+    });
 
+    if (!aeatResult.success) {
       return new Response(
         JSON.stringify({ 
           error: `Error de AEAT: ${aeatResult.error}`,
-          details: aeatResult.response
+          details: aeatResult.response,
+          httpStatus: aeatResult.httpStatus
         }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
+    // Update invoice status to cancelled
     const { error: updateError } = await supabase
       .from("invoices")
-      .update({
-        status: 'cancelled',
-        verifactu_timestamp: new Date().toISOString()
-      })
+      .update({ status: 'cancelled' })
       .eq("id", invoice_id);
 
     if (updateError) {
-      console.error("Update error:", updateError);
-      return new Response(
-        JSON.stringify({ error: "Error al actualizar la factura" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      console.error("Error updating invoice status:", updateError);
     }
 
-    // Log successful cancellation event
-    await logVerifactuEvent(supabase, {
-      invoice_id,
-      center_id: invoice.center_id,
-      event_type: 'anulacion',
-      aeat_csv: csv,
-      aeat_response_message: 'Anulación aceptada',
-      aeat_response_xml: aeatResult.response,
-      xml_sent: signedXml,
-      environment,
-      http_status: aeatResult.httpStatus
-    });
-
-    console.log(`Invoice ${invoice.invoice_number} cancelled in Verifactu`);
+    console.log("Invoice cancellation registered successfully");
 
     return new Response(
       JSON.stringify({
         success: true,
         invoice_number: invoice.invoice_number,
         csv: csv,
-        timestamp: new Date().toISOString(),
         environment,
-        message: "Factura anulada en AEAT correctamente"
+        message: 'Factura anulada correctamente en Verifactu'
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
 
   } catch (error) {
-    console.error("Error cancelling invoice:", error);
-    const errorMessage = error instanceof Error ? error.message : "Error desconocido";
+    console.error("Error in cancel-registro-facturacion:", error);
     return new Response(
-      JSON.stringify({ error: errorMessage }),
+      JSON.stringify({ error: error instanceof Error ? error.message : "Error interno" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }

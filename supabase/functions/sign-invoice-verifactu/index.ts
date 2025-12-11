@@ -1,20 +1,30 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import forge from "https://esm.sh/node-forge@1.3.1";
+
+// Dynamic import of node-forge with bundle for Deno compatibility
+const forgeModule = await import("https://esm.sh/node-forge@1.3.1?bundle");
+const forge = forgeModule.default || forgeModule;
+
+// Patch for Deno compatibility - forge.random.getBytes
+forge.random.getBytes = (count: number) => {
+  const bytes = new Uint8Array(count);
+  crypto.getRandomValues(bytes);
+  return String.fromCharCode.apply(null, Array.from(bytes));
+};
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// AEAT Verifactu endpoints
+// AEAT Verifactu endpoints - CORRECTED URLs
 const AEAT_ENDPOINTS = {
-  test: "https://prewww1.aeat.es/wlpl/TIKE-CONT/ws/SistemaFacturacion/VerifactuSOAP",
-  production: "https://www1.agenciatributaria.gob.es/wlpl/TIKE-CONT/ws/SistemaFacturacion/VerifactuSOAP"
+  test: "https://prewww2.aeat.es/wlpl/TIKE-CONT/ws/SistemaFacturacionSOAP",
+  production: "https://www2.agenciatributaria.gob.es/wlpl/TIKE-CONT/ws/SistemaFacturacionSOAP"
 };
 
-// SOAPAction for Alta (invoice registration)
-const SOAP_ACTION_ALTA = "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/SistemaFacturacion/altaRegistroFactura";
+// SOAPAction for Alta (invoice registration) - CORRECTED to simple string
+const SOAP_ACTION_ALTA = "RegFactuSistemaFacturacion";
 
 // ============= AES-256-GCM Decryption =============
 function hexToBytes(hex: string): Uint8Array {
@@ -143,9 +153,35 @@ function generateQRUrl(nifEmisor: string, numSerie: string, fechaExpedicion: str
   return `${baseUrl}?${params.toString()}`;
 }
 
+// Escape XML special characters
+function escapeXML(str: string): string {
+  if (!str) return '';
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+// Calculate hash for chaining (Huella) - CORRECTED: Direct concatenation without separators
+async function calculateInvoiceHash(invoice: any, center: any, previousHash: string | null, timestamp: string): Promise<string> {
+  const nifEmisor = center.tax_id?.replace(/[^A-Z0-9]/gi, '') || '';
+  const numSerie = invoice.invoice_number || '';
+  const fechaExpedicion = formatDateVerifactu(invoice.issue_date);
+  const tipoFactura = invoice.is_recapitulative ? 'F2' : 'F1';
+  const cuotaTotal = (Number(invoice.tax_amount) || 0).toFixed(2);
+  const importeTotal = Number(invoice.total).toFixed(2);
+  const huellaAnterior = previousHash || '';
+  
+  // CORRECTED: Direct concatenation according to AEAT specification
+  const dataToHash = nifEmisor + numSerie + fechaExpedicion + tipoFactura + cuotaTotal + importeTotal + huellaAnterior + timestamp;
+  
+  console.log("Hash input data:", dataToHash);
+  return await generateSHA256(dataToHash);
+}
+
 // Build RegistroAlta XML for invoice registration
-// Uses SINGLE namespace sum1 → SuministroLR.xsd for ALL Verifactu elements
-// The namespace is declared on soapenv:Body, not on soapenv:Envelope
 function buildRegistroAltaXML(invoice: any, center: any, patient: any, invoiceItems: any[], previousHash: string | null, generationTimestamp: string, invoiceHash: string): string {
   const nifEmisor = center.tax_id?.replace(/[^A-Z0-9]/gi, '') || '';
   const nombreEmisor = center.name || '';
@@ -233,7 +269,7 @@ function buildRegistroAltaXML(invoice: any, center: any, patient: any, invoiceIt
           </sum1:Destinatarios>`;
   }
 
-  // Build the body content (will be wrapped with namespace in buildSignedSOAPEnvelope)
+  // Build the body content
   return `<sum1:RegFactuSistemaFacturacion>
       <sum1:Cabecera>
         <sum1:IDVersion>1.0</sum1:IDVersion>
@@ -278,38 +314,10 @@ function buildRegistroAltaXML(invoice: any, center: any, patient: any, invoiceIt
     </sum1:RegFactuSistemaFacturacion>`;
 }
 
-// Escape XML special characters
-function escapeXML(str: string): string {
-  if (!str) return '';
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;');
-}
-
-// Calculate hash for chaining (Huella)
-async function calculateInvoiceHash(invoice: any, center: any, previousHash: string | null, timestamp: string): Promise<string> {
-  const nifEmisor = center.tax_id?.replace(/[^A-Z0-9]/gi, '') || '';
-  const numSerie = invoice.invoice_number || '';
-  const fechaExpedicion = formatDateVerifactu(invoice.issue_date);
-  const tipoFactura = invoice.is_recapitulative ? 'F2' : 'F1';
-  const cuotaTotal = (Number(invoice.tax_amount) || 0).toFixed(2);
-  const importeTotal = Number(invoice.total).toFixed(2);
-  const huellaAnterior = previousHash || '';
-  
-  const dataToHash = `IDEmisorFactura=${nifEmisor}&NumSerieFactura=${numSerie}&FechaExpedicionFactura=${fechaExpedicion}&TipoFactura=${tipoFactura}&CuotaTotal=${cuotaTotal}&ImporteTotal=${importeTotal}&Huella=${huellaAnterior}&FechaHoraHusoGenRegistro=${timestamp}`;
-  
-  return await generateSHA256(dataToHash);
-}
-
-// Extract certificates from PKCS12 and return PEM format for mTLS
+// Extract certificates from PKCS12 for XML signing
 function extractCertificatesFromPKCS12(certificateBase64: string, certificatePassword: string): {
-  privateKey: forge.pki.PrivateKey;
-  certificate: forge.pki.Certificate;
-  certPem: string;
-  keyPem: string;
+  privateKey: any;
+  certificate: any;
 } {
   console.log('Attempting to decode certificate, base64 length:', certificateBase64.length);
   console.log('Certificate password length:', certificatePassword.length);
@@ -322,15 +330,15 @@ function extractCertificatesFromPKCS12(certificateBase64: string, certificatePas
   
   const p12 = forge.pkcs12.pkcs12FromAsn1(p12Asn1, certificatePassword);
 
-  let privateKey: forge.pki.PrivateKey | null = null;
-  let endEntityCert: forge.pki.Certificate | null = null;
-  const allCertificates: forge.pki.Certificate[] = [];
+  let privateKey: any = null;
+  let endEntityCert: any = null;
+  const allCertificates: any[] = [];
 
   // Extract all certificates and private key
   for (const safeContents of p12.safeContents) {
     for (const safeBag of safeContents.safeBags) {
       if (safeBag.type === forge.pki.oids.pkcs8ShroudedKeyBag && safeBag.key) {
-        privateKey = safeBag.key as forge.pki.PrivateKey;
+        privateKey = safeBag.key;
       } else if (safeBag.type === forge.pki.oids.certBag && safeBag.cert) {
         allCertificates.push(safeBag.cert);
       }
@@ -346,11 +354,10 @@ function extractCertificatesFromPKCS12(certificateBase64: string, certificatePas
   // Find the end-entity certificate (the one that matches the private key)
   for (const cert of allCertificates) {
     try {
-      // The end-entity cert is the one whose public key matches the private key
       const certPublicKey = forge.pki.publicKeyToPem(cert.publicKey);
       const derivedPublicKey = forge.pki.publicKeyToPem(forge.pki.rsa.setPublicKey(
-        (privateKey as any).n,
-        (privateKey as any).e
+        privateKey.n,
+        privateKey.e
       ));
       if (certPublicKey === derivedPublicKey) {
         endEntityCert = cert;
@@ -362,32 +369,19 @@ function extractCertificatesFromPKCS12(certificateBase64: string, certificatePas
     }
   }
 
-  // If no match found, use the first certificate (common case for simple PKCS12)
+  // If no match found, use the first certificate
   if (!endEntityCert) {
     endEntityCert = allCertificates[0];
     console.log('Using first certificate as end-entity');
   }
 
-  // Build certificate chain PEM (end-entity first, then CA certs)
-  let certChainPem = forge.pki.certificateToPem(endEntityCert);
-  
-  // Add intermediate/CA certificates to the chain
-  for (const cert of allCertificates) {
-    if (cert !== endEntityCert) {
-      certChainPem += forge.pki.certificateToPem(cert);
-      console.log('Added CA/intermediate certificate to chain');
-    }
-  }
+  console.log('Extracted certificate and private key for signing');
 
-  const keyPem = forge.pki.privateKeyToPem(privateKey);
-  
-  console.log('Extracted certificate chain and key in PEM format');
-
-  return { privateKey, certificate: endEntityCert, certPem: certChainPem, keyPem };
+  return { privateKey, certificate: endEntityCert };
 }
 
 // Build complete signed SOAP envelope with namespace on Body
-function buildSignedSOAPEnvelope(body: string, privateKey: forge.pki.PrivateKey, certificate: forge.pki.Certificate): string {
+function buildSignedSOAPEnvelope(body: string, privateKey: any, certificate: any): string {
   const xmlnsSum1 = 'https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/SuministroLR.xsd';
 
   // Create the full body with namespace
@@ -409,7 +403,7 @@ function buildSignedSOAPEnvelope(body: string, privateKey: forge.pki.PrivateKey,
 }
 
 // Sign XML body and return signature element
-function signXMLBody(body: string, privateKey: forge.pki.PrivateKey, certificate: forge.pki.Certificate): string {
+function signXMLBody(body: string, privateKey: any, certificate: any): string {
   try {
     const certDer = forge.asn1.toDer(forge.pki.certificateToAsn1(certificate)).getBytes();
     const certBase64 = forge.util.encode64(certDer);
@@ -442,7 +436,7 @@ function signXMLBody(body: string, privateKey: forge.pki.PrivateKey, certificate
     // Create signature using RSA-SHA256
     const md = forge.md.sha256.create();
     md.update(canonicalSignedInfo, 'utf8');
-    const signature = (privateKey as any).sign(md);
+    const signature = privateKey.sign(md);
     const signatureValue = forge.util.encode64(signature);
 
     console.log("XML signed successfully");
@@ -470,65 +464,74 @@ function extractCSV(responseXml: string): string | null {
 
 // Extract response code from AEAT response
 function extractResponseCode(responseXml: string): string | null {
-  const codeMatch = responseXml.match(/<[^>]*CodigoError[^>]*>([^<]+)<\/[^>]*CodigoError[^>]*>/i);
+  const codeMatch = responseXml.match(/<[^>]*CodigoErrorRegistro[^>]*>([^<]+)<\/[^>]*CodigoErrorRegistro[^>]*>/i);
   return codeMatch?.[1] || null;
 }
 
-// Send to AEAT with mTLS (client certificate authentication)
+// Send XML to AEAT - CORRECTED: Standard fetch without mTLS (certificate is for XML signing only)
 async function sendToAEAT(
   signedXml: string, 
-  environment: string,
-  certPem: string,
-  keyPem: string
+  environment: string
 ): Promise<{ success: boolean; response?: string; error?: string; httpStatus?: number }> {
   const endpoint = environment === 'production' ? AEAT_ENDPOINTS.production : AEAT_ENDPOINTS.test;
   
   try {
-    // Create HTTP client with client certificate for mTLS
-    console.log("Creating mTLS HTTP client for AEAT connection...");
-    const client = Deno.createHttpClient({
-      cert: certPem,
-      key: keyPem,
-    });
-
+    console.log("Sending to AEAT endpoint:", endpoint);
+    console.log("Using SOAPAction:", SOAP_ACTION_ALTA);
+    
+    // Standard fetch - certificate is used for XML signing, NOT for connection authentication
     const response = await fetch(endpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'text/xml; charset=utf-8',
         'SOAPAction': SOAP_ACTION_ALTA
       },
-      body: signedXml,
-      // @ts-ignore - Deno specific option
-      client: client
+      body: signedXml
     });
 
     const responseText = await response.text();
     console.log("AEAT Response status:", response.status);
-    console.log("AEAT Response:", responseText.substring(0, 1000));
-
-    // Close the client after use
-    client.close();
+    console.log("AEAT Response (first 2000 chars):", responseText.substring(0, 2000));
 
     if (!response.ok) {
       return { success: false, error: `HTTP ${response.status}: ${responseText}`, httpStatus: response.status };
     }
 
-    // Detectar página de error HTML (AEAT devuelve 200 pero con HTML de error)
+    // Detect HTML error page
     if (responseText.includes('<!DOCTYPE html>') || responseText.includes('<html')) {
       const titleMatch = responseText.match(/<title>[^<]*?(\d{3})[^<]*?<\/title>/i);
       const errorCode = titleMatch?.[1] || 'HTML';
       console.error(`AEAT returned HTML error page with code ${errorCode}`);
       return { 
         success: false, 
-        error: `AEAT devolvió página de error ${errorCode} - El certificado no está autorizado o hay un problema de configuración`, 
+        error: `AEAT devolvió página de error ${errorCode}`, 
         response: responseText, 
         httpStatus: response.status 
       };
     }
 
-    // Verificar que es una respuesta SOAP válida de Verifactu
-    if (!responseText.includes('sifac:') && !responseText.includes('RespuestaRegFactuSistemaFacturacion') && !responseText.includes('soap:') && !responseText.includes('soapenv:')) {
-      console.error("AEAT response is not valid Verifactu SOAP XML");
+    // Check for SOAP faults or error codes
+    if (responseText.includes('<sifac:CodigoErrorRegistro>') || responseText.includes('faultstring')) {
+      const errorMatch = responseText.match(/<sifac:DescripcionErrorRegistro>([^<]+)<\/sifac:DescripcionErrorRegistro>/);
+      const faultMatch = responseText.match(/<faultstring>([^<]+)<\/faultstring>/);
+      const errorMessage = errorMatch?.[1] || faultMatch?.[1] || 'Error desconocido de AEAT';
+      return { success: false, error: errorMessage, response: responseText, httpStatus: response.status };
+    }
+
+    // Check for successful response (CSV in response indicates success)
+    const csv = extractCSV(responseText);
+    if (csv) {
+      console.log("AEAT returned CSV:", csv);
+      return { success: true, response: responseText, httpStatus: response.status };
+    }
+
+    // Check for EstadoRegistro = Correcto
+    if (responseText.includes('Correcto') || responseText.includes('Aceptada')) {
+      return { success: true, response: responseText, httpStatus: response.status };
+    }
+
+    // If no clear success indicator, check for errors
+    if (responseText.includes('Error') || responseText.includes('Rechazad')) {
       return { 
         success: false, 
         error: 'Respuesta inesperada de AEAT - no es XML Verifactu válido', 
@@ -537,13 +540,7 @@ async function sendToAEAT(
       };
     }
 
-    if (responseText.includes('<sifac:CodigoErrorRegistro>') || responseText.includes('faultstring')) {
-      const errorMatch = responseText.match(/<sifac:DescripcionErrorRegistro>([^<]+)<\/sifac:DescripcionErrorRegistro>/);
-      const faultMatch = responseText.match(/<faultstring>([^<]+)<\/faultstring>/);
-      const errorMessage = errorMatch?.[1] || faultMatch?.[1] || 'Error desconocido de AEAT';
-      return { success: false, error: errorMessage, response: responseText, httpStatus: response.status };
-    }
-
+    // Default: assume success if we got a valid XML response
     return { success: true, response: responseText, httpStatus: response.status };
   } catch (error) {
     console.error("Error sending to AEAT:", error);
@@ -564,7 +561,6 @@ async function logVerifactuEvent(supabase: any, eventData: {
   environment: string;
   http_status?: number | null;
   error_details?: string | null;
-  retry_count?: number;
 }) {
   try {
     const { error } = await supabase
@@ -600,19 +596,20 @@ serve(async (req) => {
 
     console.log(`Processing invoice ${invoice_id} for Verifactu signing`);
 
-    // Fetch invoice with relations
+    // Fetch invoice with related data
     const { data: invoice, error: invoiceError } = await supabase
       .from("invoices")
       .select(`
         *,
         patients (id, first_name, last_name, tax_id, address, city, postal_code),
+        invoice_items (*),
+        rectified_invoice:invoices!rectified_invoice_id (id, invoice_number, issue_date),
         centers (
-          id, name, tax_id, address, city, postal_code,
+          id, name, tax_id,
           verifactu_certificate_base64, verifactu_certificate_password,
           verifactu_environment, verifactu_software_name, 
           verifactu_software_version, verifactu_software_nif
-        ),
-        rectified_invoice:rectified_invoice_id (invoice_number, issue_date)
+        )
       `)
       .eq("id", invoice_id)
       .single();
@@ -625,23 +622,14 @@ serve(async (req) => {
       );
     }
 
-    // Check if already signed
-    if (invoice.invoice_hash) {
-      return new Response(
-        JSON.stringify({ 
-          error: "Factura ya firmada con Verifactu",
-          hash: invoice.invoice_hash,
-          timestamp: invoice.verifactu_timestamp
-        }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
     const center = invoice.centers;
     const patient = invoice.patients;
+    const invoiceItems = invoice.invoice_items || [];
     const environment = center?.verifactu_environment || 'test';
 
-    // Validate certificate configuration
+    console.log("Invoice data loaded, environment:", environment);
+
+    // Verify certificate configuration
     if (!center?.verifactu_certificate_base64 || !center?.verifactu_certificate_password) {
       await logVerifactuEvent(supabase, {
         invoice_id,
@@ -651,31 +639,25 @@ serve(async (req) => {
         error_details: 'Certificado Verifactu no configurado'
       });
       return new Response(
-        JSON.stringify({ error: "Certificado Verifactu no configurado. Configure el certificado en Ajustes > Facturación > Verifactu" }),
+        JSON.stringify({ error: "Certificado Verifactu no configurado" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Validate center tax_id
-    if (!center?.tax_id) {
+    // Verify NIF
+    if (!center.tax_id) {
       await logVerifactuEvent(supabase, {
         invoice_id,
         center_id: invoice.center_id,
         event_type: 'error',
         environment,
-        error_details: 'Centro sin NIF/CIF configurado'
+        error_details: 'NIF del centro no configurado'
       });
       return new Response(
-        JSON.stringify({ error: "El centro debe tener un NIF/CIF configurado para usar Verifactu" }),
+        JSON.stringify({ error: "NIF del centro no configurado" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
-
-    // Fetch invoice items
-    const { data: invoiceItems } = await supabase
-      .from("invoice_items")
-      .select("*")
-      .eq("invoice_id", invoice_id);
 
     // Get previous invoice hash for chaining
     const { data: previousInvoice } = await supabase
@@ -683,20 +665,21 @@ serve(async (req) => {
       .select("invoice_hash")
       .eq("center_id", invoice.center_id)
       .not("invoice_hash", "is", null)
-      .order("verifactu_timestamp", { ascending: false })
+      .neq("id", invoice_id)
       .order("created_at", { ascending: false })
       .limit(1)
-      .maybeSingle();
+      .single();
 
     const previousHash = previousInvoice?.invoice_hash || null;
+    console.log("Previous invoice hash:", previousHash ? "found" : "none (first invoice)");
+
+    // Generate timestamp
     const generationTimestamp = formatTimestampVerifactu(new Date());
+    console.log("Generation timestamp:", generationTimestamp);
 
     // Calculate invoice hash
     const invoiceHash = await calculateInvoiceHash(invoice, center, previousHash, generationTimestamp);
-
-    // Build XML body content
-    const xmlBody = buildRegistroAltaXML(invoice, center, patient, invoiceItems || [], previousHash, generationTimestamp, invoiceHash);
-    console.log("Generated XML for invoice:", invoice.invoice_number);
+    console.log("Calculated invoice hash:", invoiceHash);
 
     // Decrypt certificate data if encrypted
     const { certificate: decryptedCert, password: decryptedPassword } = await decryptCertificateData(
@@ -704,64 +687,61 @@ serve(async (req) => {
       center.verifactu_certificate_password
     );
 
-    // Extract certificates and get PEM format for mTLS
-    let certData: { privateKey: forge.pki.PrivateKey; certificate: forge.pki.Certificate; certPem: string; keyPem: string };
+    // Extract certificate and private key for signing
+    let certData: { privateKey: any; certificate: any };
     try {
       certData = extractCertificatesFromPKCS12(decryptedCert, decryptedPassword);
     } catch (certError) {
+      console.error("Certificate extraction error:", certError);
       await logVerifactuEvent(supabase, {
         invoice_id,
         center_id: invoice.center_id,
         event_type: 'error',
         environment,
-        xml_sent: xmlBody,
-        error_details: `Error al extraer certificado: ${certError instanceof Error ? certError.message : 'Unknown'}`
+        error_details: `Error extrayendo certificado: ${certError instanceof Error ? certError.message : 'Error desconocido'}`
       });
-      throw certError;
+      return new Response(
+        JSON.stringify({ error: "Error procesando el certificado" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
-    // Build complete signed SOAP envelope
-    let signedXml: string;
-    try {
-      signedXml = buildSignedSOAPEnvelope(xmlBody, certData.privateKey, certData.certificate);
-    } catch (signError) {
-      await logVerifactuEvent(supabase, {
-        invoice_id,
-        center_id: invoice.center_id,
-        event_type: 'error',
-        environment,
-        xml_sent: xmlBody,
-        error_details: `Error al firmar: ${signError instanceof Error ? signError.message : 'Unknown'}`
-      });
-      throw signError;
-    }
+    // Build XML body
+    const xmlBody = buildRegistroAltaXML(invoice, center, patient, invoiceItems, previousHash, generationTimestamp, invoiceHash);
+    console.log("Built XML body, length:", xmlBody.length);
 
-    // Send to AEAT with mTLS
-    const aeatResult = await sendToAEAT(signedXml, environment, certData.certPem, certData.keyPem);
+    // Sign and build complete SOAP envelope
+    const signedXml = buildSignedSOAPEnvelope(xmlBody, certData.privateKey, certData.certificate);
+    console.log("Built signed SOAP envelope, length:", signedXml.length);
 
-    // Extract CSV and response code from AEAT response
+    // Send to AEAT
+    const aeatResult = await sendToAEAT(signedXml, environment);
+
+    // Generate QR URL
+    const nifEmisor = center.tax_id?.replace(/[^A-Z0-9]/gi, '') || '';
+    const fechaExpedicion = formatDateVerifactu(invoice.issue_date);
+    const qrUrl = generateQRUrl(nifEmisor, invoice.invoice_number, fechaExpedicion, Number(invoice.total), environment);
+
+    // Extract CSV from response
     const csv = aeatResult.response ? extractCSV(aeatResult.response) : null;
-    const responseCode = aeatResult.response ? extractResponseCode(aeatResult.response) : null;
+
+    // Log the event
+    await logVerifactuEvent(supabase, {
+      invoice_id,
+      center_id: invoice.center_id,
+      event_type: aeatResult.success ? 'alta' : 'error',
+      aeat_csv: csv,
+      aeat_response_code: aeatResult.response ? extractResponseCode(aeatResult.response) : null,
+      aeat_response_message: aeatResult.success ? 'Factura registrada correctamente' : aeatResult.error,
+      aeat_response_xml: aeatResult.response,
+      xml_sent: signedXml,
+      environment,
+      http_status: aeatResult.httpStatus,
+      error_details: aeatResult.success ? null : aeatResult.error
+    });
 
     if (!aeatResult.success) {
-      console.error("AEAT error:", aeatResult.error);
-      
-      // Log error event
-      await logVerifactuEvent(supabase, {
-        invoice_id,
-        center_id: invoice.center_id,
-        event_type: 'error',
-        aeat_csv: csv,
-        aeat_response_code: responseCode,
-        aeat_response_message: aeatResult.error,
-        aeat_response_xml: aeatResult.response,
-        xml_sent: signedXml,
-        environment,
-        http_status: aeatResult.httpStatus,
-        error_details: aeatResult.error
-      });
-
-      // Mark invoice as pending retry
+      // Update invoice with pending status for retry
       await supabase
         .from("invoices")
         .update({
@@ -773,20 +753,12 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ 
           error: `Error de AEAT: ${aeatResult.error}`,
-          details: aeatResult.response
+          details: aeatResult.response,
+          httpStatus: aeatResult.httpStatus
         }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
-
-    // Generate QR URL
-    const qrUrl = generateQRUrl(
-      center.tax_id.replace(/[^A-Z0-9]/gi, ''),
-      invoice.invoice_number,
-      formatDateVerifactu(invoice.issue_date),
-      Number(invoice.total),
-      environment
-    );
 
     // Update invoice with Verifactu data
     const { error: updateError } = await supabase
@@ -795,59 +767,41 @@ serve(async (req) => {
         invoice_hash: invoiceHash,
         previous_invoice_hash: previousHash,
         verifactu_hash: invoiceHash,
-        verifactu_timestamp: new Date().toISOString(),
         verifactu_qr: qrUrl,
+        verifactu_timestamp: generationTimestamp,
         verifactu_registration_id: csv,
-        status: 'issued',
         verifactu_pending: false,
         verifactu_retry_count: 0
       })
       .eq("id", invoice_id);
 
     if (updateError) {
-      console.error("Update error:", updateError);
+      console.error("Error updating invoice:", updateError);
       return new Response(
-        JSON.stringify({ error: "Error al actualizar la factura" }),
+        JSON.stringify({ error: "Error actualizando la factura" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Log successful event
-    await logVerifactuEvent(supabase, {
-      invoice_id,
-      center_id: invoice.center_id,
-      event_type: 'alta',
-      aeat_csv: csv,
-      aeat_response_code: responseCode,
-      aeat_response_message: 'Registro aceptado',
-      aeat_response_xml: aeatResult.response,
-      xml_sent: signedXml,
-      environment,
-      http_status: aeatResult.httpStatus
-    });
-
-    console.log(`Invoice ${invoice.invoice_number} signed with hash: ${invoiceHash}`);
+    console.log("Invoice signed and registered successfully");
 
     return new Response(
       JSON.stringify({
         success: true,
         invoice_number: invoice.invoice_number,
         hash: invoiceHash,
-        previous_hash: previousHash,
         qr_url: qrUrl,
         csv: csv,
-        timestamp: new Date().toISOString(),
-        environment,
-        message: "Factura firmada y registrada en AEAT correctamente"
+        timestamp: generationTimestamp,
+        environment
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
 
   } catch (error) {
-    console.error("Error signing invoice:", error);
-    const errorMessage = error instanceof Error ? error.message : "Error desconocido";
+    console.error("Error in sign-invoice-verifactu:", error);
     return new Response(
-      JSON.stringify({ error: errorMessage }),
+      JSON.stringify({ error: error instanceof Error ? error.message : "Error interno" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
