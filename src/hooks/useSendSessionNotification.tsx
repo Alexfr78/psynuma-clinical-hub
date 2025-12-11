@@ -2,9 +2,9 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { useCenter } from './useCenter';
-import { useToast } from './use-toast';
 import { generateWhatsAppWebLink } from '@/lib/whatsapp';
 import { useCommunicationTemplate, DEFAULT_TEMPLATES, TEMPLATE_VARIABLES } from './useCommunicationTemplates';
+import { toast } from 'sonner';
 
 interface SendNotificationParams {
   patientId: string;
@@ -38,7 +38,6 @@ function replaceTemplateVariables(
 export function useSendSessionNotification() {
   const { profile } = useAuth();
   const { center } = useCenter();
-  const { toast } = useToast();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -79,7 +78,7 @@ export function useSendSessionNotification() {
         const message = replaceTemplateVariables(messageTemplate, templateVars);
 
         if (whatsappMethod === 'web') {
-          // Generate WhatsApp Web link and open it
+          // Generate WhatsApp Web link - DON'T open here, return in results
           const webLink = generateWhatsAppWebLink(params.patientPhone, message);
           
           // Save notification as pending (manual)
@@ -93,9 +92,6 @@ export function useSendSessionNotification() {
             status: 'pending',
           });
 
-          // Open WhatsApp Web in new tab
-          window.open(webLink, '_blank');
-          
           results.push({ channel: 'whatsapp', success: true, webLink });
         } else if (whatsappMethod === 'api') {
           // Use Meta API via edge function
@@ -154,33 +150,34 @@ export function useSendSessionNotification() {
       
       const whatsappResult = results.find(r => r.channel === 'whatsapp');
       if (whatsappResult?.webLink) {
-        toast({
-          title: 'WhatsApp abierto',
-          description: 'Se ha abierto WhatsApp Web para enviar el mensaje manualmente.',
+        // Show interactive toast with button - this allows the popup to work
+        toast.success('Sesión creada correctamente', {
+          description: 'Haz clic para enviar la notificación por WhatsApp',
+          action: {
+            label: 'Abrir WhatsApp',
+            onClick: () => window.open(whatsappResult.webLink, '_blank'),
+          },
+          duration: 10000, // Keep it visible for 10 seconds
         });
       } else if (results.some(r => r.success)) {
-        toast({
-          title: 'Notificación enviada',
-          description: 'La notificación se ha procesado correctamente.',
+        toast.success('Notificación procesada', {
+          description: 'La notificación se ha registrado correctamente.',
         });
       }
     },
     onError: (error) => {
       console.error('Error sending notification:', error);
-      toast({
-        title: 'Error',
+      toast.error('Error', {
         description: 'No se pudo enviar la notificación.',
-        variant: 'destructive',
       });
     },
   });
 }
 
-// Hook for sending a single WhatsApp message immediately
+// Hook for sending a single WhatsApp message immediately (from direct user clicks)
 export function useSendWhatsAppNow() {
   const { profile } = useAuth();
   const { center } = useCenter();
-  const { toast } = useToast();
 
   return useMutation({
     mutationFn: async ({
@@ -216,6 +213,7 @@ export function useSendWhatsAppNow() {
           });
         }
 
+        // This is called from direct user click, so window.open works
         window.open(webLink, '_blank');
         return { method: 'web', webLink };
       } else {
@@ -240,22 +238,18 @@ export function useSendWhatsAppNow() {
     },
     onSuccess: (result) => {
       if (result.method === 'web') {
-        toast({
-          title: 'WhatsApp abierto',
+        toast.success('WhatsApp abierto', {
           description: 'Envía el mensaje desde WhatsApp Web.',
         });
       } else {
-        toast({
-          title: 'Mensaje enviado',
+        toast.success('Mensaje enviado', {
           description: 'El mensaje de WhatsApp se ha enviado.',
         });
       }
     },
     onError: () => {
-      toast({
-        title: 'Error',
+      toast.error('Error', {
         description: 'No se pudo enviar el mensaje.',
-        variant: 'destructive',
       });
     },
   });
