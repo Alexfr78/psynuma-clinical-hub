@@ -17,7 +17,7 @@ export function generateWhatsAppWebLink(phone: string, message: string): string 
   // Encode message for URL
   const encodedMessage = encodeURIComponent(message);
   
-  return `https://wa.me/${cleanPhone}?text=${encodedMessage}`;
+  return `https://web.whatsapp.com/send?phone=${cleanPhone}&text=${encodedMessage}`;
 }
 
 /**
