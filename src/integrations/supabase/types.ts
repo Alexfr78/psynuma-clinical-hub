@@ -312,6 +312,9 @@ export type Database = {
           phone: string | null
           postal_code: string | null
           province: string | null
+          reschedule_max_days: number | null
+          reschedule_require_confirmation: boolean | null
+          reschedule_slot_duration: number | null
           retention_name: string | null
           retention_rate: number | null
           tax_id: string | null
@@ -348,6 +351,9 @@ export type Database = {
           phone?: string | null
           postal_code?: string | null
           province?: string | null
+          reschedule_max_days?: number | null
+          reschedule_require_confirmation?: boolean | null
+          reschedule_slot_duration?: number | null
           retention_name?: string | null
           retention_rate?: number | null
           tax_id?: string | null
@@ -384,6 +390,9 @@ export type Database = {
           phone?: string | null
           postal_code?: string | null
           province?: string | null
+          reschedule_max_days?: number | null
+          reschedule_require_confirmation?: boolean | null
+          reschedule_slot_duration?: number | null
           retention_name?: string | null
           retention_rate?: number | null
           tax_id?: string | null
