@@ -312,8 +312,15 @@ async function calculateInvoiceHash(invoice: any, center: any, previousHash: str
 // Sign XML with PKCS12 certificate
 function signXML(xml: string, certificateBase64: string, certificatePassword: string): string {
   try {
+    console.log('Attempting to decode certificate, base64 length:', certificateBase64.length);
+    console.log('Certificate password length:', certificatePassword.length);
+    
     const p12Der = forge.util.decode64(certificateBase64);
+    console.log('Decoded DER length:', p12Der.length);
+    
     const p12Asn1 = forge.asn1.fromDer(p12Der);
+    console.log('Parsed ASN1 successfully');
+    
     const p12 = forge.pkcs12.pkcs12FromAsn1(p12Asn1, certificatePassword);
 
     let privateKey: forge.pki.PrivateKey | null = null;
