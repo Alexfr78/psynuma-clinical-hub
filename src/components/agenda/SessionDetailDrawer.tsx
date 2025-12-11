@@ -133,12 +133,18 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
   const [isUpdating, setIsUpdating] = useState(false);
   const [editingPrice, setEditingPrice] = useState(false);
   const [editingNotes, setEditingNotes] = useState(false);
+  const [editingDateTime, setEditingDateTime] = useState(false);
   const [priceValue, setPriceValue] = useState('');
   const [notesValue, setNotesValue] = useState('');
   const [notesOpen, setNotesOpen] = useState(false);
   const [showCreateBonoDialog, setShowCreateBonoDialog] = useState(false);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [showInvoiceDialog, setShowInvoiceDialog] = useState(false);
+  const [dateTimeValue, setDateTimeValue] = useState({
+    date: '',
+    startTime: '',
+    endTime: '',
+  });
   
   // Local state for immediate UI update
   const [localBonoId, setLocalBonoId] = useState<string | null>(null);
@@ -224,6 +230,30 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
       toast({ title: 'Despacho actualizado' });
     } catch {
       toast({ title: 'Error', variant: 'destructive' });
+    }
+  };
+
+  const handleDateTimeEdit = () => {
+    setDateTimeValue({
+      date: session.session_date,
+      startTime: session.start_time?.slice(0, 5) || '',
+      endTime: session.end_time?.slice(0, 5) || '',
+    });
+    setEditingDateTime(true);
+  };
+
+  const handleDateTimeSave = async () => {
+    try {
+      await updateSession.mutateAsync({
+        id: session.id,
+        session_date: dateTimeValue.date,
+        start_time: dateTimeValue.startTime,
+        end_time: dateTimeValue.endTime,
+      });
+      toast({ title: 'Fecha y hora actualizadas' });
+      setEditingDateTime(false);
+    } catch {
+      toast({ title: 'Error al actualizar', variant: 'destructive' });
     }
   };
 
@@ -374,17 +404,71 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
               {/* Date & Time */}
               <div className="flex items-start gap-3">
                 <Calendar className="h-5 w-5 text-muted-foreground mt-0.5" />
-                <div className="flex-1">
-                  <p className="font-medium capitalize">
-                    {format(new Date(session.session_date), "EEEE, d 'de' MMMM yyyy", { locale: es })}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {session.start_time?.slice(0, 5)} - {session.end_time?.slice(0, 5)}
-                  </p>
-                </div>
-                <Button variant="ghost" size="icon" className="h-8 w-8">
-                  <Edit2 className="h-4 w-4" />
-                </Button>
+                {editingDateTime ? (
+                  <div className="flex-1 space-y-3">
+                    <Input
+                      type="date"
+                      value={dateTimeValue.date}
+                      onChange={(e) => setDateTimeValue(prev => ({ ...prev, date: e.target.value }))}
+                      className="h-8"
+                    />
+                    <div className="flex gap-2 items-center">
+                      <Input
+                        type="time"
+                        value={dateTimeValue.startTime}
+                        onChange={(e) => setDateTimeValue(prev => ({ ...prev, startTime: e.target.value }))}
+                        className="h-8 flex-1"
+                      />
+                      <span className="text-muted-foreground">-</span>
+                      <Input
+                        type="time"
+                        value={dateTimeValue.endTime}
+                        onChange={(e) => setDateTimeValue(prev => ({ ...prev, endTime: e.target.value }))}
+                        className="h-8 flex-1"
+                      />
+                    </div>
+                    <div className="flex gap-2 justify-end">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setEditingDateTime(false)}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={handleDateTimeSave}
+                        disabled={updateSession.isPending}
+                      >
+                        {updateSession.isPending ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Check className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex-1">
+                      <p className="font-medium capitalize">
+                        {format(new Date(session.session_date), "EEEE, d 'de' MMMM yyyy", { locale: es })}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {session.start_time?.slice(0, 5)} - {session.end_time?.slice(0, 5)}
+                      </p>
+                    </div>
+                    <Button 
+                      variant="outline" 
+                      size="icon" 
+                      className="h-9 w-9 border-primary text-primary hover:bg-primary/10"
+                      onClick={handleDateTimeEdit}
+                    >
+                      <Edit2 className="h-4 w-4" />
+                    </Button>
+                  </>
+                )}
               </div>
 
               {/* Professional */}
