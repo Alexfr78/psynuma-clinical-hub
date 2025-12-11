@@ -423,6 +423,30 @@ async function sendToAEAT(signedXml: string, environment: string): Promise<{ suc
       return { success: false, error: `HTTP ${response.status}: ${responseText}`, httpStatus: response.status };
     }
 
+    // Detectar página de error HTML (AEAT devuelve 200 pero con HTML de error)
+    if (responseText.includes('<!DOCTYPE html>') || responseText.includes('<html')) {
+      const titleMatch = responseText.match(/<title>[^<]*?(\d{3})[^<]*?<\/title>/i);
+      const errorCode = titleMatch?.[1] || 'HTML';
+      console.error(`AEAT returned HTML error page with code ${errorCode}`);
+      return { 
+        success: false, 
+        error: `AEAT devolvió página de error ${errorCode} - El certificado no está autorizado o hay un problema de configuración`, 
+        response: responseText, 
+        httpStatus: response.status 
+      };
+    }
+
+    // Verificar que es una respuesta SOAP válida de Verifactu
+    if (!responseText.includes('sifac:') && !responseText.includes('RespuestaRegFactuSistemaFacturacion') && !responseText.includes('soap:') && !responseText.includes('soapenv:')) {
+      console.error("AEAT response is not valid Verifactu SOAP XML");
+      return { 
+        success: false, 
+        error: 'Respuesta inesperada de AEAT - no es XML Verifactu válido', 
+        response: responseText, 
+        httpStatus: response.status 
+      };
+    }
+
     if (responseText.includes('<sifac:CodigoErrorRegistro>') || responseText.includes('faultstring')) {
       const errorMatch = responseText.match(/<sifac:DescripcionErrorRegistro>([^<]+)<\/sifac:DescripcionErrorRegistro>/);
       const faultMatch = responseText.match(/<faultstring>([^<]+)<\/faultstring>/);
