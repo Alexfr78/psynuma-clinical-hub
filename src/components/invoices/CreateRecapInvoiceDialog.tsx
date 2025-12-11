@@ -4,10 +4,11 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { CalendarIcon, FileText, Check } from 'lucide-react';
+import { CalendarIcon, FileText } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -137,6 +138,9 @@ export function CreateRecapInvoiceDialog({ open, onOpenChange }: CreateRecapInvo
             <FileText className="h-5 w-5" />
             Nueva factura recapitulativa
           </DialogTitle>
+          <DialogDescription>
+            Selecciona un paciente y las sesiones a incluir en la factura.
+          </DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
