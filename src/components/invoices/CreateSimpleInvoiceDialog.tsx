@@ -373,20 +373,27 @@ export function CreateSimpleInvoiceDialog({ open, onOpenChange, preselectedPatie
       if (center?.verifactu_certificate_base64) {
         setIsSigningVerifactu(true);
         try {
-          const { error: verifactuError } = await supabase.functions.invoke('sign-invoice-verifactu', {
+          const { data: verifactuData, error: verifactuError } = await supabase.functions.invoke('sign-invoice-verifactu', {
             body: { invoice_id: result.id }
           });
           
           if (verifactuError) {
             console.error('Error Verifactu:', verifactuError);
             toast.warning(`Factura ${result.invoice_number} emitida, pero hubo un error al registrar en AEAT. Puede reintentar desde Facturas.`);
-          } else {
+          } else if (verifactuData?.aeat_unavailable) {
+            // AEAT is temporarily unavailable
+            toast.info(`Factura ${result.invoice_number} emitida. La Agencia Tributaria no está disponible temporalmente. Se reintentará automáticamente.`, {
+              duration: 6000,
+            });
+          } else if (verifactuData?.success) {
             const isTestMode = center?.verifactu_environment === 'test';
             if (isTestMode) {
               toast.success(`Factura ${result.invoice_number} emitida y firmada (modo pruebas)`);
             } else {
               toast.success(`Factura ${result.invoice_number} emitida y registrada en AEAT`);
             }
+          } else {
+            toast.warning(`Factura ${result.invoice_number} emitida, pero hubo un problema con AEAT. Puede reintentar desde Facturas.`);
           }
         } catch (verifactuError) {
           console.error('Error Verifactu:', verifactuError);
