@@ -7,9 +7,10 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// AEAT Verifactu endpoints - MUST use SistemaFacturacionSOAP
 const AEAT_ENDPOINTS = {
-  test: "https://prewww1.aeat.es/wlpl/TIKE-CONT/ws/SistemaFacturacion/VerifactuSOAP",
-  production: "https://www1.agenciatributaria.gob.es/wlpl/TIKE-CONT/ws/SistemaFacturacion/VerifactuSOAP"
+  test: "https://prewww2.aeat.es/wlpl/TIKE-CONT/ws/SistemaFacturacionSOAP",
+  production: "https://www2.agenciatributaria.gob.es/wlpl/TIKE-CONT/ws/SistemaFacturacionSOAP"
 };
 
 // ============= AES-256-GCM Decryption =============
@@ -113,40 +114,43 @@ function buildRegistroBajaXML(invoice: any, center: any, generationTimestamp: st
   const softwareVersion = center.verifactu_software_version || '1.0.0';
   const softwareNif = center.verifactu_software_nif || nifEmisor;
 
+  const xmlnsSum1 = 'https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/SuministroLR.xsd';
+
   return `<?xml version="1.0" encoding="UTF-8"?>
 <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" 
-                  xmlns:sifac="https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/SuministroInformacion.xsd">
+                  xmlns:sum1="${xmlnsSum1}">
   <soapenv:Header/>
   <soapenv:Body>
-    <sifac:RegFactuSistemaFacturacion>
-      <sifac:Cabecera>
-        <sifac:ObligadoEmision>
-          <sifac:NombreRazon>${escapeXML(nombreEmisor)}</sifac:NombreRazon>
-          <sifac:NIF>${nifEmisor}</sifac:NIF>
-        </sifac:ObligadoEmision>
-      </sifac:Cabecera>
-      <sifac:RegistroFactura>
-        <sifac:RegistroAnulacion>
-          <sifac:IDVersion>1.0</sifac:IDVersion>
-          <sifac:IDFactura>
-            <sifac:IDEmisorFactura>${nifEmisor}</sifac:IDEmisorFactura>
-            <sifac:NumSerieFactura>${escapeXML(invoice.invoice_number)}</sifac:NumSerieFactura>
-            <sifac:FechaExpedicionFactura>${fechaExpedicion}</sifac:FechaExpedicionFactura>
-          </sifac:IDFactura>
-          <sifac:SistemaInformatico>
-            <sifac:NombreRazon>${escapeXML(softwareName)}</sifac:NombreRazon>
-            <sifac:NIF>${softwareNif}</sifac:NIF>
-            <sifac:IdSistemaInformatico>${escapeXML(softwareName)}</sifac:IdSistemaInformatico>
-            <sifac:Version>${softwareVersion}</sifac:Version>
-            <sifac:NumeroInstalacion>1</sifac:NumeroInstalacion>
-            <sifac:TipoUsoPosibleSoloVerifactu>S</sifac:TipoUsoPosibleSoloVerifactu>
-            <sifac:TipoUsoPosibleMultiOT>N</sifac:TipoUsoPosibleMultiOT>
-            <sifac:IndicadorMultiplesOT>N</sifac:IndicadorMultiplesOT>
-          </sifac:SistemaInformatico>
-          <sifac:FechaHoraHusoGenRegistro>${generationTimestamp}</sifac:FechaHoraHusoGenRegistro>
-        </sifac:RegistroAnulacion>
-      </sifac:RegistroFactura>
-    </sifac:RegFactuSistemaFacturacion>
+    <sum1:RegFactuSistemaFacturacion>
+      <sum1:Cabecera>
+        <sum1:IDVersion>1.0</sum1:IDVersion>
+        <sum1:ObligadoEmision>
+          <sum1:NombreRazon>${escapeXML(nombreEmisor)}</sum1:NombreRazon>
+          <sum1:NIF>${nifEmisor}</sum1:NIF>
+        </sum1:ObligadoEmision>
+      </sum1:Cabecera>
+      <sum1:RegistroFactura>
+        <sum1:RegistroAnulacion>
+          <sum1:IDFactura>
+            <sum1:IDEmisorFactura>${nifEmisor}</sum1:IDEmisorFactura>
+            <sum1:NumSerieFactura>${escapeXML(invoice.invoice_number)}</sum1:NumSerieFactura>
+            <sum1:FechaExpedicionFactura>${fechaExpedicion}</sum1:FechaExpedicionFactura>
+          </sum1:IDFactura>
+          <sum1:SistemaInformatico>
+            <sum1:NombreRazon>${escapeXML(softwareName)}</sum1:NombreRazon>
+            <sum1:NIF>${softwareNif}</sum1:NIF>
+            <sum1:NombreSistemaInformatico>${escapeXML(softwareName)}</sum1:NombreSistemaInformatico>
+            <sum1:IdSistemaInformatico>01</sum1:IdSistemaInformatico>
+            <sum1:Version>${softwareVersion}</sum1:Version>
+            <sum1:NumeroInstalacion>1</sum1:NumeroInstalacion>
+            <sum1:TipoUsoPosibleSoloVerifactu>S</sum1:TipoUsoPosibleSoloVerifactu>
+            <sum1:TipoUsoPosibleMultiOT>N</sum1:TipoUsoPosibleMultiOT>
+            <sum1:IndicadorMultiplesOT>N</sum1:IndicadorMultiplesOT>
+          </sum1:SistemaInformatico>
+          <sum1:FechaHoraHusoGenRegistro>${generationTimestamp}</sum1:FechaHoraHusoGenRegistro>
+        </sum1:RegistroAnulacion>
+      </sum1:RegistroFactura>
+    </sum1:RegFactuSistemaFacturacion>
   </soapenv:Body>
 </soapenv:Envelope>`;
 }

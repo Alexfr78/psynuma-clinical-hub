@@ -7,10 +7,10 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// AEAT Verifactu endpoints
+// AEAT Verifactu endpoints - MUST use SistemaFacturacionSOAP, NOT VerifactuSOAP
 const AEAT_ENDPOINTS = {
-  test: "https://prewww1.aeat.es/wlpl/TIKE-CONT/ws/SistemaFacturacion/VerifactuSOAP",
-  production: "https://www1.agenciatributaria.gob.es/wlpl/TIKE-CONT/ws/SistemaFacturacion/VerifactuSOAP"
+  test: "https://prewww2.aeat.es/wlpl/TIKE-CONT/ws/SistemaFacturacionSOAP",
+  production: "https://www2.agenciatributaria.gob.es/wlpl/TIKE-CONT/ws/SistemaFacturacionSOAP"
 };
 
 // ============= AES-256-GCM Decryption =============
@@ -157,42 +157,46 @@ function buildRegistroAltaXML(invoice: any, center: any, patient: any, invoiceIt
   if (totalIVA === 0) {
     // Exempt operation (healthcare services)
     desgloseXML = `
-        <sifac:Desglose>
-          <sifac:DetalleDesglose>
-            <sifac:Impuesto>01</sifac:Impuesto>
-            <sifac:ClaveRegimen>01</sifac:ClaveRegimen>
-            <sifac:CalificacionOperacion>E1</sifac:CalificacionOperacion>
-            <sifac:BaseImponibleOimporteNoSujeto>${totalBase.toFixed(2)}</sifac:BaseImponibleOimporteNoSujeto>
-          </sifac:DetalleDesglose>
-        </sifac:Desglose>`;
+        <sum1:Desglose>
+          <sum1:DetalleDesglose>
+            <sum1:Impuesto>01</sum1:Impuesto>
+            <sum1:ClaveRegimen>01</sum1:ClaveRegimen>
+            <sum1:CalificacionOperacion>E1</sum1:CalificacionOperacion>
+            <sum1:BaseImponibleOImporteNoSujeto>${totalBase.toFixed(2)}</sum1:BaseImponibleOImporteNoSujeto>
+          </sum1:DetalleDesglose>
+        </sum1:Desglose>`;
   } else {
     const taxRate = Number(invoice.tax_rate) || 21;
     desgloseXML = `
-        <sifac:Desglose>
-          <sifac:DetalleDesglose>
-            <sifac:Impuesto>01</sifac:Impuesto>
-            <sifac:ClaveRegimen>01</sifac:ClaveRegimen>
-            <sifac:TipoImpositivo>${taxRate.toFixed(2)}</sifac:TipoImpositivo>
-            <sifac:BaseImponibleOimporteNoSujeto>${totalBase.toFixed(2)}</sifac:BaseImponibleOimporteNoSujeto>
-            <sifac:CuotaRepercutida>${totalIVA.toFixed(2)}</sifac:CuotaRepercutida>
-          </sifac:DetalleDesglose>
-        </sifac:Desglose>`;
+        <sum1:Desglose>
+          <sum1:DetalleDesglose>
+            <sum1:Impuesto>01</sum1:Impuesto>
+            <sum1:ClaveRegimen>01</sum1:ClaveRegimen>
+            <sum1:CalificacionOperacion>S1</sum1:CalificacionOperacion>
+            <sum1:TipoImpositivo>${taxRate.toFixed(2)}</sum1:TipoImpositivo>
+            <sum1:BaseImponibleOImporteNoSujeto>${totalBase.toFixed(2)}</sum1:BaseImponibleOImporteNoSujeto>
+            <sum1:CuotaRepercutida>${totalIVA.toFixed(2)}</sum1:CuotaRepercutida>
+          </sum1:DetalleDesglose>
+        </sum1:Desglose>`;
   }
 
   // Build encadenamiento (chaining)
   let encadenamientoXML = '';
   if (previousHash) {
     encadenamientoXML = `
-        <sifac:Encadenamiento>
-          <sifac:RegistroAnterior>
-            <sifac:Huella>${previousHash}</sifac:Huella>
-          </sifac:RegistroAnterior>
-        </sifac:Encadenamiento>`;
+        <sum1:Encadenamiento>
+          <sum1:RegistroAnterior>
+            <sum1:IDEmisorFactura>${nifEmisor}</sum1:IDEmisorFactura>
+            <sum1:NumSerieFactura>${escapeXML(invoice.invoice_number)}</sum1:NumSerieFactura>
+            <sum1:FechaExpedicionFactura>${fechaExpedicion}</sum1:FechaExpedicionFactura>
+            <sum1:Huella>${previousHash}</sum1:Huella>
+          </sum1:RegistroAnterior>
+        </sum1:Encadenamiento>`;
   } else {
     encadenamientoXML = `
-        <sifac:Encadenamiento>
-          <sifac:PrimerRegistro>S</sifac:PrimerRegistro>
-        </sifac:Encadenamiento>`;
+        <sum1:Encadenamiento>
+          <sum1:PrimerRegistro>S</sum1:PrimerRegistro>
+        </sum1:Encadenamiento>`;
   }
 
   // Software info
@@ -212,61 +216,64 @@ function buildRegistroAltaXML(invoice: any, center: any, patient: any, invoiceIt
   let facturasRectificadasXML = '';
   if (invoice.rectified_invoice_id && invoice.rectified_invoice) {
     facturasRectificadasXML = `
-          <sifac:FacturasRectificadas>
-            <sifac:IDFacturaRectificada>
-              <sifac:IDEmisorFactura>${nifEmisor}</sifac:IDEmisorFactura>
-              <sifac:NumSerieFactura>${escapeXML(invoice.rectified_invoice.invoice_number)}</sifac:NumSerieFactura>
-              <sifac:FechaExpedicionFactura>${formatDateVerifactu(invoice.rectified_invoice.issue_date)}</sifac:FechaExpedicionFactura>
-            </sifac:IDFacturaRectificada>
-          </sifac:FacturasRectificadas>`;
+          <sum1:FacturasRectificadas>
+            <sum1:IDFacturaRectificada>
+              <sum1:IDEmisorFactura>${nifEmisor}</sum1:IDEmisorFactura>
+              <sum1:NumSerieFactura>${escapeXML(invoice.rectified_invoice.invoice_number)}</sum1:NumSerieFactura>
+              <sum1:FechaExpedicionFactura>${formatDateVerifactu(invoice.rectified_invoice.issue_date)}</sum1:FechaExpedicionFactura>
+            </sum1:IDFacturaRectificada>
+          </sum1:FacturasRectificadas>`;
   }
+
+  const xmlnsSum1 = 'https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/SuministroLR.xsd';
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" 
-                  xmlns:sifac="https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/SuministroInformacion.xsd">
+                  xmlns:sum1="${xmlnsSum1}">
   <soapenv:Header/>
   <soapenv:Body>
-    <sifac:RegFactuSistemaFacturacion>
-      <sifac:Cabecera>
-        <sifac:ObligadoEmision>
-          <sifac:NombreRazon>${escapeXML(nombreEmisor)}</sifac:NombreRazon>
-          <sifac:NIF>${nifEmisor}</sifac:NIF>
-        </sifac:ObligadoEmision>
-      </sifac:Cabecera>
-      <sifac:RegistroFactura>
-        <sifac:RegistroAlta>
-          <sifac:IDVersion>1.0</sifac:IDVersion>
-          <sifac:IDFactura>
-            <sifac:IDEmisorFactura>${nifEmisor}</sifac:IDEmisorFactura>
-            <sifac:NumSerieFactura>${escapeXML(invoice.invoice_number)}</sifac:NumSerieFactura>
-            <sifac:FechaExpedicionFactura>${fechaExpedicion}</sifac:FechaExpedicionFactura>
-          </sifac:IDFactura>
-          <sifac:NombreRazonEmisor>${escapeXML(nombreEmisor)}</sifac:NombreRazonEmisor>
-          <sifac:TipoFactura>${tipoFactura}</sifac:TipoFactura>${facturasRectificadasXML}
-          <sifac:DescripcionOperacion>Servicios de psicología</sifac:DescripcionOperacion>
-          <sifac:Destinatarios>
-            <sifac:IDDestinatario>
-              <sifac:NombreRazon>${escapeXML(patientName)}</sifac:NombreRazon>
-              ${patientTaxId ? `<sifac:NIF>${patientTaxId}</sifac:NIF>` : ''}
-            </sifac:IDDestinatario>
-          </sifac:Destinatarios>${desgloseXML}
-          <sifac:CuotaTotal>${totalIVA.toFixed(2)}</sifac:CuotaTotal>
-          <sifac:ImporteTotal>${Number(invoice.total).toFixed(2)}</sifac:ImporteTotal>${encadenamientoXML}
-          <sifac:SistemaInformatico>
-            <sifac:NombreRazon>${escapeXML(softwareName)}</sifac:NombreRazon>
-            <sifac:NIF>${softwareNif}</sifac:NIF>
-            <sifac:IdSistemaInformatico>${escapeXML(softwareName)}</sifac:IdSistemaInformatico>
-            <sifac:Version>${softwareVersion}</sifac:Version>
-            <sifac:NumeroInstalacion>1</sifac:NumeroInstalacion>
-            <sifac:TipoUsoPosibleSoloVerifactu>S</sifac:TipoUsoPosibleSoloVerifactu>
-            <sifac:TipoUsoPosibleMultiOT>N</sifac:TipoUsoPosibleMultiOT>
-            <sifac:IndicadorMultiplesOT>N</sifac:IndicadorMultiplesOT>
-          </sifac:SistemaInformatico>
-          <sifac:FechaHoraHusoGenRegistro>${generationTimestamp}</sifac:FechaHoraHusoGenRegistro>
-          <sifac:TipoHuella>01</sifac:TipoHuella>
-        </sifac:RegistroAlta>
-      </sifac:RegistroFactura>
-    </sifac:RegFactuSistemaFacturacion>
+    <sum1:RegFactuSistemaFacturacion>
+      <sum1:Cabecera>
+        <sum1:IDVersion>1.0</sum1:IDVersion>
+        <sum1:ObligadoEmision>
+          <sum1:NombreRazon>${escapeXML(nombreEmisor)}</sum1:NombreRazon>
+          <sum1:NIF>${nifEmisor}</sum1:NIF>
+        </sum1:ObligadoEmision>
+      </sum1:Cabecera>
+      <sum1:RegistroFactura>
+        <sum1:RegistroAlta>
+          <sum1:IDFactura>
+            <sum1:IDEmisorFactura>${nifEmisor}</sum1:IDEmisorFactura>
+            <sum1:NumSerieFactura>${escapeXML(invoice.invoice_number)}</sum1:NumSerieFactura>
+            <sum1:FechaExpedicionFactura>${fechaExpedicion}</sum1:FechaExpedicionFactura>
+          </sum1:IDFactura>
+          <sum1:NombreRazonEmisor>${escapeXML(nombreEmisor)}</sum1:NombreRazonEmisor>
+          <sum1:TipoFactura>${tipoFactura}</sum1:TipoFactura>${facturasRectificadasXML}
+          <sum1:DescripcionOperacion>Servicios de psicología</sum1:DescripcionOperacion>
+          <sum1:Destinatarios>
+            <sum1:IDDestinatario>
+              <sum1:NombreRazon>${escapeXML(patientName)}</sum1:NombreRazon>
+              ${patientTaxId ? `<sum1:NIF>${patientTaxId}</sum1:NIF>` : ''}
+            </sum1:IDDestinatario>
+          </sum1:Destinatarios>${desgloseXML}
+          <sum1:CuotaTotal>${totalIVA.toFixed(2)}</sum1:CuotaTotal>
+          <sum1:ImporteTotal>${Number(invoice.total).toFixed(2)}</sum1:ImporteTotal>${encadenamientoXML}
+          <sum1:SistemaInformatico>
+            <sum1:NombreRazon>${escapeXML(softwareName)}</sum1:NombreRazon>
+            <sum1:NIF>${softwareNif}</sum1:NIF>
+            <sum1:NombreSistemaInformatico>${escapeXML(softwareName)}</sum1:NombreSistemaInformatico>
+            <sum1:IdSistemaInformatico>01</sum1:IdSistemaInformatico>
+            <sum1:Version>${softwareVersion}</sum1:Version>
+            <sum1:NumeroInstalacion>1</sum1:NumeroInstalacion>
+            <sum1:TipoUsoPosibleSoloVerifactu>S</sum1:TipoUsoPosibleSoloVerifactu>
+            <sum1:TipoUsoPosibleMultiOT>N</sum1:TipoUsoPosibleMultiOT>
+            <sum1:IndicadorMultiplesOT>N</sum1:IndicadorMultiplesOT>
+          </sum1:SistemaInformatico>
+          <sum1:FechaHoraHusoGenRegistro>${generationTimestamp}</sum1:FechaHoraHusoGenRegistro>
+          <sum1:TipoHuella>01</sum1:TipoHuella>
+        </sum1:RegistroAlta>
+      </sum1:RegistroFactura>
+    </sum1:RegFactuSistemaFacturacion>
   </soapenv:Body>
 </soapenv:Envelope>`;
 }
