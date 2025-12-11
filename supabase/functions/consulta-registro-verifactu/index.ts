@@ -7,10 +7,10 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// AEAT Verifactu endpoints for consultation
+// AEAT Verifactu endpoints - MUST use SistemaFacturacionSOAP
 const AEAT_ENDPOINTS = {
-  test: "https://prewww1.aeat.es/wlpl/TIKE-CONT/ws/SistemaFacturacion/VerifactuSOAP",
-  production: "https://www1.agenciatributaria.gob.es/wlpl/TIKE-CONT/ws/SistemaFacturacion/VerifactuSOAP"
+  test: "https://prewww2.aeat.es/wlpl/TIKE-CONT/ws/SistemaFacturacionSOAP",
+  production: "https://www2.agenciatributaria.gob.es/wlpl/TIKE-CONT/ws/SistemaFacturacionSOAP"
 };
 
 // ============= AES-256-GCM Decryption =============
@@ -101,26 +101,29 @@ function buildConsultaXML(invoice: any, center: any): string {
   const nombreEmisor = center.name || '';
   const fechaExpedicion = formatDateVerifactu(invoice.issue_date);
 
+  const xmlnsSum1 = 'https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/SuministroLR.xsd';
+
   return `<?xml version="1.0" encoding="UTF-8"?>
 <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" 
-                  xmlns:sifac="https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/SuministroInformacion.xsd">
+                  xmlns:sum1="${xmlnsSum1}">
   <soapenv:Header/>
   <soapenv:Body>
-    <sifac:ConsultaFactuSistemaFacturacion>
-      <sifac:Cabecera>
-        <sifac:ObligadoEmision>
-          <sifac:NombreRazon>${escapeXML(nombreEmisor)}</sifac:NombreRazon>
-          <sifac:NIF>${nifEmisor}</sifac:NIF>
-        </sifac:ObligadoEmision>
-      </sifac:Cabecera>
-      <sifac:FiltroConsulta>
-        <sifac:IDFactura>
-          <sifac:IDEmisorFactura>${nifEmisor}</sifac:IDEmisorFactura>
-          <sifac:NumSerieFactura>${escapeXML(invoice.invoice_number)}</sifac:NumSerieFactura>
-          <sifac:FechaExpedicionFactura>${fechaExpedicion}</sifac:FechaExpedicionFactura>
-        </sifac:IDFactura>
-      </sifac:FiltroConsulta>
-    </sifac:ConsultaFactuSistemaFacturacion>
+    <sum1:ConsultaFactuSistemaFacturacion>
+      <sum1:Cabecera>
+        <sum1:IDVersion>1.0</sum1:IDVersion>
+        <sum1:ObligadoEmision>
+          <sum1:NombreRazon>${escapeXML(nombreEmisor)}</sum1:NombreRazon>
+          <sum1:NIF>${nifEmisor}</sum1:NIF>
+        </sum1:ObligadoEmision>
+      </sum1:Cabecera>
+      <sum1:FiltroConsulta>
+        <sum1:IDFactura>
+          <sum1:IDEmisorFactura>${nifEmisor}</sum1:IDEmisorFactura>
+          <sum1:NumSerieFactura>${escapeXML(invoice.invoice_number)}</sum1:NumSerieFactura>
+          <sum1:FechaExpedicionFactura>${fechaExpedicion}</sum1:FechaExpedicionFactura>
+        </sum1:IDFactura>
+      </sum1:FiltroConsulta>
+    </sum1:ConsultaFactuSistemaFacturacion>
   </soapenv:Body>
 </soapenv:Envelope>`;
 }
