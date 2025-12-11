@@ -621,7 +621,7 @@ export function CreateSessionDialog({
       <WhatsAppLinkDialog
         open={!!whatsappDialogData}
         onOpenChange={(open) => !open && setWhatsappDialogData(null)}
-        webLink={whatsappDialogData.webLink}
+        phone={whatsappDialogData.phone}
         message={whatsappDialogData.message}
         patientName={whatsappDialogData.patientName}
       />

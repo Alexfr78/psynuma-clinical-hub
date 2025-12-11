@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { useCenter } from './useCenter';
-import { generateWhatsAppWebLink } from '@/lib/whatsapp';
+import { generateWhatsAppUniversalLink } from '@/lib/whatsapp';
 import { useCommunicationTemplate, DEFAULT_TEMPLATES, TEMPLATE_VARIABLES } from './useCommunicationTemplates';
 import { toast } from 'sonner';
 
@@ -36,7 +36,7 @@ function replaceTemplateVariables(
 }
 
 export interface WhatsAppDialogData {
-  webLink: string;
+  phone: string;
   message: string;
   patientName: string;
 }
@@ -88,9 +88,6 @@ export function useSendSessionNotification() {
         const message = replaceTemplateVariables(messageTemplate, templateVars);
 
         if (whatsappMethod === 'web') {
-          // Generate WhatsApp Web link - return data for dialog
-          const webLink = generateWhatsAppWebLink(params.patientPhone, message);
-          
           // Save notification as pending (manual)
           await supabase.from('notifications').insert({
             center_id: profile.center_id,
@@ -103,7 +100,7 @@ export function useSendSessionNotification() {
           });
 
           whatsappData = {
-            webLink,
+            phone: params.patientPhone,
             message,
             patientName: params.patientName,
           };
@@ -204,7 +201,7 @@ export function useSendWhatsAppNow() {
       const whatsappMethod = center.whatsapp_send_method || 'web';
 
       if (whatsappMethod === 'web') {
-        const webLink = generateWhatsAppWebLink(phone, message);
+        const universalLink = generateWhatsAppUniversalLink(phone, message);
         
         // Log notification
         if (patientId) {
@@ -220,8 +217,8 @@ export function useSendWhatsAppNow() {
         }
 
         // This is called from direct user click, so window.open works
-        window.open(webLink, '_blank');
-        return { method: 'web', webLink };
+        window.open(universalLink, '_blank');
+        return { method: 'web', universalLink };
       } else {
         // API mode
         const notification = await supabase.from('notifications').insert({

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Copy, ExternalLink, Check, MessageCircle } from 'lucide-react';
+import { Copy, ExternalLink, Check, MessageCircle, Smartphone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -10,11 +10,12 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
+import { generateWhatsAppUniversalLink, generateWhatsAppNativeLink } from '@/lib/whatsapp';
 
 interface WhatsAppLinkDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  webLink: string;
+  phone: string;
   message: string;
   patientName: string;
 }
@@ -22,16 +23,19 @@ interface WhatsAppLinkDialogProps {
 export function WhatsAppLinkDialog({
   open,
   onOpenChange,
-  webLink,
+  phone,
   message,
   patientName,
 }: WhatsAppLinkDialogProps) {
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedMessage, setCopiedMessage] = useState(false);
 
+  const universalLink = generateWhatsAppUniversalLink(phone, message);
+  const nativeLink = generateWhatsAppNativeLink(phone, message);
+
   const handleCopyLink = async () => {
     try {
-      await navigator.clipboard.writeText(webLink);
+      await navigator.clipboard.writeText(universalLink);
       setCopiedLink(true);
       toast.success('Enlace copiado');
       setTimeout(() => setCopiedLink(false), 2000);
@@ -60,24 +64,38 @@ export function WhatsAppLinkDialog({
             Enviar WhatsApp a {patientName}
           </DialogTitle>
           <DialogDescription>
-            Haz clic en el enlace o cópialo para abrir WhatsApp Web manualmente.
+            Elige cómo quieres enviar el mensaje de WhatsApp.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* WhatsApp Link */}
+          {/* Option 1: Native App */}
           <div className="space-y-2">
-            <label className="text-sm font-medium">Enlace de WhatsApp</label>
+            <label className="text-sm font-medium">Opción 1: Abrir en la app</label>
+            <Button asChild className="w-full bg-green-600 hover:bg-green-700">
+              <a href={nativeLink}>
+                <Smartphone className="h-4 w-4 mr-2" />
+                Abrir WhatsApp (App instalada)
+              </a>
+            </Button>
+            <p className="text-xs text-muted-foreground">
+              Abre directamente WhatsApp si está instalado en tu dispositivo.
+            </p>
+          </div>
+
+          {/* Option 2: Universal Link (wa.me) */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Opción 2: Enlace universal</label>
             <div className="flex gap-2">
               <a
-                href={webLink}
+                href={universalLink}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex-1 p-3 text-sm bg-muted rounded-md break-all hover:bg-muted/80 transition-colors flex items-start gap-2"
+                className="flex-1 p-3 text-sm bg-muted rounded-md hover:bg-muted/80 transition-colors flex items-center gap-2"
               >
-                <ExternalLink className="h-4 w-4 mt-0.5 shrink-0 text-primary" />
+                <ExternalLink className="h-4 w-4 shrink-0 text-primary" />
                 <span className="text-primary underline underline-offset-2">
-                  Abrir en WhatsApp Web
+                  wa.me (nueva pestaña)
                 </span>
               </a>
               <Button
@@ -94,15 +112,15 @@ export function WhatsAppLinkDialog({
               </Button>
             </div>
             <p className="text-xs text-muted-foreground">
-              Si el enlace no abre automáticamente, haz clic derecho → "Abrir en nueva pestaña"
+              Si no abre automáticamente, copia el enlace y pégalo en una nueva pestaña.
             </p>
           </div>
 
           {/* Message Preview */}
           <div className="space-y-2">
-            <label className="text-sm font-medium">Mensaje</label>
+            <label className="text-sm font-medium">Vista previa del mensaje</label>
             <div className="flex gap-2">
-              <div className="flex-1 p-3 text-sm bg-muted rounded-md max-h-32 overflow-y-auto whitespace-pre-wrap">
+              <div className="flex-1 p-3 text-sm bg-muted rounded-md max-h-24 overflow-y-auto whitespace-pre-wrap">
                 {message}
               </div>
               <Button
@@ -121,15 +139,9 @@ export function WhatsAppLinkDialog({
           </div>
         </div>
 
-        <DialogFooter className="gap-2 sm:gap-0">
+        <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cerrar
-          </Button>
-          <Button asChild className="bg-green-600 hover:bg-green-700">
-            <a href={webLink} target="_blank" rel="noopener noreferrer">
-              <ExternalLink className="h-4 w-4 mr-2" />
-              Abrir WhatsApp
-            </a>
           </Button>
         </DialogFooter>
       </DialogContent>
