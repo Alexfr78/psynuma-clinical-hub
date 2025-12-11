@@ -658,8 +658,11 @@ export type Database = {
       }
       invoices: {
         Row: {
+          base_rectificada: number | null
           center_id: string
           created_at: string
+          cuota_recargo_rectificado: number | null
+          cuota_rectificada: number | null
           due_date: string | null
           id: string
           invoice_hash: string | null
@@ -669,6 +672,7 @@ export type Database = {
           notes: string | null
           patient_id: string
           previous_invoice_hash: string | null
+          rectification_reason_code: string | null
           rectification_type: string | null
           rectified_invoice_id: string | null
           retention_amount: number | null
@@ -688,8 +692,11 @@ export type Database = {
           verifactu_timestamp: string | null
         }
         Insert: {
+          base_rectificada?: number | null
           center_id: string
           created_at?: string
+          cuota_recargo_rectificado?: number | null
+          cuota_rectificada?: number | null
           due_date?: string | null
           id?: string
           invoice_hash?: string | null
@@ -699,6 +706,7 @@ export type Database = {
           notes?: string | null
           patient_id: string
           previous_invoice_hash?: string | null
+          rectification_reason_code?: string | null
           rectification_type?: string | null
           rectified_invoice_id?: string | null
           retention_amount?: number | null
@@ -718,8 +726,11 @@ export type Database = {
           verifactu_timestamp?: string | null
         }
         Update: {
+          base_rectificada?: number | null
           center_id?: string
           created_at?: string
+          cuota_recargo_rectificado?: number | null
+          cuota_rectificada?: number | null
           due_date?: string | null
           id?: string
           invoice_hash?: string | null
@@ -729,6 +740,7 @@ export type Database = {
           notes?: string | null
           patient_id?: string
           previous_invoice_hash?: string | null
+          rectification_reason_code?: string | null
           rectification_type?: string | null
           rectified_invoice_id?: string | null
           retention_amount?: number | null

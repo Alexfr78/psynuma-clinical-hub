@@ -119,14 +119,56 @@ function escapeXML(str: string): string {
     .replace(/'/g, '&apos;');
 }
 
-// Build RegistroAnulacion XML for invoice cancellation
-function buildRegistroBajaXML(invoice: any, center: any, generationTimestamp: string): string {
+// Generate SHA-256 hash for cancellation record
+async function generateSHA256(data: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const dataBuffer = encoder.encode(data);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', dataBuffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
+}
+
+// Calculate cancellation hash for chaining (Art. 11.2.c RRSIF)
+async function calculateCancellationHash(invoice: any, center: any, previousHash: string | null, timestamp: string): Promise<string> {
+  const nifEmisor = center.tax_id?.replace(/[^A-Z0-9]/gi, '') || '';
+  const numSerie = invoice.invoice_number || '';
+  const fechaExpedicion = formatDateVerifactu(invoice.issue_date);
+  const huellaAnterior = previousHash || '';
+  
+  // Hash for cancellation: NIF + NumSerie + FechaExpedicion + HuellaAnterior + Timestamp
+  const dataToHash = nifEmisor + numSerie + fechaExpedicion + huellaAnterior + timestamp;
+  
+  console.log("Cancellation hash input data:", dataToHash);
+  return await generateSHA256(dataToHash);
+}
+
+// Build RegistroAnulacion XML for invoice cancellation (with proper chaining per Art. 11.2.c RRSIF)
+function buildRegistroBajaXML(invoice: any, center: any, generationTimestamp: string, cancellationHash: string, previousHash: string | null): string {
   const nifEmisor = center.tax_id?.replace(/[^A-Z0-9]/gi, '') || '';
   const nombreEmisor = center.name || '';
   const fechaExpedicion = formatDateVerifactu(invoice.issue_date);
   const softwareName = center.verifactu_software_name || 'Psycma';
   const softwareVersion = center.verifactu_software_version || '1.0.0';
   const softwareNif = center.verifactu_software_nif || nifEmisor;
+
+  // Build encadenamiento (chaining) for cancellation - Art. 11.2.c RRSIF
+  let encadenamientoXML = '';
+  if (previousHash) {
+    encadenamientoXML = `
+          <sum1:Encadenamiento>
+            <sum1:RegistroAnterior>
+              <sum1:IDEmisorFactura>${nifEmisor}</sum1:IDEmisorFactura>
+              <sum1:NumSerieFactura>${escapeXML(invoice.invoice_number)}</sum1:NumSerieFactura>
+              <sum1:FechaExpedicionFactura>${fechaExpedicion}</sum1:FechaExpedicionFactura>
+              <sum1:Huella>${previousHash}</sum1:Huella>
+            </sum1:RegistroAnterior>
+          </sum1:Encadenamiento>`;
+  } else {
+    encadenamientoXML = `
+          <sum1:Encadenamiento>
+            <sum1:PrimerRegistro>S</sum1:PrimerRegistro>
+          </sum1:Encadenamiento>`;
+  }
 
   return `<sum1:RegFactuSistemaFacturacion>
       <sum1:Cabecera>
@@ -142,7 +184,7 @@ function buildRegistroBajaXML(invoice: any, center: any, generationTimestamp: st
             <sum1:IDEmisorFactura>${nifEmisor}</sum1:IDEmisorFactura>
             <sum1:NumSerieFactura>${escapeXML(invoice.invoice_number)}</sum1:NumSerieFactura>
             <sum1:FechaExpedicionFactura>${fechaExpedicion}</sum1:FechaExpedicionFactura>
-          </sum1:IDFactura>
+          </sum1:IDFactura>${encadenamientoXML}
           <sum1:SistemaInformatico>
             <sum1:NombreRazon>${escapeXML(softwareName)}</sum1:NombreRazon>
             <sum1:NIF>${softwareNif}</sum1:NIF>
@@ -155,6 +197,8 @@ function buildRegistroBajaXML(invoice: any, center: any, generationTimestamp: st
             <sum1:IndicadorMultiplesOT>N</sum1:IndicadorMultiplesOT>
           </sum1:SistemaInformatico>
           <sum1:FechaHoraHusoGenRegistro>${generationTimestamp}</sum1:FechaHoraHusoGenRegistro>
+          <sum1:TipoHuella>01</sum1:TipoHuella>
+          <sum1:Huella>${cancellationHash}</sum1:Huella>
         </sum1:RegistroAnulacion>
       </sum1:RegistroFactura>
     </sum1:RegFactuSistemaFacturacion>`;
@@ -475,8 +519,26 @@ serve(async (req) => {
     // Generate timestamp
     const generationTimestamp = formatTimestampVerifactu(new Date());
 
-    // Build and sign cancellation XML
-    const xmlBody = buildRegistroBajaXML(invoice, center, generationTimestamp);
+    // Get previous invoice hash for chaining (Art. 11.2.c RRSIF)
+    const { data: previousInvoice } = await supabase
+      .from("invoices")
+      .select("invoice_hash")
+      .eq("center_id", invoice.center_id)
+      .not("invoice_hash", "is", null)
+      .neq("id", invoice_id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .single();
+
+    const previousHash = previousInvoice?.invoice_hash || null;
+    console.log("Previous invoice hash for cancellation:", previousHash ? "found" : "none");
+
+    // Calculate cancellation hash for chaining
+    const cancellationHash = await calculateCancellationHash(invoice, center, previousHash, generationTimestamp);
+    console.log("Calculated cancellation hash:", cancellationHash);
+
+    // Build and sign cancellation XML with proper chaining
+    const xmlBody = buildRegistroBajaXML(invoice, center, generationTimestamp, cancellationHash, previousHash);
     const signedXml = buildSignedSOAPEnvelope(xmlBody, certData.privateKey, certData.certificate);
 
     console.log("Sending cancellation request to AEAT...");
@@ -486,6 +548,12 @@ serve(async (req) => {
 
     // Extract CSV from response
     const csv = aeatResult.response ? extractCSV(aeatResult.response) : null;
+
+    // Check if it's a temporary AEAT unavailability
+    const isTemporaryUnavailable = aeatResult.httpStatus === 404 && 
+      (aeatResult.error?.includes('Desactivada temporalmente') || 
+       aeatResult.error?.includes('no habilitado') ||
+       aeatResult.response?.includes('Desactivada temporalmente'));
 
     // Log cancellation event
     await logVerifactuEvent(supabase, {
@@ -502,6 +570,20 @@ serve(async (req) => {
     });
 
     if (!aeatResult.success) {
+      // Handle temporary AEAT unavailability gracefully
+      if (isTemporaryUnavailable) {
+        return new Response(
+          JSON.stringify({ 
+            success: false,
+            pending: true,
+            aeat_unavailable: true,
+            invoice_number: invoice.invoice_number,
+            message: "La Agencia Tributaria no está disponible temporalmente. Reintente la anulación más tarde.",
+          }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
       return new Response(
         JSON.stringify({ 
           error: `Error de AEAT: ${aeatResult.error}`,
