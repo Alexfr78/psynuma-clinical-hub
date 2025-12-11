@@ -11,9 +11,11 @@ interface WeekViewProps {
   onSessionClick: (session: SessionWithRelations) => void;
   onSlotClick: (date: Date, startTime: string, endTime: string) => void;
   onSessionMove?: (sessionId: string, newDate: string, newStartTime: string, newEndTime: string) => void;
+  hours?: number[];
+  startHour?: number;
 }
 
-const HOURS = Array.from({ length: 13 }, (_, i) => i + 8); // 8:00 - 20:00
+const DEFAULT_HOURS = Array.from({ length: 13 }, (_, i) => i + 8); // 8:00 - 20:00
 const QUARTER_HOURS = [0, 15, 30, 45];
 
 interface SlotPosition {
@@ -32,7 +34,9 @@ function minutesToTime(totalMinutes: number): string {
   return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
 }
 
-export function WeekView({ currentDate, sessions, onSessionClick, onSlotClick, onSessionMove }: WeekViewProps) {
+export function WeekView({ currentDate, sessions, onSessionClick, onSlotClick, onSessionMove, hours, startHour }: WeekViewProps) {
+  const displayHours = hours || DEFAULT_HOURS;
+  const gridStartHour = startHour ?? 8;
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
@@ -68,8 +72,8 @@ export function WeekView({ currentDate, sessions, onSessionClick, onSlotClick, o
     const endMinutes = endH * 60 + endM;
     const durationMinutes = endMinutes - startMinutes;
     
-    // Grid starts at 8:00 (480 minutes), each hour row is 64px (h-16)
-    const gridStartMinutes = 8 * 60;
+    // Grid starts at dynamic hour, each hour row is 64px (h-16)
+    const gridStartMinutes = gridStartHour * 60;
     const topOffset = ((startMinutes - gridStartMinutes) / 60) * 64; // 64px per hour
     const height = (durationMinutes / 60) * 64;
     
@@ -210,7 +214,7 @@ export function WeekView({ currentDate, sessions, onSessionClick, onSlotClick, o
           <div className="grid grid-cols-8">
             {/* Hour labels column */}
             <div className="border-r">
-              {HOURS.map((hour) => (
+              {displayHours.map((hour) => (
                 <div key={hour} className="flex h-16 items-start justify-center p-1 text-xs text-muted-foreground border-b">
                   {hour.toString().padStart(2, '0')}:00
                 </div>
@@ -231,7 +235,7 @@ export function WeekView({ currentDate, sessions, onSessionClick, onSlotClick, o
                   )}
                 >
                   {/* Hour rows with 15-min slots */}
-                  {HOURS.map((hour) => (
+                  {displayHours.map((hour) => (
                     <div key={hour} className="h-16 relative border-b">
                       <div className="absolute inset-0 grid grid-rows-4">
                         {QUARTER_HOURS.map((minute) => {

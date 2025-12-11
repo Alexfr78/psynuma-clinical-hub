@@ -11,9 +11,11 @@ interface DayViewProps {
   onSessionClick: (session: SessionWithRelations) => void;
   onSlotClick: (date: Date, startTime: string, endTime: string) => void;
   onSessionMove?: (sessionId: string, newDate: string, newStartTime: string, newEndTime: string) => void;
+  hours?: number[];
+  startHour?: number;
 }
 
-const HOURS = Array.from({ length: 13 }, (_, i) => i + 8); // 8:00 - 20:00
+const DEFAULT_HOURS = Array.from({ length: 13 }, (_, i) => i + 8); // 8:00 - 20:00
 const QUARTER_HOURS = [0, 15, 30, 45];
 
 interface SlotPosition {
@@ -31,7 +33,9 @@ function minutesToTime(totalMinutes: number): string {
   return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
 }
 
-export function DayView({ currentDate, sessions, onSessionClick, onSlotClick, onSessionMove }: DayViewProps) {
+export function DayView({ currentDate, sessions, onSessionClick, onSlotClick, onSessionMove, hours, startHour }: DayViewProps) {
+  const displayHours = hours || DEFAULT_HOURS;
+  const gridStartHour = startHour ?? 8;
   const dateKey = format(currentDate, 'yyyy-MM-dd');
 
   const [isDragging, setIsDragging] = useState(false);
@@ -53,8 +57,8 @@ export function DayView({ currentDate, sessions, onSessionClick, onSlotClick, on
     const endMinutes = endH * 60 + endM;
     const durationMinutes = endMinutes - startMinutes;
     
-    // Grid starts at 8:00 (480 minutes), each hour row is 80px (min-h-[80px])
-    const gridStartMinutes = 8 * 60;
+    // Grid starts at dynamic hour, each hour row is 80px (min-h-[80px])
+    const gridStartMinutes = gridStartHour * 60;
     const topOffset = ((startMinutes - gridStartMinutes) / 60) * 80;
     const height = (durationMinutes / 60) * 80;
     
@@ -172,7 +176,7 @@ export function DayView({ currentDate, sessions, onSessionClick, onSlotClick, on
           <div className="flex">
             {/* Hour labels column */}
             <div className="w-20 shrink-0 border-r">
-              {HOURS.map((hour) => (
+              {displayHours.map((hour) => (
                 <div key={hour} className="flex h-20 items-start justify-center p-2 text-sm text-muted-foreground border-b">
                   {hour.toString().padStart(2, '0')}:00
                 </div>
@@ -182,7 +186,7 @@ export function DayView({ currentDate, sessions, onSessionClick, onSlotClick, on
             {/* Main content area */}
             <div className="flex-1 relative">
               {/* Hour rows with 15-min slots */}
-              {HOURS.map((hour) => (
+              {displayHours.map((hour) => (
                 <div key={hour} className="h-20 relative border-b">
                   <div className="absolute inset-0 grid grid-rows-4">
                     {QUARTER_HOURS.map((minute) => {
