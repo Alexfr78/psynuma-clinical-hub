@@ -862,6 +862,11 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
                       const sessionDate = format(new Date(session.session_date), "d 'de' MMMM", { locale: es });
                       const sessionTime = session.start_time?.slice(0, 5) || '';
                       
+                      // Build appointment link using access_token
+                      const appointmentLink = session.access_token 
+                        ? `${window.location.origin}/cita/${session.access_token}`
+                        : window.location.href;
+                      
                       // Build message from template
                       let message = DEFAULT_TEMPLATES.whatsapp.notification.whatsapp_message || '';
                       message = message
@@ -869,7 +874,9 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
                         .replace('{profesional_nombre}', professionalName)
                         .replace('{fecha}', sessionDate)
                         .replace('{zona_horaria}', sessionTime)
-                        .replace('{link_sesion}', window.location.href);
+                        .replace('{sesion_tipo}', session.session_type || 'Individual')
+                        .replace('{link_sesion}', appointmentLink)
+                        .replace('{link_confirmar}', appointmentLink);
 
                       sendWhatsAppNow.mutate({
                         phone: session.patient.phone,
