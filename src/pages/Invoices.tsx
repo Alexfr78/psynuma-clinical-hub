@@ -297,23 +297,25 @@ export default function Invoices() {
       )}
 
       {/* Confirmation dialog for Verifactu cancellation */}
-      <AlertDialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>¿Anular factura en AEAT?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Vas a anular la factura <strong>{invoiceToCancel?.number}</strong> en el registro de AEAT (Verifactu). 
-              Esta acción es irreversible y la factura quedará marcada como cancelada.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleCancelVerifactuConfirm} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Anular en AEAT
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {cancelDialogOpen && (
+        <AlertDialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>¿Anular factura en AEAT?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Vas a anular la factura <strong>{invoiceToCancel?.number}</strong> en el registro de AEAT (Verifactu). 
+                Esta acción es irreversible y la factura quedará marcada como cancelada.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={handleCancelVerifactuConfirm} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                Anular en AEAT
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
     </div>
   );
 }
