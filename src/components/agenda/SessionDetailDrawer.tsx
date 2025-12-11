@@ -28,6 +28,7 @@ import {
   Ban,
   Trash2,
   CheckCircle2,
+  Send,
 } from 'lucide-react';
 import {
   Sheet,
@@ -81,6 +82,9 @@ import { useSessionPaymentStatus } from '@/hooks/useSessionPayment';
 import { useSessionInvoiceStatus } from '@/hooks/useInvoices';
 import { CollectSessionPaymentDialog } from './CollectSessionPaymentDialog';
 import { CreateSessionInvoiceDialog } from './CreateSessionInvoiceDialog';
+import { useSendWhatsAppNow } from '@/hooks/useSendSessionNotification';
+import { useCenter } from '@/hooks/useCenter';
+import { DEFAULT_TEMPLATES } from '@/hooks/useCommunicationTemplates';
 
 interface SessionDetailDrawerProps {
   session: SessionWithRelations | null;
@@ -130,6 +134,8 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
   const deductBonoSession = useDeductBonoSession();
   const updateBono = useUpdateBono();
   const { data: locations } = useLocations();
+  const { center } = useCenter();
+  const sendWhatsAppNow = useSendWhatsAppNow();
   const [isUpdating, setIsUpdating] = useState(false);
   const [editingPrice, setEditingPrice] = useState(false);
   const [editingNotes, setEditingNotes] = useState(false);
@@ -799,44 +805,109 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
 
             {/* Communications Section */}
             <div className="space-y-4">
-              <h4 className="font-medium text-sm text-muted-foreground">Comunicaciones</h4>
+              <div className="flex items-center justify-between">
+                <h4 className="font-medium text-sm text-muted-foreground">Comunicaciones</h4>
+                <Badge variant="outline" className="text-xs">
+                  WhatsApp: {center?.whatsapp_send_method === 'api' ? 'Auto' : 'Manual'}
+                </Badge>
+              </div>
 
-              {/* Notification Preferences */}
+              {/* Reminder Preferences */}
               <div className="space-y-3">
-                <p className="text-sm font-medium">Notificaciones</p>
+                <p className="text-sm font-medium">Recordatorios programados</p>
                 <div className="flex flex-wrap gap-4">
-                  <label className="flex items-center gap-2 text-sm">
-                    <Checkbox checked={session.send_reminder_whatsapp || false} />
+                  <label className="flex items-center gap-2 text-sm cursor-pointer">
+                    <Checkbox 
+                      checked={session.send_reminder_whatsapp || false} 
+                      onCheckedChange={(checked) => handleFieldSave('send_reminder_whatsapp', !!checked)}
+                    />
                     <MessageSquare className="h-4 w-4 text-green-600" />
                     WhatsApp
                   </label>
-                  <label className="flex items-center gap-2 text-sm">
-                    <Checkbox checked={session.send_reminder_sms || false} />
-                    <Phone className="h-4 w-4" />
+                  <label className="flex items-center gap-2 text-sm cursor-pointer">
+                    <Checkbox 
+                      checked={session.send_reminder_sms || false} 
+                      onCheckedChange={(checked) => handleFieldSave('send_reminder_sms', !!checked)}
+                      disabled
+                    />
+                    <Phone className="h-4 w-4 text-muted-foreground" />
                     SMS
                   </label>
-                  <label className="flex items-center gap-2 text-sm">
-                    <Checkbox checked={session.send_reminder_email || false} />
+                  <label className="flex items-center gap-2 text-sm cursor-pointer">
+                    <Checkbox 
+                      checked={session.send_reminder_email || false} 
+                      onCheckedChange={(checked) => handleFieldSave('send_reminder_email', !!checked)}
+                    />
                     <Mail className="h-4 w-4" />
                     Email
                   </label>
                 </div>
               </div>
 
-              {/* Reminder Links */}
+              {/* Send Now Actions */}
               <div className="space-y-2">
-                <p className="text-sm font-medium">Recordatorios</p>
-                <div className="flex gap-2">
-                  <Button variant="link" size="sm" className="h-auto p-0 text-xs">
-                    Enviar WhatsApp manual
+                <p className="text-sm font-medium">Enviar ahora</p>
+                <div className="flex flex-wrap gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="text-green-600 border-green-200 hover:bg-green-50"
+                    disabled={!session.patient?.phone || sendWhatsAppNow.isPending}
+                    onClick={() => {
+                      if (!session.patient?.phone) return;
+                      const patientName = session.patient?.first_name || '';
+                      const professionalName = session.professional 
+                        ? `${session.professional.first_name} ${session.professional.last_name}` 
+                        : '';
+                      const sessionDate = format(new Date(session.session_date), "d 'de' MMMM", { locale: es });
+                      const sessionTime = session.start_time?.slice(0, 5) || '';
+                      
+                      // Build message from template
+                      let message = DEFAULT_TEMPLATES.whatsapp.notification.whatsapp_message || '';
+                      message = message
+                        .replace('{nombre_paciente}', patientName)
+                        .replace('{profesional_nombre}', professionalName)
+                        .replace('{fecha}', sessionDate)
+                        .replace('{zona_horaria}', sessionTime)
+                        .replace('{link_sesion}', window.location.href);
+
+                      sendWhatsAppNow.mutate({
+                        phone: session.patient.phone,
+                        message,
+                        patientId: session.patient.id,
+                        sessionId: session.id,
+                      });
+                    }}
+                  >
+                    {sendWhatsAppNow.isPending ? (
+                      <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                    ) : (
+                      <Send className="h-4 w-4 mr-1" />
+                    )}
+                    WhatsApp
                   </Button>
-                  <Button variant="link" size="sm" className="h-auto p-0 text-xs">
-                    Enviar SMS manual
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    disabled
+                  >
+                    <Send className="h-4 w-4 mr-1" />
+                    SMS
                   </Button>
-                  <Button variant="link" size="sm" className="h-auto p-0 text-xs">
-                    Enviar Email manual
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    disabled={!session.patient?.email}
+                  >
+                    <Send className="h-4 w-4 mr-1" />
+                    Email
                   </Button>
                 </div>
+                {!session.patient?.phone && (
+                  <p className="text-xs text-muted-foreground">
+                    El paciente no tiene teléfono registrado
+                  </p>
+                )}
               </div>
             </div>
 
