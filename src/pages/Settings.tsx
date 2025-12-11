@@ -16,7 +16,8 @@ import {
   Mail,
   MessageCircle,
   Smartphone,
-  Shield
+  Shield,
+  Settings2
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -40,6 +41,7 @@ import { SmsTemplateEditor } from '@/components/settings/communications/SmsTempl
 import { VerifactuConfigSection } from '@/components/settings/VerifactuConfigSection';
 import { ResponsibleDeclarationSection } from '@/components/settings/ResponsibleDeclarationSection';
 import { VerifactuExportSection } from '@/components/settings/VerifactuExportSection';
+import { PortalSettingsSection } from '@/components/settings/PortalSettingsSection';
 
 const centerSchema = z.object({
   name: z.string().min(1, 'El nombre es obligatorio'),
@@ -56,6 +58,7 @@ type CenterFormValues = z.infer<typeof centerSchema>;
 type SettingsSection = 
   | 'centro-info'
   | 'centro-ubicaciones'
+  | 'centro-portal'
   | 'sesiones-tipos'
   | 'facturacion-info' 
   | 'facturacion-editar' 
@@ -79,6 +82,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { id: 'centro-info', label: 'Datos del centro', icon: Building2, parent: 'Centro' },
   { id: 'centro-ubicaciones', label: 'Ubicaciones', icon: MapPin, parent: 'Centro' },
+  { id: 'centro-portal', label: 'Ajustes del Portal', icon: Settings2, parent: 'Centro' },
   { id: 'sesiones-tipos', label: 'Tipos de sesión', icon: Calendar, parent: 'Sesiones' },
   { id: 'facturacion-info', label: 'Información de facturación', icon: Receipt, parent: 'Facturación' },
   { id: 'facturacion-editar', label: 'Editar factura', icon: Pencil, parent: 'Facturación' },
@@ -245,6 +249,8 @@ export default function Settings() {
         );
       case 'centro-ubicaciones':
         return <LocationsSection />;
+      case 'centro-portal':
+        return <PortalSettingsSection />;
       case 'sesiones-tipos':
         return <SessionTypesSection />;
       case 'facturacion-info':
