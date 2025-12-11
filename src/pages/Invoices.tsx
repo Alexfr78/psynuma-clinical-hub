@@ -10,19 +10,34 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { useInvoices, useUpdateInvoiceStatus, useInvoiceStats } from '@/hooks/useInvoices';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { useInvoices, useUpdateInvoiceStatus, useInvoiceStats, type InvoiceWithPatient } from '@/hooks/useInvoices';
 import { InvoiceCard } from '@/components/invoices/InvoiceCard';
 import { CreateSimpleInvoiceDialog } from '@/components/invoices/CreateSimpleInvoiceDialog';
 import { CreateRecapInvoiceDialog } from '@/components/invoices/CreateRecapInvoiceDialog';
+import { CreateRectificativaDialog } from '@/components/invoices/CreateRectificativaDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 export default function Invoices() {
   const [simpleOpen, setSimpleOpen] = useState(false);
   const [recapOpen, setRecapOpen] = useState(false);
+  const [rectificativaOpen, setRectificativaOpen] = useState(false);
+  const [selectedInvoiceForRectificativa, setSelectedInvoiceForRectificativa] = useState<InvoiceWithPatient | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [invoiceToCancel, setInvoiceToCancel] = useState<{ id: string; number: string } | null>(null);
 
-  const { data: invoices, isLoading } = useInvoices({ status: statusFilter === 'all' ? undefined : statusFilter });
+  const { data: invoices, isLoading, refetch } = useInvoices({ status: statusFilter === 'all' ? undefined : statusFilter });
   const { data: stats } = useInvoiceStats();
   const updateStatus = useUpdateInvoiceStatus();
 
@@ -40,7 +55,6 @@ export default function Invoices() {
 
       if (error) throw error;
 
-      // Open HTML in new tab for printing/saving as PDF
       const printWindow = window.open('', '_blank');
       if (printWindow) {
         printWindow.document.write(data.html);
@@ -66,12 +80,65 @@ export default function Invoices() {
       if (error) throw error;
 
       toast.success(`Factura ${data.invoice_number} sellada correctamente`);
-      // Refresh invoices list
-      window.location.reload();
+      refetch();
     } catch (error) {
       console.error('Error sealing invoice:', error);
       toast.error('Error al sellar la factura');
     }
+  };
+
+  const handleQueryVerifactu = async (invoiceId: string) => {
+    try {
+      toast.info('Consultando estado en AEAT...');
+      
+      const { data, error } = await supabase.functions.invoke('consulta-registro-verifactu', {
+        body: { invoice_id: invoiceId },
+      });
+
+      if (error) throw error;
+
+      if (data.found) {
+        toast.success(`Factura encontrada en AEAT. Estado: ${data.status}${data.csv ? `, CSV: ${data.csv}` : ''}`);
+      } else {
+        toast.warning(`Factura no encontrada en AEAT: ${data.error || 'Sin detalles'}`);
+      }
+    } catch (error) {
+      console.error('Error querying Verifactu:', error);
+      toast.error('Error al consultar en AEAT');
+    }
+  };
+
+  const handleCancelVerifactuClick = (invoiceId: string, invoiceNumber: string) => {
+    setInvoiceToCancel({ id: invoiceId, number: invoiceNumber });
+    setCancelDialogOpen(true);
+  };
+
+  const handleCancelVerifactuConfirm = async () => {
+    if (!invoiceToCancel) return;
+    
+    try {
+      toast.info('Enviando anulación a AEAT...');
+      
+      const { data, error } = await supabase.functions.invoke('cancel-registro-facturacion', {
+        body: { invoice_id: invoiceToCancel.id },
+      });
+
+      if (error) throw error;
+
+      toast.success(`Factura ${data.invoice_number} anulada correctamente en AEAT`);
+      refetch();
+    } catch (error) {
+      console.error('Error cancelling in Verifactu:', error);
+      toast.error('Error al anular en AEAT');
+    } finally {
+      setCancelDialogOpen(false);
+      setInvoiceToCancel(null);
+    }
+  };
+
+  const handleCreateRectificativa = (invoice: InvoiceWithPatient) => {
+    setSelectedInvoiceForRectificativa(invoice);
+    setRectificativaOpen(true);
   };
 
   return (
@@ -154,6 +221,9 @@ export default function Invoices() {
                   onStatusChange={(status) => handleStatusChange(invoice.id, status)}
                   onGeneratePDF={() => handleGeneratePDF(invoice.id)}
                   onSealVerifactu={() => handleSealVerifactu(invoice.id)}
+                  onQueryVerifactu={() => handleQueryVerifactu(invoice.id)}
+                  onCancelVerifactu={() => handleCancelVerifactuClick(invoice.id, invoice.invoice_number)}
+                  onCreateRectificativa={() => handleCreateRectificativa(invoice)}
                 />
               ))}
             </div>
@@ -163,6 +233,30 @@ export default function Invoices() {
 
       <CreateSimpleInvoiceDialog open={simpleOpen} onOpenChange={setSimpleOpen} />
       <CreateRecapInvoiceDialog open={recapOpen} onOpenChange={setRecapOpen} />
+      <CreateRectificativaDialog 
+        open={rectificativaOpen} 
+        onOpenChange={setRectificativaOpen}
+        originalInvoice={selectedInvoiceForRectificativa}
+      />
+
+      {/* Confirmation dialog for Verifactu cancellation */}
+      <AlertDialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Anular factura en AEAT?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Vas a anular la factura <strong>{invoiceToCancel?.number}</strong> en el registro de AEAT (Verifactu). 
+              Esta acción es irreversible y la factura quedará marcada como cancelada.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleCancelVerifactuConfirm} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Anular en AEAT
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

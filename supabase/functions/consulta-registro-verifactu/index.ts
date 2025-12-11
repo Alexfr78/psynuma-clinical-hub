@@ -54,38 +54,30 @@ async function decryptAES256GCM(encryptedBase64: string, keyHex: string): Promis
   return new TextDecoder().decode(decrypted);
 }
 
-function isEncrypted(data: string): boolean {
-  try {
-    const decoded = atob(data);
-    if (decoded.length > 2) {
-      const firstByte = decoded.charCodeAt(0);
-      if (firstByte === 0x30) {
-        return false;
-      }
-    }
-    return true;
-  } catch {
-    return true;
-  }
-}
-
 async function decryptCertificateData(
   certificateBase64: string, 
   certificatePassword: string
 ): Promise<{ certificate: string; password: string }> {
   const encryptionKey = Deno.env.get('CERTIFICATE_ENCRYPTION_KEY');
   
-  if (!encryptionKey || !isEncrypted(certificateBase64)) {
-    console.log('Using unencrypted certificate data');
+  // If no encryption key configured, assume data is not encrypted
+  if (!encryptionKey) {
+    console.log('No encryption key configured, using raw certificate data');
     return { certificate: certificateBase64, password: certificatePassword };
   }
   
+  // Always try to decrypt when encryption key is available
   console.log('Decrypting certificate data...');
-  const certificate = await decryptAES256GCM(certificateBase64, encryptionKey);
-  const password = await decryptAES256GCM(certificatePassword, encryptionKey);
-  console.log('Certificate data decrypted successfully');
-  
-  return { certificate, password };
+  try {
+    const certificate = await decryptAES256GCM(certificateBase64, encryptionKey);
+    const password = await decryptAES256GCM(certificatePassword, encryptionKey);
+    console.log('Certificate data decrypted successfully');
+    return { certificate, password };
+  } catch (decryptError) {
+    // If decryption fails, the data might be from before encryption was implemented
+    console.log('Decryption failed, trying raw data (legacy):', decryptError);
+    return { certificate: certificateBase64, password: certificatePassword };
+  }
 }
 // ============= End Decryption =============
 
