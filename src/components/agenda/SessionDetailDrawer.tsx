@@ -717,10 +717,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
                     onClick={() => navigate('/facturas')}
                   >
                     <FileText className="h-4 w-4 mr-1" />
-                    {invoiceStatus.invoiceNumber?.startsWith('BORRADOR') 
-                      ? 'Ver borrador' 
-                      : `Factura ${invoiceStatus.invoiceNumber}`
-                    }
+                    {`Factura ${invoiceStatus.invoiceNumber}`}
                   </Button>
                 ) : localBonoId ? (
                   <TooltipProvider>
