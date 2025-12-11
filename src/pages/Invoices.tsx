@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FileText, Plus } from 'lucide-react';
+import { FileText, Plus, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -151,6 +151,28 @@ export default function Invoices() {
     setDetailDialogOpen(true);
   };
 
+  const handleRetryVerifactu = async (invoiceId: string) => {
+    try {
+      toast.info('Reintentando registro en AEAT...');
+      
+      const { data, error } = await supabase.functions.invoke('sign-invoice-verifactu', {
+        body: { invoice_id: invoiceId },
+      });
+
+      if (error) throw error;
+
+      if (data.error) {
+        toast.error(`AEAT no disponible: ${data.error}`);
+      } else {
+        toast.success('Factura registrada correctamente en AEAT');
+      }
+      refetch();
+    } catch (error) {
+      console.error('Error retrying Verifactu:', error);
+      toast.error('Error al reintentar el registro en AEAT');
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -209,6 +231,10 @@ export default function Invoices() {
           <TabsTrigger value="draft">Borrador</TabsTrigger>
           <TabsTrigger value="issued">Emitidas</TabsTrigger>
           <TabsTrigger value="paid">Pagadas</TabsTrigger>
+          <TabsTrigger value="verifactu_pending" className="gap-1">
+            <RefreshCw className="h-3 w-3" />
+            Pendientes AEAT
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value={statusFilter} className="mt-4">
@@ -235,6 +261,7 @@ export default function Invoices() {
                   onQueryVerifactu={() => handleQueryVerifactu(invoice.id)}
                   onCancelVerifactu={() => handleCancelVerifactuClick(invoice.id, invoice.invoice_number)}
                   onCreateRectificativa={() => handleCreateRectificativa(invoice)}
+                  onRetryVerifactu={() => handleRetryVerifactu(invoice.id)}
                 />
               ))}
             </div>
