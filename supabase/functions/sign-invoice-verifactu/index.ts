@@ -144,10 +144,9 @@ function generateQRUrl(nifEmisor: string, numSerie: string, fechaExpedicion: str
 }
 
 // Build RegistroAlta XML for invoice registration
-// Uses DUAL namespaces as required by AEAT schema:
-// - sum (SuministroLR.xsd): Container elements like RegFactuSistemaFacturacion, Cabecera, RegistroFactura
-// - sum1 (SuministroInformacion.xsd): Data elements like ObligadoEmision, IDVersion, NIF, etc.
-function buildRegistroAltaXML(invoice: any, center: any, patient: any, invoiceItems: any[], previousHash: string | null, generationTimestamp: string): string {
+// Uses SINGLE namespace sum1 → SuministroLR.xsd for ALL Verifactu elements
+// The namespace is declared on soapenv:Body, not on soapenv:Envelope
+function buildRegistroAltaXML(invoice: any, center: any, patient: any, invoiceItems: any[], previousHash: string | null, generationTimestamp: string, invoiceHash: string): string {
   const nifEmisor = center.tax_id?.replace(/[^A-Z0-9]/gi, '') || '';
   const nombreEmisor = center.name || '';
   const fechaExpedicion = formatDateVerifactu(invoice.issue_date);
@@ -163,46 +162,37 @@ function buildRegistroAltaXML(invoice: any, center: any, patient: any, invoiceIt
   if (totalIVA === 0) {
     // Exempt operation (healthcare services)
     desgloseXML = `
-            <sum1:Desglose>
-              <sum1:DetalleDesglose>
-                <sum1:Impuesto>01</sum1:Impuesto>
-                <sum1:ClaveRegimen>01</sum1:ClaveRegimen>
-                <sum1:CalificacionOperacion>E1</sum1:CalificacionOperacion>
-                <sum1:BaseImponibleOImporteNoSujeto>${totalBase.toFixed(2)}</sum1:BaseImponibleOImporteNoSujeto>
-              </sum1:DetalleDesglose>
-            </sum1:Desglose>`;
+          <sum1:DetalleDesglose>
+            <sum1:Impuesto>01</sum1:Impuesto>
+            <sum1:ClaveRegimen>01</sum1:ClaveRegimen>
+            <sum1:CalificacionOperacion>E1</sum1:CalificacionOperacion>
+            <sum1:BaseImponibleOImporteNoSujeto>${totalBase.toFixed(2)}</sum1:BaseImponibleOImporteNoSujeto>
+          </sum1:DetalleDesglose>`;
   } else {
     const taxRate = Number(invoice.tax_rate) || 21;
     desgloseXML = `
-            <sum1:Desglose>
-              <sum1:DetalleDesglose>
-                <sum1:Impuesto>01</sum1:Impuesto>
-                <sum1:ClaveRegimen>01</sum1:ClaveRegimen>
-                <sum1:CalificacionOperacion>S1</sum1:CalificacionOperacion>
-                <sum1:TipoImpositivo>${taxRate.toFixed(2)}</sum1:TipoImpositivo>
-                <sum1:BaseImponibleOImporteNoSujeto>${totalBase.toFixed(2)}</sum1:BaseImponibleOImporteNoSujeto>
-                <sum1:CuotaRepercutida>${totalIVA.toFixed(2)}</sum1:CuotaRepercutida>
-              </sum1:DetalleDesglose>
-            </sum1:Desglose>`;
+          <sum1:DetalleDesglose>
+            <sum1:Impuesto>01</sum1:Impuesto>
+            <sum1:ClaveRegimen>01</sum1:ClaveRegimen>
+            <sum1:CalificacionOperacion>S1</sum1:CalificacionOperacion>
+            <sum1:TipoImpositivo>${taxRate.toFixed(2)}</sum1:TipoImpositivo>
+            <sum1:BaseImponibleOImporteNoSujeto>${totalBase.toFixed(2)}</sum1:BaseImponibleOImporteNoSujeto>
+            <sum1:CuotaRepercutida>${totalIVA.toFixed(2)}</sum1:CuotaRepercutida>
+          </sum1:DetalleDesglose>`;
   }
 
   // Build encadenamiento (chaining)
   let encadenamientoXML = '';
   if (previousHash) {
     encadenamientoXML = `
-            <sum1:Encadenamiento>
-              <sum1:RegistroAnterior>
-                <sum1:IDEmisorFactura>${nifEmisor}</sum1:IDEmisorFactura>
-                <sum1:NumSerieFactura>${escapeXML(invoice.invoice_number)}</sum1:NumSerieFactura>
-                <sum1:FechaExpedicionFactura>${fechaExpedicion}</sum1:FechaExpedicionFactura>
-                <sum1:Huella>${previousHash}</sum1:Huella>
-              </sum1:RegistroAnterior>
-            </sum1:Encadenamiento>`;
+            <sum1:RegistroAnterior>
+              <sum1:IDEmisorFactura>${nifEmisor}</sum1:IDEmisorFactura>
+              <sum1:NumSerieFactura>${escapeXML(invoice.invoice_number)}</sum1:NumSerieFactura>
+              <sum1:FechaExpedicionFactura>${fechaExpedicion}</sum1:FechaExpedicionFactura>
+              <sum1:Huella>${previousHash}</sum1:Huella>
+            </sum1:RegistroAnterior>`;
   } else {
-    encadenamientoXML = `
-            <sum1:Encadenamiento>
-              <sum1:PrimerRegistro>S</sum1:PrimerRegistro>
-            </sum1:Encadenamiento>`;
+    encadenamientoXML = `<sum1:PrimerRegistro>S</sum1:PrimerRegistro>`;
   }
 
   // Software info
@@ -222,35 +212,38 @@ function buildRegistroAltaXML(invoice: any, center: any, patient: any, invoiceIt
   let facturasRectificadasXML = '';
   if (invoice.rectified_invoice_id && invoice.rectified_invoice) {
     facturasRectificadasXML = `
-              <sum1:FacturasRectificadas>
-                <sum1:IDFacturaRectificada>
-                  <sum1:IDEmisorFactura>${nifEmisor}</sum1:IDEmisorFactura>
-                  <sum1:NumSerieFactura>${escapeXML(invoice.rectified_invoice.invoice_number)}</sum1:NumSerieFactura>
-                  <sum1:FechaExpedicionFactura>${formatDateVerifactu(invoice.rectified_invoice.issue_date)}</sum1:FechaExpedicionFactura>
-                </sum1:IDFacturaRectificada>
-              </sum1:FacturasRectificadas>`;
+          <sum1:FacturasRectificadas>
+            <sum1:IDFacturaRectificada>
+              <sum1:IDEmisorFactura>${nifEmisor}</sum1:IDEmisorFactura>
+              <sum1:NumSerieFactura>${escapeXML(invoice.rectified_invoice.invoice_number)}</sum1:NumSerieFactura>
+              <sum1:FechaExpedicionFactura>${formatDateVerifactu(invoice.rectified_invoice.issue_date)}</sum1:FechaExpedicionFactura>
+            </sum1:IDFacturaRectificada>
+          </sum1:FacturasRectificadas>`;
   }
 
-  // DUAL NAMESPACES - Required by AEAT Verifactu schema
-  const xmlnsSum = 'https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/SuministroLR.xsd';
-  const xmlnsSum1 = 'https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/SuministroInformacion.xsd';
+  // Build Destinatarios section - only include if patient has NIF
+  let destinatariosXML = '';
+  if (patientTaxId) {
+    destinatariosXML = `
+          <sum1:Destinatarios>
+            <sum1:IDDestinatario>
+              <sum1:NombreRazon>${escapeXML(patientName)}</sum1:NombreRazon>
+              <sum1:NIF>${patientTaxId}</sum1:NIF>
+            </sum1:IDDestinatario>
+          </sum1:Destinatarios>`;
+  }
 
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" 
-                  xmlns:sum="${xmlnsSum}"
-                  xmlns:sum1="${xmlnsSum1}">
-  <soapenv:Header/>
-  <soapenv:Body>
-    <sum:RegFactuSistemaFacturacion>
-      <sum:Cabecera>
+  // Build the body content (will be wrapped with namespace in buildSignedSOAPEnvelope)
+  return `<sum1:RegFactuSistemaFacturacion>
+      <sum1:Cabecera>
         <sum1:IDVersion>1.0</sum1:IDVersion>
         <sum1:ObligadoEmision>
           <sum1:NombreRazon>${escapeXML(nombreEmisor)}</sum1:NombreRazon>
           <sum1:NIF>${nifEmisor}</sum1:NIF>
         </sum1:ObligadoEmision>
-      </sum:Cabecera>
-      <sum:RegistroFactura>
-        <sum:RegistroAlta>
+      </sum1:Cabecera>
+      <sum1:RegistroFactura>
+        <sum1:RegistroAlta>
           <sum1:IDFactura>
             <sum1:IDEmisorFactura>${nifEmisor}</sum1:IDEmisorFactura>
             <sum1:NumSerieFactura>${escapeXML(invoice.invoice_number)}</sum1:NumSerieFactura>
@@ -258,15 +251,14 @@ function buildRegistroAltaXML(invoice: any, center: any, patient: any, invoiceIt
           </sum1:IDFactura>
           <sum1:NombreRazonEmisor>${escapeXML(nombreEmisor)}</sum1:NombreRazonEmisor>
           <sum1:TipoFactura>${tipoFactura}</sum1:TipoFactura>${facturasRectificadasXML}
-          <sum1:DescripcionOperacion>Servicios de psicología</sum1:DescripcionOperacion>
-          <sum1:Destinatarios>
-            <sum1:IDDestinatario>
-              <sum1:NombreRazon>${escapeXML(patientName)}</sum1:NombreRazon>
-              ${patientTaxId ? `<sum1:NIF>${patientTaxId}</sum1:NIF>` : ''}
-            </sum1:IDDestinatario>
-          </sum1:Destinatarios>${desgloseXML}
+          <sum1:DescripcionOperacion>Servicios de psicología</sum1:DescripcionOperacion>${destinatariosXML}
+          <sum1:Desglose>${desgloseXML}
+          </sum1:Desglose>
           <sum1:CuotaTotal>${totalIVA.toFixed(2)}</sum1:CuotaTotal>
-          <sum1:ImporteTotal>${Number(invoice.total).toFixed(2)}</sum1:ImporteTotal>${encadenamientoXML}
+          <sum1:ImporteTotal>${Number(invoice.total).toFixed(2)}</sum1:ImporteTotal>
+          <sum1:Encadenamiento>
+            ${encadenamientoXML}
+          </sum1:Encadenamiento>
           <sum1:SistemaInformatico>
             <sum1:NombreRazon>${escapeXML(softwareName)}</sum1:NombreRazon>
             <sum1:NIF>${softwareNif}</sum1:NIF>
@@ -280,11 +272,10 @@ function buildRegistroAltaXML(invoice: any, center: any, patient: any, invoiceIt
           </sum1:SistemaInformatico>
           <sum1:FechaHoraHusoGenRegistro>${generationTimestamp}</sum1:FechaHoraHusoGenRegistro>
           <sum1:TipoHuella>01</sum1:TipoHuella>
-        </sum:RegistroAlta>
-      </sum:RegistroFactura>
-    </sum:RegFactuSistemaFacturacion>
-  </soapenv:Body>
-</soapenv:Envelope>`;
+          <sum1:Huella>${invoiceHash}</sum1:Huella>
+        </sum1:RegistroAlta>
+      </sum1:RegistroFactura>
+    </sum1:RegFactuSistemaFacturacion>`;
 }
 
 // Escape XML special characters
@@ -395,45 +386,76 @@ function extractCertificatesFromPKCS12(certificateBase64: string, certificatePas
   return { privateKey, certificate: endEntityCert, certPem: certChainPem, keyPem };
 }
 
-// Sign XML with PKCS12 certificate
-function signXML(xml: string, privateKey: forge.pki.PrivateKey, certificate: forge.pki.Certificate): string {
+// Build complete signed SOAP envelope with namespace on Body
+function buildSignedSOAPEnvelope(body: string, privateKey: forge.pki.PrivateKey, certificate: forge.pki.Certificate): string {
+  const xmlnsSum1 = 'https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/SuministroLR.xsd';
+
+  // Create the full body with namespace
+  const fullBody = `<soapenv:Body xmlns:sum1="${xmlnsSum1}">${body}</soapenv:Body>`;
+
+  // Sign the body
+  const signature = signXMLBody(fullBody, privateKey, certificate);
+
+  // Build complete SOAP envelope
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/">
+  <soapenv:Header>
+    ${signature}
+  </soapenv:Header>
+  <soapenv:Body xmlns:sum1="${xmlnsSum1}">
+    ${body}
+  </soapenv:Body>
+</soapenv:Envelope>`;
+}
+
+// Sign XML body and return signature element
+function signXMLBody(body: string, privateKey: forge.pki.PrivateKey, certificate: forge.pki.Certificate): string {
   try {
     const certDer = forge.asn1.toDer(forge.pki.certificateToAsn1(certificate)).getBytes();
     const certBase64 = forge.util.encode64(certDer);
 
+    // Canonicalize body for digest
+    const canonicalBody = body.replace(/>\s+</g, '><').trim();
+    
+    // Calculate body digest
+    const bodyMd = forge.md.sha256.create();
+    bodyMd.update(canonicalBody, 'utf8');
+    const bodyDigest = forge.util.encode64(bodyMd.digest().bytes());
+
+    // Build SignedInfo
+    const signedInfo = `<ds:SignedInfo xmlns:ds="http://www.w3.org/2000/09/xmldsig#">
+<ds:CanonicalizationMethod Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/>
+<ds:SignatureMethod Algorithm="http://www.w3.org/2001/04/xmldsig-more#rsa-sha256"/>
+<ds:Reference URI="">
+<ds:Transforms>
+<ds:Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature"/>
+<ds:Transform Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/>
+</ds:Transforms>
+<ds:DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256"/>
+<ds:DigestValue>${bodyDigest}</ds:DigestValue>
+</ds:Reference>
+</ds:SignedInfo>`;
+
+    // Canonicalize SignedInfo for signing
+    const canonicalSignedInfo = signedInfo.replace(/>\s+</g, '><').trim();
+
+    // Create signature using RSA-SHA256
     const md = forge.md.sha256.create();
-    md.update(xml, 'utf8');
-    const digest = forge.util.encode64(md.digest().bytes());
-
+    md.update(canonicalSignedInfo, 'utf8');
     const signature = (privateKey as any).sign(md);
-    const signatureBase64 = forge.util.encode64(signature);
-
-    const signedXml = xml.replace(
-      '</soapenv:Header>',
-      `<ds:Signature xmlns:ds="http://www.w3.org/2000/09/xmldsig#">
-        <ds:SignedInfo>
-          <ds:CanonicalizationMethod Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/>
-          <ds:SignatureMethod Algorithm="http://www.w3.org/2001/04/xmldsig-more#rsa-sha256"/>
-          <ds:Reference URI="">
-            <ds:Transforms>
-              <ds:Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature"/>
-            </ds:Transforms>
-            <ds:DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256"/>
-            <ds:DigestValue>${digest}</ds:DigestValue>
-          </ds:Reference>
-        </ds:SignedInfo>
-        <ds:SignatureValue>${signatureBase64}</ds:SignatureValue>
-        <ds:KeyInfo>
-          <ds:X509Data>
-            <ds:X509Certificate>${certBase64}</ds:X509Certificate>
-          </ds:X509Data>
-        </ds:KeyInfo>
-      </ds:Signature>
-    </soapenv:Header>`
-    );
+    const signatureValue = forge.util.encode64(signature);
 
     console.log("XML signed successfully");
-    return signedXml;
+
+    return `<ds:Signature xmlns:ds="http://www.w3.org/2000/09/xmldsig#">
+${signedInfo}
+<ds:SignatureValue>${signatureValue}</ds:SignatureValue>
+<ds:KeyInfo>
+<ds:X509Data>
+<ds:X509Certificate>${certBase64}</ds:X509Certificate>
+</ds:X509Data>
+</ds:KeyInfo>
+</ds:Signature>`;
   } catch (error) {
     console.error("Error signing XML:", error);
     throw new Error(`Error al firmar el XML: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -672,8 +694,8 @@ serve(async (req) => {
     // Calculate invoice hash
     const invoiceHash = await calculateInvoiceHash(invoice, center, previousHash, generationTimestamp);
 
-    // Build XML
-    const xml = buildRegistroAltaXML(invoice, center, patient, invoiceItems || [], previousHash, generationTimestamp);
+    // Build XML body content
+    const xmlBody = buildRegistroAltaXML(invoice, center, patient, invoiceItems || [], previousHash, generationTimestamp, invoiceHash);
     console.log("Generated XML for invoice:", invoice.invoice_number);
 
     // Decrypt certificate data if encrypted
@@ -692,23 +714,23 @@ serve(async (req) => {
         center_id: invoice.center_id,
         event_type: 'error',
         environment,
-        xml_sent: xml,
+        xml_sent: xmlBody,
         error_details: `Error al extraer certificado: ${certError instanceof Error ? certError.message : 'Unknown'}`
       });
       throw certError;
     }
 
-    // Sign XML
+    // Build complete signed SOAP envelope
     let signedXml: string;
     try {
-      signedXml = signXML(xml, certData.privateKey, certData.certificate);
+      signedXml = buildSignedSOAPEnvelope(xmlBody, certData.privateKey, certData.certificate);
     } catch (signError) {
       await logVerifactuEvent(supabase, {
         invoice_id,
         center_id: invoice.center_id,
         event_type: 'error',
         environment,
-        xml_sent: xml,
+        xml_sent: xmlBody,
         error_details: `Error al firmar: ${signError instanceof Error ? signError.message : 'Unknown'}`
       });
       throw signError;
