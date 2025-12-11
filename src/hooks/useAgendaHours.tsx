@@ -3,6 +3,7 @@ import { getDay } from 'date-fns';
 import { useLocations } from './useLocations';
 import { useAllLocationSchedules } from './useLocationSchedules';
 import { useProfessionals, useAllProfessionalAvailability } from './useProfessionals';
+import { SessionWithRelations } from './useSessions';
 
 interface AgendaHoursConfig {
   startHour: number;
@@ -18,9 +19,16 @@ function timeToHour(time: string): number {
   return hours;
 }
 
+function timeToEndHour(time: string): number {
+  const [hours, minutes] = time.split(':').map(Number);
+  // Round up if there are minutes
+  return minutes > 0 ? hours + 1 : hours;
+}
+
 export function useAgendaHours(
   selectedProfessionalId: string,
-  currentDate: Date
+  currentDate: Date,
+  sessions?: SessionWithRelations[]
 ): AgendaHoursConfig {
   const { data: locations } = useLocations();
   const { data: professionals } = useProfessionals();
@@ -96,6 +104,21 @@ export function useAgendaHours(
       maxEnd = DEFAULT_END;
     }
 
+    // Expand range to include sessions outside configured hours
+    if (sessions && sessions.length > 0) {
+      sessions.forEach(session => {
+        const sessionStartHour = timeToHour(session.start_time);
+        const sessionEndHour = timeToEndHour(session.end_time);
+        
+        if (sessionStartHour < minStart) {
+          minStart = sessionStartHour;
+        }
+        if (sessionEndHour > maxEnd) {
+          maxEnd = sessionEndHour;
+        }
+      });
+    }
+
     // Ensure valid range
     if (minStart >= maxEnd) {
       minStart = DEFAULT_START;
@@ -113,7 +136,7 @@ export function useAgendaHours(
       endHour: maxEnd,
       hours,
     };
-  }, [selectedProfessionalId, currentDate, locationSchedules, professionalAvailability]);
+  }, [selectedProfessionalId, currentDate, locationSchedules, professionalAvailability, sessions]);
 
   return config;
 }
