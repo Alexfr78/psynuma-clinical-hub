@@ -1,6 +1,6 @@
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { FileText, User, Download, MoreVertical, ShieldCheck } from 'lucide-react';
+import { FileText, User, Download, MoreVertical, ShieldCheck, Search, FileX, FilePlus2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -19,6 +19,9 @@ interface InvoiceCardProps {
   onStatusChange?: (status: 'draft' | 'issued' | 'paid' | 'cancelled') => void;
   onGeneratePDF?: () => void;
   onSealVerifactu?: () => void;
+  onQueryVerifactu?: () => void;
+  onCancelVerifactu?: () => void;
+  onCreateRectificativa?: () => void;
 }
 
 const statusConfig = {
@@ -28,7 +31,16 @@ const statusConfig = {
   cancelled: { label: 'Cancelada', variant: 'destructive' as const },
 };
 
-export function InvoiceCard({ invoice, onViewDetails, onStatusChange, onGeneratePDF, onSealVerifactu }: InvoiceCardProps) {
+export function InvoiceCard({ 
+  invoice, 
+  onViewDetails, 
+  onStatusChange, 
+  onGeneratePDF, 
+  onSealVerifactu,
+  onQueryVerifactu,
+  onCancelVerifactu,
+  onCreateRectificativa 
+}: InvoiceCardProps) {
   const status = statusConfig[invoice.status] || statusConfig.draft;
   const isSealed = !!invoice.verifactu_hash;
 
@@ -107,7 +119,28 @@ export function InvoiceCard({ invoice, onViewDetails, onStatusChange, onGenerate
                       Marcar como pagada
                     </DropdownMenuItem>
                   )}
-                  {(invoice.status === 'draft' || invoice.status === 'issued') && (
+                  
+                  {/* Verifactu actions for sealed invoices */}
+                  {isSealed && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={onQueryVerifactu}>
+                        <Search className="h-4 w-4 mr-2" />
+                        Consultar RF en AEAT
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={onCreateRectificativa}>
+                        <FilePlus2 className="h-4 w-4 mr-2" />
+                        Crear Rectificativa
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={onCancelVerifactu} className="text-destructive">
+                        <FileX className="h-4 w-4 mr-2" />
+                        Anular RF en AEAT
+                      </DropdownMenuItem>
+                    </>
+                  )}
+
+                  {(invoice.status === 'draft' || invoice.status === 'issued') && !isSealed && (
                     <>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem 
