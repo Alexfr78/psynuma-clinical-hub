@@ -7,11 +7,14 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// AEAT Verifactu endpoints - MUST use SistemaFacturacionSOAP, NOT VerifactuSOAP
+// AEAT Verifactu endpoints
 const AEAT_ENDPOINTS = {
-  test: "https://prewww2.aeat.es/wlpl/TIKE-CONT/ws/SistemaFacturacionSOAP",
-  production: "https://www2.agenciatributaria.gob.es/wlpl/TIKE-CONT/ws/SistemaFacturacionSOAP"
+  test: "https://prewww1.aeat.es/wlpl/TIKE-CONT/ws/SistemaFacturacion/VerifactuSOAP",
+  production: "https://www1.agenciatributaria.gob.es/wlpl/TIKE-CONT/ws/SistemaFacturacion/VerifactuSOAP"
 };
+
+// SOAPAction for Alta (invoice registration)
+const SOAP_ACTION_ALTA = "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/SistemaFacturacion/altaRegistroFactura";
 
 // ============= AES-256-GCM Decryption =============
 function hexToBytes(hex: string): Uint8Array {
@@ -463,8 +466,8 @@ async function sendToAEAT(
     const response = await fetch(endpoint, {
       method: 'POST',
       headers: {
-        'Content-Type': 'text/xml;charset=UTF-8',
-        'SOAPAction': 'RegFactuSistemaFacturacion'
+        'Content-Type': 'text/xml; charset=utf-8',
+        'SOAPAction': SOAP_ACTION_ALTA
       },
       body: signedXml,
       // @ts-ignore - Deno specific option
