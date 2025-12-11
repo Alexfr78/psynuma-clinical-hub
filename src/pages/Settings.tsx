@@ -34,6 +34,7 @@ import { LocationsSection } from '@/components/settings/LocationsSection';
 import { SessionTypesSection } from '@/components/settings/SessionTypesSection';
 import { EmailTemplateEditor } from '@/components/settings/communications/EmailTemplateEditor';
 import { WhatsAppTemplateEditor } from '@/components/settings/communications/WhatsAppTemplateEditor';
+import { WhatsAppSettingsSection } from '@/components/settings/communications/WhatsAppSettingsSection';
 import { SmsTemplateEditor } from '@/components/settings/communications/SmsTemplateEditor';
 
 const centerSchema = z.object({
@@ -56,6 +57,7 @@ type SettingsSection =
   | 'facturacion-editar' 
   | 'facturacion-series' 
   | 'facturacion-automatizar'
+  | 'comunicaciones-whatsapp-config'
   | 'comunicaciones-email'
   | 'comunicaciones-whatsapp'
   | 'comunicaciones-sms';
@@ -75,9 +77,10 @@ const navItems: NavItem[] = [
   { id: 'facturacion-editar', label: 'Editar factura', icon: Pencil, parent: 'Facturación' },
   { id: 'facturacion-series', label: 'Series y numeración', icon: List, parent: 'Facturación' },
   { id: 'facturacion-automatizar', label: 'Automatizar facturas', icon: Zap, parent: 'Facturación' },
-  { id: 'comunicaciones-email', label: 'Emails', icon: Mail, parent: 'Comunicaciones' },
-  { id: 'comunicaciones-whatsapp', label: 'WhatsApp', icon: MessageCircle, parent: 'Comunicaciones' },
-  { id: 'comunicaciones-sms', label: 'SMS', icon: Smartphone, parent: 'Comunicaciones' },
+  { id: 'comunicaciones-whatsapp-config', label: 'Configuración WhatsApp', icon: MessageCircle, parent: 'Comunicaciones' },
+  { id: 'comunicaciones-email', label: 'Plantillas Email', icon: Mail, parent: 'Comunicaciones' },
+  { id: 'comunicaciones-whatsapp', label: 'Plantillas WhatsApp', icon: MessageCircle, parent: 'Comunicaciones' },
+  { id: 'comunicaciones-sms', label: 'Plantillas SMS', icon: Smartphone, parent: 'Comunicaciones' },
 ];
 
 export default function Settings() {
@@ -242,6 +245,8 @@ export default function Settings() {
         return <InvoiceSeriesSection />;
       case 'facturacion-automatizar':
         return <InvoiceAutomationSection />;
+      case 'comunicaciones-whatsapp-config':
+        return <WhatsAppSettingsSection />;
       case 'comunicaciones-email':
         return <EmailTemplateEditor />;
       case 'comunicaciones-whatsapp':

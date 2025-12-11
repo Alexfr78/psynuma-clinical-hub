@@ -15,7 +15,7 @@ export interface Center {
   logo_url: string | null;
   invoice_prefix: string | null;
   invoice_next_number: number | null;
-  // New billing fields
+  // Billing fields
   country: string | null;
   province: string | null;
   address_details: string | null;
@@ -27,6 +27,11 @@ export interface Center {
   invoice_footer: string | null;
   invoice_logo_url: string | null;
   auto_invoicing_enabled: boolean | null;
+  // WhatsApp configuration
+  whatsapp_send_method: string | null;
+  whatsapp_access_token: string | null;
+  whatsapp_phone_number_id: string | null;
+  whatsapp_business_account_id: string | null;
   created_at: string;
   updated_at: string;
 }
