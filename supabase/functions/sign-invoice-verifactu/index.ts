@@ -55,17 +55,36 @@ async function decryptAES256GCM(encryptedBase64: string, keyHex: string): Promis
 }
 
 function isEncrypted(data: string): boolean {
+  // If we have the encryption key and the data looks like it could be encrypted
+  // (starts with something other than expected PFX header when decoded)
   try {
-    const decoded = atob(data);
-    if (decoded.length > 2) {
-      const firstByte = decoded.charCodeAt(0);
-      // PFX files start with 0x30 (ASN.1 SEQUENCE)
-      if (firstByte === 0x30) {
+    const decoded = base64ToBytes(data);
+    // Encrypted data has format: IV (12 bytes) + ciphertext
+    // PFX files start with ASN.1 SEQUENCE (0x30) followed by length bytes
+    // If the data is exactly 12+ bytes and first byte is NOT 0x30, likely encrypted
+    // However, IV is random, so we can't rely on first byte alone
+    
+    // Better heuristic: PFX files have a specific ASN.1 structure
+    // After 0x30, next bytes indicate length. For small files (< 128 bytes total length),
+    // byte 2 is the length. For larger files, byte 2 is 0x82 (2-byte length follows)
+    // Most PFX files are large, so we'd see: 0x30 0x82 <high> <low>
+    
+    if (decoded.length > 4) {
+      const byte0 = decoded[0];
+      const byte1 = decoded[1];
+      
+      // Standard PFX starts with 0x30 0x82 (SEQUENCE with 2-byte length)
+      if (byte0 === 0x30 && (byte1 === 0x82 || byte1 === 0x83 || byte1 < 0x80)) {
+        console.log('Data appears to be unencrypted PFX (starts with 0x30)');
         return false;
       }
     }
+    
+    // Assume encrypted
+    console.log('Data appears to be encrypted (does not start with 0x30)');
     return true;
-  } catch {
+  } catch (e) {
+    console.log('Error checking encryption status, assuming encrypted:', e);
     return true;
   }
 }
