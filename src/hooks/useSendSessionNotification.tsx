@@ -35,18 +35,28 @@ function replaceTemplateVariables(
   return result;
 }
 
+export interface WhatsAppDialogData {
+  webLink: string;
+  message: string;
+  patientName: string;
+}
+
 export function useSendSessionNotification() {
   const { profile } = useAuth();
   const { center } = useCenter();
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (params: SendNotificationParams) => {
+    mutationFn: async (params: SendNotificationParams): Promise<{ 
+      results: { channel: string; success: boolean }[];
+      whatsappData?: WhatsAppDialogData;
+    }> => {
       if (!profile?.center_id || !center) {
         throw new Error('No center configured');
       }
 
-      const results: { channel: string; success: boolean; webLink?: string }[] = [];
+      const results: { channel: string; success: boolean }[] = [];
+      let whatsappData: WhatsAppDialogData | undefined;
 
       // Build template variables
       const templateVars: Record<string, string> = {
@@ -78,7 +88,7 @@ export function useSendSessionNotification() {
         const message = replaceTemplateVariables(messageTemplate, templateVars);
 
         if (whatsappMethod === 'web') {
-          // Generate WhatsApp Web link - DON'T open here, return in results
+          // Generate WhatsApp Web link - return data for dialog
           const webLink = generateWhatsAppWebLink(params.patientPhone, message);
           
           // Save notification as pending (manual)
@@ -92,7 +102,13 @@ export function useSendSessionNotification() {
             status: 'pending',
           });
 
-          results.push({ channel: 'whatsapp', success: true, webLink });
+          whatsappData = {
+            webLink,
+            message,
+            patientName: params.patientName,
+          };
+
+          results.push({ channel: 'whatsapp', success: true });
         } else if (whatsappMethod === 'api') {
           // Use Meta API via edge function
           const notification = await supabase.from('notifications').insert({
@@ -143,23 +159,13 @@ export function useSendSessionNotification() {
         results.push({ channel: 'sms', success: true });
       }
 
-      return results;
+      return { results, whatsappData };
     },
-    onSuccess: (results) => {
+    onSuccess: ({ results, whatsappData }) => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
       
-      const whatsappResult = results.find(r => r.channel === 'whatsapp');
-      if (whatsappResult?.webLink) {
-        // Show interactive toast with button - this allows the popup to work
-        toast.success('Sesión creada correctamente', {
-          description: 'Haz clic para enviar la notificación por WhatsApp',
-          action: {
-            label: 'Abrir WhatsApp',
-            onClick: () => window.open(whatsappResult.webLink, '_blank'),
-          },
-          duration: 10000, // Keep it visible for 10 seconds
-        });
-      } else if (results.some(r => r.success)) {
+      // Don't show toast for WhatsApp web - the dialog will handle it
+      if (!whatsappData && results.some(r => r.success)) {
         toast.success('Notificación procesada', {
           description: 'La notificación se ha registrado correctamente.',
         });

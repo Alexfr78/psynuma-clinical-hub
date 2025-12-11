@@ -46,9 +46,10 @@ import { usePatients, useProfessionals } from '@/hooks/usePatients';
 import { useAuth } from '@/hooks/useAuth';
 import { usePatientActiveBonos, useDeductBonoSession } from '@/hooks/useBonos';
 import { useScheduleSessionReminder } from '@/hooks/useNotifications';
-import { useSendSessionNotification } from '@/hooks/useSendSessionNotification';
+import { useSendSessionNotification, WhatsAppDialogData } from '@/hooks/useSendSessionNotification';
 import { CreateBonoDialog } from '@/components/bonos/CreateBonoDialog';
 import { SessionNotificationSettings } from './SessionNotificationSettings';
+import { WhatsAppLinkDialog } from './WhatsAppLinkDialog';
 
 const sessionSchema = z.object({
   patient_id: z.string().uuid('Selecciona un paciente'),
@@ -111,6 +112,8 @@ export function CreateSessionDialog({
   // Track newly created bono and its price
   const [newlyCreatedBonoId, setNewlyCreatedBonoId] = useState<string | null>(null);
   const [newlyCreatedBonoPrice, setNewlyCreatedBonoPrice] = useState<number | null>(null);
+  // WhatsApp dialog state
+  const [whatsappDialogData, setWhatsappDialogData] = useState<WhatsAppDialogData | null>(null);
 
   const form = useForm<SessionFormValues>({
     resolver: zodResolver(sessionSchema),
@@ -223,8 +226,9 @@ export function CreateSessionDialog({
 
       // Send immediate notifications if any are enabled
       const hasNotifications = values.notify_whatsapp || values.notify_email || values.notify_sms;
+      let notificationResult;
       if (hasNotifications && newSession?.id && patient) {
-        await sendNotification.mutateAsync({
+        notificationResult = await sendNotification.mutateAsync({
           patientId: values.patient_id,
           patientName: `${patient.first_name} ${patient.last_name}`,
           patientPhone: patient.phone,
@@ -254,6 +258,11 @@ export function CreateSessionDialog({
 
       form.reset();
       onOpenChange(false);
+
+      // Show WhatsApp dialog after closing the main dialog
+      if (notificationResult?.whatsappData) {
+        setWhatsappDialogData(notificationResult.whatsappData);
+      }
     } catch (error) {
       toast({
         title: 'Error',
@@ -607,6 +616,16 @@ export function CreateSessionDialog({
         form.setValue('price', totalPrice);
       }}
     />
+
+    {whatsappDialogData && (
+      <WhatsAppLinkDialog
+        open={!!whatsappDialogData}
+        onOpenChange={(open) => !open && setWhatsappDialogData(null)}
+        webLink={whatsappDialogData.webLink}
+        message={whatsappDialogData.message}
+        patientName={whatsappDialogData.patientName}
+      />
+    )}
     </>
   );
 }
