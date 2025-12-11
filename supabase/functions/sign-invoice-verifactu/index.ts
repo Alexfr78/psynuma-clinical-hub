@@ -316,29 +316,67 @@ function extractCertificatesFromPKCS12(certificateBase64: string, certificatePas
   const p12 = forge.pkcs12.pkcs12FromAsn1(p12Asn1, certificatePassword);
 
   let privateKey: forge.pki.PrivateKey | null = null;
-  let certificate: forge.pki.Certificate | null = null;
+  let endEntityCert: forge.pki.Certificate | null = null;
+  const allCertificates: forge.pki.Certificate[] = [];
 
+  // Extract all certificates and private key
   for (const safeContents of p12.safeContents) {
     for (const safeBag of safeContents.safeBags) {
       if (safeBag.type === forge.pki.oids.pkcs8ShroudedKeyBag && safeBag.key) {
         privateKey = safeBag.key as forge.pki.PrivateKey;
       } else if (safeBag.type === forge.pki.oids.certBag && safeBag.cert) {
-        certificate = safeBag.cert;
+        allCertificates.push(safeBag.cert);
       }
     }
   }
 
-  if (!privateKey || !certificate) {
+  console.log(`Found ${allCertificates.length} certificates in PKCS12`);
+
+  if (!privateKey || allCertificates.length === 0) {
     throw new Error("No se pudo extraer la clave privada o el certificado");
   }
 
-  // Convert to PEM format for mTLS
-  const certPem = forge.pki.certificateToPem(certificate);
+  // Find the end-entity certificate (the one that matches the private key)
+  for (const cert of allCertificates) {
+    try {
+      // The end-entity cert is the one whose public key matches the private key
+      const certPublicKey = forge.pki.publicKeyToPem(cert.publicKey);
+      const derivedPublicKey = forge.pki.publicKeyToPem(forge.pki.rsa.setPublicKey(
+        (privateKey as any).n,
+        (privateKey as any).e
+      ));
+      if (certPublicKey === derivedPublicKey) {
+        endEntityCert = cert;
+        console.log('Found end-entity certificate matching private key');
+        break;
+      }
+    } catch (e) {
+      // If comparison fails, continue checking
+    }
+  }
+
+  // If no match found, use the first certificate (common case for simple PKCS12)
+  if (!endEntityCert) {
+    endEntityCert = allCertificates[0];
+    console.log('Using first certificate as end-entity');
+  }
+
+  // Build certificate chain PEM (end-entity first, then CA certs)
+  let certChainPem = forge.pki.certificateToPem(endEntityCert);
+  
+  // Add intermediate/CA certificates to the chain
+  for (const cert of allCertificates) {
+    if (cert !== endEntityCert) {
+      certChainPem += forge.pki.certificateToPem(cert);
+      console.log('Added CA/intermediate certificate to chain');
+    }
+  }
+
   const keyPem = forge.pki.privateKeyToPem(privateKey);
   
-  console.log('Extracted certificate and key in PEM format');
+  console.log('Extracted certificate chain and key in PEM format');
 
-  return { privateKey, certificate, certPem, keyPem };
+  return { privateKey, certificate: endEntityCert, certPem: certChainPem, keyPem };
 }
 
 // Sign XML with PKCS12 certificate
