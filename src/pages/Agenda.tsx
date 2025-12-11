@@ -66,8 +66,8 @@ export default function Agenda() {
     selectedProfessional
   );
 
-  // Dynamic hours based on center/professional configuration
-  const { hours, startHour } = useAgendaHours(selectedProfessional, currentDate);
+  // Dynamic hours based on center/professional configuration and existing sessions
+  const { hours, startHour } = useAgendaHours(selectedProfessional, currentDate, sessions);
 
   const handleSlotClick = (date: Date, startTime: string, endTime: string) => {
     setInitialDate(date);
