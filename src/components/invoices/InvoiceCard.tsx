@@ -50,131 +50,133 @@ export function InvoiceCard({
 
   return (
     <Card className="transition-all hover:shadow-md">
-      <CardContent className="p-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <CardContent className="p-3 sm:p-4">
+        <div className="flex flex-col gap-3">
+          {/* Top row: Icon, Info, and Actions */}
           <div className="flex items-start gap-3">
-            <div className="rounded-lg bg-primary/10 p-2">
+            <div className="rounded-lg bg-primary/10 p-2 shrink-0 hidden sm:flex">
               <FileText className="h-5 w-5 text-primary" />
             </div>
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-semibold">{invoice.invoice_number}</span>
-                <Badge variant={status.variant}>{status.label}</Badge>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                <span className="font-semibold text-sm sm:text-base">{invoice.invoice_number}</span>
+                <Badge variant={status.variant} className="text-xs">{status.label}</Badge>
                 {invoice.is_recapitulative && (
-                  <Badge variant="outline">Recapitulativa</Badge>
+                  <Badge variant="outline" className="text-xs hidden sm:inline-flex">Recap</Badge>
                 )}
                 {isSealed && (
-                  <Badge variant="default" className="gap-1 bg-green-600 hover:bg-green-700">
+                  <Badge variant="default" className="gap-1 bg-green-600 hover:bg-green-700 text-xs">
                     <ShieldCheck className="h-3 w-3" />
-                    Verifactu
+                    <span className="hidden sm:inline">Verifactu</span>
                   </Badge>
                 )}
                 {isPendingVerifactu && !maxRetriesReached && (
-                  <Badge variant="outline" className="gap-1 border-amber-500 text-amber-600">
+                  <Badge variant="outline" className="gap-1 border-amber-500 text-amber-600 text-xs">
                     <Clock className="h-3 w-3" />
-                    Pendiente AEAT ({invoice.verifactu_retry_count || 0}/5)
+                    <span className="hidden sm:inline">Pendiente</span> ({invoice.verifactu_retry_count || 0}/5)
                   </Badge>
                 )}
                 {isPendingVerifactu && maxRetriesReached && (
-                  <Badge variant="destructive" className="gap-1">
+                  <Badge variant="destructive" className="gap-1 text-xs">
                     <RefreshCw className="h-3 w-3" />
-                    Error AEAT
+                    Error
                   </Badge>
                 )}
               </div>
-              <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
-                <User className="h-3 w-3" />
-                <span>{invoice.patients.first_name} {invoice.patients.last_name}</span>
+              <div className="flex items-center gap-1 text-xs sm:text-sm text-muted-foreground mt-1">
+                <User className="h-3 w-3 shrink-0" />
+                <span className="truncate">{invoice.patients.first_name} {invoice.patients.last_name}</span>
               </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                {format(new Date(invoice.issue_date), "d 'de' MMMM yyyy", { locale: es })}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <div className="text-right">
-              <p className="text-xl font-bold">{Number(invoice.total).toFixed(2)}€</p>
-              <p className="text-xs text-muted-foreground">
-                Base: {Number(invoice.subtotal).toFixed(2)}€ + IVA {invoice.tax_rate}%
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {format(new Date(invoice.issue_date), "d MMM yyyy", { locale: es })}
               </p>
             </div>
 
-            <div className="flex items-center gap-1">
-              <Button variant="ghost" size="icon" onClick={onGeneratePDF} title="Descargar PDF">
-                <Download className="h-4 w-4" />
-              </Button>
+            {/* Amount and Actions - Right side */}
+            <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+              <div className="text-right">
+                <p className="text-lg sm:text-xl font-bold">{Number(invoice.total).toFixed(2)}€</p>
+                <p className="text-xs text-muted-foreground hidden sm:block">
+                  Base: {Number(invoice.subtotal).toFixed(2)}€
+                </p>
+              </div>
+
+              <div className="flex items-center gap-0.5 sm:gap-1">
+                <Button variant="ghost" size="icon" className="h-8 w-8 sm:h-9 sm:w-9" onClick={onGeneratePDF} title="Descargar PDF">
+                  <Download className="h-4 w-4" />
+                </Button>
               
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon">
-                    <MoreVertical className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={onViewDetails}>
-                    Ver detalles
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={onGeneratePDF}>
-                    Descargar PDF
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  {invoice.status === 'draft' && !isSealed && !isPendingVerifactu && (
-                    <DropdownMenuItem onClick={onSealVerifactu} className="text-green-600">
-                      <ShieldCheck className="h-4 w-4 mr-2" />
-                      Sellar con Verifactu
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 sm:h-9 sm:w-9">
+                      <MoreVertical className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={onViewDetails}>
+                      Ver detalles
                     </DropdownMenuItem>
-                  )}
-                  {isPendingVerifactu && (
-                    <DropdownMenuItem onClick={onRetryVerifactu} className="text-amber-600">
-                      <RefreshCw className="h-4 w-4 mr-2" />
-                      Reintentar Verifactu
+                    <DropdownMenuItem onClick={onGeneratePDF}>
+                      Descargar PDF
                     </DropdownMenuItem>
-                  )}
-                  {invoice.status === 'draft' && (
-                    <DropdownMenuItem onClick={() => onStatusChange?.('issued')}>
-                      Emitir factura
-                    </DropdownMenuItem>
-                  )}
-                  {invoice.status === 'issued' && (
-                    <DropdownMenuItem onClick={() => onStatusChange?.('paid')}>
-                      Marcar como pagada
-                    </DropdownMenuItem>
-                  )}
-                  
-                  {/* Verifactu actions for sealed invoices */}
-                  {isSealed && (
-                    <>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={onQueryVerifactu}>
-                        <Search className="h-4 w-4 mr-2" />
-                        Consultar RF en AEAT
+                    <DropdownMenuSeparator />
+                    {invoice.status === 'draft' && !isSealed && !isPendingVerifactu && (
+                      <DropdownMenuItem onClick={onSealVerifactu} className="text-green-600">
+                        <ShieldCheck className="h-4 w-4 mr-2" />
+                        Sellar con Verifactu
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={onCreateRectificativa}>
-                        <FilePlus2 className="h-4 w-4 mr-2" />
-                        Crear Rectificativa
+                    )}
+                    {isPendingVerifactu && (
+                      <DropdownMenuItem onClick={onRetryVerifactu} className="text-amber-600">
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                        Reintentar Verifactu
                       </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={onCancelVerifactu} className="text-destructive">
-                        <FileX className="h-4 w-4 mr-2" />
-                        Anular RF en AEAT
+                    )}
+                    {invoice.status === 'draft' && (
+                      <DropdownMenuItem onClick={() => onStatusChange?.('issued')}>
+                        Emitir factura
                       </DropdownMenuItem>
-                    </>
-                  )}
+                    )}
+                    {invoice.status === 'issued' && (
+                      <DropdownMenuItem onClick={() => onStatusChange?.('paid')}>
+                        Marcar como pagada
+                      </DropdownMenuItem>
+                    )}
+                    
+                    {/* Verifactu actions for sealed invoices */}
+                    {isSealed && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={onQueryVerifactu}>
+                          <Search className="h-4 w-4 mr-2" />
+                          Consultar RF en AEAT
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={onCreateRectificativa}>
+                          <FilePlus2 className="h-4 w-4 mr-2" />
+                          Crear Rectificativa
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={onCancelVerifactu} className="text-destructive">
+                          <FileX className="h-4 w-4 mr-2" />
+                          Anular RF en AEAT
+                        </DropdownMenuItem>
+                      </>
+                    )}
 
-                  {(invoice.status === 'draft' || invoice.status === 'issued') && !isSealed && (
-                    <>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem 
-                        onClick={() => onStatusChange?.('cancelled')}
-                        className="text-destructive"
-                      >
-                        Cancelar factura
-                      </DropdownMenuItem>
-                    </>
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>
+                    {(invoice.status === 'draft' || invoice.status === 'issued') && !isSealed && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem 
+                          onClick={() => onStatusChange?.('cancelled')}
+                          className="text-destructive"
+                        >
+                          Cancelar factura
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             </div>
           </div>
         </div>

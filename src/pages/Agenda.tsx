@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
 import { Loader2 } from 'lucide-react';
 import { useSessions, useUpdateSession, SessionWithRelations } from '@/hooks/useSessions';
@@ -11,11 +11,20 @@ import { QuickCreateSessionDialog } from '@/components/agenda/QuickCreateSession
 import { SessionDetailDrawer } from '@/components/agenda/SessionDetailDrawer';
 import { useToast } from '@/hooks/use-toast';
 import { useAgendaHours } from '@/hooks/useAgendaHours';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 export default function Agenda() {
+  const isMobile = useIsMobile();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState<CalendarView>('week');
   const [selectedProfessional, setSelectedProfessional] = useState('all');
+
+  // Auto-switch to day view on mobile
+  useEffect(() => {
+    if (isMobile && view === 'week') {
+      setView('day');
+    }
+  }, [isMobile, view]);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [selectedSession, setSelectedSession] = useState<SessionWithRelations | null>(null);
   const [initialDate, setInitialDate] = useState<Date | undefined>();
