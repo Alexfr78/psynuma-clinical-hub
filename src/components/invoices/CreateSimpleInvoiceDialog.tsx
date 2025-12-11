@@ -5,6 +5,7 @@ import { FileText, AlertTriangle, Building2, User, Pencil, Trash2, Plus, Check, 
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -422,6 +423,9 @@ export function CreateSimpleInvoiceDialog({ open, onOpenChange, preselectedPatie
             <FileText className="h-5 w-5" />
             Nueva factura
           </DialogTitle>
+          <DialogDescription>
+            Crea una factura simple o completa para un paciente.
+          </DialogDescription>
         </DialogHeader>
 
         {/* Invoice Type Toggle */}

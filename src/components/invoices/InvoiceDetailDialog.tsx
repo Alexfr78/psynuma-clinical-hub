@@ -12,6 +12,7 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -55,8 +56,6 @@ export function InvoiceDetailDialog({ open, onOpenChange, invoiceId }: InvoiceDe
     }
   };
 
-  if (!open) return null;
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -65,6 +64,9 @@ export function InvoiceDetailDialog({ open, onOpenChange, invoiceId }: InvoiceDe
             <FileText className="h-5 w-5" />
             {isLoading ? <Skeleton className="h-6 w-48" /> : `Factura ${invoice?.invoice_number}`}
           </DialogTitle>
+          <DialogDescription>
+            Detalles completos de la factura
+          </DialogDescription>
         </DialogHeader>
 
         {isLoading ? (
