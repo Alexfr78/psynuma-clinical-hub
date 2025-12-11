@@ -223,7 +223,7 @@ export function EmailTemplateEditor() {
                 <Label>Vista previa</Label>
                 <div className="rounded-lg border bg-card p-4 space-y-3 min-h-[300px]">
                   <div className="border-b pb-2 mb-3">
-                    <p className="text-xs text-muted-foreground">De: tu-centro@psynuma.com</p>
+                    <p className="text-xs text-muted-foreground">De: tu-centro@psycma.com</p>
                     <p className="text-xs text-muted-foreground">Para: paciente@email.com</p>
                     <p className="text-sm font-medium mt-1">
                       {activeTab === 'notification' ? 'Nueva sesión programada' : 'Recordatorio de tu sesión'}

@@ -106,7 +106,7 @@ export function AppSidebar() {
           </div>
           <div className="flex flex-col">
             <span className="font-display text-lg font-bold text-sidebar-foreground">
-              Psynuma
+              Psycma
             </span>
             <span className="text-xs text-sidebar-foreground/60">
               Gestión Clínica
