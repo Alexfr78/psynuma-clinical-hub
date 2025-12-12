@@ -505,7 +505,7 @@ function buildRegistroAltaXML(
   // NombreSistemaInformatico: nombre comercial del producto, max 30 chars, sin caracteres especiales
   const softwareSistemaInfo = sanitizeNombreSistemaInformatico(center.verifactu_sistema_informatico || 'PSYCMA');
   const softwareVersion = center.verifactu_software_version || '1.0.0';
-  const softwareNif = center.verifactu_software_nif || nifEmisor;
+  const softwareNif = (center.verifactu_software_nif || nifEmisor).replace(/[^A-Z0-9]/gi, '');
 
   // Determine invoice type using the unified function
   const tipoFactura = determineInvoiceType(invoice);
@@ -530,8 +530,12 @@ function buildRegistroAltaXML(
           </sum1:FacturasRectificadas>`;
   }
 
-  // Build TipoRectificativa and ImporteRectificacion for substitution invoices
+  // Build TipoRectificativa for rectifying invoices
+  // XSD ORDER: TipoRectificativa comes AFTER TipoFactura and BEFORE FacturasRectificadas
   let tipoRectificativaXML = '';
+  // Build ImporteRectificacion separately - XSD ORDER: comes AFTER FacturasRectificadas/FacturasSustituidas
+  let importeRectificacionXML = '';
+  
   if (invoice.rectified_invoice_id) {
     // Map database values to AEAT codes: differences -> I, substitution -> S
     // Also handle legacy direct I/S values for backwards compatibility
@@ -550,12 +554,13 @@ function buildRegistroAltaXML(
           <sum1:TipoRectificativa>${tipoRect}</sum1:TipoRectificativa>`;
     
     // For substitution (S) type, include BaseRectificada and CuotaRectificada
+    // ImporteRectificacion goes in a SEPARATE variable to maintain XSD order
     if (tipoRect === 'S' && (invoice.base_rectificada !== null || invoice.cuota_rectificada !== null)) {
       const baseRect = Number(invoice.base_rectificada) || 0;
       const cuotaRect = Number(invoice.cuota_rectificada) || 0;
       const cuotaRecargoRect = Number(invoice.cuota_recargo_rectificado) || 0;
       
-      tipoRectificativaXML += `
+      importeRectificacionXML = `
           <sum1:ImporteRectificacion>
             <sum1:BaseRectificada>${baseRect.toFixed(2)}</sum1:BaseRectificada>
             <sum1:CuotaRectificada>${cuotaRect.toFixed(2)}</sum1:CuotaRectificada>${cuotaRecargoRect > 0 ? `
@@ -604,7 +609,7 @@ function buildRegistroAltaXML(
           </sum1:IDFactura>
           <sum1:NombreRazonEmisor>${escapeXML(nombreEmisor)}</sum1:NombreRazonEmisor>
           <sum1:TipoFactura>${tipoFactura}</sum1:TipoFactura>
-${tipoRectificativaXML}${facturasRectificadasXML}          <sum1:DescripcionOperacion>${descripcionOperacion}</sum1:DescripcionOperacion>
+${tipoRectificativaXML}${facturasRectificadasXML}${importeRectificacionXML}          <sum1:DescripcionOperacion>${descripcionOperacion}</sum1:DescripcionOperacion>
 ${destinatariosXML}          <sum1:Desglose>
 ${desgloseXML}
           </sum1:Desglose>
