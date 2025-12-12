@@ -604,9 +604,8 @@ function buildRegistroAltaXML(
           </sum1:IDFactura>
           <sum1:NombreRazonEmisor>${escapeXML(nombreEmisor)}</sum1:NombreRazonEmisor>
           <sum1:TipoFactura>${tipoFactura}</sum1:TipoFactura>
-          <sum1:DescripcionOperacion>${descripcionOperacion}</sum1:DescripcionOperacion>
-${tipoRectificativaXML}${facturasRectificadasXML}${destinatariosXML}
-          <sum1:Desglose>
+${tipoRectificativaXML}${facturasRectificadasXML}          <sum1:DescripcionOperacion>${descripcionOperacion}</sum1:DescripcionOperacion>
+${destinatariosXML}          <sum1:Desglose>
 ${desgloseXML}
           </sum1:Desglose>
           <sum1:CuotaTotal>${Number(invoice.tax_amount || 0).toFixed(2)}</sum1:CuotaTotal>
@@ -1137,6 +1136,17 @@ serve(async (req) => {
       throw new Error("DescripcionOperacion está vacío o no se encuentra en el XML");
     }
     console.log("DescripcionOperacion verified in XML:", descOpMatch[1]);
+
+    // VERIFICATION: Check XSD element order (must be DescripcionOperacion < Desglose < CuotaTotal < ImporteTotal)
+    const descOpIdx = xmlBody.indexOf("<sum1:DescripcionOperacion>");
+    const desgloseIdx = xmlBody.indexOf("<sum1:Desglose>");
+    const cuotaTotalIdx = xmlBody.indexOf("<sum1:CuotaTotal>");
+    const importeTotalIdx = xmlBody.indexOf("<sum1:ImporteTotal>");
+    console.log("XSD element order check - DescripcionOperacion:", descOpIdx, "Desglose:", desgloseIdx, "CuotaTotal:", cuotaTotalIdx, "ImporteTotal:", importeTotalIdx);
+    if (!(descOpIdx < desgloseIdx && desgloseIdx < cuotaTotalIdx && cuotaTotalIdx < importeTotalIdx)) {
+      console.error("CRITICAL: XML element order violates XSD! Expected: DescripcionOperacion < Desglose < CuotaTotal < ImporteTotal");
+      throw new Error("Error crítico: Orden de elementos XML no cumple con el XSD de AEAT");
+    }
 
     // Sign and build complete SOAP envelope
     const signedXml = buildSignedSOAPEnvelope(xmlBody, certData.privateKey, certData.certificate);
