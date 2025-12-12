@@ -56,15 +56,19 @@ serve(async (req) => {
       );
     }
 
-    // Check if already sealed
+    // IDEMPOTENT: If already sealed, return success with existing hash
     if (invoice.verifactu_hash) {
+      console.log(`Invoice ${invoice.invoice_number} already sealed, returning existing hash`);
       return new Response(
         JSON.stringify({ 
-          error: "Invoice already sealed",
+          success: true,
+          already_sealed: true,
+          invoice_number: invoice.invoice_number,
           hash: invoice.verifactu_hash,
-          timestamp: invoice.verifactu_timestamp
+          timestamp: invoice.verifactu_timestamp,
+          message: "Invoice was already sealed"
         }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
