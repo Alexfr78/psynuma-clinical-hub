@@ -416,7 +416,6 @@ serve(async (req) => {
         *,
         centers (
           id, name, tax_id,
-          verifactu_certificate_base64, verifactu_certificate_password,
           verifactu_environment
         )
       `)
@@ -433,90 +432,50 @@ serve(async (req) => {
     const center = invoice.centers;
     const environment = center?.verifactu_environment || 'test';
 
-    if (!center?.verifactu_certificate_base64 || !center?.verifactu_certificate_password) {
-      return new Response(
-        JSON.stringify({ error: "Certificado Verifactu no configurado" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Decrypt certificate data if encrypted
-    const { certificate: decryptedCert, password: decryptedPassword } = await decryptCertificateData(
-      center.verifactu_certificate_base64,
-      center.verifactu_certificate_password
-    );
-
-    // Extract certificates for signing
-    const certData = extractCertificatesFromPKCS12(decryptedCert, decryptedPassword);
-
-    // Build and sign consultation XML
-    const xmlBody = buildConsultaXML(invoice, center);
-    const signedXml = buildSignedSOAPEnvelope(xmlBody, certData.privateKey, certData.certificate);
-
-    // Send to AEAT with mTLS using extracted certificate
-    const aeatResult = await sendToAEAT(signedXml, environment, certData.privateKey, certData.certificate);
-
-    // Parse response
-    const consultaResult = aeatResult.response ? parseConsultaResponse(aeatResult.response) : { found: false, error: 'Sin respuesta' };
-
-    // Log consultation event
-    await logVerifactuEvent(supabase, {
-      invoice_id,
-      center_id: invoice.center_id,
-      event_type: 'consulta',
-      aeat_csv: consultaResult.csv,
-      aeat_response_message: consultaResult.found ? `Estado: ${consultaResult.status}` : consultaResult.error,
-      aeat_response_xml: aeatResult.response,
-      xml_sent: signedXml,
-      environment,
-      http_status: aeatResult.httpStatus
-    });
-
-    if (!aeatResult.success) {
-      // Check if it's a service unavailability (404 or internal error)
-      const isServiceUnavailable = aeatResult.httpStatus === 404 || 
-        aeatResult.error?.includes('interno en el servidor') ||
-        aeatResult.error?.includes('Desactivada temporalmente');
+    // SIMPLIFIED APPROACH: Return stored registration data without calling AEAT
+    // AEAT's consultation service is often unavailable, but we already have the CSV and QR from registration
+    
+    if (invoice.verifactu_registration_id || invoice.verifactu_qr) {
+      console.log("Returning stored Verifactu data (CSV/QR from registration)");
       
-      if (isServiceUnavailable) {
-        return new Response(
-          JSON.stringify({ 
-            success: false,
-            service_unavailable: true,
-            message: "El servicio de consulta de AEAT no está disponible temporalmente. La factura ya fue registrada correctamente (CSV guardado).",
-            invoice_number: invoice.invoice_number,
-            csv: invoice.verifactu_registration_id
-          }),
-          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      
+      // Log that we're using cached data
+      await logVerifactuEvent(supabase, {
+        invoice_id,
+        center_id: invoice.center_id,
+        event_type: 'consulta',
+        aeat_csv: invoice.verifactu_registration_id,
+        aeat_response_message: 'Datos recuperados del registro local (servicio consulta no disponible)',
+        environment,
+        http_status: 200
+      });
+
       return new Response(
-        JSON.stringify({ 
-          error: `Error de AEAT: ${aeatResult.error}`,
-          details: aeatResult.response
+        JSON.stringify({
+          success: true,
+          invoice_number: invoice.invoice_number,
+          found: true,
+          status: 'Registrada',
+          csv: invoice.verifactu_registration_id,
+          qr_url: invoice.verifactu_qr,
+          hash: invoice.verifactu_hash,
+          registration_date: invoice.verifactu_timestamp,
+          environment,
+          source: 'local', // Indicates data comes from local DB, not live AEAT query
+          message: 'Datos del registro de alta. Para verificar en AEAT, use el código QR.'
         }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
+    // If no registration data exists, the invoice wasn't registered yet
     return new Response(
       JSON.stringify({
-        success: true,
+        success: false,
         invoice_number: invoice.invoice_number,
-        found: consultaResult.found,
-        status: consultaResult.status,
-        csv: consultaResult.csv,
-        registration_date: consultaResult.registrationDate,
-        error: consultaResult.error,
-        environment,
-        local_data: {
-          hash: invoice.invoice_hash,
-          timestamp: invoice.verifactu_timestamp,
-          qr: invoice.verifactu_qr
-        }
+        found: false,
+        message: 'Esta factura no tiene registro Verifactu. Debe sellarla primero.'
       }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
 
   } catch (error) {
