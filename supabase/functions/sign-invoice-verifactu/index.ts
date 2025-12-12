@@ -238,6 +238,112 @@ function requiresDestinatarios(tipoFactura: string): boolean {
   return ['F1', 'F3', 'R1', 'R2', 'R3', 'R4'].includes(tipoFactura);
 }
 
+// Build Desglose XML from invoice items
+// Groups items by fiscal treatment (S1/EXENTA/NO_SUJETA/S2) and tax rate
+function buildDesgloseFromItems(invoiceItems: any[], invoice: any): string {
+  // If no items, fallback to invoice-level data
+  if (!invoiceItems || invoiceItems.length === 0) {
+    const totalBase = Number(invoice.subtotal) || 0;
+    const totalIVA = Number(invoice.tax_amount) || 0;
+    
+    if (totalIVA === 0) {
+      return `
+          <sum1:DetalleDesglose>
+            <sum1:Impuesto>01</sum1:Impuesto>
+            <sum1:ClaveRegimen>01</sum1:ClaveRegimen>
+            <sum1:OperacionExenta>E1</sum1:OperacionExenta>
+            <sum1:BaseImponibleOimporteNoSujeto>${totalBase.toFixed(2)}</sum1:BaseImponibleOimporteNoSujeto>
+          </sum1:DetalleDesglose>`;
+    } else {
+      const taxRate = Number(invoice.tax_rate) || 21;
+      return `
+          <sum1:DetalleDesglose>
+            <sum1:Impuesto>01</sum1:Impuesto>
+            <sum1:ClaveRegimen>01</sum1:ClaveRegimen>
+            <sum1:CalificacionOperacion>S1</sum1:CalificacionOperacion>
+            <sum1:TipoImpositivo>${taxRate.toFixed(2)}</sum1:TipoImpositivo>
+            <sum1:BaseImponibleOimporteNoSujeto>${totalBase.toFixed(2)}</sum1:BaseImponibleOimporteNoSujeto>
+            <sum1:CuotaRepercutida>${Number(invoice.tax_amount).toFixed(2)}</sum1:CuotaRepercutida>
+          </sum1:DetalleDesglose>`;
+    }
+  }
+
+  // Group items by treatment type and tax rate
+  interface DesgloseGroup {
+    treatment: string;
+    taxRate: number;
+    exemptionCode: string | null;
+    nonSubjectCode: string | null;
+    baseImponible: number;
+    cuotaRepercutida: number;
+  }
+
+  const groups: Map<string, DesgloseGroup> = new Map();
+
+  for (const item of invoiceItems) {
+    const taxRate = Number(item.tax_rate) || 0;
+    const base = Number(item.unit_price) * Number(item.quantity || 1);
+    const cuota = Number(item.tax_amount) || 0;
+    
+    // Determine treatment from item or infer from tax rate
+    let treatment = item.tax_treatment || (taxRate === 0 ? 'EXENTA' : 'S1');
+    let exemptionCode = item.exemption_code || (treatment === 'EXENTA' ? 'E1' : null);
+    let nonSubjectCode = item.non_subject_code || null;
+
+    // Create group key based on treatment + tax rate
+    const groupKey = `${treatment}-${taxRate}-${exemptionCode || ''}-${nonSubjectCode || ''}`;
+
+    if (groups.has(groupKey)) {
+      const existing = groups.get(groupKey)!;
+      existing.baseImponible += base;
+      existing.cuotaRepercutida += cuota;
+    } else {
+      groups.set(groupKey, {
+        treatment,
+        taxRate,
+        exemptionCode,
+        nonSubjectCode,
+        baseImponible: base,
+        cuotaRepercutida: cuota,
+      });
+    }
+  }
+
+  // Build XML for each group
+  let xml = '';
+  for (const group of groups.values()) {
+    xml += '\n          <sum1:DetalleDesglose>';
+    xml += '\n            <sum1:Impuesto>01</sum1:Impuesto>';
+    xml += '\n            <sum1:ClaveRegimen>01</sum1:ClaveRegimen>';
+
+    if (group.treatment === 'EXENTA') {
+      // Exempt operation - use OperacionExenta, NO CalificacionOperacion
+      xml += `\n            <sum1:OperacionExenta>${group.exemptionCode || 'E1'}</sum1:OperacionExenta>`;
+      xml += `\n            <sum1:BaseImponibleOimporteNoSujeto>${group.baseImponible.toFixed(2)}</sum1:BaseImponibleOimporteNoSujeto>`;
+    } else if (group.treatment === 'NO_SUJETA') {
+      // Non-subject operation - use specific format
+      xml += `\n            <sum1:OperacionNoSujeta>${group.nonSubjectCode || 'N1'}</sum1:OperacionNoSujeta>`;
+      xml += `\n            <sum1:BaseImponibleOimporteNoSujeto>${group.baseImponible.toFixed(2)}</sum1:BaseImponibleOimporteNoSujeto>`;
+    } else if (group.treatment === 'S2') {
+      // Reverse charge - S2 with no CuotaRepercutida
+      xml += '\n            <sum1:CalificacionOperacion>S2</sum1:CalificacionOperacion>';
+      xml += `\n            <sum1:TipoImpositivo>0.00</sum1:TipoImpositivo>`;
+      xml += `\n            <sum1:BaseImponibleOimporteNoSujeto>${group.baseImponible.toFixed(2)}</sum1:BaseImponibleOimporteNoSujeto>`;
+      xml += '\n            <sum1:CuotaRepercutida>0.00</sum1:CuotaRepercutida>';
+    } else {
+      // S1 - Subject with VAT
+      xml += '\n            <sum1:CalificacionOperacion>S1</sum1:CalificacionOperacion>';
+      xml += `\n            <sum1:TipoImpositivo>${group.taxRate.toFixed(2)}</sum1:TipoImpositivo>`;
+      xml += `\n            <sum1:BaseImponibleOimporteNoSujeto>${group.baseImponible.toFixed(2)}</sum1:BaseImponibleOimporteNoSujeto>`;
+      xml += `\n            <sum1:CuotaRepercutida>${group.cuotaRepercutida.toFixed(2)}</sum1:CuotaRepercutida>`;
+    }
+
+    xml += '\n          </sum1:DetalleDesglose>';
+  }
+
+  return xml;
+}
+
 // Calculate hash for chaining (Huella) - AEAT format: campo=valor&campo=valor...
 async function calculateInvoiceHash(invoice: any, center: any, previousHash: string | null, timestamp: string): Promise<string> {
   const nifEmisor = (center.tax_id?.replace(/[^A-Z0-9]/gi, '') || '').trim();
@@ -280,33 +386,9 @@ function buildRegistroAltaXML(invoice: any, center: any, patient: any, invoiceIt
   const patientTaxId = patient?.tax_id?.replace(/[^A-Z0-9]/gi, '') || '';
   const patientName = patient ? `${patient.first_name} ${patient.last_name}`.trim() : 'Cliente';
   
-  // Build desglose (breakdown)
-  let desgloseXML = '';
-  const totalBase = Number(invoice.subtotal) || 0;
-  const totalIVA = Number(invoice.tax_amount) || 0;
-  
-  if (totalIVA === 0) {
-    // Exempt operation (healthcare services - art. 20 LIVA)
-    // For exempt operations: NO CalificacionOperacion, only OperacionExenta
-    desgloseXML = `
-          <sum1:DetalleDesglose>
-            <sum1:Impuesto>01</sum1:Impuesto>
-            <sum1:ClaveRegimen>01</sum1:ClaveRegimen>
-            <sum1:OperacionExenta>E1</sum1:OperacionExenta>
-            <sum1:BaseImponibleOimporteNoSujeto>${totalBase.toFixed(2)}</sum1:BaseImponibleOimporteNoSujeto>
-          </sum1:DetalleDesglose>`;
-  } else {
-    const taxRate = Number(invoice.tax_rate) || 21;
-    desgloseXML = `
-          <sum1:DetalleDesglose>
-            <sum1:Impuesto>01</sum1:Impuesto>
-            <sum1:ClaveRegimen>01</sum1:ClaveRegimen>
-            <sum1:CalificacionOperacion>S1</sum1:CalificacionOperacion>
-            <sum1:TipoImpositivo>${taxRate.toFixed(2)}</sum1:TipoImpositivo>
-            <sum1:BaseImponibleOimporteNoSujeto>${totalBase.toFixed(2)}</sum1:BaseImponibleOimporteNoSujeto>
-            <sum1:CuotaRepercutida>${totalIVA.toFixed(2)}</sum1:CuotaRepercutida>
-          </sum1:DetalleDesglose>`;
-  }
+  // Build desglose (breakdown) from invoice items
+  // Group items by fiscal treatment to create proper DetalleDesglose entries
+  const desgloseXML = buildDesgloseFromItems(invoiceItems, invoice);
 
   // Build encadenamiento (chaining)
   let encadenamientoXML = '';
@@ -412,7 +494,7 @@ function buildRegistroAltaXML(invoice: any, center: any, patient: any, invoiceIt
           <sum1:DescripcionOperacion>Servicios de psicología</sum1:DescripcionOperacion>${destinatariosXML}
           <sum1:Desglose>${desgloseXML}
           </sum1:Desglose>
-          <sum1:CuotaTotal>${totalIVA.toFixed(2)}</sum1:CuotaTotal>
+          <sum1:CuotaTotal>${Number(invoice.tax_amount || 0).toFixed(2)}</sum1:CuotaTotal>
           <sum1:ImporteTotal>${Number(invoice.total).toFixed(2)}</sum1:ImporteTotal>
           <sum1:Encadenamiento>
             ${encadenamientoXML}
