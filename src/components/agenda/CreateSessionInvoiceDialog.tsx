@@ -338,6 +338,40 @@ export function CreateSessionInvoiceDialog({
     if (!patientData || !selectedSeriesId || items.length === 0) return;
 
     try {
+      // First, create or get billable event for the session
+      let billableEventId: string | null = null;
+      const sessionItem = items.find(item => item.sessionId);
+      
+      if (sessionItem?.sessionId) {
+        // Check if billable event already exists
+        const { data: existingEvent } = await supabase
+          .from('billable_events')
+          .select('id')
+          .eq('session_id', sessionItem.sessionId)
+          .maybeSingle();
+
+        if (existingEvent) {
+          billableEventId = existingEvent.id;
+        } else {
+          // Create new billable event
+          const { data: newEvent, error: beError } = await supabase
+            .from('billable_events')
+            .insert({
+              center_id: center!.id,
+              session_id: sessionItem.sessionId,
+              patient_id: patientData.id,
+              concept: sessionItem.description,
+              amount: sessionItem.unitPrice,
+              billing_status: 'pending',
+            })
+            .select()
+            .single();
+
+          if (beError) throw beError;
+          billableEventId = newEvent.id;
+        }
+      }
+
       const result = await createInvoice.mutateAsync({
         invoice: {
           patient_id: patientData.id,
@@ -361,6 +395,7 @@ export function CreateSessionInvoiceDialog({
           retention_amount: item.retentionAmount,
           total: item.total,
           session_id: item.sessionId || null,
+          billable_event_id: billableEventId,
         })),
         seriesId: selectedSeriesId,
       });

@@ -4,6 +4,7 @@ import { FileText, User, Download, MoreVertical, ShieldCheck, Search, FileX, Fil
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -49,6 +50,8 @@ export function InvoiceCard({
   const maxRetriesReached = (invoice.verifactu_retry_count || 0) >= 5;
   // Invoice is issued but NOT signed in Verifactu (needs signing)
   const needsVerifactuSign = invoice.status === 'issued' && !isSealed && !isPendingVerifactu;
+  // Check if invoice has been invalidated (rectified)
+  const isInvalidated = (invoice as any).is_valid === false;
 
   return (
     <Card className="transition-all hover:shadow-md">
@@ -61,8 +64,11 @@ export function InvoiceCard({
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-                <span className="font-semibold text-sm sm:text-base">{invoice.invoice_number}</span>
+                <span className={cn("font-semibold text-sm sm:text-base", isInvalidated && "line-through text-muted-foreground")}>{invoice.invoice_number}</span>
                 <Badge variant={status.variant} className="text-xs">{status.label}</Badge>
+                {isInvalidated && (
+                  <Badge variant="outline" className="text-xs border-amber-500 text-amber-600">Anulada</Badge>
+                )}
                 {invoice.is_recapitulative && (
                   <Badge variant="outline" className="text-xs hidden sm:inline-flex">Recap</Badge>
                 )}

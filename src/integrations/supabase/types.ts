@@ -94,6 +94,64 @@ export type Database = {
           },
         ]
       }
+      billable_events: {
+        Row: {
+          amount: number
+          billing_status: string
+          center_id: string
+          concept: string
+          created_at: string
+          id: string
+          patient_id: string
+          session_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount?: number
+          billing_status?: string
+          center_id: string
+          concept: string
+          created_at?: string
+          id?: string
+          patient_id: string
+          session_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          billing_status?: string
+          center_id?: string
+          concept?: string
+          created_at?: string
+          id?: string
+          patient_id?: string
+          session_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "billable_events_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "billable_events_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "billable_events_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bono_items: {
         Row: {
           bono_id: string
@@ -545,6 +603,7 @@ export type Database = {
       }
       invoice_items: {
         Row: {
+          billable_event_id: string | null
           created_at: string
           description: string
           id: string
@@ -561,6 +620,7 @@ export type Database = {
           unit_price: number
         }
         Insert: {
+          billable_event_id?: string | null
           created_at?: string
           description: string
           id?: string
@@ -577,6 +637,7 @@ export type Database = {
           unit_price: number
         }
         Update: {
+          billable_event_id?: string | null
           created_at?: string
           description?: string
           id?: string
@@ -593,6 +654,13 @@ export type Database = {
           unit_price?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "invoice_items_billable_event_id_fkey"
+            columns: ["billable_event_id"]
+            isOneToOne: false
+            referencedRelation: "billable_events"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "invoice_items_invoice_id_fkey"
             columns: ["invoice_id"]
@@ -671,6 +739,7 @@ export type Database = {
           invoice_hash: string | null
           invoice_number: string
           is_recapitulative: boolean | null
+          is_valid: boolean
           issue_date: string
           notes: string | null
           patient_id: string
@@ -705,6 +774,7 @@ export type Database = {
           invoice_hash?: string | null
           invoice_number: string
           is_recapitulative?: boolean | null
+          is_valid?: boolean
           issue_date?: string
           notes?: string | null
           patient_id: string
@@ -739,6 +809,7 @@ export type Database = {
           invoice_hash?: string | null
           invoice_number?: string
           is_recapitulative?: boolean | null
+          is_valid?: boolean
           issue_date?: string
           notes?: string | null
           patient_id?: string

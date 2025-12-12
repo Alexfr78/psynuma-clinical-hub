@@ -732,17 +732,40 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
 
               {/* Action Buttons */}
               <div className="flex flex-wrap gap-2">
-                {/* Invoice Button with status-based logic */}
-                {invoiceStatus?.isInvoiced ? (
-                  <Button 
-                    size="sm" 
-                    variant="outline"
-                    className="text-blue-600 border-blue-300"
-                    onClick={() => navigate('/facturas')}
-                  >
-                    <FileText className="h-4 w-4 mr-1" />
-                    {`Factura ${invoiceStatus.invoiceNumber}`}
-                  </Button>
+                {/* Invoice Button with status-based logic - now supports multiple invoices */}
+                {invoiceStatus?.isInvoiced && invoiceStatus.invoices?.length > 0 ? (
+                  <div className="w-full space-y-2">
+                    <p className="text-xs text-muted-foreground">Facturas asociadas:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {invoiceStatus.invoices.map((inv: any) => (
+                        <Button 
+                          key={inv.id}
+                          size="sm" 
+                          variant="outline"
+                          className={cn(
+                            "text-blue-600 border-blue-300",
+                            !inv.is_valid && "line-through opacity-60"
+                          )}
+                          onClick={() => navigate('/facturas')}
+                        >
+                          <FileText className="h-4 w-4 mr-1" />
+                          {inv.invoice_number}
+                          {!inv.is_valid && <span className="ml-1 text-amber-600">(Anulada)</span>}
+                        </Button>
+                      ))}
+                    </div>
+                    {/* Show create invoice button if billable event is still pending */}
+                    {invoiceStatus.canCreateInvoice && localPrice > 0 && !localBonoId && (
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => setShowInvoiceDialog(true)}
+                      >
+                        <FileText className="h-4 w-4 mr-1" />
+                        Nueva factura
+                      </Button>
+                    )}
+                  </div>
                 ) : localBonoId ? (
                   <TooltipProvider>
                     <Tooltip>

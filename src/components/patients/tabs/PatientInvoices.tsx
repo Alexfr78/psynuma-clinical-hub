@@ -7,6 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { cn } from '@/lib/utils';
 
 interface PatientInvoicesProps {
   patientId: string;
@@ -60,16 +61,25 @@ export function PatientInvoices({ patientId }: PatientInvoicesProps) {
     <div className="space-y-4">
       {invoices.map((invoice) => {
         const status = statusConfig[invoice.status as keyof typeof statusConfig] || statusConfig.draft;
+        const isInvalidated = (invoice as any).is_valid === false;
         
         return (
-          <Card key={invoice.id} className="transition-colors hover:bg-muted/50">
+          <Card key={invoice.id} className={cn(
+            "transition-colors hover:bg-muted/50",
+            isInvalidated && "opacity-60"
+          )}>
             <CardContent className="p-4">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
                     <FileText className="h-4 w-4 text-primary" />
-                    <span className="font-medium">{invoice.invoice_number}</span>
+                    <span className={cn("font-medium", isInvalidated && "line-through text-muted-foreground")}>
+                      {invoice.invoice_number}
+                    </span>
                     <Badge variant={status.variant}>{status.label}</Badge>
+                    {isInvalidated && (
+                      <Badge variant="outline" className="border-amber-500 text-amber-600">Anulada</Badge>
+                    )}
                     {invoice.is_recapitulative && (
                       <Badge variant="outline">Recapitulativa</Badge>
                     )}
