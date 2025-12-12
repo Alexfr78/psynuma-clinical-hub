@@ -175,23 +175,6 @@ export function InvoiceCard({
                           <FilePlus2 className="h-4 w-4 mr-2" />
                           Crear Rectificativa
                         </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={onCancelVerifactu} className="text-destructive">
-                          <FileX className="h-4 w-4 mr-2" />
-                          Anular RF en AEAT
-                        </DropdownMenuItem>
-                      </>
-                    )}
-
-                    {(invoice.status === 'draft' || invoice.status === 'issued') && !isSealed && (
-                      <>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem 
-                          onClick={() => onStatusChange?.('cancelled')}
-                          className="text-destructive"
-                        >
-                          Cancelar factura
-                        </DropdownMenuItem>
                       </>
                     )}
                   </DropdownMenuContent>
