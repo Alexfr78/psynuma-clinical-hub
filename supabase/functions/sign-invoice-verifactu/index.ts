@@ -128,15 +128,25 @@ function formatDateVerifactu(dateStr: string): string {
   return `${day}-${month}-${year}`;
 }
 
-// Format timestamp for Verifactu
+// Format timestamp for Verifactu - ISO 8601 with timezone offset (AEAT requirement)
 function formatTimestampVerifactu(date: Date): string {
-  const day = date.getDate().toString().padStart(2, '0');
-  const month = (date.getMonth() + 1).toString().padStart(2, '0');
+  const pad = (n: number) => String(n).padStart(2, '0');
+  
   const year = date.getFullYear();
-  const hours = date.getHours().toString().padStart(2, '0');
-  const minutes = date.getMinutes().toString().padStart(2, '0');
-  const seconds = date.getSeconds().toString().padStart(2, '0');
-  return `${day}-${month}-${year}T${hours}:${minutes}:${seconds}`;
+  const month = pad(date.getMonth() + 1);
+  const day = pad(date.getDate());
+  const hours = pad(date.getHours());
+  const minutes = pad(date.getMinutes());
+  const seconds = pad(date.getSeconds());
+  
+  // Calculate timezone offset in minutes
+  const tzOffset = -date.getTimezoneOffset();
+  const sign = tzOffset >= 0 ? '+' : '-';
+  const offsetHours = pad(Math.floor(Math.abs(tzOffset) / 60));
+  const offsetMinutes = pad(Math.abs(tzOffset) % 60);
+  
+  // Return ISO 8601 format: YYYY-MM-DDTHH:mm:ss+HH:MM
+  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}${sign}${offsetHours}:${offsetMinutes}`;
 }
 
 // Generate Verifactu QR URL
@@ -574,12 +584,47 @@ async function sendToAEAT(
       };
     }
 
-    // Check for SOAP faults or error codes
-    if (responseText.includes('<sifac:CodigoErrorRegistro>') || responseText.includes('faultstring')) {
-      const errorMatch = responseText.match(/<sifac:DescripcionErrorRegistro>([^<]+)<\/sifac:DescripcionErrorRegistro>/);
-      const faultMatch = responseText.match(/<faultstring>([^<]+)<\/faultstring>/);
-      const errorMessage = errorMatch?.[1] || faultMatch?.[1] || 'Error desconocido de AEAT';
-      return { success: false, error: errorMessage, response: responseText, httpStatus: response.status };
+    // Check for EstadoEnvio/EstadoRegistro = Incorrecto (multiple namespace patterns: sifac, tikR)
+    const estadoEnvioMatch = responseText.match(/<(?:sifac|tikR):EstadoEnvio>([^<]+)<\/(?:sifac|tikR):EstadoEnvio>/);
+    const estadoRegistroMatch = responseText.match(/<(?:sifac|tikR):EstadoRegistro>([^<]+)<\/(?:sifac|tikR):EstadoRegistro>/);
+    const estadoEnvio = estadoEnvioMatch?.[1];
+    const estadoRegistro = estadoRegistroMatch?.[1];
+    
+    // Extract error code and description (support multiple namespaces)
+    const errorCodePatterns = [
+      /<(?:sifac|tikR):CodigoErrorRegistro>(\d+)<\/(?:sifac|tikR):CodigoErrorRegistro>/,
+      /<CodigoErrorRegistro>(\d+)<\/CodigoErrorRegistro>/
+    ];
+    const errorDescPatterns = [
+      /<(?:sifac|tikR):DescripcionErrorRegistro>([^<]+)<\/(?:sifac|tikR):DescripcionErrorRegistro>/,
+      /<DescripcionErrorRegistro>([^<]+)<\/DescripcionErrorRegistro>/
+    ];
+    
+    let errorCode: string | null = null;
+    let errorDesc: string | null = null;
+    
+    for (const pattern of errorCodePatterns) {
+      const match = responseText.match(pattern);
+      if (match) { errorCode = match[1]; break; }
+    }
+    for (const pattern of errorDescPatterns) {
+      const match = responseText.match(pattern);
+      if (match) { errorDesc = match[1]; break; }
+    }
+    
+    // Check for SOAP faults
+    const faultMatch = responseText.match(/<faultstring>([^<]+)<\/faultstring>/);
+    
+    // If there's an error code or status is Incorrecto, return error with details
+    if (errorCode || estadoEnvio === 'Incorrecto' || estadoRegistro === 'Incorrecto' || faultMatch) {
+      const errorMessage = errorDesc || faultMatch?.[1] || 'Registro rechazado por AEAT';
+      console.log(`AEAT rejected invoice: Code ${errorCode || 'N/A'}, Message: ${errorMessage}`);
+      return { 
+        success: false, 
+        error: errorCode ? `Error ${errorCode}: ${errorMessage}` : errorMessage, 
+        response: responseText, 
+        httpStatus: response.status 
+      };
     }
 
     // Check for successful response (CSV in response indicates success)
@@ -589,23 +634,26 @@ async function sendToAEAT(
       return { success: true, response: responseText, httpStatus: response.status };
     }
 
-    // Check for EstadoRegistro = Correcto
-    if (responseText.includes('Correcto') || responseText.includes('Aceptada')) {
+    // Check for EstadoRegistro = Correcto or EstadoEnvio = Correcto
+    if (estadoEnvio === 'Correcto' || estadoRegistro === 'Correcto' || 
+        responseText.includes('Correcto') || responseText.includes('Aceptada')) {
       return { success: true, response: responseText, httpStatus: response.status };
     }
 
-    // If no clear success indicator, check for errors
-    if (responseText.includes('Error') || responseText.includes('Rechazad')) {
-      return { 
-        success: false, 
-        error: 'Respuesta inesperada de AEAT - no es XML Verifactu válido', 
-        response: responseText, 
-        httpStatus: response.status 
-      };
+    // If we have a valid SOAP response but no clear success/error, log warning and return as pending
+    if (responseText.includes('RespuestaRegFactuSistemaFacturacion') || responseText.includes('env:Envelope')) {
+      console.log("AEAT response received but status unclear, treating as success");
+      return { success: true, response: responseText, httpStatus: response.status };
     }
 
-    // Default: assume success if we got a valid XML response
-    return { success: true, response: responseText, httpStatus: response.status };
+    // Unknown response format
+    console.log("Unknown AEAT response format");
+    return { 
+      success: false, 
+      error: 'Respuesta inesperada de AEAT - formato no reconocido', 
+      response: responseText, 
+      httpStatus: response.status 
+    };
   } catch (error) {
     console.error("Error sending to AEAT:", error);
     return { success: false, error: error instanceof Error ? error.message : 'Error de conexión' };
