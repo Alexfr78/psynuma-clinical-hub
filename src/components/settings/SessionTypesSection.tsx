@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Plus, X, Loader2, Save } from 'lucide-react';
+import { Plus, X, Loader2, Save, AlertCircle, Info } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
   useSessionTypes,
   useCreateSessionType,
@@ -12,6 +14,17 @@ import {
   useDeleteSessionType,
   SessionType,
 } from '@/hooks/useSessionTypes';
+import {
+  validateProductForAEAT,
+  hasBlockingErrors,
+  TAX_TREATMENT_OPTIONS,
+  EXEMPTION_CODE_OPTIONS,
+  NON_SUBJECT_CODE_OPTIONS,
+  VAT_RATE_OPTIONS,
+  type TaxTreatment,
+  type ExemptionCode,
+  type NonSubjectCode,
+} from '@/lib/verifactu-validation';
 
 const DURATION_OPTIONS = [
   { value: 15, label: '15 min' },
@@ -54,6 +67,7 @@ export function SessionTypesSection() {
   const [editableTypes, setEditableTypes] = useState<EditableSessionType[]>([]);
   const [hasChanges, setHasChanges] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [expandedFiscal, setExpandedFiscal] = useState<string | null>(null);
 
   useEffect(() => {
     if (sessionTypes && !isInitialized) {
@@ -62,28 +76,58 @@ export function SessionTypesSection() {
     }
   }, [sessionTypes, isInitialized]);
 
-  const handleChange = (index: number, field: keyof EditableSessionType, value: string | number) => {
+  const handleChange = (index: number, field: keyof EditableSessionType, value: string | number | null) => {
     setEditableTypes(prev => {
       const updated = [...prev];
       updated[index] = { ...updated[index], [field]: value };
+      
+      // Auto-adjust related fields when tax_treatment changes
+      if (field === 'tax_treatment') {
+        const treatment = value as TaxTreatment;
+        if (treatment === 'EXENTA') {
+          updated[index].vat_rate = 0;
+          updated[index].exemption_code = updated[index].exemption_code || 'E1';
+          updated[index].non_subject_code = null;
+        } else if (treatment === 'NO_SUJETA') {
+          updated[index].vat_rate = 0;
+          updated[index].exemption_code = null;
+          updated[index].non_subject_code = updated[index].non_subject_code || 'N1';
+        } else if (treatment === 'S1') {
+          updated[index].vat_rate = updated[index].vat_rate && updated[index].vat_rate > 0 ? updated[index].vat_rate : 21;
+          updated[index].exemption_code = null;
+          updated[index].non_subject_code = null;
+        } else if (treatment === 'S2') {
+          updated[index].vat_rate = 0;
+          updated[index].exemption_code = null;
+          updated[index].non_subject_code = null;
+        }
+      }
+      
       return updated;
     });
     setHasChanges(true);
   };
 
   const handleAddNew = () => {
+    const newId = `new-${Date.now()}`;
     setEditableTypes(prev => [
       ...prev,
       {
-        tempId: `new-${Date.now()}`,
+        tempId: newId,
         isNew: true,
         name: '',
         default_price: 60,
         commission_rate: 0,
         duration_minutes: 60,
         color: '#3B82F6',
+        tax_treatment: 'EXENTA',
+        vat_rate: 0,
+        exemption_code: 'E1',
+        non_subject_code: null,
+        vat_regime_key: '01',
       },
     ]);
+    setExpandedFiscal(newId);
     setHasChanges(true);
   };
 
@@ -103,6 +147,20 @@ export function SessionTypesSection() {
     for (const item of editableTypes) {
       if (!item.name?.trim()) continue;
 
+      // Validate fiscal configuration
+      const issues = validateProductForAEAT({
+        name: item.name,
+        tax_treatment: item.tax_treatment || 'EXENTA',
+        vat_rate: item.vat_rate ?? 0,
+        exemption_code: item.exemption_code as ExemptionCode,
+        non_subject_code: item.non_subject_code as NonSubjectCode,
+        vat_regime_key: item.vat_regime_key,
+      });
+
+      if (hasBlockingErrors(issues)) {
+        continue; // Skip items with errors
+      }
+
       if (item.isNew) {
         promises.push(
           createMutation.mutateAsync({
@@ -111,6 +169,11 @@ export function SessionTypesSection() {
             commission_rate: item.commission_rate || 0,
             duration_minutes: item.duration_minutes || 60,
             color: item.color || '#3B82F6',
+            tax_treatment: item.tax_treatment || 'EXENTA',
+            vat_rate: item.vat_rate ?? 0,
+            exemption_code: item.exemption_code as ExemptionCode,
+            non_subject_code: item.non_subject_code as NonSubjectCode,
+            vat_regime_key: item.vat_regime_key || '01',
           })
         );
       } else if (item.id) {
@@ -121,7 +184,11 @@ export function SessionTypesSection() {
             Number(original.default_price) !== Number(item.default_price) ||
             Number(original.commission_rate || 0) !== Number(item.commission_rate || 0) ||
             Number(original.duration_minutes) !== Number(item.duration_minutes) ||
-            original.color !== item.color;
+            original.color !== item.color ||
+            original.tax_treatment !== item.tax_treatment ||
+            Number(original.vat_rate || 0) !== Number(item.vat_rate || 0) ||
+            original.exemption_code !== item.exemption_code ||
+            original.non_subject_code !== item.non_subject_code;
 
           if (hasChanged) {
             promises.push(
@@ -132,6 +199,11 @@ export function SessionTypesSection() {
                 commission_rate: Number(item.commission_rate || 0),
                 duration_minutes: Number(item.duration_minutes),
                 color: item.color,
+                tax_treatment: item.tax_treatment || 'EXENTA',
+                vat_rate: item.vat_rate ?? 0,
+                exemption_code: item.exemption_code as ExemptionCode,
+                non_subject_code: item.non_subject_code as NonSubjectCode,
+                vat_regime_key: item.vat_regime_key || '01',
               })
             );
           }
@@ -142,6 +214,18 @@ export function SessionTypesSection() {
     await Promise.all(promises);
     setIsInitialized(false);
     setHasChanges(false);
+  };
+
+  const getValidationIssues = (item: EditableSessionType) => {
+    if (!item.name?.trim()) return [];
+    return validateProductForAEAT({
+      name: item.name,
+      tax_treatment: item.tax_treatment || 'EXENTA',
+      vat_rate: item.vat_rate ?? 0,
+      exemption_code: item.exemption_code as ExemptionCode,
+      non_subject_code: item.non_subject_code as NonSubjectCode,
+      vat_regime_key: item.vat_regime_key,
+    });
   };
 
   const isSaving = createMutation.isPending || updateMutation.isPending;
@@ -159,7 +243,7 @@ export function SessionTypesSection() {
       <CardHeader>
         <CardTitle>Tipos de sesión & precios</CardTitle>
         <CardDescription>
-          Configura los tipos de sesión disponibles con sus precios y duraciones
+          Configura los tipos de sesión disponibles con sus precios, duraciones y tratamiento fiscal para Verifactu
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -175,112 +259,250 @@ export function SessionTypesSection() {
 
         {/* Session Types List */}
         <div className="space-y-3">
-          {editableTypes.map((item, index) => (
-            <div
-              key={item.id || item.tempId}
-              className="grid grid-cols-1 md:grid-cols-[1fr,100px,100px,140px,80px,40px] gap-3 md:gap-4 p-3 md:p-2 rounded-lg border bg-card"
-            >
-              {/* Name */}
-              <div className="space-y-1 md:space-y-0">
-                <Label className="md:hidden text-xs text-muted-foreground">Nombre</Label>
-                <Input
-                  value={item.name || ''}
-                  onChange={e => handleChange(index, 'name', e.target.value)}
-                  placeholder="Nombre del tipo"
-                  className="h-9"
-                />
-              </div>
+          {editableTypes.map((item, index) => {
+            const itemId = item.id || item.tempId || `item-${index}`;
+            const issues = getValidationIssues(item);
+            const hasErrors = hasBlockingErrors(issues);
+            const isExpanded = expandedFiscal === itemId;
 
-              {/* Price */}
-              <div className="space-y-1 md:space-y-0">
-                <Label className="md:hidden text-xs text-muted-foreground">Precio (€)</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  value={item.default_price || 0}
-                  onChange={e => handleChange(index, 'default_price', parseFloat(e.target.value) || 0)}
-                  className="h-9"
-                />
-              </div>
+            return (
+              <div
+                key={itemId}
+                className={`rounded-lg border bg-card ${hasErrors ? 'border-destructive/50' : ''}`}
+              >
+                {/* Main row */}
+                <div className="grid grid-cols-1 md:grid-cols-[1fr,100px,100px,140px,80px,40px] gap-3 md:gap-4 p-3 md:p-2">
+                  {/* Name */}
+                  <div className="space-y-1 md:space-y-0">
+                    <Label className="md:hidden text-xs text-muted-foreground">Nombre</Label>
+                    <Input
+                      value={item.name || ''}
+                      onChange={e => handleChange(index, 'name', e.target.value)}
+                      placeholder="Nombre del tipo"
+                      className="h-9"
+                    />
+                  </div>
 
-              {/* Commission */}
-              <div className="space-y-1 md:space-y-0">
-                <Label className="md:hidden text-xs text-muted-foreground">Comisión (%)</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  max={100}
-                  value={item.commission_rate || 0}
-                  onChange={e => handleChange(index, 'commission_rate', parseFloat(e.target.value) || 0)}
-                  className="h-9"
-                />
-              </div>
+                  {/* Price */}
+                  <div className="space-y-1 md:space-y-0">
+                    <Label className="md:hidden text-xs text-muted-foreground">Precio (€)</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={item.default_price || 0}
+                      onChange={e => handleChange(index, 'default_price', parseFloat(e.target.value) || 0)}
+                      className="h-9"
+                    />
+                  </div>
 
-              {/* Duration */}
-              <div className="space-y-1 md:space-y-0">
-                <Label className="md:hidden text-xs text-muted-foreground">Duración</Label>
-                <Select
-                  value={String(item.duration_minutes || 60)}
-                  onValueChange={v => handleChange(index, 'duration_minutes', parseInt(v))}
-                >
-                  <SelectTrigger className="h-9">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {DURATION_OPTIONS.map(opt => (
-                      <SelectItem key={opt.value} value={String(opt.value)}>
-                        {opt.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+                  {/* Commission */}
+                  <div className="space-y-1 md:space-y-0">
+                    <Label className="md:hidden text-xs text-muted-foreground">Comisión (%)</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={item.commission_rate || 0}
+                      onChange={e => handleChange(index, 'commission_rate', parseFloat(e.target.value) || 0)}
+                      className="h-9"
+                    />
+                  </div>
 
-              {/* Color */}
-              <div className="space-y-1 md:space-y-0">
-                <Label className="md:hidden text-xs text-muted-foreground">Color</Label>
-                <Select
-                  value={item.color || '#3B82F6'}
-                  onValueChange={v => handleChange(index, 'color', v)}
-                >
-                  <SelectTrigger className="h-9">
-                    <SelectValue>
-                      <div
-                        className="w-5 h-5 rounded-full"
-                        style={{ backgroundColor: item.color || '#3B82F6' }}
-                      />
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {COLOR_OPTIONS.map(opt => (
-                      <SelectItem key={opt.value} value={opt.value}>
-                        <div className="flex items-center gap-2">
+                  {/* Duration */}
+                  <div className="space-y-1 md:space-y-0">
+                    <Label className="md:hidden text-xs text-muted-foreground">Duración</Label>
+                    <Select
+                      value={String(item.duration_minutes || 60)}
+                      onValueChange={v => handleChange(index, 'duration_minutes', parseInt(v))}
+                    >
+                      <SelectTrigger className="h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {DURATION_OPTIONS.map(opt => (
+                          <SelectItem key={opt.value} value={String(opt.value)}>
+                            {opt.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Color */}
+                  <div className="space-y-1 md:space-y-0">
+                    <Label className="md:hidden text-xs text-muted-foreground">Color</Label>
+                    <Select
+                      value={item.color || '#3B82F6'}
+                      onValueChange={v => handleChange(index, 'color', v)}
+                    >
+                      <SelectTrigger className="h-9">
+                        <SelectValue>
                           <div
-                            className="w-4 h-4 rounded-full"
-                            style={{ backgroundColor: opt.value }}
+                            className="w-5 h-5 rounded-full"
+                            style={{ backgroundColor: item.color || '#3B82F6' }}
                           />
-                          <span>{opt.label}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {COLOR_OPTIONS.map(opt => (
+                          <SelectItem key={opt.value} value={opt.value}>
+                            <div className="flex items-center gap-2">
+                              <div
+                                className="w-4 h-4 rounded-full"
+                                style={{ backgroundColor: opt.value }}
+                              />
+                              <span>{opt.label}</span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-              {/* Delete Button */}
-              <div className="flex items-center justify-end md:justify-center">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => handleDelete(index)}
-                  disabled={deleteMutation.isPending}
-                  className="h-9 w-9 text-muted-foreground hover:text-destructive"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
+                  {/* Delete Button */}
+                  <div className="flex items-center justify-end md:justify-center">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleDelete(index)}
+                      disabled={deleteMutation.isPending}
+                      className="h-9 w-9 text-muted-foreground hover:text-destructive"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Fiscal configuration collapsible */}
+                <Collapsible open={isExpanded} onOpenChange={(open) => setExpandedFiscal(open ? itemId : null)}>
+                  <div className="px-3 pb-2 md:px-2">
+                    <CollapsibleTrigger asChild>
+                      <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-muted-foreground">
+                        <Info className="h-3 w-3 mr-1" />
+                        Configuración fiscal {hasErrors && <AlertCircle className="h-3 w-3 ml-1 text-destructive" />}
+                      </Button>
+                    </CollapsibleTrigger>
+                  </div>
+                  
+                  <CollapsibleContent>
+                    <div className="px-3 pb-3 md:px-2 space-y-3 border-t pt-3">
+                      {/* Validation alerts */}
+                      {issues.length > 0 && (
+                        <Alert variant={hasErrors ? "destructive" : "default"} className="py-2">
+                          <AlertCircle className="h-4 w-4" />
+                          <AlertDescription className="text-xs space-y-1">
+                            {issues.map((issue, i) => (
+                              <div key={i}>
+                                {issue.severity === "error" ? "❌" : "⚠️"} {issue.message}
+                                {issue.hint && <span className="opacity-70"> — {issue.hint}</span>}
+                              </div>
+                            ))}
+                          </AlertDescription>
+                        </Alert>
+                      )}
+
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                        {/* Tax Treatment */}
+                        <div className="space-y-1">
+                          <Label className="text-xs">Tratamiento fiscal</Label>
+                          <Select
+                            value={item.tax_treatment || 'EXENTA'}
+                            onValueChange={v => handleChange(index, 'tax_treatment', v)}
+                          >
+                            <SelectTrigger className="h-9">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {TAX_TREATMENT_OPTIONS.map(opt => (
+                                <SelectItem key={opt.value} value={opt.value}>
+                                  <div className="flex flex-col">
+                                    <span>{opt.label}</span>
+                                    <span className="text-xs text-muted-foreground">{opt.description}</span>
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {/* VAT Rate - only for S1 */}
+                        {item.tax_treatment === 'S1' && (
+                          <div className="space-y-1">
+                            <Label className="text-xs">Tipo IVA (%)</Label>
+                            <Select
+                              value={String(item.vat_rate ?? 21)}
+                              onValueChange={v => handleChange(index, 'vat_rate', parseInt(v))}
+                            >
+                              <SelectTrigger className="h-9">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {VAT_RATE_OPTIONS.filter(o => o.value > 0).map(opt => (
+                                  <SelectItem key={opt.value} value={String(opt.value)}>
+                                    {opt.label} - {opt.description}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
+
+                        {/* Exemption Code - only for EXENTA */}
+                        {item.tax_treatment === 'EXENTA' && (
+                          <div className="space-y-1">
+                            <Label className="text-xs">Código exención</Label>
+                            <Select
+                              value={item.exemption_code || 'E1'}
+                              onValueChange={v => handleChange(index, 'exemption_code', v)}
+                            >
+                              <SelectTrigger className="h-9">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {EXEMPTION_CODE_OPTIONS.map(opt => (
+                                  <SelectItem key={opt.value} value={opt.value}>
+                                    <div className="flex flex-col">
+                                      <span>{opt.label}</span>
+                                      <span className="text-xs text-muted-foreground">{opt.description}</span>
+                                    </div>
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
+
+                        {/* Non-Subject Code - only for NO_SUJETA */}
+                        {item.tax_treatment === 'NO_SUJETA' && (
+                          <div className="space-y-1">
+                            <Label className="text-xs">Código no sujeción</Label>
+                            <Select
+                              value={item.non_subject_code || 'N1'}
+                              onValueChange={v => handleChange(index, 'non_subject_code', v)}
+                            >
+                              <SelectTrigger className="h-9">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {NON_SUBJECT_CODE_OPTIONS.map(opt => (
+                                  <SelectItem key={opt.value} value={opt.value}>
+                                    <div className="flex flex-col">
+                                      <span>{opt.label}</span>
+                                      <span className="text-xs text-muted-foreground">{opt.description}</span>
+                                    </div>
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Add New Button */}

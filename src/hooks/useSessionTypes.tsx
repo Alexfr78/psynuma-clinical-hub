@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { toast } from 'sonner';
+import type { TaxTreatment, ExemptionCode, NonSubjectCode } from '@/lib/verifactu-validation';
 
 export interface SessionType {
   id: string;
@@ -14,6 +15,12 @@ export interface SessionType {
   is_active: boolean | null;
   created_at: string | null;
   updated_at: string | null;
+  // Fiscal fields
+  tax_treatment: TaxTreatment | null;
+  vat_rate: number | null;
+  exemption_code: ExemptionCode | null;
+  non_subject_code: NonSubjectCode | null;
+  vat_regime_key: string | null;
 }
 
 export interface SessionTypeInsert {
@@ -22,6 +29,12 @@ export interface SessionTypeInsert {
   commission_rate?: number;
   duration_minutes: number;
   color: string;
+  // Fiscal fields
+  tax_treatment?: TaxTreatment;
+  vat_rate?: number;
+  exemption_code?: ExemptionCode | null;
+  non_subject_code?: NonSubjectCode | null;
+  vat_regime_key?: string;
 }
 
 export interface SessionTypeUpdate {
@@ -32,6 +45,12 @@ export interface SessionTypeUpdate {
   duration_minutes?: number;
   color?: string;
   is_active?: boolean;
+  // Fiscal fields
+  tax_treatment?: TaxTreatment;
+  vat_rate?: number;
+  exemption_code?: ExemptionCode | null;
+  non_subject_code?: NonSubjectCode | null;
+  vat_regime_key?: string;
 }
 
 export function useSessionTypes() {

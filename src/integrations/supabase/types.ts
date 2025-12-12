@@ -1179,10 +1179,15 @@ export type Database = {
           created_at: string | null
           default_price: number
           duration_minutes: number
+          exemption_code: string | null
           id: string
           is_active: boolean | null
           name: string
+          non_subject_code: string | null
+          tax_treatment: string | null
           updated_at: string | null
+          vat_rate: number | null
+          vat_regime_key: string | null
         }
         Insert: {
           center_id: string
@@ -1191,10 +1196,15 @@ export type Database = {
           created_at?: string | null
           default_price?: number
           duration_minutes?: number
+          exemption_code?: string | null
           id?: string
           is_active?: boolean | null
           name: string
+          non_subject_code?: string | null
+          tax_treatment?: string | null
           updated_at?: string | null
+          vat_rate?: number | null
+          vat_regime_key?: string | null
         }
         Update: {
           center_id?: string
@@ -1203,10 +1213,15 @@ export type Database = {
           created_at?: string | null
           default_price?: number
           duration_minutes?: number
+          exemption_code?: string | null
           id?: string
           is_active?: boolean | null
           name?: string
+          non_subject_code?: string | null
+          tax_treatment?: string | null
           updated_at?: string | null
+          vat_rate?: number | null
+          vat_regime_key?: string | null
         }
         Relationships: [
           {
