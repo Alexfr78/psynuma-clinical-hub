@@ -113,6 +113,18 @@
     @apply border-border;
   }
   
+  /* Mobile-first: 10% larger base font size on mobile */
+  html {
+    font-size: 110%; /* 17.6px base instead of 16px */
+  }
+  
+  /* Reset to normal size on tablet and desktop */
+  @media (min-width: 640px) {
+    html {
+      font-size: 100%; /* Back to 16px base */
+    }
+  }
+  
   body {
     @apply bg-background text-foreground font-sans antialiased;
     font-feature-settings: "rlig" 1, "calt" 1;
