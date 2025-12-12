@@ -603,8 +603,10 @@ function buildRegistroAltaXML(
           </sum1:IDFactura>
           <sum1:NombreRazonEmisor>${escapeXML(nombreEmisor)}</sum1:NombreRazonEmisor>
           <sum1:TipoFactura>${tipoFactura}</sum1:TipoFactura>
-          <sum1:DescripcionOperacion>${descripcionOperacion}</sum1:DescripcionOperacion>${tipoRectificativaXML}${facturasRectificadasXML}${destinatariosXML}
-          <sum1:Desglose>${desgloseXML}
+          <sum1:DescripcionOperacion>${descripcionOperacion}</sum1:DescripcionOperacion>
+${tipoRectificativaXML}${facturasRectificadasXML}${destinatariosXML}
+          <sum1:Desglose>
+${desgloseXML}
           </sum1:Desglose>
           <sum1:CuotaTotal>${Number(invoice.tax_amount || 0).toFixed(2)}</sum1:CuotaTotal>
           <sum1:ImporteTotal>${Number(invoice.total).toFixed(2)}</sum1:ImporteTotal>
@@ -1114,7 +1116,19 @@ serve(async (req) => {
     const xmlBody = buildRegistroAltaXML(invoice, center, patient, invoiceItems, previousHash, generationTimestamp, invoiceHash, rectifiedInvoice);
     console.log("Built XML body, length:", xmlBody.length);
     
-    // CRITICAL VERIFICATION: Ensure DescripcionOperacion is present and not empty
+    // CRITICAL VERIFICATION: Ensure Desglose block is present and contains DetalleDesglose
+    const hasDesglose = /<sum1:Desglose>/.test(xmlBody);
+    const desgloseBlock = xmlBody.match(/<sum1:Desglose>[\s\S]*?<\/sum1:Desglose>/)?.[0];
+    console.log("Has <sum1:Desglose>:", hasDesglose);
+    console.log("Desglose block (first 500 chars):", desgloseBlock?.substring(0, 500));
+    
+    if (!hasDesglose || !desgloseBlock || !desgloseBlock.includes('DetalleDesglose')) {
+      console.error("CRITICAL: Desglose block missing or empty in XML!");
+      console.error("XML body (first 3000 chars):", xmlBody.substring(0, 3000));
+      throw new Error("Error crítico: El bloque Desglose no contiene DetalleDesglose válido");
+    }
+    
+    // VERIFICATION: Ensure DescripcionOperacion is present and not empty
     const descOpMatch = xmlBody.match(/<sum1:DescripcionOperacion>([^<]*)<\/sum1:DescripcionOperacion>/);
     if (!descOpMatch || !descOpMatch[1] || descOpMatch[1].trim().length === 0) {
       console.error("CRITICAL: DescripcionOperacion missing or empty in XML!");
