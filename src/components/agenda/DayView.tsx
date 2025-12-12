@@ -153,7 +153,13 @@ export function DayView({ currentDate, sessions, onSessionClick, onSlotClick, on
     <div 
       className="flex flex-col overflow-hidden rounded-lg border select-none"
       onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseUp}
+      onMouseLeave={() => {
+        if (isDragging) {
+          setIsDragging(false);
+          setDragStart(null);
+          setDragEnd(null);
+        }
+      }}
     >
       {/* Header */}
       <div className="border-b bg-muted/50 p-4 text-center">

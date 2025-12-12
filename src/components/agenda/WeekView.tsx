@@ -100,24 +100,7 @@ export function WeekView({ currentDate, sessions, onSessionClick, onSlotClick, o
     }
   }, [isDragging, dragStart]);
 
-  const handleMouseUp = useCallback(() => {
-    if (isDragging && dragStart && dragEnd) {
-      const startMinutes = slotToMinutes(dragStart.hour, dragStart.minute);
-      const endMinutes = slotToMinutes(dragEnd.hour, dragEnd.minute) + 15;
-
-      const [minMinutes, maxMinutes] = startMinutes <= endMinutes 
-        ? [startMinutes, endMinutes]
-        : [endMinutes - 15, startMinutes + 15];
-
-      const startTime = minutesToTime(minMinutes);
-      const endTime = minutesToTime(maxMinutes);
-
-      onSlotClick(dragStart.day, startTime, endTime);
-    }
-    setIsDragging(false);
-    setDragStart(null);
-    setDragEnd(null);
-  }, [isDragging, dragStart, dragEnd, onSlotClick]);
+  // Removed - now handled in handleGlobalMouseUp
 
   const isSlotInDragRange = useCallback((day: Date, hour: number, minute: number): boolean => {
     if (!isDragging || !dragStart || !dragEnd) return false;
@@ -173,11 +156,37 @@ export function WeekView({ currentDate, sessions, onSessionClick, onSlotClick, o
     setIsDraggingSession(true);
   }, []);
 
+  // Global mouse up handler to catch mouse release anywhere
+  const handleGlobalMouseUp = useCallback(() => {
+    if (isDragging && dragStart && dragEnd) {
+      const startMinutes = slotToMinutes(dragStart.hour, dragStart.minute);
+      const endMinutes = slotToMinutes(dragEnd.hour, dragEnd.minute) + 15;
+
+      const [minMinutes, maxMinutes] = startMinutes <= endMinutes 
+        ? [startMinutes, endMinutes]
+        : [endMinutes - 15, startMinutes + 15];
+
+      const startTime = minutesToTime(minMinutes);
+      const endTime = minutesToTime(maxMinutes);
+
+      onSlotClick(dragStart.day, startTime, endTime);
+    }
+    setIsDragging(false);
+    setDragStart(null);
+    setDragEnd(null);
+  }, [isDragging, dragStart, dragEnd, onSlotClick]);
+
   return (
     <div 
       className="flex flex-col overflow-hidden rounded-lg border select-none"
-      onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseUp}
+      onMouseUp={handleGlobalMouseUp}
+      onMouseLeave={() => {
+        if (isDragging) {
+          setIsDragging(false);
+          setDragStart(null);
+          setDragEnd(null);
+        }
+      }}
     >
       {/* Header */}
       <div className="grid grid-cols-8 border-b bg-muted/50">
