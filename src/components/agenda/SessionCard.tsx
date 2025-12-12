@@ -7,7 +7,6 @@ interface SessionCardProps {
   compact?: boolean;
   onClick?: () => void;
   draggable?: boolean;
-  onDragStart?: (e: React.DragEvent, session: SessionWithRelations) => void;
 }
 
 const statusColors = {
@@ -19,14 +18,13 @@ const statusColors = {
   no_show: 'bg-orange-500/20 border-orange-500 text-orange-700 dark:text-orange-300',
 };
 
-export function SessionCard({ session, compact = false, onClick, draggable = false, onDragStart }: SessionCardProps) {
+export function SessionCard({ session, compact = false, onClick, draggable = false }: SessionCardProps) {
   const statusColor = statusColors[session.status as keyof typeof statusColors] || statusColors.scheduled;
   const patientName = session.patient 
     ? `${session.patient.first_name} ${session.patient.last_name}` 
     : 'Sin paciente';
 
   const handleDragStart = (e: React.DragEvent) => {
-    e.stopPropagation();
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('application/json', JSON.stringify({
       sessionId: session.id,
@@ -34,16 +32,20 @@ export function SessionCard({ session, compact = false, onClick, draggable = fal
       originalStartTime: session.start_time,
       originalEndTime: session.end_time,
     }));
-    onDragStart?.(e, session);
+  };
+
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    onClick?.();
+  };
+
+  // Prevent slot drag from starting when clicking on session
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.stopPropagation();
   };
 
   if (compact) {
-    const handleClick = (e: React.MouseEvent) => {
-      e.stopPropagation();
-      e.preventDefault();
-      onClick?.();
-    };
-
     return (
       <div
         className={cn(
@@ -52,7 +54,7 @@ export function SessionCard({ session, compact = false, onClick, draggable = fal
           statusColor
         )}
         onClick={handleClick}
-        onMouseDown={(e) => e.stopPropagation()}
+        onMouseDown={handleMouseDown}
         draggable={draggable}
         onDragStart={handleDragStart}
       >
@@ -67,12 +69,6 @@ export function SessionCard({ session, compact = false, onClick, draggable = fal
     );
   }
 
-  const handleClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    e.preventDefault();
-    onClick?.();
-  };
-
   return (
     <div
       className={cn(
@@ -81,7 +77,7 @@ export function SessionCard({ session, compact = false, onClick, draggable = fal
         statusColor
       )}
       onClick={handleClick}
-      onMouseDown={(e) => e.stopPropagation()}
+      onMouseDown={handleMouseDown}
       draggable={draggable}
       onDragStart={handleDragStart}
     >

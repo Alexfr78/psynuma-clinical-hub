@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback } from 'react';
+import { useMemo, useState, useCallback, useEffect } from 'react';
 import { format, startOfWeek, addDays, isToday } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -15,7 +15,7 @@ interface WeekViewProps {
   startHour?: number;
 }
 
-const DEFAULT_HOURS = Array.from({ length: 13 }, (_, i) => i + 8); // 8:00 - 20:00
+const DEFAULT_HOURS = Array.from({ length: 13 }, (_, i) => i + 8);
 const QUARTER_HOURS = [0, 15, 30, 45];
 
 interface SlotPosition {
@@ -44,7 +44,6 @@ export function WeekView({ currentDate, sessions, onSessionClick, onSlotClick, o
   const [dragStart, setDragStart] = useState<SlotPosition | null>(null);
   const [dragEnd, setDragEnd] = useState<SlotPosition | null>(null);
   const [dragOverSlot, setDragOverSlot] = useState<string | null>(null);
-  const [isDraggingSession, setIsDraggingSession] = useState(false);
 
   const sessionsByDay = useMemo(() => {
     const map = new Map<string, SessionWithRelations[]>();
@@ -63,7 +62,6 @@ export function WeekView({ currentDate, sessions, onSessionClick, onSlotClick, o
     return sessionsByDay.get(dateKey) || [];
   };
 
-  // Calculate session position and height based on start/end time
   const getSessionStyle = (session: SessionWithRelations) => {
     const [startH, startM] = (session.start_time || '08:00').split(':').map(Number);
     const [endH, endM] = (session.end_time || '09:00').split(':').map(Number);
@@ -72,26 +70,28 @@ export function WeekView({ currentDate, sessions, onSessionClick, onSlotClick, o
     const endMinutes = endH * 60 + endM;
     const durationMinutes = endMinutes - startMinutes;
     
-    // Grid starts at dynamic hour, each hour row is 64px (h-16)
     const gridStartMinutes = gridStartHour * 60;
-    const topOffset = ((startMinutes - gridStartMinutes) / 60) * 64; // 64px per hour
+    const topOffset = ((startMinutes - gridStartMinutes) / 60) * 64;
     const height = (durationMinutes / 60) * 64;
     
     return {
       top: `${topOffset}px`,
-      height: `${Math.max(height, 16)}px`, // Minimum 16px height
+      height: `${Math.max(height, 16)}px`,
     };
   };
 
-  const handleMouseDown = useCallback((day: Date, hour: number, minute: number, e: React.MouseEvent) => {
-    if (isDraggingSession) return;
+  // Handle mouse down on a slot
+  const handleSlotMouseDown = useCallback((day: Date, hour: number, minute: number, e: React.MouseEvent) => {
+    if (e.button !== 0) return;
     e.preventDefault();
+    e.stopPropagation();
     setIsDragging(true);
     setDragStart({ day, hour, minute });
     setDragEnd({ day, hour, minute });
-  }, [isDraggingSession]);
+  }, []);
 
-  const handleMouseEnter = useCallback((day: Date, hour: number, minute: number) => {
+  // Handle mouse enter on a slot while dragging
+  const handleSlotMouseEnter = useCallback((day: Date, hour: number, minute: number) => {
     if (isDragging && dragStart) {
       // Only allow drag on the same day
       if (format(day, 'yyyy-MM-dd') === format(dragStart.day, 'yyyy-MM-dd')) {
@@ -100,64 +100,8 @@ export function WeekView({ currentDate, sessions, onSessionClick, onSlotClick, o
     }
   }, [isDragging, dragStart]);
 
-  // Removed - now handled in handleGlobalMouseUp
-
-  const isSlotInDragRange = useCallback((day: Date, hour: number, minute: number): boolean => {
-    if (!isDragging || !dragStart || !dragEnd) return false;
-    
-    const dayKey = format(day, 'yyyy-MM-dd');
-    const startDayKey = format(dragStart.day, 'yyyy-MM-dd');
-    
-    if (dayKey !== startDayKey) return false;
-
-    const slotMinutes = slotToMinutes(hour, minute);
-    const startMinutes = slotToMinutes(dragStart.hour, dragStart.minute);
-    const endMinutes = slotToMinutes(dragEnd.hour, dragEnd.minute);
-
-    const [min, max] = startMinutes <= endMinutes ? [startMinutes, endMinutes] : [endMinutes, startMinutes];
-    return slotMinutes >= min && slotMinutes <= max;
-  }, [isDragging, dragStart, dragEnd]);
-
-  const handleDragOver = useCallback((e: React.DragEvent, day: Date, hour: number, minute: number) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    setDragOverSlot(`${format(day, 'yyyy-MM-dd')}-${hour}:${minute}`);
-  }, []);
-
-  const handleDragLeave = useCallback(() => {
-    setDragOverSlot(null);
-  }, []);
-
-  const handleDrop = useCallback((e: React.DragEvent, day: Date, hour: number, minute: number) => {
-    e.preventDefault();
-    setDragOverSlot(null);
-    setIsDraggingSession(false);
-    
-    try {
-      const data = JSON.parse(e.dataTransfer.getData('application/json'));
-      if (data.sessionId && onSessionMove) {
-        const newDate = format(day, 'yyyy-MM-dd');
-        const newStartTime = minutesToTime(slotToMinutes(hour, minute));
-        // Calculate duration from original times
-        const [origStartH, origStartM] = (data.originalStartTime || '09:00').split(':').map(Number);
-        const [origEndH, origEndM] = (data.originalEndTime || '10:00').split(':').map(Number);
-        const durationMinutes = slotToMinutes(origEndH, origEndM) - slotToMinutes(origStartH, origStartM);
-        const newEndMinutes = slotToMinutes(hour, minute) + durationMinutes;
-        const newEndTime = minutesToTime(newEndMinutes);
-        
-        onSessionMove(data.sessionId, newDate, newStartTime, newEndTime);
-      }
-    } catch {
-      // Invalid drag data
-    }
-  }, [onSessionMove]);
-
-  const handleSessionDragStart = useCallback(() => {
-    setIsDraggingSession(true);
-  }, []);
-
-  // Global mouse up handler to catch mouse release anywhere
-  const handleGlobalMouseUp = useCallback(() => {
+  // Complete the drag and open dialog
+  const completeDrag = useCallback(() => {
     if (isDragging && dragStart && dragEnd) {
       const startMinutes = slotToMinutes(dragStart.hour, dragStart.minute);
       const endMinutes = slotToMinutes(dragEnd.hour, dragEnd.minute) + 15;
@@ -176,17 +120,78 @@ export function WeekView({ currentDate, sessions, onSessionClick, onSlotClick, o
     setDragEnd(null);
   }, [isDragging, dragStart, dragEnd, onSlotClick]);
 
+  // Cancel drag
+  const cancelDrag = useCallback(() => {
+    setIsDragging(false);
+    setDragStart(null);
+    setDragEnd(null);
+  }, []);
+
+  // Global mouse up listener
+  useEffect(() => {
+    if (!isDragging) return;
+
+    const handleGlobalMouseUp = () => {
+      completeDrag();
+    };
+
+    window.addEventListener('mouseup', handleGlobalMouseUp);
+    return () => window.removeEventListener('mouseup', handleGlobalMouseUp);
+  }, [isDragging, completeDrag]);
+
+  const isSlotInDragRange = useCallback((day: Date, hour: number, minute: number): boolean => {
+    if (!isDragging || !dragStart || !dragEnd) return false;
+    
+    const dayKey = format(day, 'yyyy-MM-dd');
+    const startDayKey = format(dragStart.day, 'yyyy-MM-dd');
+    
+    if (dayKey !== startDayKey) return false;
+
+    const slotMinutes = slotToMinutes(hour, minute);
+    const startMinutes = slotToMinutes(dragStart.hour, dragStart.minute);
+    const endMinutes = slotToMinutes(dragEnd.hour, dragEnd.minute);
+
+    const [min, max] = startMinutes <= endMinutes ? [startMinutes, endMinutes] : [endMinutes, startMinutes];
+    return slotMinutes >= min && slotMinutes <= max;
+  }, [isDragging, dragStart, dragEnd]);
+
+  // Session drag-drop handlers
+  const handleDragOver = useCallback((e: React.DragEvent, day: Date, hour: number, minute: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverSlot(`${format(day, 'yyyy-MM-dd')}-${hour}:${minute}`);
+  }, []);
+
+  const handleDragLeave = useCallback(() => {
+    setDragOverSlot(null);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent, day: Date, hour: number, minute: number) => {
+    e.preventDefault();
+    setDragOverSlot(null);
+    
+    try {
+      const data = JSON.parse(e.dataTransfer.getData('application/json'));
+      if (data.sessionId && onSessionMove) {
+        const newDate = format(day, 'yyyy-MM-dd');
+        const newStartTime = minutesToTime(slotToMinutes(hour, minute));
+        const [origStartH, origStartM] = (data.originalStartTime || '09:00').split(':').map(Number);
+        const [origEndH, origEndM] = (data.originalEndTime || '10:00').split(':').map(Number);
+        const durationMinutes = slotToMinutes(origEndH, origEndM) - slotToMinutes(origStartH, origStartM);
+        const newEndMinutes = slotToMinutes(hour, minute) + durationMinutes;
+        const newEndTime = minutesToTime(newEndMinutes);
+        
+        onSessionMove(data.sessionId, newDate, newStartTime, newEndTime);
+      }
+    } catch {
+      // Invalid drag data
+    }
+  }, [onSessionMove]);
+
   return (
     <div 
       className="flex flex-col overflow-hidden rounded-lg border select-none"
-      onMouseUp={handleGlobalMouseUp}
-      onMouseLeave={() => {
-        if (isDragging) {
-          setIsDragging(false);
-          setDragStart(null);
-          setDragEnd(null);
-        }
-      }}
+      onMouseLeave={cancelDrag}
     >
       {/* Header */}
       <div className="grid grid-cols-8 border-b bg-muted/50">
@@ -219,7 +224,6 @@ export function WeekView({ currentDate, sessions, onSessionClick, onSlotClick, o
       {/* Time Grid */}
       <div className="flex-1 overflow-auto">
         <div className="min-h-[600px] relative">
-          {/* Grid structure */}
           <div className="grid grid-cols-8">
             {/* Hour labels column */}
             <div className="border-r">
@@ -256,16 +260,16 @@ export function WeekView({ currentDate, sessions, onSessionClick, onSlotClick, o
                             <div
                               key={minute}
                               className={cn(
-                                'border-b border-dashed border-muted/50 last:border-b-0 cursor-pointer transition-colors',
+                                'border-b border-dashed border-muted/50 last:border-b-0 cursor-pointer transition-colors z-0',
                                 minute === 0 && 'border-t-0',
                                 isInDragRange 
-                                  ? 'bg-primary/20' 
+                                  ? 'bg-primary/30' 
                                   : isDropTarget
-                                  ? 'bg-primary/30 ring-2 ring-primary ring-inset'
+                                  ? 'bg-primary/40 ring-2 ring-primary ring-inset'
                                   : 'hover:bg-muted/50'
                               )}
-                              onMouseDown={(e) => handleMouseDown(day, hour, minute, e)}
-                              onMouseEnter={() => handleMouseEnter(day, hour, minute)}
+                              onMouseDown={(e) => handleSlotMouseDown(day, hour, minute, e)}
+                              onMouseEnter={() => handleSlotMouseEnter(day, hour, minute)}
                               onDragOver={(e) => handleDragOver(e, day, hour, minute)}
                               onDragLeave={handleDragLeave}
                               onDrop={(e) => handleDrop(e, day, hour, minute)}
@@ -276,13 +280,13 @@ export function WeekView({ currentDate, sessions, onSessionClick, onSlotClick, o
                     </div>
                   ))}
                   
-                  {/* Sessions overlay - positioned absolutely based on time */}
+                  {/* Sessions overlay */}
                   {daySessions.map((session) => {
                     const style = getSessionStyle(session);
                     return (
                       <div
                         key={session.id}
-                        className="absolute left-0.5 right-0.5 z-10 pointer-events-auto"
+                        className="absolute left-0.5 right-0.5 z-20"
                         style={style}
                       >
                         <SessionCard
@@ -290,7 +294,6 @@ export function WeekView({ currentDate, sessions, onSessionClick, onSlotClick, o
                           compact
                           onClick={() => onSessionClick(session)}
                           draggable={!!onSessionMove}
-                          onDragStart={handleSessionDragStart}
                         />
                       </div>
                     );
