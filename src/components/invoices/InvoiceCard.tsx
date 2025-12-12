@@ -44,9 +44,11 @@ export function InvoiceCard({
   onRetryVerifactu
 }: InvoiceCardProps) {
   const status = statusConfig[invoice.status] || statusConfig.draft;
-  const isSealed = !!invoice.verifactu_hash;
+  const isSealed = !!invoice.verifactu_registration_id; // Use registration_id as it confirms AEAT acceptance
   const isPendingVerifactu = invoice.verifactu_pending && !isSealed;
   const maxRetriesReached = (invoice.verifactu_retry_count || 0) >= 5;
+  // Invoice is issued but NOT signed in Verifactu (needs signing)
+  const needsVerifactuSign = invoice.status === 'issued' && !isSealed && !isPendingVerifactu;
 
   return (
     <Card className="transition-all hover:shadow-md">
@@ -68,6 +70,12 @@ export function InvoiceCard({
                   <Badge variant="default" className="gap-1 bg-green-600 hover:bg-green-700 text-xs">
                     <ShieldCheck className="h-3 w-3" />
                     <span className="hidden sm:inline">Verifactu</span>
+                  </Badge>
+                )}
+                {needsVerifactuSign && (
+                  <Badge variant="outline" className="gap-1 border-orange-500 text-orange-600 text-xs">
+                    <ShieldCheck className="h-3 w-3" />
+                    <span className="hidden sm:inline">Sin firmar</span>
                   </Badge>
                 )}
                 {isPendingVerifactu && !maxRetriesReached && (
@@ -124,6 +132,12 @@ export function InvoiceCard({
                       <DropdownMenuItem onClick={onSealVerifactu} className="text-green-600">
                         <ShieldCheck className="h-4 w-4 mr-2" />
                         Sellar con Verifactu
+                      </DropdownMenuItem>
+                    )}
+                    {needsVerifactuSign && (
+                      <DropdownMenuItem onClick={onSealVerifactu} className="text-orange-600">
+                        <ShieldCheck className="h-4 w-4 mr-2" />
+                        Firmar en Verifactu
                       </DropdownMenuItem>
                     )}
                     {isPendingVerifactu && (
