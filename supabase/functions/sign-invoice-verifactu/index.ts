@@ -174,6 +174,32 @@ function escapeXML(str: string): string {
     .replace(/'/g, '&apos;');
 }
 
+// Sanitize NombreSistemaInformatico field (TextMax30Type)
+// Must be non-empty string, max 30 chars, no control characters
+function sanitizeNombreSistemaInformatico(input: unknown): string {
+  let s = (input ?? "").toString();
+
+  // Clean line breaks, tabs
+  s = s.replace(/[\r\n\t]+/g, " ").trim();
+
+  // Remove control characters (ASCII 0-31 and 127)
+  s = s.replace(/[\x00-\x1F\x7F]/g, "");
+
+  // Remove emoji/surrogates
+  s = s.replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, "");
+
+  // Collapse multiple spaces
+  s = s.replace(/\s{2,}/g, " ");
+
+  // Must not be empty
+  if (!s) s = "PSYCMA";
+
+  // Max 30 characters (TextMax30Type)
+  if (s.length > 30) s = s.slice(0, 30).trim();
+
+  return s;
+}
+
 // Determine invoice type based on series invoice_type and other factors
 function determineInvoiceType(invoice: any): string {
   // Check if it's a simplified invoice based on series type
@@ -287,7 +313,10 @@ function buildRegistroAltaXML(invoice: any, center: any, patient: any, invoiceIt
   }
 
   // Software info
-  const softwareName = center.verifactu_software_name || 'Psycma';
+  // NombreRazon del fabricante: debe coincidir con censo AEAT
+  const softwareNombreRazon = center.verifactu_software_name || nombreEmisor;
+  // NombreSistemaInformatico: nombre comercial del producto, max 30 chars, sin caracteres especiales
+  const softwareSistemaInfo = sanitizeNombreSistemaInformatico(center.verifactu_software_name || 'PSYCMA');
   const softwareVersion = center.verifactu_software_version || '1.0.0';
   const softwareNif = center.verifactu_software_nif || nifEmisor;
 
@@ -379,9 +408,9 @@ function buildRegistroAltaXML(invoice: any, center: any, patient: any, invoiceIt
             ${encadenamientoXML}
           </sum1:Encadenamiento>
           <sum1:SistemaInformatico>
-            <sum1:NombreRazon>${escapeXML(softwareName)}</sum1:NombreRazon>
+            <sum1:NombreRazon>${escapeXML(softwareNombreRazon)}</sum1:NombreRazon>
             <sum1:NIF>${softwareNif}</sum1:NIF>
-            <sum1:NombreSistemaInformatico>${escapeXML(softwareName)}</sum1:NombreSistemaInformatico>
+            <sum1:NombreSistemaInformatico>${softwareSistemaInfo}</sum1:NombreSistemaInformatico>
             <sum1:IdSistemaInformatico>01</sum1:IdSistemaInformatico>
             <sum1:Version>${softwareVersion}</sum1:Version>
             <sum1:NumeroInstalacion>1</sum1:NumeroInstalacion>
