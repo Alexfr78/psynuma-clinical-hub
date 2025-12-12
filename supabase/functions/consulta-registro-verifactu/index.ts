@@ -17,10 +17,10 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// AEAT Verifactu endpoints for consultation - CORRECTED URLs
+// AEAT Verifactu endpoints for consultation - Updated URLs (Jan 2025)
 const AEAT_ENDPOINTS = {
-  test: "https://prewww2.aeat.es/wlpl/TIKE-CONT/ws/ConsultaLRSOAP",
-  production: "https://www2.agenciatributaria.gob.es/wlpl/TIKE-CONT/ws/ConsultaLRSOAP"
+  test: "https://prewww1.aeat.es/wlpl/TIKE-CONT/ws/SistemaFacturacion/ConsultaVerifactuSOAP",
+  production: "https://www1.agenciatributaria.gob.es/wlpl/TIKE-CONT/ws/SistemaFacturacion/ConsultaVerifactuSOAP"
 };
 
 // SOAPAction for Consulta (invoice query) - CORRECTED to simple string
