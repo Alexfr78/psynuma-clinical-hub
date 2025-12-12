@@ -943,19 +943,21 @@ serve(async (req) => {
       );
     }
 
-    // Get previous invoice hash for chaining
+    // Get previous invoice hash for chaining - ONLY from successfully AEAT-accepted invoices
+    // This ensures that failed invoices don't break the chain
     const { data: previousInvoice } = await supabase
       .from("invoices")
-      .select("invoice_hash")
+      .select("verifactu_hash, verifactu_timestamp")
       .eq("center_id", invoice.center_id)
-      .not("invoice_hash", "is", null)
+      .not("verifactu_registration_id", "is", null)  // Only AEAT-accepted invoices (have CSV)
+      .not("verifactu_hash", "is", null)
       .neq("id", invoice_id)
-      .order("created_at", { ascending: false })
+      .order("verifactu_timestamp", { ascending: false })  // Order by AEAT acceptance time
       .limit(1)
-      .single();
+      .maybeSingle();
 
-    const previousHash = previousInvoice?.invoice_hash || null;
-    console.log("Previous invoice hash:", previousHash ? "found" : "none (first invoice)");
+    const previousHash = previousInvoice?.verifactu_hash || null;
+    console.log("Previous invoice hash:", previousHash ? "found" : "none (first invoice or no accepted invoices)");
 
     // Generate timestamp
     const generationTimestamp = formatTimestampVerifactu(new Date());
