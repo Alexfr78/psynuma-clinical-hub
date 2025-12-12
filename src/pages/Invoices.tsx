@@ -76,19 +76,47 @@ export default function Invoices() {
 
   const handleSealVerifactu = async (invoiceId: string) => {
     try {
-      toast.info('Sellando factura con Verifactu...');
+      // First, get invoice status to determine which function to call
+      const { data: invoice } = await supabase
+        .from('invoices')
+        .select('status, verifactu_registration_id')
+        .eq('id', invoiceId)
+        .single();
+
+      // If invoice is already issued but not registered with AEAT, call sign directly
+      if (invoice?.status === 'issued' && !invoice?.verifactu_registration_id) {
+        toast.info('Firmando factura con Verifactu...');
+        
+        const { data, error } = await supabase.functions.invoke('sign-invoice-verifactu', {
+          body: { invoice_id: invoiceId },
+        });
+
+        if (error) throw error;
+
+        if (data.success) {
+          toast.success(`Factura ${data.invoice_number} registrada en AEAT correctamente`);
+        } else if (data.pending) {
+          toast.warning(data.message || 'Factura pendiente de registro en AEAT');
+        } else {
+          throw new Error(data.error || 'Error desconocido');
+        }
+      } else {
+        // For draft invoices, seal first then sign
+        toast.info('Sellando factura con Verifactu...');
+        
+        const { data, error } = await supabase.functions.invoke('seal-invoice-verifactu', {
+          body: { invoice_id: invoiceId },
+        });
+
+        if (error) throw error;
+
+        toast.success(`Factura ${data.invoice_number} sellada correctamente`);
+      }
       
-      const { data, error } = await supabase.functions.invoke('seal-invoice-verifactu', {
-        body: { invoice_id: invoiceId },
-      });
-
-      if (error) throw error;
-
-      toast.success(`Factura ${data.invoice_number} sellada correctamente`);
       refetch();
     } catch (error) {
-      console.error('Error sealing invoice:', error);
-      toast.error('Error al sellar la factura');
+      console.error('Error sealing/signing invoice:', error);
+      toast.error('Error al procesar la factura en Verifactu');
     }
   };
 
