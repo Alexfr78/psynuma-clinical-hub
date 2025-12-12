@@ -238,10 +238,10 @@ function requiresDestinatarios(tipoFactura: string): boolean {
   return ['F1', 'F3', 'R1', 'R2', 'R3', 'R4'].includes(tipoFactura);
 }
 
-// Calculate hash for chaining (Huella) - CORRECTED: Direct concatenation without separators
+// Calculate hash for chaining (Huella) - AEAT format: campo=valor&campo=valor...
 async function calculateInvoiceHash(invoice: any, center: any, previousHash: string | null, timestamp: string): Promise<string> {
-  const nifEmisor = center.tax_id?.replace(/[^A-Z0-9]/gi, '') || '';
-  const numSerie = invoice.invoice_number || '';
+  const nifEmisor = (center.tax_id?.replace(/[^A-Z0-9]/gi, '') || '').trim();
+  const numSerie = (invoice.invoice_number || '').trim();
   const fechaExpedicion = formatDateVerifactu(invoice.issue_date);
   
   // Determine invoice type using the unified function
@@ -249,12 +249,22 @@ async function calculateInvoiceHash(invoice: any, center: any, previousHash: str
   
   const cuotaTotal = (Number(invoice.tax_amount) || 0).toFixed(2);
   const importeTotal = Number(invoice.total).toFixed(2);
-  const huellaAnterior = previousHash || '';
+  // For first invoice, Huella should be empty (not the hash itself)
+  const huellaAnterior = (previousHash || '').trim();
   
-  // CORRECTED: Direct concatenation according to AEAT specification
-  const dataToHash = nifEmisor + numSerie + fechaExpedicion + tipoFactura + cuotaTotal + importeTotal + huellaAnterior + timestamp;
+  // AEAT format: campo=valor&campo=valor (8 fields in exact order)
+  const dataToHash = [
+    `IDEmisorFactura=${nifEmisor}`,
+    `NumSerieFactura=${numSerie}`,
+    `FechaExpedicionFactura=${fechaExpedicion}`,
+    `TipoFactura=${tipoFactura}`,
+    `CuotaTotal=${cuotaTotal}`,
+    `ImporteTotal=${importeTotal}`,
+    `Huella=${huellaAnterior}`,
+    `FechaHoraHusoGenRegistro=${timestamp}`
+  ].join('&');
   
-  console.log("Hash input data:", dataToHash);
+  console.log("Hash input data (AEAT format):", dataToHash);
   console.log("Invoice type for hash:", tipoFactura, "(series invoice_type:", invoice.series?.invoice_type || 'N/A', ")");
   return await generateSHA256(dataToHash);
 }
