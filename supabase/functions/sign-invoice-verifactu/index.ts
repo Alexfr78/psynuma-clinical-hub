@@ -387,21 +387,35 @@ function buildRegistroAltaXML(invoice: any, center: any, patient: any, invoiceIt
   const patientName = patient ? `${patient.first_name} ${patient.last_name}`.trim() : 'Cliente';
   
   // Build DescripcionOperacion - ALWAYS required, never empty
-  const firstItemDescription = (invoiceItems?.[0]?.description || '').toString().replace(/[\r\n\t]+/g, ' ').trim();
+  // Use triple fallback: item description -> rectification message -> generic invoice message
   let descripcionOperacion: string;
-  if (invoice.rectified_invoice_id && invoice.rectified_invoice) {
-    // For rectifying invoices, mention it's a rectification
-    descripcionOperacion = firstItemDescription || `Rectificación de factura ${invoice.rectified_invoice.invoice_number}`;
+  
+  // Try to get description from first invoice item
+  const firstItemDescription = (invoiceItems && invoiceItems.length > 0 && invoiceItems[0]?.description) 
+    ? String(invoiceItems[0].description).replace(/[\r\n\t]+/g, ' ').trim() 
+    : '';
+  
+  if (firstItemDescription.length > 0) {
+    descripcionOperacion = firstItemDescription;
+  } else if (invoice.rectified_invoice_id && invoice.rectified_invoice?.invoice_number) {
+    // For rectifying invoices without items, use rectification message
+    descripcionOperacion = `Rectificación de factura ${invoice.rectified_invoice.invoice_number}`;
+  } else if (invoice.notes && invoice.notes.trim().length > 0) {
+    // Try invoice notes as fallback
+    descripcionOperacion = invoice.notes.trim();
   } else {
-    descripcionOperacion = firstItemDescription || 'Servicios profesionales';
+    // Ultimate fallback - always valid
+    descripcionOperacion = `Factura ${invoice.invoice_number}`;
   }
-  // Final safety: ensure never empty
+  
+  // Final safety: ensure never empty (should never reach here, but just in case)
   if (!descripcionOperacion || descripcionOperacion.trim().length === 0) {
     descripcionOperacion = `Factura ${invoice.invoice_number}`;
   }
-  // Truncate to max 250 chars and escape
+  
+  // Truncate to max 250 chars, escape XML special characters
   descripcionOperacion = escapeXML(descripcionOperacion.substring(0, 250));
-  console.log("DescripcionOperacion:", descripcionOperacion);
+  console.log("DescripcionOperacion final value:", descripcionOperacion);
   
   // Build desglose (breakdown) from invoice items
   // Group items by fiscal treatment to create proper DetalleDesglose entries
@@ -1000,6 +1014,15 @@ serve(async (req) => {
     // Build XML body
     const xmlBody = buildRegistroAltaXML(invoice, center, patient, invoiceItems, previousHash, generationTimestamp, invoiceHash);
     console.log("Built XML body, length:", xmlBody.length);
+    
+    // CRITICAL VERIFICATION: Ensure DescripcionOperacion is present and not empty
+    const descOpMatch = xmlBody.match(/<sum1:DescripcionOperacion>([^<]*)<\/sum1:DescripcionOperacion>/);
+    if (!descOpMatch || !descOpMatch[1] || descOpMatch[1].trim().length === 0) {
+      console.error("CRITICAL: DescripcionOperacion missing or empty in XML!");
+      console.error("XML body (first 2000 chars):", xmlBody.substring(0, 2000));
+      throw new Error("DescripcionOperacion está vacío o no se encuentra en el XML");
+    }
+    console.log("DescripcionOperacion verified in XML:", descOpMatch[1]);
 
     // Sign and build complete SOAP envelope
     const signedXml = buildSignedSOAPEnvelope(xmlBody, certData.privateKey, certData.certificate);
