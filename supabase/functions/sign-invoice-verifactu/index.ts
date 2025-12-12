@@ -174,25 +174,52 @@ function escapeXML(str: string): string {
     .replace(/'/g, '&apos;');
 }
 
+// Determine invoice type based on series invoice_type and other factors
+function determineInvoiceType(invoice: any): string {
+  // Check if it's a simplified invoice based on series type
+  const isSimplified = invoice.series?.invoice_type === 'simplified';
+  
+  // Rectifying invoices
+  if (invoice.rectified_invoice_id) {
+    if (invoice.rectification_reason_code) {
+      return invoice.rectification_reason_code; // R1, R2, R3, R4, or R5
+    }
+    // Legacy fallback
+    if (invoice.rectification_type === 'S') {
+      return 'R1'; // Rectificativa por sustitución
+    }
+    return isSimplified ? 'R5' : 'R1';
+  }
+  
+  // Recapitulative invoices (factura que agrupa simplificadas)
+  if (invoice.is_recapitulative) {
+    return 'F3';
+  }
+  
+  // Simplified invoice (from series type)
+  if (isSimplified) {
+    return 'F2';
+  }
+  
+  // Default: Complete invoice
+  return 'F1';
+}
+
+// Check if invoice type requires Destinatarios block
+// F1, F3, R1, R2, R3, R4 require Destinatarios
+// F2, R5 must NOT have Destinatarios
+function requiresDestinatarios(tipoFactura: string): boolean {
+  return ['F1', 'F3', 'R1', 'R2', 'R3', 'R4'].includes(tipoFactura);
+}
+
 // Calculate hash for chaining (Huella) - CORRECTED: Direct concatenation without separators
 async function calculateInvoiceHash(invoice: any, center: any, previousHash: string | null, timestamp: string): Promise<string> {
   const nifEmisor = center.tax_id?.replace(/[^A-Z0-9]/gi, '') || '';
   const numSerie = invoice.invoice_number || '';
   const fechaExpedicion = formatDateVerifactu(invoice.issue_date);
   
-  // Determine invoice type based on rectification status and reason code
-  let tipoFactura = 'F1'; // Factura normal
-  if (invoice.is_recapitulative) {
-    tipoFactura = 'F2'; // Factura recapitulativa
-  } else if (invoice.rectified_invoice_id) {
-    // Use the reason code if available, otherwise default based on type
-    if (invoice.rectification_reason_code) {
-      tipoFactura = invoice.rectification_reason_code; // R1, R2, R3, R4, or R5
-    } else {
-      // Legacy fallback
-      tipoFactura = invoice.rectification_type === 'S' ? 'R1' : 'R5';
-    }
-  }
+  // Determine invoice type using the unified function
+  const tipoFactura = determineInvoiceType(invoice);
   
   const cuotaTotal = (Number(invoice.tax_amount) || 0).toFixed(2);
   const importeTotal = Number(invoice.total).toFixed(2);
@@ -202,6 +229,7 @@ async function calculateInvoiceHash(invoice: any, center: any, previousHash: str
   const dataToHash = nifEmisor + numSerie + fechaExpedicion + tipoFactura + cuotaTotal + importeTotal + huellaAnterior + timestamp;
   
   console.log("Hash input data:", dataToHash);
+  console.log("Invoice type for hash:", tipoFactura, "(series invoice_type:", invoice.series?.invoice_type || 'N/A', ")");
   return await generateSHA256(dataToHash);
 }
 
@@ -262,19 +290,9 @@ function buildRegistroAltaXML(invoice: any, center: any, patient: any, invoiceIt
   const softwareVersion = center.verifactu_software_version || '1.0.0';
   const softwareNif = center.verifactu_software_nif || nifEmisor;
 
-  // Determine invoice type based on rectification status and reason code
-  let tipoFactura = 'F1'; // Factura normal
-  if (invoice.is_recapitulative) {
-    tipoFactura = 'F2'; // Factura recapitulativa
-  } else if (invoice.rectified_invoice_id) {
-    // Use the reason code if available, otherwise default based on type
-    if (invoice.rectification_reason_code) {
-      tipoFactura = invoice.rectification_reason_code; // R1, R2, R3, R4, or R5
-    } else {
-      // Legacy fallback
-      tipoFactura = invoice.rectification_type === 'S' ? 'R1' : 'R5';
-    }
-  }
+  // Determine invoice type using the unified function
+  const tipoFactura = determineInvoiceType(invoice);
+  console.log(`Invoice type determined: ${tipoFactura} (series invoice_type: ${invoice.series?.invoice_type || 'N/A'})`);
 
   // Build rectified invoice reference if applicable
   let facturasRectificadasXML = '';
@@ -311,9 +329,15 @@ function buildRegistroAltaXML(invoice: any, center: any, patient: any, invoiceIt
     }
   }
 
-  // Build Destinatarios section - only include if patient has NIF
+  // Build Destinatarios section based on invoice type
+  // F1, F3, R1-R4 REQUIRE Destinatarios; F2, R5 must NOT have Destinatarios
   let destinatariosXML = '';
-  if (patientTaxId) {
+  const needsDestinatarios = requiresDestinatarios(tipoFactura);
+  
+  if (needsDestinatarios) {
+    if (!patientTaxId) {
+      throw new Error(`Las facturas tipo ${tipoFactura} (factura completa) requieren el NIF del paciente. Actualice los datos fiscales del paciente antes de firmar.`);
+    }
     destinatariosXML = `
           <sum1:Destinatarios>
             <sum1:IDDestinatario>
@@ -322,6 +346,7 @@ function buildRegistroAltaXML(invoice: any, center: any, patient: any, invoiceIt
             </sum1:IDDestinatario>
           </sum1:Destinatarios>`;
   }
+  // For F2 and R5, Destinatarios is omitted (forbidden by AEAT)
 
   // Build the body content with correct namespace prefixes
   // sum: for container elements (RegFactuSistemaFacturacion, Cabecera, RegistroFactura)
@@ -708,7 +733,7 @@ serve(async (req) => {
 
     console.log(`Processing invoice ${invoice_id} for Verifactu signing`);
 
-    // Fetch invoice with related data
+    // Fetch invoice with related data including series for invoice_type
     const { data: invoice, error: invoiceError } = await supabase
       .from("invoices")
       .select(`
@@ -716,6 +741,7 @@ serve(async (req) => {
         patients (id, first_name, last_name, tax_id, address, city, postal_code),
         invoice_items (*),
         rectified_invoice:invoices!rectified_invoice_id (id, invoice_number, issue_date),
+        series:invoice_series!series_id (id, invoice_type, series_type),
         centers (
           id, name, tax_id,
           verifactu_certificate_base64, verifactu_certificate_password,
