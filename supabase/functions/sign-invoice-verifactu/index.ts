@@ -218,7 +218,7 @@ function buildRegistroAltaXML(invoice: any, center: any, patient: any, invoiceIt
             <sum1:Impuesto>01</sum1:Impuesto>
             <sum1:ClaveRegimen>01</sum1:ClaveRegimen>
             <sum1:CalificacionOperacion>E1</sum1:CalificacionOperacion>
-            <sum1:BaseImponibleOImporteNoSujeto>${totalBase.toFixed(2)}</sum1:BaseImponibleOImporteNoSujeto>
+            <sum1:BaseImponibleOimporteNoSujeto>${totalBase.toFixed(2)}</sum1:BaseImponibleOimporteNoSujeto>
           </sum1:DetalleDesglose>`;
   } else {
     const taxRate = Number(invoice.tax_rate) || 21;
@@ -228,7 +228,7 @@ function buildRegistroAltaXML(invoice: any, center: any, patient: any, invoiceIt
             <sum1:ClaveRegimen>01</sum1:ClaveRegimen>
             <sum1:CalificacionOperacion>S1</sum1:CalificacionOperacion>
             <sum1:TipoImpositivo>${taxRate.toFixed(2)}</sum1:TipoImpositivo>
-            <sum1:BaseImponibleOImporteNoSujeto>${totalBase.toFixed(2)}</sum1:BaseImponibleOImporteNoSujeto>
+            <sum1:BaseImponibleOimporteNoSujeto>${totalBase.toFixed(2)}</sum1:BaseImponibleOimporteNoSujeto>
             <sum1:CuotaRepercutida>${totalIVA.toFixed(2)}</sum1:CuotaRepercutida>
           </sum1:DetalleDesglose>`;
   }
