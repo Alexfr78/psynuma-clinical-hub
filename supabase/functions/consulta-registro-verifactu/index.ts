@@ -110,27 +110,28 @@ function escapeXML(str: string): string {
 }
 
 // Build ConsultaFactu XML for invoice query
+// sum: for container elements, sum1: for internal types
 function buildConsultaXML(invoice: any, center: any): string {
   const nifEmisor = center.tax_id?.replace(/[^A-Z0-9]/gi, '') || '';
   const nombreEmisor = center.name || '';
   const fechaExpedicion = formatDateVerifactu(invoice.issue_date);
 
-  return `<sum1:ConsultaFactuSistemaFacturacion>
-      <sum1:Cabecera>
+  return `<sum:ConsultaFactuSistemaFacturacion>
+      <sum:Cabecera>
         <sum1:IDVersion>1.0</sum1:IDVersion>
         <sum1:ObligadoEmision>
           <sum1:NombreRazon>${escapeXML(nombreEmisor)}</sum1:NombreRazon>
           <sum1:NIF>${nifEmisor}</sum1:NIF>
         </sum1:ObligadoEmision>
-      </sum1:Cabecera>
-      <sum1:FiltroConsulta>
+      </sum:Cabecera>
+      <sum:FiltroConsulta>
         <sum1:IDFactura>
           <sum1:IDEmisorFactura>${nifEmisor}</sum1:IDEmisorFactura>
           <sum1:NumSerieFactura>${escapeXML(invoice.invoice_number)}</sum1:NumSerieFactura>
           <sum1:FechaExpedicionFactura>${fechaExpedicion}</sum1:FechaExpedicionFactura>
         </sum1:IDFactura>
-      </sum1:FiltroConsulta>
-    </sum1:ConsultaFactuSistemaFacturacion>`;
+      </sum:FiltroConsulta>
+    </sum:ConsultaFactuSistemaFacturacion>`;
 }
 
 // Extract certificates from PKCS12 for XML signing
@@ -188,23 +189,24 @@ function extractCertificatesFromPKCS12(certificateBase64: string, certificatePas
   return { privateKey, certificate: endEntityCert };
 }
 
-// Build complete signed SOAP envelope with namespace on Body
+// Build complete signed SOAP envelope with namespaces on Envelope
 function buildSignedSOAPEnvelope(body: string, privateKey: any, certificate: any): string {
-  const xmlnsSum1 = 'https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/SuministroLR.xsd';
+  const NS_SUM = 'https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/SuministroLR.xsd';
+  const NS_SUM1 = 'https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/SuministroInformacion.xsd';
 
-  // Create the full body with namespace
-  const fullBody = `<soapenv:Body xmlns:sum1="${xmlnsSum1}">${body}</soapenv:Body>`;
+  // Create the full body with namespaces for signing
+  const fullBody = `<soapenv:Body xmlns:sum="${NS_SUM}" xmlns:sum1="${NS_SUM1}">${body}</soapenv:Body>`;
 
   // Sign the body
   const signature = signXMLBody(fullBody, privateKey, certificate);
 
-  // Build complete SOAP envelope
+  // Build complete SOAP envelope with all namespaces on Envelope element
   return `<?xml version="1.0" encoding="UTF-8"?>
-<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/">
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:sum="${NS_SUM}" xmlns:sum1="${NS_SUM1}">
   <soapenv:Header>
     ${signature}
   </soapenv:Header>
-  <soapenv:Body xmlns:sum1="${xmlnsSum1}">
+  <soapenv:Body>
     ${body}
   </soapenv:Body>
 </soapenv:Envelope>`;
