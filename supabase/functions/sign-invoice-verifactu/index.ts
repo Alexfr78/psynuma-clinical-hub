@@ -174,6 +174,30 @@ function escapeXML(str: string): string {
     .replace(/'/g, '&apos;');
 }
 
+// Sanitize NumSerieFactura field - must be A-Z, 0-9, hyphen only, no spaces/invisible chars
+// Error 1100 occurs when this field has invalid characters
+function sanitizeNumSerieFactura(input: unknown): string {
+  let s = String(input ?? '')
+    .replace(/[\u00A0\r\n\t]/g, ' ')  // Replace NBSP and control chars with space
+    .replace(/\s+/g, '')               // Remove all whitespace
+    .toUpperCase()
+    .trim();
+  
+  // Remove any character that's not A-Z, 0-9, or hyphen
+  s = s.replace(/[^A-Z0-9\-]/g, '');
+  
+  // Validate format
+  if (s.length === 0) {
+    throw new Error('NumSerieFactura no puede estar vacío');
+  }
+  
+  if (!/^[A-Z0-9\-]+$/.test(s)) {
+    throw new Error(`NumSerieFactura contiene caracteres no permitidos: ${s}`);
+  }
+  
+  return s;
+}
+
 // Sanitize NombreSistemaInformatico field (TextMax30Type)
 // Must be non-empty string, max 30 chars, no control characters
 function sanitizeNombreSistemaInformatico(input: unknown): string {
@@ -347,7 +371,10 @@ function buildDesgloseFromItems(invoiceItems: any[], invoice: any): string {
 // Calculate hash for chaining (Huella) - AEAT format: campo=valor&campo=valor...
 async function calculateInvoiceHash(invoice: any, center: any, previousHash: string | null, timestamp: string): Promise<string> {
   const nifEmisor = (center.tax_id?.replace(/[^A-Z0-9]/gi, '') || '').trim();
-  const numSerie = (invoice.invoice_number || '').trim();
+  // Sanitize NumSerieFactura to prevent error 1100
+  const numSerie = sanitizeNumSerieFactura(invoice.invoice_number);
+  console.log("NumSerieFactura raw:", JSON.stringify(invoice.invoice_number));
+  console.log("NumSerieFactura sanitized:", JSON.stringify(numSerie));
   const fechaExpedicion = formatDateVerifactu(invoice.issue_date);
   
   // Determine invoice type using the unified function
@@ -382,6 +409,8 @@ function buildRegistroAltaXML(invoice: any, center: any, patient: any, invoiceIt
   const nifEmisor = center.tax_id?.replace(/[^A-Z0-9]/gi, '') || '';
   const nombreEmisor = center.name || '';
   const fechaExpedicion = formatDateVerifactu(invoice.issue_date);
+  // Sanitize NumSerieFactura to prevent error 1100
+  const numSerieFactura = sanitizeNumSerieFactura(invoice.invoice_number);
   
   const patientTaxId = patient?.tax_id?.replace(/[^A-Z0-9]/gi, '') || '';
   const patientName = patient ? `${patient.first_name} ${patient.last_name}`.trim() : 'Cliente';
@@ -410,7 +439,7 @@ function buildRegistroAltaXML(invoice: any, center: any, patient: any, invoiceIt
   
   // Final safety: ensure never empty (should never reach here, but just in case)
   if (!descripcionOperacion || descripcionOperacion.trim().length === 0) {
-    descripcionOperacion = `Factura ${invoice.invoice_number}`;
+    descripcionOperacion = `Factura ${numSerieFactura}`;
   }
   
   // Truncate to max 250 chars, escape XML special characters
@@ -427,7 +456,7 @@ function buildRegistroAltaXML(invoice: any, center: any, patient: any, invoiceIt
     encadenamientoXML = `
             <sum1:RegistroAnterior>
               <sum1:IDEmisorFactura>${nifEmisor}</sum1:IDEmisorFactura>
-              <sum1:NumSerieFactura>${escapeXML(invoice.invoice_number)}</sum1:NumSerieFactura>
+              <sum1:NumSerieFactura>${numSerieFactura}</sum1:NumSerieFactura>
               <sum1:FechaExpedicionFactura>${fechaExpedicion}</sum1:FechaExpedicionFactura>
               <sum1:Huella>${previousHash}</sum1:Huella>
             </sum1:RegistroAnterior>`;
@@ -450,11 +479,13 @@ function buildRegistroAltaXML(invoice: any, center: any, patient: any, invoiceIt
   // Build rectified invoice reference if applicable
   let facturasRectificadasXML = '';
   if (invoice.rectified_invoice_id && invoice.rectified_invoice) {
+    // Sanitize rectified invoice number as well
+    const rectifiedNumSerie = sanitizeNumSerieFactura(invoice.rectified_invoice.invoice_number);
     facturasRectificadasXML = `
           <sum1:FacturasRectificadas>
             <sum1:IDFacturaRectificada>
               <sum1:IDEmisorFactura>${nifEmisor}</sum1:IDEmisorFactura>
-              <sum1:NumSerieFactura>${escapeXML(invoice.rectified_invoice.invoice_number)}</sum1:NumSerieFactura>
+              <sum1:NumSerieFactura>${rectifiedNumSerie}</sum1:NumSerieFactura>
               <sum1:FechaExpedicionFactura>${formatDateVerifactu(invoice.rectified_invoice.issue_date)}</sum1:FechaExpedicionFactura>
             </sum1:IDFacturaRectificada>
           </sum1:FacturasRectificadas>`;
@@ -529,7 +560,7 @@ function buildRegistroAltaXML(invoice: any, center: any, patient: any, invoiceIt
           <sum1:IDVersion>1.0</sum1:IDVersion>
           <sum1:IDFactura>
             <sum1:IDEmisorFactura>${nifEmisor}</sum1:IDEmisorFactura>
-            <sum1:NumSerieFactura>${escapeXML(invoice.invoice_number)}</sum1:NumSerieFactura>
+            <sum1:NumSerieFactura>${numSerieFactura}</sum1:NumSerieFactura>
             <sum1:FechaExpedicionFactura>${fechaExpedicion}</sum1:FechaExpedicionFactura>
           </sum1:IDFactura>
           <sum1:NombreRazonEmisor>${escapeXML(nombreEmisor)}</sum1:NombreRazonEmisor>
