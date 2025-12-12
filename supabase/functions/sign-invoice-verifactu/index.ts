@@ -432,7 +432,19 @@ function buildRegistroAltaXML(invoice: any, center: any, patient: any, invoiceIt
   // Build TipoRectificativa and ImporteRectificacion for substitution invoices
   let tipoRectificativaXML = '';
   if (invoice.rectified_invoice_id) {
-    const tipoRect = invoice.rectification_type || 'I'; // I = por diferencias, S = sustitutiva
+    // Map database values to AEAT codes: differences -> I, substitution -> S
+    // Also handle legacy direct I/S values for backwards compatibility
+    const dbType = (invoice.rectification_type || '').toString().trim();
+    let tipoRect: string;
+    if (dbType === 'differences' || dbType === 'I' || dbType.toUpperCase().startsWith('I')) {
+      tipoRect = 'I';
+    } else if (dbType === 'substitution' || dbType === 'S' || dbType.toUpperCase().startsWith('S')) {
+      tipoRect = 'S';
+    } else {
+      tipoRect = 'I'; // Default to 'I' (por diferencias)
+    }
+    console.log(`TipoRectificativa mapped: DB value "${dbType}" -> AEAT code "${tipoRect}"`);
+    
     tipoRectificativaXML = `
           <sum1:TipoRectificativa>${tipoRect}</sum1:TipoRectificativa>`;
     
