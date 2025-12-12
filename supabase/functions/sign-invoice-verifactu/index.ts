@@ -286,13 +286,13 @@ function buildDesgloseFromItems(invoiceItems: any[], invoice: any): string {
     
     if (totalIVA === 0) {
       // EXENTA: use OperacionExenta (NOT CalificacionOperacion) for E1-E8 codes per XSD schema
+      // Error 1238: NO incluir CuotaRepercutida ni TipoImpositivo para operaciones exentas
       return `
           <sum1:DetalleDesglose>
             <sum1:Impuesto>01</sum1:Impuesto>
             <sum1:ClaveRegimen>01</sum1:ClaveRegimen>
             <sum1:OperacionExenta>E1</sum1:OperacionExenta>
             <sum1:BaseImponibleOimporteNoSujeto>${totalBase.toFixed(2)}</sum1:BaseImponibleOimporteNoSujeto>
-            <sum1:CuotaRepercutida>0.00</sum1:CuotaRepercutida>
           </sum1:DetalleDesglose>`;
     } else {
       const taxRate = Number(invoice.tax_rate) || 21;
@@ -358,20 +358,19 @@ function buildDesgloseFromItems(invoiceItems: any[], invoice: any): string {
 
     if (group.treatment === 'EXENTA') {
       // EXENTA: use OperacionExenta (NOT CalificacionOperacion) for E1-E8 codes per XSD schema
+      // Error 1238: NO incluir CuotaRepercutida ni TipoImpositivo para operaciones exentas
       xml += `\n            <sum1:OperacionExenta>${group.exemptionCode || 'E1'}</sum1:OperacionExenta>`;
       xml += `\n            <sum1:BaseImponibleOimporteNoSujeto>${group.baseImponible.toFixed(2)}</sum1:BaseImponibleOimporteNoSujeto>`;
-      xml += '\n            <sum1:CuotaRepercutida>0.00</sum1:CuotaRepercutida>';
     } else if (group.treatment === 'NO_SUJETA') {
       // Non-subject operation - use CalificacionOperacion with N1/N2 code
+      // Error 1238: NO incluir CuotaRepercutida ni TipoImpositivo para operaciones no sujetas
       xml += `\n            <sum1:CalificacionOperacion>${group.nonSubjectCode || 'N1'}</sum1:CalificacionOperacion>`;
       xml += `\n            <sum1:BaseImponibleOimporteNoSujeto>${group.baseImponible.toFixed(2)}</sum1:BaseImponibleOimporteNoSujeto>`;
-      xml += '\n            <sum1:CuotaRepercutida>0.00</sum1:CuotaRepercutida>';
     } else if (group.treatment === 'S2') {
-      // Reverse charge - S2 with no CuotaRepercutida
+      // S2 (Inversión sujeto pasivo): solo CalificacionOperacion + BaseImponible
+      // Error 1238: NO incluir TipoImpositivo ni CuotaRepercutida
       xml += '\n            <sum1:CalificacionOperacion>S2</sum1:CalificacionOperacion>';
-      xml += `\n            <sum1:TipoImpositivo>0.00</sum1:TipoImpositivo>`;
       xml += `\n            <sum1:BaseImponibleOimporteNoSujeto>${group.baseImponible.toFixed(2)}</sum1:BaseImponibleOimporteNoSujeto>`;
-      xml += '\n            <sum1:CuotaRepercutida>0.00</sum1:CuotaRepercutida>';
     } else {
       // S1 - Subject with VAT
       xml += '\n            <sum1:CalificacionOperacion>S1</sum1:CalificacionOperacion>';
