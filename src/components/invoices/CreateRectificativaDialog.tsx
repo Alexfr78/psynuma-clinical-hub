@@ -238,7 +238,28 @@ export function CreateRectificativaDialog({
 
       if (invoiceError) throw invoiceError;
 
-      // Create invoice item
+      // Mark the original invoice as invalid (is_valid = false)
+      const { error: invalidateError } = await supabase
+        .from('invoices')
+        .update({ is_valid: false })
+        .eq('id', originalInvoice.id);
+
+      if (invalidateError) {
+        console.error('Error invalidating original invoice:', invalidateError);
+        // Don't throw - the rectificativa was created successfully
+      }
+
+      // Get the billable_event_id from the original invoice's items
+      const { data: originalItems } = await supabase
+        .from('invoice_items')
+        .select('billable_event_id')
+        .eq('invoice_id', originalInvoice.id)
+        .limit(1)
+        .maybeSingle();
+
+      const billableEventId = originalItems?.billable_event_id || null;
+
+      // Create invoice item (linking to same billable_event if exists)
       const { error: itemError } = await supabase
         .from('invoice_items')
         .insert({
@@ -253,6 +274,7 @@ export function CreateRectificativaDialog({
           retention_name: center.retention_name || 'IRPF',
           retention_amount: retentionAmount,
           total: total,
+          billable_event_id: billableEventId,
         });
 
       if (itemError) throw itemError;

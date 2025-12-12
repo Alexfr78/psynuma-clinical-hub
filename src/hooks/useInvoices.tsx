@@ -19,6 +19,7 @@ export interface Invoice {
   total: number;
   status: 'draft' | 'issued' | 'paid' | 'cancelled';
   is_recapitulative: boolean;
+  is_valid: boolean;
   notes: string | null;
   verifactu_hash: string | null;
   verifactu_qr: string | null;
@@ -26,6 +27,7 @@ export interface Invoice {
   verifactu_registration_id: string | null;
   verifactu_pending: boolean | null;
   verifactu_retry_count: number | null;
+  rectified_invoice_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -46,6 +48,7 @@ export interface InvoiceItem {
   id: string;
   invoice_id: string;
   session_id: string | null;
+  billable_event_id: string | null;
   description: string;
   quantity: number;
   unit_price: number;
@@ -78,6 +81,7 @@ export interface InvoiceInsert {
 export interface InvoiceItemInsert {
   invoice_id: string;
   session_id?: string | null;
+  billable_event_id?: string | null;
   description: string;
   quantity?: number;
   unit_price: number;
@@ -489,28 +493,102 @@ export function useUnbilledSessions(patientId: string | undefined) {
   });
 }
 
-// Hook to check if a session is already invoiced
+// Hook to check if a session is already invoiced - now checks billable_event and is_valid
 export function useSessionInvoiceStatus(sessionId: string | undefined) {
   return useQuery({
     queryKey: ['session-invoice-status', sessionId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('invoice_items')
-        .select('invoice_id, invoices(id, invoice_number, status)')
+      // First check if there's a billable event for this session
+      const { data: billableEvent, error: beError } = await supabase
+        .from('billable_events')
+        .select('id, billing_status')
         .eq('session_id', sessionId!)
         .maybeSingle();
 
-      if (error) throw error;
+      if (beError) throw beError;
 
-      const invoiceData = data?.invoices as { id: string; invoice_number: string; status: string } | null;
+      // No billable event = not invoiced
+      if (!billableEvent) {
+        return {
+          isInvoiced: false,
+          hasValidInvoice: false,
+          canCreateInvoice: true,
+          invoices: [],
+          billableEventId: null,
+          billingStatus: null,
+        };
+      }
+
+      // Get all invoices for this billable event
+      const { data: invoiceItems, error: iiError } = await supabase
+        .from('invoice_items')
+        .select(`
+          invoice_id,
+          invoices (
+            id,
+            invoice_number,
+            status,
+            total,
+            is_valid,
+            rectified_invoice_id,
+            issue_date
+          )
+        `)
+        .eq('billable_event_id', billableEvent.id);
+
+      if (iiError) throw iiError;
+
+      // Extract unique invoices
+      const invoicesMap = new Map();
+      invoiceItems?.forEach(item => {
+        if (item.invoices) {
+          invoicesMap.set(item.invoice_id, item.invoices);
+        }
+      });
+      const invoices = Array.from(invoicesMap.values());
+
+      // Check if there's a valid, non-cancelled invoice
+      const validInvoice = invoices.find((inv: any) => 
+        inv.is_valid && inv.status !== 'cancelled'
+      );
 
       return {
-        isInvoiced: !!data,
-        invoiceId: data?.invoice_id || null,
-        invoiceNumber: invoiceData?.invoice_number || null,
-        invoiceStatus: invoiceData?.status || null,
+        isInvoiced: invoices.length > 0,
+        hasValidInvoice: !!validInvoice,
+        canCreateInvoice: billableEvent.billing_status === 'pending' && !validInvoice,
+        invoices,
+        billableEventId: billableEvent.id,
+        billingStatus: billableEvent.billing_status,
+        // Legacy fields for backward compatibility
+        invoiceId: validInvoice?.id || invoices[0]?.id || null,
+        invoiceNumber: validInvoice?.invoice_number || invoices[0]?.invoice_number || null,
+        invoiceStatus: validInvoice?.status || invoices[0]?.status || null,
       };
     },
     enabled: !!sessionId,
+  });
+}
+
+// Mark invoice as invalid (for rectifications)
+export function useInvalidateInvoice() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (invoiceId: string) => {
+      const { data, error } = await supabase
+        .from('invoices')
+        .update({ is_valid: false })
+        .eq('id', invoiceId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      queryClient.invalidateQueries({ queryKey: ['session-invoice-status'] });
+      queryClient.invalidateQueries({ queryKey: ['billable-events'] });
+    },
   });
 }
