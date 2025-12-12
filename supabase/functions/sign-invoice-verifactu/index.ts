@@ -318,13 +318,13 @@ function buildRegistroAltaXML(invoice: any, center: any, patient: any, invoiceIt
   // sum1: for internal types (ObligadoEmision, RegistroAlta, etc.)
   // Namespaces are declared on the soapenv:Envelope, not here
   return `<sum:RegFactuSistemaFacturacion>
-      <sum:Cabecera>
+      <sum1:Cabecera>
         <sum1:IDVersion>1.0</sum1:IDVersion>
         <sum1:ObligadoEmision>
           <sum1:NombreRazon>${escapeXML(nombreEmisor)}</sum1:NombreRazon>
           <sum1:NIF>${nifEmisor}</sum1:NIF>
         </sum1:ObligadoEmision>
-      </sum:Cabecera>
+      </sum1:Cabecera>
       <sum:RegistroFactura>
         <sum1:RegistroAlta>
           <sum1:IDFactura>
