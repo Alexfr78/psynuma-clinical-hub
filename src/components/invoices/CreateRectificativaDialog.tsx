@@ -173,6 +173,13 @@ export function CreateRectificativaDialog({
       const retentionAmount = baseAmount * (retentionRate / 100);
       const total = values.amount - retentionAmount;
 
+      // Map form values to database values
+      // Form uses Verifactu codes (I, S), DB expects (differences, substitution)
+      const rectificationTypeMap: Record<string, string> = {
+        'I': 'differences',
+        'S': 'substitution',
+      };
+
       // Prepare invoice data
       const invoiceData: any = {
         center_id: center.id,
@@ -188,7 +195,7 @@ export function CreateRectificativaDialog({
         retention_amount: retentionAmount,
         total: total,
         rectified_invoice_id: originalInvoice.id,
-        rectification_type: values.rectification_type,
+        rectification_type: rectificationTypeMap[values.rectification_type],
         rectification_reason_code: values.rectification_reason_code,
         notes: values.notes || `Rectificación ${values.rectification_reason_code} tipo ${values.rectification_type === 'I' ? 'por diferencias' : 'sustitutiva'} de ${originalInvoice.invoice_number}`,
       };
