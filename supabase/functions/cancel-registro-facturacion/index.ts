@@ -173,13 +173,13 @@ function buildRegistroBajaXML(invoice: any, center: any, generationTimestamp: st
   }
 
   return `<sum:RegFactuSistemaFacturacion>
-      <sum:Cabecera>
+      <sum1:Cabecera>
         <sum1:IDVersion>1.0</sum1:IDVersion>
         <sum1:ObligadoEmision>
           <sum1:NombreRazon>${escapeXML(nombreEmisor)}</sum1:NombreRazon>
           <sum1:NIF>${nifEmisor}</sum1:NIF>
         </sum1:ObligadoEmision>
-      </sum:Cabecera>
+      </sum1:Cabecera>
       <sum:RegistroFactura>
         <sum1:RegistroAnulacion>
           <sum1:IDFactura>

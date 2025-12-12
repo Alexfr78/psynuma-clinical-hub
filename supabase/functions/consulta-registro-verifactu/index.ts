@@ -117,13 +117,13 @@ function buildConsultaXML(invoice: any, center: any): string {
   const fechaExpedicion = formatDateVerifactu(invoice.issue_date);
 
   return `<sum:ConsultaFactuSistemaFacturacion>
-      <sum:Cabecera>
+      <sum1:Cabecera>
         <sum1:IDVersion>1.0</sum1:IDVersion>
         <sum1:ObligadoEmision>
           <sum1:NombreRazon>${escapeXML(nombreEmisor)}</sum1:NombreRazon>
           <sum1:NIF>${nifEmisor}</sum1:NIF>
         </sum1:ObligadoEmision>
-      </sum:Cabecera>
+      </sum1:Cabecera>
       <sum:FiltroConsulta>
         <sum1:IDFactura>
           <sum1:IDEmisorFactura>${nifEmisor}</sum1:IDEmisorFactura>
