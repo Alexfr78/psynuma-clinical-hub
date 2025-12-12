@@ -251,12 +251,11 @@ function buildRegistroAltaXML(invoice: any, center: any, patient: any, invoiceIt
   
   if (totalIVA === 0) {
     // Exempt operation (healthcare services - art. 20 LIVA)
-    // E1 requires OperacionExenta field, NO TipoImpositivo or CuotaRepercutida
+    // For exempt operations: NO CalificacionOperacion, only OperacionExenta
     desgloseXML = `
           <sum1:DetalleDesglose>
             <sum1:Impuesto>01</sum1:Impuesto>
             <sum1:ClaveRegimen>01</sum1:ClaveRegimen>
-            <sum1:CalificacionOperacion>E1</sum1:CalificacionOperacion>
             <sum1:OperacionExenta>E1</sum1:OperacionExenta>
             <sum1:BaseImponibleOimporteNoSujeto>${totalBase.toFixed(2)}</sum1:BaseImponibleOimporteNoSujeto>
           </sum1:DetalleDesglose>`;
