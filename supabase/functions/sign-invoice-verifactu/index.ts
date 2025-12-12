@@ -472,6 +472,14 @@ function buildRegistroAltaXML(
   // Build desglose (breakdown) from invoice items
   // Group items by fiscal treatment to create proper DetalleDesglose entries
   const desgloseXML = buildDesgloseFromItems(invoiceItems, invoice);
+  
+  // CRITICAL: Validate desglose is never empty - AEAT error 4102 occurs when Desglose is missing
+  if (!desgloseXML || desgloseXML.trim().length === 0) {
+    console.error("ERROR: buildDesgloseFromItems returned empty XML");
+    throw new Error("Error interno: No se pudo generar el desglose fiscal. Verifique que la factura tiene líneas con datos fiscales.");
+  }
+  console.log("Desglose XML generated, length:", desgloseXML.length);
+  console.log("Desglose XML preview:", desgloseXML.substring(0, 500));
 
   // Build encadenamiento (chaining)
   let encadenamientoXML = '';
