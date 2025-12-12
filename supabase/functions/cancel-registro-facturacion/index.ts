@@ -143,6 +143,8 @@ async function calculateCancellationHash(invoice: any, center: any, previousHash
 }
 
 // Build RegistroAnulacion XML for invoice cancellation (with proper chaining per Art. 11.2.c RRSIF)
+// sum: for container elements (RegFactuSistemaFacturacion, Cabecera, RegistroFactura)
+// sum1: for internal types
 function buildRegistroBajaXML(invoice: any, center: any, generationTimestamp: string, cancellationHash: string, previousHash: string | null): string {
   const nifEmisor = center.tax_id?.replace(/[^A-Z0-9]/gi, '') || '';
   const nombreEmisor = center.name || '';
@@ -170,15 +172,15 @@ function buildRegistroBajaXML(invoice: any, center: any, generationTimestamp: st
           </sum1:Encadenamiento>`;
   }
 
-  return `<sum1:RegFactuSistemaFacturacion>
-      <sum1:Cabecera>
+  return `<sum:RegFactuSistemaFacturacion>
+      <sum:Cabecera>
         <sum1:IDVersion>1.0</sum1:IDVersion>
         <sum1:ObligadoEmision>
           <sum1:NombreRazon>${escapeXML(nombreEmisor)}</sum1:NombreRazon>
           <sum1:NIF>${nifEmisor}</sum1:NIF>
         </sum1:ObligadoEmision>
-      </sum1:Cabecera>
-      <sum1:RegistroFactura>
+      </sum:Cabecera>
+      <sum:RegistroFactura>
         <sum1:RegistroAnulacion>
           <sum1:IDFactura>
             <sum1:IDEmisorFactura>${nifEmisor}</sum1:IDEmisorFactura>
@@ -200,8 +202,8 @@ function buildRegistroBajaXML(invoice: any, center: any, generationTimestamp: st
           <sum1:TipoHuella>01</sum1:TipoHuella>
           <sum1:Huella>${cancellationHash}</sum1:Huella>
         </sum1:RegistroAnulacion>
-      </sum1:RegistroFactura>
-    </sum1:RegFactuSistemaFacturacion>`;
+      </sum:RegistroFactura>
+    </sum:RegFactuSistemaFacturacion>`;
 }
 
 // Extract certificates from PKCS12 for XML signing
@@ -259,23 +261,24 @@ function extractCertificatesFromPKCS12(certificateBase64: string, certificatePas
   return { privateKey, certificate: endEntityCert };
 }
 
-// Build complete signed SOAP envelope with namespace on Body
+// Build complete signed SOAP envelope with namespaces on Envelope
 function buildSignedSOAPEnvelope(body: string, privateKey: any, certificate: any): string {
-  const xmlnsSum1 = 'https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/SuministroLR.xsd';
+  const NS_SUM = 'https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/SuministroLR.xsd';
+  const NS_SUM1 = 'https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/SuministroInformacion.xsd';
 
-  // Create the full body with namespace
-  const fullBody = `<soapenv:Body xmlns:sum1="${xmlnsSum1}">${body}</soapenv:Body>`;
+  // Create the full body with namespaces for signing
+  const fullBody = `<soapenv:Body xmlns:sum="${NS_SUM}" xmlns:sum1="${NS_SUM1}">${body}</soapenv:Body>`;
 
   // Sign the body
   const signature = signXMLBody(fullBody, privateKey, certificate);
 
-  // Build complete SOAP envelope
+  // Build complete SOAP envelope with all namespaces on Envelope element
   return `<?xml version="1.0" encoding="UTF-8"?>
-<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/">
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:sum="${NS_SUM}" xmlns:sum1="${NS_SUM1}">
   <soapenv:Header>
     ${signature}
   </soapenv:Header>
-  <soapenv:Body xmlns:sum1="${xmlnsSum1}">
+  <soapenv:Body>
     ${body}
   </soapenv:Body>
 </soapenv:Envelope>`;

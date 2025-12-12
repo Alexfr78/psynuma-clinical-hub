@@ -196,6 +196,8 @@ async function calculateInvoiceHash(invoice: any, center: any, previousHash: str
 }
 
 // Build RegistroAlta XML for invoice registration with correct namespaces
+// sum: for container elements (RegFactuSistemaFacturacion, Cabecera, RegistroFactura)
+// sum1: for internal types (IDVersion, ObligadoEmision, RegistroAlta, etc.)
 function buildRegistroAltaXML(invoice: any, center: any, patient: any, invoiceItems: any[], previousHash: string | null, generationTimestamp: string, invoiceHash: string): string {
   const nifEmisor = center.tax_id?.replace(/[^A-Z0-9]/gi, '') || '';
   const nombreEmisor = center.name || '';
@@ -212,37 +214,37 @@ function buildRegistroAltaXML(invoice: any, center: any, patient: any, invoiceIt
   if (totalIVA === 0) {
     // Exempt operation (healthcare services)
     desgloseXML = `
-          <sf:DetalleDesglose>
-            <sf:Impuesto>01</sf:Impuesto>
-            <sf:ClaveRegimen>01</sf:ClaveRegimen>
-            <sf:CalificacionOperacion>E1</sf:CalificacionOperacion>
-            <sf:BaseImponibleOImporteNoSujeto>${totalBase.toFixed(2)}</sf:BaseImponibleOImporteNoSujeto>
-          </sf:DetalleDesglose>`;
+          <sum1:DetalleDesglose>
+            <sum1:Impuesto>01</sum1:Impuesto>
+            <sum1:ClaveRegimen>01</sum1:ClaveRegimen>
+            <sum1:CalificacionOperacion>E1</sum1:CalificacionOperacion>
+            <sum1:BaseImponibleOImporteNoSujeto>${totalBase.toFixed(2)}</sum1:BaseImponibleOImporteNoSujeto>
+          </sum1:DetalleDesglose>`;
   } else {
     const taxRate = Number(invoice.tax_rate) || 21;
     desgloseXML = `
-          <sf:DetalleDesglose>
-            <sf:Impuesto>01</sf:Impuesto>
-            <sf:ClaveRegimen>01</sf:ClaveRegimen>
-            <sf:CalificacionOperacion>S1</sf:CalificacionOperacion>
-            <sf:TipoImpositivo>${taxRate.toFixed(2)}</sf:TipoImpositivo>
-            <sf:BaseImponibleOImporteNoSujeto>${totalBase.toFixed(2)}</sf:BaseImponibleOImporteNoSujeto>
-            <sf:CuotaRepercutida>${totalIVA.toFixed(2)}</sf:CuotaRepercutida>
-          </sf:DetalleDesglose>`;
+          <sum1:DetalleDesglose>
+            <sum1:Impuesto>01</sum1:Impuesto>
+            <sum1:ClaveRegimen>01</sum1:ClaveRegimen>
+            <sum1:CalificacionOperacion>S1</sum1:CalificacionOperacion>
+            <sum1:TipoImpositivo>${taxRate.toFixed(2)}</sum1:TipoImpositivo>
+            <sum1:BaseImponibleOImporteNoSujeto>${totalBase.toFixed(2)}</sum1:BaseImponibleOImporteNoSujeto>
+            <sum1:CuotaRepercutida>${totalIVA.toFixed(2)}</sum1:CuotaRepercutida>
+          </sum1:DetalleDesglose>`;
   }
 
   // Build encadenamiento (chaining)
   let encadenamientoXML = '';
   if (previousHash) {
     encadenamientoXML = `
-            <sf:RegistroAnterior>
-              <sf:IDEmisorFactura>${nifEmisor}</sf:IDEmisorFactura>
-              <sf:NumSerieFactura>${escapeXML(invoice.invoice_number)}</sf:NumSerieFactura>
-              <sf:FechaExpedicionFactura>${fechaExpedicion}</sf:FechaExpedicionFactura>
-              <sf:Huella>${previousHash}</sf:Huella>
-            </sf:RegistroAnterior>`;
+            <sum1:RegistroAnterior>
+              <sum1:IDEmisorFactura>${nifEmisor}</sum1:IDEmisorFactura>
+              <sum1:NumSerieFactura>${escapeXML(invoice.invoice_number)}</sum1:NumSerieFactura>
+              <sum1:FechaExpedicionFactura>${fechaExpedicion}</sum1:FechaExpedicionFactura>
+              <sum1:Huella>${previousHash}</sum1:Huella>
+            </sum1:RegistroAnterior>`;
   } else {
-    encadenamientoXML = `<sf:PrimerRegistro>S</sf:PrimerRegistro>`;
+    encadenamientoXML = `<sum1:PrimerRegistro>S</sum1:PrimerRegistro>`;
   }
 
   // Software info
@@ -268,13 +270,13 @@ function buildRegistroAltaXML(invoice: any, center: any, patient: any, invoiceIt
   let facturasRectificadasXML = '';
   if (invoice.rectified_invoice_id && invoice.rectified_invoice) {
     facturasRectificadasXML = `
-          <sf:FacturasRectificadas>
-            <sf:IDFacturaRectificada>
-              <sf:IDEmisorFactura>${nifEmisor}</sf:IDEmisorFactura>
-              <sf:NumSerieFactura>${escapeXML(invoice.rectified_invoice.invoice_number)}</sf:NumSerieFactura>
-              <sf:FechaExpedicionFactura>${formatDateVerifactu(invoice.rectified_invoice.issue_date)}</sf:FechaExpedicionFactura>
-            </sf:IDFacturaRectificada>
-          </sf:FacturasRectificadas>`;
+          <sum1:FacturasRectificadas>
+            <sum1:IDFacturaRectificada>
+              <sum1:IDEmisorFactura>${nifEmisor}</sum1:IDEmisorFactura>
+              <sum1:NumSerieFactura>${escapeXML(invoice.rectified_invoice.invoice_number)}</sum1:NumSerieFactura>
+              <sum1:FechaExpedicionFactura>${formatDateVerifactu(invoice.rectified_invoice.issue_date)}</sum1:FechaExpedicionFactura>
+            </sum1:IDFacturaRectificada>
+          </sum1:FacturasRectificadas>`;
   }
 
   // Build TipoRectificativa and ImporteRectificacion for substitution invoices
@@ -282,7 +284,7 @@ function buildRegistroAltaXML(invoice: any, center: any, patient: any, invoiceIt
   if (invoice.rectified_invoice_id) {
     const tipoRect = invoice.rectification_type || 'I'; // I = por diferencias, S = sustitutiva
     tipoRectificativaXML = `
-          <sf:TipoRectificativa>${tipoRect}</sf:TipoRectificativa>`;
+          <sum1:TipoRectificativa>${tipoRect}</sum1:TipoRectificativa>`;
     
     // For substitution (S) type, include BaseRectificada and CuotaRectificada
     if (tipoRect === 'S' && (invoice.base_rectificada !== null || invoice.cuota_rectificada !== null)) {
@@ -291,11 +293,11 @@ function buildRegistroAltaXML(invoice: any, center: any, patient: any, invoiceIt
       const cuotaRecargoRect = Number(invoice.cuota_recargo_rectificado) || 0;
       
       tipoRectificativaXML += `
-          <sf:ImporteRectificacion>
-            <sf:BaseRectificada>${baseRect.toFixed(2)}</sf:BaseRectificada>
-            <sf:CuotaRectificada>${cuotaRect.toFixed(2)}</sf:CuotaRectificada>${cuotaRecargoRect > 0 ? `
-            <sf:CuotaRecargoRectificado>${cuotaRecargoRect.toFixed(2)}</sf:CuotaRecargoRectificado>` : ''}
-          </sf:ImporteRectificacion>`;
+          <sum1:ImporteRectificacion>
+            <sum1:BaseRectificada>${baseRect.toFixed(2)}</sum1:BaseRectificada>
+            <sum1:CuotaRectificada>${cuotaRect.toFixed(2)}</sum1:CuotaRectificada>${cuotaRecargoRect > 0 ? `
+            <sum1:CuotaRecargoRectificado>${cuotaRecargoRect.toFixed(2)}</sum1:CuotaRecargoRectificado>` : ''}
+          </sum1:ImporteRectificacion>`;
     }
   }
 
@@ -303,62 +305,60 @@ function buildRegistroAltaXML(invoice: any, center: any, patient: any, invoiceIt
   let destinatariosXML = '';
   if (patientTaxId) {
     destinatariosXML = `
-          <sf:Destinatarios>
-            <sf:IDDestinatario>
-              <sf:NombreRazon>${escapeXML(patientName)}</sf:NombreRazon>
-              <sf:NIF>${patientTaxId}</sf:NIF>
-            </sf:IDDestinatario>
-          </sf:Destinatarios>`;
+          <sum1:Destinatarios>
+            <sum1:IDDestinatario>
+              <sum1:NombreRazon>${escapeXML(patientName)}</sum1:NombreRazon>
+              <sum1:NIF>${patientTaxId}</sum1:NIF>
+            </sum1:IDDestinatario>
+          </sum1:Destinatarios>`;
   }
 
-  // Use the V1.0 namespace URLs as per AEAT official XSD
-  const xmlnsLR = 'https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/SuministroLR.xsd';
-  const xmlnsSF = 'https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/SuministroInformacion.xsd';
-
   // Build the body content with correct namespace prefixes
-  // Namespaces MUST be declared on the RegFactuSistemaFacturacion element itself
-  return `<sfLR:RegFactuSistemaFacturacion xmlns:sfLR="${xmlnsLR}" xmlns:sf="${xmlnsSF}">
-      <sf:Cabecera>
-        <sf:IDVersion>1.0</sf:IDVersion>
-        <sf:ObligadoEmision>
-          <sf:NombreRazon>${escapeXML(nombreEmisor)}</sf:NombreRazon>
-          <sf:NIF>${nifEmisor}</sf:NIF>
-        </sf:ObligadoEmision>
-      </sf:Cabecera>
-      <sfLR:RegistroFactura>
-        <sf:RegistroAlta>
-          <sf:IDFactura>
-            <sf:IDEmisorFactura>${nifEmisor}</sf:IDEmisorFactura>
-            <sf:NumSerieFactura>${escapeXML(invoice.invoice_number)}</sf:NumSerieFactura>
-            <sf:FechaExpedicionFactura>${fechaExpedicion}</sf:FechaExpedicionFactura>
-          </sf:IDFactura>
-          <sf:NombreRazonEmisor>${escapeXML(nombreEmisor)}</sf:NombreRazonEmisor>
-          <sf:TipoFactura>${tipoFactura}</sf:TipoFactura>${tipoRectificativaXML}${facturasRectificadasXML}
-          <sf:DescripcionOperacion>Servicios de psicología</sf:DescripcionOperacion>${destinatariosXML}
-          <sf:Desglose>${desgloseXML}
-          </sf:Desglose>
-          <sf:CuotaTotal>${totalIVA.toFixed(2)}</sf:CuotaTotal>
-          <sf:ImporteTotal>${Number(invoice.total).toFixed(2)}</sf:ImporteTotal>
-          <sf:Encadenamiento>
+  // sum: for container elements (RegFactuSistemaFacturacion, Cabecera, RegistroFactura)
+  // sum1: for internal types (ObligadoEmision, RegistroAlta, etc.)
+  // Namespaces are declared on the soapenv:Envelope, not here
+  return `<sum:RegFactuSistemaFacturacion>
+      <sum:Cabecera>
+        <sum1:IDVersion>1.0</sum1:IDVersion>
+        <sum1:ObligadoEmision>
+          <sum1:NombreRazon>${escapeXML(nombreEmisor)}</sum1:NombreRazon>
+          <sum1:NIF>${nifEmisor}</sum1:NIF>
+        </sum1:ObligadoEmision>
+      </sum:Cabecera>
+      <sum:RegistroFactura>
+        <sum1:RegistroAlta>
+          <sum1:IDFactura>
+            <sum1:IDEmisorFactura>${nifEmisor}</sum1:IDEmisorFactura>
+            <sum1:NumSerieFactura>${escapeXML(invoice.invoice_number)}</sum1:NumSerieFactura>
+            <sum1:FechaExpedicionFactura>${fechaExpedicion}</sum1:FechaExpedicionFactura>
+          </sum1:IDFactura>
+          <sum1:NombreRazonEmisor>${escapeXML(nombreEmisor)}</sum1:NombreRazonEmisor>
+          <sum1:TipoFactura>${tipoFactura}</sum1:TipoFactura>${tipoRectificativaXML}${facturasRectificadasXML}
+          <sum1:DescripcionOperacion>Servicios de psicología</sum1:DescripcionOperacion>${destinatariosXML}
+          <sum1:Desglose>${desgloseXML}
+          </sum1:Desglose>
+          <sum1:CuotaTotal>${totalIVA.toFixed(2)}</sum1:CuotaTotal>
+          <sum1:ImporteTotal>${Number(invoice.total).toFixed(2)}</sum1:ImporteTotal>
+          <sum1:Encadenamiento>
             ${encadenamientoXML}
-          </sf:Encadenamiento>
-          <sf:SistemaInformatico>
-            <sf:NombreRazon>${escapeXML(softwareName)}</sf:NombreRazon>
-            <sf:NIF>${softwareNif}</sf:NIF>
-            <sf:NombreSistemaInformatico>${escapeXML(softwareName)}</sf:NombreSistemaInformatico>
-            <sf:IdSistemaInformatico>01</sf:IdSistemaInformatico>
-            <sf:Version>${softwareVersion}</sf:Version>
-            <sf:NumeroInstalacion>1</sf:NumeroInstalacion>
-            <sf:TipoUsoPosibleSoloVerifactu>S</sf:TipoUsoPosibleSoloVerifactu>
-            <sf:TipoUsoPosibleMultiOT>N</sf:TipoUsoPosibleMultiOT>
-            <sf:IndicadorMultiplesOT>N</sf:IndicadorMultiplesOT>
-          </sf:SistemaInformatico>
-          <sf:FechaHoraHusoGenRegistro>${generationTimestamp}</sf:FechaHoraHusoGenRegistro>
-          <sf:TipoHuella>01</sf:TipoHuella>
-          <sf:Huella>${invoiceHash}</sf:Huella>
-        </sf:RegistroAlta>
-      </sfLR:RegistroFactura>
-    </sfLR:RegFactuSistemaFacturacion>`;
+          </sum1:Encadenamiento>
+          <sum1:SistemaInformatico>
+            <sum1:NombreRazon>${escapeXML(softwareName)}</sum1:NombreRazon>
+            <sum1:NIF>${softwareNif}</sum1:NIF>
+            <sum1:NombreSistemaInformatico>${escapeXML(softwareName)}</sum1:NombreSistemaInformatico>
+            <sum1:IdSistemaInformatico>01</sum1:IdSistemaInformatico>
+            <sum1:Version>${softwareVersion}</sum1:Version>
+            <sum1:NumeroInstalacion>1</sum1:NumeroInstalacion>
+            <sum1:TipoUsoPosibleSoloVerifactu>S</sum1:TipoUsoPosibleSoloVerifactu>
+            <sum1:TipoUsoPosibleMultiOT>N</sum1:TipoUsoPosibleMultiOT>
+            <sum1:IndicadorMultiplesOT>N</sum1:IndicadorMultiplesOT>
+          </sum1:SistemaInformatico>
+          <sum1:FechaHoraHusoGenRegistro>${generationTimestamp}</sum1:FechaHoraHusoGenRegistro>
+          <sum1:TipoHuella>01</sum1:TipoHuella>
+          <sum1:Huella>${invoiceHash}</sum1:Huella>
+        </sum1:RegistroAlta>
+      </sum:RegistroFactura>
+    </sum:RegFactuSistemaFacturacion>`;
 }
 
 // Extract certificates from PKCS12 for XML signing
@@ -427,17 +427,21 @@ function extractCertificatesFromPKCS12(certificateBase64: string, certificatePas
   return { privateKey, certificate: endEntityCert };
 }
 
-// Build complete signed SOAP envelope - namespaces are now on the body content itself
+// Build complete signed SOAP envelope with namespaces declared on Envelope
 function buildSignedSOAPEnvelope(body: string, privateKey: any, certificate: any): string {
-  // Create the full body for signing (body already contains namespace declarations)
-  const fullBody = `<soapenv:Body>${body}</soapenv:Body>`;
+  // Namespace URLs per AEAT XSD
+  const NS_SUM = 'https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/SuministroLR.xsd';
+  const NS_SUM1 = 'https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/SuministroInformacion.xsd';
+
+  // Create the full body with namespaces for signing
+  const fullBody = `<soapenv:Body xmlns:sum="${NS_SUM}" xmlns:sum1="${NS_SUM1}">${body}</soapenv:Body>`;
 
   // Sign the body
   const signature = signXMLBody(fullBody, privateKey, certificate);
 
-  // Build complete SOAP envelope
+  // Build complete SOAP envelope with all namespaces on Envelope element
   return `<?xml version="1.0" encoding="UTF-8"?>
-<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/">
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:sum="${NS_SUM}" xmlns:sum1="${NS_SUM1}">
   <soapenv:Header>
     ${signature}
   </soapenv:Header>
