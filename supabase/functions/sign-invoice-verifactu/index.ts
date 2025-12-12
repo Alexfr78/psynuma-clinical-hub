@@ -386,8 +386,8 @@ function buildRegistroAltaXML(invoice: any, center: any, patient: any, invoiceIt
   const patientTaxId = patient?.tax_id?.replace(/[^A-Z0-9]/gi, '') || '';
   const patientName = patient ? `${patient.first_name} ${patient.last_name}`.trim() : 'Cliente';
   
-  // Build DescripcionOperacion - use first item description or fallback
-  const firstItemDescription = invoiceItems?.[0]?.description?.trim() || '';
+  // Build DescripcionOperacion - ALWAYS required, never empty
+  const firstItemDescription = (invoiceItems?.[0]?.description || '').toString().replace(/[\r\n\t]+/g, ' ').trim();
   let descripcionOperacion: string;
   if (invoice.rectified_invoice_id && invoice.rectified_invoice) {
     // For rectifying invoices, mention it's a rectification
@@ -395,8 +395,13 @@ function buildRegistroAltaXML(invoice: any, center: any, patient: any, invoiceIt
   } else {
     descripcionOperacion = firstItemDescription || 'Servicios profesionales';
   }
+  // Final safety: ensure never empty
+  if (!descripcionOperacion || descripcionOperacion.trim().length === 0) {
+    descripcionOperacion = `Factura ${invoice.invoice_number}`;
+  }
   // Truncate to max 250 chars and escape
   descripcionOperacion = escapeXML(descripcionOperacion.substring(0, 250));
+  console.log("DescripcionOperacion:", descripcionOperacion);
   
   // Build desglose (breakdown) from invoice items
   // Group items by fiscal treatment to create proper DetalleDesglose entries
