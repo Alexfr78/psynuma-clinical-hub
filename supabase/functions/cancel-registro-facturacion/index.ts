@@ -341,10 +341,12 @@ function extractCSV(responseXml: string): string | null {
   return csvMatch?.[1] || null;
 }
 
-// Send XML to AEAT - CORRECTED: Standard fetch without mTLS
+// Send XML to AEAT with mTLS authentication
 async function sendToAEAT(
   signedXml: string, 
-  environment: string
+  environment: string,
+  privateKey: any,
+  certificate: any
 ): Promise<{ success: boolean; response?: string; error?: string; httpStatus?: number }> {
   const endpoint = environment === 'production' ? AEAT_ENDPOINTS.production : AEAT_ENDPOINTS.test;
   
@@ -352,14 +354,27 @@ async function sendToAEAT(
     console.log("Sending cancellation to AEAT endpoint:", endpoint);
     console.log("Using SOAPAction:", SOAP_ACTION_BAJA);
 
-    // Standard fetch - certificate is used for XML signing, NOT for connection authentication
+    // Convert certificate and private key to PEM format for mTLS
+    const certPem = forge.pki.certificateToPem(certificate);
+    const keyPem = forge.pki.privateKeyToPem(privateKey);
+    
+    console.log("Creating HTTP client with mTLS authentication...");
+    
+    // Create HTTP client with mTLS (mutual TLS) - AEAT requires client certificate authentication
+    const client = Deno.createHttpClient({
+      cert: certPem,
+      key: keyPem,
+    });
+    
     const response = await fetch(endpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'text/xml; charset=utf-8',
         'SOAPAction': SOAP_ACTION_BAJA
       },
-      body: signedXml
+      body: signedXml,
+      // @ts-ignore - Deno specific option for mTLS
+      client: client
     });
 
     const responseText = await response.text();
@@ -543,8 +558,8 @@ serve(async (req) => {
 
     console.log("Sending cancellation request to AEAT...");
 
-    // Send to AEAT
-    const aeatResult = await sendToAEAT(signedXml, environment);
+    // Send to AEAT with mTLS using extracted certificate
+    const aeatResult = await sendToAEAT(signedXml, environment, certData.privateKey, certData.certificate);
 
     // Extract CSV from response
     const csv = aeatResult.response ? extractCSV(aeatResult.response) : null;
