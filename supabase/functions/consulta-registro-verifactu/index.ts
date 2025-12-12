@@ -17,14 +17,15 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// AEAT Verifactu endpoints for consultation - CORRECTED URLs
+// AEAT Verifactu endpoints for consultation - Using same pattern as VerifactuSOAP
+// Note: AEAT consultation service may be temporarily unavailable
 const AEAT_ENDPOINTS = {
-  test: "https://prewww2.aeat.es/wlpl/TIKE-CONT/ws/ConsultaLRSOAP",
-  production: "https://www2.agenciatributaria.gob.es/wlpl/TIKE-CONT/ws/ConsultaLRSOAP"
+  test: "https://prewww1.aeat.es/wlpl/TIKE-CONT/ws/SistemaFacturacion/ConsultaVerifactuSOAP",
+  production: "https://www1.agenciatributaria.gob.es/wlpl/TIKE-CONT/ws/SistemaFacturacion/ConsultaVerifactuSOAP"
 };
 
-// SOAPAction for Consulta (invoice query) - CORRECTED to simple string
-const SOAP_ACTION_CONSULTA = "ConsultaLR";
+// SOAPAction for Consulta
+const SOAP_ACTION_CONSULTA = "ConsultaFactuSistemaFacturacion";
 
 // ============= AES-256-GCM Decryption =============
 function hexToBytes(hex: string): Uint8Array {
@@ -472,6 +473,24 @@ serve(async (req) => {
     });
 
     if (!aeatResult.success) {
+      // Check if it's a service unavailability (404 or internal error)
+      const isServiceUnavailable = aeatResult.httpStatus === 404 || 
+        aeatResult.error?.includes('interno en el servidor') ||
+        aeatResult.error?.includes('Desactivada temporalmente');
+      
+      if (isServiceUnavailable) {
+        return new Response(
+          JSON.stringify({ 
+            success: false,
+            service_unavailable: true,
+            message: "El servicio de consulta de AEAT no está disponible temporalmente. La factura ya fue registrada correctamente (CSV guardado).",
+            invoice_number: invoice.invoice_number,
+            csv: invoice.verifactu_registration_id
+          }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      
       return new Response(
         JSON.stringify({ 
           error: `Error de AEAT: ${aeatResult.error}`,
