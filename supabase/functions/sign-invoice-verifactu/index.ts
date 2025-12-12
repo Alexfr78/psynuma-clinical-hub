@@ -419,7 +419,16 @@ async function calculateInvoiceHash(invoice: any, center: any, previousHash: str
 // Build RegistroAlta XML for invoice registration with correct namespaces
 // sum: for container elements (RegFactuSistemaFacturacion, Cabecera, RegistroFactura)
 // sum1: for internal types (IDVersion, ObligadoEmision, RegistroAlta, etc.)
-function buildRegistroAltaXML(invoice: any, center: any, patient: any, invoiceItems: any[], previousHash: string | null, generationTimestamp: string, invoiceHash: string): string {
+function buildRegistroAltaXML(
+  invoice: any, 
+  center: any, 
+  patient: any, 
+  invoiceItems: any[], 
+  previousHash: string | null, 
+  generationTimestamp: string, 
+  invoiceHash: string,
+  rectifiedInvoice: { id: string; invoice_number: string; issue_date: string } | null
+): string {
   const nifEmisor = center.tax_id?.replace(/[^A-Z0-9]/gi, '') || '';
   const nombreEmisor = center.name || '';
   const fechaExpedicion = formatDateVerifactu(invoice.issue_date);
@@ -440,9 +449,9 @@ function buildRegistroAltaXML(invoice: any, center: any, patient: any, invoiceIt
   
   if (firstItemDescription.length > 0) {
     descripcionOperacion = firstItemDescription;
-  } else if (invoice.rectified_invoice_id && invoice.rectified_invoice?.invoice_number) {
+  } else if (invoice.rectified_invoice_id && rectifiedInvoice?.invoice_number) {
     // For rectifying invoices without items, use rectification message
-    descripcionOperacion = `Rectificación de factura ${invoice.rectified_invoice.invoice_number}`;
+    descripcionOperacion = `Rectificación de factura ${rectifiedInvoice.invoice_number}`;
   } else if (invoice.notes && invoice.notes.trim().length > 0) {
     // Try invoice notes as fallback
     descripcionOperacion = invoice.notes.trim();
@@ -492,15 +501,19 @@ function buildRegistroAltaXML(invoice: any, center: any, patient: any, invoiceIt
 
   // Build rectified invoice reference if applicable
   let facturasRectificadasXML = '';
-  if (invoice.rectified_invoice_id && invoice.rectified_invoice) {
+  if (invoice.rectified_invoice_id && rectifiedInvoice) {
+    // Pre-validate rectified invoice data
+    if (!rectifiedInvoice.invoice_number) {
+      throw new Error(`No se pudo obtener el número de la factura rectificada (ID: ${invoice.rectified_invoice_id}). Verifique que la factura original existe.`);
+    }
     // Sanitize rectified invoice number as well
-    const rectifiedNumSerie = sanitizeNumSerieFactura(invoice.rectified_invoice.invoice_number);
+    const rectifiedNumSerie = sanitizeNumSerieFactura(rectifiedInvoice.invoice_number);
     facturasRectificadasXML = `
           <sum1:FacturasRectificadas>
             <sum1:IDFacturaRectificada>
               <sum1:IDEmisorFactura>${nifEmisor}</sum1:IDEmisorFactura>
               <sum1:NumSerieFactura>${rectifiedNumSerie}</sum1:NumSerieFactura>
-              <sum1:FechaExpedicionFactura>${formatDateVerifactu(invoice.rectified_invoice.issue_date)}</sum1:FechaExpedicionFactura>
+              <sum1:FechaExpedicionFactura>${formatDateVerifactu(rectifiedInvoice.issue_date)}</sum1:FechaExpedicionFactura>
             </sum1:IDFacturaRectificada>
           </sum1:FacturasRectificadas>`;
   }
@@ -1056,8 +1069,38 @@ serve(async (req) => {
       );
     }
 
+    // Ensure we have rectified invoice data if needed
+    let rectifiedInvoice: { id: string; invoice_number: string; issue_date: string } | null = null;
+    if (invoice.rectified_invoice_id) {
+      // First try the nested relationship data
+      rectifiedInvoice = invoice.rectified_invoice as { id: string; invoice_number: string; issue_date: string } | null;
+      console.log("Rectified invoice from relationship:", JSON.stringify(rectifiedInvoice));
+      
+      // If relationship didn't load properly, fetch it explicitly
+      if (!rectifiedInvoice || !rectifiedInvoice.invoice_number) {
+        console.log("Fetching rectified invoice separately for ID:", invoice.rectified_invoice_id);
+        const { data: fetchedRectified, error: rectifiedError } = await supabase
+          .from("invoices")
+          .select("id, invoice_number, issue_date")
+          .eq("id", invoice.rectified_invoice_id)
+          .single();
+        
+        if (rectifiedError) {
+          console.error("Error fetching rectified invoice:", rectifiedError);
+          throw new Error(`Error cargando factura rectificada: ${rectifiedError.message}`);
+        }
+        
+        if (fetchedRectified) {
+          rectifiedInvoice = fetchedRectified;
+          console.log("Rectified invoice fetched explicitly:", JSON.stringify(rectifiedInvoice));
+        } else {
+          throw new Error(`Factura rectificada no encontrada (ID: ${invoice.rectified_invoice_id})`);
+        }
+      }
+    }
+
     // Build XML body
-    const xmlBody = buildRegistroAltaXML(invoice, center, patient, invoiceItems, previousHash, generationTimestamp, invoiceHash);
+    const xmlBody = buildRegistroAltaXML(invoice, center, patient, invoiceItems, previousHash, generationTimestamp, invoiceHash, rectifiedInvoice);
     console.log("Built XML body, length:", xmlBody.length);
     
     // CRITICAL VERIFICATION: Ensure DescripcionOperacion is present and not empty
