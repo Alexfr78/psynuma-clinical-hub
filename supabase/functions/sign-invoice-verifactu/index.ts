@@ -386,6 +386,18 @@ function buildRegistroAltaXML(invoice: any, center: any, patient: any, invoiceIt
   const patientTaxId = patient?.tax_id?.replace(/[^A-Z0-9]/gi, '') || '';
   const patientName = patient ? `${patient.first_name} ${patient.last_name}`.trim() : 'Cliente';
   
+  // Build DescripcionOperacion - use first item description or fallback
+  const firstItemDescription = invoiceItems?.[0]?.description?.trim() || '';
+  let descripcionOperacion: string;
+  if (invoice.rectified_invoice_id && invoice.rectified_invoice) {
+    // For rectifying invoices, mention it's a rectification
+    descripcionOperacion = firstItemDescription || `Rectificación de factura ${invoice.rectified_invoice.invoice_number}`;
+  } else {
+    descripcionOperacion = firstItemDescription || 'Servicios profesionales';
+  }
+  // Truncate to max 250 chars and escape
+  descripcionOperacion = escapeXML(descripcionOperacion.substring(0, 250));
+  
   // Build desglose (breakdown) from invoice items
   // Group items by fiscal treatment to create proper DetalleDesglose entries
   const desgloseXML = buildDesgloseFromItems(invoiceItems, invoice);
@@ -503,7 +515,7 @@ function buildRegistroAltaXML(invoice: any, center: any, patient: any, invoiceIt
           </sum1:IDFactura>
           <sum1:NombreRazonEmisor>${escapeXML(nombreEmisor)}</sum1:NombreRazonEmisor>
           <sum1:TipoFactura>${tipoFactura}</sum1:TipoFactura>${tipoRectificativaXML}${facturasRectificadasXML}
-          <sum1:DescripcionOperacion>Servicios de psicología</sum1:DescripcionOperacion>${destinatariosXML}
+          <sum1:DescripcionOperacion>${descripcionOperacion}</sum1:DescripcionOperacion>${destinatariosXML}
           <sum1:Desglose>${desgloseXML}
           </sum1:Desglose>
           <sum1:CuotaTotal>${Number(invoice.tax_amount || 0).toFixed(2)}</sum1:CuotaTotal>
