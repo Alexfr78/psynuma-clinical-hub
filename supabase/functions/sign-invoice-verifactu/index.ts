@@ -285,11 +285,12 @@ function buildDesgloseFromItems(invoiceItems: any[], invoice: any): string {
     const totalIVA = Number(invoice.tax_amount) || 0;
     
     if (totalIVA === 0) {
+      // EXENTA: use OperacionExenta (NOT CalificacionOperacion) for E1-E8 codes per XSD schema
       return `
           <sum1:DetalleDesglose>
             <sum1:Impuesto>01</sum1:Impuesto>
             <sum1:ClaveRegimen>01</sum1:ClaveRegimen>
-            <sum1:CalificacionOperacion>E1</sum1:CalificacionOperacion>
+            <sum1:OperacionExenta>E1</sum1:OperacionExenta>
             <sum1:BaseImponibleOimporteNoSujeto>${totalBase.toFixed(2)}</sum1:BaseImponibleOimporteNoSujeto>
             <sum1:CuotaRepercutida>0.00</sum1:CuotaRepercutida>
           </sum1:DetalleDesglose>`;
@@ -356,8 +357,8 @@ function buildDesgloseFromItems(invoiceItems: any[], invoice: any): string {
     xml += '\n            <sum1:ClaveRegimen>01</sum1:ClaveRegimen>';
 
     if (group.treatment === 'EXENTA') {
-      // Exempt operation - use CalificacionOperacion with E1 code + CuotaRepercutida 0.00
-      xml += `\n            <sum1:CalificacionOperacion>${group.exemptionCode || 'E1'}</sum1:CalificacionOperacion>`;
+      // EXENTA: use OperacionExenta (NOT CalificacionOperacion) for E1-E8 codes per XSD schema
+      xml += `\n            <sum1:OperacionExenta>${group.exemptionCode || 'E1'}</sum1:OperacionExenta>`;
       xml += `\n            <sum1:BaseImponibleOimporteNoSujeto>${group.baseImponible.toFixed(2)}</sum1:BaseImponibleOimporteNoSujeto>`;
       xml += '\n            <sum1:CuotaRepercutida>0.00</sum1:CuotaRepercutida>';
     } else if (group.treatment === 'NO_SUJETA') {
