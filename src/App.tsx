@@ -21,6 +21,7 @@ import Settings from "./pages/Settings";
 import Audit from "./pages/Audit";
 import NotFound from "./pages/NotFound";
 import SessionManagement from "./pages/SessionManagement";
+import Install from "./pages/Install";
 
 const queryClient = new QueryClient();
 
@@ -45,6 +46,7 @@ const App = () => (
             
             {/* Public Routes (No Auth Required) */}
             <Route path="/cita/:token" element={<SessionManagement />} />
+            <Route path="/instalar" element={<Install />} />
             
             {/* Protected Routes */}
             <Route path="/dashboard" element={
