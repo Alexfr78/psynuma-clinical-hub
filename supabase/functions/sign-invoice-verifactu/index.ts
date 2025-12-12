@@ -316,7 +316,7 @@ function buildRegistroAltaXML(invoice: any, center: any, patient: any, invoiceIt
   // NombreRazon del fabricante: debe coincidir con censo AEAT
   const softwareNombreRazon = center.verifactu_software_name || nombreEmisor;
   // NombreSistemaInformatico: nombre comercial del producto, max 30 chars, sin caracteres especiales
-  const softwareSistemaInfo = sanitizeNombreSistemaInformatico(center.verifactu_software_name || 'PSYCMA');
+  const softwareSistemaInfo = sanitizeNombreSistemaInformatico(center.verifactu_sistema_informatico || 'PSYCMA');
   const softwareVersion = center.verifactu_software_version || '1.0.0';
   const softwareNif = center.verifactu_software_nif || nifEmisor;
 
