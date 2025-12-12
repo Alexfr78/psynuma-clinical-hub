@@ -45,7 +45,8 @@ interface CreateRectificativaDialogProps {
 }
 
 // Rectification reason codes according to Verifactu
-const RECTIFICATION_REASONS = [
+// R1-R4 for complete invoices (F1), R5 only for simplified invoices (F2)
+const RECTIFICATION_REASONS_COMPLETE = [
   { 
     code: 'R1', 
     label: 'R1 - Error fundado en derecho', 
@@ -66,6 +67,9 @@ const RECTIFICATION_REASONS = [
     label: 'R4 - Resto de causas', 
     description: 'Otras causas de rectificación'
   },
+];
+
+const RECTIFICATION_REASONS_SIMPLIFIED = [
   { 
     code: 'R5', 
     label: 'R5 - Factura simplificada', 
@@ -152,9 +156,11 @@ export function CreateRectificativaDialog({
   useEffect(() => {
     if (open && originalInvoice && rectificativaSeries.length > 0) {
       const defaultSeries = rectificativaSeries.find(s => s.is_default) || rectificativaSeries[0];
+      // Default reason code based on original invoice type: R5 for simplified, R4 for complete
+      const defaultReasonCode = originalInvoiceType === 'simplified' ? 'R5' : 'R4';
       form.reset({
         rectification_type: 'I',
-        rectification_reason_code: 'R4',
+        rectification_reason_code: defaultReasonCode,
         series_id: defaultSeries?.id || '',
         description: `Rectificación de factura ${originalInvoice.invoice_number}`,
         amount: -Number(originalInvoice.total),
@@ -370,7 +376,10 @@ export function CreateRectificativaDialog({
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {RECTIFICATION_REASONS.map(reason => (
+                        {(originalInvoiceType === 'simplified' 
+                          ? RECTIFICATION_REASONS_SIMPLIFIED 
+                          : RECTIFICATION_REASONS_COMPLETE
+                        ).map(reason => (
                           <SelectItem key={reason.code} value={reason.code}>
                             <div className="flex flex-col">
                               <span>{reason.label}</span>
