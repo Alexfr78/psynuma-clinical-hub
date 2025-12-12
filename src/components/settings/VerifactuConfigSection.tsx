@@ -18,7 +18,8 @@ import { supabase } from '@/integrations/supabase/client';
 
 const verifactuSchema = z.object({
   verifactu_environment: z.enum(['test', 'production']),
-  verifactu_software_name: z.string().min(1, 'Nombre del software requerido'),
+  verifactu_software_name: z.string().min(1, 'Nombre fiscal del desarrollador requerido'),
+  verifactu_sistema_informatico: z.string().min(1, 'Nombre del sistema requerido').max(30, 'Máximo 30 caracteres'),
   verifactu_software_version: z.string().min(1, 'Versión requerida'),
   verifactu_software_nif: z.string().optional(),
   verifactu_certificate_password: z.string().optional(),
@@ -37,7 +38,8 @@ export function VerifactuConfigSection() {
     resolver: zodResolver(verifactuSchema),
     values: {
       verifactu_environment: (center?.verifactu_environment as 'test' | 'production') || 'test',
-      verifactu_software_name: center?.verifactu_software_name || 'Psynuma',
+      verifactu_software_name: center?.verifactu_software_name || '',
+      verifactu_sistema_informatico: (center as any)?.verifactu_sistema_informatico || 'PSYCMA',
       verifactu_software_version: center?.verifactu_software_version || '1.0.0',
       verifactu_software_nif: center?.verifactu_software_nif || '',
       verifactu_certificate_password: '',
@@ -79,6 +81,7 @@ export function VerifactuConfigSection() {
       const updateData: Record<string, any> = {
         verifactu_environment: data.verifactu_environment,
         verifactu_software_name: data.verifactu_software_name,
+        verifactu_sistema_informatico: data.verifactu_sistema_informatico,
         verifactu_software_version: data.verifactu_software_version,
         verifactu_software_nif: data.verifactu_software_nif || null,
       };
@@ -299,17 +302,55 @@ export function VerifactuConfigSection() {
                 Datos requeridos por la AEAT para identificar el sistema de facturación
               </p>
 
-              <div className="grid gap-4 md:grid-cols-3">
+              <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="verifactu_software_name">Nombre del software</Label>
+                  <Label htmlFor="verifactu_software_name">Nombre fiscal del desarrollador</Label>
                   <Input
                     id="verifactu_software_name"
                     {...form.register('verifactu_software_name')}
-                    placeholder="Psynuma"
+                    placeholder="Ej: Jose García López"
                   />
+                  <p className="text-xs text-muted-foreground">
+                    NombreRazon: debe coincidir exactamente con el censo de la AEAT
+                  </p>
                   {form.formState.errors.verifactu_software_name && (
                     <p className="text-sm text-destructive">
                       {form.formState.errors.verifactu_software_name.message}
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="verifactu_software_nif">NIF del desarrollador</Label>
+                  <Input
+                    id="verifactu_software_nif"
+                    {...form.register('verifactu_software_nif')}
+                    placeholder="Ej: 12345678A"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Si se deja vacío, se usará el NIF del centro
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="verifactu_sistema_informatico">
+                    Nombre del sistema informático
+                    <span className="ml-1 text-xs text-muted-foreground">(máx. 30 caracteres)</span>
+                  </Label>
+                  <Input
+                    id="verifactu_sistema_informatico"
+                    {...form.register('verifactu_sistema_informatico')}
+                    placeholder="Ej: PSYCMA"
+                    maxLength={30}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    NombreSistemaInformatico: nombre comercial del software
+                  </p>
+                  {form.formState.errors.verifactu_sistema_informatico && (
+                    <p className="text-sm text-destructive">
+                      {form.formState.errors.verifactu_sistema_informatico.message}
                     </p>
                   )}
                 </div>
@@ -326,18 +367,6 @@ export function VerifactuConfigSection() {
                       {form.formState.errors.verifactu_software_version.message}
                     </p>
                   )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="verifactu_software_nif">NIF del desarrollador</Label>
-                  <Input
-                    id="verifactu_software_nif"
-                    {...form.register('verifactu_software_nif')}
-                    placeholder="Opcional (usa el del centro)"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Si se deja vacío, se usará el NIF del centro
-                  </p>
                 </div>
               </div>
             </div>
