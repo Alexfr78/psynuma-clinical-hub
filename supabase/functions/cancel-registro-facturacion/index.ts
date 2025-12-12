@@ -17,10 +17,10 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// AEAT Verifactu endpoints - CORRECTED URLs
+// AEAT Verifactu endpoints - Updated URLs (Jan 2025)
 const AEAT_ENDPOINTS = {
-  test: "https://prewww2.aeat.es/wlpl/TIKE-CONT/ws/SistemaFacturacionSOAP",
-  production: "https://www2.agenciatributaria.gob.es/wlpl/TIKE-CONT/ws/SistemaFacturacionSOAP"
+  test: "https://prewww1.aeat.es/wlpl/TIKE-CONT/ws/SistemaFacturacion/VerifactuSOAP",
+  production: "https://www1.agenciatributaria.gob.es/wlpl/TIKE-CONT/ws/SistemaFacturacion/VerifactuSOAP"
 };
 
 // SOAPAction for Baja (invoice cancellation) - CORRECTED to simple string
