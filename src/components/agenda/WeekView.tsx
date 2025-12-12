@@ -44,6 +44,7 @@ export function WeekView({ currentDate, sessions, onSessionClick, onSlotClick, o
   const [dragStart, setDragStart] = useState<SlotPosition | null>(null);
   const [dragEnd, setDragEnd] = useState<SlotPosition | null>(null);
   const [dragOverSlot, setDragOverSlot] = useState<string | null>(null);
+  const [isSessionDragging, setIsSessionDragging] = useState(false);
 
   const sessionsByDay = useMemo(() => {
     const map = new Map<string, SessionWithRelations[]>();
@@ -80,7 +81,6 @@ export function WeekView({ currentDate, sessions, onSessionClick, onSlotClick, o
     };
   };
 
-  // Handle mouse down on a slot
   const handleSlotMouseDown = useCallback((day: Date, hour: number, minute: number, e: React.MouseEvent) => {
     if (e.button !== 0) return;
     e.preventDefault();
@@ -90,17 +90,14 @@ export function WeekView({ currentDate, sessions, onSessionClick, onSlotClick, o
     setDragEnd({ day, hour, minute });
   }, []);
 
-  // Handle mouse enter on a slot while dragging
   const handleSlotMouseEnter = useCallback((day: Date, hour: number, minute: number) => {
     if (isDragging && dragStart) {
-      // Only allow drag on the same day
       if (format(day, 'yyyy-MM-dd') === format(dragStart.day, 'yyyy-MM-dd')) {
         setDragEnd({ day, hour, minute });
       }
     }
   }, [isDragging, dragStart]);
 
-  // Complete the drag and open dialog
   const completeDrag = useCallback(() => {
     if (isDragging && dragStart && dragEnd) {
       const startMinutes = slotToMinutes(dragStart.hour, dragStart.minute);
@@ -120,14 +117,12 @@ export function WeekView({ currentDate, sessions, onSessionClick, onSlotClick, o
     setDragEnd(null);
   }, [isDragging, dragStart, dragEnd, onSlotClick]);
 
-  // Cancel drag
   const cancelDrag = useCallback(() => {
     setIsDragging(false);
     setDragStart(null);
     setDragEnd(null);
   }, []);
 
-  // Global mouse up listener
   useEffect(() => {
     if (!isDragging) return;
 
@@ -155,7 +150,6 @@ export function WeekView({ currentDate, sessions, onSessionClick, onSlotClick, o
     return slotMinutes >= min && slotMinutes <= max;
   }, [isDragging, dragStart, dragEnd]);
 
-  // Session drag-drop handlers
   const handleDragOver = useCallback((e: React.DragEvent, day: Date, hour: number, minute: number) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
@@ -169,6 +163,7 @@ export function WeekView({ currentDate, sessions, onSessionClick, onSlotClick, o
   const handleDrop = useCallback((e: React.DragEvent, day: Date, hour: number, minute: number) => {
     e.preventDefault();
     setDragOverSlot(null);
+    setIsSessionDragging(false);
     
     try {
       const data = JSON.parse(e.dataTransfer.getData('application/json'));
@@ -188,9 +183,18 @@ export function WeekView({ currentDate, sessions, onSessionClick, onSlotClick, o
     }
   }, [onSessionMove]);
 
+  const handleSessionDragStart = useCallback(() => {
+    setIsSessionDragging(true);
+  }, []);
+
+  const handleSessionDragEnd = useCallback(() => {
+    setIsSessionDragging(false);
+    setDragOverSlot(null);
+  }, []);
+
   return (
     <div 
-      className="flex flex-col overflow-hidden rounded-lg border select-none"
+      className="flex flex-col overflow-hidden rounded-lg border"
       onMouseLeave={cancelDrag}
     >
       {/* Header */}
@@ -260,7 +264,7 @@ export function WeekView({ currentDate, sessions, onSessionClick, onSlotClick, o
                             <div
                               key={minute}
                               className={cn(
-                                'border-b border-dashed border-muted/50 last:border-b-0 cursor-pointer transition-colors z-0',
+                                'border-b border-dashed border-muted/50 last:border-b-0 cursor-pointer transition-colors',
                                 minute === 0 && 'border-t-0',
                                 isInDragRange 
                                   ? 'bg-primary/30' 
@@ -280,24 +284,34 @@ export function WeekView({ currentDate, sessions, onSessionClick, onSlotClick, o
                     </div>
                   ))}
                   
-                  {/* Sessions overlay */}
-                  {daySessions.map((session) => {
-                    const style = getSessionStyle(session);
-                    return (
-                      <div
-                        key={session.id}
-                        className="absolute left-0.5 right-0.5 z-20"
-                        style={style}
-                      >
-                        <SessionCard
-                          session={session}
-                          compact
-                          onClick={() => onSessionClick(session)}
-                          draggable={!!onSessionMove}
-                        />
-                      </div>
-                    );
-                  })}
+                  {/* Sessions overlay - pointer-events-none during drag */}
+                  <div className={cn(
+                    "absolute inset-0 top-0",
+                    isSessionDragging && "pointer-events-none"
+                  )}>
+                    {daySessions.map((session) => {
+                      const style = getSessionStyle(session);
+                      return (
+                        <div
+                          key={session.id}
+                          className={cn(
+                            "absolute left-0.5 right-0.5",
+                            !isSessionDragging && "pointer-events-auto"
+                          )}
+                          style={style}
+                          onDragStart={handleSessionDragStart}
+                          onDragEnd={handleSessionDragEnd}
+                        >
+                          <SessionCard
+                            session={session}
+                            compact
+                            onClick={() => onSessionClick(session)}
+                            draggable={!!onSessionMove}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               );
             })}

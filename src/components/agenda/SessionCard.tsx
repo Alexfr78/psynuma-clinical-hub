@@ -1,6 +1,7 @@
 import { User, Clock, GripVertical } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SessionWithRelations } from '@/hooks/useSessions';
+import { useCallback, useRef } from 'react';
 
 interface SessionCardProps {
   session: SessionWithRelations;
@@ -23,31 +24,46 @@ export function SessionCard({ session, compact = false, onClick, draggable = fal
   const patientName = session.patient 
     ? `${session.patient.first_name} ${session.patient.last_name}` 
     : 'Sin paciente';
+  
+  const cardRef = useRef<HTMLDivElement>(null);
 
-  const handleDragStart = (e: React.DragEvent) => {
+  const handleDragStart = useCallback((e: React.DragEvent) => {
+    if (!draggable) {
+      e.preventDefault();
+      return;
+    }
+    
+    // Set drag data
     e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', session.id); // Fallback
     e.dataTransfer.setData('application/json', JSON.stringify({
       sessionId: session.id,
       originalDate: session.session_date,
       originalStartTime: session.start_time,
       originalEndTime: session.end_time,
     }));
-  };
 
-  const handleClick = (e: React.MouseEvent) => {
+    // Create a custom drag image
+    if (cardRef.current) {
+      const rect = cardRef.current.getBoundingClientRect();
+      e.dataTransfer.setDragImage(cardRef.current, rect.width / 2, 10);
+    }
+  }, [draggable, session]);
+
+  const handleClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    e.preventDefault();
     onClick?.();
-  };
+  }, [onClick]);
 
   // Prevent slot drag from starting when clicking on session
-  const handleMouseDown = (e: React.MouseEvent) => {
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-  };
+  }, []);
 
   if (compact) {
     return (
       <div
+        ref={cardRef}
         className={cn(
           'cursor-pointer rounded-md border-l-2 px-2 py-1 text-xs transition-all hover:opacity-80 h-full',
           draggable && 'cursor-grab active:cursor-grabbing',
@@ -71,8 +87,9 @@ export function SessionCard({ session, compact = false, onClick, draggable = fal
 
   return (
     <div
+      ref={cardRef}
       className={cn(
-        'cursor-pointer rounded-lg border-l-4 bg-card p-3 shadow-sm transition-all hover:shadow-md',
+        'cursor-pointer rounded-lg border-l-4 bg-card p-3 shadow-sm transition-all hover:shadow-md h-full',
         draggable && 'cursor-grab active:cursor-grabbing',
         statusColor
       )}
