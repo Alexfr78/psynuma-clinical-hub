@@ -97,12 +97,22 @@ export function CreateRectificativaDialog({
   originalInvoice,
 }: CreateRectificativaDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [originalInvoiceType, setOriginalInvoiceType] = useState<'simplified' | 'complete' | null>(null);
   const queryClient = useQueryClient();
   const { center } = useCenter();
-  const { rectifyingSeries } = useInvoiceSeries();
+  const { rectifyingSeries, series: allSeries } = useInvoiceSeries();
 
-  // Use the pre-filtered rectifying series
-  const rectificativaSeries = rectifyingSeries?.filter(s => !s.is_archived) || [];
+  // Filter rectifying series by the original invoice's type (simplified/complete)
+  const rectificativaSeries = (rectifyingSeries?.filter(s => 
+    !s.is_archived && 
+    (originalInvoiceType ? s.invoice_type === originalInvoiceType : true)
+  ) || []);
+
+  // Helper function to get series display name
+  const getSeriesDisplayName = (series: typeof rectificativaSeries[0]) => {
+    const invoiceTypeLabel = series.invoice_type === 'simplified' ? 'Simplificada' : 'Completa';
+    return `${series.name} - Rectificativa ${invoiceTypeLabel}`;
+  };
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -125,9 +135,22 @@ export function CreateRectificativaDialog({
 
   const isSubstitution = rectificationType === 'S';
 
+  // Get original invoice type when dialog opens
+  useEffect(() => {
+    if (open && originalInvoice?.series_id && allSeries.length > 0) {
+      const originalSeries = allSeries.find(s => s.id === originalInvoice.series_id);
+      if (originalSeries) {
+        setOriginalInvoiceType(originalSeries.invoice_type as 'simplified' | 'complete');
+      }
+    } else if (open && !originalInvoice?.series_id) {
+      // If original invoice has no series, default to complete
+      setOriginalInvoiceType('complete');
+    }
+  }, [open, originalInvoice?.series_id, allSeries]);
+
   // Reset form when dialog opens with new invoice
   useEffect(() => {
-    if (open && originalInvoice) {
+    if (open && originalInvoice && rectificativaSeries.length > 0) {
       const defaultSeries = rectificativaSeries.find(s => s.is_default) || rectificativaSeries[0];
       form.reset({
         rectification_type: 'I',
@@ -140,7 +163,7 @@ export function CreateRectificativaDialog({
         notes: '',
       });
     }
-  }, [open, originalInvoice, rectificativaSeries.length]);
+  }, [open, originalInvoice, rectificativaSeries.length, originalInvoiceType]);
 
   const onSubmit = async (values: FormValues) => {
     if (!originalInvoice || !center) return;
@@ -434,13 +457,13 @@ export function CreateRectificativaDialog({
                     <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Selecciona serie" />
+                          <SelectValue placeholder="Selecciona serie rectificativa" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
                         {rectificativaSeries.map(series => (
                           <SelectItem key={series.id} value={series.id}>
-                            {series.name} ({series.format})
+                            {getSeriesDisplayName(series)}
                           </SelectItem>
                         ))}
                       </SelectContent>
