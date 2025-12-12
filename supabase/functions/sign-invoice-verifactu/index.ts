@@ -177,22 +177,36 @@ function escapeXML(str: string): string {
 // Sanitize NumSerieFactura field - must be A-Z, 0-9, hyphen only, no spaces/invisible chars
 // Error 1100 occurs when this field has invalid characters
 function sanitizeNumSerieFactura(input: unknown): string {
-  let s = String(input ?? '')
+  // Log raw input for debugging
+  console.log("RAW NumSerieFactura input:", JSON.stringify(input), "type:", typeof input);
+  
+  if (input == null || input === '') {
+    throw new Error('NumSerieFactura no puede estar vacío (valor original nulo o vacío)');
+  }
+  
+  let s = String(input)
     .replace(/[\u00A0\r\n\t]/g, ' ')  // Replace NBSP and control chars with space
-    .replace(/\s+/g, '')               // Remove all whitespace
-    .toUpperCase()
-    .trim();
+    .trim()
+    .toUpperCase();
+  
+  // Normalize Unicode hyphens to ASCII hyphen (en-dash, em-dash, minus sign, etc.)
+  s = s.replace(/[\u2010-\u2015\u2212\u2013\u2014]/g, '-');
+  
+  // Remove all whitespace
+  s = s.replace(/\s+/g, '');
   
   // Remove any character that's not A-Z, 0-9, or hyphen
   s = s.replace(/[^A-Z0-9\-]/g, '');
   
+  console.log("NORMALIZED NumSerieFactura:", JSON.stringify(s));
+  
   // Validate format
   if (s.length === 0) {
-    throw new Error('NumSerieFactura no puede estar vacío');
+    throw new Error(`NumSerieFactura vacío después de normalizar (valor original: ${JSON.stringify(input)})`);
   }
   
-  if (!/^[A-Z0-9\-]+$/.test(s)) {
-    throw new Error(`NumSerieFactura contiene caracteres no permitidos: ${s}`);
+  if (!/^[A-Z0-9\-]{1,60}$/.test(s)) {
+    throw new Error(`NumSerieFactura inválido: "${s}" (longitud: ${s.length})`);
   }
   
   return s;
