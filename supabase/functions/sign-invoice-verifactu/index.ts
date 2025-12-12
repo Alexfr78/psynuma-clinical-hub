@@ -311,10 +311,13 @@ function buildRegistroAltaXML(invoice: any, center: any, patient: any, invoiceIt
           </sf:Destinatarios>`;
   }
 
+  // Use the V1.0 namespace URLs as per AEAT official XSD
+  const xmlnsLR = 'https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/SuministroLR.xsd';
+  const xmlnsSF = 'https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/SuministroInformacion.xsd';
+
   // Build the body content with correct namespace prefixes
-  // sfLR: for RegFactuSistemaFacturacion and RegistroFactura (container elements)
-  // sf: for all internal types (Cabecera, RegistroAlta, etc.)
-  return `<sfLR:RegFactuSistemaFacturacion>
+  // Namespaces MUST be declared on the RegFactuSistemaFacturacion element itself
+  return `<sfLR:RegFactuSistemaFacturacion xmlns:sfLR="${xmlnsLR}" xmlns:sf="${xmlnsSF}">
       <sf:Cabecera>
         <sf:IDVersion>1.0</sf:IDVersion>
         <sf:ObligadoEmision>
@@ -424,25 +427,21 @@ function extractCertificatesFromPKCS12(certificateBase64: string, certificatePas
   return { privateKey, certificate: endEntityCert };
 }
 
-// Build complete signed SOAP envelope with correct namespaces
+// Build complete signed SOAP envelope - namespaces are now on the body content itself
 function buildSignedSOAPEnvelope(body: string, privateKey: any, certificate: any): string {
-  // Use the V1.0 namespace URLs as per AEAT official XSD
-  const xmlnsLR = 'https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/SuministroLR.xsd';
-  const xmlnsSF = 'https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/SuministroInformacion.xsd';
-
-  // Create the full body with both namespaces
-  const fullBody = `<soapenv:Body xmlns:sfLR="${xmlnsLR}" xmlns:sf="${xmlnsSF}">${body}</soapenv:Body>`;
+  // Create the full body for signing (body already contains namespace declarations)
+  const fullBody = `<soapenv:Body>${body}</soapenv:Body>`;
 
   // Sign the body
   const signature = signXMLBody(fullBody, privateKey, certificate);
 
-  // Build complete SOAP envelope with both namespaces
+  // Build complete SOAP envelope
   return `<?xml version="1.0" encoding="UTF-8"?>
 <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/">
   <soapenv:Header>
     ${signature}
   </soapenv:Header>
-  <soapenv:Body xmlns:sfLR="${xmlnsLR}" xmlns:sf="${xmlnsSF}">
+  <soapenv:Body>
     ${body}
   </soapenv:Body>
 </soapenv:Envelope>`;
