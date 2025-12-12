@@ -591,8 +591,8 @@ function buildRegistroAltaXML(
             <sum1:FechaExpedicionFactura>${fechaExpedicion}</sum1:FechaExpedicionFactura>
           </sum1:IDFactura>
           <sum1:NombreRazonEmisor>${escapeXML(nombreEmisor)}</sum1:NombreRazonEmisor>
-          <sum1:TipoFactura>${tipoFactura}</sum1:TipoFactura>${tipoRectificativaXML}${facturasRectificadasXML}
-          <sum1:DescripcionOperacion>${descripcionOperacion}</sum1:DescripcionOperacion>${destinatariosXML}
+          <sum1:TipoFactura>${tipoFactura}</sum1:TipoFactura>
+          <sum1:DescripcionOperacion>${descripcionOperacion}</sum1:DescripcionOperacion>${tipoRectificativaXML}${facturasRectificadasXML}${destinatariosXML}
           <sum1:Desglose>${desgloseXML}
           </sum1:Desglose>
           <sum1:CuotaTotal>${Number(invoice.tax_amount || 0).toFixed(2)}</sum1:CuotaTotal>
