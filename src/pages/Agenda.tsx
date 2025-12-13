@@ -9,6 +9,7 @@ import { MonthView } from '@/components/agenda/MonthView';
 import { ListView } from '@/components/agenda/ListView';
 import { QuickCreateSessionDialog } from '@/components/agenda/QuickCreateSessionDialog';
 import { SessionDetailDrawer } from '@/components/agenda/SessionDetailDrawer';
+import { MoveSessionDialog } from '@/components/agenda/MoveSessionDialog';
 import { useToast } from '@/hooks/use-toast';
 import { useAgendaHours } from '@/hooks/useAgendaHours';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -27,6 +28,7 @@ export default function Agenda() {
   }, [isMobile, view]);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [selectedSession, setSelectedSession] = useState<SessionWithRelations | null>(null);
+  const [moveSession, setMoveSession] = useState<SessionWithRelations | null>(null);
   const [initialDate, setInitialDate] = useState<Date | undefined>();
   const [initialStartTime, setInitialStartTime] = useState<string | undefined>();
   const [initialEndTime, setInitialEndTime] = useState<string | undefined>();
@@ -168,6 +170,7 @@ export default function Agenda() {
               onSessionClick={handleSessionClick}
               onSlotClick={handleSlotClick}
               onSessionMove={handleSessionMove}
+              onMoveRequest={setMoveSession}
               hours={hours}
               startHour={startHour}
             />
@@ -203,6 +206,14 @@ export default function Agenda() {
         session={selectedSession}
         open={!!selectedSession}
         onOpenChange={(open) => !open && setSelectedSession(null)}
+      />
+
+      {/* Move Session Dialog (mobile) */}
+      <MoveSessionDialog
+        session={moveSession}
+        open={!!moveSession}
+        onOpenChange={(open) => !open && setMoveSession(null)}
+        onMove={handleSessionMove}
       />
     </div>
   );
