@@ -67,8 +67,8 @@ function useTodaySessions() {
           cancellation_policy, cancellation_reason, video_call_link,
           send_reminder_email, send_reminder_sms, send_reminder_whatsapp,
           access_token, room, professional_id, patient_id,
-          patients (id, first_name, last_name, email, phone),
-          profiles:professional_id (id, first_name, last_name, email)
+          patient:patients!sessions_patient_id_fkey(id, first_name, last_name, email, phone),
+          professional:profiles!sessions_professional_id_fkey(id, first_name, last_name, email)
         `)
         .eq('session_date', today)
         .order('start_time');
@@ -165,7 +165,7 @@ export default function Dashboard() {
                     </div>
                     <div>
                       <p className="font-medium">
-                        {session.patients?.first_name} {session.patients?.last_name}
+                        {session.patient?.first_name} {session.patient?.last_name}
                       </p>
                       <p className="text-sm text-muted-foreground">
                         {session.start_time.slice(0, 5)} - {session.end_time.slice(0, 5)}
