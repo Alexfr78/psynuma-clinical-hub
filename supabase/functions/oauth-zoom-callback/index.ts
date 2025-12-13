@@ -6,6 +6,38 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// AES-256-GCM decryption
+async function decryptAES256GCM(encryptedData: string, keyHex: string): Promise<string> {
+  const keyBytes = new Uint8Array(keyHex.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)));
+  const encryptedBytes = Uint8Array.from(atob(encryptedData), c => c.charCodeAt(0));
+  
+  // Extract IV (12 bytes), AuthTag (16 bytes), and ciphertext
+  const iv = encryptedBytes.slice(0, 12);
+  const authTag = encryptedBytes.slice(12, 28);
+  const ciphertext = encryptedBytes.slice(28);
+  
+  // Combine ciphertext and authTag for Web Crypto API
+  const ciphertextWithTag = new Uint8Array(ciphertext.length + authTag.length);
+  ciphertextWithTag.set(ciphertext);
+  ciphertextWithTag.set(authTag, ciphertext.length);
+  
+  const key = await crypto.subtle.importKey(
+    'raw',
+    keyBytes,
+    { name: 'AES-GCM' },
+    false,
+    ['decrypt']
+  );
+  
+  const decrypted = await crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv },
+    key,
+    ciphertextWithTag
+  );
+  
+  return new TextDecoder().decode(decrypted);
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -41,9 +73,54 @@ serve(async (req) => {
 
     const { professional_id, redirect_uri } = stateData;
 
-    const clientId = Deno.env.get('ZOOM_CLIENT_ID') || '';
-    const clientSecret = Deno.env.get('ZOOM_CLIENT_SECRET') || '';
+    // Initialize Supabase client
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Get professional's center_id
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('center_id')
+      .eq('id', professional_id)
+      .single();
+
+    if (profileError || !profile?.center_id) {
+      console.error('Could not get professional center:', profileError);
+      return Response.redirect(`${Deno.env.get('SITE_URL') || 'https://psycma.lovable.app'}/configuracion?oauth=error&provider=zoom&message=no_center`);
+    }
+
+    // Get OAuth credentials from center
+    const { data: center, error: centerError } = await supabase
+      .from('centers')
+      .select('oauth_zoom_client_id, oauth_zoom_credentials')
+      .eq('id', profile.center_id)
+      .single();
+
+    if (centerError || !center?.oauth_zoom_client_id || !center?.oauth_zoom_credentials) {
+      console.error('Missing Zoom OAuth credentials in center:', centerError);
+      return Response.redirect(`${Deno.env.get('SITE_URL') || 'https://psycma.lovable.app'}/configuracion?oauth=error&provider=zoom&message=no_credentials`);
+    }
+
+    // Decrypt the client secret
+    const encryptionKey = Deno.env.get('CERTIFICATE_ENCRYPTION_KEY');
+    if (!encryptionKey) {
+      console.error('Missing CERTIFICATE_ENCRYPTION_KEY');
+      return Response.redirect(`${Deno.env.get('SITE_URL') || 'https://psycma.lovable.app'}/configuracion?oauth=error&provider=zoom&message=config_error`);
+    }
+
+    let clientSecret: string;
+    try {
+      clientSecret = await decryptAES256GCM(center.oauth_zoom_credentials, encryptionKey);
+    } catch (decryptError) {
+      console.error('Failed to decrypt Zoom credentials:', decryptError);
+      return Response.redirect(`${Deno.env.get('SITE_URL') || 'https://psycma.lovable.app'}/configuracion?oauth=error&provider=zoom&message=decrypt_error`);
+    }
+
+    const clientId = center.oauth_zoom_client_id;
     const credentials = btoa(`${clientId}:${clientSecret}`);
+
+    console.log('Using Zoom credentials from database for center:', profile.center_id);
 
     // Exchange code for tokens
     const tokenResponse = await fetch('https://zoom.us/oauth/token', {
@@ -75,10 +152,6 @@ serve(async (req) => {
     console.log('Zoom user info:', userInfo.email);
 
     // Save to database
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
-
     const expiresAt = new Date(Date.now() + (tokenData.expires_in * 1000)).toISOString();
 
     const { error: upsertError } = await supabase
