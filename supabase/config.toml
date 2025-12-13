@@ -26,3 +26,18 @@ verify_jwt = true
 
 [functions.retry-pending-verifactu]
 verify_jwt = false
+
+[functions.oauth-google-callback]
+verify_jwt = false
+
+[functions.oauth-zoom-callback]
+verify_jwt = false
+
+[functions.stripe-connect-callback]
+verify_jwt = false
+
+[functions.create-stripe-connect-link]
+verify_jwt = true
+
+[functions.refresh-stripe-account-status]
+verify_jwt = true
