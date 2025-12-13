@@ -93,6 +93,7 @@ import { useSendWhatsAppNow } from '@/hooks/useSendSessionNotification';
 import { useCenter } from '@/hooks/useCenter';
 import { DEFAULT_TEMPLATES } from '@/hooks/useCommunicationTemplates';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { createStripeCheckout } from '@/hooks/useSessionIntegrations';
 
 interface SessionDetailDrawerProps {
   session: SessionWithRelations | null;
@@ -155,6 +156,8 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
   const [showCreateBonoDialog, setShowCreateBonoDialog] = useState(false);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [showInvoiceDialog, setShowInvoiceDialog] = useState(false);
+  const [isGeneratingPaymentLink, setIsGeneratingPaymentLink] = useState(false);
+  const [paymentLinkUrl, setPaymentLinkUrl] = useState<string | null>(null);
   const [dateTimeValue, setDateTimeValue] = useState({
     date: '',
     startTime: '',
@@ -338,6 +341,48 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
   // Handle new bono created - price = totalPrice of bono (needs to be paid)
   const handleNewBonoCreated = async (bonoId: string, totalPrice: number) => {
     await handleBonoChange(bonoId, totalPrice);
+  };
+
+  // Handle generate payment link
+  const handleGeneratePaymentLink = async () => {
+    if (paymentLinkUrl) {
+      // If we already have a link, copy it
+      await navigator.clipboard.writeText(paymentLinkUrl);
+      toast({ title: 'Link copiado al portapapeles' });
+      return;
+    }
+
+    setIsGeneratingPaymentLink(true);
+    try {
+      const patientName = session.patient 
+        ? `${session.patient.first_name} ${session.patient.last_name}`.trim() 
+        : 'Paciente';
+      
+      const checkoutUrl = await createStripeCheckout(
+        session.id,
+        session.professional_id,
+        session.patient_id,
+        session.patient?.email || null,
+        patientName,
+        localPrice,
+        session.session_type || 'individual',
+        session.session_date
+      );
+
+      if (checkoutUrl) {
+        setPaymentLinkUrl(checkoutUrl);
+        await navigator.clipboard.writeText(checkoutUrl);
+        toast({ title: 'Link de pago generado y copiado al portapapeles' });
+      }
+    } catch (error) {
+      toast({ 
+        title: 'Error', 
+        description: 'No se pudo generar el link de pago. Verifica que Stripe esté configurado.',
+        variant: 'destructive' 
+      });
+    } finally {
+      setIsGeneratingPaymentLink(false);
+    }
   };
 
   // Common header content
@@ -850,13 +895,40 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
               )}
 
               {/* Payment Link */}
-              <div className="flex items-center gap-2 text-sm">
-                <LinkIcon className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground">Link de pago:</span>
-                <Button variant="link" size="sm" className="h-auto p-0 text-primary">
-                  Generar link
-                </Button>
-              </div>
+              {!paymentStatus?.isPaid && localPrice > 0 && !localBonoId && (
+                <div className="flex items-center gap-2 text-sm">
+                  <LinkIcon className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-muted-foreground">Link de pago:</span>
+                  <Button 
+                    variant="link" 
+                    size="sm" 
+                    className="h-auto p-0 text-primary"
+                    disabled={isGeneratingPaymentLink}
+                    onClick={handleGeneratePaymentLink}
+                  >
+                    {isGeneratingPaymentLink ? (
+                      <>
+                        <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                        Generando...
+                      </>
+                    ) : paymentLinkUrl ? (
+                      'Copiar link'
+                    ) : (
+                      'Generar link'
+                    )}
+                  </Button>
+                  {paymentLinkUrl && (
+                    <a 
+                      href={paymentLinkUrl} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-primary hover:underline"
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  )}
+                </div>
+              )}
             </div>
 
             <Separator />
