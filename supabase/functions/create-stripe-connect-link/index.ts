@@ -6,6 +6,51 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Decrypt AES-GCM encrypted secret
+async function decryptSecret(encryptedData: string): Promise<string> {
+  const encryptionKey = Deno.env.get('CERTIFICATE_ENCRYPTION_KEY');
+  
+  if (!encryptionKey || !encryptedData) {
+    // Fallback for base64 encoded (legacy)
+    try {
+      return atob(encryptedData);
+    } catch {
+      return encryptedData;
+    }
+  }
+  
+  try {
+    const encoder = new TextEncoder();
+    const keyData = encoder.encode(encryptionKey.padEnd(32, '0').slice(0, 32));
+    const key = await crypto.subtle.importKey(
+      'raw',
+      keyData,
+      { name: 'AES-GCM' },
+      false,
+      ['decrypt']
+    );
+    
+    const combined = Uint8Array.from(atob(encryptedData), c => c.charCodeAt(0));
+    const iv = combined.slice(0, 12);
+    const ciphertextWithTag = combined.slice(12);
+    
+    const decrypted = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv },
+      key,
+      ciphertextWithTag
+    );
+    
+    return new TextDecoder().decode(decrypted);
+  } catch (error) {
+    console.error('Decryption failed, trying base64 fallback:', error);
+    try {
+      return atob(encryptedData);
+    } catch {
+      return encryptedData;
+    }
+  }
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -24,20 +69,54 @@ serve(async (req) => {
       );
     }
 
-    const stripeSecretKey = Deno.env.get('STRIPE_SECRET_KEY');
-    if (!stripeSecretKey) {
-      console.error('STRIPE_SECRET_KEY not configured');
-      return new Response(
-        JSON.stringify({ error: 'Stripe not configured' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Check if account already exists
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    // Get professional's center and Stripe credentials
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('center_id')
+      .eq('id', professional_id)
+      .single();
+
+    if (!profile?.center_id) {
+      console.error('No center found for professional');
+      return new Response(
+        JSON.stringify({ error: 'No center found' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Get Stripe credentials from center
+    const { data: center } = await supabase
+      .from('centers')
+      .select('oauth_stripe_credentials')
+      .eq('id', profile.center_id)
+      .single();
+
+    if (!center?.oauth_stripe_credentials) {
+      console.error('Stripe credentials not configured for center');
+      return new Response(
+        JSON.stringify({ error: 'Stripe not configured. Please add Stripe credentials in Settings > Integrations.' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Decrypt the secret key
+    const stripeSecretKey = await decryptSecret(center.oauth_stripe_credentials);
+    
+    if (!stripeSecretKey || !stripeSecretKey.startsWith('sk_')) {
+      console.error('Invalid Stripe secret key format');
+      return new Response(
+        JSON.stringify({ error: 'Invalid Stripe secret key. Please update in Settings > Integrations.' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log('Using Stripe secret key from center configuration');
+
+    // Check if account already exists
     const { data: existingConnection } = await supabase
       .from('oauth_connections')
       .select('stripe_account_id, stripe_account_status')
@@ -69,7 +148,7 @@ serve(async (req) => {
       if (!createAccountResponse.ok) {
         console.error('Failed to create Stripe account:', accountData);
         return new Response(
-          JSON.stringify({ error: 'Failed to create Stripe account' }),
+          JSON.stringify({ error: accountData.error?.message || 'Failed to create Stripe account' }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
@@ -110,7 +189,7 @@ serve(async (req) => {
     if (!accountLinkResponse.ok) {
       console.error('Failed to create account link:', linkData);
       return new Response(
-        JSON.stringify({ error: 'Failed to create onboarding link' }),
+        JSON.stringify({ error: linkData.error?.message || 'Failed to create onboarding link' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
