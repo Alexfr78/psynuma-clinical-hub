@@ -6,24 +6,22 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// AES-256-GCM decryption
-async function decryptAES256GCM(encryptedData: string, keyHex: string): Promise<string> {
-  const keyBytes = new Uint8Array(keyHex.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)));
+// AES-256-GCM decryption (matching save-oauth-credentials format)
+async function decryptAES256GCM(encryptedData: string, encryptionKey: string): Promise<string> {
+  // Use key as UTF-8 string with padding (same as save-oauth-credentials)
+  const encoder = new TextEncoder();
+  const keyData = encoder.encode(encryptionKey.padEnd(32, '0').slice(0, 32));
+  
+  // Decode Base64
   const encryptedBytes = Uint8Array.from(atob(encryptedData), c => c.charCodeAt(0));
   
-  // Extract IV (12 bytes), AuthTag (16 bytes), and ciphertext
+  // Extract IV (first 12 bytes) and ciphertext+authTag (rest)
   const iv = encryptedBytes.slice(0, 12);
-  const authTag = encryptedBytes.slice(12, 28);
-  const ciphertext = encryptedBytes.slice(28);
-  
-  // Combine ciphertext and authTag for Web Crypto API
-  const ciphertextWithTag = new Uint8Array(ciphertext.length + authTag.length);
-  ciphertextWithTag.set(ciphertext);
-  ciphertextWithTag.set(authTag, ciphertext.length);
+  const ciphertextWithTag = encryptedBytes.slice(12);
   
   const key = await crypto.subtle.importKey(
     'raw',
-    keyBytes,
+    keyData,
     { name: 'AES-GCM' },
     false,
     ['decrypt']
