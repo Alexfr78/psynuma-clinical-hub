@@ -5,16 +5,16 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { useProfessionalIntegrations } from "@/hooks/useProfessionalIntegrations";
 import { useAuth } from "@/hooks/useAuth";
+import { useCenter } from "@/hooks/useCenter";
 import { Video, ExternalLink, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
 
-const ZOOM_CLIENT_ID = "YOUR_ZOOM_CLIENT_ID"; // Will be replaced with env var
-
 export function ZoomIntegrationSection() {
   const { profile } = useAuth();
+  const { center } = useCenter();
   const { integrations, isLoading, updateIntegrations, isProviderConnected, getOAuthConnection, disconnectProvider } = useProfessionalIntegrations();
   const [searchParams, setSearchParams] = useSearchParams();
   
@@ -69,6 +69,12 @@ export function ZoomIntegrationSection() {
       return;
     }
 
+    const zoomClientId = center?.oauth_zoom_client_id;
+    if (!zoomClientId) {
+      toast.error('Configura las credenciales OAuth de Zoom primero en la sección de Credenciales OAuth');
+      return;
+    }
+
     const redirectUri = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/oauth-zoom-callback`;
     const state = btoa(JSON.stringify({ 
       professional_id: profile.id,
@@ -78,7 +84,7 @@ export function ZoomIntegrationSection() {
     // Open Zoom OAuth in new window
     const zoomAuthUrl = new URL('https://zoom.us/oauth/authorize');
     zoomAuthUrl.searchParams.set('response_type', 'code');
-    zoomAuthUrl.searchParams.set('client_id', ZOOM_CLIENT_ID);
+    zoomAuthUrl.searchParams.set('client_id', zoomClientId);
     zoomAuthUrl.searchParams.set('redirect_uri', redirectUri);
     zoomAuthUrl.searchParams.set('state', state);
 

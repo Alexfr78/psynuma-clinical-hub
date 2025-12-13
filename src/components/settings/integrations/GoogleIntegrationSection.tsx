@@ -7,16 +7,16 @@ import { Switch } from "@/components/ui/switch";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useProfessionalIntegrations } from "@/hooks/useProfessionalIntegrations";
 import { useAuth } from "@/hooks/useAuth";
+import { useCenter } from "@/hooks/useCenter";
 import { Calendar, Video, ExternalLink, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 
-const GOOGLE_CLIENT_ID = "YOUR_GOOGLE_CLIENT_ID"; // Will be replaced with env var
-
 export function GoogleIntegrationSection() {
   const { profile } = useAuth();
+  const { center } = useCenter();
   const { integrations, isLoading, updateIntegrations, isProviderConnected, getOAuthConnection, disconnectProvider } = useProfessionalIntegrations();
   const [searchParams, setSearchParams] = useSearchParams();
   
@@ -103,6 +103,12 @@ export function GoogleIntegrationSection() {
       return;
     }
 
+    const googleClientId = center?.oauth_google_client_id;
+    if (!googleClientId) {
+      toast.error('Configura las credenciales OAuth de Google primero en la sección de Credenciales OAuth');
+      return;
+    }
+
     const redirectUri = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/oauth-google-callback`;
     const state = btoa(JSON.stringify({ 
       professional_id: profile.id,
@@ -117,7 +123,7 @@ export function GoogleIntegrationSection() {
     ].join(' ');
 
     const googleAuthUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
-    googleAuthUrl.searchParams.set('client_id', GOOGLE_CLIENT_ID);
+    googleAuthUrl.searchParams.set('client_id', googleClientId);
     googleAuthUrl.searchParams.set('redirect_uri', redirectUri);
     googleAuthUrl.searchParams.set('response_type', 'code');
     googleAuthUrl.searchParams.set('scope', scopes);
