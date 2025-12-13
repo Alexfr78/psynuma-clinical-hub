@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -6,23 +7,54 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useProfessionalIntegrations } from "@/hooks/useProfessionalIntegrations";
-import { CreditCard, ExternalLink, CheckCircle2, AlertCircle, Loader2, Clock } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
+import { CreditCard, ExternalLink, CheckCircle2, AlertCircle, Loader2, Clock, RefreshCw } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
 
 export function StripeIntegrationSection() {
+  const { profile } = useAuth();
   const { integrations, isLoading, updateIntegrations, isProviderConnected, getOAuthConnection, disconnectProvider } = useProfessionalIntegrations();
+  const [searchParams, setSearchParams] = useSearchParams();
   
   const [enabled, setEnabled] = useState(false);
   const [paymentMode, setPaymentMode] = useState<'required_now' | 'post_pay' | 'scheduled_before'>('post_pay');
   const [scheduledHours, setScheduledHours] = useState(24);
   const [isSaving, setIsSaving] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const isConnected = isProviderConnected('stripe');
   const connection = getOAuthConnection('stripe');
   const accountStatus = connection?.stripe_account_status;
+
+  // Handle OAuth callback
+  useEffect(() => {
+    const oauthStatus = searchParams.get('oauth');
+    const provider = searchParams.get('provider');
+    
+    if (oauthStatus && provider === 'stripe') {
+      if (oauthStatus === 'success') {
+        toast.success('Stripe conectado correctamente');
+        // Refresh status after returning from Stripe
+        handleRefreshStatus();
+      } else if (oauthStatus === 'error') {
+        const message = searchParams.get('message');
+        toast.error(`Error al conectar Stripe: ${message || 'Error desconocido'}`);
+      } else if (oauthStatus === 'refresh') {
+        // User needs to continue onboarding
+        toast.info('Continúa el proceso de verificación de Stripe');
+      }
+      // Clean up URL params
+      searchParams.delete('oauth');
+      searchParams.delete('provider');
+      searchParams.delete('message');
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   useEffect(() => {
     if (integrations) {
@@ -67,11 +99,57 @@ export function StripeIntegrationSection() {
     }
   };
 
-  const handleConnect = () => {
-    // TODO: Implementar Stripe Connect OAuth en Fase 2
-    toast.info("La conexión con Stripe se habilitará próximamente", {
-      description: "Esta funcionalidad está en desarrollo"
-    });
+  const handleConnect = async () => {
+    if (!profile?.id) {
+      toast.error('No se pudo obtener el ID del profesional');
+      return;
+    }
+
+    setIsConnecting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('create-stripe-connect-link', {
+        body: { 
+          professional_id: profile.id,
+          return_url: `${window.location.origin}/configuracion?oauth=success&provider=stripe`,
+          refresh_url: `${window.location.origin}/configuracion?oauth=refresh&provider=stripe`,
+        },
+      });
+
+      if (error) throw error;
+
+      if (data?.url) {
+        window.location.href = data.url;
+      } else {
+        throw new Error('No se pudo obtener el enlace de onboarding');
+      }
+    } catch (error) {
+      console.error('Error creating Stripe Connect link:', error);
+      toast.error('Error al conectar con Stripe');
+    } finally {
+      setIsConnecting(false);
+    }
+  };
+
+  const handleRefreshStatus = async () => {
+    if (!profile?.id) return;
+
+    setIsRefreshing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('refresh-stripe-account-status', {
+        body: { professional_id: profile.id },
+      });
+
+      if (error) throw error;
+
+      toast.success(`Estado actualizado: ${data.status}`);
+      // Invalidate queries to refresh data
+      window.location.reload();
+    } catch (error) {
+      console.error('Error refreshing Stripe status:', error);
+      toast.error('Error al actualizar el estado');
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   const handleDisconnect = async () => {
@@ -118,6 +196,8 @@ export function StripeIntegrationSection() {
     }
   };
 
+  const hasConnection = !!connection;
+
   return (
     <Card>
       <CardHeader>
@@ -144,7 +224,7 @@ export function StripeIntegrationSection() {
       </CardHeader>
       
       <CardContent className="space-y-6">
-        {!isConnected ? (
+        {!hasConnection ? (
           <>
             <Alert>
               <AlertCircle className="h-4 w-4" />
@@ -153,10 +233,14 @@ export function StripeIntegrationSection() {
               </AlertDescription>
             </Alert>
             
-            <Button onClick={handleConnect} className="w-full gap-2">
-              <CreditCard className="h-4 w-4" />
-              Conectar con Stripe
-              <ExternalLink className="h-3 w-3 ml-1" />
+            <Button onClick={handleConnect} className="w-full gap-2" disabled={isConnecting}>
+              {isConnecting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <CreditCard className="h-4 w-4" />
+              )}
+              {isConnecting ? 'Conectando...' : 'Conectar con Stripe'}
+              {!isConnecting && <ExternalLink className="h-3 w-3 ml-1" />}
             </Button>
           </>
         ) : (
@@ -167,12 +251,21 @@ export function StripeIntegrationSection() {
                 <div>
                   <p className="font-medium">Cuenta conectada</p>
                   <p className="text-sm text-muted-foreground">
-                    {connection?.stripe_account_id || 'Stripe Connect'}
+                    {connection?.provider_account_id || connection?.stripe_account_id || 'Stripe Connect'}
                   </p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
                 {getStatusBadge()}
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  onClick={handleRefreshStatus}
+                  disabled={isRefreshing}
+                  title="Actualizar estado"
+                >
+                  <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                </Button>
                 <Button 
                   variant="outline" 
                   size="sm"
@@ -190,8 +283,11 @@ export function StripeIntegrationSection() {
             {accountStatus === 'pending' && (
               <Alert>
                 <Clock className="h-4 w-4" />
-                <AlertDescription>
-                  Tu cuenta está pendiente de verificación. Completa el proceso en Stripe para empezar a recibir pagos.
+                <AlertDescription className="flex items-center justify-between">
+                  <span>Tu cuenta está pendiente de verificación. Completa el proceso en Stripe.</span>
+                  <Button size="sm" variant="outline" onClick={handleConnect} disabled={isConnecting}>
+                    {isConnecting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Continuar verificación'}
+                  </Button>
                 </AlertDescription>
               </Alert>
             )}
