@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { CalendarIcon, Loader2, Package, Mail, Phone, MessageSquare, Plus } from 'lucide-react';
+import { CalendarIcon, Loader2, Package, Mail, Phone, MessageSquare, Plus, CreditCard, Settings2, MapPin, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -50,6 +50,15 @@ import { useSendSessionNotification, WhatsAppDialogData } from '@/hooks/useSendS
 import { CreateBonoDialog } from '@/components/bonos/CreateBonoDialog';
 import { SessionNotificationSettings } from './SessionNotificationSettings';
 import { WhatsAppLinkDialog } from './WhatsAppLinkDialog';
+import { useCenter } from '@/hooks/useCenter';
+
+const PAYMENT_MODE_OPTIONS = [
+  { value: '__default__', label: 'Usar predeterminado del centro', icon: Settings2 },
+  { value: 'required_now', label: 'Pago obligatorio (antes de confirmar)', icon: CreditCard },
+  { value: 'in_session', label: 'Pago en sesión', icon: MapPin },
+  { value: 'post_session', label: 'Pago post-sesión', icon: CalendarIcon },
+  { value: 'scheduled_before', label: 'Programado (X horas antes)', icon: Clock },
+];
 
 const sessionSchema = z.object({
   patient_id: z.string().uuid('Selecciona un paciente'),
@@ -62,6 +71,7 @@ const sessionSchema = z.object({
   notes: z.string().max(1000).optional(),
   status: z.string().default('scheduled'),
   bono_id: z.string().optional(),
+  payment_mode: z.string().optional(),
   // Immediate notifications
   notify_whatsapp: z.boolean().default(false),
   notify_email: z.boolean().default(false),
