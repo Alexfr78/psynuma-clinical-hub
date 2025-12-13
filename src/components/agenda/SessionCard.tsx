@@ -8,6 +8,8 @@ interface SessionCardProps {
   compact?: boolean;
   onClick?: () => void;
   draggable?: boolean;
+  onDragStart?: () => void;
+  onDragEnd?: () => void;
 }
 
 const statusColors = {
@@ -19,7 +21,7 @@ const statusColors = {
   no_show: 'bg-orange-500/20 border-orange-500 text-orange-700 dark:text-orange-300',
 };
 
-export function SessionCard({ session, compact = false, onClick, draggable = false }: SessionCardProps) {
+export function SessionCard({ session, compact = false, onClick, draggable = false, onDragStart, onDragEnd }: SessionCardProps) {
   const statusColor = statusColors[session.status as keyof typeof statusColors] || statusColors.scheduled;
   const patientName = session.patient 
     ? `${session.patient.first_name} ${session.patient.last_name}` 
@@ -35,7 +37,7 @@ export function SessionCard({ session, compact = false, onClick, draggable = fal
     
     // Set drag data
     e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', session.id); // Fallback
+    e.dataTransfer.setData('text/plain', session.id);
     e.dataTransfer.setData('application/json', JSON.stringify({
       sessionId: session.id,
       originalDate: session.session_date,
@@ -48,7 +50,14 @@ export function SessionCard({ session, compact = false, onClick, draggable = fal
       const rect = cardRef.current.getBoundingClientRect();
       e.dataTransfer.setDragImage(cardRef.current, rect.width / 2, 10);
     }
-  }, [draggable, session]);
+    
+    // Notify parent
+    onDragStart?.();
+  }, [draggable, session, onDragStart]);
+
+  const handleDragEnd = useCallback(() => {
+    onDragEnd?.();
+  }, [onDragEnd]);
 
   const handleClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -73,6 +82,7 @@ export function SessionCard({ session, compact = false, onClick, draggable = fal
         onMouseDown={handleMouseDown}
         draggable={draggable}
         onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
       >
         <div className="flex items-center gap-1">
           {draggable && <GripVertical className="h-3 w-3 opacity-50 flex-shrink-0" />}
@@ -97,6 +107,7 @@ export function SessionCard({ session, compact = false, onClick, draggable = fal
       onMouseDown={handleMouseDown}
       draggable={draggable}
       onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
     >
       <div className="flex items-start justify-between gap-2">
         {draggable && <GripVertical className="h-4 w-4 opacity-50 flex-shrink-0 mt-0.5" />}
