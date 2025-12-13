@@ -1,7 +1,7 @@
 import { User, Clock, GripVertical } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SessionWithRelations } from '@/hooks/useSessions';
-import { useCallback, useRef } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 interface SessionCardProps {
   session: SessionWithRelations;
@@ -10,6 +10,8 @@ interface SessionCardProps {
   draggable?: boolean;
   onDragStart?: () => void;
   onDragEnd?: () => void;
+  className?: string;
+  style?: React.CSSProperties;
 }
 
 const statusColors = {
@@ -21,19 +23,23 @@ const statusColors = {
   no_show: 'bg-orange-500/20 border-orange-500 text-orange-700 dark:text-orange-300',
 };
 
-export function SessionCard({ session, compact = false, onClick, draggable = false, onDragStart, onDragEnd }: SessionCardProps) {
+export function SessionCard({ session, compact = false, onClick, draggable = false, onDragStart, onDragEnd, className, style }: SessionCardProps) {
   const statusColor = statusColors[session.status as keyof typeof statusColors] || statusColors.scheduled;
   const patientName = session.patient 
     ? `${session.patient.first_name} ${session.patient.last_name}` 
     : 'Sin paciente';
   
   const cardRef = useRef<HTMLDivElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
 
   const handleDragStart = useCallback((e: React.DragEvent) => {
     if (!draggable) {
       e.preventDefault();
       return;
     }
+    
+    e.stopPropagation();
+    setIsDragging(true);
     
     // Set drag data
     e.dataTransfer.effectAllowed = 'move';
@@ -51,11 +57,12 @@ export function SessionCard({ session, compact = false, onClick, draggable = fal
       e.dataTransfer.setDragImage(cardRef.current, rect.width / 2, 10);
     }
     
-    // Notify parent
-    onDragStart?.();
+    // Notify parent after a microtask to ensure drag has started
+    setTimeout(() => onDragStart?.(), 0);
   }, [draggable, session, onDragStart]);
 
   const handleDragEnd = useCallback(() => {
+    setIsDragging(false);
     onDragEnd?.();
   }, [onDragEnd]);
 
@@ -76,8 +83,11 @@ export function SessionCard({ session, compact = false, onClick, draggable = fal
         className={cn(
           'cursor-pointer rounded-md border-l-2 px-2 py-1 text-xs transition-all hover:opacity-80 h-full',
           draggable && 'cursor-grab active:cursor-grabbing',
-          statusColor
+          isDragging && 'opacity-50',
+          statusColor,
+          className
         )}
+        style={style}
         onClick={handleClick}
         onMouseDown={handleMouseDown}
         draggable={draggable}
@@ -101,8 +111,11 @@ export function SessionCard({ session, compact = false, onClick, draggable = fal
       className={cn(
         'cursor-pointer rounded-lg border-l-4 bg-card p-3 shadow-sm transition-all hover:shadow-md h-full',
         draggable && 'cursor-grab active:cursor-grabbing',
-        statusColor
+        isDragging && 'opacity-50',
+        statusColor,
+        className
       )}
+      style={style}
       onClick={handleClick}
       onMouseDown={handleMouseDown}
       draggable={draggable}

@@ -42,7 +42,6 @@ export function DayView({ currentDate, sessions, onSessionClick, onSlotClick, on
   const [dragStart, setDragStart] = useState<SlotPosition | null>(null);
   const [dragEnd, setDragEnd] = useState<SlotPosition | null>(null);
   const [dragOverSlot, setDragOverSlot] = useState<string | null>(null);
-  const [isSessionDragging, setIsSessionDragging] = useState(false);
 
   const daySessions = useMemo(() => {
     return sessions.filter((s) => s.session_date === dateKey);
@@ -141,7 +140,6 @@ export function DayView({ currentDate, sessions, onSessionClick, onSlotClick, on
   const handleDrop = useCallback((e: React.DragEvent, hour: number, minute: number) => {
     e.preventDefault();
     setDragOverSlot(null);
-    setIsSessionDragging(false);
     
     try {
       const data = JSON.parse(e.dataTransfer.getData('application/json'));
@@ -160,13 +158,12 @@ export function DayView({ currentDate, sessions, onSessionClick, onSlotClick, on
     }
   }, [onSessionMove, dateKey]);
 
-  // Track when a session starts being dragged
+  // Track when a session starts/ends being dragged (for visual feedback)
   const handleSessionDragStart = useCallback(() => {
-    setIsSessionDragging(true);
+    // Could add visual feedback here if needed
   }, []);
 
   const handleSessionDragEnd = useCallback(() => {
-    setIsSessionDragging(false);
     setDragOverSlot(null);
   }, []);
 
@@ -244,30 +241,21 @@ export function DayView({ currentDate, sessions, onSessionClick, onSlotClick, on
                 </div>
               ))}
               
-              {/* Sessions overlay - pointer-events-none during session drag to allow drop on slots */}
-              <div className={cn(
-                "absolute inset-0",
-                isSessionDragging && "pointer-events-none"
-              )}>
+              {/* Sessions overlay */}
+              <div className="absolute inset-0 pointer-events-none">
                 {daySessions.map((session) => {
                   const style = getSessionStyle(session);
                   return (
-                    <div
+                    <SessionCard
                       key={session.id}
-                      className={cn(
-                        "absolute left-1 right-1",
-                        !isSessionDragging && "pointer-events-auto"
-                      )}
+                      session={session}
+                      onClick={() => onSessionClick(session)}
+                      draggable={!!onSessionMove}
+                      onDragStart={handleSessionDragStart}
+                      onDragEnd={handleSessionDragEnd}
+                      className="absolute left-1 right-1 pointer-events-auto"
                       style={style}
-                    >
-                      <SessionCard
-                        session={session}
-                        onClick={() => onSessionClick(session)}
-                        draggable={!!onSessionMove}
-                        onDragStart={handleSessionDragStart}
-                        onDragEnd={handleSessionDragEnd}
-                      />
-                    </div>
+                    />
                   );
                 })}
               </div>
