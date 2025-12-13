@@ -6,8 +6,51 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Decrypt AES-GCM encrypted secret
+async function decryptSecret(encryptedData: string): Promise<string> {
+  const encryptionKey = Deno.env.get('CERTIFICATE_ENCRYPTION_KEY');
+  
+  if (!encryptionKey || !encryptedData) {
+    try {
+      return atob(encryptedData);
+    } catch {
+      return encryptedData;
+    }
+  }
+  
+  try {
+    const encoder = new TextEncoder();
+    const keyData = encoder.encode(encryptionKey.padEnd(32, '0').slice(0, 32));
+    const key = await crypto.subtle.importKey(
+      'raw',
+      keyData,
+      { name: 'AES-GCM' },
+      false,
+      ['decrypt']
+    );
+    
+    const combined = Uint8Array.from(atob(encryptedData), c => c.charCodeAt(0));
+    const iv = combined.slice(0, 12);
+    const ciphertextWithTag = combined.slice(12);
+    
+    const decrypted = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv },
+      key,
+      ciphertextWithTag
+    );
+    
+    return new TextDecoder().decode(decrypted);
+  } catch (error) {
+    console.error('Decryption failed, trying base64 fallback:', error);
+    try {
+      return atob(encryptedData);
+    } catch {
+      return encryptedData;
+    }
+  }
+}
+
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -24,17 +67,48 @@ serve(async (req) => {
       );
     }
 
-    const stripeSecretKey = Deno.env.get('STRIPE_SECRET_KEY');
-    if (!stripeSecretKey) {
-      return new Response(
-        JSON.stringify({ error: 'Stripe not configured' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Get professional's center and Stripe credentials
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('center_id')
+      .eq('id', professional_id)
+      .single();
+
+    if (!profile?.center_id) {
+      return new Response(
+        JSON.stringify({ error: 'No center found' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Get Stripe credentials from center
+    const { data: center } = await supabase
+      .from('centers')
+      .select('oauth_stripe_credentials')
+      .eq('id', profile.center_id)
+      .single();
+
+    if (!center?.oauth_stripe_credentials) {
+      return new Response(
+        JSON.stringify({ error: 'Stripe not configured' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Decrypt the secret key
+    const stripeSecretKey = await decryptSecret(center.oauth_stripe_credentials);
+    
+    if (!stripeSecretKey || !stripeSecretKey.startsWith('sk_')) {
+      console.error('Invalid Stripe secret key format after decryption');
+      return new Response(
+        JSON.stringify({ error: 'Invalid Stripe secret key. Please update in Settings > Integrations.' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     // Get existing connection
     const { data: connection } = await supabase
@@ -60,7 +134,7 @@ serve(async (req) => {
     if (!accountResponse.ok) {
       console.error('Failed to get Stripe account:', accountData);
       return new Response(
-        JSON.stringify({ error: 'Failed to get account status' }),
+        JSON.stringify({ error: accountData.error?.message || 'Failed to get account status' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
