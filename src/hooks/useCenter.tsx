@@ -50,6 +50,13 @@ export interface Center {
   oauth_zoom_credentials: string | null;
   oauth_stripe_publishable_key: string | null;
   oauth_stripe_credentials: string | null;
+  // Payment settings
+  default_payment_mode: string | null;
+  default_scheduled_hours_before: number | null;
+  payment_reminder_enabled: boolean | null;
+  payment_reminder_hours_after: number | null;
+  payment_reminder_max_count: number | null;
+  payment_reminder_interval_hours: number | null;
   created_at: string;
   updated_at: string;
 }

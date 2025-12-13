@@ -62,3 +62,6 @@ verify_jwt = true
 
 [functions.save-oauth-credentials]
 verify_jwt = true
+
+[functions.send-payment-reminders]
+verify_jwt = false

@@ -20,7 +20,8 @@ import {
   Settings2,
   Video,
   CreditCard,
-  Plug
+  Plug,
+  Wallet
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -37,6 +38,7 @@ import { InvoiceSeriesSection } from '@/components/settings/InvoiceSeriesSection
 import { InvoiceAutomationSection } from '@/components/settings/InvoiceAutomationSection';
 import { LocationsSection } from '@/components/settings/LocationsSection';
 import { SessionTypesSection } from '@/components/settings/SessionTypesSection';
+import { PaymentSettingsSection } from '@/components/settings/PaymentSettingsSection';
 import { EmailTemplateEditor } from '@/components/settings/communications/EmailTemplateEditor';
 import { WhatsAppTemplateEditor } from '@/components/settings/communications/WhatsAppTemplateEditor';
 import { SmsTemplateEditor } from '@/components/settings/communications/SmsTemplateEditor';
@@ -68,6 +70,7 @@ type SettingsSection =
   | 'centro-ubicaciones'
   | 'centro-portal'
   | 'sesiones-tipos'
+  | 'pagos-config'
   | 'facturacion-info' 
   | 'facturacion-editar' 
   | 'facturacion-series' 
@@ -97,6 +100,7 @@ const navItems: NavItem[] = [
   { id: 'centro-ubicaciones', label: 'Ubicaciones', icon: MapPin, parent: 'Centro' },
   { id: 'centro-portal', label: 'Ajustes del Portal', icon: Settings2, parent: 'Centro' },
   { id: 'sesiones-tipos', label: 'Tipos de sesión', icon: Calendar, parent: 'Sesiones' },
+  { id: 'pagos-config', label: 'Configuración de pagos', icon: Wallet, parent: 'Pagos' },
   { id: 'facturacion-info', label: 'Información de facturación', icon: Receipt, parent: 'Facturación' },
   { id: 'facturacion-editar', label: 'Editar factura', icon: Pencil, parent: 'Facturación' },
   { id: 'facturacion-series', label: 'Series y numeración', icon: List, parent: 'Facturación' },
@@ -271,6 +275,8 @@ export default function Settings() {
         return <PortalSettingsSection />;
       case 'sesiones-tipos':
         return <SessionTypesSection />;
+      case 'pagos-config':
+        return <PaymentSettingsSection />;
       case 'facturacion-info':
         return <InvoicingInfoSection />;
       case 'facturacion-editar':

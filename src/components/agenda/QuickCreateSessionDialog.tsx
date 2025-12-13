@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { CalendarIcon, User, Globe, ChevronDown, Plus, Video, MapPin, Ban, Settings2, Package } from 'lucide-react';
+import { CalendarIcon, User, Globe, ChevronDown, Plus, Video, MapPin, Ban, Settings2, Package, CreditCard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -51,6 +51,7 @@ import { usePatientActiveBonos, useDeductBonoSession } from '@/hooks/useBonos';
 import { useScheduleSessionReminder } from '@/hooks/useNotifications';
 import { useSendSessionNotification, WhatsAppDialogData } from '@/hooks/useSendSessionNotification';
 import { useSessionTypes } from '@/hooks/useSessionTypes';
+import { useCenter } from '@/hooks/useCenter';
 import { useProfessionalIntegrations } from '@/hooks/useProfessionalIntegrations';
 import { handleSessionIntegrations, handleStripePayment } from '@/hooks/useSessionIntegrations';
 import { QuickCreatePatientDialog } from '@/components/patients/QuickCreatePatientDialog';
@@ -71,6 +72,7 @@ const quickSessionSchema = z.object({
   video_call_link: z.string().optional(),
   location_id: z.string().optional(),
   bono_id: z.string().optional(),
+  payment_mode: z.string().optional(),
   // Immediate notifications
   notify_whatsapp: z.boolean().default(false),
   notify_email: z.boolean().default(false),
@@ -108,8 +110,8 @@ const TIME_SLOTS = generateTimeSlots();
 const CANCELLATION_OPTIONS = [
   { value: 'not_allowed', label: 'No permitir cancelaciones' },
   { value: 'until_start', label: 'Hasta la hora de la sesión' },
-  { value: '1_hour', label: 'Hasta 1 hora antes' },
-  { value: '2_hours', label: 'Hasta 2 horas antes' },
+  { value: 'until_1_hour', label: 'Hasta 1 hora antes' },
+  { value: 'until_2_hours', label: 'Hasta 2 horas antes' },
   { value: '24_hours', label: 'Hasta 24 horas antes' },
   { value: '48_hours', label: 'Hasta 48 horas antes' },
   { value: '72_hours', label: 'Hasta 72 horas antes' },
@@ -120,6 +122,14 @@ const MODALITY_OPTIONS = [
   { value: 'google_meet', label: 'Video llamada de GoogleMeet', icon: Video },
   { value: 'zoom', label: 'Zoom', icon: Video },
   { value: 'custom_link', label: 'Añadir link de videollamada', icon: Video },
+];
+
+const PAYMENT_MODE_OPTIONS = [
+  { value: '__default__', label: 'Usar predeterminado del centro' },
+  { value: 'required_now', label: '💳 Pago obligatorio (antes de confirmar)' },
+  { value: 'in_session', label: '🏠 Pago en sesión' },
+  { value: 'post_session', label: '📅 Pago post-sesión' },
+  { value: 'scheduled_before', label: '⏰ Programado (X horas antes)' },
 ];
 
 export function QuickCreateSessionDialog({
@@ -137,6 +147,7 @@ export function QuickCreateSessionDialog({
   const scheduleReminder = useScheduleSessionReminder();
   const sendNotification = useSendSessionNotification();
   const { integrations, oauthConnections } = useProfessionalIntegrations();
+  const { center } = useCenter();
   const { data: patients } = usePatients();
   const { data: professionals } = useProfessionals();
   const { data: locations } = useLocations();
@@ -166,6 +177,7 @@ export function QuickCreateSessionDialog({
       video_call_link: '',
       location_id: '',
       bono_id: '',
+      payment_mode: '__default__',
       notify_whatsapp: false,
       notify_email: false,
       notify_sms: false,
@@ -232,6 +244,7 @@ export function QuickCreateSessionDialog({
         video_call_link: '',
         location_id: '',
         bono_id: '',
+        payment_mode: '__default__',
         notify_whatsapp: false,
         notify_email: false,
         notify_sms: false,
@@ -278,6 +291,8 @@ export function QuickCreateSessionDialog({
         videoProvider = 'google_meet';
       }
       
+      const effectivePaymentMode = values.payment_mode === '__default__' ? null : values.payment_mode;
+      
       const newSession = await createSession.mutateAsync({
         patient_id: values.patient_id,
         professional_id: values.professional_id,
@@ -293,6 +308,7 @@ export function QuickCreateSessionDialog({
         video_provider: videoProvider,
         location_id: values.session_modality === 'in_person' && values.location_id ? values.location_id : null,
         bono_id: usesBono ? values.bono_id : null,
+        payment_mode: effectivePaymentMode,
         send_reminder_whatsapp: values.send_reminder_whatsapp,
         send_reminder_email: values.send_reminder_email,
         send_reminder_sms: values.send_reminder_sms,
