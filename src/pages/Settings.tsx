@@ -49,6 +49,7 @@ import { WhatsAppIntegrationSection } from '@/components/settings/integrations/W
 import { ZoomIntegrationSection } from '@/components/settings/integrations/ZoomIntegrationSection';
 import { GoogleIntegrationSection } from '@/components/settings/integrations/GoogleIntegrationSection';
 import { StripeIntegrationSection } from '@/components/settings/integrations/StripeIntegrationSection';
+import { OAuthCredentialsSection } from '@/components/settings/integrations/OAuthCredentialsSection';
 
 const centerSchema = z.object({
   name: z.string().min(1, 'El nombre es obligatorio'),
@@ -78,6 +79,7 @@ type SettingsSection =
   | 'comunicaciones-whatsapp'
   | 'comunicaciones-sms'
   | 'integraciones-resumen'
+  | 'integraciones-credenciales'
   | 'integraciones-whatsapp'
   | 'integraciones-zoom'
   | 'integraciones-google'
@@ -106,6 +108,7 @@ const navItems: NavItem[] = [
   { id: 'comunicaciones-whatsapp', label: 'Plantillas WhatsApp', icon: MessageCircle, parent: 'Comunicaciones' },
   { id: 'comunicaciones-sms', label: 'Plantillas SMS', icon: Smartphone, parent: 'Comunicaciones' },
   { id: 'integraciones-resumen', label: 'Resumen', icon: Plug, parent: 'Integraciones' },
+  { id: 'integraciones-credenciales', label: 'Credenciales OAuth', icon: Shield, parent: 'Integraciones' },
   { id: 'integraciones-whatsapp', label: 'WhatsApp Business', icon: MessageCircle, parent: 'Integraciones' },
   { id: 'integraciones-zoom', label: 'Zoom', icon: Video, parent: 'Integraciones' },
   { id: 'integraciones-google', label: 'Google Calendar/Meet', icon: Calendar, parent: 'Integraciones' },
@@ -290,6 +293,8 @@ export default function Settings() {
         return <SmsTemplateEditor />;
       case 'integraciones-resumen':
         return <IntegrationsOverview />;
+      case 'integraciones-credenciales':
+        return <OAuthCredentialsSection />;
       case 'integraciones-whatsapp':
         return <WhatsAppIntegrationSection />;
       case 'integraciones-zoom':
