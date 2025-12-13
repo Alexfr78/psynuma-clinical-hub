@@ -356,6 +356,8 @@ export type Database = {
           city: string | null
           country: string | null
           created_at: string
+          default_payment_mode: string | null
+          default_scheduled_hours_before: number | null
           default_tax_name: string | null
           default_tax_rate: number | null
           email: string | null
@@ -373,6 +375,10 @@ export type Database = {
           oauth_stripe_publishable_key: string | null
           oauth_zoom_client_id: string | null
           oauth_zoom_credentials: string | null
+          payment_reminder_enabled: boolean | null
+          payment_reminder_hours_after: number | null
+          payment_reminder_interval_hours: number | null
+          payment_reminder_max_count: number | null
           phone: string | null
           postal_code: string | null
           province: string | null
@@ -402,6 +408,8 @@ export type Database = {
           city?: string | null
           country?: string | null
           created_at?: string
+          default_payment_mode?: string | null
+          default_scheduled_hours_before?: number | null
           default_tax_name?: string | null
           default_tax_rate?: number | null
           email?: string | null
@@ -419,6 +427,10 @@ export type Database = {
           oauth_stripe_publishable_key?: string | null
           oauth_zoom_client_id?: string | null
           oauth_zoom_credentials?: string | null
+          payment_reminder_enabled?: boolean | null
+          payment_reminder_hours_after?: number | null
+          payment_reminder_interval_hours?: number | null
+          payment_reminder_max_count?: number | null
           phone?: string | null
           postal_code?: string | null
           province?: string | null
@@ -448,6 +460,8 @@ export type Database = {
           city?: string | null
           country?: string | null
           created_at?: string
+          default_payment_mode?: string | null
+          default_scheduled_hours_before?: number | null
           default_tax_name?: string | null
           default_tax_rate?: number | null
           email?: string | null
@@ -465,6 +479,10 @@ export type Database = {
           oauth_stripe_publishable_key?: string | null
           oauth_zoom_client_id?: string | null
           oauth_zoom_credentials?: string | null
+          payment_reminder_enabled?: boolean | null
+          payment_reminder_hours_after?: number | null
+          payment_reminder_interval_hours?: number | null
+          payment_reminder_max_count?: number | null
           phone?: string | null
           postal_code?: string | null
           province?: string | null
@@ -1457,9 +1475,13 @@ export type Database = {
           end_time: string
           google_calendar_event_id: string | null
           id: string
+          last_payment_reminder_at: string | null
           location_id: string | null
           notes: string | null
           patient_id: string
+          payment_mode: string | null
+          payment_reminder_count: number | null
+          payment_status: string | null
           price: number
           professional_id: string
           room: string | null
@@ -1488,9 +1510,13 @@ export type Database = {
           end_time: string
           google_calendar_event_id?: string | null
           id?: string
+          last_payment_reminder_at?: string | null
           location_id?: string | null
           notes?: string | null
           patient_id: string
+          payment_mode?: string | null
+          payment_reminder_count?: number | null
+          payment_status?: string | null
           price?: number
           professional_id: string
           room?: string | null
@@ -1519,9 +1545,13 @@ export type Database = {
           end_time?: string
           google_calendar_event_id?: string | null
           id?: string
+          last_payment_reminder_at?: string | null
           location_id?: string | null
           notes?: string | null
           patient_id?: string
+          payment_mode?: string | null
+          payment_reminder_count?: number | null
+          payment_status?: string | null
           price?: number
           professional_id?: string
           room?: string | null
