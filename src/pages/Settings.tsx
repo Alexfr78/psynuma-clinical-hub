@@ -315,8 +315,8 @@ export default function Settings() {
       <div className="flex flex-col gap-6 lg:flex-row">
         {/* Sidebar Navigation */}
         <aside className="w-full lg:w-64 shrink-0">
-          <Card className="sticky top-6">
-            <ScrollArea className="h-auto max-h-[calc(100vh-12rem)]">
+          <Card className="sticky top-6 overflow-hidden">
+            <ScrollArea className="h-[calc(100vh-10rem)]">
               <nav className="p-4 space-y-6">
 
                 {Object.entries(groupedNavItems).map(([group, items]) => (
