@@ -3,10 +3,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Key, Eye, EyeOff, Save, Check, AlertTriangle } from "lucide-react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Key, Eye, EyeOff, Save, Check, Loader2 } from "lucide-react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface CredentialFieldProps {
   label: string;
@@ -58,19 +59,43 @@ export function OAuthCredentialsSection() {
   const [zoom, setZoom] = useState<ProviderCredentials>({ clientId: "", clientSecret: "" });
   const [stripe, setStripe] = useState<{ secretKey: string }>({ secretKey: "" });
   const [savedProviders, setSavedProviders] = useState<string[]>([]);
+  const [saving, setSaving] = useState<string | null>(null);
+
+  const saveCredentials = async (provider: string, credentials: Record<string, string>) => {
+    setSaving(provider);
+    try {
+      const { data, error } = await supabase.functions.invoke('save-oauth-credentials', {
+        body: { provider, credentials }
+      });
+
+      if (error) throw error;
+
+      setSavedProviders(prev => [...prev.filter(p => p !== provider), provider]);
+      toast.success(`Credenciales de ${provider} guardadas correctamente`);
+      
+      // Clear fields after saving
+      if (provider === 'google') setGoogle({ clientId: "", clientSecret: "" });
+      if (provider === 'zoom') setZoom({ clientId: "", clientSecret: "" });
+      if (provider === 'stripe') setStripe({ secretKey: "" });
+      
+    } catch (error) {
+      console.error('Error saving credentials:', error);
+      toast.error('Error al guardar las credenciales');
+    } finally {
+      setSaving(null);
+    }
+  };
 
   const handleSaveGoogle = () => {
-    // In a real implementation, this would call an edge function to update secrets
-    // For now, we show a message that they need to use the secrets management
-    setSavedProviders(prev => [...prev.filter(p => p !== 'google'), 'google']);
+    saveCredentials('google', { clientId: google.clientId, clientSecret: google.clientSecret });
   };
 
   const handleSaveZoom = () => {
-    setSavedProviders(prev => [...prev.filter(p => p !== 'zoom'), 'zoom']);
+    saveCredentials('zoom', { clientId: zoom.clientId, clientSecret: zoom.clientSecret });
   };
 
   const handleSaveStripe = () => {
-    setSavedProviders(prev => [...prev.filter(p => p !== 'stripe'), 'stripe']);
+    saveCredentials('stripe', { secretKey: stripe.secretKey });
   };
 
   return (
@@ -90,14 +115,6 @@ export function OAuthCredentialsSection() {
       </CardHeader>
       
       <CardContent className="space-y-4">
-        <Alert>
-          <AlertTriangle className="h-4 w-4" />
-          <AlertDescription>
-            Las credenciales se almacenan de forma segura como secrets del proyecto. 
-            Contacta al administrador del proyecto para actualizar estos valores.
-          </AlertDescription>
-        </Alert>
-
         <Accordion type="single" collapsible className="w-full">
           {/* Google Credentials */}
           <AccordionItem value="google">
@@ -138,10 +155,10 @@ export function OAuthCredentialsSection() {
                 <Button 
                   size="sm" 
                   onClick={handleSaveGoogle}
-                  disabled={!google.clientId || !google.clientSecret}
+                  disabled={!google.clientId || !google.clientSecret || saving === 'google'}
                   className="gap-2"
                 >
-                  <Save className="h-4 w-4" />
+                  {saving === 'google' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                   Guardar credenciales Google
                 </Button>
               </div>
@@ -195,10 +212,10 @@ export function OAuthCredentialsSection() {
                 <Button 
                   size="sm" 
                   onClick={handleSaveZoom}
-                  disabled={!zoom.clientId || !zoom.clientSecret}
+                  disabled={!zoom.clientId || !zoom.clientSecret || saving === 'zoom'}
                   className="gap-2"
                 >
-                  <Save className="h-4 w-4" />
+                  {saving === 'zoom' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                   Guardar credenciales Zoom
                 </Button>
               </div>
@@ -246,10 +263,10 @@ export function OAuthCredentialsSection() {
                 <Button 
                   size="sm" 
                   onClick={handleSaveStripe}
-                  disabled={!stripe.secretKey}
+                  disabled={!stripe.secretKey || saving === 'stripe'}
                   className="gap-2"
                 >
-                  <Save className="h-4 w-4" />
+                  {saving === 'stripe' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                   Guardar credenciales Stripe
                 </Button>
               </div>
