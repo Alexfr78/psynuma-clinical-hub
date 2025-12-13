@@ -1,7 +1,7 @@
 import { User, Clock, GripVertical } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SessionWithRelations } from '@/hooks/useSessions';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useRef, useState, useEffect } from 'react';
 
 interface SessionCardProps {
   session: SessionWithRelations;
@@ -10,6 +10,8 @@ interface SessionCardProps {
   draggable?: boolean;
   onDragStart?: () => void;
   onDragEnd?: () => void;
+  onTouchDrag?: (sessionId: string, clientX: number, clientY: number) => void;
+  onTouchDragEnd?: (sessionId: string, clientX: number, clientY: number) => void;
   className?: string;
   style?: React.CSSProperties;
 }
@@ -23,7 +25,18 @@ const statusColors = {
   no_show: 'bg-orange-500/20 border-orange-500 text-orange-700 dark:text-orange-300',
 };
 
-export function SessionCard({ session, compact = false, onClick, draggable = false, onDragStart, onDragEnd, className, style }: SessionCardProps) {
+export function SessionCard({ 
+  session, 
+  compact = false, 
+  onClick, 
+  draggable = false, 
+  onDragStart, 
+  onDragEnd, 
+  onTouchDrag,
+  onTouchDragEnd,
+  className, 
+  style 
+}: SessionCardProps) {
   const statusColor = statusColors[session.status as keyof typeof statusColors] || statusColors.scheduled;
   const patientName = session.patient 
     ? `${session.patient.first_name} ${session.patient.last_name}` 
@@ -31,6 +44,9 @@ export function SessionCard({ session, compact = false, onClick, draggable = fal
   
   const cardRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [isTouchDragging, setIsTouchDragging] = useState(false);
+  const touchStartPos = useRef<{ x: number; y: number } | null>(null);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleDragStart = useCallback((e: React.DragEvent) => {
     if (!draggable) {
@@ -68,12 +84,91 @@ export function SessionCard({ session, compact = false, onClick, draggable = fal
 
   const handleClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    onClick?.();
-  }, [onClick]);
+    if (!isTouchDragging) {
+      onClick?.();
+    }
+  }, [onClick, isTouchDragging]);
 
   // Prevent slot drag from starting when clicking on session
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
+  }, []);
+
+  // Touch event handlers for mobile drag & drop
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (!draggable) return;
+    
+    const touch = e.touches[0];
+    touchStartPos.current = { x: touch.clientX, y: touch.clientY };
+    
+    // Start long press timer (300ms to initiate drag)
+    longPressTimer.current = setTimeout(() => {
+      setIsTouchDragging(true);
+      onDragStart?.();
+      // Provide haptic feedback if available
+      if (navigator.vibrate) {
+        navigator.vibrate(50);
+      }
+    }, 300);
+  }, [draggable, onDragStart]);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!draggable) return;
+    
+    const touch = e.touches[0];
+    
+    // If we haven't started dragging yet, check if we should cancel long press
+    if (!isTouchDragging && touchStartPos.current) {
+      const dx = Math.abs(touch.clientX - touchStartPos.current.x);
+      const dy = Math.abs(touch.clientY - touchStartPos.current.y);
+      
+      // If moved more than 10px before long press, cancel it
+      if (dx > 10 || dy > 10) {
+        if (longPressTimer.current) {
+          clearTimeout(longPressTimer.current);
+          longPressTimer.current = null;
+        }
+      }
+    }
+    
+    // If we're touch dragging, notify parent of position
+    if (isTouchDragging) {
+      e.preventDefault();
+      e.stopPropagation();
+      onTouchDrag?.(session.id, touch.clientX, touch.clientY);
+    }
+  }, [draggable, isTouchDragging, session.id, onTouchDrag]);
+
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    // Clear long press timer
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+    
+    if (isTouchDragging) {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      const touch = e.changedTouches[0];
+      onTouchDragEnd?.(session.id, touch.clientX, touch.clientY);
+      
+      // Small delay before resetting to prevent click firing
+      setTimeout(() => {
+        setIsTouchDragging(false);
+      }, 100);
+    }
+    
+    touchStartPos.current = null;
+  }, [isTouchDragging, session.id, onTouchDragEnd]);
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (longPressTimer.current) {
+        clearTimeout(longPressTimer.current);
+      }
+    };
   }, []);
 
   if (compact) {
@@ -81,9 +176,9 @@ export function SessionCard({ session, compact = false, onClick, draggable = fal
       <div
         ref={cardRef}
         className={cn(
-          'cursor-pointer rounded-md border-l-2 px-2 py-1 text-xs transition-all hover:opacity-80 h-full',
+          'cursor-pointer rounded-md border-l-2 px-2 py-1 text-xs transition-all hover:opacity-80 h-full select-none',
           draggable && 'cursor-grab active:cursor-grabbing',
-          isDragging && 'opacity-50',
+          (isDragging || isTouchDragging) && 'opacity-50 scale-105',
           statusColor,
           className
         )}
@@ -93,6 +188,9 @@ export function SessionCard({ session, compact = false, onClick, draggable = fal
         draggable={draggable}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
       >
         <div className="flex items-center gap-1">
           {draggable && <GripVertical className="h-3 w-3 opacity-50 flex-shrink-0" />}
@@ -109,9 +207,9 @@ export function SessionCard({ session, compact = false, onClick, draggable = fal
     <div
       ref={cardRef}
       className={cn(
-        'cursor-pointer rounded-lg border-l-4 bg-card p-3 shadow-sm transition-all hover:shadow-md h-full',
+        'cursor-pointer rounded-lg border-l-4 bg-card p-3 shadow-sm transition-all hover:shadow-md h-full select-none',
         draggable && 'cursor-grab active:cursor-grabbing',
-        isDragging && 'opacity-50',
+        (isDragging || isTouchDragging) && 'opacity-50 scale-105',
         statusColor,
         className
       )}
@@ -121,6 +219,9 @@ export function SessionCard({ session, compact = false, onClick, draggable = fal
       draggable={draggable}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
     >
       <div className="flex items-start justify-between gap-2">
         {draggable && <GripVertical className="h-4 w-4 opacity-50 flex-shrink-0 mt-0.5" />}

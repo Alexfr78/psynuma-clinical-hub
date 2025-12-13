@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback, useEffect } from 'react';
+import { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import { format, isToday } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -37,11 +37,18 @@ export function DayView({ currentDate, sessions, onSessionClick, onSlotClick, on
   const displayHours = hours || DEFAULT_HOURS;
   const gridStartHour = startHour ?? 8;
   const dateKey = format(currentDate, 'yyyy-MM-dd');
+  const gridRef = useRef<HTMLDivElement>(null);
 
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState<SlotPosition | null>(null);
   const [dragEnd, setDragEnd] = useState<SlotPosition | null>(null);
   const [dragOverSlot, setDragOverSlot] = useState<string | null>(null);
+  
+  // Touch drag state
+  const [touchDraggingSession, setTouchDraggingSession] = useState<{
+    sessionId: string;
+    originalSession: SessionWithRelations | null;
+  } | null>(null);
 
   const daySessions = useMemo(() => {
     return sessions.filter((s) => s.session_date === dateKey);
@@ -64,6 +71,26 @@ export function DayView({ currentDate, sessions, onSessionClick, onSlotClick, on
       height: `${Math.max(height, 20)}px`,
     };
   };
+
+  // Get slot position from screen coordinates
+  const getSlotFromCoordinates = useCallback((clientX: number, clientY: number): SlotPosition | null => {
+    if (!gridRef.current) return null;
+    
+    const gridRect = gridRef.current.getBoundingClientRect();
+    const relativeY = clientY - gridRect.top + gridRef.current.scrollTop;
+    
+    // Each hour is 80px, each 15min slot is 20px
+    const totalMinutes = (relativeY / 80) * 60;
+    const hour = gridStartHour + Math.floor(totalMinutes / 60);
+    const minute = Math.floor((totalMinutes % 60) / 15) * 15;
+    
+    // Validate hour is within display range
+    if (hour < displayHours[0] || hour > displayHours[displayHours.length - 1]) {
+      return null;
+    }
+    
+    return { hour, minute: Math.max(0, Math.min(45, minute)) };
+  }, [gridStartHour, displayHours]);
 
   const handleSlotMouseDown = useCallback((hour: number, minute: number, e: React.MouseEvent) => {
     if (e.button !== 0) return;
@@ -158,7 +185,7 @@ export function DayView({ currentDate, sessions, onSessionClick, onSlotClick, on
     }
   }, [onSessionMove, dateKey]);
 
-  // Track when a session starts/ends being dragged (for visual feedback)
+  // Desktop drag handlers
   const handleSessionDragStart = useCallback(() => {
     // Could add visual feedback here if needed
   }, []);
@@ -166,6 +193,40 @@ export function DayView({ currentDate, sessions, onSessionClick, onSlotClick, on
   const handleSessionDragEnd = useCallback(() => {
     setDragOverSlot(null);
   }, []);
+
+  // Touch drag handlers for mobile
+  const handleTouchDrag = useCallback((sessionId: string, clientX: number, clientY: number) => {
+    const slot = getSlotFromCoordinates(clientX, clientY);
+    if (slot) {
+      setDragOverSlot(`${slot.hour}:${slot.minute}`);
+    }
+    
+    // Find the session being dragged
+    if (!touchDraggingSession) {
+      const session = daySessions.find(s => s.id === sessionId);
+      setTouchDraggingSession({ sessionId, originalSession: session || null });
+    }
+  }, [getSlotFromCoordinates, touchDraggingSession, daySessions]);
+
+  const handleTouchDragEnd = useCallback((sessionId: string, clientX: number, clientY: number) => {
+    const slot = getSlotFromCoordinates(clientX, clientY);
+    
+    if (slot && onSessionMove && touchDraggingSession?.originalSession) {
+      const session = touchDraggingSession.originalSession;
+      const newStartTime = minutesToTime(slotToMinutes(slot.hour, slot.minute));
+      
+      const [origStartH, origStartM] = (session.start_time || '09:00').split(':').map(Number);
+      const [origEndH, origEndM] = (session.end_time || '10:00').split(':').map(Number);
+      const durationMinutes = slotToMinutes(origEndH, origEndM) - slotToMinutes(origStartH, origStartM);
+      const newEndMinutes = slotToMinutes(slot.hour, slot.minute) + durationMinutes;
+      const newEndTime = minutesToTime(newEndMinutes);
+      
+      onSessionMove(sessionId, dateKey, newStartTime, newEndTime);
+    }
+    
+    setDragOverSlot(null);
+    setTouchDraggingSession(null);
+  }, [getSlotFromCoordinates, onSessionMove, dateKey, touchDraggingSession]);
 
   return (
     <div 
@@ -188,7 +249,7 @@ export function DayView({ currentDate, sessions, onSessionClick, onSlotClick, on
       </div>
 
       {/* Time Grid */}
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-auto" ref={gridRef}>
         <div className="min-h-[600px] relative">
           <div className="flex">
             {/* Hour labels column */}
@@ -253,6 +314,8 @@ export function DayView({ currentDate, sessions, onSessionClick, onSlotClick, on
                       draggable={!!onSessionMove}
                       onDragStart={handleSessionDragStart}
                       onDragEnd={handleSessionDragEnd}
+                      onTouchDrag={handleTouchDrag}
+                      onTouchDragEnd={handleTouchDragEnd}
                       className="absolute left-1 right-1 pointer-events-auto"
                       style={style}
                     />
