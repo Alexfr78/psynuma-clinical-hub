@@ -367,8 +367,11 @@ export type Database = {
           invoice_prefix: string | null
           logo_url: string | null
           name: string
+          oauth_google_client_id: string | null
           oauth_google_credentials: string | null
           oauth_stripe_credentials: string | null
+          oauth_stripe_publishable_key: string | null
+          oauth_zoom_client_id: string | null
           oauth_zoom_credentials: string | null
           phone: string | null
           postal_code: string | null
@@ -410,8 +413,11 @@ export type Database = {
           invoice_prefix?: string | null
           logo_url?: string | null
           name: string
+          oauth_google_client_id?: string | null
           oauth_google_credentials?: string | null
           oauth_stripe_credentials?: string | null
+          oauth_stripe_publishable_key?: string | null
+          oauth_zoom_client_id?: string | null
           oauth_zoom_credentials?: string | null
           phone?: string | null
           postal_code?: string | null
@@ -453,8 +459,11 @@ export type Database = {
           invoice_prefix?: string | null
           logo_url?: string | null
           name?: string
+          oauth_google_client_id?: string | null
           oauth_google_credentials?: string | null
           oauth_stripe_credentials?: string | null
+          oauth_stripe_publishable_key?: string | null
+          oauth_zoom_client_id?: string | null
           oauth_zoom_credentials?: string | null
           phone?: string | null
           postal_code?: string | null

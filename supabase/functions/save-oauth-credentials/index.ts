@@ -74,61 +74,87 @@ serve(async (req) => {
       });
     }
 
-    // Encrypt and store credentials in a center-level table
-    // For now, we store in a simple structure - in production you'd want proper encryption
+    // Encrypt sensitive data (secrets only)
     const encryptionKey = Deno.env.get('CERTIFICATE_ENCRYPTION_KEY');
     
-    let encryptedCredentials: string;
-    if (encryptionKey) {
-      // Use same encryption as Verifactu certificates
-      const encoder = new TextEncoder();
-      const keyData = encoder.encode(encryptionKey.padEnd(32, '0').slice(0, 32));
-      const key = await crypto.subtle.importKey(
-        'raw',
-        keyData,
-        { name: 'AES-GCM' },
-        false,
-        ['encrypt']
-      );
+    const encryptSecret = async (secret: string): Promise<string> => {
+      if (!secret) return '';
       
-      const iv = crypto.getRandomValues(new Uint8Array(12));
-      const dataToEncrypt = encoder.encode(JSON.stringify(credentials));
-      const encrypted = await crypto.subtle.encrypt(
-        { name: 'AES-GCM', iv },
-        key,
-        dataToEncrypt
-      );
-      
-      // Combine IV + encrypted data
-      const combined = new Uint8Array(iv.length + encrypted.byteLength);
-      combined.set(iv, 0);
-      combined.set(new Uint8Array(encrypted), iv.length);
-      
-      encryptedCredentials = btoa(String.fromCharCode(...combined));
-    } else {
-      // Fallback - base64 encode (not secure, but works for development)
-      encryptedCredentials = btoa(JSON.stringify(credentials));
-    }
+      if (encryptionKey) {
+        const encoder = new TextEncoder();
+        const keyData = encoder.encode(encryptionKey.padEnd(32, '0').slice(0, 32));
+        const key = await crypto.subtle.importKey(
+          'raw',
+          keyData,
+          { name: 'AES-GCM' },
+          false,
+          ['encrypt']
+        );
+        
+        const iv = crypto.getRandomValues(new Uint8Array(12));
+        const dataToEncrypt = encoder.encode(secret);
+        const encrypted = await crypto.subtle.encrypt(
+          { name: 'AES-GCM', iv },
+          key,
+          dataToEncrypt
+        );
+        
+        // Combine IV + encrypted data
+        const combined = new Uint8Array(iv.length + encrypted.byteLength);
+        combined.set(iv, 0);
+        combined.set(new Uint8Array(encrypted), iv.length);
+        
+        return btoa(String.fromCharCode(...combined));
+      } else {
+        // Fallback - base64 encode (not secure, but works for development)
+        return btoa(secret);
+      }
+    };
 
-    // Store in center_oauth_credentials table or as JSON in centers table
-    // Using a dedicated column approach per provider
-    const updateData: Record<string, string> = {};
+    // Build update data based on provider
+    const updateData: Record<string, string | null> = {};
     
     switch (provider) {
       case 'google':
-        updateData['oauth_google_credentials'] = encryptedCredentials;
+        // Store client_id in plaintext, encrypt client_secret
+        if (credentials.clientId) {
+          updateData['oauth_google_client_id'] = credentials.clientId;
+        }
+        if (credentials.clientSecret) {
+          updateData['oauth_google_credentials'] = await encryptSecret(credentials.clientSecret);
+        }
         break;
       case 'zoom':
-        updateData['oauth_zoom_credentials'] = encryptedCredentials;
+        // Store client_id in plaintext, encrypt client_secret
+        if (credentials.clientId) {
+          updateData['oauth_zoom_client_id'] = credentials.clientId;
+        }
+        if (credentials.clientSecret) {
+          updateData['oauth_zoom_credentials'] = await encryptSecret(credentials.clientSecret);
+        }
         break;
       case 'stripe':
-        updateData['oauth_stripe_credentials'] = encryptedCredentials;
+        // Store publishable key in plaintext, encrypt secret key
+        if (credentials.publishableKey) {
+          updateData['oauth_stripe_publishable_key'] = credentials.publishableKey;
+        }
+        if (credentials.secretKey) {
+          updateData['oauth_stripe_credentials'] = await encryptSecret(credentials.secretKey);
+        }
         break;
       default:
         return new Response(JSON.stringify({ error: 'Invalid provider' }), {
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
+    }
+
+    // Only update if there's something to update
+    if (Object.keys(updateData).length === 0) {
+      return new Response(JSON.stringify({ error: 'No credentials provided' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     const { error: updateError } = await supabase
@@ -144,7 +170,7 @@ serve(async (req) => {
       });
     }
 
-    console.log(`OAuth credentials saved for provider: ${provider}, center: ${profile.center_id}`);
+    console.log(`OAuth credentials saved for provider: ${provider}, center: ${profile.center_id}, fields: ${Object.keys(updateData).join(', ')}`);
 
     return new Response(JSON.stringify({ success: true }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

@@ -43,9 +43,12 @@ export interface Center {
   reschedule_max_days: number | null;
   reschedule_slot_duration: number | null;
   reschedule_require_confirmation: boolean | null;
-  // OAuth credentials (encrypted)
+  // OAuth credentials - client_ids in plaintext, secrets encrypted
+  oauth_google_client_id: string | null;
   oauth_google_credentials: string | null;
+  oauth_zoom_client_id: string | null;
   oauth_zoom_credentials: string | null;
+  oauth_stripe_publishable_key: string | null;
   oauth_stripe_credentials: string | null;
   created_at: string;
   updated_at: string;
