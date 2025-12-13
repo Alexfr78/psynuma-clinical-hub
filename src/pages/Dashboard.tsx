@@ -1,11 +1,11 @@
-import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/useAuth';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { SessionDetailDrawer } from '@/components/agenda/SessionDetailDrawer';
 import {
   Users,
   Calendar,
@@ -13,7 +13,6 @@ import {
   TrendingUp,
   Clock,
   AlertCircle,
-  CheckCircle2,
   Package,
 } from 'lucide-react';
 
@@ -27,7 +26,6 @@ function useDashboardStats() {
       const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
       const endOfMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString().split('T')[0];
 
-      // Parallel queries for stats
       const [patientsRes, todaySessionsRes, monthInvoicesRes, debtsRes] = await Promise.all([
         supabase.from('patients').select('id', { count: 'exact', head: true }).eq('status', 'active'),
         supabase.from('sessions').select('id', { count: 'exact', head: true }).eq('session_date', today),
@@ -64,8 +62,13 @@ function useTodaySessions() {
       const { data, error } = await supabase
         .from('sessions')
         .select(`
-          id, session_date, start_time, end_time, status,
-          patients (first_name, last_name)
+          id, session_date, start_time, end_time, status, price, notes,
+          session_type, session_modality, location_id, bono_id,
+          cancellation_policy, cancellation_reason, video_call_link,
+          send_reminder_email, send_reminder_sms, send_reminder_whatsapp,
+          access_token, room, professional_id, patient_id,
+          patients (id, first_name, last_name, email, phone),
+          profiles:professional_id (id, first_name, last_name, email)
         `)
         .eq('session_date', today)
         .order('start_time');
@@ -81,6 +84,7 @@ export default function Dashboard() {
   const { profile } = useAuth();
   const { data: stats, isLoading: statsLoading } = useDashboardStats();
   const { data: todaySessions, isLoading: sessionsLoading } = useTodaySessions();
+  const [selectedSession, setSelectedSession] = useState<any | null>(null);
 
   const statCards = [
     {
@@ -126,7 +130,96 @@ export default function Dashboard() {
         </p>
       </div>
 
-      {/* Stats Grid */}
+      {/* 1. Agenda de Hoy - PRIMERA */}
+      <Card className="shadow-card">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Clock className="h-5 w-5 text-primary" />
+            Agenda de Hoy
+          </CardTitle>
+          <CardDescription>Tus próximas sesiones programadas</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {sessionsLoading ? (
+            <div className="space-y-3">
+              {[1, 2, 3].map(i => <Skeleton key={i} className="h-16" />)}
+            </div>
+          ) : !todaySessions || todaySessions.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-8 text-center">
+              <Calendar className="mb-4 h-12 w-12 text-muted-foreground/50" />
+              <p className="text-muted-foreground">
+                No hay sesiones programadas para hoy
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {todaySessions.map((session: any) => (
+                <div
+                  key={session.id}
+                  onClick={() => setSelectedSession(session)}
+                  className="flex items-center justify-between rounded-lg border p-3 cursor-pointer transition-colors hover:bg-muted"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+                      <Users className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="font-medium">
+                        {session.patients?.first_name} {session.patients?.last_name}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {session.start_time.slice(0, 5)} - {session.end_time.slice(0, 5)}
+                      </p>
+                    </div>
+                  </div>
+                  <span className={`text-xs px-2 py-1 rounded-full ${
+                    session.status === 'completed' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                    session.status === 'confirmed' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
+                    'bg-muted text-muted-foreground'
+                  }`}>
+                    {session.status === 'scheduled' ? 'Programada' :
+                     session.status === 'confirmed' ? 'Confirmada' :
+                     session.status === 'completed' ? 'Completada' : session.status}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* 2. Acciones Rápidas */}
+      <Card className="shadow-card">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <TrendingUp className="h-5 w-5 text-primary" />
+            Acciones Rápidas
+          </CardTitle>
+          <CardDescription>Accesos directos a funciones frecuentes</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-3 grid-cols-2 sm:grid-cols-4">
+            <Link to="/pacientes" className="flex flex-col items-center gap-2 rounded-lg border border-border bg-card p-4 transition-colors hover:bg-muted">
+              <Users className="h-6 w-6 text-primary" />
+              <span className="text-sm font-medium">Nuevo Paciente</span>
+            </Link>
+            <Link to="/agenda" className="flex flex-col items-center gap-2 rounded-lg border border-border bg-card p-4 transition-colors hover:bg-muted">
+              <Calendar className="h-6 w-6 text-primary" />
+              <span className="text-sm font-medium">Nueva Sesión</span>
+            </Link>
+            <Link to="/facturas" className="flex flex-col items-center gap-2 rounded-lg border border-border bg-card p-4 transition-colors hover:bg-muted">
+              <Receipt className="h-6 w-6 text-primary" />
+              <span className="text-sm font-medium">Nueva Factura</span>
+            </Link>
+            <Link to="/bonos" className="flex flex-col items-center gap-2 rounded-lg border border-border bg-card p-4 transition-colors hover:bg-muted">
+              <Package className="h-6 w-6 text-primary" />
+              <span className="text-sm font-medium">Nuevo Bono</span>
+            </Link>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 3. Stats Grid - AL FINAL */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {statCards.map((stat) => (
           <Link key={stat.title} to={stat.href}>
@@ -152,96 +245,12 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {/* Main Content Grid */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Today's Schedule */}
-        <Card className="shadow-card">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Clock className="h-5 w-5 text-primary" />
-              Agenda de Hoy
-            </CardTitle>
-            <CardDescription>Tus próximas sesiones programadas</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {sessionsLoading ? (
-              <div className="space-y-3">
-                {[1, 2, 3].map(i => <Skeleton key={i} className="h-16" />)}
-              </div>
-            ) : !todaySessions || todaySessions.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-8 text-center">
-                <Calendar className="mb-4 h-12 w-12 text-muted-foreground/50" />
-                <p className="text-muted-foreground">
-                  No hay sesiones programadas para hoy
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {todaySessions.map((session: any) => (
-                  <div
-                    key={session.id}
-                    className="flex items-center justify-between rounded-lg border p-3"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
-                        <Users className="h-5 w-5 text-primary" />
-                      </div>
-                      <div>
-                        <p className="font-medium">
-                          {session.patients?.first_name} {session.patients?.last_name}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          {session.start_time.slice(0, 5)} - {session.end_time.slice(0, 5)}
-                        </p>
-                      </div>
-                    </div>
-                    <span className={`text-xs px-2 py-1 rounded-full ${
-                      session.status === 'completed' ? 'bg-green-100 text-green-700' :
-                      session.status === 'confirmed' ? 'bg-blue-100 text-blue-700' :
-                      'bg-muted text-muted-foreground'
-                    }`}>
-                      {session.status === 'scheduled' ? 'Programada' :
-                       session.status === 'confirmed' ? 'Confirmada' :
-                       session.status === 'completed' ? 'Completada' : session.status}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Quick Actions */}
-        <Card className="shadow-card">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5 text-primary" />
-              Acciones Rápidas
-            </CardTitle>
-            <CardDescription>Accesos directos a funciones frecuentes</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-3 grid-cols-2">
-              <Link to="/pacientes" className="flex flex-col items-center gap-2 rounded-lg border border-border bg-card p-4 transition-colors hover:bg-muted">
-                <Users className="h-6 w-6 text-primary" />
-                <span className="text-sm font-medium">Nuevo Paciente</span>
-              </Link>
-              <Link to="/agenda" className="flex flex-col items-center gap-2 rounded-lg border border-border bg-card p-4 transition-colors hover:bg-muted">
-                <Calendar className="h-6 w-6 text-primary" />
-                <span className="text-sm font-medium">Nueva Sesión</span>
-              </Link>
-              <Link to="/facturas" className="flex flex-col items-center gap-2 rounded-lg border border-border bg-card p-4 transition-colors hover:bg-muted">
-                <Receipt className="h-6 w-6 text-primary" />
-                <span className="text-sm font-medium">Nueva Factura</span>
-              </Link>
-              <Link to="/bonos" className="flex flex-col items-center gap-2 rounded-lg border border-border bg-card p-4 transition-colors hover:bg-muted">
-                <Package className="h-6 w-6 text-primary" />
-                <span className="text-sm font-medium">Nuevo Bono</span>
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      {/* Session Detail Drawer */}
+      <SessionDetailDrawer
+        session={selectedSession}
+        open={!!selectedSession}
+        onOpenChange={(open) => !open && setSelectedSession(null)}
+      />
     </div>
   );
 }
