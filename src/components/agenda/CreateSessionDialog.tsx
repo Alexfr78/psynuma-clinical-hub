@@ -118,6 +118,7 @@ export function CreateSessionDialog({
   const sendNotification = useSendSessionNotification();
   const { data: patients } = usePatients();
   const { data: professionals } = useProfessionals();
+  const { center } = useCenter();
   const [showCreateBonoDialog, setShowCreateBonoDialog] = useState(false);
   // Track newly created bono and its price
   const [newlyCreatedBonoId, setNewlyCreatedBonoId] = useState<string | null>(null);
@@ -138,6 +139,7 @@ export function CreateSessionDialog({
       notes: '',
       status: 'scheduled',
       bono_id: '',
+      payment_mode: '__default__',
       notify_whatsapp: false,
       notify_email: false,
       notify_sms: false,
@@ -554,6 +556,43 @@ export function CreateSessionDialog({
                       <SelectItem value="confirmed">Confirmada</SelectItem>
                     </SelectContent>
                   </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Payment Mode */}
+            <FormField
+              control={form.control}
+              name="payment_mode"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="flex items-center gap-2">
+                    <CreditCard className="h-4 w-4" />
+                    Modo de pago
+                  </FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {PAYMENT_MODE_OPTIONS.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          <span className="flex items-center gap-2">
+                            <opt.icon className="h-4 w-4" />
+                            {opt.label}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {field.value === '__default__' && center?.default_payment_mode && (
+                    <p className="text-xs text-muted-foreground">
+                      Predeterminado: {PAYMENT_MODE_OPTIONS.find(o => o.value === center.default_payment_mode)?.label || center.default_payment_mode}
+                    </p>
+                  )}
                   <FormMessage />
                 </FormItem>
               )}
