@@ -36,6 +36,13 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerClose,
+} from '@/components/ui/drawer';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -333,68 +340,75 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
     await handleBonoChange(bonoId, totalPrice);
   };
 
-  return (
-    <>
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-[520px] p-0 overflow-y-auto">
-        <SheetHeader className="px-6 pt-6 pb-4 sticky top-0 bg-background z-10 border-b">
-          <div className="flex items-center justify-between">
-            <SheetTitle className="text-lg font-semibold">Detalle de sesión</SheetTitle>
-            <Badge className={cn(status.className)} variant={status.variant}>
-              {status.label}
-            </Badge>
-          </div>
-        </SheetHeader>
+  // Common header content
+  const headerContent = (
+    <div className="flex items-center justify-between w-full">
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-8 w-8 shrink-0"
+        onClick={() => onOpenChange(false)}
+      >
+        <X className="h-5 w-5" />
+      </Button>
+      <span className="text-lg font-semibold flex-1 text-center">Detalle de sesión</span>
+      <Badge className={cn(status.className, "shrink-0")} variant={status.variant}>
+        {status.label}
+      </Badge>
+    </div>
+  );
 
-        <Tabs defaultValue="info" className="w-full">
-          <TabsList className="w-full justify-start px-4 sm:px-6 rounded-none border-b bg-transparent h-auto p-0 overflow-x-auto flex-nowrap">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <TabsTrigger
-                    value="info"
-                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-3 sm:px-4 py-3 shrink-0"
-                  >
-                    {isMobile ? <FileText className="h-4 w-4" /> : 'Info'}
-                  </TabsTrigger>
-                </TooltipTrigger>
-                {isMobile && <TooltipContent>Info</TooltipContent>}
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <TabsTrigger
-                    value="historial"
-                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-3 sm:px-4 py-3 shrink-0"
-                  >
-                    {isMobile ? <Clock className="h-4 w-4" /> : 'Historial'}
-                  </TabsTrigger>
-                </TooltipTrigger>
-                {isMobile && <TooltipContent>Historial</TooltipContent>}
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <TabsTrigger
-                    value="sms"
-                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-3 sm:px-4 py-3 shrink-0"
-                  >
-                    {isMobile ? <MessageSquare className="h-4 w-4" /> : 'SMS enviados'}
-                  </TabsTrigger>
-                </TooltipTrigger>
-                {isMobile && <TooltipContent>SMS enviados</TooltipContent>}
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <TabsTrigger
-                    value="otras"
-                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-3 sm:px-4 py-3 shrink-0"
-                  >
-                    {isMobile ? <Calendar className="h-4 w-4" /> : 'Otras sesiones'}
-                  </TabsTrigger>
-                </TooltipTrigger>
-                {isMobile && <TooltipContent>Otras sesiones</TooltipContent>}
-              </Tooltip>
-            </TooltipProvider>
-          </TabsList>
+  // Common tabs content (everything inside Tabs)
+  const tabsContent = (
+    <Tabs defaultValue="info" className="w-full">
+      <TabsList className="w-full justify-start px-4 sm:px-6 rounded-none border-b bg-transparent h-auto p-0 overflow-x-auto flex-nowrap">
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <TabsTrigger
+                value="info"
+                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-3 sm:px-4 py-3 shrink-0"
+              >
+                {isMobile ? <FileText className="h-4 w-4" /> : 'Info'}
+              </TabsTrigger>
+            </TooltipTrigger>
+            {isMobile && <TooltipContent>Info</TooltipContent>}
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <TabsTrigger
+                value="historial"
+                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-3 sm:px-4 py-3 shrink-0"
+              >
+                {isMobile ? <Clock className="h-4 w-4" /> : 'Historial'}
+              </TabsTrigger>
+            </TooltipTrigger>
+            {isMobile && <TooltipContent>Historial</TooltipContent>}
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <TabsTrigger
+                value="sms"
+                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-3 sm:px-4 py-3 shrink-0"
+              >
+                {isMobile ? <MessageSquare className="h-4 w-4" /> : 'SMS enviados'}
+              </TabsTrigger>
+            </TooltipTrigger>
+            {isMobile && <TooltipContent>SMS enviados</TooltipContent>}
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <TabsTrigger
+                value="otras"
+                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-3 sm:px-4 py-3 shrink-0"
+              >
+                {isMobile ? <Calendar className="h-4 w-4" /> : 'Otras sesiones'}
+              </TabsTrigger>
+            </TooltipTrigger>
+            {isMobile && <TooltipContent>Otras sesiones</TooltipContent>}
+          </Tooltip>
+        </TooltipProvider>
+      </TabsList>
 
           <TabsContent value="info" className="mt-0 px-6 py-4 space-y-6">
             {/* Patient Card */}
@@ -1099,9 +1113,32 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
               <p className="text-sm">No hay otras sesiones</p>
             </div>
           </TabsContent>
-        </Tabs>
-      </SheetContent>
-    </Sheet>
+    </Tabs>
+  );
+
+  return (
+    <>
+    {isMobile ? (
+      <Drawer open={open} onOpenChange={onOpenChange}>
+        <DrawerContent className="h-[95vh] max-h-[95vh] overflow-hidden">
+          <DrawerHeader className="px-4 pt-4 pb-2 border-b">
+            {headerContent}
+          </DrawerHeader>
+          <div className="flex-1 overflow-y-auto">
+            {tabsContent}
+          </div>
+        </DrawerContent>
+      </Drawer>
+    ) : (
+      <Sheet open={open} onOpenChange={onOpenChange}>
+        <SheetContent className="w-full sm:max-w-[520px] p-0 overflow-y-auto">
+          <SheetHeader className="px-6 pt-6 pb-4 sticky top-0 bg-background z-10 border-b">
+            {headerContent}
+          </SheetHeader>
+          {tabsContent}
+        </SheetContent>
+      </Sheet>
+    )}
 
     <CreateBonoDialog
       open={showCreateBonoDialog}
