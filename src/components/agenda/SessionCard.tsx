@@ -101,7 +101,7 @@ export function SessionCard({
     const touch = e.touches[0];
     touchStartPos.current = { x: touch.clientX, y: touch.clientY };
     
-    // Start long press timer (400ms to initiate drag - slightly longer to avoid accidental drags)
+    // Start long press timer (500ms to initiate drag)
     longPressTimer.current = setTimeout(() => {
       setIsTouchDragging(true);
       onDragStart?.();
@@ -109,7 +109,8 @@ export function SessionCard({
       if (navigator.vibrate) {
         navigator.vibrate(50);
       }
-    }, 400);
+      console.log('[SessionCard] Touch drag started for session');
+    }, 500);
   }, [draggable, onDragStart]);
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
@@ -122,8 +123,8 @@ export function SessionCard({
       const dx = Math.abs(touch.clientX - touchStartPos.current.x);
       const dy = Math.abs(touch.clientY - touchStartPos.current.y);
       
-      // If moved more than 5px before long press, cancel it (reduced threshold)
-      if (dx > 5 || dy > 5) {
+      // If moved more than 10px before long press, cancel it (allow small movements)
+      if (dx > 10 || dy > 10) {
         if (longPressTimer.current) {
           clearTimeout(longPressTimer.current);
           longPressTimer.current = null;
@@ -135,6 +136,7 @@ export function SessionCard({
     if (isTouchDragging) {
       e.preventDefault();
       e.stopPropagation();
+      console.log('[SessionCard] Touch move at', touch.clientX, touch.clientY);
       onTouchDrag?.(session.id, touch.clientX, touch.clientY);
     }
   }, [draggable, isTouchDragging, session.id, onTouchDrag]);
@@ -151,6 +153,7 @@ export function SessionCard({
       e.stopPropagation();
       
       const touch = e.changedTouches[0];
+      console.log('[SessionCard] Touch drag end at', touch.clientX, touch.clientY);
       onTouchDragEnd?.(session.id, touch.clientX, touch.clientY);
       
       // Small delay before resetting to prevent click firing
@@ -177,8 +180,9 @@ export function SessionCard({
         ref={cardRef}
         className={cn(
           'cursor-pointer rounded-md border-l-2 px-2 py-1 text-xs transition-all hover:opacity-80 h-full select-none',
-          draggable && 'cursor-grab active:cursor-grabbing touch-none',
-          (isDragging || isTouchDragging) && 'opacity-50 scale-105 z-50',
+          draggable && 'cursor-grab active:cursor-grabbing',
+          isTouchDragging && 'opacity-50 scale-105 z-50 fixed',
+          isDragging && 'opacity-50 scale-105',
           statusColor,
           className
         )}
@@ -208,8 +212,9 @@ export function SessionCard({
       ref={cardRef}
       className={cn(
         'cursor-pointer rounded-lg border-l-4 bg-card p-3 shadow-sm transition-all hover:shadow-md h-full select-none',
-        draggable && 'cursor-grab active:cursor-grabbing touch-none',
-        (isDragging || isTouchDragging) && 'opacity-50 scale-105 z-50',
+        draggable && 'cursor-grab active:cursor-grabbing',
+        isTouchDragging && 'opacity-50 scale-105 z-50 fixed',
+        isDragging && 'opacity-50 scale-105',
         statusColor,
         className
       )}
