@@ -59,7 +59,7 @@ export function OAuthCredentialsSection() {
   const { center } = useCenter();
   const [google, setGoogle] = useState<ProviderCredentials>({ clientId: "", clientSecret: "" });
   const [zoom, setZoom] = useState<ProviderCredentials>({ clientId: "", clientSecret: "" });
-  const [stripe, setStripe] = useState<{ secretKey: string }>({ secretKey: "" });
+  const [stripe, setStripe] = useState<{ publishableKey: string; secretKey: string }>({ publishableKey: "", secretKey: "" });
   const [savedProviders, setSavedProviders] = useState<string[]>([]);
   const [saving, setSaving] = useState<string | null>(null);
 
@@ -80,8 +80,11 @@ export function OAuthCredentialsSection() {
         setZoom(prev => ({ ...prev, clientId: center.oauth_zoom_client_id || "" }));
       }
       
-      // Stripe: check if configured (secret key is always encrypted)
+      // Stripe: load Publishable Key and check if configured
       if (center.oauth_stripe_credentials) configured.push('stripe');
+      if (center.oauth_stripe_publishable_key) {
+        setStripe(prev => ({ ...prev, publishableKey: center.oauth_stripe_publishable_key || "" }));
+      }
       
       setSavedProviders(configured);
     }
@@ -102,7 +105,7 @@ export function OAuthCredentialsSection() {
       // Clear fields after saving
       if (provider === 'google') setGoogle({ clientId: "", clientSecret: "" });
       if (provider === 'zoom') setZoom({ clientId: "", clientSecret: "" });
-      if (provider === 'stripe') setStripe({ secretKey: "" });
+      if (provider === 'stripe') setStripe({ publishableKey: "", secretKey: "" });
       
     } catch (error) {
       console.error('Error saving credentials:', error);
@@ -121,7 +124,7 @@ export function OAuthCredentialsSection() {
   };
 
   const handleSaveStripe = () => {
-    saveCredentials('stripe', { secretKey: stripe.secretKey });
+    saveCredentials('stripe', { publishableKey: stripe.publishableKey, secretKey: stripe.secretKey });
   };
 
   return (
@@ -279,17 +282,23 @@ export function OAuthCredentialsSection() {
             </AccordionTrigger>
             <AccordionContent className="space-y-4 pt-4">
               <CredentialField
+                label="Publishable Key"
+                placeholder="pk_live_... o pk_test_..."
+                value={stripe.publishableKey}
+                onChange={(v) => setStripe(prev => ({ ...prev, publishableKey: v }))}
+              />
+              <CredentialField
                 label="Secret Key"
                 placeholder="sk_live_... o sk_test_..."
                 value={stripe.secretKey}
-                onChange={(v) => setStripe({ secretKey: v })}
+                onChange={(v) => setStripe(prev => ({ ...prev, secretKey: v }))}
                 isSecret
               />
               <div className="pt-2">
                 <Button 
                   size="sm" 
                   onClick={handleSaveStripe}
-                  disabled={!stripe.secretKey || saving === 'stripe'}
+                  disabled={(!stripe.publishableKey && !stripe.secretKey) || saving === 'stripe'}
                   className="gap-2"
                 >
                   {saving === 'stripe' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
