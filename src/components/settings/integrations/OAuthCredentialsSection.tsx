@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useCenter } from "@/hooks/useCenter";
 
 interface CredentialFieldProps {
   label: string;
@@ -55,11 +56,23 @@ interface ProviderCredentials {
 }
 
 export function OAuthCredentialsSection() {
+  const { center } = useCenter();
   const [google, setGoogle] = useState<ProviderCredentials>({ clientId: "", clientSecret: "" });
   const [zoom, setZoom] = useState<ProviderCredentials>({ clientId: "", clientSecret: "" });
   const [stripe, setStripe] = useState<{ secretKey: string }>({ secretKey: "" });
   const [savedProviders, setSavedProviders] = useState<string[]>([]);
   const [saving, setSaving] = useState<string | null>(null);
+
+  // Load saved credentials status on mount
+  useEffect(() => {
+    if (center) {
+      const configured: string[] = [];
+      if (center.oauth_google_credentials) configured.push('google');
+      if (center.oauth_zoom_credentials) configured.push('zoom');
+      if (center.oauth_stripe_credentials) configured.push('stripe');
+      setSavedProviders(configured);
+    }
+  }, [center]);
 
   const saveCredentials = async (provider: string, credentials: Record<string, string>) => {
     setSaving(provider);
