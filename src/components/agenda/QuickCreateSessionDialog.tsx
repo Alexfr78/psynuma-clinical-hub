@@ -43,7 +43,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
-import { useCreateSession } from '@/hooks/useSessions';
+import { useCreateSession, useUpdateSession } from '@/hooks/useSessions';
 import { usePatients, useProfessionals } from '@/hooks/usePatients';
 import { useAuth } from '@/hooks/useAuth';
 import { useLocations } from '@/hooks/useLocations';
@@ -51,6 +51,8 @@ import { usePatientActiveBonos, useDeductBonoSession } from '@/hooks/useBonos';
 import { useScheduleSessionReminder } from '@/hooks/useNotifications';
 import { useSendSessionNotification, WhatsAppDialogData } from '@/hooks/useSendSessionNotification';
 import { useSessionTypes } from '@/hooks/useSessionTypes';
+import { useProfessionalIntegrations } from '@/hooks/useProfessionalIntegrations';
+import { handleSessionIntegrations } from '@/hooks/useSessionIntegrations';
 import { QuickCreatePatientDialog } from '@/components/patients/QuickCreatePatientDialog';
 import { EditLocationsDialog } from '@/components/settings/EditLocationsDialog';
 import { CreateBonoDialog } from '@/components/bonos/CreateBonoDialog';
@@ -130,9 +132,11 @@ export function QuickCreateSessionDialog({
   const { toast } = useToast();
   const { user } = useAuth();
   const createSession = useCreateSession();
+  const updateSession = useUpdateSession();
   const deductBonoSession = useDeductBonoSession();
   const scheduleReminder = useScheduleSessionReminder();
   const sendNotification = useSendSessionNotification();
+  const { integrations, oauthConnections } = useProfessionalIntegrations();
   const { data: patients } = usePatients();
   const { data: professionals } = useProfessionals();
   const { data: locations } = useLocations();
@@ -266,6 +270,14 @@ export function QuickCreateSessionDialog({
         }
       }
       
+      // Determine video provider based on modality
+      let videoProvider: string | null = null;
+      if (values.session_modality === 'zoom') {
+        videoProvider = 'zoom';
+      } else if (values.session_modality === 'google_meet') {
+        videoProvider = 'google_meet';
+      }
+      
       const newSession = await createSession.mutateAsync({
         patient_id: values.patient_id,
         professional_id: values.professional_id,
@@ -278,12 +290,51 @@ export function QuickCreateSessionDialog({
         cancellation_policy: values.cancellation_policy,
         session_modality: values.session_modality,
         video_call_link: values.session_modality === 'custom_link' ? values.video_call_link : null,
+        video_provider: videoProvider,
         location_id: values.session_modality === 'in_person' && values.location_id ? values.location_id : null,
         bono_id: usesBono ? values.bono_id : null,
         send_reminder_whatsapp: values.send_reminder_whatsapp,
         send_reminder_email: values.send_reminder_email,
         send_reminder_sms: values.send_reminder_sms,
       });
+
+      // Handle video/calendar integrations for non-draft sessions
+      if (!asDraft && newSession?.id && selectedPatient) {
+        const isVideoSession = values.session_modality === 'zoom' || values.session_modality === 'google_meet';
+        
+        if (isVideoSession || integrations?.google_calendar_enabled) {
+          const integrationResult = await handleSessionIntegrations(
+            {
+              id: newSession.id,
+              professional_id: values.professional_id,
+              patient_id: values.patient_id,
+              session_date: format(values.session_date, 'yyyy-MM-dd'),
+              start_time: values.start_time,
+              end_time: values.end_time,
+              session_modality: values.session_modality,
+              video_provider: videoProvider || undefined,
+              session_type: selectedSessionType?.name,
+            },
+            {
+              first_name: selectedPatient.first_name,
+              last_name: selectedPatient.last_name,
+              email: selectedPatient.email,
+            },
+            integrations,
+            oauthConnections || []
+          );
+
+          // Update session with integration results
+          if (integrationResult.video_call_link || integrationResult.google_calendar_event_id) {
+            await updateSession.mutateAsync({
+              id: newSession.id,
+              video_call_link: integrationResult.video_call_link || newSession.video_call_link,
+              video_provider: integrationResult.video_provider || newSession.video_provider,
+              google_calendar_event_id: integrationResult.google_calendar_event_id,
+            });
+          }
+        }
+      }
 
       // If bono was used, deduct a session
       if (usesBono && newSession?.id) {
