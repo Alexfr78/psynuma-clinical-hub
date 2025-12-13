@@ -11,6 +11,7 @@ interface DayViewProps {
   onSessionClick: (session: SessionWithRelations) => void;
   onSlotClick: (date: Date, startTime: string, endTime: string) => void;
   onSessionMove?: (sessionId: string, newDate: string, newStartTime: string, newEndTime: string) => void;
+  onMoveRequest?: (session: SessionWithRelations) => void;
   hours?: number[];
   startHour?: number;
 }
@@ -33,7 +34,7 @@ function minutesToTime(totalMinutes: number): string {
   return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
 }
 
-export function DayView({ currentDate, sessions, onSessionClick, onSlotClick, onSessionMove, hours, startHour }: DayViewProps) {
+export function DayView({ currentDate, sessions, onSessionClick, onSlotClick, onSessionMove, onMoveRequest, hours, startHour }: DayViewProps) {
   const displayHours = hours || DEFAULT_HOURS;
   const gridStartHour = startHour ?? 8;
   const dateKey = format(currentDate, 'yyyy-MM-dd');
@@ -44,11 +45,7 @@ export function DayView({ currentDate, sessions, onSessionClick, onSlotClick, on
   const [dragEnd, setDragEnd] = useState<SlotPosition | null>(null);
   const [dragOverSlot, setDragOverSlot] = useState<string | null>(null);
   
-  // Touch drag state
-  const [touchDraggingSession, setTouchDraggingSession] = useState<{
-    sessionId: string;
-    originalSession: SessionWithRelations | null;
-  } | null>(null);
+  // Removed touch drag state - now using dialog-based move on mobile
 
   const daySessions = useMemo(() => {
     return sessions.filter((s) => s.session_date === dateKey);
@@ -194,39 +191,7 @@ export function DayView({ currentDate, sessions, onSessionClick, onSlotClick, on
     setDragOverSlot(null);
   }, []);
 
-  // Touch drag handlers for mobile
-  const handleTouchDrag = useCallback((sessionId: string, clientX: number, clientY: number) => {
-    const slot = getSlotFromCoordinates(clientX, clientY);
-    if (slot) {
-      setDragOverSlot(`${slot.hour}:${slot.minute}`);
-    }
-    
-    // Find the session being dragged
-    if (!touchDraggingSession) {
-      const session = daySessions.find(s => s.id === sessionId);
-      setTouchDraggingSession({ sessionId, originalSession: session || null });
-    }
-  }, [getSlotFromCoordinates, touchDraggingSession, daySessions]);
-
-  const handleTouchDragEnd = useCallback((sessionId: string, clientX: number, clientY: number) => {
-    const slot = getSlotFromCoordinates(clientX, clientY);
-    
-    if (slot && onSessionMove && touchDraggingSession?.originalSession) {
-      const session = touchDraggingSession.originalSession;
-      const newStartTime = minutesToTime(slotToMinutes(slot.hour, slot.minute));
-      
-      const [origStartH, origStartM] = (session.start_time || '09:00').split(':').map(Number);
-      const [origEndH, origEndM] = (session.end_time || '10:00').split(':').map(Number);
-      const durationMinutes = slotToMinutes(origEndH, origEndM) - slotToMinutes(origStartH, origStartM);
-      const newEndMinutes = slotToMinutes(slot.hour, slot.minute) + durationMinutes;
-      const newEndTime = minutesToTime(newEndMinutes);
-      
-      onSessionMove(sessionId, dateKey, newStartTime, newEndTime);
-    }
-    
-    setDragOverSlot(null);
-    setTouchDraggingSession(null);
-  }, [getSlotFromCoordinates, onSessionMove, dateKey, touchDraggingSession]);
+  // Removed complex touch drag - now using dialog-based move on mobile
 
   return (
     <div 
@@ -314,8 +279,7 @@ export function DayView({ currentDate, sessions, onSessionClick, onSlotClick, on
                       draggable={!!onSessionMove}
                       onDragStart={handleSessionDragStart}
                       onDragEnd={handleSessionDragEnd}
-                      onTouchDrag={handleTouchDrag}
-                      onTouchDragEnd={handleTouchDragEnd}
+                      onMoveRequest={onMoveRequest}
                       className="absolute left-1 right-1 pointer-events-auto"
                       style={style}
                     />
