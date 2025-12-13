@@ -63,13 +63,26 @@ export function OAuthCredentialsSection() {
   const [savedProviders, setSavedProviders] = useState<string[]>([]);
   const [saving, setSaving] = useState<string | null>(null);
 
-  // Load saved credentials status on mount
+  // Load saved credentials status and Client IDs on mount
   useEffect(() => {
     if (center) {
       const configured: string[] = [];
+      
+      // Google: load Client ID and check if configured
       if (center.oauth_google_credentials) configured.push('google');
+      if (center.oauth_google_client_id) {
+        setGoogle(prev => ({ ...prev, clientId: center.oauth_google_client_id || "" }));
+      }
+      
+      // Zoom: load Client ID and check if configured
       if (center.oauth_zoom_credentials) configured.push('zoom');
+      if (center.oauth_zoom_client_id) {
+        setZoom(prev => ({ ...prev, clientId: center.oauth_zoom_client_id || "" }));
+      }
+      
+      // Stripe: check if configured (secret key is always encrypted)
       if (center.oauth_stripe_credentials) configured.push('stripe');
+      
       setSavedProviders(configured);
     }
   }, [center]);
