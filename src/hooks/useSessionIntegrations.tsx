@@ -11,6 +11,7 @@ interface SessionData {
   session_modality?: string;
   video_provider?: string;
   session_type?: string;
+  price?: number;
 }
 
 interface PatientData {
@@ -23,6 +24,8 @@ interface IntegrationResult {
   video_call_link?: string;
   video_provider?: string;
   google_calendar_event_id?: string;
+  stripe_checkout_url?: string;
+  stripe_payment_status?: string;
 }
 
 export async function handleSessionIntegrations(
@@ -42,6 +45,7 @@ export async function handleSessionIntegrations(
   // Get provider connections
   const googleConnection = oauthConnections?.find(c => c.provider === 'google');
   const zoomConnection = oauthConnections?.find(c => c.provider === 'zoom');
+  const stripeConnection = oauthConnections?.find(c => c.provider === 'stripe');
 
   // Determine video provider to use
   let videoProvider: 'zoom' | 'google_meet' | null = null;
@@ -128,6 +132,99 @@ export async function handleSessionIntegrations(
   return result;
 }
 
+// Handle Stripe payment based on payment mode
+export async function handleStripePayment(
+  session: SessionData & { id: string },
+  patient: PatientData,
+  professionalIntegrations: any,
+  oauthConnections: any[]
+): Promise<{ checkout_url?: string; payment_status?: string }> {
+  const stripeConnection = oauthConnections?.find(c => c.provider === 'stripe');
+  
+  if (!professionalIntegrations?.stripe_enabled || 
+      !stripeConnection?.stripe_account_id ||
+      stripeConnection?.stripe_account_status !== 'active') {
+    return {};
+  }
+
+  const paymentMode = professionalIntegrations.stripe_payment_mode || 'post_pay';
+  
+  // Only create checkout for required_now mode during session creation
+  if (paymentMode === 'required_now') {
+    try {
+      console.log('Creating Stripe checkout (required_now mode)...');
+      const { data, error } = await supabase.functions.invoke('create-stripe-checkout', {
+        body: {
+          professional_id: session.professional_id,
+          session_id: session.id,
+          patient_id: session.patient_id,
+          patient_email: patient.email,
+          patient_name: `${patient.first_name} ${patient.last_name}`,
+          amount: session.price || 0,
+          session_type: session.session_type,
+          session_date: session.session_date,
+        },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      console.log('Stripe checkout created');
+      return {
+        checkout_url: data.checkout_url,
+        payment_status: 'pending',
+      };
+    } catch (err) {
+      console.error('Error creating Stripe checkout:', err);
+      toast.error('No se pudo crear el enlace de pago');
+      return {};
+    }
+  } else if (paymentMode === 'scheduled_before') {
+    // For scheduled mode, we'll create checkout later via a scheduled job
+    // Mark session with the payment mode for later processing
+    return { payment_status: 'scheduled' };
+  } else {
+    // post_pay mode - no checkout needed now
+    return { payment_status: 'post_pay' };
+  }
+}
+
+// Create checkout session on demand
+export async function createStripeCheckout(
+  sessionId: string,
+  professionalId: string,
+  patientId: string,
+  patientEmail: string | null,
+  patientName: string,
+  amount: number,
+  sessionType: string,
+  sessionDate: string
+): Promise<string | null> {
+  try {
+    const { data, error } = await supabase.functions.invoke('create-stripe-checkout', {
+      body: {
+        professional_id: professionalId,
+        session_id: sessionId,
+        patient_id: patientId,
+        patient_email: patientEmail,
+        patient_name: patientName,
+        amount,
+        session_type: sessionType,
+        session_date: sessionDate,
+      },
+    });
+
+    if (error) throw error;
+    if (data?.error) throw new Error(data.error);
+
+    return data.checkout_url;
+  } catch (err) {
+    console.error('Error creating Stripe checkout:', err);
+    toast.error('No se pudo crear el enlace de pago');
+    return null;
+  }
+}
+
 export async function handleSessionUpdate(
   sessionId: string,
   professionalId: string,
@@ -180,7 +277,6 @@ export async function handleSessionCancellation(
 
   // Delete Zoom meeting if applicable
   if (videoProvider === 'zoom' && videoCallLink) {
-    // Extract meeting ID from URL
     const meetingIdMatch = videoCallLink.match(/\/j\/(\d+)/);
     if (meetingIdMatch) {
       try {

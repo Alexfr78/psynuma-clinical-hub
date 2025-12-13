@@ -52,7 +52,7 @@ import { useScheduleSessionReminder } from '@/hooks/useNotifications';
 import { useSendSessionNotification, WhatsAppDialogData } from '@/hooks/useSendSessionNotification';
 import { useSessionTypes } from '@/hooks/useSessionTypes';
 import { useProfessionalIntegrations } from '@/hooks/useProfessionalIntegrations';
-import { handleSessionIntegrations } from '@/hooks/useSessionIntegrations';
+import { handleSessionIntegrations, handleStripePayment } from '@/hooks/useSessionIntegrations';
 import { QuickCreatePatientDialog } from '@/components/patients/QuickCreatePatientDialog';
 import { EditLocationsDialog } from '@/components/settings/EditLocationsDialog';
 import { CreateBonoDialog } from '@/components/bonos/CreateBonoDialog';
@@ -332,6 +332,47 @@ export function QuickCreateSessionDialog({
               video_provider: integrationResult.video_provider || newSession.video_provider,
               google_calendar_event_id: integrationResult.google_calendar_event_id,
             });
+          }
+        }
+
+        // Handle Stripe payment if enabled
+        if (integrations?.stripe_enabled && sessionPrice > 0) {
+          const stripeResult = await handleStripePayment(
+            {
+              id: newSession.id,
+              professional_id: values.professional_id,
+              patient_id: values.patient_id,
+              session_date: format(values.session_date, 'yyyy-MM-dd'),
+              start_time: values.start_time,
+              end_time: values.end_time,
+              session_type: selectedSessionType?.name,
+              price: sessionPrice,
+            },
+            {
+              first_name: selectedPatient.first_name,
+              last_name: selectedPatient.last_name,
+              email: selectedPatient.email,
+            },
+            integrations,
+            oauthConnections || []
+          );
+
+          // Update session with Stripe payment info
+          if (stripeResult.payment_status) {
+            await updateSession.mutateAsync({
+              id: newSession.id,
+              stripe_payment_status: stripeResult.payment_status,
+              stripe_payment_mode: integrations.stripe_payment_mode,
+            });
+
+            // If required_now mode, redirect to checkout
+            if (stripeResult.checkout_url) {
+              toast({
+                title: 'Sesión creada',
+                description: 'Redirigiendo al pago...',
+              });
+              window.open(stripeResult.checkout_url, '_blank');
+            }
           }
         }
       }

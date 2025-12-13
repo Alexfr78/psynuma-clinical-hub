@@ -1,5 +1,11 @@
 project_id = "zprkdxmluvirxfhswrzq"
 
+[functions.create-stripe-checkout]
+verify_jwt = true
+
+[functions.stripe-webhook]
+verify_jwt = false
+
 [functions.send-notification]
 verify_jwt = true
 
