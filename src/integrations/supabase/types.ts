@@ -975,6 +975,62 @@ export type Database = {
           },
         ]
       }
+      oauth_connections: {
+        Row: {
+          access_token: string | null
+          created_at: string | null
+          expires_at: string | null
+          google_calendar_id: string | null
+          id: string
+          professional_id: string
+          provider: string
+          provider_account_id: string | null
+          refresh_token: string | null
+          scope: string | null
+          stripe_account_id: string | null
+          stripe_account_status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          access_token?: string | null
+          created_at?: string | null
+          expires_at?: string | null
+          google_calendar_id?: string | null
+          id?: string
+          professional_id: string
+          provider: string
+          provider_account_id?: string | null
+          refresh_token?: string | null
+          scope?: string | null
+          stripe_account_id?: string | null
+          stripe_account_status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          access_token?: string | null
+          created_at?: string | null
+          expires_at?: string | null
+          google_calendar_id?: string | null
+          id?: string
+          professional_id?: string
+          provider?: string
+          provider_account_id?: string | null
+          refresh_token?: string | null
+          scope?: string | null
+          stripe_account_id?: string | null
+          stripe_account_status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "oauth_connections_professional_id_fkey"
+            columns: ["professional_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       patient_portal_accounts: {
         Row: {
           created_at: string
@@ -1186,6 +1242,74 @@ export type Database = {
           },
         ]
       }
+      professional_integrations: {
+        Row: {
+          created_at: string | null
+          default_video_provider: string | null
+          google_calendar_enabled: boolean | null
+          google_calendar_sync_mode: string | null
+          google_meet_enabled: boolean | null
+          id: string
+          professional_id: string
+          stripe_enabled: boolean | null
+          stripe_payment_mode: string | null
+          stripe_scheduled_hours_before: number | null
+          updated_at: string | null
+          whatsapp_access_token: string | null
+          whatsapp_business_account_id: string | null
+          whatsapp_enabled: boolean | null
+          whatsapp_phone_number_id: string | null
+          whatsapp_send_method: string | null
+          zoom_enabled: boolean | null
+        }
+        Insert: {
+          created_at?: string | null
+          default_video_provider?: string | null
+          google_calendar_enabled?: boolean | null
+          google_calendar_sync_mode?: string | null
+          google_meet_enabled?: boolean | null
+          id?: string
+          professional_id: string
+          stripe_enabled?: boolean | null
+          stripe_payment_mode?: string | null
+          stripe_scheduled_hours_before?: number | null
+          updated_at?: string | null
+          whatsapp_access_token?: string | null
+          whatsapp_business_account_id?: string | null
+          whatsapp_enabled?: boolean | null
+          whatsapp_phone_number_id?: string | null
+          whatsapp_send_method?: string | null
+          zoom_enabled?: boolean | null
+        }
+        Update: {
+          created_at?: string | null
+          default_video_provider?: string | null
+          google_calendar_enabled?: boolean | null
+          google_calendar_sync_mode?: string | null
+          google_meet_enabled?: boolean | null
+          id?: string
+          professional_id?: string
+          stripe_enabled?: boolean | null
+          stripe_payment_mode?: string | null
+          stripe_scheduled_hours_before?: number | null
+          updated_at?: string | null
+          whatsapp_access_token?: string | null
+          whatsapp_business_account_id?: string | null
+          whatsapp_enabled?: boolean | null
+          whatsapp_phone_number_id?: string | null
+          whatsapp_send_method?: string | null
+          zoom_enabled?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "professional_integrations_professional_id_fkey"
+            columns: ["professional_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -1313,6 +1437,7 @@ export type Database = {
           center_id: string
           created_at: string
           end_time: string
+          google_calendar_event_id: string | null
           id: string
           location_id: string | null
           notes: string | null
@@ -1328,8 +1453,12 @@ export type Database = {
           session_type: string | null
           start_time: string
           status: Database["public"]["Enums"]["session_status"] | null
+          stripe_checkout_session_id: string | null
+          stripe_payment_mode: string | null
+          stripe_payment_status: string | null
           updated_at: string
           video_call_link: string | null
+          video_provider: string | null
         }
         Insert: {
           access_token?: string | null
@@ -1339,6 +1468,7 @@ export type Database = {
           center_id: string
           created_at?: string
           end_time: string
+          google_calendar_event_id?: string | null
           id?: string
           location_id?: string | null
           notes?: string | null
@@ -1354,8 +1484,12 @@ export type Database = {
           session_type?: string | null
           start_time: string
           status?: Database["public"]["Enums"]["session_status"] | null
+          stripe_checkout_session_id?: string | null
+          stripe_payment_mode?: string | null
+          stripe_payment_status?: string | null
           updated_at?: string
           video_call_link?: string | null
+          video_provider?: string | null
         }
         Update: {
           access_token?: string | null
@@ -1365,6 +1499,7 @@ export type Database = {
           center_id?: string
           created_at?: string
           end_time?: string
+          google_calendar_event_id?: string | null
           id?: string
           location_id?: string | null
           notes?: string | null
@@ -1380,8 +1515,12 @@ export type Database = {
           session_type?: string | null
           start_time?: string
           status?: Database["public"]["Enums"]["session_status"] | null
+          stripe_checkout_session_id?: string | null
+          stripe_payment_mode?: string | null
+          stripe_payment_status?: string | null
           updated_at?: string
           video_call_link?: string | null
+          video_provider?: string | null
         }
         Relationships: [
           {

@@ -17,7 +17,10 @@ import {
   MessageCircle,
   Smartphone,
   Shield,
-  Settings2
+  Settings2,
+  Video,
+  CreditCard,
+  Plug
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -36,12 +39,16 @@ import { LocationsSection } from '@/components/settings/LocationsSection';
 import { SessionTypesSection } from '@/components/settings/SessionTypesSection';
 import { EmailTemplateEditor } from '@/components/settings/communications/EmailTemplateEditor';
 import { WhatsAppTemplateEditor } from '@/components/settings/communications/WhatsAppTemplateEditor';
-import { WhatsAppSettingsSection } from '@/components/settings/communications/WhatsAppSettingsSection';
 import { SmsTemplateEditor } from '@/components/settings/communications/SmsTemplateEditor';
 import { VerifactuConfigSection } from '@/components/settings/VerifactuConfigSection';
 import { ResponsibleDeclarationSection } from '@/components/settings/ResponsibleDeclarationSection';
 import { VerifactuExportSection } from '@/components/settings/VerifactuExportSection';
 import { PortalSettingsSection } from '@/components/settings/PortalSettingsSection';
+import { IntegrationsOverview } from '@/components/settings/integrations/IntegrationsOverview';
+import { WhatsAppIntegrationSection } from '@/components/settings/integrations/WhatsAppIntegrationSection';
+import { ZoomIntegrationSection } from '@/components/settings/integrations/ZoomIntegrationSection';
+import { GoogleIntegrationSection } from '@/components/settings/integrations/GoogleIntegrationSection';
+import { StripeIntegrationSection } from '@/components/settings/integrations/StripeIntegrationSection';
 
 const centerSchema = z.object({
   name: z.string().min(1, 'El nombre es obligatorio'),
@@ -67,10 +74,14 @@ type SettingsSection =
   | 'facturacion-verifactu'
   | 'facturacion-verifactu-declaracion'
   | 'facturacion-verifactu-exportar'
-  | 'comunicaciones-whatsapp-config'
   | 'comunicaciones-email'
   | 'comunicaciones-whatsapp'
-  | 'comunicaciones-sms';
+  | 'comunicaciones-sms'
+  | 'integraciones-resumen'
+  | 'integraciones-whatsapp'
+  | 'integraciones-zoom'
+  | 'integraciones-google'
+  | 'integraciones-stripe';
 
 interface NavItem {
   id: SettingsSection;
@@ -91,10 +102,14 @@ const navItems: NavItem[] = [
   { id: 'facturacion-verifactu', label: 'Verifactu (AEAT)', icon: Shield, parent: 'Facturación' },
   { id: 'facturacion-verifactu-declaracion', label: 'Declaración Responsable', icon: FileText, parent: 'Facturación' },
   { id: 'facturacion-verifactu-exportar', label: 'Exportar Registros', icon: FileText, parent: 'Facturación' },
-  { id: 'comunicaciones-whatsapp-config', label: 'Configuración WhatsApp', icon: MessageCircle, parent: 'Comunicaciones' },
   { id: 'comunicaciones-email', label: 'Plantillas Email', icon: Mail, parent: 'Comunicaciones' },
   { id: 'comunicaciones-whatsapp', label: 'Plantillas WhatsApp', icon: MessageCircle, parent: 'Comunicaciones' },
   { id: 'comunicaciones-sms', label: 'Plantillas SMS', icon: Smartphone, parent: 'Comunicaciones' },
+  { id: 'integraciones-resumen', label: 'Resumen', icon: Plug, parent: 'Integraciones' },
+  { id: 'integraciones-whatsapp', label: 'WhatsApp Business', icon: MessageCircle, parent: 'Integraciones' },
+  { id: 'integraciones-zoom', label: 'Zoom', icon: Video, parent: 'Integraciones' },
+  { id: 'integraciones-google', label: 'Google Calendar/Meet', icon: Calendar, parent: 'Integraciones' },
+  { id: 'integraciones-stripe', label: 'Stripe', icon: CreditCard, parent: 'Integraciones' },
 ];
 
 export default function Settings() {
@@ -267,14 +282,22 @@ export default function Settings() {
         return <ResponsibleDeclarationSection />;
       case 'facturacion-verifactu-exportar':
         return <VerifactuExportSection />;
-      case 'comunicaciones-whatsapp-config':
-        return <WhatsAppSettingsSection />;
       case 'comunicaciones-email':
         return <EmailTemplateEditor />;
       case 'comunicaciones-whatsapp':
         return <WhatsAppTemplateEditor />;
       case 'comunicaciones-sms':
         return <SmsTemplateEditor />;
+      case 'integraciones-resumen':
+        return <IntegrationsOverview />;
+      case 'integraciones-whatsapp':
+        return <WhatsAppIntegrationSection />;
+      case 'integraciones-zoom':
+        return <ZoomIntegrationSection />;
+      case 'integraciones-google':
+        return <GoogleIntegrationSection />;
+      case 'integraciones-stripe':
+        return <StripeIntegrationSection />;
       default:
         return null;
     }
