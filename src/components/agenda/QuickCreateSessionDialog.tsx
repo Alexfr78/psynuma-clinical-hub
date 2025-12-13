@@ -363,6 +363,7 @@ export function QuickCreateSessionDialog({
               end_time: values.end_time,
               session_type: selectedSessionType?.name,
               price: sessionPrice,
+              payment_mode: effectivePaymentMode,
             },
             {
               first_name: selectedPatient.first_name,
