@@ -134,7 +134,7 @@ export async function handleSessionIntegrations(
 
 // Handle Stripe payment based on payment mode
 export async function handleStripePayment(
-  session: SessionData & { id: string },
+  session: SessionData & { id: string; payment_mode?: string | null },
   patient: PatientData,
   professionalIntegrations: any,
   oauthConnections: any[]
@@ -147,7 +147,8 @@ export async function handleStripePayment(
     return {};
   }
 
-  const paymentMode = professionalIntegrations.stripe_payment_mode || 'post_pay';
+  // Use session-specific payment mode, or fall back to professional's default
+  const paymentMode = session.payment_mode || professionalIntegrations.stripe_payment_mode || 'post_pay';
   
   // Only create checkout for required_now mode during session creation
   if (paymentMode === 'required_now') {
