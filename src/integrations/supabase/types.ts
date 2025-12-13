@@ -367,6 +367,9 @@ export type Database = {
           invoice_prefix: string | null
           logo_url: string | null
           name: string
+          oauth_google_credentials: string | null
+          oauth_stripe_credentials: string | null
+          oauth_zoom_credentials: string | null
           phone: string | null
           postal_code: string | null
           province: string | null
@@ -407,6 +410,9 @@ export type Database = {
           invoice_prefix?: string | null
           logo_url?: string | null
           name: string
+          oauth_google_credentials?: string | null
+          oauth_stripe_credentials?: string | null
+          oauth_zoom_credentials?: string | null
           phone?: string | null
           postal_code?: string | null
           province?: string | null
@@ -447,6 +453,9 @@ export type Database = {
           invoice_prefix?: string | null
           logo_url?: string | null
           name?: string
+          oauth_google_credentials?: string | null
+          oauth_stripe_credentials?: string | null
+          oauth_zoom_credentials?: string | null
           phone?: string | null
           postal_code?: string | null
           province?: string | null
