@@ -259,13 +259,13 @@ export function DayView({ currentDate, sessions, onSessionClick, onSlotClick, on
                         !isSessionDragging && "pointer-events-auto"
                       )}
                       style={style}
-                      onDragStart={handleSessionDragStart}
-                      onDragEnd={handleSessionDragEnd}
                     >
                       <SessionCard
                         session={session}
                         onClick={() => onSessionClick(session)}
                         draggable={!!onSessionMove}
+                        onDragStart={handleSessionDragStart}
+                        onDragEnd={handleSessionDragEnd}
                       />
                     </div>
                   );

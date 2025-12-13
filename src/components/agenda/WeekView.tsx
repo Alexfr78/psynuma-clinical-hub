@@ -299,14 +299,14 @@ export function WeekView({ currentDate, sessions, onSessionClick, onSlotClick, o
                             !isSessionDragging && "pointer-events-auto"
                           )}
                           style={style}
-                          onDragStart={handleSessionDragStart}
-                          onDragEnd={handleSessionDragEnd}
                         >
                           <SessionCard
                             session={session}
                             compact
                             onClick={() => onSessionClick(session)}
                             draggable={!!onSessionMove}
+                            onDragStart={handleSessionDragStart}
+                            onDragEnd={handleSessionDragEnd}
                           />
                         </div>
                       );
