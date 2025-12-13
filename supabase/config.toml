@@ -41,3 +41,15 @@ verify_jwt = true
 
 [functions.refresh-stripe-account-status]
 verify_jwt = true
+
+[functions.create-zoom-meeting]
+verify_jwt = true
+
+[functions.delete-zoom-meeting]
+verify_jwt = true
+
+[functions.create-google-calendar-event]
+verify_jwt = true
+
+[functions.update-google-calendar-event]
+verify_jwt = true
