@@ -33,23 +33,59 @@ function DocumentWithVerifications({
   hasPlaceholder,
   prefix,
 }: DocumentWithVerificationsProps) {
-  if (!hasPlaceholder || verificationCheckboxes.length === 0) {
+  // Remove the placeholder from content if it exists (it should be replaced with actual checkboxes)
+  const cleanContent = content.replace(VERIFICATION_PLACEHOLDER, '');
+  
+  // If no verification checkboxes, just render the content
+  if (verificationCheckboxes.length === 0) {
     return (
       <div
         className="prose prose-sm max-w-none dark:prose-invert"
-        dangerouslySetInnerHTML={{ __html: content }}
+        dangerouslySetInnerHTML={{ __html: cleanContent }}
       />
     );
   }
 
-  // Split content by placeholder
-  const parts = content.split(VERIFICATION_PLACEHOLDER);
+  // If placeholder exists, split and insert checkboxes at that position
+  if (hasPlaceholder) {
+    const parts = content.split(VERIFICATION_PLACEHOLDER);
 
+    return (
+      <div className="prose prose-sm max-w-none dark:prose-invert">
+        <div dangerouslySetInnerHTML={{ __html: parts[0] }} />
+        
+        {/* Inline checkboxes at placeholder position */}
+        <div className="my-4 space-y-3 rounded-md border bg-muted/30 p-4 not-prose">
+          {verificationCheckboxes.map((checkbox, index) => (
+            <div key={index} className="flex items-start gap-3">
+              <Checkbox
+                id={`${prefix}-verification-${index}`}
+                checked={acceptedVerifications[index] || false}
+                onCheckedChange={(checked) => 
+                  setAcceptedVerifications(prev => ({ ...prev, [index]: checked === true }))
+                }
+              />
+              <label 
+                htmlFor={`${prefix}-verification-${index}`} 
+                className="text-sm leading-tight cursor-pointer"
+              >
+                {checkbox}
+              </label>
+            </div>
+          ))}
+        </div>
+        
+        {parts[1] && <div dangerouslySetInnerHTML={{ __html: parts[1] }} />}
+      </div>
+    );
+  }
+
+  // No placeholder - render content then checkboxes at the end
   return (
     <div className="prose prose-sm max-w-none dark:prose-invert">
-      <div dangerouslySetInnerHTML={{ __html: parts[0] }} />
+      <div dangerouslySetInnerHTML={{ __html: cleanContent }} />
       
-      {/* Inline checkboxes */}
+      {/* Checkboxes after content */}
       <div className="my-4 space-y-3 rounded-md border bg-muted/30 p-4 not-prose">
         {verificationCheckboxes.map((checkbox, index) => (
           <div key={index} className="flex items-start gap-3">
@@ -69,8 +105,6 @@ function DocumentWithVerifications({
           </div>
         ))}
       </div>
-      
-      {parts[1] && <div dangerouslySetInnerHTML={{ __html: parts[1] }} />}
     </div>
   );
 }
