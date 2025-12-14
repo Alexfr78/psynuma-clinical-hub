@@ -94,6 +94,7 @@ import { useCenter } from '@/hooks/useCenter';
 import { DEFAULT_TEMPLATES } from '@/hooks/useCommunicationTemplates';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { createStripeCheckout } from '@/hooks/useSessionIntegrations';
+import { useGoogleCalendarUpdate } from '@/hooks/useGoogleCalendarUpdate';
 
 interface SessionDetailDrawerProps {
   session: SessionWithRelations | null;
@@ -147,6 +148,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
   const { center } = useCenter();
   const sendWhatsAppNow = useSendWhatsAppNow();
   const isMobile = useIsMobile();
+  const { syncToGoogle, syncMoveToGoogle } = useGoogleCalendarUpdate();
   const [isUpdating, setIsUpdating] = useState(false);
   const [editingPrice, setEditingPrice] = useState(false);
   const [editingNotes, setEditingNotes] = useState(false);
@@ -198,6 +200,12 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
         id: session.id,
         status: newStatus as any,
       });
+      
+      // Sync status change to Google Calendar (especially for cancellations)
+      if (newStatus === 'cancelled') {
+        syncToGoogle(session, { status: 'cancelled' });
+      }
+      
       toast({
         title: 'Estado actualizado',
         description: 'El estado de la sesión se ha actualizado.',
@@ -269,6 +277,15 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
         start_time: dateTimeValue.startTime,
         end_time: dateTimeValue.endTime,
       });
+      
+      // Sync date/time changes to Google Calendar
+      syncMoveToGoogle(
+        session,
+        dateTimeValue.date,
+        dateTimeValue.startTime,
+        dateTimeValue.endTime
+      );
+      
       toast({ title: 'Fecha y hora actualizadas' });
       setEditingDateTime(false);
     } catch {

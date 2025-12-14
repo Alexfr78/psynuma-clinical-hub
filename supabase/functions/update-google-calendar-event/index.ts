@@ -6,38 +6,141 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-async function refreshGoogleToken(supabase: any, professionalId: string, refreshToken: string): Promise<string | null> {
+// AES-256-GCM decryption for OAuth credentials
+async function decryptAES256GCM(encryptedData: string, encryptionKey: string): Promise<string> {
+  const rawKey = new TextEncoder().encode(encryptionKey.padEnd(32, '0').slice(0, 32));
+  const encryptedBytes = Uint8Array.from(atob(encryptedData), c => c.charCodeAt(0));
+  
+  const iv = encryptedBytes.slice(0, 12);
+  const authTag = encryptedBytes.slice(12, 28);
+  const ciphertext = encryptedBytes.slice(28);
+  
+  const ciphertextWithTag = new Uint8Array(ciphertext.length + authTag.length);
+  ciphertextWithTag.set(ciphertext);
+  ciphertextWithTag.set(authTag, ciphertext.length);
+  
+  const key = await crypto.subtle.importKey(
+    'raw', rawKey, { name: 'AES-GCM' }, false, ['decrypt']
+  );
+  
+  const decrypted = await crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv }, key, ciphertextWithTag
+  );
+  
+  return new TextDecoder().decode(decrypted);
+}
+
+async function getGoogleOAuthCredentials(supabase: any, professionalId: string): Promise<{ clientId: string; clientSecret: string } | null> {
+  // First try to get credentials from center configuration
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('center_id')
+    .eq('id', professionalId)
+    .single();
+
+  if (profile?.center_id) {
+    const { data: center } = await supabase
+      .from('centers')
+      .select('oauth_google_client_id, oauth_google_credentials')
+      .eq('id', profile.center_id)
+      .single();
+
+    if (center?.oauth_google_client_id && center?.oauth_google_credentials) {
+      try {
+        const encryptionKey = Deno.env.get('CERTIFICATE_ENCRYPTION_KEY');
+        if (encryptionKey) {
+          const clientSecret = await decryptAES256GCM(center.oauth_google_credentials, encryptionKey);
+          console.log('Using OAuth credentials from center configuration');
+          return { clientId: center.oauth_google_client_id, clientSecret };
+        }
+      } catch (error) {
+        console.error('Error decrypting center OAuth credentials:', error);
+      }
+    }
+  }
+
+  // Fallback to environment variables
   const clientId = Deno.env.get('GOOGLE_CLIENT_ID');
   const clientSecret = Deno.env.get('GOOGLE_CLIENT_SECRET');
   
-  const response = await fetch('https://oauth2.googleapis.com/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      client_id: clientId || '',
-      client_secret: clientSecret || '',
-      refresh_token: refreshToken,
-      grant_type: 'refresh_token',
-    }),
-  });
+  if (clientId && clientSecret) {
+    console.log('Using OAuth credentials from environment variables');
+    return { clientId, clientSecret };
+  }
 
-  if (!response.ok) {
+  return null;
+}
+
+async function refreshGoogleToken(
+  supabase: any,
+  professionalId: string,
+  refreshToken: string
+): Promise<string | null> {
+  const credentials = await getGoogleOAuthCredentials(supabase, professionalId);
+
+  if (!credentials) {
+    console.error('Google OAuth credentials not configured');
     return null;
   }
 
-  const tokenData = await response.json();
-  const expiresAt = new Date(Date.now() + (tokenData.expires_in * 1000)).toISOString();
+  try {
+    console.log('Attempting to refresh Google token...');
+    const response = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id: credentials.clientId,
+        client_secret: credentials.clientSecret,
+        refresh_token: refreshToken,
+        grant_type: 'refresh_token',
+      }),
+    });
 
-  await supabase
-    .from('oauth_connections')
-    .update({
-      access_token: tokenData.access_token,
-      expires_at: expiresAt,
-    })
-    .eq('professional_id', professionalId)
-    .eq('provider', 'google');
+    const data = await response.json();
+    
+    console.log('Google token refresh response:', {
+      ok: response.ok,
+      status: response.status,
+      hasAccessToken: !!data.access_token,
+      error: data.error,
+      error_description: data.error_description,
+    });
 
-  return tokenData.access_token;
+    if (data.access_token) {
+      const expiresAt = new Date(Date.now() + (data.expires_in * 1000)).toISOString();
+      await supabase
+        .from('oauth_connections')
+        .update({
+          access_token: data.access_token,
+          expires_at: expiresAt,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('professional_id', professionalId)
+        .eq('provider', 'google');
+
+      console.log('Token refreshed successfully');
+      return data.access_token;
+    }
+
+    // Handle revoked token
+    if (data.error === 'invalid_grant') {
+      console.error('Refresh token has been revoked - user needs to reconnect Google');
+      await supabase
+        .from('oauth_connections')
+        .update({
+          access_token: null,
+          refresh_token: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('professional_id', professionalId)
+        .eq('provider', 'google');
+    } else {
+      console.error('Google token refresh failed:', data.error, data.error_description);
+    }
+  } catch (error) {
+    console.error('Error refreshing Google token:', error);
+  }
+  return null;
 }
 
 serve(async (req) => {
