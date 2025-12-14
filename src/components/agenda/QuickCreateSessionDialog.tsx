@@ -4,7 +4,9 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { CalendarIcon, User, Globe, ChevronDown, Plus, Video, MapPin, Ban, Settings2, Package, CreditCard } from 'lucide-react';
+import { CalendarIcon, User, Globe, ChevronDown, Plus, Video, MapPin, Ban, Settings2, Package, CreditCard, AlertCircle } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -782,6 +784,30 @@ export function QuickCreateSessionDialog({
                       ))}
                     </SelectContent>
                   </Select>
+                  {/* Google Meet warning if not configured */}
+                  {field.value === 'google_meet' && (!integrations?.google_meet_enabled || !oauthConnections?.some(c => c.provider === 'google' && c.access_token)) && (
+                    <Alert variant="destructive" className="mt-2 py-2">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription className="text-xs">
+                        Google Meet no está conectado. El enlace no se generará automáticamente.{' '}
+                        <Link to="/configuracion" className="underline font-medium hover:no-underline">
+                          Configúralo aquí
+                        </Link>
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                  {/* Zoom warning if not configured */}
+                  {field.value === 'zoom' && (!integrations?.zoom_enabled || !oauthConnections?.some(c => c.provider === 'zoom' && c.access_token)) && (
+                    <Alert variant="destructive" className="mt-2 py-2">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription className="text-xs">
+                        Zoom no está conectado. El enlace no se generará automáticamente.{' '}
+                        <Link to="/configuracion" className="underline font-medium hover:no-underline">
+                          Configúralo aquí
+                        </Link>
+                      </AlertDescription>
+                    </Alert>
+                  )}
                   <FormMessage />
                 </FormItem>
               )}
