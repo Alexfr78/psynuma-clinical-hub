@@ -1,11 +1,12 @@
-import { useState, useRef, useMemo } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { SignatureCanvas, SignatureCanvasRef } from './SignatureCanvas';
 import { PublicConsent, usePublicConsent } from '@/hooks/usePublicConsent';
-import { Loader2, CheckCircle2, ArrowRight } from 'lucide-react';
+import { Loader2, CheckCircle2, ArrowRight, Download } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 interface MultiSignatureFlowProps {
   consent: PublicConsent;
@@ -83,7 +84,8 @@ export function MultiSignatureFlow({ consent, token }: MultiSignatureFlowProps) 
   const [acceptedGdpr, setAcceptedGdpr] = useState(false);
   const [acceptedVerifications, setAcceptedVerifications] = useState<Record<number, boolean>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const verificationCheckboxes = consent.template?.verification_checkboxes || [];
   const allVerificationsAccepted = verificationCheckboxes.length === 0 || 
     verificationCheckboxes.every((_, index) => acceptedVerifications[index]);
@@ -156,6 +158,30 @@ export function MultiSignatureFlow({ consent, token }: MultiSignatureFlowProps) 
     }
   };
 
+  // Generate PDF when complete
+  useEffect(() => {
+    if (currentStep === 'complete' && !pdfUrl && !isGeneratingPdf) {
+      setIsGeneratingPdf(true);
+      supabase.functions.invoke('generate-consent-pdf', {
+        body: { consent_id: consent.id },
+      }).then(({ data, error }) => {
+        if (data?.url) {
+          setPdfUrl(data.url);
+        }
+        if (error) {
+          console.error('Error generating PDF:', error);
+        }
+        setIsGeneratingPdf(false);
+      });
+    }
+  }, [currentStep, consent.id, pdfUrl, isGeneratingPdf]);
+
+  const handleDownloadPdf = () => {
+    if (pdfUrl) {
+      window.open(pdfUrl, '_blank');
+    }
+  };
+
   // Complete state
   if (currentStep === 'complete') {
     return (
@@ -167,8 +193,25 @@ export function MultiSignatureFlow({ consent, token }: MultiSignatureFlowProps) 
           ¡Documento firmado correctamente!
         </h2>
         <p className="mt-2 text-muted-foreground">
-          El consentimiento ha sido registrado. Puedes cerrar esta página.
+          El consentimiento ha sido registrado. Puedes descargar el documento firmado.
         </p>
+        <Button 
+          className="mt-6" 
+          onClick={handleDownloadPdf}
+          disabled={isGeneratingPdf || !pdfUrl}
+        >
+          {isGeneratingPdf ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Generando documento...
+            </>
+          ) : (
+            <>
+              <Download className="mr-2 h-4 w-4" />
+              Descargar documento firmado
+            </>
+          )}
+        </Button>
       </div>
     );
   }
