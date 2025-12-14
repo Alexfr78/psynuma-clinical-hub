@@ -65,3 +65,6 @@ verify_jwt = true
 
 [functions.send-payment-reminders]
 verify_jwt = false
+
+[functions.generate-consent-pdf]
+verify_jwt = false

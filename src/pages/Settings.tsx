@@ -46,6 +46,7 @@ import { VerifactuConfigSection } from '@/components/settings/VerifactuConfigSec
 import { ResponsibleDeclarationSection } from '@/components/settings/ResponsibleDeclarationSection';
 import { VerifactuExportSection } from '@/components/settings/VerifactuExportSection';
 import { PortalSettingsSection } from '@/components/settings/PortalSettingsSection';
+import { ConsentSettingsSection } from '@/components/settings/ConsentSettingsSection';
 import { IntegrationsOverview } from '@/components/settings/integrations/IntegrationsOverview';
 import { WhatsAppIntegrationSection } from '@/components/settings/integrations/WhatsAppIntegrationSection';
 import { ZoomIntegrationSection } from '@/components/settings/integrations/ZoomIntegrationSection';
@@ -71,6 +72,7 @@ type SettingsSection =
   | 'centro-portal'
   | 'sesiones-tipos'
   | 'pagos-config'
+  | 'consentimientos-config'
   | 'facturacion-info' 
   | 'facturacion-editar' 
   | 'facturacion-series' 
@@ -101,6 +103,7 @@ const navItems: NavItem[] = [
   { id: 'centro-portal', label: 'Ajustes del Portal', icon: Settings2, parent: 'Centro' },
   { id: 'sesiones-tipos', label: 'Tipos de sesión', icon: Calendar, parent: 'Sesiones' },
   { id: 'pagos-config', label: 'Configuración de pagos', icon: Wallet, parent: 'Pagos' },
+  { id: 'consentimientos-config', label: 'Días de expiración', icon: FileText, parent: 'Consentimientos' },
   { id: 'facturacion-info', label: 'Información de facturación', icon: Receipt, parent: 'Facturación' },
   { id: 'facturacion-editar', label: 'Editar factura', icon: Pencil, parent: 'Facturación' },
   { id: 'facturacion-series', label: 'Series y numeración', icon: List, parent: 'Facturación' },
@@ -277,6 +280,8 @@ export default function Settings() {
         return <SessionTypesSection />;
       case 'pagos-config':
         return <PaymentSettingsSection />;
+      case 'consentimientos-config':
+        return <ConsentSettingsSection />;
       case 'facturacion-info':
         return <InvoicingInfoSection />;
       case 'facturacion-editar':

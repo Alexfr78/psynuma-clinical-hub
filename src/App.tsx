@@ -22,6 +22,8 @@ import Audit from "./pages/Audit";
 import NotFound from "./pages/NotFound";
 import SessionManagement from "./pages/SessionManagement";
 import Install from "./pages/Install";
+import Consents from "./pages/Consents";
+import ConsentSignature from "./pages/ConsentSignature";
 
 const queryClient = new QueryClient();
 
@@ -46,6 +48,7 @@ const App = () => (
             
             {/* Public Routes (No Auth Required) */}
             <Route path="/cita/:token" element={<SessionManagement />} />
+            <Route path="/consentimiento/:token" element={<ConsentSignature />} />
             <Route path="/instalar" element={<Install />} />
             
             {/* Protected Routes */}
@@ -110,6 +113,11 @@ const App = () => (
             <Route path="/auditoria" element={
               <ProtectedRoute requiredRoles={['admin']}>
                 <AppLayout><Audit /></AppLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/consentimientos" element={
+              <ProtectedRoute>
+                <AppLayout><Consents /></AppLayout>
               </ProtectedRoute>
             } />
             

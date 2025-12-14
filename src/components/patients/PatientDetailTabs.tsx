@@ -4,6 +4,7 @@ import { PatientData } from './tabs/PatientData';
 import { PatientSessions } from './tabs/PatientSessions';
 import { PatientInvoices } from './tabs/PatientInvoices';
 import { PatientBonos } from './tabs/PatientBonos';
+import { PatientConsents } from './tabs/PatientConsents';
 import { Patient } from '@/hooks/usePatients';
 
 interface PatientDetailTabsProps {
@@ -27,6 +28,7 @@ export function PatientDetailTabs({ patient }: PatientDetailTabsProps) {
         <TabsTrigger value="sessions">Sesiones</TabsTrigger>
         <TabsTrigger value="invoices">Facturas</TabsTrigger>
         <TabsTrigger value="bonos">Bonos</TabsTrigger>
+        <TabsTrigger value="consents">Consentimientos</TabsTrigger>
       </TabsList>
 
       <TabsContent value="summary">
@@ -47,6 +49,10 @@ export function PatientDetailTabs({ patient }: PatientDetailTabsProps) {
 
       <TabsContent value="bonos">
         <PatientBonos patientId={patient.id} />
+      </TabsContent>
+
+      <TabsContent value="consents">
+        <PatientConsents patientId={patient.id} patient={patient} />
       </TabsContent>
     </Tabs>
   );
