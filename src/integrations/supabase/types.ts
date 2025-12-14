@@ -1463,6 +1463,7 @@ export type Database = {
           google_calendar_sync_mode: string | null
           google_meet_enabled: boolean | null
           id: string
+          last_google_sync_at: string | null
           professional_id: string
           stripe_enabled: boolean | null
           stripe_payment_mode: string | null
@@ -1482,6 +1483,7 @@ export type Database = {
           google_calendar_sync_mode?: string | null
           google_meet_enabled?: boolean | null
           id?: string
+          last_google_sync_at?: string | null
           professional_id: string
           stripe_enabled?: boolean | null
           stripe_payment_mode?: string | null
@@ -1501,6 +1503,7 @@ export type Database = {
           google_calendar_sync_mode?: string | null
           google_meet_enabled?: boolean | null
           id?: string
+          last_google_sync_at?: string | null
           professional_id?: string
           stripe_enabled?: boolean | null
           stripe_payment_mode?: string | null
