@@ -1,0 +1,153 @@
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+
+export interface PublicConsent {
+  id: string;
+  patient_id: string;
+  status: 'pending' | 'signed' | 'revoked' | 'expired';
+  access_token: string;
+  content_snapshot: string;
+  requires_guardian: boolean;
+  expires_at: string;
+  signed_at: string | null;
+  patient: {
+    first_name: string;
+    last_name: string;
+    guardian_name: string | null;
+    guardian_relationship: string | null;
+  };
+  professional: {
+    first_name: string | null;
+    last_name: string | null;
+  };
+  template: {
+    name: string;
+  };
+  signatures: {
+    id: string;
+    signer_role: string;
+    signature_order: number;
+    signed_at: string;
+  }[];
+}
+
+export function usePublicConsent(token: string | undefined) {
+  const queryClient = useQueryClient();
+
+  const { data: consent, isLoading, error } = useQuery({
+    queryKey: ['public-consent', token],
+    queryFn: async () => {
+      if (!token) throw new Error('No token');
+      
+      const { data, error } = await supabase
+        .from('consents')
+        .select(`
+          id,
+          patient_id,
+          status,
+          access_token,
+          content_snapshot,
+          requires_guardian,
+          expires_at,
+          signed_at,
+          patient:patients(first_name, last_name, guardian_name, guardian_relationship),
+          professional:profiles(first_name, last_name),
+          template:consent_templates(name),
+          signatures:consent_signatures(id, signer_role, signature_order, signed_at)
+        `)
+        .eq('access_token', token)
+        .single();
+      
+      if (error) throw error;
+      return data as unknown as PublicConsent;
+    },
+    enabled: !!token,
+  });
+
+  const addSignature = useMutation({
+    mutationFn: async ({
+      consentId,
+      signerName,
+      signerRole,
+      signatureOrder,
+      signatureData,
+    }: {
+      consentId: string;
+      signerName: string;
+      signerRole: 'patient' | 'guardian';
+      signatureOrder: number;
+      signatureData: string;
+    }) => {
+      const { data, error } = await supabase
+        .from('consent_signatures')
+        .insert({
+          consent_id: consentId,
+          signer_name: signerName,
+          signer_role: signerRole,
+          signature_order: signatureOrder,
+          signature_data: signatureData,
+          ip_address: null, // Will be captured by edge function
+          user_agent: navigator.userAgent,
+        })
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['public-consent', token] });
+    },
+    onError: (error) => {
+      toast.error('Error al guardar la firma');
+      console.error(error);
+    },
+  });
+
+  const markAsSigned = useMutation({
+    mutationFn: async (consentId: string) => {
+      const { data, error } = await supabase
+        .from('consents')
+        .update({
+          status: 'signed',
+          signed_at: new Date().toISOString(),
+        })
+        .eq('id', consentId)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      
+      // Generate PDF
+      try {
+        await supabase.functions.invoke('generate-consent-pdf', {
+          body: { consent_id: consentId },
+        });
+      } catch (pdfError) {
+        console.error('Error generating PDF:', pdfError);
+      }
+      
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['public-consent', token] });
+      toast.success('Documento firmado correctamente');
+    },
+    onError: (error) => {
+      toast.error('Error al completar la firma');
+      console.error(error);
+    },
+  });
+
+  const isExpired = consent ? new Date(consent.expires_at) < new Date() : false;
+
+  return {
+    consent,
+    isLoading,
+    error,
+    isExpired,
+    addSignature,
+    markAsSigned,
+  };
+}

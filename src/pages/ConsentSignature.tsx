@@ -1,0 +1,130 @@
+import { useParams } from 'react-router-dom';
+import { Loader2, AlertCircle, CheckCircle2, Clock, XCircle } from 'lucide-react';
+import { usePublicConsent } from '@/hooks/usePublicConsent';
+import { MultiSignatureFlow } from '@/components/consents/MultiSignatureFlow';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
+
+export default function ConsentSignature() {
+  const { token } = useParams<{ token: string }>();
+  const { consent, isLoading, error, isExpired } = usePublicConsent(token);
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-muted/30 p-4">
+        <Card className="w-full max-w-md">
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <p className="mt-4 text-muted-foreground">Cargando documento...</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (error || !consent) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-muted/30 p-4">
+        <Card className="w-full max-w-md">
+          <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+            <div className="rounded-full bg-destructive/10 p-4">
+              <AlertCircle className="h-8 w-8 text-destructive" />
+            </div>
+            <h2 className="mt-4 font-display text-xl font-semibold">
+              Documento no encontrado
+            </h2>
+            <p className="mt-2 text-muted-foreground">
+              El enlace no es válido o ha expirado.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (isExpired && consent.status === 'pending') {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-muted/30 p-4">
+        <Card className="w-full max-w-md">
+          <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+            <div className="rounded-full bg-amber-500/10 p-4">
+              <Clock className="h-8 w-8 text-amber-500" />
+            </div>
+            <h2 className="mt-4 font-display text-xl font-semibold">
+              Enlace expirado
+            </h2>
+            <p className="mt-2 text-muted-foreground">
+              Este enlace de firma ha expirado el{' '}
+              {format(new Date(consent.expires_at), "d 'de' MMMM 'de' yyyy", { locale: es })}.
+            </p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Contacta con tu profesional para solicitar un nuevo enlace.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (consent.status === 'signed') {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-muted/30 p-4">
+        <Card className="w-full max-w-md">
+          <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+            <div className="rounded-full bg-green-500/10 p-4">
+              <CheckCircle2 className="h-8 w-8 text-green-500" />
+            </div>
+            <h2 className="mt-4 font-display text-xl font-semibold">
+              Documento firmado
+            </h2>
+            <p className="mt-2 text-muted-foreground">
+              Este consentimiento fue firmado el{' '}
+              {consent.signed_at && format(new Date(consent.signed_at), "d 'de' MMMM 'de' yyyy 'a las' HH:mm", { locale: es })}.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (consent.status === 'revoked') {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-muted/30 p-4">
+        <Card className="w-full max-w-md">
+          <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+            <div className="rounded-full bg-destructive/10 p-4">
+              <XCircle className="h-8 w-8 text-destructive" />
+            </div>
+            <h2 className="mt-4 font-display text-xl font-semibold">
+              Consentimiento revocado
+            </h2>
+            <p className="mt-2 text-muted-foreground">
+              Este consentimiento ha sido revocado y ya no es válido.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-muted/30 p-4">
+      <div className="mx-auto max-w-3xl">
+        <Card>
+          <CardHeader className="text-center">
+            <CardTitle className="font-display text-xl">
+              {consent.template?.name || 'Consentimiento Informado'}
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Profesional: {consent.professional?.first_name} {consent.professional?.last_name}
+            </p>
+          </CardHeader>
+          <CardContent>
+            <MultiSignatureFlow consent={consent} token={token!} />
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
