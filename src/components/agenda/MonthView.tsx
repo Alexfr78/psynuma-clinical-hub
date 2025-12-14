@@ -57,6 +57,7 @@ export function MonthView({ currentDate, sessions, onSessionClick, onDayClick }:
     completed: 'bg-gray-400',
     cancelled: 'bg-red-500',
     no_show: 'bg-orange-500',
+    blocked: 'bg-purple-500',
   };
 
   return (

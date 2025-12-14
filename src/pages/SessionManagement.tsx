@@ -12,7 +12,8 @@ import {
   CalendarClock,
   AlertCircle,
   Loader2,
-  Building2
+  Building2,
+  Ban
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -42,6 +43,7 @@ const statusConfig: Record<string, { label: string; variant: 'default' | 'second
   cancelled: { label: 'Cancelada', variant: 'destructive', icon: <XCircle className="h-4 w-4" /> },
   no_show: { label: 'No asistió', variant: 'destructive', icon: <XCircle className="h-4 w-4" /> },
   reschedule_requested: { label: 'Reprogramación solicitada', variant: 'outline', icon: <CalendarClock className="h-4 w-4" /> },
+  blocked: { label: 'Bloqueado', variant: 'outline', icon: <Ban className="h-4 w-4" /> },
 };
 
 const modalityLabels: Record<string, string> = {

@@ -169,7 +169,7 @@ export function EmailTemplateEditor() {
                   <Label htmlFor="email_initial_text">Texto inicial</Label>
                   <Textarea
                     id="email_initial_text"
-                    ref={(el) => (textareaRefs.current['email_initial_text'] = el)}
+                    ref={(el) => { textareaRefs.current['email_initial_text'] = el; }}
                     value={currentForm.email_initial_text}
                     onChange={(e) => handleFieldChange('email_initial_text', e.target.value)}
                     onFocus={() => setActiveField('email_initial_text')}
@@ -182,7 +182,7 @@ export function EmailTemplateEditor() {
                   <Label htmlFor="email_confirmation_text">Si se solicita confirmación</Label>
                   <Textarea
                     id="email_confirmation_text"
-                    ref={(el) => (textareaRefs.current['email_confirmation_text'] = el)}
+                    ref={(el) => { textareaRefs.current['email_confirmation_text'] = el; }}
                     value={currentForm.email_confirmation_text}
                     onChange={(e) => handleFieldChange('email_confirmation_text', e.target.value)}
                     onFocus={() => setActiveField('email_confirmation_text')}
@@ -195,7 +195,7 @@ export function EmailTemplateEditor() {
                   <Label htmlFor="email_videocall_text">Si hay videollamada</Label>
                   <Textarea
                     id="email_videocall_text"
-                    ref={(el) => (textareaRefs.current['email_videocall_text'] = el)}
+                    ref={(el) => { textareaRefs.current['email_videocall_text'] = el; }}
                     value={currentForm.email_videocall_text}
                     onChange={(e) => handleFieldChange('email_videocall_text', e.target.value)}
                     onFocus={() => setActiveField('email_videocall_text')}
@@ -208,7 +208,7 @@ export function EmailTemplateEditor() {
                   <Label htmlFor="email_payment_text">Si hay pago pendiente</Label>
                   <Textarea
                     id="email_payment_text"
-                    ref={(el) => (textareaRefs.current['email_payment_text'] = el)}
+                    ref={(el) => { textareaRefs.current['email_payment_text'] = el; }}
                     value={currentForm.email_payment_text}
                     onChange={(e) => handleFieldChange('email_payment_text', e.target.value)}
                     onFocus={() => setActiveField('email_payment_text')}

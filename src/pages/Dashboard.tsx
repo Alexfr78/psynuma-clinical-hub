@@ -175,11 +175,13 @@ export default function Dashboard() {
                   <span className={`text-xs px-2 py-1 rounded-full ${
                     session.status === 'completed' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
                     session.status === 'confirmed' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
+                    session.status === 'blocked' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' :
                     'bg-muted text-muted-foreground'
                   }`}>
                     {session.status === 'scheduled' ? 'Programada' :
                      session.status === 'confirmed' ? 'Confirmada' :
-                     session.status === 'completed' ? 'Completada' : session.status}
+                     session.status === 'completed' ? 'Completada' :
+                     session.status === 'blocked' ? 'Bloqueado' : session.status}
                   </span>
                 </div>
               ))}

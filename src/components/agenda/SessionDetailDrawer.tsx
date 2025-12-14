@@ -108,6 +108,7 @@ const statusConfig: Record<string, { label: string; variant: 'default' | 'second
   completed: { label: 'Completada', variant: 'outline', className: 'bg-muted' },
   cancelled: { label: 'Cancelada', variant: 'destructive', className: '' },
   no_show: { label: 'No asistió', variant: 'destructive', className: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200' },
+  blocked: { label: 'Bloqueado', variant: 'outline', className: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200' },
 };
 
 const sessionTypeLabels: Record<string, string> = {
