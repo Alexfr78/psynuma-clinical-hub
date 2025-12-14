@@ -1461,6 +1461,8 @@ export type Database = {
           default_video_provider: string | null
           google_calendar_enabled: boolean | null
           google_calendar_sync_mode: string | null
+          google_event_description_format: string | null
+          google_event_title_format: string | null
           google_meet_enabled: boolean | null
           id: string
           last_google_sync_at: string | null
@@ -1481,6 +1483,8 @@ export type Database = {
           default_video_provider?: string | null
           google_calendar_enabled?: boolean | null
           google_calendar_sync_mode?: string | null
+          google_event_description_format?: string | null
+          google_event_title_format?: string | null
           google_meet_enabled?: boolean | null
           id?: string
           last_google_sync_at?: string | null
@@ -1501,6 +1505,8 @@ export type Database = {
           default_video_provider?: string | null
           google_calendar_enabled?: boolean | null
           google_calendar_sync_mode?: string | null
+          google_event_description_format?: string | null
+          google_event_title_format?: string | null
           google_meet_enabled?: boolean | null
           id?: string
           last_google_sync_at?: string | null

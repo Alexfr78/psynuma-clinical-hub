@@ -4,6 +4,7 @@ import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { SessionWithRelations } from '@/hooks/useSessions';
 import { SessionCard } from './SessionCard';
+import { calculateSessionPositions } from '@/lib/calculateSessionPositions';
 
 interface DayViewProps {
   currentDate: Date;
@@ -269,22 +270,33 @@ export function DayView({ currentDate, sessions, onSessionClick, onSlotClick, on
               
               {/* Sessions overlay */}
               <div className="absolute inset-0 pointer-events-none">
-                {daySessions.map((session) => {
-                  const style = getSessionStyle(session);
-                  return (
-                    <SessionCard
-                      key={session.id}
-                      session={session}
-                      onClick={() => onSessionClick(session)}
-                      draggable={!!onSessionMove}
-                      onDragStart={handleSessionDragStart}
-                      onDragEnd={handleSessionDragEnd}
-                      onMoveRequest={onMoveRequest}
-                      className="absolute left-1 right-1 pointer-events-auto"
-                      style={style}
-                    />
-                  );
-                })}
+                {(() => {
+                  const positions = calculateSessionPositions(daySessions);
+                  return daySessions.map((session) => {
+                    const style = getSessionStyle(session);
+                    const position = positions.get(session.id);
+                    const leftPercent = position?.left ?? 0;
+                    const widthPercent = position?.width ?? 100;
+                    
+                    return (
+                      <SessionCard
+                        key={session.id}
+                        session={session}
+                        onClick={() => onSessionClick(session)}
+                        draggable={!!onSessionMove}
+                        onDragStart={handleSessionDragStart}
+                        onDragEnd={handleSessionDragEnd}
+                        onMoveRequest={onMoveRequest}
+                        className="absolute pointer-events-auto"
+                        style={{
+                          ...style,
+                          left: `calc(${leftPercent}% + 4px)`,
+                          width: `calc(${widthPercent}% - 8px)`,
+                        }}
+                      />
+                    );
+                  });
+                })()}
               </div>
             </div>
           </div>

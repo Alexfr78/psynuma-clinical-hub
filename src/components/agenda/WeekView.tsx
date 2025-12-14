@@ -4,6 +4,7 @@ import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { SessionWithRelations } from '@/hooks/useSessions';
 import { SessionCard } from './SessionCard';
+import { calculateSessionPositions } from '@/lib/calculateSessionPositions';
 
 interface WeekViewProps {
   currentDate: Date;
@@ -284,22 +285,33 @@ export function WeekView({ currentDate, sessions, onSessionClick, onSlotClick, o
                   
                   {/* Sessions overlay */}
                   <div className="absolute inset-0 pointer-events-none">
-                    {daySessions.map((session) => {
-                      const style = getSessionStyle(session);
-                      return (
-                        <SessionCard
-                          key={session.id}
-                          session={session}
-                          compact
-                          onClick={() => onSessionClick(session)}
-                          draggable={!!onSessionMove}
-                          onDragStart={handleSessionDragStart}
-                          onDragEnd={handleSessionDragEnd}
-                          className="absolute left-0.5 right-0.5 pointer-events-auto"
-                          style={style}
-                        />
-                      );
-                    })}
+                    {(() => {
+                      const positions = calculateSessionPositions(daySessions);
+                      return daySessions.map((session) => {
+                        const style = getSessionStyle(session);
+                        const position = positions.get(session.id);
+                        const leftPercent = position?.left ?? 0;
+                        const widthPercent = position?.width ?? 100;
+                        
+                        return (
+                          <SessionCard
+                            key={session.id}
+                            session={session}
+                            compact
+                            onClick={() => onSessionClick(session)}
+                            draggable={!!onSessionMove}
+                            onDragStart={handleSessionDragStart}
+                            onDragEnd={handleSessionDragEnd}
+                            className="absolute pointer-events-auto"
+                            style={{
+                              ...style,
+                              left: `calc(${leftPercent}% + 2px)`,
+                              width: `calc(${widthPercent}% - 4px)`,
+                            }}
+                          />
+                        );
+                      });
+                    })()}
                   </div>
                 </div>
               );
