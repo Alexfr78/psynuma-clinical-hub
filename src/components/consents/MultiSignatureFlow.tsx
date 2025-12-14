@@ -16,9 +16,32 @@ interface MultiSignatureFlowProps {
 const VERIFICATION_PLACEHOLDER = '{campos_verificacion}';
 const CHECKBOX_MARKER = '<!--VERIFICATION_CHECKBOXES-->';
 
-// Regex to match the placeholder with or without surrounding HTML tags
-// Matches patterns like: <span>{campos_verificacion}</span>, <div><span>{campos_verificacion}</span></div>, or just {campos_verificacion}
-const PLACEHOLDER_REGEX = /(<[^>]*>)*\s*\{campos_verificacion\}\s*(<\/[^>]*>)*/gi;
+// Function to replace the placeholder along with its containing HTML structure
+function replaceVerificationPlaceholder(html: string): string {
+  // Pattern to match: <div><span...>{campos_verificacion}</span></div> or similar nested structures
+  // We match the entire containing div/span block that has the placeholder
+  const patterns = [
+    // Match <div><span...>{campos_verificacion}</span></div>
+    /<div[^>]*>\s*<span[^>]*>\s*\{campos_verificacion\}\s*<\/span>\s*<\/div>/gi,
+    // Match <span...>{campos_verificacion}</span> (without outer div)
+    /<span[^>]*>\s*\{campos_verificacion\}\s*<\/span>/gi,
+    // Match <div...>{campos_verificacion}</div>
+    /<div[^>]*>\s*\{campos_verificacion\}\s*<\/div>/gi,
+    // Match <p...>{campos_verificacion}</p>
+    /<p[^>]*>\s*\{campos_verificacion\}\s*<\/p>/gi,
+    // Match just the placeholder
+    /\{campos_verificacion\}/gi,
+  ];
+  
+  let result = html;
+  for (const pattern of patterns) {
+    if (pattern.test(result)) {
+      result = result.replace(pattern, CHECKBOX_MARKER);
+      break; // Only replace once
+    }
+  }
+  return result;
+}
 
 // Component to render document with inline verification checkboxes
 interface DocumentWithVerificationsProps {
@@ -39,7 +62,7 @@ function DocumentWithVerifications({
   prefix,
 }: DocumentWithVerificationsProps) {
   // Replace the placeholder (with any surrounding tags) with a clean marker
-  const processedContent = content.replace(PLACEHOLDER_REGEX, CHECKBOX_MARKER);
+  const processedContent = replaceVerificationPlaceholder(content);
   const cleanContent = processedContent.replace(CHECKBOX_MARKER, '');
   
   // If no verification checkboxes, just render the content without the placeholder
