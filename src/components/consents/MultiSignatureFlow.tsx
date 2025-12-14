@@ -14,6 +14,11 @@ interface MultiSignatureFlowProps {
 }
 
 const VERIFICATION_PLACEHOLDER = '{campos_verificacion}';
+const CHECKBOX_MARKER = '<!--VERIFICATION_CHECKBOXES-->';
+
+// Regex to match the placeholder with or without surrounding HTML tags
+// Matches patterns like: <span>{campos_verificacion}</span>, <div><span>{campos_verificacion}</span></div>, or just {campos_verificacion}
+const PLACEHOLDER_REGEX = /(<[^>]*>)*\s*\{campos_verificacion\}\s*(<\/[^>]*>)*/gi;
 
 // Component to render document with inline verification checkboxes
 interface DocumentWithVerificationsProps {
@@ -33,10 +38,11 @@ function DocumentWithVerifications({
   hasPlaceholder,
   prefix,
 }: DocumentWithVerificationsProps) {
-  // Remove the placeholder from content if it exists (it should be replaced with actual checkboxes)
-  const cleanContent = content.replace(VERIFICATION_PLACEHOLDER, '');
+  // Replace the placeholder (with any surrounding tags) with a clean marker
+  const processedContent = content.replace(PLACEHOLDER_REGEX, CHECKBOX_MARKER);
+  const cleanContent = processedContent.replace(CHECKBOX_MARKER, '');
   
-  // If no verification checkboxes, just render the content
+  // If no verification checkboxes, just render the content without the placeholder
   if (verificationCheckboxes.length === 0) {
     return (
       <div
@@ -46,9 +52,9 @@ function DocumentWithVerifications({
     );
   }
 
-  // If placeholder exists, split and insert checkboxes at that position
-  if (hasPlaceholder) {
-    const parts = content.split(VERIFICATION_PLACEHOLDER);
+  // If placeholder exists, split by the clean marker and insert checkboxes at that position
+  if (hasPlaceholder && processedContent.includes(CHECKBOX_MARKER)) {
+    const parts = processedContent.split(CHECKBOX_MARKER);
 
     return (
       <div className="prose prose-sm max-w-none dark:prose-invert">
