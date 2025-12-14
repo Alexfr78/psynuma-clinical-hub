@@ -66,7 +66,16 @@ serve(async (req) => {
 
     console.log('Creating Google Calendar event for professional:', professional_id);
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    // Validate that event has duration (start_time != end_time)
+    if (start_time === end_time) {
+      console.warn('Event has zero duration (start_time === end_time), rejecting');
+      return new Response(
+        JSON.stringify({ error: 'La sesión tiene duración 0, no se puede crear evento de calendario' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
