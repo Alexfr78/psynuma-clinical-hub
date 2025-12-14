@@ -20,6 +20,7 @@ export const TEMPLATE_VARIABLES = [
   { key: '{nombre_centro}', label: 'Nombre del centro', category: 'centro' },
   { key: '{direccion_centro}', label: 'Dirección del centro', category: 'centro' },
   { key: '{fecha_actual}', label: 'Fecha de generación', category: 'otros' },
+  { key: '{campos_verificacion}', label: 'Campos de verificación', category: 'formulario' },
 ];
 
 interface TemplateVariablesProps {
@@ -35,6 +36,7 @@ export function TemplateVariables({ onInsert }: TemplateVariablesProps) {
     { id: 'profesional', label: 'Profesional' },
     { id: 'centro', label: 'Centro' },
     { id: 'otros', label: 'Otros' },
+    { id: 'formulario', label: 'Formulario' },
   ];
 
   return (
