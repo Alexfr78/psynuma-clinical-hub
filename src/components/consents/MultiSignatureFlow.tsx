@@ -317,7 +317,7 @@ export function MultiSignatureFlow({ consent, token }: MultiSignatureFlowProps) 
             />
           </Card>
           <div className="flex justify-end">
-            <Button onClick={handleProceedToSign} disabled={!allVerificationsAccepted && hasPlaceholderInContent}>
+            <Button onClick={handleProceedToSign} disabled={!allVerificationsAccepted}>
               Proceder a firmar
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
