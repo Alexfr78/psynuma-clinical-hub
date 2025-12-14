@@ -584,15 +584,10 @@ export function QuickCreateSessionDialog({
                       Bono
                     </FormLabel>
                     <div className="flex gap-2">
-                      <Select 
-                        onValueChange={field.onChange} 
-                        value={field.value || 'none'}
-                      >
-                        <FormControl>
-                          <SelectTrigger className="h-10 flex-1">
-                            <SelectValue placeholder="Sin bono" />
-                          </SelectTrigger>
-                        </FormControl>
+                      <Select onValueChange={field.onChange} value={field.value || 'none'}>
+                        <SelectTrigger className="h-10 flex-1">
+                          <SelectValue placeholder="Sin bono" />
+                        </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="none">Sin bono</SelectItem>
                           {patientBonos?.map((bono) => (
@@ -636,25 +631,23 @@ export function QuickCreateSessionDialog({
                 <FormItem>
                   <FormLabel className="text-sm font-medium">Profesional</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger className="h-10">
-                        <SelectValue>
-                          {selectedProfessional ? (
-                            <span className="flex items-center gap-2">
-                              <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center">
-                                <User className="h-3 w-3 text-primary" />
-                              </div>
-                              {selectedProfessional.first_name} {selectedProfessional.last_name}
-                              <Badge variant="secondary" className="ml-auto text-xs">
-                                Profesional principal
-                              </Badge>
-                            </span>
-                          ) : (
-                            'Seleccionar profesional'
-                          )}
-                        </SelectValue>
-                      </SelectTrigger>
-                    </FormControl>
+                    <SelectTrigger className="h-10">
+                      <SelectValue>
+                        {selectedProfessional ? (
+                          <span className="flex items-center gap-2">
+                            <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center">
+                              <User className="h-3 w-3 text-primary" />
+                            </div>
+                            {selectedProfessional.first_name} {selectedProfessional.last_name}
+                            <Badge variant="secondary" className="ml-auto text-xs">
+                              Profesional principal
+                            </Badge>
+                          </span>
+                        ) : (
+                          'Seleccionar profesional'
+                        )}
+                      </SelectValue>
+                    </SelectTrigger>
                     <SelectContent>
                       {professionals?.map((prof) => (
                         <SelectItem key={prof.id} value={prof.id}>
@@ -680,26 +673,24 @@ export function QuickCreateSessionDialog({
                   <FormItem>
                     <FormLabel className="text-sm font-medium">Tipo de sesión</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger className="h-10">
-                          <SelectValue>
-                            {selectedType ? (
-                              <span className="flex items-center gap-2">
-                                <div 
-                                  className="h-3 w-3 rounded-full" 
-                                  style={{ backgroundColor: selectedType.color }}
-                                />
-                                {selectedType.name}
-                                <span className="text-muted-foreground text-xs ml-1">
-                                  ({selectedType.duration_minutes} min)
-                                </span>
+                      <SelectTrigger className="h-10">
+                        <SelectValue>
+                          {selectedType ? (
+                            <span className="flex items-center gap-2">
+                              <div 
+                                className="h-3 w-3 rounded-full" 
+                                style={{ backgroundColor: selectedType.color }}
+                              />
+                              {selectedType.name}
+                              <span className="text-muted-foreground text-xs ml-1">
+                                ({selectedType.duration_minutes} min)
                               </span>
-                            ) : (
-                              'Seleccionar tipo'
-                            )}
-                          </SelectValue>
-                        </SelectTrigger>
-                      </FormControl>
+                            </span>
+                          ) : (
+                            'Seleccionar tipo'
+                          )}
+                        </SelectValue>
+                      </SelectTrigger>
                       <SelectContent>
                         {sessionTypes?.map((type) => (
                           <SelectItem key={type.id} value={type.id}>
@@ -734,11 +725,9 @@ export function QuickCreateSessionDialog({
                     Cancelación
                   </FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger className="h-10">
-                        <SelectValue />
-                      </SelectTrigger>
-                    </FormControl>
+                    <SelectTrigger className="h-10">
+                      <SelectValue />
+                    </SelectTrigger>
                     <SelectContent>
                       {CANCELLATION_OPTIONS.map((opt) => (
                         <SelectItem key={opt.value} value={opt.value}>
@@ -763,11 +752,9 @@ export function QuickCreateSessionDialog({
                     Videollamada
                   </FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger className="h-10">
-                        <SelectValue />
-                      </SelectTrigger>
-                    </FormControl>
+                    <SelectTrigger className="h-10">
+                      <SelectValue />
+                    </SelectTrigger>
                     <SelectContent>
                       {MODALITY_OPTIONS.map((opt) => (
                         <SelectItem key={opt.value} value={opt.value}>
@@ -814,11 +801,9 @@ export function QuickCreateSessionDialog({
                     </FormLabel>
                     <div className="flex gap-2">
                       <Select onValueChange={(v) => field.onChange(v === '__none__' ? '' : v)} value={field.value || '__none__'}>
-                        <FormControl>
-                          <SelectTrigger className="h-10 flex-1">
-                            <SelectValue placeholder="Sin especificar" />
-                          </SelectTrigger>
-                        </FormControl>
+                        <SelectTrigger className="h-10 flex-1">
+                          <SelectValue placeholder="Sin especificar" />
+                        </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="__none__">Sin especificar</SelectItem>
                           {locations?.map((loc) => (
@@ -910,11 +895,9 @@ export function QuickCreateSessionDialog({
                     Modo de pago
                   </FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger className="h-10">
-                        <SelectValue />
-                      </SelectTrigger>
-                    </FormControl>
+                    <SelectTrigger className="h-10">
+                      <SelectValue />
+                    </SelectTrigger>
                     <SelectContent>
                       {PAYMENT_MODE_OPTIONS.map((opt) => (
                         <SelectItem key={opt.value} value={opt.value}>
