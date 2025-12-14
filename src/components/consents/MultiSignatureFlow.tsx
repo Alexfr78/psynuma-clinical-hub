@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Card } from '@/components/ui/card';
@@ -10,6 +10,68 @@ import { Loader2, CheckCircle2, ArrowRight } from 'lucide-react';
 interface MultiSignatureFlowProps {
   consent: PublicConsent;
   token: string;
+}
+
+const VERIFICATION_PLACEHOLDER = '{campos_verificacion}';
+
+// Component to render document with inline verification checkboxes
+interface DocumentWithVerificationsProps {
+  content: string;
+  verificationCheckboxes: string[];
+  acceptedVerifications: Record<number, boolean>;
+  setAcceptedVerifications: React.Dispatch<React.SetStateAction<Record<number, boolean>>>;
+  hasPlaceholder: boolean;
+  prefix: string;
+}
+
+function DocumentWithVerifications({
+  content,
+  verificationCheckboxes,
+  acceptedVerifications,
+  setAcceptedVerifications,
+  hasPlaceholder,
+  prefix,
+}: DocumentWithVerificationsProps) {
+  if (!hasPlaceholder || verificationCheckboxes.length === 0) {
+    return (
+      <div
+        className="prose prose-sm max-w-none dark:prose-invert"
+        dangerouslySetInnerHTML={{ __html: content }}
+      />
+    );
+  }
+
+  // Split content by placeholder
+  const parts = content.split(VERIFICATION_PLACEHOLDER);
+
+  return (
+    <div className="prose prose-sm max-w-none dark:prose-invert">
+      <div dangerouslySetInnerHTML={{ __html: parts[0] }} />
+      
+      {/* Inline checkboxes */}
+      <div className="my-4 space-y-3 rounded-md border bg-muted/30 p-4 not-prose">
+        {verificationCheckboxes.map((checkbox, index) => (
+          <div key={index} className="flex items-start gap-3">
+            <Checkbox
+              id={`${prefix}-verification-${index}`}
+              checked={acceptedVerifications[index] || false}
+              onCheckedChange={(checked) => 
+                setAcceptedVerifications(prev => ({ ...prev, [index]: checked === true }))
+              }
+            />
+            <label 
+              htmlFor={`${prefix}-verification-${index}`} 
+              className="text-sm leading-tight cursor-pointer"
+            >
+              {checkbox}
+            </label>
+          </div>
+        ))}
+      </div>
+      
+      {parts[1] && <div dangerouslySetInnerHTML={{ __html: parts[1] }} />}
+    </div>
+  );
 }
 
 export function MultiSignatureFlow({ consent, token }: MultiSignatureFlowProps) {
@@ -25,6 +87,9 @@ export function MultiSignatureFlow({ consent, token }: MultiSignatureFlowProps) 
   const verificationCheckboxes = consent.template?.verification_checkboxes || [];
   const allVerificationsAccepted = verificationCheckboxes.length === 0 || 
     verificationCheckboxes.every((_, index) => acceptedVerifications[index]);
+
+  // Check if placeholder exists in content
+  const hasPlaceholderInContent = consent.content_snapshot.includes(VERIFICATION_PLACEHOLDER);
 
   const needsGuardian = consent.requires_guardian;
   const guardianSigned = consent.signatures?.some((s) => s.signer_role === 'guardian');
@@ -125,13 +190,17 @@ export function MultiSignatureFlow({ consent, token }: MultiSignatureFlowProps) 
       {currentStep === 'document' && (
         <>
           <Card className="max-h-[400px] overflow-auto p-6">
-            <div
-              className="prose prose-sm max-w-none dark:prose-invert"
-              dangerouslySetInnerHTML={{ __html: consent.content_snapshot }}
+            <DocumentWithVerifications 
+              content={consent.content_snapshot}
+              verificationCheckboxes={verificationCheckboxes}
+              acceptedVerifications={acceptedVerifications}
+              setAcceptedVerifications={setAcceptedVerifications}
+              hasPlaceholder={hasPlaceholderInContent}
+              prefix="document"
             />
           </Card>
           <div className="flex justify-end">
-            <Button onClick={handleProceedToSign}>
+            <Button onClick={handleProceedToSign} disabled={!allVerificationsAccepted && hasPlaceholderInContent}>
               Proceder a firmar
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
@@ -151,8 +220,8 @@ export function MultiSignatureFlow({ consent, token }: MultiSignatureFlowProps) 
 
           <SignatureCanvas ref={signatureRef} onSignatureChange={setHasSignature} />
 
-          {/* Verification Checkboxes */}
-          {verificationCheckboxes.length > 0 && (
+          {/* Verification Checkboxes - only show here if NOT in document */}
+          {!hasPlaceholderInContent && verificationCheckboxes.length > 0 && (
             <div className="space-y-3">
               {verificationCheckboxes.map((checkbox, index) => (
                 <div key={index} className="flex items-start gap-3">
@@ -213,8 +282,8 @@ export function MultiSignatureFlow({ consent, token }: MultiSignatureFlowProps) 
 
           <SignatureCanvas ref={signatureRef} onSignatureChange={setHasSignature} />
 
-          {/* Verification Checkboxes */}
-          {verificationCheckboxes.length > 0 && (
+          {/* Verification Checkboxes - only show here if NOT in document */}
+          {!hasPlaceholderInContent && verificationCheckboxes.length > 0 && (
             <div className="space-y-3">
               {verificationCheckboxes.map((checkbox, index) => (
                 <div key={index} className="flex items-start gap-3">
