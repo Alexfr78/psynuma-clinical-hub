@@ -317,7 +317,7 @@ export function MultiSignatureFlow({ consent, token }: MultiSignatureFlowProps) 
             />
           </Card>
           <div className="flex justify-end">
-            <Button onClick={handleProceedToSign} disabled={!allVerificationsAccepted}>
+            <Button onClick={handleProceedToSign}>
               Proceder a firmar
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
@@ -372,7 +372,7 @@ export function MultiSignatureFlow({ consent, token }: MultiSignatureFlowProps) 
 
           <Button
             className="w-full"
-            disabled={!hasSignature || !acceptedGdpr || !allVerificationsAccepted || isSubmitting}
+            disabled={!hasSignature || !acceptedGdpr || isSubmitting}
             onClick={() => handleSign('guardian')}
           >
             {isSubmitting ? (
@@ -434,7 +434,7 @@ export function MultiSignatureFlow({ consent, token }: MultiSignatureFlowProps) 
 
           <Button
             className="w-full"
-            disabled={!hasSignature || !acceptedGdpr || !allVerificationsAccepted || isSubmitting}
+            disabled={!hasSignature || !acceptedGdpr || isSubmitting}
             onClick={() => handleSign('patient')}
           >
             {isSubmitting ? (
