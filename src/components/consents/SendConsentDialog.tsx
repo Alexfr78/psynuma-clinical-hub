@@ -65,20 +65,20 @@ ${consent.professional?.first_name || 'Tu profesional'}`;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md w-[calc(100vw-2rem)]">
         <DialogHeader>
           <DialogTitle>Enviar enlace de firma</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="space-y-4 overflow-hidden">
           {/* Link Section */}
           <div className="space-y-2">
             <p className="text-sm font-medium">Enlace de firma</p>
             <div className="flex items-center gap-2">
-              <code className="flex-1 truncate rounded bg-muted px-3 py-2 text-xs">
+              <code className="flex-1 overflow-hidden rounded bg-muted px-3 py-2 text-xs break-all">
                 {consentUrl}
               </code>
-              <Button size="icon" variant="outline" onClick={handleCopyLink}>
+              <Button size="icon" variant="outline" className="shrink-0" onClick={handleCopyLink}>
                 {copied ? (
                   <Check className="h-4 w-4 text-green-500" />
                 ) : (
@@ -123,10 +123,10 @@ ${consent.professional?.first_name || 'Tu profesional'}`;
           </div>
 
           {/* Message Preview */}
-          <div className="space-y-2">
+          <div className="space-y-2 overflow-hidden">
             <p className="text-sm font-medium">Vista previa del mensaje</p>
             <div className="max-h-[150px] overflow-auto rounded-lg bg-muted p-3">
-              <pre className="whitespace-pre-wrap text-xs">{message}</pre>
+              <pre className="whitespace-pre-wrap break-all text-xs">{message}</pre>
             </div>
           </div>
 
