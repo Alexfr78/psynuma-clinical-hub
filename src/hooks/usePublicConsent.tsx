@@ -23,6 +23,7 @@ export interface PublicConsent {
   };
   template: {
     name: string;
+    verification_checkboxes: string[] | null;
   };
   signatures: {
     id: string;
@@ -53,7 +54,7 @@ export function usePublicConsent(token: string | undefined) {
           signed_at,
           patient:patients(first_name, last_name, guardian_name, guardian_relationship),
           professional:profiles(first_name, last_name),
-          template:consent_templates(name),
+          template:consent_templates(name, verification_checkboxes),
           signatures:consent_signatures(id, signer_role, signature_order, signed_at)
         `)
         .eq('access_token', token)

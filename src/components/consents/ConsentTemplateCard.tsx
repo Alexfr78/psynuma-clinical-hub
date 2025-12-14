@@ -40,6 +40,7 @@ export function ConsentTemplateCard({ template }: ConsentTemplateCardProps) {
       content_html: template.content_html,
       requires_guardian_signature: template.requires_guardian_signature,
       is_active: true,
+      verification_checkboxes: template.verification_checkboxes || [],
     });
   };
 

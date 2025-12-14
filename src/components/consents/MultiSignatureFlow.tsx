@@ -19,7 +19,12 @@ export function MultiSignatureFlow({ consent, token }: MultiSignatureFlowProps) 
   const [currentStep, setCurrentStep] = useState<'document' | 'guardian' | 'patient' | 'complete'>('document');
   const [hasSignature, setHasSignature] = useState(false);
   const [acceptedGdpr, setAcceptedGdpr] = useState(false);
+  const [acceptedVerifications, setAcceptedVerifications] = useState<Record<number, boolean>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const verificationCheckboxes = consent.template?.verification_checkboxes || [];
+  const allVerificationsAccepted = verificationCheckboxes.length === 0 || 
+    verificationCheckboxes.every((_, index) => acceptedVerifications[index]);
 
   const needsGuardian = consent.requires_guardian;
   const guardianSigned = consent.signatures?.some((s) => s.signer_role === 'guardian');
@@ -72,6 +77,7 @@ export function MultiSignatureFlow({ consent, token }: MultiSignatureFlowProps) 
       signatureRef.current.clear();
       setHasSignature(false);
       setAcceptedGdpr(false);
+      setAcceptedVerifications({});
 
       if (role === 'guardian') {
         setCurrentStep('patient');
@@ -145,6 +151,26 @@ export function MultiSignatureFlow({ consent, token }: MultiSignatureFlowProps) 
 
           <SignatureCanvas ref={signatureRef} onSignatureChange={setHasSignature} />
 
+          {/* Verification Checkboxes */}
+          {verificationCheckboxes.length > 0 && (
+            <div className="space-y-3">
+              {verificationCheckboxes.map((checkbox, index) => (
+                <div key={index} className="flex items-start gap-3">
+                  <Checkbox
+                    id={`verification-guardian-${index}`}
+                    checked={acceptedVerifications[index] || false}
+                    onCheckedChange={(checked) => 
+                      setAcceptedVerifications(prev => ({ ...prev, [index]: checked === true }))
+                    }
+                  />
+                  <label htmlFor={`verification-guardian-${index}`} className="text-sm leading-tight">
+                    {checkbox}
+                  </label>
+                </div>
+              ))}
+            </div>
+          )}
+
           <div className="flex items-start gap-3">
             <Checkbox
               id="gdpr-guardian"
@@ -160,7 +186,7 @@ export function MultiSignatureFlow({ consent, token }: MultiSignatureFlowProps) 
 
           <Button
             className="w-full"
-            disabled={!hasSignature || !acceptedGdpr || isSubmitting}
+            disabled={!hasSignature || !acceptedGdpr || !allVerificationsAccepted || isSubmitting}
             onClick={() => handleSign('guardian')}
           >
             {isSubmitting ? (
@@ -187,6 +213,26 @@ export function MultiSignatureFlow({ consent, token }: MultiSignatureFlowProps) 
 
           <SignatureCanvas ref={signatureRef} onSignatureChange={setHasSignature} />
 
+          {/* Verification Checkboxes */}
+          {verificationCheckboxes.length > 0 && (
+            <div className="space-y-3">
+              {verificationCheckboxes.map((checkbox, index) => (
+                <div key={index} className="flex items-start gap-3">
+                  <Checkbox
+                    id={`verification-patient-${index}`}
+                    checked={acceptedVerifications[index] || false}
+                    onCheckedChange={(checked) => 
+                      setAcceptedVerifications(prev => ({ ...prev, [index]: checked === true }))
+                    }
+                  />
+                  <label htmlFor={`verification-patient-${index}`} className="text-sm leading-tight">
+                    {checkbox}
+                  </label>
+                </div>
+              ))}
+            </div>
+          )}
+
           <div className="flex items-start gap-3">
             <Checkbox
               id="gdpr-patient"
@@ -202,7 +248,7 @@ export function MultiSignatureFlow({ consent, token }: MultiSignatureFlowProps) 
 
           <Button
             className="w-full"
-            disabled={!hasSignature || !acceptedGdpr || isSubmitting}
+            disabled={!hasSignature || !acceptedGdpr || !allVerificationsAccepted || isSubmitting}
             onClick={() => handleSign('patient')}
           >
             {isSubmitting ? (

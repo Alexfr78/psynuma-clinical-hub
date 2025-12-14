@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -20,7 +20,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Plus, X } from 'lucide-react';
 import { ConsentTemplate, useConsentTemplates } from '@/hooks/useConsentTemplates';
 import { TemplateEditor } from './TemplateEditor';
 
@@ -29,6 +29,7 @@ const schema = z.object({
   content_html: z.string().min(10, 'El contenido es obligatorio'),
   requires_guardian_signature: z.boolean(),
   is_active: z.boolean(),
+  verification_checkboxes: z.array(z.string()),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -62,6 +63,7 @@ export function CreateTemplateDialog({
 }: CreateTemplateDialogProps) {
   const { createTemplate, updateTemplate } = useConsentTemplates();
   const isEditing = !!template;
+  const [newCheckbox, setNewCheckbox] = useState('');
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -70,6 +72,7 @@ export function CreateTemplateDialog({
       content_html: defaultContent,
       requires_guardian_signature: false,
       is_active: true,
+      verification_checkboxes: [],
     },
   });
 
@@ -80,6 +83,7 @@ export function CreateTemplateDialog({
         content_html: template.content_html,
         requires_guardian_signature: template.requires_guardian_signature,
         is_active: template.is_active,
+        verification_checkboxes: template.verification_checkboxes || [],
       });
     } else {
       form.reset({
@@ -87,9 +91,23 @@ export function CreateTemplateDialog({
         content_html: defaultContent,
         requires_guardian_signature: false,
         is_active: true,
+        verification_checkboxes: [],
       });
     }
   }, [template, form]);
+
+  const addCheckbox = () => {
+    if (newCheckbox.trim()) {
+      const current = form.getValues('verification_checkboxes');
+      form.setValue('verification_checkboxes', [...current, newCheckbox.trim()]);
+      setNewCheckbox('');
+    }
+  };
+
+  const removeCheckbox = (index: number) => {
+    const current = form.getValues('verification_checkboxes');
+    form.setValue('verification_checkboxes', current.filter((_, i) => i !== index));
+  };
 
   const onSubmit = async (values: FormValues) => {
     if (isEditing) {
@@ -100,6 +118,7 @@ export function CreateTemplateDialog({
         content_html: values.content_html,
         requires_guardian_signature: values.requires_guardian_signature,
         is_active: values.is_active,
+        verification_checkboxes: values.verification_checkboxes,
       });
     }
     onOpenChange(false);
@@ -148,6 +167,48 @@ export function CreateTemplateDialog({
                 </FormItem>
               )}
             />
+
+            {/* Verification Checkboxes Section */}
+            <div className="space-y-3">
+              <FormLabel>Campos de verificación</FormLabel>
+              <FormDescription className="text-xs">
+                Añade checkboxes que el cliente deberá marcar al firmar el consentimiento
+              </FormDescription>
+              
+              <div className="space-y-2">
+                {form.watch('verification_checkboxes').map((checkbox, index) => (
+                  <div key={index} className="flex items-center gap-2 rounded-md border bg-muted/50 p-2">
+                    <span className="flex-1 text-sm">{checkbox}</span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6"
+                      onClick={() => removeCheckbox(index)}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Ej: Acepto el tratamiento de mis datos personales"
+                  value={newCheckbox}
+                  onChange={(e) => setNewCheckbox(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      addCheckbox();
+                    }
+                  }}
+                />
+                <Button type="button" variant="outline" size="icon" onClick={addCheckbox}>
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
 
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <FormField
