@@ -66,8 +66,17 @@ function DocumentWithVerifications({
   const processedContent = replaceVerificationPlaceholder(content);
   const cleanContent = processedContent.replace(CHECKBOX_MARKER, '');
   
+  // DEBUG logs - will be available in console
+  console.log('[Verification Debug] hasPlaceholder prop:', hasPlaceholder);
+  console.log('[Verification Debug] verificationCheckboxes:', verificationCheckboxes);
+  console.log('[Verification Debug] content includes placeholder:', content.includes('{campos_verificacion}'));
+  console.log('[Verification Debug] processedContent includes marker:', processedContent.includes(CHECKBOX_MARKER));
+  console.log('[Verification Debug] content snippet around placeholder:', 
+    content.substring(content.indexOf('AUTORIZACIÓN'), content.indexOf('Derechos') + 50));
+  
   // If no verification checkboxes, just render the content without the placeholder
   if (verificationCheckboxes.length === 0) {
+    console.log('[Verification Debug] No checkboxes configured, rendering plain content');
     return (
       <div
         className="prose prose-sm max-w-none dark:prose-invert"
@@ -78,6 +87,7 @@ function DocumentWithVerifications({
 
   // If placeholder exists, split by the clean marker and insert checkboxes at that position
   if (hasPlaceholder && processedContent.includes(CHECKBOX_MARKER)) {
+    console.log('[Verification Debug] Rendering checkboxes at placeholder position');
     const parts = processedContent.split(CHECKBOX_MARKER);
 
     return (
