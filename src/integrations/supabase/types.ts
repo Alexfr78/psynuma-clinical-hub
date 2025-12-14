@@ -354,6 +354,7 @@ export type Database = {
           address_details: string | null
           auto_invoicing_enabled: boolean | null
           city: string | null
+          consent_expiration_days: number | null
           country: string | null
           created_at: string
           default_payment_mode: string | null
@@ -406,6 +407,7 @@ export type Database = {
           address_details?: string | null
           auto_invoicing_enabled?: boolean | null
           city?: string | null
+          consent_expiration_days?: number | null
           country?: string | null
           created_at?: string
           default_payment_mode?: string | null
@@ -458,6 +460,7 @@ export type Database = {
           address_details?: string | null
           auto_invoicing_enabled?: boolean | null
           city?: string | null
+          consent_expiration_days?: number | null
           country?: string | null
           created_at?: string
           default_payment_mode?: string | null
@@ -559,6 +562,177 @@ export type Database = {
             columns: ["center_id"]
             isOneToOne: false
             referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      consent_signatures: {
+        Row: {
+          consent_id: string
+          id: string
+          ip_address: string | null
+          signature_data: string
+          signature_order: number
+          signed_at: string | null
+          signer_name: string
+          signer_role: string
+          user_agent: string | null
+        }
+        Insert: {
+          consent_id: string
+          id?: string
+          ip_address?: string | null
+          signature_data: string
+          signature_order: number
+          signed_at?: string | null
+          signer_name: string
+          signer_role: string
+          user_agent?: string | null
+        }
+        Update: {
+          consent_id?: string
+          id?: string
+          ip_address?: string | null
+          signature_data?: string
+          signature_order?: number
+          signed_at?: string | null
+          signer_name?: string
+          signer_role?: string
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "consent_signatures_consent_id_fkey"
+            columns: ["consent_id"]
+            isOneToOne: false
+            referencedRelation: "consents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      consent_templates: {
+        Row: {
+          center_id: string
+          content_html: string
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          requires_guardian_signature: boolean | null
+          updated_at: string | null
+        }
+        Insert: {
+          center_id: string
+          content_html: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          requires_guardian_signature?: boolean | null
+          updated_at?: string | null
+        }
+        Update: {
+          center_id?: string
+          content_html?: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          requires_guardian_signature?: boolean | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "consent_templates_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      consents: {
+        Row: {
+          access_token: string
+          center_id: string
+          content_snapshot: string
+          created_at: string | null
+          expires_at: string
+          id: string
+          patient_id: string
+          professional_id: string
+          requires_guardian: boolean | null
+          revocation_reason: string | null
+          revoked_at: string | null
+          signed_at: string | null
+          signed_pdf_url: string | null
+          status: Database["public"]["Enums"]["consent_status"] | null
+          template_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          access_token?: string
+          center_id: string
+          content_snapshot: string
+          created_at?: string | null
+          expires_at: string
+          id?: string
+          patient_id: string
+          professional_id: string
+          requires_guardian?: boolean | null
+          revocation_reason?: string | null
+          revoked_at?: string | null
+          signed_at?: string | null
+          signed_pdf_url?: string | null
+          status?: Database["public"]["Enums"]["consent_status"] | null
+          template_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          access_token?: string
+          center_id?: string
+          content_snapshot?: string
+          created_at?: string | null
+          expires_at?: string
+          id?: string
+          patient_id?: string
+          professional_id?: string
+          requires_guardian?: boolean | null
+          revocation_reason?: string | null
+          revoked_at?: string | null
+          signed_at?: string | null
+          signed_pdf_url?: string | null
+          status?: Database["public"]["Enums"]["consent_status"] | null
+          template_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "consents_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consents_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consents_professional_id_fkey"
+            columns: ["professional_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consents_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "consent_templates"
             referencedColumns: ["id"]
           },
         ]
@@ -1715,6 +1889,7 @@ export type Database = {
     Enums: {
       app_role: "admin" | "professional" | "patient"
       bono_status: "active" | "exhausted" | "expired" | "cancelled"
+      consent_status: "pending" | "signed" | "revoked" | "expired"
       invoice_status: "draft" | "issued" | "paid" | "cancelled"
       notification_status: "pending" | "sent" | "failed"
       notification_type: "email" | "sms" | "whatsapp"
@@ -1856,6 +2031,7 @@ export const Constants = {
     Enums: {
       app_role: ["admin", "professional", "patient"],
       bono_status: ["active", "exhausted", "expired", "cancelled"],
+      consent_status: ["pending", "signed", "revoked", "expired"],
       invoice_status: ["draft", "issued", "paid", "cancelled"],
       notification_status: ["pending", "sent", "failed"],
       notification_type: ["email", "sms", "whatsapp"],
