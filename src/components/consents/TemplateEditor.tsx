@@ -1,11 +1,24 @@
-import { useState } from 'react';
-import { Textarea } from '@/components/ui/textarea';
+import { useState, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card } from '@/components/ui/card';
-import { TemplateVariables, TEMPLATE_VARIABLES } from './TemplateVariables';
-import { Eye, Code } from 'lucide-react';
+import { TemplateVariables } from './TemplateVariables';
+import { 
+  Eye, 
+  Code, 
+  Bold, 
+  Italic, 
+  Underline,
+  Heading1, 
+  Heading2, 
+  List, 
+  ListOrdered,
+  AlignLeft,
+  AlignCenter,
+  AlignRight
+} from 'lucide-react';
+import { Toggle } from '@/components/ui/toggle';
+import { Separator } from '@/components/ui/separator';
 
 interface TemplateEditorProps {
   value: string;
@@ -14,14 +27,39 @@ interface TemplateEditorProps {
 
 export function TemplateEditor({ value, onChange }: TemplateEditorProps) {
   const [activeTab, setActiveTab] = useState<'edit' | 'preview'>('edit');
+  const editorRef = useRef<HTMLDivElement>(null);
 
-  const insertVariable = (variable: string) => {
-    onChange(value + variable);
-  };
+  const execCommand = useCallback((command: string, value?: string) => {
+    document.execCommand(command, false, value);
+    // Update the value after command execution
+    if (editorRef.current) {
+      onChange(editorRef.current.innerHTML);
+    }
+    editorRef.current?.focus();
+  }, [onChange]);
+
+  const insertVariable = useCallback((variable: string) => {
+    if (editorRef.current) {
+      editorRef.current.focus();
+      document.execCommand('insertText', false, variable);
+      onChange(editorRef.current.innerHTML);
+    }
+  }, [onChange]);
+
+  const handleInput = useCallback(() => {
+    if (editorRef.current) {
+      onChange(editorRef.current.innerHTML);
+    }
+  }, [onChange]);
+
+  const handlePaste = useCallback((e: React.ClipboardEvent) => {
+    e.preventDefault();
+    const text = e.clipboardData.getData('text/plain');
+    document.execCommand('insertText', false, text);
+  }, []);
 
   const renderPreview = () => {
     let preview = value;
-    // Replace variables with example values
     const exampleValues: Record<string, string> = {
       '{nombre_paciente}': 'María',
       '{apellidos_paciente}': 'García López',
@@ -63,15 +101,102 @@ export function TemplateEditor({ value, onChange }: TemplateEditorProps) {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="edit" className="mt-4">
-          <Textarea
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            className="min-h-[400px] font-mono text-sm"
-            placeholder="Escribe el contenido del consentimiento aquí..."
+        <TabsContent value="edit" className="mt-4 space-y-2">
+          {/* Toolbar */}
+          <div className="flex flex-wrap items-center gap-1 rounded-md border bg-muted/50 p-1">
+            <Toggle
+              size="sm"
+              onPressedChange={() => execCommand('bold')}
+              aria-label="Negrita"
+            >
+              <Bold className="h-4 w-4" />
+            </Toggle>
+            <Toggle
+              size="sm"
+              onPressedChange={() => execCommand('italic')}
+              aria-label="Cursiva"
+            >
+              <Italic className="h-4 w-4" />
+            </Toggle>
+            <Toggle
+              size="sm"
+              onPressedChange={() => execCommand('underline')}
+              aria-label="Subrayado"
+            >
+              <Underline className="h-4 w-4" />
+            </Toggle>
+            
+            <Separator orientation="vertical" className="mx-1 h-6" />
+            
+            <Toggle
+              size="sm"
+              onPressedChange={() => execCommand('formatBlock', 'h1')}
+              aria-label="Título 1"
+            >
+              <Heading1 className="h-4 w-4" />
+            </Toggle>
+            <Toggle
+              size="sm"
+              onPressedChange={() => execCommand('formatBlock', 'h2')}
+              aria-label="Título 2"
+            >
+              <Heading2 className="h-4 w-4" />
+            </Toggle>
+            
+            <Separator orientation="vertical" className="mx-1 h-6" />
+            
+            <Toggle
+              size="sm"
+              onPressedChange={() => execCommand('insertUnorderedList')}
+              aria-label="Lista"
+            >
+              <List className="h-4 w-4" />
+            </Toggle>
+            <Toggle
+              size="sm"
+              onPressedChange={() => execCommand('insertOrderedList')}
+              aria-label="Lista numerada"
+            >
+              <ListOrdered className="h-4 w-4" />
+            </Toggle>
+            
+            <Separator orientation="vertical" className="mx-1 h-6" />
+            
+            <Toggle
+              size="sm"
+              onPressedChange={() => execCommand('justifyLeft')}
+              aria-label="Alinear izquierda"
+            >
+              <AlignLeft className="h-4 w-4" />
+            </Toggle>
+            <Toggle
+              size="sm"
+              onPressedChange={() => execCommand('justifyCenter')}
+              aria-label="Centrar"
+            >
+              <AlignCenter className="h-4 w-4" />
+            </Toggle>
+            <Toggle
+              size="sm"
+              onPressedChange={() => execCommand('justifyRight')}
+              aria-label="Alinear derecha"
+            >
+              <AlignRight className="h-4 w-4" />
+            </Toggle>
+          </div>
+
+          {/* Editor */}
+          <div
+            ref={editorRef}
+            contentEditable
+            className="min-h-[400px] rounded-md border bg-background p-4 focus:outline-none focus:ring-2 focus:ring-ring prose prose-sm max-w-none dark:prose-invert"
+            onInput={handleInput}
+            onPaste={handlePaste}
+            dangerouslySetInnerHTML={{ __html: value }}
+            suppressContentEditableWarning
           />
-          <p className="mt-2 text-xs text-muted-foreground">
-            Puedes usar HTML básico (h1, h2, p, strong, em, ul, ol, li) y las variables dinámicas.
+          <p className="text-xs text-muted-foreground">
+            Usa los botones de la barra de herramientas para dar formato al texto y las variables dinámicas.
           </p>
         </TabsContent>
 
