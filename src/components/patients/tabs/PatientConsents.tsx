@@ -60,7 +60,7 @@ export function PatientConsents({ patientId, patient }: PatientConsentsProps) {
           </Button>
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
           {consents.map((consent) => (
             <ConsentCard key={consent.id} consent={consent} />
           ))}
