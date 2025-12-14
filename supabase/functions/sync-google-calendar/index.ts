@@ -317,47 +317,114 @@ async function syncProfessional(
   const titleFormat = integrations?.google_event_title_format || '{tipo} - {paciente}';
   const descriptionFormat = integrations?.google_event_description_format || 'Profesional: {profesional}\nTipo: {tipo}\nNotas: {notas}';
 
-  // Sync Psycma sessions to Google Calendar
-  for (const session of sessions || []) {
-    if (!session.google_calendar_event_id) {
-      // Create new event in Google Calendar
-      const eventId = await createGoogleCalendarEvent(
-        accessToken,
-        calendarId,
-        session,
-        session.patient,
-        professional,
-        titleFormat,
-        descriptionFormat
-      );
-
-      if (eventId) {
-        await supabase
-          .from('sessions')
-          .update({ google_calendar_event_id: eventId })
-          .eq('id', session.id);
-        result.created++;
-      } else {
-        result.errors.push(`Failed to create event for session ${session.id}`);
-      }
-    } else {
-      // Update existing event
-      const updated = await updateGoogleCalendarEvent(
-        accessToken,
-        calendarId,
-        session.google_calendar_event_id,
-        session,
-        session.patient,
-        professional,
-        titleFormat,
-        descriptionFormat
-      );
-
-      if (updated) {
-        result.updated++;
+    // Two-way sync preparation: fetch Google events first to detect changes
+    const timeMin = `${dateFrom}T00:00:00Z`;
+    const timeMax = `${dateTo}T23:59:59Z`;
+    const googleEvents = await fetchGoogleCalendarEvents(accessToken, calendarId, timeMin, timeMax);
+    
+    // Build a map of Google event IDs to their data for change detection
+    const googleEventMap = new Map<string, any>();
+    for (const event of googleEvents) {
+      if (event.id) {
+        googleEventMap.set(event.id, event);
       }
     }
-  }
+
+    // Sync Psycma sessions to Google Calendar
+    for (const session of sessions || []) {
+      if (!session.google_calendar_event_id) {
+        // Create new event in Google Calendar
+        const eventId = await createGoogleCalendarEvent(
+          accessToken,
+          calendarId,
+          session,
+          session.patient,
+          professional,
+          titleFormat,
+          descriptionFormat
+        );
+
+        if (eventId) {
+          await supabase
+            .from('sessions')
+            .update({ google_calendar_event_id: eventId })
+            .eq('id', session.id);
+          result.created++;
+        } else {
+          result.errors.push(`Failed to create event for session ${session.id}`);
+        }
+      } else {
+        // Check if the event still exists in Google Calendar
+        const googleEvent = googleEventMap.get(session.google_calendar_event_id);
+        
+        if (!googleEvent) {
+          // Event was deleted from Google Calendar - recreate it
+          console.log(`Event ${session.google_calendar_event_id} not found in Google, recreating...`);
+          const newEventId = await createGoogleCalendarEvent(
+            accessToken,
+            calendarId,
+            session,
+            session.patient,
+            professional,
+            titleFormat,
+            descriptionFormat
+          );
+
+          if (newEventId) {
+            await supabase
+              .from('sessions')
+              .update({ google_calendar_event_id: newEventId })
+              .eq('id', session.id);
+            result.created++;
+          } else {
+            result.errors.push(`Failed to recreate event for session ${session.id}`);
+          }
+        } else {
+          // Event exists - check if Google has newer changes (two-way sync)
+          if (integrations?.google_calendar_sync_mode === 'two_way' && googleEvent.start?.dateTime) {
+            const startDate = new Date(googleEvent.start.dateTime);
+            const endDate = new Date(googleEvent.end.dateTime);
+            const googleSessionDate = startDate.toISOString().split('T')[0];
+            const googleStartTime = startDate.toTimeString().slice(0, 5);
+            const googleEndTime = endDate.toTimeString().slice(0, 5);
+
+            // Check if Google event differs from Psycma session
+            if (session.session_date !== googleSessionDate ||
+                session.start_time !== googleStartTime ||
+                session.end_time !== googleEndTime) {
+              // Google has changes - update Psycma session
+              console.log(`Session ${session.id} differs from Google event - updating Psycma`);
+              await supabase
+                .from('sessions')
+                .update({
+                  session_date: googleSessionDate,
+                  start_time: googleStartTime,
+                  end_time: googleEndTime,
+                })
+                .eq('id', session.id);
+              result.updated++;
+              continue; // Skip updating Google since we just synced from it
+            }
+          }
+          
+          // Update existing event in Google Calendar
+          const updated = await updateGoogleCalendarEvent(
+            accessToken,
+            calendarId,
+            session.google_calendar_event_id,
+            session,
+            session.patient,
+            professional,
+            titleFormat,
+            descriptionFormat
+          );
+
+          if (updated) {
+            result.updated++;
+          }
+        }
+      }
+    }
 
   // Handle cancelled sessions - delete from Google Calendar
   const { data: cancelledSessions } = await supabase
@@ -387,117 +454,106 @@ async function syncProfessional(
     }
   }
 
-  // Two-way sync: Import events from Google Calendar as blocked slots
-  if (integrations?.google_calendar_sync_mode === 'two_way') {
-    const timeMin = `${dateFrom}T00:00:00Z`;
-    const timeMax = `${dateTo}T23:59:59Z`;
-    
-    const googleEvents = await fetchGoogleCalendarEvents(accessToken, calendarId, timeMin, timeMax);
-    
-    // Get existing session event IDs to check for updates
-    const existingEventIds = new Set(
-      (sessions || [])
-        .map((s: any) => s.google_calendar_event_id)
-        .filter(Boolean)
-    );
-    
-    // Get professional's center_id and a placeholder patient for blocked events
-    const { data: profData } = await supabase
-      .from('profiles')
-      .select('center_id')
-      .eq('id', professionalId)
-      .single();
-
-    // Get or create a placeholder patient for blocked events
-    let placeholderPatientId: string | null = null;
-    if (profData?.center_id) {
-      const { data: existingPlaceholder } = await supabase
-        .from('patients')
-        .select('id')
-        .eq('center_id', profData.center_id)
-        .eq('first_name', '[Bloqueado]')
-        .eq('last_name', 'Google Calendar')
-        .maybeSingle();
+    // Two-way sync: Import events from Google Calendar as blocked slots
+    if (integrations?.google_calendar_sync_mode === 'two_way') {
+      // Get existing session event IDs to check for updates
+      const existingEventIds = new Set(
+        (sessions || [])
+          .map((s: any) => s.google_calendar_event_id)
+          .filter(Boolean)
+      );
       
-      if (existingPlaceholder) {
-        placeholderPatientId = existingPlaceholder.id;
-      } else {
-        const { data: newPlaceholder } = await supabase
+      // Get professional's center_id and a placeholder patient for blocked events
+      const { data: profData } = await supabase
+        .from('profiles')
+        .select('center_id')
+        .eq('id', professionalId)
+        .single();
+
+      // Get or create a placeholder patient for blocked events
+      let placeholderPatientId: string | null = null;
+      if (profData?.center_id) {
+        const { data: existingPlaceholder } = await supabase
           .from('patients')
-          .insert({
-            center_id: profData.center_id,
-            first_name: '[Bloqueado]',
-            last_name: 'Google Calendar',
-            status: 'inactive',
-          })
           .select('id')
-          .single();
-        placeholderPatientId = newPlaceholder?.id || null;
-      }
-    }
-
-    // Build a map of Google event IDs to their data for change detection
-    const googleEventMap = new Map<string, any>();
-    for (const event of googleEvents) {
-      if (event.start?.dateTime) {
-        googleEventMap.set(event.id, event);
-      }
-    }
-
-    // Check for imported sessions that need updates or were deleted from Google
-    const { data: importedSessions } = await supabase
-      .from('sessions')
-      .select('id, google_calendar_event_id, session_date, start_time, end_time, notes, status')
-      .eq('professional_id', professionalId)
-      .eq('status', 'blocked')
-      .not('google_calendar_event_id', 'is', null)
-      .gte('session_date', dateFrom)
-      .lte('session_date', dateTo);
-
-    for (const session of importedSessions || []) {
-      const googleEvent = googleEventMap.get(session.google_calendar_event_id);
-      
-      if (!googleEvent) {
-        // Event was deleted from Google Calendar - cancel the session
-        await supabase
-          .from('sessions')
-          .update({ status: 'cancelled' })
-          .eq('id', session.id);
-        result.deleted++;
-        continue;
+          .eq('center_id', profData.center_id)
+          .eq('first_name', '[Bloqueado]')
+          .eq('last_name', 'Google Calendar')
+          .maybeSingle();
+        
+        if (existingPlaceholder) {
+          placeholderPatientId = existingPlaceholder.id;
+        } else {
+          const { data: newPlaceholder } = await supabase
+            .from('patients')
+            .insert({
+              center_id: profData.center_id,
+              first_name: '[Bloqueado]',
+              last_name: 'Google Calendar',
+              status: 'inactive',
+            })
+            .select('id')
+            .single();
+          placeholderPatientId = newPlaceholder?.id || null;
+        }
       }
 
-      // Check if Google event was updated
-      const startDate = new Date(googleEvent.start.dateTime);
-      const endDate = new Date(googleEvent.end.dateTime);
-      const googleSessionDate = startDate.toISOString().split('T')[0];
-      const googleStartTime = startDate.toTimeString().slice(0, 5);
-      const googleEndTime = endDate.toTimeString().slice(0, 5);
+      // Check for imported sessions that need updates or were deleted from Google
+      const { data: importedSessions } = await supabase
+        .from('sessions')
+        .select('id, google_calendar_event_id, session_date, start_time, end_time, notes, status')
+        .eq('professional_id', professionalId)
+        .eq('status', 'blocked')
+        .not('google_calendar_event_id', 'is', null)
+        .gte('session_date', dateFrom)
+        .lte('session_date', dateTo);
 
-      if (session.session_date !== googleSessionDate ||
-          session.start_time !== googleStartTime ||
-          session.end_time !== googleEndTime) {
-        // Update Psycma session with Google changes
-        await supabase
-          .from('sessions')
-          .update({
-            session_date: googleSessionDate,
-            start_time: googleStartTime,
-            end_time: googleEndTime,
-            notes: `[Google Calendar] ${googleEvent.summary || 'Evento externo'}\n${googleEvent.description || ''}`,
-          })
-          .eq('id', session.id);
-        result.updated++;
+      for (const session of importedSessions || []) {
+        const googleEvent = googleEventMap.get(session.google_calendar_event_id);
+        
+        if (!googleEvent) {
+          // Event was deleted from Google Calendar - cancel the session
+          await supabase
+            .from('sessions')
+            .update({ status: 'cancelled' })
+            .eq('id', session.id);
+          result.deleted++;
+          continue;
+        }
+
+        // Check if Google event was updated
+        if (googleEvent.start?.dateTime) {
+          const startDate = new Date(googleEvent.start.dateTime);
+          const endDate = new Date(googleEvent.end.dateTime);
+          const googleSessionDate = startDate.toISOString().split('T')[0];
+          const googleStartTime = startDate.toTimeString().slice(0, 5);
+          const googleEndTime = endDate.toTimeString().slice(0, 5);
+
+          if (session.session_date !== googleSessionDate ||
+              session.start_time !== googleStartTime ||
+              session.end_time !== googleEndTime) {
+            // Update Psycma session with Google changes
+            await supabase
+              .from('sessions')
+              .update({
+                session_date: googleSessionDate,
+                start_time: googleStartTime,
+                end_time: googleEndTime,
+                notes: `[Google Calendar] ${googleEvent.summary || 'Evento externo'}\n${googleEvent.description || ''}`,
+              })
+              .eq('id', session.id);
+            result.updated++;
+          }
+        }
       }
-    }
 
-    // Import new events from Google Calendar
-    for (const event of googleEvents) {
-      // Skip events we created from Psycma
-      if (existingEventIds.has(event.id)) continue;
-      
-      // Skip all-day events
-      if (!event.start?.dateTime) continue;
+      // Import new events from Google Calendar
+      for (const event of googleEvents) {
+        // Skip events we created from Psycma
+        if (existingEventIds.has(event.id)) continue;
+        
+        // Skip all-day events
+        if (!event.start?.dateTime) continue;
       
       // Check if this event was already imported
       const { data: existingImport } = await supabase
