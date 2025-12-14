@@ -267,9 +267,16 @@ export function QuickCreateSessionDialog({
   const selectedProfessional = professionals?.find((p) => p.id === form.watch('professional_id'));
 
   const onSubmit = async (values: QuickSessionFormValues, asDraft: boolean) => {
+    const usesBono = values.bono_id && values.bono_id !== 'none' && values.bono_id !== '';
+    const selectedSessionType = sessionTypes?.find(t => t.id === values.session_type);
+    
+    // Validate and fix end_time if it's equal or less than start_time
+    if (values.end_time <= values.start_time) {
+      const duration = selectedSessionType?.duration_minutes || 60;
+      values.end_time = calculateEndTime(values.start_time, duration);
+    }
+    
     try {
-      const usesBono = values.bono_id && values.bono_id !== 'none' && values.bono_id !== '';
-      const selectedSessionType = sessionTypes?.find(t => t.id === values.session_type);
       
       // Determine price: new bono = total price, existing bono = 0, no bono = session type default
       let sessionPrice = selectedSessionType?.default_price || 60;
@@ -314,83 +321,92 @@ export function QuickCreateSessionDialog({
         send_reminder_sms: values.send_reminder_sms,
       });
 
-      // Handle video/calendar integrations for non-draft sessions
+      // Handle video/calendar integrations for non-draft sessions (non-critical)
       if (!asDraft && newSession?.id && selectedPatient) {
-        const isVideoSession = values.session_modality === 'zoom' || values.session_modality === 'google_meet';
-        
-        if (isVideoSession || integrations?.google_calendar_enabled) {
-          const integrationResult = await handleSessionIntegrations(
-            {
-              id: newSession.id,
-              professional_id: values.professional_id,
-              patient_id: values.patient_id,
-              session_date: format(values.session_date, 'yyyy-MM-dd'),
-              start_time: values.start_time,
-              end_time: values.end_time,
-              session_modality: values.session_modality,
-              video_provider: videoProvider || undefined,
-              session_type: selectedSessionType?.name,
-            },
-            {
-              first_name: selectedPatient.first_name,
-              last_name: selectedPatient.last_name,
-              email: selectedPatient.email,
-            },
-            integrations,
-            oauthConnections || []
-          );
+        try {
+          const isVideoSession = values.session_modality === 'zoom' || values.session_modality === 'google_meet';
+          
+          if (isVideoSession || integrations?.google_calendar_enabled) {
+            const integrationResult = await handleSessionIntegrations(
+              {
+                id: newSession.id,
+                professional_id: values.professional_id,
+                patient_id: values.patient_id,
+                session_date: format(values.session_date, 'yyyy-MM-dd'),
+                start_time: values.start_time,
+                end_time: values.end_time,
+                session_modality: values.session_modality,
+                video_provider: videoProvider || undefined,
+                session_type: selectedSessionType?.name,
+              },
+              {
+                first_name: selectedPatient.first_name,
+                last_name: selectedPatient.last_name,
+                email: selectedPatient.email,
+              },
+              integrations,
+              oauthConnections || []
+            );
 
-          // Update session with integration results
-          if (integrationResult.video_call_link || integrationResult.google_calendar_event_id) {
-            await updateSession.mutateAsync({
-              id: newSession.id,
-              video_call_link: integrationResult.video_call_link || newSession.video_call_link,
-              video_provider: integrationResult.video_provider || newSession.video_provider,
-              google_calendar_event_id: integrationResult.google_calendar_event_id,
-            });
-          }
-        }
-
-        // Handle Stripe payment if enabled
-        if (integrations?.stripe_enabled && sessionPrice > 0) {
-          const stripeResult = await handleStripePayment(
-            {
-              id: newSession.id,
-              professional_id: values.professional_id,
-              patient_id: values.patient_id,
-              session_date: format(values.session_date, 'yyyy-MM-dd'),
-              start_time: values.start_time,
-              end_time: values.end_time,
-              session_type: selectedSessionType?.name,
-              price: sessionPrice,
-              payment_mode: effectivePaymentMode,
-            },
-            {
-              first_name: selectedPatient.first_name,
-              last_name: selectedPatient.last_name,
-              email: selectedPatient.email,
-            },
-            integrations,
-            oauthConnections || []
-          );
-
-          // Update session with Stripe payment info
-          if (stripeResult.payment_status) {
-            await updateSession.mutateAsync({
-              id: newSession.id,
-              stripe_payment_status: stripeResult.payment_status,
-              stripe_payment_mode: integrations.stripe_payment_mode,
-            });
-
-            // If required_now mode, redirect to checkout
-            if (stripeResult.checkout_url) {
-              toast({
-                title: 'Sesión creada',
-                description: 'Redirigiendo al pago...',
+            // Update session with integration results
+            if (integrationResult.video_call_link || integrationResult.google_calendar_event_id) {
+              await updateSession.mutateAsync({
+                id: newSession.id,
+                video_call_link: integrationResult.video_call_link || newSession.video_call_link,
+                video_provider: integrationResult.video_provider || newSession.video_provider,
+                google_calendar_event_id: integrationResult.google_calendar_event_id,
               });
-              window.open(stripeResult.checkout_url, '_blank');
             }
           }
+        } catch (integrationError) {
+          console.error('Integration error (non-critical):', integrationError);
+          // Don't fail the session creation - integrations are non-critical
+        }
+
+        // Handle Stripe payment if enabled (non-critical)
+        try {
+          if (integrations?.stripe_enabled && sessionPrice > 0) {
+            const stripeResult = await handleStripePayment(
+              {
+                id: newSession.id,
+                professional_id: values.professional_id,
+                patient_id: values.patient_id,
+                session_date: format(values.session_date, 'yyyy-MM-dd'),
+                start_time: values.start_time,
+                end_time: values.end_time,
+                session_type: selectedSessionType?.name,
+                price: sessionPrice,
+                payment_mode: effectivePaymentMode,
+              },
+              {
+                first_name: selectedPatient.first_name,
+                last_name: selectedPatient.last_name,
+                email: selectedPatient.email,
+              },
+              integrations,
+              oauthConnections || []
+            );
+
+            // Update session with Stripe payment info
+            if (stripeResult.payment_status) {
+              await updateSession.mutateAsync({
+                id: newSession.id,
+                stripe_payment_status: stripeResult.payment_status,
+                stripe_payment_mode: integrations.stripe_payment_mode,
+              });
+
+              // If required_now mode, redirect to checkout
+              if (stripeResult.checkout_url) {
+                toast({
+                  title: 'Sesión creada',
+                  description: 'Redirigiendo al pago...',
+                });
+                window.open(stripeResult.checkout_url, '_blank');
+              }
+            }
+          }
+        } catch (stripeError) {
+          console.error('Stripe integration error (non-critical):', stripeError);
         }
       }
 
