@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
-import { encode as base64Encode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
+import { PDFDocument, StandardFonts, rgb, PDFPage, PDFFont } from "https://esm.sh/pdf-lib@1.17.1";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -23,6 +23,13 @@ interface ConsentData {
   template: {
     name: string;
   };
+  center: {
+    name: string;
+    address: string | null;
+    city: string | null;
+    postal_code: string | null;
+    invoice_logo_url: string | null;
+  };
 }
 
 interface SignatureData {
@@ -42,6 +49,122 @@ async function generateHash(data: string): Promise<string> {
   const hashBuffer = await crypto.subtle.digest('SHA-256', dataBuffer);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// Strip HTML tags and decode entities for plain text
+function htmlToPlainText(html: string): string {
+  // Remove script and style tags with their contents
+  let text = html.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '');
+  text = text.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '');
+  
+  // Replace block elements with newlines
+  text = text.replace(/<\/p>/gi, '\n\n');
+  text = text.replace(/<\/div>/gi, '\n');
+  text = text.replace(/<\/h[1-6]>/gi, '\n\n');
+  text = text.replace(/<br\s*\/?>/gi, '\n');
+  text = text.replace(/<li>/gi, '• ');
+  text = text.replace(/<\/li>/gi, '\n');
+  
+  // Remove remaining tags
+  text = text.replace(/<[^>]+>/g, '');
+  
+  // Decode common HTML entities
+  text = text.replace(/&nbsp;/g, ' ');
+  text = text.replace(/&amp;/g, '&');
+  text = text.replace(/&lt;/g, '<');
+  text = text.replace(/&gt;/g, '>');
+  text = text.replace(/&quot;/g, '"');
+  text = text.replace(/&#39;/g, "'");
+  text = text.replace(/&aacute;/gi, 'á');
+  text = text.replace(/&eacute;/gi, 'é');
+  text = text.replace(/&iacute;/gi, 'í');
+  text = text.replace(/&oacute;/gi, 'ó');
+  text = text.replace(/&uacute;/gi, 'ú');
+  text = text.replace(/&ntilde;/gi, 'ñ');
+  text = text.replace(/&Ntilde;/gi, 'Ñ');
+  text = text.replace(/&uuml;/gi, 'ü');
+  
+  // Clean up excessive whitespace
+  text = text.replace(/\n\s*\n\s*\n/g, '\n\n');
+  text = text.replace(/[ \t]+/g, ' ');
+  
+  return text.trim();
+}
+
+// Wrap text to fit within a given width
+function wrapText(text: string, font: PDFFont, fontSize: number, maxWidth: number): string[] {
+  const lines: string[] = [];
+  const paragraphs = text.split('\n');
+  
+  for (const paragraph of paragraphs) {
+    if (paragraph.trim() === '') {
+      lines.push('');
+      continue;
+    }
+    
+    const words = paragraph.split(' ');
+    let currentLine = '';
+    
+    for (const word of words) {
+      const testLine = currentLine ? `${currentLine} ${word}` : word;
+      const width = font.widthOfTextAtSize(testLine, fontSize);
+      
+      if (width > maxWidth && currentLine) {
+        lines.push(currentLine);
+        currentLine = word;
+      } else {
+        currentLine = testLine;
+      }
+    }
+    
+    if (currentLine) {
+      lines.push(currentLine);
+    }
+  }
+  
+  return lines;
+}
+
+// Draw text with automatic page breaks
+function drawTextWithPageBreaks(
+  pdfDoc: PDFDocument,
+  pages: PDFPage[],
+  text: string,
+  font: PDFFont,
+  fontSize: number,
+  x: number,
+  startY: number,
+  maxWidth: number,
+  lineHeight: number,
+  pageHeight: number,
+  marginBottom: number
+): { currentPage: PDFPage; currentY: number; pages: PDFPage[] } {
+  const lines = wrapText(text, font, fontSize, maxWidth);
+  let currentY = startY;
+  let currentPage = pages[pages.length - 1];
+  
+  for (const line of lines) {
+    if (currentY < marginBottom) {
+      // Add new page
+      currentPage = pdfDoc.addPage([595.28, 841.89]);
+      pages.push(currentPage);
+      currentY = pageHeight - 50;
+    }
+    
+    if (line.trim()) {
+      currentPage.drawText(line, {
+        x,
+        y: currentY,
+        size: fontSize,
+        font,
+        color: rgb(0.12, 0.15, 0.21),
+      });
+    }
+    
+    currentY -= lineHeight;
+  }
+  
+  return { currentPage, currentY, pages };
 }
 
 serve(async (req) => {
@@ -65,7 +188,7 @@ serve(async (req) => {
 
     console.log(`Generating PDF for consent ${consent_id}`);
 
-    // Fetch consent data
+    // Fetch consent data with center info
     const { data: consent, error: consentError } = await supabase
       .from('consents')
       .select(`
@@ -75,7 +198,8 @@ serve(async (req) => {
         signed_at,
         patient:patients(first_name, last_name),
         professional:profiles(first_name, last_name),
-        template:consent_templates(name)
+        template:consent_templates(name),
+        center:centers(name, address, city, postal_code, invoice_logo_url)
       `)
       .eq('id', consent_id)
       .single();
@@ -114,25 +238,416 @@ serve(async (req) => {
     const documentHash = await generateHash(documentData);
     console.log(`Document hash: ${documentHash.substring(0, 16)}...`);
 
-    // Generate HTML for PDF with signatures embedded in document
-    const html = generatePdfHtml(
-      consent as unknown as ConsentData, 
-      signatures || [], 
-      documentHash
-    );
+    // Create PDF document
+    const pdfDoc = await PDFDocument.create();
+    const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+    
+    // Page dimensions (A4)
+    const pageWidth = 595.28;
+    const pageHeight = 841.89;
+    const margin = 50;
+    const contentWidth = pageWidth - 2 * margin;
+    
+    let pages: PDFPage[] = [pdfDoc.addPage([pageWidth, pageHeight])];
+    let currentPage = pages[0];
+    let currentY = pageHeight - margin;
 
-    // Store as HTML file
-    const fileName = `${consent.center_id}/${consent_id}.html`;
+    const typedConsent = consent as unknown as ConsentData;
+
+    // Try to embed center logo
+    let logoImage: Awaited<ReturnType<typeof pdfDoc.embedPng>> | null = null;
+    if (typedConsent.center?.invoice_logo_url) {
+      try {
+        console.log('Fetching logo from:', typedConsent.center.invoice_logo_url);
+        const logoResponse = await fetch(typedConsent.center.invoice_logo_url);
+        if (logoResponse.ok) {
+          const logoBytes = await logoResponse.arrayBuffer();
+          const logoUint8 = new Uint8Array(logoBytes);
+          
+          // Try PNG first, then JPG
+          try {
+            logoImage = await pdfDoc.embedPng(logoUint8);
+          } catch {
+            try {
+              logoImage = await pdfDoc.embedJpg(logoUint8);
+            } catch (jpgError) {
+              console.error('Could not embed logo as PNG or JPG:', jpgError);
+            }
+          }
+        }
+      } catch (logoError) {
+        console.error('Error fetching logo:', logoError);
+      }
+    }
+
+    // Draw header with logo
+    if (logoImage) {
+      const logoMaxHeight = 50;
+      const logoMaxWidth = 150;
+      const logoScale = Math.min(logoMaxWidth / logoImage.width, logoMaxHeight / logoImage.height);
+      const logoWidth = logoImage.width * logoScale;
+      const logoHeight = logoImage.height * logoScale;
+      
+      currentPage.drawImage(logoImage, {
+        x: margin,
+        y: currentY - logoHeight,
+        width: logoWidth,
+        height: logoHeight,
+      });
+      
+      // Center name next to logo
+      currentPage.drawText(typedConsent.center?.name || 'Centro', {
+        x: margin + logoWidth + 15,
+        y: currentY - 20,
+        size: 16,
+        font: helveticaBold,
+        color: rgb(0.12, 0.25, 0.55),
+      });
+      
+      // Center address
+      const address = [
+        typedConsent.center?.address,
+        typedConsent.center?.city,
+        typedConsent.center?.postal_code
+      ].filter(Boolean).join(', ');
+      
+      if (address) {
+        currentPage.drawText(address, {
+          x: margin + logoWidth + 15,
+          y: currentY - 38,
+          size: 10,
+          font: helvetica,
+          color: rgb(0.42, 0.45, 0.49),
+        });
+      }
+      
+      currentY -= Math.max(logoHeight, 50) + 20;
+    } else {
+      // No logo, just center name
+      currentPage.drawText(typedConsent.center?.name || 'Centro', {
+        x: margin,
+        y: currentY - 20,
+        size: 18,
+        font: helveticaBold,
+        color: rgb(0.12, 0.25, 0.55),
+      });
+      currentY -= 50;
+    }
+
+    // Draw separator line
+    currentPage.drawLine({
+      start: { x: margin, y: currentY },
+      end: { x: pageWidth - margin, y: currentY },
+      thickness: 2,
+      color: rgb(0.23, 0.51, 0.96),
+    });
+    currentY -= 30;
+
+    // Document title
+    const templateName = typedConsent.template?.name || 'Consentimiento Informado';
+    currentPage.drawText(templateName, {
+      x: margin,
+      y: currentY,
+      size: 18,
+      font: helveticaBold,
+      color: rgb(0.12, 0.15, 0.21),
+    });
+    currentY -= 25;
+
+    currentPage.drawText('Documento firmado electrónicamente', {
+      x: margin,
+      y: currentY,
+      size: 10,
+      font: helvetica,
+      color: rgb(0.42, 0.45, 0.49),
+    });
+    currentY -= 35;
+
+    // Meta info box
+    const boxHeight = 70;
+    currentPage.drawRectangle({
+      x: margin,
+      y: currentY - boxHeight,
+      width: contentWidth,
+      height: boxHeight,
+      color: rgb(0.94, 0.97, 1),
+      borderColor: rgb(0.75, 0.86, 0.99),
+      borderWidth: 1,
+    });
+
+    const patientName = `${typedConsent.patient?.first_name || ''} ${typedConsent.patient?.last_name || ''}`.trim();
+    const professionalName = `${typedConsent.professional?.first_name || ''} ${typedConsent.professional?.last_name || ''}`.trim();
+    const signedDate = typedConsent.signed_at 
+      ? new Date(typedConsent.signed_at).toLocaleString('es-ES', { timeZone: 'Europe/Madrid' })
+      : new Date().toLocaleString('es-ES', { timeZone: 'Europe/Madrid' });
+
+    currentPage.drawText('Paciente:', { x: margin + 10, y: currentY - 20, size: 10, font: helveticaBold, color: rgb(0.12, 0.25, 0.55) });
+    currentPage.drawText(patientName, { x: margin + 70, y: currentY - 20, size: 10, font: helvetica, color: rgb(0.12, 0.15, 0.21) });
+    
+    currentPage.drawText('Profesional:', { x: margin + 10, y: currentY - 38, size: 10, font: helveticaBold, color: rgb(0.12, 0.25, 0.55) });
+    currentPage.drawText(professionalName, { x: margin + 80, y: currentY - 38, size: 10, font: helvetica, color: rgb(0.12, 0.15, 0.21) });
+    
+    currentPage.drawText('Fecha de firma:', { x: margin + 10, y: currentY - 56, size: 10, font: helveticaBold, color: rgb(0.12, 0.25, 0.55) });
+    currentPage.drawText(signedDate, { x: margin + 100, y: currentY - 56, size: 10, font: helvetica, color: rgb(0.12, 0.15, 0.21) });
+
+    currentY -= boxHeight + 30;
+
+    // Document content
+    const plainText = htmlToPlainText(typedConsent.content_snapshot || '');
+    const result = drawTextWithPageBreaks(
+      pdfDoc,
+      pages,
+      plainText,
+      helvetica,
+      11,
+      margin,
+      currentY,
+      contentWidth,
+      16,
+      pageHeight,
+      150 // Leave space for signatures at bottom
+    );
+    
+    pages = result.pages;
+    currentPage = result.currentPage;
+    currentY = result.currentY;
+
+    // Check if we need a new page for signatures
+    if (currentY < 280) {
+      currentPage = pdfDoc.addPage([pageWidth, pageHeight]);
+      pages.push(currentPage);
+      currentY = pageHeight - margin;
+    }
+
+    // Signatures section
+    currentY -= 20;
+    
+    // Dashed separator
+    for (let i = margin; i < pageWidth - margin; i += 10) {
+      currentPage.drawLine({
+        start: { x: i, y: currentY },
+        end: { x: i + 5, y: currentY },
+        thickness: 1,
+        color: rgb(0.82, 0.84, 0.86),
+      });
+    }
+    currentY -= 25;
+
+    currentPage.drawText('FIRMAS ELECTRÓNICAS', {
+      x: (pageWidth - helveticaBold.widthOfTextAtSize('FIRMAS ELECTRÓNICAS', 14)) / 2,
+      y: currentY,
+      size: 14,
+      font: helveticaBold,
+      color: rgb(0.22, 0.26, 0.31),
+    });
+    currentY -= 30;
+
+    // Draw each signature
+    const signaturesList = signatures || [];
+    const signatureWidth = signaturesList.length === 1 ? contentWidth : (contentWidth - 20) / 2;
+    
+    for (let i = 0; i < signaturesList.length; i++) {
+      const sig = signaturesList[i] as SignatureData;
+      const xOffset = signaturesList.length === 1 ? margin : (margin + i * (signatureWidth + 20));
+      
+      // Signature box
+      currentPage.drawRectangle({
+        x: xOffset,
+        y: currentY - 100,
+        width: signatureWidth,
+        height: 100,
+        color: rgb(0.98, 0.98, 0.98),
+        borderColor: rgb(0.9, 0.91, 0.92),
+        borderWidth: 1,
+      });
+      
+      // Role
+      const roleText = sig.signer_role === 'guardian' ? 'Tutor/Representante Legal' : 'Paciente';
+      currentPage.drawText(roleText, {
+        x: xOffset + 10,
+        y: currentY - 18,
+        size: 11,
+        font: helveticaBold,
+        color: rgb(0.22, 0.26, 0.31),
+      });
+      
+      // Name
+      currentPage.drawText(sig.signer_name, {
+        x: xOffset + 10,
+        y: currentY - 34,
+        size: 10,
+        font: helvetica,
+        color: rgb(0.42, 0.45, 0.49),
+      });
+      
+      // Try to embed signature image
+      if (sig.signature_data && sig.signature_data.startsWith('data:image')) {
+        try {
+          const base64Data = sig.signature_data.split(',')[1];
+          const signatureBytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+          
+          let signatureImage;
+          try {
+            signatureImage = await pdfDoc.embedPng(signatureBytes);
+          } catch {
+            // If PNG fails, it might be a different format
+            console.log('Could not embed signature as PNG');
+          }
+          
+          if (signatureImage) {
+            const sigMaxWidth = signatureWidth - 20;
+            const sigMaxHeight = 40;
+            const sigScale = Math.min(sigMaxWidth / signatureImage.width, sigMaxHeight / signatureImage.height);
+            const sigWidth = signatureImage.width * sigScale;
+            const sigHeight = signatureImage.height * sigScale;
+            
+            currentPage.drawImage(signatureImage, {
+              x: xOffset + 10,
+              y: currentY - 45 - sigHeight,
+              width: sigWidth,
+              height: sigHeight,
+            });
+          }
+        } catch (sigError) {
+          console.error('Error embedding signature:', sigError);
+        }
+      }
+      
+      // Signed date
+      const sigDate = new Date(sig.signed_at).toLocaleString('es-ES', { timeZone: 'Europe/Madrid' });
+      currentPage.drawText(`Firmado: ${sigDate}`, {
+        x: xOffset + 10,
+        y: currentY - 92,
+        size: 8,
+        font: helvetica,
+        color: rgb(0.61, 0.64, 0.68),
+      });
+    }
+    
+    currentY -= 120;
+
+    // Verification seal
+    if (currentY < 150) {
+      currentPage = pdfDoc.addPage([pageWidth, pageHeight]);
+      pages.push(currentPage);
+      currentY = pageHeight - margin;
+    }
+
+    // Green verification box
+    currentPage.drawRectangle({
+      x: margin,
+      y: currentY - 100,
+      width: contentWidth,
+      height: 100,
+      color: rgb(0.94, 0.99, 0.95),
+      borderColor: rgb(0.13, 0.77, 0.37),
+      borderWidth: 2,
+    });
+
+    // QR Code
+    const qrData = encodeURIComponent(`PSYCMA-CONSENT|ID:${consent_id}|HASH:${documentHash.substring(0, 32)}`);
+    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${qrData}`;
+    
+    try {
+      const qrResponse = await fetch(qrCodeUrl);
+      if (qrResponse.ok) {
+        const qrBytes = await qrResponse.arrayBuffer();
+        const qrImage = await pdfDoc.embedPng(new Uint8Array(qrBytes));
+        currentPage.drawImage(qrImage, {
+          x: margin + 10,
+          y: currentY - 90,
+          width: 70,
+          height: 70,
+        });
+      }
+    } catch (qrError) {
+      console.error('Error fetching QR code:', qrError);
+    }
+
+    // Verification text
+    currentPage.drawText('✓ DOCUMENTO FIRMADO ELECTRÓNICAMENTE', {
+      x: margin + 95,
+      y: currentY - 20,
+      size: 12,
+      font: helveticaBold,
+      color: rgb(0.09, 0.4, 0.2),
+    });
+
+    currentPage.drawText('Este documento ha sido firmado electrónicamente y tiene validez legal.', {
+      x: margin + 95,
+      y: currentY - 38,
+      size: 9,
+      font: helvetica,
+      color: rgb(0.29, 0.33, 0.39),
+    });
+
+    currentPage.drawText('Huella digital del documento:', {
+      x: margin + 95,
+      y: currentY - 55,
+      size: 8,
+      font: helvetica,
+      color: rgb(0.42, 0.45, 0.49),
+    });
+
+    // Hash (truncated to fit)
+    const displayHash = documentHash.substring(0, 48) + '...';
+    currentPage.drawText(displayHash, {
+      x: margin + 95,
+      y: currentY - 68,
+      size: 7,
+      font: helvetica,
+      color: rgb(0.29, 0.33, 0.39),
+    });
+
+    // Signature IDs
+    const sigIds = signaturesList.map(s => `ID ${s.signer_role === 'guardian' ? 'Tutor' : 'Paciente'}: ${s.id.substring(0, 8).toUpperCase()}`).join('  |  ');
+    if (sigIds) {
+      currentPage.drawText(sigIds, {
+        x: margin + 95,
+        y: currentY - 85,
+        size: 7,
+        font: helvetica,
+        color: rgb(0.42, 0.45, 0.49),
+      });
+    }
+
+    currentY -= 120;
+
+    // Footer
+    const timestamp = new Date().toLocaleString('es-ES', { timeZone: 'Europe/Madrid' });
+    
+    currentPage.drawText(`Documento generado por Psycma | ID: ${consent_id}`, {
+      x: margin,
+      y: 30,
+      size: 8,
+      font: helvetica,
+      color: rgb(0.61, 0.64, 0.68),
+    });
+    
+    currentPage.drawText(timestamp, {
+      x: pageWidth - margin - helvetica.widthOfTextAtSize(timestamp, 8),
+      y: 30,
+      size: 8,
+      font: helvetica,
+      color: rgb(0.61, 0.64, 0.68),
+    });
+
+    // Save PDF
+    const pdfBytes = await pdfDoc.save();
+    
+    // Store PDF file
+    const fileName = `${consent.center_id}/${consent_id}.pdf`;
     
     const { error: uploadError } = await supabase.storage
       .from('consent-documents')
-      .upload(fileName, html, {
-        contentType: 'text/html',
+      .upload(fileName, pdfBytes, {
+        contentType: 'application/pdf',
         upsert: true,
       });
 
     if (uploadError) {
-      console.error('Error uploading document:', uploadError);
+      console.error('Error uploading PDF:', uploadError);
       return new Response(
         JSON.stringify({ error: 'Failed to upload document' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -178,234 +693,3 @@ serve(async (req) => {
     );
   }
 });
-
-function generatePdfHtml(consent: ConsentData, signatures: SignatureData[], documentHash: string): string {
-  const timestamp = new Date().toLocaleString('es-ES', {
-    timeZone: 'Europe/Madrid',
-    dateStyle: 'full',
-    timeStyle: 'long',
-  });
-
-  // Generate QR code URL using a public QR code API
-  const qrData = encodeURIComponent(`PSYCMA-CONSENT|ID:${consent.id}|HASH:${documentHash.substring(0, 32)}`);
-  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${qrData}`;
-
-  // Build signature blocks HTML
-  const signatureBlocks = signatures.map(sig => `
-    <div style="flex: 1; min-width: 250px; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; background: #fafafa;">
-      <p style="margin: 0 0 8px 0; font-weight: 600; color: #374151;">
-        ${sig.signer_role === 'guardian' ? 'Tutor/Representante Legal' : 'Paciente'}
-      </p>
-      <p style="margin: 0 0 10px 0; font-size: 14px; color: #6b7280;">
-        ${sig.signer_name}
-      </p>
-      ${sig.signature_data ? `
-        <div style="background: white; border: 1px solid #e5e7eb; border-radius: 4px; padding: 8px; margin-bottom: 10px;">
-          <img src="${sig.signature_data}" alt="Firma de ${sig.signer_name}" style="max-width: 200px; height: 60px; object-fit: contain;" />
-        </div>
-      ` : ''}
-      <p style="margin: 0; font-size: 11px; color: #9ca3af;">
-        Firmado: ${new Date(sig.signed_at).toLocaleString('es-ES', { timeZone: 'Europe/Madrid' })}
-      </p>
-    </div>
-  `).join('');
-
-  // Calculate signature hash for each signature
-  const signatureHashes = signatures.map(sig => ({
-    role: sig.signer_role,
-    name: sig.signer_name,
-    shortHash: sig.id.substring(0, 8).toUpperCase()
-  }));
-
-  return `
-<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${consent.template?.name || 'Consentimiento Informado'}</title>
-  <style>
-    * { box-sizing: border-box; }
-    body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      max-width: 800px;
-      margin: 0 auto;
-      padding: 40px 20px;
-      line-height: 1.6;
-      color: #1f2937;
-      background: white;
-    }
-    .header {
-      text-align: center;
-      margin-bottom: 30px;
-      padding-bottom: 20px;
-      border-bottom: 3px solid #3b82f6;
-    }
-    .header h1 {
-      color: #1e40af;
-      margin: 0 0 8px 0;
-      font-size: 24px;
-    }
-    .header .subtitle {
-      color: #6b7280;
-      font-size: 14px;
-      margin: 0;
-    }
-    .meta-info {
-      background: linear-gradient(135deg, #eff6ff 0%, #f0f9ff 100%);
-      padding: 16px;
-      border-radius: 8px;
-      margin-bottom: 25px;
-      border: 1px solid #bfdbfe;
-    }
-    .meta-info p {
-      margin: 4px 0;
-      font-size: 14px;
-    }
-    .meta-info strong {
-      color: #1e40af;
-    }
-    .document-content {
-      padding: 20px 0;
-    }
-    .document-content h1, .document-content h2, .document-content h3 {
-      color: #1f2937;
-    }
-    
-    /* Signature section - embedded at end of document */
-    .signature-section {
-      margin-top: 40px;
-      padding-top: 25px;
-      border-top: 2px dashed #d1d5db;
-    }
-    .signature-section h2 {
-      font-size: 18px;
-      color: #374151;
-      margin: 0 0 20px 0;
-      text-align: center;
-    }
-    .signatures-container {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 15px;
-      justify-content: center;
-    }
-    
-    /* Verification seal */
-    .verification-seal {
-      margin-top: 30px;
-      background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
-      border: 2px solid #22c55e;
-      border-radius: 12px;
-      padding: 20px;
-      display: flex;
-      align-items: center;
-      gap: 20px;
-    }
-    .qr-code {
-      flex-shrink: 0;
-    }
-    .seal-info {
-      flex: 1;
-    }
-    .seal-info .title {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-weight: 700;
-      color: #166534;
-      font-size: 16px;
-      margin: 0 0 10px 0;
-    }
-    .seal-info .hash-info {
-      font-family: 'Courier New', monospace;
-      font-size: 11px;
-      color: #4b5563;
-      background: white;
-      padding: 8px;
-      border-radius: 4px;
-      word-break: break-all;
-    }
-    .seal-info .hash-label {
-      font-size: 10px;
-      color: #6b7280;
-      margin-bottom: 3px;
-    }
-    
-    /* Footer */
-    .footer {
-      margin-top: 30px;
-      padding-top: 15px;
-      border-top: 1px solid #e5e7eb;
-      font-size: 11px;
-      color: #9ca3af;
-      text-align: center;
-    }
-    .footer p {
-      margin: 3px 0;
-    }
-    
-    @media print {
-      body { padding: 20px; }
-      .verification-seal { break-inside: avoid; }
-    }
-  </style>
-</head>
-<body>
-  <div class="header">
-    <h1>${consent.template?.name || 'Consentimiento Informado'}</h1>
-    <p class="subtitle">Documento legalmente vinculante - Firmado electrónicamente</p>
-  </div>
-
-  <div class="meta-info">
-    <p><strong>Paciente:</strong> ${consent.patient?.first_name || ''} ${consent.patient?.last_name || ''}</p>
-    <p><strong>Profesional:</strong> ${consent.professional?.first_name || ''} ${consent.professional?.last_name || ''}</p>
-    <p><strong>Fecha de firma:</strong> ${consent.signed_at ? new Date(consent.signed_at).toLocaleString('es-ES', { timeZone: 'Europe/Madrid' }) : timestamp}</p>
-  </div>
-
-  <div class="document-content">
-    ${consent.content_snapshot}
-  </div>
-
-  <!-- Signature section embedded at end of document -->
-  <div class="signature-section">
-    <h2>Firmas Electrónicas</h2>
-    ${signatures.length > 0 ? `
-      <div class="signatures-container">
-        ${signatureBlocks}
-      </div>
-    ` : '<p style="text-align: center; color: #9ca3af;">Sin firmas registradas</p>'}
-  </div>
-
-  <!-- Verification seal with QR -->
-  <div class="verification-seal">
-    <div class="qr-code">
-      <img src="${qrCodeUrl}" alt="QR de verificación" width="120" height="120" />
-    </div>
-    <div class="seal-info">
-      <p class="title">
-        <span style="font-size: 20px;">✓</span>
-        DOCUMENTO FIRMADO ELECTRÓNICAMENTE
-      </p>
-      <p style="margin: 0 0 10px 0; font-size: 12px; color: #4b5563;">
-        Este documento ha sido firmado de forma electrónica y tiene validez legal conforme al RGPD.
-      </p>
-      <div class="hash-label">Huella digital del documento:</div>
-      <div class="hash-info">${documentHash}</div>
-      ${signatureHashes.length > 0 ? `
-        <div style="margin-top: 8px; font-size: 10px; color: #6b7280;">
-          ${signatureHashes.map(h => `<span style="display: inline-block; margin-right: 12px;">ID ${h.role === 'guardian' ? 'Tutor' : 'Paciente'}: ${h.shortHash}</span>`).join('')}
-        </div>
-      ` : ''}
-    </div>
-  </div>
-
-  <div class="footer">
-    <p>Documento generado automáticamente por Psycma</p>
-    <p>ID: ${consent.id}</p>
-    <p>${timestamp}</p>
-  </div>
-</body>
-</html>
-  `;
-}
