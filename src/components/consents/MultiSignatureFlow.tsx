@@ -20,17 +20,18 @@ const CHECKBOX_MARKER = '<!--VERIFICATION_CHECKBOXES-->';
 function replaceVerificationPlaceholder(html: string): string {
   // Pattern to match: <div><span...>{campos_verificacion}</span></div> or similar nested structures
   // We match the entire containing div/span block that has the placeholder
+  // IMPORTANT: Using non-global regex to avoid lastIndex issues with test() + replace()
   const patterns = [
     // Match <div><span...>{campos_verificacion}</span></div>
-    /<div[^>]*>\s*<span[^>]*>\s*\{campos_verificacion\}\s*<\/span>\s*<\/div>/gi,
+    /<div[^>]*>\s*<span[^>]*>\s*\{campos_verificacion\}\s*<\/span>\s*<\/div>/i,
     // Match <span...>{campos_verificacion}</span> (without outer div)
-    /<span[^>]*>\s*\{campos_verificacion\}\s*<\/span>/gi,
+    /<span[^>]*>\s*\{campos_verificacion\}\s*<\/span>/i,
     // Match <div...>{campos_verificacion}</div>
-    /<div[^>]*>\s*\{campos_verificacion\}\s*<\/div>/gi,
+    /<div[^>]*>\s*\{campos_verificacion\}\s*<\/div>/i,
     // Match <p...>{campos_verificacion}</p>
-    /<p[^>]*>\s*\{campos_verificacion\}\s*<\/p>/gi,
+    /<p[^>]*>\s*\{campos_verificacion\}\s*<\/p>/i,
     // Match just the placeholder
-    /\{campos_verificacion\}/gi,
+    /\{campos_verificacion\}/i,
   ];
   
   let result = html;
