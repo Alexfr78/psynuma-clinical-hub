@@ -23,6 +23,7 @@ const statusColors = {
   completed: 'bg-gray-500/20 border-gray-500 text-gray-700 dark:text-gray-300',
   cancelled: 'bg-red-500/20 border-red-500 text-red-700 dark:text-red-300',
   no_show: 'bg-orange-500/20 border-orange-500 text-orange-700 dark:text-orange-300',
+  blocked: 'bg-purple-500/20 border-purple-500 text-purple-700 dark:text-purple-300',
 };
 
 export function SessionCard({ 

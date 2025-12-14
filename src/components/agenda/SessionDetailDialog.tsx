@@ -43,6 +43,7 @@ const statusConfig = {
   completed: { label: 'Completada', variant: 'outline' as const, color: 'bg-gray-500' },
   cancelled: { label: 'Cancelada', variant: 'destructive' as const, color: 'bg-red-500' },
   no_show: { label: 'No asistió', variant: 'destructive' as const, color: 'bg-orange-500' },
+  blocked: { label: 'Bloqueado', variant: 'outline' as const, color: 'bg-purple-500' },
 };
 
 export function SessionDetailDialog({ session, open, onOpenChange }: SessionDetailDialogProps) {

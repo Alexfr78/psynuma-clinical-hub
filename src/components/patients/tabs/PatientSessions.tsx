@@ -17,6 +17,7 @@ const statusConfig = {
   completed: { label: 'Completada', variant: 'outline' as const },
   cancelled: { label: 'Cancelada', variant: 'destructive' as const },
   no_show: { label: 'No asistió', variant: 'destructive' as const },
+  blocked: { label: 'Bloqueado', variant: 'outline' as const },
 };
 
 export function PatientSessions({ patientId }: PatientSessionsProps) {
