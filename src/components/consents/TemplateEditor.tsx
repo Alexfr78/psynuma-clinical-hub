@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card } from '@/components/ui/card';
@@ -10,15 +10,24 @@ import {
   Italic, 
   Underline,
   Heading1, 
-  Heading2, 
+  Heading2,
+  Heading3,
   List, 
   ListOrdered,
   AlignLeft,
   AlignCenter,
-  AlignRight
+  AlignRight,
+  Type
 } from 'lucide-react';
 import { Toggle } from '@/components/ui/toggle';
 import { Separator } from '@/components/ui/separator';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface TemplateEditorProps {
   value: string;
@@ -28,10 +37,29 @@ interface TemplateEditorProps {
 export function TemplateEditor({ value, onChange }: TemplateEditorProps) {
   const [activeTab, setActiveTab] = useState<'edit' | 'preview'>('edit');
   const editorRef = useRef<HTMLDivElement>(null);
+  const isInitialized = useRef(false);
+
+  // Initialize content only once
+  useEffect(() => {
+    if (editorRef.current && !isInitialized.current) {
+      editorRef.current.innerHTML = value;
+      isInitialized.current = true;
+    }
+  }, [value]);
+
+  // Sync external value changes (e.g., when loading a template)
+  useEffect(() => {
+    if (editorRef.current && isInitialized.current) {
+      // Only update if value is completely different (not just typing)
+      const currentContent = editorRef.current.innerHTML;
+      if (value !== currentContent && value.length === 0) {
+        editorRef.current.innerHTML = value;
+      }
+    }
+  }, [value]);
 
   const execCommand = useCallback((command: string, value?: string) => {
     document.execCommand(command, false, value);
-    // Update the value after command execution
     if (editorRef.current) {
       onChange(editorRef.current.innerHTML);
     }
@@ -58,6 +86,10 @@ export function TemplateEditor({ value, onChange }: TemplateEditorProps) {
     document.execCommand('insertText', false, text);
   }, []);
 
+  const handleFontSize = useCallback((size: string) => {
+    execCommand('fontSize', size);
+  }, [execCommand]);
+
   const renderPreview = () => {
     let preview = value;
     const exampleValues: Record<string, string> = {
@@ -76,10 +108,12 @@ export function TemplateEditor({ value, onChange }: TemplateEditorProps) {
         month: 'long',
         year: 'numeric',
       }),
+      '{campos_verificacion}': '<div class="bg-muted/50 p-3 rounded border my-2 text-sm">[Campos de verificación aparecerán aquí]</div>',
     };
 
     Object.entries(exampleValues).forEach(([key, val]) => {
-      preview = preview.replace(new RegExp(key, 'g'), `<mark class="bg-primary/20 px-1 rounded">${val}</mark>`);
+      preview = preview.replace(new RegExp(key.replace(/[{}]/g, '\\$&'), 'g'), 
+        key === '{campos_verificacion}' ? val : `<mark class="bg-primary/20 px-1 rounded">${val}</mark>`);
     });
 
     return preview;
@@ -128,6 +162,25 @@ export function TemplateEditor({ value, onChange }: TemplateEditorProps) {
             
             <Separator orientation="vertical" className="mx-1 h-6" />
             
+            {/* Font Size */}
+            <Select onValueChange={handleFontSize}>
+              <SelectTrigger className="h-8 w-[100px] text-xs">
+                <Type className="mr-1 h-3 w-3" />
+                <SelectValue placeholder="Tamaño" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1">Muy pequeño</SelectItem>
+                <SelectItem value="2">Pequeño</SelectItem>
+                <SelectItem value="3">Normal</SelectItem>
+                <SelectItem value="4">Mediano</SelectItem>
+                <SelectItem value="5">Grande</SelectItem>
+                <SelectItem value="6">Muy grande</SelectItem>
+                <SelectItem value="7">Enorme</SelectItem>
+              </SelectContent>
+            </Select>
+            
+            <Separator orientation="vertical" className="mx-1 h-6" />
+            
             <Toggle
               size="sm"
               onPressedChange={() => execCommand('formatBlock', 'h1')}
@@ -141,6 +194,13 @@ export function TemplateEditor({ value, onChange }: TemplateEditorProps) {
               aria-label="Título 2"
             >
               <Heading2 className="h-4 w-4" />
+            </Toggle>
+            <Toggle
+              size="sm"
+              onPressedChange={() => execCommand('formatBlock', 'h3')}
+              aria-label="Título 3"
+            >
+              <Heading3 className="h-4 w-4" />
             </Toggle>
             
             <Separator orientation="vertical" className="mx-1 h-6" />
@@ -189,10 +249,9 @@ export function TemplateEditor({ value, onChange }: TemplateEditorProps) {
           <div
             ref={editorRef}
             contentEditable
-            className="min-h-[400px] rounded-md border bg-background p-4 focus:outline-none focus:ring-2 focus:ring-ring prose prose-sm max-w-none dark:prose-invert"
+            className="min-h-[400px] rounded-md border bg-background p-4 focus:outline-none focus:ring-2 focus:ring-ring prose prose-sm max-w-none dark:prose-invert [&_font[size='1']]:text-xs [&_font[size='2']]:text-sm [&_font[size='3']]:text-base [&_font[size='4']]:text-lg [&_font[size='5']]:text-xl [&_font[size='6']]:text-2xl [&_font[size='7']]:text-3xl"
             onInput={handleInput}
             onPaste={handlePaste}
-            dangerouslySetInnerHTML={{ __html: value }}
             suppressContentEditableWarning
           />
           <p className="text-xs text-muted-foreground">
