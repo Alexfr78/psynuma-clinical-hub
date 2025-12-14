@@ -108,19 +108,50 @@ async function fetchGoogleCalendarEvents(
   return data.items || [];
 }
 
+function formatEventText(
+  template: string,
+  session: any,
+  patient: any,
+  professional: any
+): string {
+  const patientName = patient 
+    ? `${patient.first_name || ''} ${patient.last_name || ''}`.trim() 
+    : 'Paciente';
+  const professionalName = professional 
+    ? `${professional.first_name || ''} ${professional.last_name || ''}`.trim() 
+    : 'Profesional';
+  
+  return template
+    .replace(/{paciente}/g, patientName)
+    .replace(/{profesional}/g, professionalName)
+    .replace(/{tipo}/g, session.session_type || 'Sesión')
+    .replace(/{hora}/g, session.start_time || '')
+    .replace(/{fecha}/g, session.session_date || '')
+    .replace(/{notas}/g, session.notes || '')
+    .replace(/{telefono}/g, patient?.phone || '');
+}
+
 async function createGoogleCalendarEvent(
   accessToken: string,
   calendarId: string,
   session: any,
-  patientName: string,
-  professionalName: string
+  patient: any,
+  professional: any,
+  titleFormat?: string,
+  descriptionFormat?: string
 ): Promise<string | null> {
   const startDateTime = `${session.session_date}T${session.start_time}`;
   const endDateTime = `${session.session_date}T${session.end_time}`;
 
+  const defaultTitle = '{tipo} - {paciente}';
+  const defaultDescription = 'Profesional: {profesional}\nTipo: {tipo}\nNotas: {notas}';
+  
+  const title = formatEventText(titleFormat || defaultTitle, session, patient, professional);
+  const description = formatEventText(descriptionFormat || defaultDescription, session, patient, professional);
+
   const event = {
-    summary: `${session.session_type || 'Sesión'} - ${patientName}`,
-    description: `Profesional: ${professionalName}\nTipo: ${session.session_type || 'N/A'}\nNotas: ${session.notes || ''}`,
+    summary: title,
+    description: description,
     start: {
       dateTime: startDateTime,
       timeZone: 'Europe/Madrid',
@@ -158,15 +189,23 @@ async function updateGoogleCalendarEvent(
   calendarId: string,
   eventId: string,
   session: any,
-  patientName: string,
-  professionalName: string
+  patient: any,
+  professional: any,
+  titleFormat?: string,
+  descriptionFormat?: string
 ): Promise<boolean> {
   const startDateTime = `${session.session_date}T${session.start_time}`;
   const endDateTime = `${session.session_date}T${session.end_time}`;
 
+  const defaultTitle = '{tipo} - {paciente}';
+  const defaultDescription = 'Profesional: {profesional}\nTipo: {tipo}\nNotas: {notas}';
+  
+  const title = formatEventText(titleFormat || defaultTitle, session, patient, professional);
+  const description = formatEventText(descriptionFormat || defaultDescription, session, patient, professional);
+
   const event = {
-    summary: `${session.session_type || 'Sesión'} - ${patientName}`,
-    description: `Profesional: ${professionalName}\nTipo: ${session.session_type || 'N/A'}\nNotas: ${session.notes || ''}`,
+    summary: title,
+    description: description,
     start: {
       dateTime: startDateTime,
       timeZone: 'Europe/Madrid',
@@ -275,20 +314,21 @@ async function syncProfessional(
     return result;
   }
 
+  const titleFormat = integrations?.google_event_title_format || '{tipo} - {paciente}';
+  const descriptionFormat = integrations?.google_event_description_format || 'Profesional: {profesional}\nTipo: {tipo}\nNotas: {notas}';
+
   // Sync Psycma sessions to Google Calendar
   for (const session of sessions || []) {
-    const patientName = session.patient 
-      ? `${session.patient.first_name} ${session.patient.last_name}`
-      : 'Paciente';
-
     if (!session.google_calendar_event_id) {
       // Create new event in Google Calendar
       const eventId = await createGoogleCalendarEvent(
         accessToken,
         calendarId,
         session,
-        patientName,
-        professionalName
+        session.patient,
+        professional,
+        titleFormat,
+        descriptionFormat
       );
 
       if (eventId) {
@@ -307,8 +347,10 @@ async function syncProfessional(
         calendarId,
         session.google_calendar_event_id,
         session,
-        patientName,
-        professionalName
+        session.patient,
+        professional,
+        titleFormat,
+        descriptionFormat
       );
 
       if (updated) {
@@ -341,6 +383,77 @@ async function syncProfessional(
           .update({ google_calendar_event_id: null })
           .eq('id', session.id);
         result.deleted++;
+      }
+    }
+  }
+
+  // Two-way sync: Import events from Google Calendar as blocked slots
+  if (integrations?.google_calendar_sync_mode === 'two_way') {
+    const timeMin = `${dateFrom}T00:00:00Z`;
+    const timeMax = `${dateTo}T23:59:59Z`;
+    
+    const googleEvents = await fetchGoogleCalendarEvents(accessToken, calendarId, timeMin, timeMax);
+    
+    // Get existing session event IDs to avoid duplicates
+    const existingEventIds = new Set(
+      (sessions || [])
+        .map((s: any) => s.google_calendar_event_id)
+        .filter(Boolean)
+    );
+    
+    // Get professional's center_id
+    const { data: profData } = await supabase
+      .from('profiles')
+      .select('center_id')
+      .eq('id', professionalId)
+      .single();
+
+    for (const event of googleEvents) {
+      // Skip events we created (already in Psycma)
+      if (existingEventIds.has(event.id)) continue;
+      
+      // Skip all-day events
+      if (!event.start?.dateTime) continue;
+      
+      // Check if this event was already imported
+      const { data: existingImport } = await supabase
+        .from('sessions')
+        .select('id')
+        .eq('google_calendar_event_id', event.id)
+        .single();
+      
+      if (existingImport) continue;
+      
+      // Parse event times
+      const startDate = new Date(event.start.dateTime);
+      const endDate = new Date(event.end.dateTime);
+      
+      const sessionDate = startDate.toISOString().split('T')[0];
+      const startTime = startDate.toTimeString().slice(0, 5);
+      const endTime = endDate.toTimeString().slice(0, 5);
+      
+      // Create a blocked/external session
+      const { error: insertError } = await supabase
+        .from('sessions')
+        .insert({
+          professional_id: professionalId,
+          center_id: profData?.center_id,
+          session_date: sessionDate,
+          start_time: startTime,
+          end_time: endTime,
+          notes: `[Google Calendar] ${event.summary || 'Evento externo'}\n${event.description || ''}`,
+          status: 'external',
+          google_calendar_event_id: event.id,
+          session_type: 'Bloqueado',
+          price: 0,
+          // Use a placeholder patient ID or handle null appropriately
+          patient_id: null as any, // External events don't have patients
+        });
+
+      if (!insertError) {
+        result.created++;
+      } else {
+        console.error('Error importing event:', insertError);
       }
     }
   }
