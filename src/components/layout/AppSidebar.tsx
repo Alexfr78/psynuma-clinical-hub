@@ -5,6 +5,7 @@ import {
   Users,
   UserCog,
   FileText,
+  FileSignature,
   Package,
   Receipt,
   CreditCard,
@@ -38,6 +39,7 @@ const mainNavItems = [
   { title: 'Agenda', url: '/agenda', icon: Calendar },
   { title: 'Pacientes', url: '/pacientes', icon: Users },
   { title: 'Sesiones', url: '/sesiones', icon: FileText },
+  { title: 'Consentimientos', url: '/consentimientos', icon: FileSignature },
 ];
 
 const financeNavItems = [
