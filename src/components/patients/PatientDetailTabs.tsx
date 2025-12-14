@@ -22,13 +22,13 @@ interface PatientDetailTabsProps {
 export function PatientDetailTabs({ patient }: PatientDetailTabsProps) {
   return (
     <Tabs defaultValue="summary" className="w-full">
-      <TabsList className="mb-6 w-full justify-start overflow-x-auto">
-        <TabsTrigger value="summary">Resumen</TabsTrigger>
-        <TabsTrigger value="data">Datos</TabsTrigger>
-        <TabsTrigger value="sessions">Sesiones</TabsTrigger>
-        <TabsTrigger value="invoices">Facturas</TabsTrigger>
-        <TabsTrigger value="bonos">Bonos</TabsTrigger>
-        <TabsTrigger value="consents">Consentimientos</TabsTrigger>
+      <TabsList className="mb-4 sm:mb-6 w-full justify-start overflow-x-auto flex-nowrap scrollbar-hide">
+        <TabsTrigger value="summary" className="text-xs sm:text-sm px-2 sm:px-3">Resumen</TabsTrigger>
+        <TabsTrigger value="data" className="text-xs sm:text-sm px-2 sm:px-3">Datos</TabsTrigger>
+        <TabsTrigger value="sessions" className="text-xs sm:text-sm px-2 sm:px-3">Sesiones</TabsTrigger>
+        <TabsTrigger value="invoices" className="text-xs sm:text-sm px-2 sm:px-3">Facturas</TabsTrigger>
+        <TabsTrigger value="bonos" className="text-xs sm:text-sm px-2 sm:px-3">Bonos</TabsTrigger>
+        <TabsTrigger value="consents" className="text-xs sm:text-sm px-2 sm:px-3 whitespace-nowrap">Consentimientos</TabsTrigger>
       </TabsList>
 
       <TabsContent value="summary">

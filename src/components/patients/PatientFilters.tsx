@@ -25,8 +25,8 @@ export function PatientFilters({ filters, onFiltersChange }: PatientFiltersProps
   };
 
   return (
-    <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-      <div className="relative flex-1">
+    <div className="flex flex-col gap-3 sm:gap-4">
+      <div className="relative">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           placeholder="Buscar por nombre o email..."
@@ -36,13 +36,13 @@ export function PatientFilters({ filters, onFiltersChange }: PatientFiltersProps
         />
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
         <Select
           value={filters.status || 'all'}
           onValueChange={(value) => onFiltersChange({ ...filters, status: value })}
         >
-          <SelectTrigger className="w-[140px]">
-            <Filter className="mr-2 h-4 w-4" />
+          <SelectTrigger className="w-full sm:w-[140px]">
+            <Filter className="mr-2 h-4 w-4 shrink-0" />
             <SelectValue placeholder="Estado" />
           </SelectTrigger>
           <SelectContent>
@@ -57,11 +57,11 @@ export function PatientFilters({ filters, onFiltersChange }: PatientFiltersProps
           value={filters.professionalId || 'all'}
           onValueChange={(value) => onFiltersChange({ ...filters, professionalId: value })}
         >
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="w-full sm:w-[180px]">
             <SelectValue placeholder="Profesional" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Todos los profesionales</SelectItem>
+            <SelectItem value="all">Todos</SelectItem>
             {professionals?.map((prof) => (
               <SelectItem key={prof.id} value={prof.id}>
                 {prof.first_name} {prof.last_name}
@@ -71,7 +71,7 @@ export function PatientFilters({ filters, onFiltersChange }: PatientFiltersProps
         </Select>
 
         {hasActiveFilters && (
-          <Button variant="ghost" size="sm" onClick={clearFilters}>
+          <Button variant="ghost" size="sm" onClick={clearFilters} className="col-span-2 sm:col-span-1">
             <X className="mr-1 h-4 w-4" />
             Limpiar
           </Button>
