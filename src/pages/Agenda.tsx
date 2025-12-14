@@ -13,6 +13,7 @@ import { MoveSessionDialog } from '@/components/agenda/MoveSessionDialog';
 import { useToast } from '@/hooks/use-toast';
 import { useAgendaHours } from '@/hooks/useAgendaHours';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useGoogleCalendarUpdate } from '@/hooks/useGoogleCalendarUpdate';
 
 export default function Agenda() {
   const isMobile = useIsMobile();
@@ -35,6 +36,7 @@ export default function Agenda() {
 
   const { toast } = useToast();
   const updateSession = useUpdateSession();
+  const { syncMoveToGoogle } = useGoogleCalendarUpdate();
 
   // Calculate date range based on view
   const dateRange = useMemo(() => {
@@ -105,12 +107,21 @@ export default function Agenda() {
 
   const handleSessionMove = async (sessionId: string, newDate: string, newStartTime: string, newEndTime: string) => {
     try {
+      // Find the session to get Google Calendar event ID
+      const session = sessions?.find(s => s.id === sessionId);
+      
       await updateSession.mutateAsync({
         id: sessionId,
         session_date: newDate,
         start_time: newStartTime,
         end_time: newEndTime,
       });
+      
+      // Sync to Google Calendar if connected
+      if (session) {
+        syncMoveToGoogle(session, newDate, newStartTime, newEndTime);
+      }
+      
       toast({
         title: 'Sesión movida',
         description: `Movida a ${newDate} ${newStartTime}`,
