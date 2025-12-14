@@ -97,42 +97,44 @@ export function PatientSummary({ patient }: PatientSummaryProps) {
       {/* Patient Header Card */}
       <Card>
         <CardContent className="pt-6">
-          <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-start">
-            <Avatar className="h-24 w-24 border-4 border-primary/10">
-              <AvatarFallback className="bg-primary/10 text-primary text-2xl font-semibold">
+          <div className="flex flex-col items-center gap-4 sm:gap-6 sm:flex-row sm:items-start">
+            <Avatar className="h-16 w-16 sm:h-24 sm:w-24 border-4 border-primary/10 shrink-0">
+              <AvatarFallback className="bg-primary/10 text-primary text-xl sm:text-2xl font-semibold">
                 {initials}
               </AvatarFallback>
             </Avatar>
 
-            <div className="flex-1 text-center sm:text-left">
-              <div className="flex flex-col items-center gap-2 sm:flex-row">
-                <h2 className="font-display text-2xl font-bold">
+            <div className="flex-1 min-w-0 text-center sm:text-left">
+              <div className="flex flex-col items-center gap-2 sm:flex-row sm:flex-wrap">
+                <h2 className="font-display text-xl sm:text-2xl font-bold break-words">
                   {patient.first_name} {patient.last_name}
                 </h2>
-                <Badge variant={status.variant}>{status.label}</Badge>
-                {patient.is_minor && (
-                  <Badge variant="outline" className="border-warning text-warning">
-                    Menor
-                  </Badge>
-                )}
+                <div className="flex gap-2 flex-wrap justify-center sm:justify-start">
+                  <Badge variant={status.variant}>{status.label}</Badge>
+                  {patient.is_minor && (
+                    <Badge variant="outline" className="border-warning text-warning">
+                      Menor
+                    </Badge>
+                  )}
+                </div>
               </div>
 
-              <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="mt-3 sm:mt-4 grid gap-2 sm:gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {patient.email && (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Mail className="h-4 w-4" />
-                    <span>{patient.email}</span>
+                  <div className="flex items-center justify-center sm:justify-start gap-2 text-xs sm:text-sm text-muted-foreground">
+                    <Mail className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
+                    <span className="truncate">{patient.email}</span>
                   </div>
                 )}
                 {patient.phone && (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Phone className="h-4 w-4" />
+                  <div className="flex items-center justify-center sm:justify-start gap-2 text-xs sm:text-sm text-muted-foreground">
+                    <Phone className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
                     <span>{patient.phone}</span>
                   </div>
                 )}
                 {patient.date_of_birth && (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Calendar className="h-4 w-4" />
+                  <div className="flex items-center justify-center sm:justify-start gap-2 text-xs sm:text-sm text-muted-foreground">
+                    <Calendar className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
                     <span>
                       {format(new Date(patient.date_of_birth), "d MMM yyyy", { locale: es })}
                       {age !== null && ` (${age} años)`}
@@ -140,9 +142,9 @@ export function PatientSummary({ patient }: PatientSummaryProps) {
                   </div>
                 )}
                 {(patient.city || patient.address) && (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <MapPin className="h-4 w-4" />
-                    <span>{patient.city || patient.address}</span>
+                  <div className="flex items-center justify-center sm:justify-start gap-2 text-xs sm:text-sm text-muted-foreground">
+                    <MapPin className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
+                    <span className="truncate">{patient.city || patient.address}</span>
                   </div>
                 )}
               </div>

@@ -133,22 +133,22 @@ export function PatientData({ patient }: PatientDataProps) {
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h3 className="font-display text-lg font-semibold">Información del paciente</h3>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <h3 className="font-display text-base sm:text-lg font-semibold">Información del paciente</h3>
           <div className="flex gap-2">
             {isEditing ? (
               <>
-                <Button type="button" variant="outline" onClick={() => setIsEditing(false)}>
+                <Button type="button" variant="outline" size="sm" onClick={() => setIsEditing(false)}>
                   Cancelar
                 </Button>
-                <Button type="submit" disabled={updatePatient.isPending}>
+                <Button type="submit" size="sm" disabled={updatePatient.isPending}>
                   {updatePatient.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   <Save className="mr-2 h-4 w-4" />
-                  Guardar
+                  <span className="hidden sm:inline">Guardar</span>
                 </Button>
               </>
             ) : (
-              <Button type="button" variant="outline" onClick={() => setIsEditing(true)}>
+              <Button type="button" variant="outline" size="sm" onClick={() => setIsEditing(true)}>
                 Editar
               </Button>
             )}

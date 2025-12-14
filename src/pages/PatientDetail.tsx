@@ -35,11 +35,12 @@ export default function PatientDetail() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Back Button */}
-      <Button variant="ghost" size="sm" onClick={() => navigate('/pacientes')}>
-        <ArrowLeft className="mr-2 h-4 w-4" />
-        Volver a pacientes
+      <Button variant="ghost" size="sm" onClick={() => navigate('/pacientes')} className="text-xs sm:text-sm">
+        <ArrowLeft className="mr-1.5 sm:mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4" />
+        <span className="hidden sm:inline">Volver a pacientes</span>
+        <span className="sm:hidden">Volver</span>
       </Button>
 
       {/* Patient Detail Tabs */}
