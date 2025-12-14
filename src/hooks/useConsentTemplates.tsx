@@ -10,6 +10,7 @@ export interface ConsentTemplate {
   content_html: string;
   requires_guardian_signature: boolean;
   is_active: boolean;
+  verification_checkboxes: string[];
   created_at: string;
   updated_at: string;
 }

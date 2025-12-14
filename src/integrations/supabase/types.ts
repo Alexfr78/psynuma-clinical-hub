@@ -620,6 +620,7 @@ export type Database = {
           name: string
           requires_guardian_signature: boolean | null
           updated_at: string | null
+          verification_checkboxes: Json | null
         }
         Insert: {
           center_id: string
@@ -630,6 +631,7 @@ export type Database = {
           name: string
           requires_guardian_signature?: boolean | null
           updated_at?: string | null
+          verification_checkboxes?: Json | null
         }
         Update: {
           center_id?: string
@@ -640,6 +642,7 @@ export type Database = {
           name?: string
           requires_guardian_signature?: boolean | null
           updated_at?: string | null
+          verification_checkboxes?: Json | null
         }
         Relationships: [
           {
