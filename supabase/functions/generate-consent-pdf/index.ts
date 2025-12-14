@@ -51,6 +51,41 @@ async function generateHash(data: string): Promise<string> {
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
+// Sanitize text for WinAnsi encoding (StandardFonts compatibility)
+function sanitizeForPdf(text: string): string {
+  return text
+    // Replace common Unicode symbols with ASCII equivalents
+    .replace(/✓/g, '[X]')
+    .replace(/✗/g, '[ ]')
+    .replace(/•/g, '-')
+    .replace(/–/g, '-')
+    .replace(/—/g, '-')
+    .replace(/'/g, "'")
+    .replace(/'/g, "'")
+    .replace(/"/g, '"')
+    .replace(/"/g, '"')
+    .replace(/…/g, '...')
+    .replace(/€/g, 'EUR')
+    .replace(/©/g, '(c)')
+    .replace(/®/g, '(R)')
+    .replace(/™/g, '(TM)')
+    // Spanish characters are supported in WinAnsi, but let's be safe with some
+    .replace(/á/g, 'a')
+    .replace(/é/g, 'e')
+    .replace(/í/g, 'i')
+    .replace(/ó/g, 'o')
+    .replace(/ú/g, 'u')
+    .replace(/Á/g, 'A')
+    .replace(/É/g, 'E')
+    .replace(/Í/g, 'I')
+    .replace(/Ó/g, 'O')
+    .replace(/Ú/g, 'U')
+    .replace(/ñ/g, 'n')
+    .replace(/Ñ/g, 'N')
+    .replace(/ü/g, 'u')
+    .replace(/Ü/g, 'U');
+}
+
 // Strip HTML tags and decode entities for plain text
 function htmlToPlainText(html: string): string {
   // Remove script and style tags with their contents
@@ -62,7 +97,7 @@ function htmlToPlainText(html: string): string {
   text = text.replace(/<\/div>/gi, '\n');
   text = text.replace(/<\/h[1-6]>/gi, '\n\n');
   text = text.replace(/<br\s*\/?>/gi, '\n');
-  text = text.replace(/<li>/gi, '• ');
+  text = text.replace(/<li>/gi, '- ');
   text = text.replace(/<\/li>/gi, '\n');
   
   // Remove remaining tags
@@ -75,20 +110,21 @@ function htmlToPlainText(html: string): string {
   text = text.replace(/&gt;/g, '>');
   text = text.replace(/&quot;/g, '"');
   text = text.replace(/&#39;/g, "'");
-  text = text.replace(/&aacute;/gi, 'á');
-  text = text.replace(/&eacute;/gi, 'é');
-  text = text.replace(/&iacute;/gi, 'í');
-  text = text.replace(/&oacute;/gi, 'ó');
-  text = text.replace(/&uacute;/gi, 'ú');
-  text = text.replace(/&ntilde;/gi, 'ñ');
-  text = text.replace(/&Ntilde;/gi, 'Ñ');
-  text = text.replace(/&uuml;/gi, 'ü');
+  text = text.replace(/&aacute;/gi, 'a');
+  text = text.replace(/&eacute;/gi, 'e');
+  text = text.replace(/&iacute;/gi, 'i');
+  text = text.replace(/&oacute;/gi, 'o');
+  text = text.replace(/&uacute;/gi, 'u');
+  text = text.replace(/&ntilde;/gi, 'n');
+  text = text.replace(/&Ntilde;/gi, 'N');
+  text = text.replace(/&uuml;/gi, 'u');
   
   // Clean up excessive whitespace
   text = text.replace(/\n\s*\n\s*\n/g, '\n\n');
   text = text.replace(/[ \t]+/g, ' ');
   
-  return text.trim();
+  // Sanitize for PDF encoding
+  return sanitizeForPdf(text.trim());
 }
 
 // Wrap text to fit within a given width
@@ -355,7 +391,7 @@ serve(async (req) => {
     });
     currentY -= 25;
 
-    currentPage.drawText('Documento firmado electrónicamente', {
+    currentPage.drawText('Documento firmado electronicamente', {
       x: margin,
       y: currentY,
       size: 10,
@@ -434,8 +470,8 @@ serve(async (req) => {
     }
     currentY -= 25;
 
-    currentPage.drawText('FIRMAS ELECTRÓNICAS', {
-      x: (pageWidth - helveticaBold.widthOfTextAtSize('FIRMAS ELECTRÓNICAS', 14)) / 2,
+    currentPage.drawText('FIRMAS ELECTRONICAS', {
+      x: (pageWidth - helveticaBold.widthOfTextAtSize('FIRMAS ELECTRONICAS', 14)) / 2,
       y: currentY,
       size: 14,
       font: helveticaBold,
@@ -566,7 +602,7 @@ serve(async (req) => {
     }
 
     // Verification text
-    currentPage.drawText('✓ DOCUMENTO FIRMADO ELECTRÓNICAMENTE', {
+    currentPage.drawText('[X] DOCUMENTO FIRMADO ELECTRONICAMENTE', {
       x: margin + 95,
       y: currentY - 20,
       size: 12,
@@ -574,7 +610,7 @@ serve(async (req) => {
       color: rgb(0.09, 0.4, 0.2),
     });
 
-    currentPage.drawText('Este documento ha sido firmado electrónicamente y tiene validez legal.', {
+    currentPage.drawText('Este documento ha sido firmado electronicamente y tiene validez legal.', {
       x: margin + 95,
       y: currentY - 38,
       size: 9,
