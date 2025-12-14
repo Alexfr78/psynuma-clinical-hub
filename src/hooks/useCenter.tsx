@@ -57,6 +57,8 @@ export interface Center {
   payment_reminder_hours_after: number | null;
   payment_reminder_max_count: number | null;
   payment_reminder_interval_hours: number | null;
+  // Consent settings
+  consent_expiration_days: number | null;
   created_at: string;
   updated_at: string;
 }

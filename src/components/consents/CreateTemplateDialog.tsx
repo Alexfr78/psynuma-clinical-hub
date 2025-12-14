@@ -95,7 +95,12 @@ export function CreateTemplateDialog({
     if (isEditing) {
       await updateTemplate.mutateAsync({ id: template.id, ...values });
     } else {
-      await createTemplate.mutateAsync(values);
+      await createTemplate.mutateAsync({
+        name: values.name,
+        content_html: values.content_html,
+        requires_guardian_signature: values.requires_guardian_signature,
+        is_active: values.is_active,
+      });
     }
     onOpenChange(false);
   };
