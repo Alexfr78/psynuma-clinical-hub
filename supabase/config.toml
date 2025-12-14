@@ -68,3 +68,9 @@ verify_jwt = false
 
 [functions.generate-consent-pdf]
 verify_jwt = false
+
+[functions.list-google-calendars]
+verify_jwt = true
+
+[functions.sync-google-calendar]
+verify_jwt = false

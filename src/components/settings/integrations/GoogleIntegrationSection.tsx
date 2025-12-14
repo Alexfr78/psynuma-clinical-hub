@@ -361,21 +361,24 @@ export function GoogleIntegrationSection() {
                           <SelectValue placeholder="Seleccionar calendario..." />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="primary">Calendario principal</SelectItem>
-                          {calendars.map((cal) => (
-                            <SelectItem key={cal.id} value={cal.id}>
-                              <div className="flex items-center gap-2">
-                                {cal.backgroundColor && (
-                                  <div 
-                                    className="w-3 h-3 rounded-full" 
-                                    style={{ backgroundColor: cal.backgroundColor }}
-                                  />
-                                )}
-                                <span>{cal.summary}</span>
-                                {cal.primary && <span className="text-xs text-muted-foreground">(principal)</span>}
-                              </div>
-                            </SelectItem>
-                          ))}
+                          {calendars.length === 0 ? (
+                            <SelectItem value="primary">Calendario principal</SelectItem>
+                          ) : (
+                            calendars.map((cal) => (
+                              <SelectItem key={cal.id} value={cal.id}>
+                                <div className="flex items-center gap-2">
+                                  {cal.backgroundColor && (
+                                    <div 
+                                      className="w-3 h-3 rounded-full" 
+                                      style={{ backgroundColor: cal.backgroundColor }}
+                                    />
+                                  )}
+                                  <span>{cal.summary}</span>
+                                  {cal.primary && <span className="text-xs text-muted-foreground">(principal)</span>}
+                                </div>
+                              </SelectItem>
+                            ))
+                          )}
                         </SelectContent>
                       </Select>
                     )}
