@@ -19,6 +19,7 @@ export interface ProfessionalIntegration {
   // Google Calendar
   google_calendar_enabled: boolean;
   google_calendar_sync_mode: 'one_way' | 'two_way';
+  last_google_sync_at: string | null;
   // Stripe
   stripe_enabled: boolean;
   stripe_payment_mode: 'required_now' | 'post_pay' | 'scheduled_before';
