@@ -548,8 +548,10 @@ export type Database = {
           channel: string
           created_at: string | null
           email_confirmation_text: string | null
+          email_footer: string | null
           email_initial_text: string | null
           email_payment_text: string | null
+          email_subject: string | null
           email_videocall_text: string | null
           id: string
           is_active: boolean | null
@@ -563,8 +565,10 @@ export type Database = {
           channel: string
           created_at?: string | null
           email_confirmation_text?: string | null
+          email_footer?: string | null
           email_initial_text?: string | null
           email_payment_text?: string | null
+          email_subject?: string | null
           email_videocall_text?: string | null
           id?: string
           is_active?: boolean | null
@@ -578,8 +582,10 @@ export type Database = {
           channel?: string
           created_at?: string | null
           email_confirmation_text?: string | null
+          email_footer?: string | null
           email_initial_text?: string | null
           email_payment_text?: string | null
+          email_subject?: string | null
           email_videocall_text?: string | null
           id?: string
           is_active?: boolean | null

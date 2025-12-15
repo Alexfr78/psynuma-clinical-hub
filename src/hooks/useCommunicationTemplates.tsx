@@ -15,6 +15,8 @@ export interface CommunicationTemplate {
   email_confirmation_text: string | null;
   email_videocall_text: string | null;
   email_payment_text: string | null;
+  email_subject: string | null;
+  email_footer: string | null;
   sms_message: string | null;
   whatsapp_message: string | null;
   is_active: boolean;
@@ -29,6 +31,8 @@ export interface UpsertTemplateData {
   email_confirmation_text?: string | null;
   email_videocall_text?: string | null;
   email_payment_text?: string | null;
+  email_subject?: string | null;
+  email_footer?: string | null;
   sms_message?: string | null;
   whatsapp_message?: string | null;
   is_active?: boolean;
@@ -38,16 +42,20 @@ export interface UpsertTemplateData {
 export const DEFAULT_TEMPLATES: Record<TemplateChannel, Record<TemplateType, Partial<UpsertTemplateData>>> = {
   email: {
     notification: {
-      email_initial_text: 'Tienes una nueva sesión {sesion_tipo} con {profesional_nombre} el {fecha} a las {zona_horaria}.',
+      email_subject: 'Nueva cita programada - {fecha}',
+      email_initial_text: 'Hola {nombre_paciente},\n\nTienes una nueva sesión {sesion_tipo} con {profesional_nombre} el {fecha} a las {zona_horaria}.',
       email_confirmation_text: 'Si necesitas confirmar tu asistencia, puedes hacerlo en el siguiente enlace: {link_confirmar}',
       email_videocall_text: 'Tu sesión será online. Puedes unirte a la videollamada desde: {link_videollamada}',
       email_payment_text: 'Para realizar el pago de tu sesión, accede a: {link_sesion}',
+      email_footer: 'Un saludo,\n{centro_nombre}',
     },
     reminder: {
-      email_initial_text: 'Recordatorio: Tu sesión {sesion_tipo} con {profesional_nombre} es mañana {fecha} a las {zona_horaria}.',
+      email_subject: 'Recordatorio de tu cita - {fecha}',
+      email_initial_text: 'Hola {nombre_paciente},\n\nRecordatorio: Tu sesión {sesion_tipo} con {profesional_nombre} es mañana {fecha} a las {zona_horaria}.',
       email_confirmation_text: 'Si aún no has confirmado tu asistencia, hazlo aquí: {link_confirmar}',
       email_videocall_text: 'Recuerda que tu sesión será online. Enlace de videollamada: {link_videollamada}',
       email_payment_text: 'Si tienes pagos pendientes, puedes realizarlos en: {link_sesion}',
+      email_footer: 'Un saludo,\n{centro_nombre}',
     },
   },
   whatsapp: {
@@ -145,6 +153,8 @@ export function useUpsertCommunicationTemplate() {
             email_confirmation_text: data.email_confirmation_text,
             email_videocall_text: data.email_videocall_text,
             email_payment_text: data.email_payment_text,
+            email_subject: data.email_subject,
+            email_footer: data.email_footer,
             sms_message: data.sms_message,
             whatsapp_message: data.whatsapp_message,
             is_active: data.is_active ?? true,

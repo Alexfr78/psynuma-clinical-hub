@@ -143,10 +143,49 @@ export function useSendSessionNotification() {
         }
       }
 
-      // Handle Email - create notification and send via edge function
+      // Handle Email - read templates and send via edge function
       if (params.channels.email && params.patientEmail) {
-        const emailSubject = `${params.type === 'notification' ? 'Nueva cita' : 'Recordatorio'} - ${params.sessionDate}`;
-        const emailMessage = `Hola ${params.patientName.split(' ')[0]},\n\nTienes una cita programada para el ${params.sessionDate} a las ${params.sessionTime}.\n\nProfesional: ${params.professionalName || ''}\nTipo de sesión: ${params.sessionType || 'Individual'}\n\nPuedes gestionar tu cita desde el siguiente enlace:\n${appointmentLink}\n\nUn saludo,\n${center.name}`;
+        // Get email template from database
+        const { data: emailTemplate } = await supabase
+          .from('communication_templates')
+          .select('email_subject, email_initial_text, email_confirmation_text, email_videocall_text, email_payment_text, email_footer')
+          .eq('center_id', profile.center_id)
+          .eq('channel', 'email')
+          .eq('template_type', params.type)
+          .maybeSingle();
+
+        const defaults = DEFAULT_TEMPLATES.email[params.type];
+        
+        // Build subject
+        const subjectTemplate = emailTemplate?.email_subject || defaults.email_subject || 'Nueva cita - {fecha}';
+        const emailSubject = replaceTemplateVariables(subjectTemplate, templateVars);
+
+        // Build message body from template parts
+        let emailBody = '';
+        
+        // Initial text (always included)
+        const initialText = emailTemplate?.email_initial_text || defaults.email_initial_text || '';
+        if (initialText) {
+          emailBody += replaceTemplateVariables(initialText, templateVars);
+        }
+
+        // Confirmation text (if link available)
+        const confirmationText = emailTemplate?.email_confirmation_text || defaults.email_confirmation_text || '';
+        if (confirmationText && accessToken) {
+          emailBody += '\n\n' + replaceTemplateVariables(confirmationText, templateVars);
+        }
+
+        // Videocall text (TODO: could check if session has video link)
+        // For now, skip this section unless explicitly needed
+
+        // Payment text (TODO: could check payment status)
+        // For now, skip this section unless explicitly needed
+
+        // Footer (always included if present)
+        const footerText = emailTemplate?.email_footer || defaults.email_footer || '';
+        if (footerText) {
+          emailBody += '\n\n---\n' + replaceTemplateVariables(footerText, templateVars);
+        }
 
         const notification = await supabase.from('notifications').insert({
           center_id: profile.center_id,
@@ -155,7 +194,7 @@ export function useSendSessionNotification() {
           type: 'email',
           recipient: params.patientEmail,
           subject: emailSubject,
-          message: emailMessage,
+          message: emailBody,
           status: 'pending',
         }).select().single();
 

@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, Save, RotateCcw, Info, Mail } from 'lucide-react';
@@ -12,7 +13,6 @@ import {
   useUpsertCommunicationTemplate, 
   DEFAULT_TEMPLATES,
   TemplateType,
-  TEMPLATE_VARIABLES
 } from '@/hooks/useCommunicationTemplates';
 
 export function EmailTemplateEditor() {
@@ -21,21 +21,25 @@ export function EmailTemplateEditor() {
   
   // Form state for notification
   const [notificationForm, setNotificationForm] = useState({
+    email_subject: '',
     email_initial_text: '',
     email_confirmation_text: '',
     email_videocall_text: '',
     email_payment_text: '',
+    email_footer: '',
   });
   
   // Form state for reminder
   const [reminderForm, setReminderForm] = useState({
+    email_subject: '',
     email_initial_text: '',
     email_confirmation_text: '',
     email_videocall_text: '',
     email_payment_text: '',
+    email_footer: '',
   });
 
-  const textareaRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
+  const textareaRefs = useRef<Record<string, HTMLTextAreaElement | HTMLInputElement | null>>({});
 
   const { data: notificationTemplate, isLoading: loadingNotification } = useCommunicationTemplate('email', 'notification');
   const { data: reminderTemplate, isLoading: loadingReminder } = useCommunicationTemplate('email', 'reminder');
@@ -45,20 +49,24 @@ export function EmailTemplateEditor() {
   useEffect(() => {
     const defaults = DEFAULT_TEMPLATES.email.notification;
     setNotificationForm({
+      email_subject: notificationTemplate?.email_subject ?? defaults.email_subject ?? '',
       email_initial_text: notificationTemplate?.email_initial_text ?? defaults.email_initial_text ?? '',
       email_confirmation_text: notificationTemplate?.email_confirmation_text ?? defaults.email_confirmation_text ?? '',
       email_videocall_text: notificationTemplate?.email_videocall_text ?? defaults.email_videocall_text ?? '',
       email_payment_text: notificationTemplate?.email_payment_text ?? defaults.email_payment_text ?? '',
+      email_footer: notificationTemplate?.email_footer ?? defaults.email_footer ?? '',
     });
   }, [notificationTemplate]);
 
   useEffect(() => {
     const defaults = DEFAULT_TEMPLATES.email.reminder;
     setReminderForm({
+      email_subject: reminderTemplate?.email_subject ?? defaults.email_subject ?? '',
       email_initial_text: reminderTemplate?.email_initial_text ?? defaults.email_initial_text ?? '',
       email_confirmation_text: reminderTemplate?.email_confirmation_text ?? defaults.email_confirmation_text ?? '',
       email_videocall_text: reminderTemplate?.email_videocall_text ?? defaults.email_videocall_text ?? '',
       email_payment_text: reminderTemplate?.email_payment_text ?? defaults.email_payment_text ?? '',
+      email_footer: reminderTemplate?.email_footer ?? defaults.email_footer ?? '',
     });
   }, [reminderTemplate]);
 
@@ -72,11 +80,11 @@ export function EmailTemplateEditor() {
   const handleVariableClick = (variable: string) => {
     if (!activeField) return;
     
-    const textarea = textareaRefs.current[activeField];
-    if (!textarea) return;
+    const element = textareaRefs.current[activeField];
+    if (!element) return;
 
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
+    const start = element.selectionStart || 0;
+    const end = element.selectionEnd || 0;
     const currentValue = currentForm[activeField as keyof typeof currentForm] || '';
     const newValue = currentValue.slice(0, start) + variable + currentValue.slice(end);
     
@@ -84,9 +92,9 @@ export function EmailTemplateEditor() {
     
     // Restore cursor position after variable
     setTimeout(() => {
-      textarea.focus();
+      element.focus();
       const newPosition = start + variable.length;
-      textarea.setSelectionRange(newPosition, newPosition);
+      element.setSelectionRange(newPosition, newPosition);
     }, 0);
   };
 
@@ -101,10 +109,12 @@ export function EmailTemplateEditor() {
   const handleResetToDefault = () => {
     const defaults = DEFAULT_TEMPLATES.email[activeTab];
     setCurrentForm({
+      email_subject: defaults.email_subject ?? '',
       email_initial_text: defaults.email_initial_text ?? '',
       email_confirmation_text: defaults.email_confirmation_text ?? '',
       email_videocall_text: defaults.email_videocall_text ?? '',
       email_payment_text: defaults.email_payment_text ?? '',
+      email_footer: defaults.email_footer ?? '',
     });
   };
 
@@ -166,6 +176,18 @@ export function EmailTemplateEditor() {
               {/* Editor Column */}
               <div className="space-y-4">
                 <div className="space-y-2">
+                  <Label htmlFor="email_subject">Asunto del email</Label>
+                  <Input
+                    id="email_subject"
+                    ref={(el) => { textareaRefs.current['email_subject'] = el; }}
+                    value={currentForm.email_subject}
+                    onChange={(e) => handleFieldChange('email_subject', e.target.value)}
+                    onFocus={() => setActiveField('email_subject')}
+                    placeholder="Asunto del email..."
+                  />
+                </div>
+
+                <div className="space-y-2">
                   <Label htmlFor="email_initial_text">Texto inicial</Label>
                   <Textarea
                     id="email_initial_text"
@@ -216,6 +238,19 @@ export function EmailTemplateEditor() {
                     rows={2}
                   />
                 </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="email_footer">Pie del email (avisos legales)</Label>
+                  <Textarea
+                    id="email_footer"
+                    ref={(el) => { textareaRefs.current['email_footer'] = el; }}
+                    value={currentForm.email_footer}
+                    onChange={(e) => handleFieldChange('email_footer', e.target.value)}
+                    onFocus={() => setActiveField('email_footer')}
+                    placeholder="Texto del pie de email, avisos legales, política de privacidad..."
+                    rows={4}
+                  />
+                </div>
               </div>
 
               {/* Preview Column */}
@@ -226,30 +261,40 @@ export function EmailTemplateEditor() {
                     <p className="text-xs text-muted-foreground">De: tu-centro@psycma.com</p>
                     <p className="text-xs text-muted-foreground">Para: paciente@email.com</p>
                     <p className="text-sm font-medium mt-1">
-                      {activeTab === 'notification' ? 'Nueva sesión programada' : 'Recordatorio de tu sesión'}
+                      {currentForm.email_subject ? highlightVariables(currentForm.email_subject) : (
+                        <span className="text-muted-foreground italic">Sin asunto</span>
+                      )}
                     </p>
                   </div>
                   
                   <div className="text-sm space-y-2">
                     {currentForm.email_initial_text && (
-                      <p>{highlightVariables(currentForm.email_initial_text)}</p>
+                      <p className="whitespace-pre-wrap">{highlightVariables(currentForm.email_initial_text)}</p>
                     )}
                     {currentForm.email_confirmation_text && (
-                      <p className="text-muted-foreground italic">
+                      <p className="text-muted-foreground italic whitespace-pre-wrap">
                         {highlightVariables(currentForm.email_confirmation_text)}
                       </p>
                     )}
                     {currentForm.email_videocall_text && (
-                      <p className="text-muted-foreground italic">
+                      <p className="text-muted-foreground italic whitespace-pre-wrap">
                         {highlightVariables(currentForm.email_videocall_text)}
                       </p>
                     )}
                     {currentForm.email_payment_text && (
-                      <p className="text-muted-foreground italic">
+                      <p className="text-muted-foreground italic whitespace-pre-wrap">
                         {highlightVariables(currentForm.email_payment_text)}
                       </p>
                     )}
                   </div>
+
+                  {currentForm.email_footer && (
+                    <div className="border-t pt-3 mt-4">
+                      <p className="text-xs text-muted-foreground whitespace-pre-wrap">
+                        {highlightVariables(currentForm.email_footer)}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
