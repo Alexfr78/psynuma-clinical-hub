@@ -13,21 +13,29 @@ import {
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { SessionWithRelations } from '@/hooks/useSessions';
+import { useSwipeNavigation } from '@/hooks/useSwipeNavigation';
 
 interface MonthViewProps {
   currentDate: Date;
   sessions: SessionWithRelations[];
   onSessionClick: (session: SessionWithRelations) => void;
   onDayClick: (date: Date) => void;
+  onSwipeLeft?: () => void;
+  onSwipeRight?: () => void;
 }
 
 const WEEKDAYS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 
-export function MonthView({ currentDate, sessions, onSessionClick, onDayClick }: MonthViewProps) {
+export function MonthView({ currentDate, sessions, onSessionClick, onDayClick, onSwipeLeft, onSwipeRight }: MonthViewProps) {
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(currentDate);
   const calendarStart = startOfWeek(monthStart, { weekStartsOn: 1 });
   const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 1 });
+
+  const { handleTouchStart, handleTouchEnd } = useSwipeNavigation({
+    onSwipeLeft,
+    onSwipeRight,
+  });
 
   const calendarDays = useMemo(() => {
     const days: Date[] = [];
@@ -61,7 +69,7 @@ export function MonthView({ currentDate, sessions, onSessionClick, onDayClick }:
   };
 
   return (
-    <div className="overflow-hidden rounded-lg border">
+    <div className="overflow-hidden rounded-lg border" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
       {/* Weekday Headers */}
       <div className="grid grid-cols-7 border-b bg-muted/50">
         {WEEKDAYS.map((day) => (
