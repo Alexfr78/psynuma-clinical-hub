@@ -10,6 +10,7 @@ import { ListView } from '@/components/agenda/ListView';
 import { QuickCreateSessionDialog } from '@/components/agenda/QuickCreateSessionDialog';
 import { SessionDetailDrawer } from '@/components/agenda/SessionDetailDrawer';
 import { MoveSessionDialog } from '@/components/agenda/MoveSessionDialog';
+import { AgendaFooter } from '@/components/agenda/AgendaFooter';
 import { useToast } from '@/hooks/use-toast';
 import { useAgendaHours } from '@/hooks/useAgendaHours';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -19,6 +20,7 @@ export default function Agenda() {
   const isMobile = useIsMobile();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState<CalendarView>('week');
+  const [timezone, setTimezone] = useState('Europe/Madrid');
   const [selectedProfessional, setSelectedProfessional] = useState('all');
 
   // Auto-switch to day view on mobile
@@ -218,6 +220,9 @@ export default function Agenda() {
         open={!!selectedSession}
         onOpenChange={(open) => !open && setSelectedSession(null)}
       />
+
+      {/* Agenda Footer with Legend and Timezone */}
+      <AgendaFooter timezone={timezone} onTimezoneChange={setTimezone} />
 
       {/* Move Session Dialog (mobile) */}
       <MoveSessionDialog
