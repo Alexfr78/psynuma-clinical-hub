@@ -29,6 +29,7 @@ import {
   Trash2,
   CheckCircle2,
   Send,
+  RefreshCw,
 } from 'lucide-react';
 import {
   Sheet,
@@ -95,6 +96,9 @@ import { DEFAULT_TEMPLATES } from '@/hooks/useCommunicationTemplates';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { createStripeCheckout } from '@/hooks/useSessionIntegrations';
 import { useGoogleCalendarUpdate } from '@/hooks/useGoogleCalendarUpdate';
+import { PatientSelector } from './PatientSelector';
+import { usePatient } from '@/hooks/usePatients';
+import { supabase } from '@/integrations/supabase/client';
 
 interface SessionDetailDrawerProps {
   session: SessionWithRelations | null;
@@ -153,6 +157,8 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
   const [editingPrice, setEditingPrice] = useState(false);
   const [editingNotes, setEditingNotes] = useState(false);
   const [editingDateTime, setEditingDateTime] = useState(false);
+  const [editingPatient, setEditingPatient] = useState(false);
+  const [isConvertingSession, setIsConvertingSession] = useState(false);
   const [priceValue, setPriceValue] = useState('');
   const [notesValue, setNotesValue] = useState('');
   const [notesOpen, setNotesOpen] = useState(false);
@@ -170,16 +176,22 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
   // Local state for immediate UI update
   const [localBonoId, setLocalBonoId] = useState<string | null>(null);
   const [localPrice, setLocalPrice] = useState<number>(0);
+  const [localPatientId, setLocalPatientId] = useState<string | null>(null);
 
   const { data: patientBonos, refetch: refetchBonos } = usePatientActiveBonos(session?.patient_id);
   const { data: paymentStatus, refetch: refetchPaymentStatus } = useSessionPaymentStatus(session?.id);
   const { data: invoiceStatus, refetch: refetchInvoiceStatus } = useSessionInvoiceStatus(session?.id);
+  
+  // For blocked sessions with newly assigned patient
+  const { data: newPatientData } = usePatient(localPatientId || undefined);
 
   // Sync local state with session prop
   useEffect(() => {
     if (session) {
       setLocalBonoId(session.bono_id || null);
       setLocalPrice(Number(session.price) || 0);
+      setLocalPatientId(null); // Reset when session changes
+      setEditingPatient(false);
     }
   }, [session?.id, session?.bono_id, session?.price]);
 
@@ -189,9 +201,65 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
   const selectedLocation = locations?.find(l => l.id === sessionData.location_id);
 
   const status = statusConfig[session.status as keyof typeof statusConfig] || statusConfig.scheduled;
-  const patientName = session.patient
-    ? `${session.patient.first_name} ${session.patient.last_name}`
+  const isBlockedSession = session.status === 'blocked';
+  
+  // Use newPatientData if we just selected a patient, otherwise use session.patient
+  const displayPatient = localPatientId && newPatientData ? newPatientData : session.patient;
+  const patientName = displayPatient
+    ? `${displayPatient.first_name} ${displayPatient.last_name}`
     : 'Sin paciente';
+
+  // Handle patient change (and convert blocked sessions to scheduled)
+  const handlePatientChange = async (newPatientId: string) => {
+    setIsConvertingSession(true);
+    try {
+      const updates: any = { patient_id: newPatientId };
+      
+      // If blocked session, convert to scheduled and update the Google Calendar event
+      if (isBlockedSession) {
+        updates.status = 'scheduled';
+        // Keep notes as reference but mark as converted
+        const currentNotes = session.notes || '';
+        const originalEvent = currentNotes.replace('[Google Calendar] ', '');
+        updates.notes = originalEvent ? `Convertido desde: ${originalEvent}` : '';
+      }
+      
+      await updateSession.mutateAsync({ id: session.id, ...updates });
+      
+      // If there's a Google Calendar event, update it with the patient name
+      if ((session as any).google_calendar_event_id) {
+        try {
+          const patientData = await supabase
+            .from('patients')
+            .select('first_name, last_name')
+            .eq('id', newPatientId)
+            .maybeSingle();
+          
+          if (patientData.data) {
+            const name = `${patientData.data.first_name} ${patientData.data.last_name}`;
+            await syncToGoogle(session, { title: `Sesión con ${name}` });
+          }
+        } catch (googleError) {
+          console.error('Error updating Google Calendar:', googleError);
+        }
+      }
+      
+      toast({ 
+        title: isBlockedSession ? 'Cita creada' : 'Paciente actualizado',
+        description: isBlockedSession
+          ? 'El evento de Google Calendar se ha convertido en una cita.'
+          : 'El paciente de la sesión ha sido actualizado.'
+      });
+      
+      setEditingPatient(false);
+      setLocalPatientId(null);
+      queryClient.invalidateQueries({ queryKey: ['sessions'] });
+    } catch (error) {
+      console.error('Error changing patient:', error);
+      toast({ title: 'Error al cambiar paciente', variant: 'destructive' });
+    }
+    setIsConvertingSession(false);
+  };
 
   const handleStatusChange = async (newStatus: string) => {
     setIsUpdating(true);
@@ -492,27 +560,89 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
       </TabsList>
 
           <TabsContent value="info" className="mt-0 px-6 py-4 space-y-6">
-            {/* Patient Card */}
-            <div
-              className="flex items-center gap-4 p-4 rounded-lg bg-muted/50 cursor-pointer hover:bg-muted transition-colors group"
-              onClick={() => {
-                if (session.patient) {
-                  navigate(`/pacientes/${session.patient.id}`);
-                  onOpenChange(false);
-                }
-              }}
-            >
-              <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                <User className="h-6 w-6 text-primary" />
-              </div>
-              <div className="flex-1">
-                <h3 className="font-semibold">{patientName}</h3>
-                {session.patient?.email && (
-                  <p className="text-sm text-muted-foreground">{session.patient.email}</p>
+            {/* Patient Card / Blocked Session Conversion */}
+            {isBlockedSession && !session.patient ? (
+              // Blocked session without patient - show conversion UI
+              <div className="p-4 rounded-lg border-2 border-dashed border-primary/40 bg-primary/5 space-y-3">
+                <div className="flex items-center gap-2 text-primary">
+                  <RefreshCw className="h-5 w-5" />
+                  <h3 className="font-semibold">Convertir a cita</h3>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Asigna un paciente para convertir este evento de Google Calendar en una cita de Psycma.
+                </p>
+                <PatientSelector 
+                  onSelect={handlePatientChange}
+                  disabled={isConvertingSession}
+                />
+                {isConvertingSession && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Convirtiendo...
+                  </div>
                 )}
               </div>
-              <ChevronRight className="h-5 w-5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-            </div>
+            ) : editingPatient ? (
+              // Editing patient mode
+              <div className="p-4 rounded-lg border bg-muted/50 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold">Cambiar paciente</h3>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => setEditingPatient(false)}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+                <PatientSelector 
+                  onSelect={handlePatientChange}
+                  disabled={isConvertingSession}
+                />
+                {isConvertingSession && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Actualizando...
+                  </div>
+                )}
+              </div>
+            ) : (
+              // Normal patient card with edit button
+              <div className="flex items-center gap-4 p-4 rounded-lg bg-muted/50 group">
+                <div
+                  className="flex items-center gap-4 flex-1 cursor-pointer hover:opacity-80 transition-opacity"
+                  onClick={() => {
+                    if (displayPatient) {
+                      navigate(`/pacientes/${displayPatient.id}`);
+                      onOpenChange(false);
+                    }
+                  }}
+                >
+                  <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+                    <User className="h-6 w-6 text-primary" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-semibold">{patientName}</h3>
+                    {displayPatient?.email && (
+                      <p className="text-sm text-muted-foreground">{displayPatient.email}</p>
+                    )}
+                  </div>
+                  <ChevronRight className="h-5 w-5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 shrink-0"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setEditingPatient(true);
+                  }}
+                >
+                  <Edit2 className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
 
             {/* Tags */}
             <div className="flex items-center gap-2">
