@@ -288,6 +288,19 @@ export function GoogleIntegrationSection() {
     { var: '{fecha}', desc: 'Fecha de la sesión' },
     { var: '{notas}', desc: 'Notas de la sesión' },
     { var: '{telefono}', desc: 'Teléfono del paciente' },
+    { var: '{modalidad}', desc: 'Presencial / Online' },
+    { var: '{ubicacion}', desc: 'Nombre de la ubicación' },
+    { var: '{direccion}', desc: 'Dirección completa' },
+    { var: '{bono}', desc: 'Nombre del bono' },
+    { var: '{politica_cancelacion}', desc: 'Política de cancelación' },
+    { var: '{link_videollamada}', desc: 'Enlace de videollamada' },
+    { var: '{email_paciente}', desc: 'Email del paciente' },
+    { var: '{precio}', desc: 'Precio de la sesión' },
+    { var: '{tipo}', desc: 'Tipo de sesión' },
+    { var: '{hora}', desc: 'Hora de la sesión' },
+    { var: '{fecha}', desc: 'Fecha de la sesión' },
+    { var: '{notas}', desc: 'Notas de la sesión' },
+    { var: '{telefono}', desc: 'Teléfono del paciente' },
   ];
 
   return (

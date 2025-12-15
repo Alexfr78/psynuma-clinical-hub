@@ -205,7 +205,9 @@ function formatEventText(
   template: string,
   session: any,
   patient: any,
-  professional: any
+  professional: any,
+  location?: any,
+  bono?: any
 ): string {
   const patientName = patient 
     ? `${patient.first_name || ''} ${patient.last_name || ''}`.trim() 
@@ -214,6 +216,30 @@ function formatEventText(
     ? `${professional.first_name || ''} ${professional.last_name || ''}`.trim() 
     : 'Profesional';
   
+  // Modalidad
+  const modality = session.session_modality === 'video' || session.video_provider 
+    ? 'Online' 
+    : 'Presencial';
+  
+  // Ubicación
+  const locationName = location?.name || '';
+  const fullAddress = location 
+    ? [location.street, location.number_details, location.city, location.postal_code]
+        .filter(Boolean).join(', ')
+    : '';
+  
+  // Bono
+  const bonoName = bono?.name || 'Sin bono';
+  
+  // Política de cancelación
+  const cancellationPolicies: Record<string, string> = {
+    '24_hours': 'Hasta 24 horas antes',
+    '48_hours': 'Hasta 48 horas antes',
+    'flexible': 'Flexible',
+    'strict': 'No reembolsable',
+  };
+  const cancellationPolicy = cancellationPolicies[session.cancellation_policy] || session.cancellation_policy || '';
+  
   return template
     .replace(/{paciente}/g, patientName)
     .replace(/{profesional}/g, professionalName)
@@ -221,7 +247,15 @@ function formatEventText(
     .replace(/{hora}/g, session.start_time || '')
     .replace(/{fecha}/g, session.session_date || '')
     .replace(/{notas}/g, session.notes || '')
-    .replace(/{telefono}/g, patient?.phone || '');
+    .replace(/{telefono}/g, patient?.phone || '')
+    .replace(/{modalidad}/g, modality)
+    .replace(/{ubicacion}/g, locationName)
+    .replace(/{direccion}/g, fullAddress)
+    .replace(/{bono}/g, bonoName)
+    .replace(/{politica_cancelacion}/g, cancellationPolicy)
+    .replace(/{link_videollamada}/g, session.video_call_link || '')
+    .replace(/{email_paciente}/g, patient?.email || '')
+    .replace(/{precio}/g, session.price ? `${session.price}€` : '');
 }
 
 async function createGoogleCalendarEvent(
@@ -231,7 +265,9 @@ async function createGoogleCalendarEvent(
   patient: any,
   professional: any,
   titleFormat?: string,
-  descriptionFormat?: string
+  descriptionFormat?: string,
+  location?: any,
+  bono?: any
 ): Promise<string | null> {
   const startDateTime = `${session.session_date}T${session.start_time}`;
   const endDateTime = `${session.session_date}T${session.end_time}`;
@@ -239,8 +275,8 @@ async function createGoogleCalendarEvent(
   const defaultTitle = '{tipo} - {paciente}';
   const defaultDescription = 'Profesional: {profesional}\nTipo: {tipo}\nNotas: {notas}';
   
-  const title = formatEventText(titleFormat || defaultTitle, session, patient, professional);
-  const description = formatEventText(descriptionFormat || defaultDescription, session, patient, professional);
+  const title = formatEventText(titleFormat || defaultTitle, session, patient, professional, location, bono);
+  const description = formatEventText(descriptionFormat || defaultDescription, session, patient, professional, location, bono);
 
   const event = {
     summary: title,
@@ -285,7 +321,9 @@ async function updateGoogleCalendarEvent(
   patient: any,
   professional: any,
   titleFormat?: string,
-  descriptionFormat?: string
+  descriptionFormat?: string,
+  location?: any,
+  bono?: any
 ): Promise<boolean> {
   const startDateTime = `${session.session_date}T${session.start_time}`;
   const endDateTime = `${session.session_date}T${session.end_time}`;
@@ -293,8 +331,8 @@ async function updateGoogleCalendarEvent(
   const defaultTitle = '{tipo} - {paciente}';
   const defaultDescription = 'Profesional: {profesional}\nTipo: {tipo}\nNotas: {notas}';
   
-  const title = formatEventText(titleFormat || defaultTitle, session, patient, professional);
-  const description = formatEventText(descriptionFormat || defaultDescription, session, patient, professional);
+  const title = formatEventText(titleFormat || defaultTitle, session, patient, professional, location, bono);
+  const description = formatEventText(descriptionFormat || defaultDescription, session, patient, professional, location, bono);
 
   const event = {
     summary: title,
@@ -496,7 +534,9 @@ async function syncProfessional(
     .from('sessions')
     .select(`
       *,
-      patient:patients!sessions_patient_id_fkey(first_name, last_name)
+      patient:patients!sessions_patient_id_fkey(first_name, last_name, phone, email),
+      location:center_locations(name, street, number_details, city, postal_code),
+      bono:bonos(name)
     `)
     .eq('professional_id', professionalId)
     .gte('session_date', dateFrom)
@@ -535,7 +575,9 @@ async function syncProfessional(
           session.patient,
           professional,
           titleFormat,
-          descriptionFormat
+          descriptionFormat,
+          session.location,
+          session.bono
         );
 
         if (eventId) {
@@ -561,7 +603,9 @@ async function syncProfessional(
             session.patient,
             professional,
             titleFormat,
-            descriptionFormat
+            descriptionFormat,
+            session.location,
+            session.bono
           );
 
           if (newEventId) {
@@ -613,7 +657,9 @@ async function syncProfessional(
             session.patient,
             professional,
             titleFormat,
-            descriptionFormat
+            descriptionFormat,
+            session.location,
+            session.bono
           );
 
           if (updated) {
