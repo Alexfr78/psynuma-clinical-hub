@@ -306,6 +306,7 @@ export type Database = {
           created_at: string | null
           id: string
           is_active: boolean | null
+          is_public: boolean | null
           name: string
           number_details: string | null
           postal_code: string | null
@@ -319,6 +320,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           is_active?: boolean | null
+          is_public?: boolean | null
           name: string
           number_details?: string | null
           postal_code?: string | null
@@ -332,6 +334,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           is_active?: boolean | null
+          is_public?: boolean | null
           name?: string
           number_details?: string | null
           postal_code?: string | null
