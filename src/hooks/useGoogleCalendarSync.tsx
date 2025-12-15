@@ -34,6 +34,24 @@ export function useGoogleCalendarSync() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['sessions'] });
       
+      // Check for errors first - show error message instead of success
+      if (data.errors && data.errors.length > 0) {
+        console.error('Sync errors:', data.errors);
+        const errorMessage = data.errors[0];
+        
+        // Show user-friendly error messages based on error type
+        if (errorMessage.includes('access token') || errorMessage.includes('autenticación') || errorMessage.includes('Reconecta')) {
+          toast.error('Error de autenticación con Google. Por favor, reconecta tu cuenta en Ajustes > Integraciones');
+        } else if (errorMessage.includes('No Google connection')) {
+          toast.error('No hay conexión con Google. Configura tu cuenta en Ajustes > Integraciones');
+        } else if (errorMessage.includes('not enabled')) {
+          toast.error('Google Calendar no está habilitado. Actívalo en Ajustes > Integraciones');
+        } else {
+          toast.error(`Error al sincronizar: ${errorMessage}`);
+        }
+        return; // Don't show success message when there are errors
+      }
+      
       const messages: string[] = [];
       if (data.created > 0) messages.push(`${data.created} creados`);
       if (data.updated > 0) messages.push(`${data.updated} actualizados`);
@@ -43,10 +61,6 @@ export function useGoogleCalendarSync() {
         toast.success(`Sincronizado: ${messages.join(', ')}`);
       } else {
         toast.info('Todo está sincronizado');
-      }
-
-      if (data.errors && data.errors.length > 0) {
-        console.warn('Sync errors:', data.errors);
       }
     },
     onError: (error) => {
