@@ -43,8 +43,77 @@ export function PaymentHistoryTable({ payments, onEdit, onDelete }: PaymentHisto
 
   return (
     <TooltipProvider>
-      <div className="rounded-md border">
-        <Table>
+      {/* Mobile view - Cards */}
+      <div className="space-y-3 md:hidden">
+        {payments.map((payment) => {
+          const method = methodConfig[payment.payment_method] || methodConfig.cash;
+          const hasInvoice = !!payment.invoice_id;
+          const canEdit = !hasInvoice;
+
+          return (
+            <div key={payment.id} className="rounded-lg border p-4 space-y-3">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="font-medium">
+                    {payment.patients.first_name} {payment.patients.last_name}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {format(new Date(payment.payment_date), "d MMM yyyy", { locale: es })}
+                  </p>
+                </div>
+                <p className="text-lg font-bold">{Number(payment.amount).toFixed(2)}€</p>
+              </div>
+              
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant="outline" className="gap-1">
+                  {method.icon}
+                  {method.label}
+                </Badge>
+                {payment.sessions && (
+                  <Badge variant="secondary" className="gap-1">
+                    <CalendarDays className="h-3 w-3" />
+                    {format(new Date(payment.sessions.session_date), "d MMM", { locale: es })}
+                  </Badge>
+                )}
+                {payment.invoices?.invoice_number && (
+                  <Badge variant="outline">{payment.invoices.invoice_number}</Badge>
+                )}
+              </div>
+
+              {canEdit ? (
+                <div className="flex items-center gap-2 pt-2 border-t">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => onEdit?.(payment)}
+                  >
+                    <Pencil className="h-4 w-4 mr-2" />
+                    Editar
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-destructive hover:text-destructive"
+                    onClick={() => onDelete?.(payment)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 pt-2 border-t text-sm text-muted-foreground">
+                  <Lock className="h-4 w-4" />
+                  Vinculado a factura
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Desktop view - Table */}
+      <div className="hidden md:block rounded-md border overflow-x-auto">
+        <Table className="min-w-[700px]">
           <TableHeader>
             <TableRow>
               <TableHead>Fecha</TableHead>
