@@ -39,9 +39,19 @@ export function SessionCard({
 }: SessionCardProps) {
   const isMobile = useIsMobile();
   const statusColor = statusColors[session.status as keyof typeof statusColors] || statusColors.scheduled;
-  const patientName = session.patient 
-    ? `${session.patient.first_name} ${session.patient.last_name}` 
-    : 'Sin paciente';
+  
+  // For blocked sessions from Google Calendar, extract the event title from notes
+  const getDisplayName = () => {
+    if (session.status === 'blocked' && session.notes?.startsWith('[Google Calendar]')) {
+      const title = session.notes.split('\n')[0].replace('[Google Calendar] ', '');
+      return title || 'Bloqueado';
+    }
+    return session.patient 
+      ? `${session.patient.first_name} ${session.patient.last_name}` 
+      : 'Sin paciente';
+  };
+  
+  const displayName = getDisplayName();
   
   const cardRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -192,7 +202,7 @@ export function SessionCard({
         )}
         <div className="flex items-center gap-1">
           {draggable && !isMobile && <GripVertical className="h-3 w-3 opacity-50 flex-shrink-0" />}
-          <div className="font-medium truncate flex-1">{patientName}</div>
+          <div className="font-medium truncate flex-1">{displayName}</div>
         </div>
         <div className="text-[10px] opacity-75">
           {session.start_time?.slice(0, 5)} - {session.end_time?.slice(0, 5)}
@@ -232,7 +242,7 @@ export function SessionCard({
       <div className="flex items-start justify-between gap-2">
         {draggable && !isMobile && <GripVertical className="h-4 w-4 opacity-50 flex-shrink-0 mt-0.5" />}
         <div className="min-w-0 flex-1">
-          <h4 className="font-medium truncate">{patientName}</h4>
+          <h4 className="font-medium truncate">{displayName}</h4>
           <div className="mt-1 flex items-center gap-3 text-sm text-muted-foreground">
             <div className="flex items-center gap-1">
               <Clock className="h-3.5 w-3.5" />
