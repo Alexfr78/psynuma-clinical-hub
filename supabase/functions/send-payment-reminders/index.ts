@@ -126,23 +126,42 @@ serve(async (req) => {
         
         const message = `Hola ${patient.first_name}, te recordamos que tienes un pago pendiente de ${remainingAmount.toFixed(2)}€ correspondiente a tu sesión del ${session.session_date}. Por favor, realiza el pago a la mayor brevedad.`;
 
-        // Create notification record
-        const { error: notifError } = await supabase
+        // Create notification record and send
+        const notificationType = patient.email ? 'email' : 'whatsapp';
+        const { data: notifData, error: notifError } = await supabase
           .from('notifications')
           .insert({
             center_id: center.id,
             patient_id: patient.id,
             session_id: session.id,
-            type: patient.email ? 'email' : 'whatsapp',
+            type: notificationType,
             recipient: patient.email || patient.phone,
             subject: 'Recordatorio de pago pendiente',
             message,
             status: 'pending',
-          });
+          })
+          .select()
+          .single();
 
         if (notifError) {
           console.error(`[send-payment-reminders] Error creating notification for session ${session.id}:`, notifError);
           continue;
+        }
+
+        // Send notification via edge function (for email)
+        if (notifData && notificationType === 'email') {
+          try {
+            const { error: sendError } = await supabase.functions.invoke('send-notification', {
+              body: { notificationId: notifData.id },
+            });
+            if (sendError) {
+              console.error(`[send-payment-reminders] Error sending notification ${notifData.id}:`, sendError);
+            } else {
+              console.log(`[send-payment-reminders] Email sent for notification ${notifData.id}`);
+            }
+          } catch (invokeError) {
+            console.error(`[send-payment-reminders] Error invoking send-notification:`, invokeError);
+          }
         }
 
         // Update session reminder tracking

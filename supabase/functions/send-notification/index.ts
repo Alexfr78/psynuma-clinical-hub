@@ -1,6 +1,45 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+
+// Send email via Resend API directly
+async function sendEmailViaResendAPI(
+  to: string,
+  subject: string,
+  htmlContent: string,
+  fromName: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${RESEND_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: `${fromName} <onboarding@resend.dev>`,
+        to: [to],
+        subject: subject,
+        html: htmlContent,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error("Resend API error:", data);
+      return { success: false, error: data.message || `API Error: ${response.status}` };
+    }
+
+    console.log("Email sent successfully via Resend:", data);
+    return { success: true };
+  } catch (error) {
+    console.error("Error calling Resend API:", error);
+    return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
+  }
+}
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -15,6 +54,45 @@ interface CenterWhatsAppConfig {
   whatsapp_send_method: string | null;
   whatsapp_access_token: string | null;
   whatsapp_phone_number_id: string | null;
+}
+
+// Send email via Resend
+async function sendEmailViaResend(
+  to: string,
+  subject: string,
+  message: string,
+  centerName?: string
+): Promise<{ success: boolean; error?: string }> {
+  console.log(`Sending email via Resend to ${to}: ${subject}`);
+  
+  const htmlContent = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); color: white; padding: 20px; border-radius: 8px 8px 0 0; text-align: center; }
+          .content { background: #f8fafc; padding: 24px; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 8px 8px; }
+          .message { white-space: pre-wrap; }
+          .footer { margin-top: 24px; padding-top: 16px; border-top: 1px solid #e2e8f0; font-size: 12px; color: #64748b; text-align: center; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1 style="margin: 0; font-size: 24px;">${centerName || 'Psycma'}</h1>
+        </div>
+        <div class="content">
+          <div class="message">${message.replace(/\n/g, '<br>')}</div>
+          <div class="footer">
+            <p>Este es un mensaje automático enviado por ${centerName || 'Psycma'}.</p>
+          </div>
+        </div>
+      </body>
+    </html>
+  `;
+
+  return sendEmailViaResendAPI(to, subject, htmlContent, centerName || 'Psycma');
 }
 
 // Generate WhatsApp Web link
@@ -135,12 +213,30 @@ serve(async (req) => {
         let errorMessage = null;
         let whatsappWebLink = null;
 
+        // Get center name for email branding
+        let centerName: string | undefined;
+        if (notification.type === 'email') {
+          const { data: centerData } = await supabase
+            .from("centers")
+            .select("name")
+            .eq("id", notification.center_id)
+            .single();
+          centerName = centerData?.name;
+        }
+
         switch (notification.type) {
-          case "email":
-            // TODO: Integrate with email service (Resend, SendGrid, etc.)
-            console.log(`Sending email to ${notification.recipient}: ${notification.subject}`);
-            success = true;
+          case "email": {
+            // Send email via Resend
+            const emailResult = await sendEmailViaResend(
+              notification.recipient,
+              notification.subject || 'Notificación',
+              notification.message,
+              centerName
+            );
+            success = emailResult.success;
+            errorMessage = emailResult.error || null;
             break;
+          }
 
           case "sms":
             // TODO: Integrate with Twilio for SMS

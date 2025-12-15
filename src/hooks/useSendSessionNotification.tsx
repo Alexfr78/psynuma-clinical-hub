@@ -143,19 +143,34 @@ export function useSendSessionNotification() {
         }
       }
 
-      // Handle Email (create pending notification)
+      // Handle Email - create notification and send via edge function
       if (params.channels.email && params.patientEmail) {
-        await supabase.from('notifications').insert({
+        const emailSubject = `${params.type === 'notification' ? 'Nueva cita' : 'Recordatorio'} - ${params.sessionDate}`;
+        const emailMessage = `Hola ${params.patientName.split(' ')[0]},\n\nTienes una cita programada para el ${params.sessionDate} a las ${params.sessionTime}.\n\nProfesional: ${params.professionalName || ''}\nTipo de sesión: ${params.sessionType || 'Individual'}\n\nPuedes gestionar tu cita desde el siguiente enlace:\n${appointmentLink}\n\nUn saludo,\n${center.name}`;
+
+        const notification = await supabase.from('notifications').insert({
           center_id: profile.center_id,
           patient_id: params.patientId,
           session_id: params.sessionId,
           type: 'email',
           recipient: params.patientEmail,
-          subject: `${params.type === 'notification' ? 'Nueva cita' : 'Recordatorio'} - ${params.sessionDate}`,
-          message: `Tienes una cita programada para el ${params.sessionDate} a las ${params.sessionTime}.`,
+          subject: emailSubject,
+          message: emailMessage,
           status: 'pending',
-        });
-        results.push({ channel: 'email', success: true });
+        }).select().single();
+
+        // Send email via edge function
+        if (notification.data) {
+          const { error } = await supabase.functions.invoke('send-notification', {
+            body: { notificationId: notification.data.id },
+          });
+          results.push({ channel: 'email', success: !error });
+          if (error) {
+            console.error('Error sending email notification:', error);
+          }
+        } else {
+          results.push({ channel: 'email', success: false });
+        }
       }
 
       // Handle SMS (create pending notification)
