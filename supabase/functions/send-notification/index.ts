@@ -56,7 +56,15 @@ interface CenterWhatsAppConfig {
   whatsapp_phone_number_id: string | null;
 }
 
-// Send email via Resend
+// Convert plain text URLs to clickable hyperlinks
+function linkifyUrls(text: string): string {
+  const urlRegex = /(https?:\/\/[^\s<]+)/g;
+  return text.replace(urlRegex, (url) => 
+    `<a href="${url}" style="color: #1d4ed8; text-decoration: underline; word-break: break-all;">${url}</a>`
+  );
+}
+
+// Send email via Resend with Outlook-compatible HTML
 async function sendEmailViaResend(
   to: string,
   subject: string,
@@ -68,35 +76,49 @@ async function sendEmailViaResend(
   
   // Build header content - logo centered or subtle text
   const headerContent = logoUrl
-    ? `<img src="${logoUrl}" alt="${centerName || 'Centro'}" style="max-height: 60px; max-width: 200px; object-fit: contain;">`
-    : (centerName ? `<h1 style="margin: 0; font-size: 20px; color: #1d4ed8;">${centerName}</h1>` : '');
+    ? `<img src="${logoUrl}" alt="${centerName || 'Centro'}" style="max-height: 60px; max-width: 200px; display: block; margin: 0 auto;">`
+    : (centerName ? `<span style="margin: 0; font-size: 20px; font-weight: bold; color: #1d4ed8;">${centerName}</span>` : '');
   
-  const htmlContent = `
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <meta charset="utf-8">
-        <style>
-          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { text-align: center; padding: 24px; border-bottom: 1px solid #e2e8f0; }
-          .content { background: #f8fafc; padding: 24px; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 8px 8px; }
-          .message { white-space: pre-wrap; }
-          .footer { margin-top: 24px; padding-top: 16px; border-top: 1px solid #e2e8f0; font-size: 12px; color: #64748b; text-align: center; }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          ${headerContent}
-        </div>
-        <div class="content">
-          <div class="message">${message.replace(/\n/g, '<br>')}</div>
-          <div class="footer">
-            <p>Este es un mensaje automático enviado por ${centerName || 'Psycma'}.</p>
-          </div>
-        </div>
-      </body>
-    </html>
-  `;
+  // Process message: convert newlines to <br> and linkify URLs
+  const processedMessage = linkifyUrls(message.replace(/\n/g, '<br>'));
+  
+  // Outlook-compatible HTML with inline styles and table layout
+  const htmlContent = `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>${subject}</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f4f4f4; font-family: Arial, Helvetica, sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f4;">
+    <tr>
+      <td align="center" style="padding: 20px 10px;">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; max-width: 600px;">
+          <!-- Header -->
+          <tr>
+            <td align="center" style="padding: 24px 24px 20px 24px; border-bottom: 1px solid #e2e8f0;">
+              ${headerContent}
+            </td>
+          </tr>
+          <!-- Content -->
+          <tr>
+            <td style="padding: 24px; font-family: Arial, Helvetica, sans-serif; font-size: 14px; line-height: 1.6; color: #333333;">
+              ${processedMessage}
+            </td>
+          </tr>
+          <!-- Footer -->
+          <tr>
+            <td style="padding: 16px 24px; border-top: 1px solid #e2e8f0; font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: #64748b; text-align: center;">
+              Este es un mensaje automático enviado por ${centerName || 'Psycma'}.
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
 
   return sendEmailViaResendAPI(to, subject, htmlContent, centerName || 'Psycma');
 }
