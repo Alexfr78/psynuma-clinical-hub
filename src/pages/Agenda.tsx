@@ -119,9 +119,18 @@ export default function Agenda() {
         end_time: newEndTime,
       });
       
-      // Sync to Google Calendar if connected
+      // Sync to Google Calendar immediately with await
       if (session) {
-        syncMoveToGoogle(session, newDate, newStartTime, newEndTime);
+        try {
+          await syncMoveToGoogle(session, newDate, newStartTime, newEndTime);
+        } catch (googleError) {
+          console.error('Error syncing to Google:', googleError);
+          toast({
+            title: 'Sesión movida',
+            description: 'Pero hubo un error al sincronizar con Google Calendar',
+          });
+          return;
+        }
       }
       
       toast({
