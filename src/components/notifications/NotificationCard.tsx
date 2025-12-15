@@ -36,54 +36,59 @@ export function NotificationCard({ notification, onSend }: NotificationCardProps
   return (
     <Card>
       <CardHeader className="pb-2">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className={`p-2 rounded-lg ${typeInfo.color}`}>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className={`p-2 rounded-lg flex-shrink-0 ${typeInfo.color}`}>
               <TypeIcon className="h-4 w-4" />
             </div>
-            <div>
-              <p className="font-medium">{patientName}</p>
-              <p className="text-sm text-muted-foreground">{notification.recipient}</p>
+            <div className="min-w-0 flex-1">
+              <p className="font-medium truncate">{patientName}</p>
+              <p className="text-sm text-muted-foreground truncate">{notification.recipient}</p>
             </div>
           </div>
-          <Badge variant={statusInfo.variant} className="flex items-center gap-1">
+          <Badge variant={statusInfo.variant} className="flex items-center gap-1 w-fit flex-shrink-0">
             <StatusIcon className="h-3 w-3" />
-            {statusInfo.label}
+            <span className="hidden sm:inline">{statusInfo.label}</span>
           </Badge>
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
         {notification.subject && (
-          <p className="font-medium text-sm">{notification.subject}</p>
+          <p className="font-medium text-sm truncate">{notification.subject}</p>
         )}
         <p className="text-sm text-muted-foreground line-clamp-2">
           {notification.message}
         </p>
         
-        <div className="flex items-center justify-between text-xs text-muted-foreground">
-          <div className="flex items-center gap-4">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-xs text-muted-foreground">
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-4">
             {notification.scheduled_for && (
-              <span>
-                Programado: {format(new Date(notification.scheduled_for), "dd/MM/yyyy HH:mm", { locale: es })}
+              <span className="truncate">
+                <span className="hidden sm:inline">Programado:</span>
+                <span className="sm:hidden">Prog:</span>
+                {' '}{format(new Date(notification.scheduled_for), "dd/MM HH:mm", { locale: es })}
               </span>
             )}
             {notification.sent_at && (
-              <span>
-                Enviado: {format(new Date(notification.sent_at), "dd/MM/yyyy HH:mm", { locale: es })}
+              <span className="truncate">
+                <span className="hidden sm:inline">Enviado:</span>
+                <span className="sm:hidden">Env:</span>
+                {' '}{format(new Date(notification.sent_at), "dd/MM HH:mm", { locale: es })}
               </span>
             )}
           </div>
           
           {notification.status === 'pending' && onSend && (
-            <Button size="sm" variant="outline" onClick={() => onSend(notification.id)}>
+            <Button size="sm" variant="outline" onClick={() => onSend(notification.id)} className="w-full sm:w-auto">
               <Send className="h-3 w-3 mr-1" />
-              Enviar ahora
+              <span className="hidden sm:inline">Enviar ahora</span>
+              <span className="sm:hidden">Enviar</span>
             </Button>
           )}
         </div>
 
         {notification.error_message && (
-          <p className="text-xs text-destructive">
+          <p className="text-xs text-destructive truncate">
             Error: {notification.error_message}
           </p>
         )}
