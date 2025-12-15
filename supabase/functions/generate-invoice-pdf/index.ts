@@ -59,12 +59,11 @@ interface InvoiceItem {
   total: number;
 }
 
-// Generate QR code as SVG (simple implementation)
+// Generate QR code image URL
 function generateQRCodeSVG(url: string, size: number = 120): string {
-  // This creates a placeholder - in production you'd use a QR library
-  // For now we'll use a data URL approach with the Google Charts API
   const encodedUrl = encodeURIComponent(url);
-  return `https://chart.googleapis.com/chart?cht=qr&chs=${size}x${size}&chl=${encodedUrl}&choe=UTF-8`;
+  // Using qrserver.com - free and reliable QR code generator
+  return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodedUrl}&format=png`;
 }
 
 serve(async (req) => {
