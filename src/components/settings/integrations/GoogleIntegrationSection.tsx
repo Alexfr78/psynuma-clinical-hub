@@ -11,11 +11,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useProfessionalIntegrations } from "@/hooks/useProfessionalIntegrations";
 import { useAuth } from "@/hooks/useAuth";
 import { useCenter } from "@/hooks/useCenter";
-import { Calendar, Video, ExternalLink, CheckCircle2, AlertCircle, Loader2, Settings2 } from "lucide-react";
+import { useGoogleCalendarWatch } from "@/hooks/useGoogleCalendarWatch";
+import { Calendar, Video, ExternalLink, CheckCircle2, AlertCircle, Loader2, Settings2, Zap, RefreshCw } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -31,6 +33,7 @@ export function GoogleIntegrationSection() {
   const { profile } = useAuth();
   const { center } = useCenter();
   const { integrations, isLoading, updateIntegrations, isProviderConnected, getOAuthConnection, disconnectProvider } = useProfessionalIntegrations();
+  const { setupWatch, checkWatchStatus, isSettingUp, watchStatus } = useGoogleCalendarWatch();
   const [searchParams, setSearchParams] = useSearchParams();
   
   const [calendarEnabled, setCalendarEnabled] = useState(false);
@@ -55,7 +58,7 @@ export function GoogleIntegrationSection() {
   const isConnected = isProviderConnected('google');
   const connection = getOAuthConnection('google');
 
-  // Handle OAuth callback
+  // Handle OAuth callback and setup watch
   useEffect(() => {
     const oauthStatus = searchParams.get('oauth');
     const provider = searchParams.get('provider');
@@ -63,6 +66,10 @@ export function GoogleIntegrationSection() {
     if (oauthStatus && provider === 'google') {
       if (oauthStatus === 'success') {
         toast.success('Google conectado correctamente');
+        // Auto-setup push notifications after successful connection
+        setTimeout(() => {
+          setupWatch();
+        }, 1000);
       } else if (oauthStatus === 'error') {
         const message = searchParams.get('message');
         toast.error(`Error al conectar Google: ${message || 'Error desconocido'}`);
@@ -73,7 +80,14 @@ export function GoogleIntegrationSection() {
       searchParams.delete('message');
       setSearchParams(searchParams, { replace: true });
     }
-  }, [searchParams, setSearchParams]);
+  }, [searchParams, setSearchParams, setupWatch]);
+
+  // Check watch status on mount
+  useEffect(() => {
+    if (isConnected) {
+      checkWatchStatus();
+    }
+  }, [isConnected, checkWatchStatus]);
 
   useEffect(() => {
     if (integrations) {
@@ -433,6 +447,50 @@ export function GoogleIntegrationSection() {
                       </div>
                     </RadioGroup>
                   </div>
+
+                  {/* Real-time Sync Status */}
+                  {syncMode === 'two_way' && (
+                    <div className="p-3 border rounded-lg bg-muted/30 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Zap className="h-4 w-4 text-yellow-500" />
+                          <Label className="text-sm font-medium">Sincronización en tiempo real</Label>
+                        </div>
+                        {watchStatus.isActive ? (
+                          <Badge variant="secondary" className="bg-green-500/10 text-green-600 border-green-500/20">
+                            <CheckCircle2 className="h-3 w-3 mr-1" />
+                            Activa
+                          </Badge>
+                        ) : (
+                          <Badge variant="secondary" className="bg-yellow-500/10 text-yellow-600 border-yellow-500/20">
+                            <AlertCircle className="h-3 w-3 mr-1" />
+                            Inactiva
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {watchStatus.isActive 
+                          ? `Los cambios en Google Calendar se reflejan inmediatamente. Expira: ${new Date(watchStatus.expiration!).toLocaleDateString()}`
+                          : 'Activa las notificaciones push para sincronizar cambios al instante'}
+                      </p>
+                      {!watchStatus.isActive && (
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={setupWatch}
+                          disabled={isSettingUp}
+                          className="w-full"
+                        >
+                          {isSettingUp ? (
+                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                          ) : (
+                            <RefreshCw className="h-4 w-4 mr-2" />
+                          )}
+                          Activar sincronización instantánea
+                        </Button>
+                      )}
+                    </div>
+                  )}
 
                   {/* Sync Days Configuration */}
                   <div className="space-y-3 p-3 border rounded-lg bg-muted/30">

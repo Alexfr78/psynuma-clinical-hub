@@ -814,6 +814,44 @@ export type Database = {
           },
         ]
       }
+      google_calendar_channels: {
+        Row: {
+          calendar_id: string
+          channel_id: string
+          created_at: string | null
+          expiration: string
+          id: string
+          professional_id: string
+          resource_id: string
+        }
+        Insert: {
+          calendar_id: string
+          channel_id: string
+          created_at?: string | null
+          expiration: string
+          id?: string
+          professional_id: string
+          resource_id: string
+        }
+        Update: {
+          calendar_id?: string
+          channel_id?: string
+          created_at?: string | null
+          expiration?: string
+          id?: string
+          professional_id?: string
+          resource_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "google_calendar_channels_professional_id_fkey"
+            columns: ["professional_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invoice_items: {
         Row: {
           billable_event_id: string | null

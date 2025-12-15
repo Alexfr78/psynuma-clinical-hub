@@ -368,6 +368,74 @@ function parseGoogleDateTimeToMadrid(dateTimeStr: string): { date: string; time:
   };
 }
 
+async function renewChannelIfExpiring(
+  supabase: any,
+  professionalId: string,
+  calendarId: string,
+  accessToken: string
+): Promise<void> {
+  try {
+    // Check if there's a channel expiring within 24 hours
+    const { data: channel } = await supabase
+      .from('google_calendar_channels')
+      .select('*')
+      .eq('professional_id', professionalId)
+      .eq('calendar_id', calendarId)
+      .single();
+
+    if (!channel) return;
+
+    const expiration = new Date(channel.expiration);
+    const hoursUntilExpiry = (expiration.getTime() - Date.now()) / (1000 * 60 * 60);
+
+    if (hoursUntilExpiry > 24) {
+      console.log(`Channel still valid for ${hoursUntilExpiry.toFixed(1)} hours, no renewal needed`);
+      return;
+    }
+
+    console.log(`Channel expiring in ${hoursUntilExpiry.toFixed(1)} hours, renewing...`);
+
+    const webhookUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/google-calendar-webhook`;
+    const newChannelId = crypto.randomUUID();
+
+    const watchResponse = await fetch(
+      `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/watch`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: newChannelId,
+          type: 'web_hook',
+          address: webhookUrl,
+        }),
+      }
+    );
+
+    if (watchResponse.ok) {
+      const watchData = await watchResponse.json();
+      const newExpiration = new Date(parseInt(watchData.expiration)).toISOString();
+
+      await supabase
+        .from('google_calendar_channels')
+        .update({
+          channel_id: watchData.id,
+          resource_id: watchData.resourceId,
+          expiration: newExpiration,
+        })
+        .eq('id', channel.id);
+
+      console.log(`Channel renewed, new expiration: ${newExpiration}`);
+    } else {
+      console.error('Failed to renew channel:', await watchResponse.text());
+    }
+  } catch (error) {
+    console.error('Error renewing channel:', error);
+  }
+}
+
 async function syncProfessional(
   supabase: any,
   professionalId: string,
@@ -408,6 +476,11 @@ async function syncProfessional(
   }
 
   const calendarId = connection.google_calendar_id || 'primary';
+
+  // Renew webhook channel if expiring soon
+  if (integrations?.google_calendar_sync_mode === 'two_way') {
+    await renewChannelIfExpiring(supabase, professionalId, calendarId, accessToken);
+  }
 
   // Get professional info
   const { data: professional } = await supabase
