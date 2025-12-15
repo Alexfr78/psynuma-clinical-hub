@@ -1,6 +1,6 @@
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { FileText, User, Download, MoreVertical, ShieldCheck, Search, FileX, FilePlus2, RefreshCw, Clock } from 'lucide-react';
+import { FileText, User, Download, MoreVertical, ShieldCheck, Search, FileX, FilePlus2, RefreshCw, Clock, Mail } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -24,6 +24,7 @@ interface InvoiceCardProps {
   onCancelVerifactu?: () => void;
   onCreateRectificativa?: () => void;
   onRetryVerifactu?: () => void;
+  onSendInvoice?: () => void;
 }
 
 const statusConfig = {
@@ -42,7 +43,8 @@ export function InvoiceCard({
   onQueryVerifactu,
   onCancelVerifactu,
   onCreateRectificativa,
-  onRetryVerifactu
+  onRetryVerifactu,
+  onSendInvoice
 }: InvoiceCardProps) {
   const status = statusConfig[invoice.status] || statusConfig.draft;
   const isSealed = !!invoice.verifactu_registration_id; // Use registration_id as it confirms AEAT acceptance
@@ -133,6 +135,12 @@ export function InvoiceCard({
                     <DropdownMenuItem onClick={onGeneratePDF}>
                       Descargar PDF
                     </DropdownMenuItem>
+                    {(invoice.status === 'issued' || invoice.status === 'paid') && (
+                      <DropdownMenuItem onClick={onSendInvoice}>
+                        <Mail className="h-4 w-4 mr-2" />
+                        Enviar factura
+                      </DropdownMenuItem>
+                    )}
                     <DropdownMenuSeparator />
                     {invoice.status === 'draft' && !isSealed && !isPendingVerifactu && (
                       <DropdownMenuItem onClick={onSealVerifactu} className="text-green-600">
