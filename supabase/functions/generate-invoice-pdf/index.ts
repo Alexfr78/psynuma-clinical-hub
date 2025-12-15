@@ -59,11 +59,30 @@ interface InvoiceItem {
   total: number;
 }
 
-// Generate QR code image URL
-function generateQRCodeSVG(url: string, size: number = 120): string {
-  const encodedUrl = encodeURIComponent(url);
-  // Using qrserver.com - free and reliable QR code generator
-  return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodedUrl}&format=png`;
+// Generate QR code as base64 data URL
+async function generateQRCodeBase64(url: string, size: number = 120): Promise<string> {
+  try {
+    const encodedUrl = encodeURIComponent(url);
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodedUrl}&format=png`;
+    
+    console.log('Fetching QR code from:', qrUrl);
+    const response = await fetch(qrUrl);
+    
+    if (!response.ok) {
+      console.error('Failed to fetch QR code:', response.status);
+      return qrUrl; // Fallback to external URL
+    }
+    
+    const arrayBuffer = await response.arrayBuffer();
+    const base64 = base64Encode(arrayBuffer);
+    
+    console.log('QR code converted to base64, length:', base64.length);
+    return `data:image/png;base64,${base64}`;
+  } catch (error) {
+    console.error('Error generating QR base64:', error);
+    const encodedUrl = encodeURIComponent(url);
+    return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodedUrl}&format=png`;
+  }
 }
 
 serve(async (req) => {
@@ -128,8 +147,15 @@ serve(async (req) => {
     const invoiceData = invoice as InvoiceData;
     const invoiceItems = (items || []) as InvoiceItem[];
 
+    // Generate QR as base64 if verifactu is configured
+    let qrBase64 = '';
+    if (invoiceData.verifactu_qr) {
+      console.log('Generating QR base64 for verifactu_qr:', invoiceData.verifactu_qr);
+      qrBase64 = await generateQRCodeBase64(invoiceData.verifactu_qr, 100);
+    }
+
     // Generate HTML for PDF
-    const html = generateInvoiceHTML(invoiceData, invoiceItems, rectifiedInvoice);
+    const html = generateInvoiceHTML(invoiceData, invoiceItems, rectifiedInvoice, qrBase64);
 
     return new Response(
       JSON.stringify({
@@ -155,7 +181,7 @@ serve(async (req) => {
   }
 });
 
-function generateInvoiceHTML(invoice: InvoiceData, items: InvoiceItem[], rectifiedInvoice: any): string {
+function generateInvoiceHTML(invoice: InvoiceData, items: InvoiceItem[], rectifiedInvoice: any, qrBase64: string): string {
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
     return date.toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' });
@@ -175,11 +201,11 @@ function generateInvoiceHTML(invoice: InvoiceData, items: InvoiceItem[], rectifi
       : 'FACTURA RECTIFICATIVA (Por diferencias)';
   }
 
-  // Generate QR section if verifactu is configured
-  const qrSection = invoice.verifactu_qr ? `
+  // Generate QR section if verifactu is configured and QR base64 is available
+  const qrSection = invoice.verifactu_qr && qrBase64 ? `
     <div class="qr-section">
       <div class="qr-container">
-        <img src="${generateQRCodeSVG(invoice.verifactu_qr, 100)}" alt="QR Verifactu" class="qr-image" />
+        <img src="${qrBase64}" alt="QR Verifactu" class="qr-image" />
         <div class="qr-info">
           <p class="qr-title">Verificación AEAT</p>
           <p class="qr-text">Escanea este código QR para verificar la autenticidad de esta factura en la Agencia Tributaria</p>
