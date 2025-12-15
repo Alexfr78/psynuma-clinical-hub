@@ -61,9 +61,15 @@ async function sendEmailViaResend(
   to: string,
   subject: string,
   message: string,
-  centerName?: string
+  centerName?: string,
+  logoUrl?: string | null
 ): Promise<{ success: boolean; error?: string }> {
   console.log(`Sending email via Resend to ${to}: ${subject}`);
+  
+  // Build header content - logo centered or subtle text
+  const headerContent = logoUrl
+    ? `<img src="${logoUrl}" alt="${centerName || 'Centro'}" style="max-height: 60px; max-width: 200px; object-fit: contain;">`
+    : (centerName ? `<h1 style="margin: 0; font-size: 20px; color: #1d4ed8;">${centerName}</h1>` : '');
   
   const htmlContent = `
     <!DOCTYPE html>
@@ -72,7 +78,7 @@ async function sendEmailViaResend(
         <meta charset="utf-8">
         <style>
           body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); color: white; padding: 20px; border-radius: 8px 8px 0 0; text-align: center; }
+          .header { text-align: center; padding: 24px; border-bottom: 1px solid #e2e8f0; }
           .content { background: #f8fafc; padding: 24px; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 8px 8px; }
           .message { white-space: pre-wrap; }
           .footer { margin-top: 24px; padding-top: 16px; border-top: 1px solid #e2e8f0; font-size: 12px; color: #64748b; text-align: center; }
@@ -80,7 +86,7 @@ async function sendEmailViaResend(
       </head>
       <body>
         <div class="header">
-          <h1 style="margin: 0; font-size: 24px;">${centerName || 'Psycma'}</h1>
+          ${headerContent}
         </div>
         <div class="content">
           <div class="message">${message.replace(/\n/g, '<br>')}</div>
@@ -213,15 +219,18 @@ serve(async (req) => {
         let errorMessage = null;
         let whatsappWebLink = null;
 
-        // Get center name for email branding
+        // Get center info for email branding
         let centerName: string | undefined;
+        let logoUrl: string | null = null;
         if (notification.type === 'email') {
           const { data: centerData } = await supabase
             .from("centers")
-            .select("name")
+            .select("name, logo_url, invoice_logo_url")
             .eq("id", notification.center_id)
             .single();
           centerName = centerData?.name;
+          // Use invoice_logo_url as primary, fallback to logo_url
+          logoUrl = centerData?.invoice_logo_url || centerData?.logo_url || null;
         }
 
         switch (notification.type) {
@@ -231,7 +240,8 @@ serve(async (req) => {
               notification.recipient,
               notification.subject || 'Notificación',
               notification.message,
-              centerName
+              centerName,
+              logoUrl
             );
             success = emailResult.success;
             errorMessage = emailResult.error || null;
