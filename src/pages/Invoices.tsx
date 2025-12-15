@@ -64,7 +64,11 @@ export default function Invoices() {
       if (printWindow) {
         printWindow.document.write(data.html);
         printWindow.document.close();
-        printWindow.print();
+        
+        // Wait for base64 images to render before printing
+        setTimeout(() => {
+          printWindow.print();
+        }, 500);
       }
       
       toast.success('PDF generado correctamente');

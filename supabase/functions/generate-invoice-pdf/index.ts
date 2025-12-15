@@ -59,25 +59,37 @@ interface InvoiceItem {
   total: number;
 }
 
+// Fetch any image URL and convert to base64 data URL
+async function fetchImageAsBase64(url: string): Promise<string | null> {
+  try {
+    console.log('Fetching image from:', url);
+    const response = await fetch(url);
+    
+    if (!response.ok) {
+      console.error('Failed to fetch image:', response.status);
+      return null;
+    }
+    
+    const arrayBuffer = await response.arrayBuffer();
+    const contentType = response.headers.get('content-type') || 'image/png';
+    const base64 = base64Encode(arrayBuffer);
+    
+    console.log('Image converted to base64, length:', base64.length);
+    return `data:${contentType};base64,${base64}`;
+  } catch (error) {
+    console.error('Error fetching image:', error);
+    return null;
+  }
+}
+
 // Generate QR code as base64 data URL
 async function generateQRCodeBase64(url: string, size: number = 120): Promise<string> {
   try {
     const encodedUrl = encodeURIComponent(url);
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodedUrl}&format=png`;
     
-    console.log('Fetching QR code from:', qrUrl);
-    const response = await fetch(qrUrl);
-    
-    if (!response.ok) {
-      console.error('Failed to fetch QR code:', response.status);
-      return qrUrl; // Fallback to external URL
-    }
-    
-    const arrayBuffer = await response.arrayBuffer();
-    const base64 = base64Encode(arrayBuffer);
-    
-    console.log('QR code converted to base64, length:', base64.length);
-    return `data:image/png;base64,${base64}`;
+    const result = await fetchImageAsBase64(qrUrl);
+    return result || qrUrl; // Fallback to external URL if fetch fails
   } catch (error) {
     console.error('Error generating QR base64:', error);
     const encodedUrl = encodeURIComponent(url);
@@ -154,8 +166,15 @@ serve(async (req) => {
       qrBase64 = await generateQRCodeBase64(invoiceData.verifactu_qr, 100);
     }
 
+    // Generate logo as base64 if configured
+    let logoBase64 = '';
+    if (invoiceData.centers?.invoice_logo_url) {
+      console.log('Fetching logo from:', invoiceData.centers.invoice_logo_url);
+      logoBase64 = await fetchImageAsBase64(invoiceData.centers.invoice_logo_url) || '';
+    }
+
     // Generate HTML for PDF
-    const html = generateInvoiceHTML(invoiceData, invoiceItems, rectifiedInvoice, qrBase64);
+    const html = generateInvoiceHTML(invoiceData, invoiceItems, rectifiedInvoice, qrBase64, logoBase64);
 
     return new Response(
       JSON.stringify({
@@ -181,7 +200,7 @@ serve(async (req) => {
   }
 });
 
-function generateInvoiceHTML(invoice: InvoiceData, items: InvoiceItem[], rectifiedInvoice: any, qrBase64: string): string {
+function generateInvoiceHTML(invoice: InvoiceData, items: InvoiceItem[], rectifiedInvoice: any, qrBase64: string, logoBase64: string): string {
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
     return date.toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' });
@@ -283,7 +302,7 @@ function generateInvoiceHTML(invoice: InvoiceData, items: InvoiceItem[], rectifi
   <div class="invoice">
     <div class="header">
       <div class="company-info">
-        ${invoice.centers?.invoice_logo_url ? `<img src="${invoice.centers.invoice_logo_url}" alt="Logo" style="max-height: 60px; margin-bottom: 8px;" />` : ''}
+        ${logoBase64 ? `<img src="${logoBase64}" alt="Logo" style="max-height: 60px; margin-bottom: 8px;" />` : ''}
         <h1>${invoice.centers?.name || 'Centro'}</h1>
         ${invoice.centers?.tax_id ? `<p>NIF: ${invoice.centers.tax_id}</p>` : ''}
         ${invoice.centers?.address ? `<p>${invoice.centers.address}</p>` : ''}
