@@ -1,5 +1,5 @@
-import { useState, useMemo, useEffect } from 'react';
-import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
+import { useState, useMemo, useEffect, useCallback } from 'react';
+import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, addDays, addMonths } from 'date-fns';
 import { Loader2 } from 'lucide-react';
 import { useSessions, useUpdateSession, SessionWithRelations } from '@/hooks/useSessions';
 import { CalendarHeader, CalendarView } from '@/components/agenda/CalendarHeader';
@@ -117,6 +117,41 @@ export default function Agenda() {
     setCreateDialogOpen(true);
   };
 
+  // Swipe navigation functions
+  const navigateNext = useCallback(() => {
+    switch (view) {
+      case 'day':
+        setCurrentDate(prev => addDays(prev, 1));
+        break;
+      case 'week':
+        setCurrentDate(prev => addDays(prev, 7));
+        break;
+      case 'month':
+        setCurrentDate(prev => addMonths(prev, 1));
+        break;
+      case 'list':
+        setCurrentDate(prev => addDays(prev, 7));
+        break;
+    }
+  }, [view]);
+
+  const navigatePrev = useCallback(() => {
+    switch (view) {
+      case 'day':
+        setCurrentDate(prev => addDays(prev, -1));
+        break;
+      case 'week':
+        setCurrentDate(prev => addDays(prev, -7));
+        break;
+      case 'month':
+        setCurrentDate(prev => addMonths(prev, -1));
+        break;
+      case 'list':
+        setCurrentDate(prev => addDays(prev, -7));
+        break;
+    }
+  }, [view]);
+
   const handleSessionMove = async (sessionId: string, newDate: string, newStartTime: string, newEndTime: string) => {
     try {
       // Find the session to get Google Calendar event ID
@@ -193,6 +228,8 @@ export default function Agenda() {
               onSessionMove={handleSessionMove}
               hours={hours}
               startHour={startHour}
+              onSwipeLeft={navigateNext}
+              onSwipeRight={navigatePrev}
             />
           )}
           {view === 'day' && (
@@ -205,6 +242,8 @@ export default function Agenda() {
               onMoveRequest={setMoveSession}
               hours={hours}
               startHour={startHour}
+              onSwipeLeft={navigateNext}
+              onSwipeRight={navigatePrev}
             />
           )}
           {view === 'month' && (
@@ -213,12 +252,16 @@ export default function Agenda() {
               sessions={sessions || []}
               onSessionClick={handleSessionClick}
               onDayClick={handleDayClick}
+              onSwipeLeft={navigateNext}
+              onSwipeRight={navigatePrev}
             />
           )}
           {view === 'list' && (
             <ListView
               sessions={sessions || []}
               onSessionClick={handleSessionClick}
+              onSwipeLeft={navigateNext}
+              onSwipeRight={navigatePrev}
             />
           )}
         </>

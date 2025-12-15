@@ -4,13 +4,21 @@ import { es } from 'date-fns/locale';
 import { Calendar } from 'lucide-react';
 import { SessionWithRelations } from '@/hooks/useSessions';
 import { SessionCard } from './SessionCard';
+import { useSwipeNavigation } from '@/hooks/useSwipeNavigation';
 
 interface ListViewProps {
   sessions: SessionWithRelations[];
   onSessionClick: (session: SessionWithRelations) => void;
+  onSwipeLeft?: () => void;
+  onSwipeRight?: () => void;
 }
 
-export function ListView({ sessions, onSessionClick }: ListViewProps) {
+export function ListView({ sessions, onSessionClick, onSwipeLeft, onSwipeRight }: ListViewProps) {
+  const { handleTouchStart, handleTouchEnd } = useSwipeNavigation({
+    onSwipeLeft,
+    onSwipeRight,
+  });
+
   const groupedSessions = useMemo(() => {
     const groups = new Map<string, SessionWithRelations[]>();
     
@@ -32,7 +40,11 @@ export function ListView({ sessions, onSessionClick }: ListViewProps) {
 
   if (sessions.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12 text-center">
+      <div 
+        className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12 text-center"
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+      >
         <Calendar className="h-12 w-12 text-muted-foreground" />
         <h3 className="mt-4 font-display text-lg font-semibold">Sin sesiones</h3>
         <p className="mt-2 max-w-sm text-sm text-muted-foreground">
@@ -43,7 +55,7 @@ export function ListView({ sessions, onSessionClick }: ListViewProps) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
       {groupedSessions.map(([dateKey, daySessions]) => (
         <div key={dateKey}>
           <h3 className="mb-3 font-display font-semibold capitalize sticky top-0 bg-background py-2">

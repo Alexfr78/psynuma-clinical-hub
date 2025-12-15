@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 import { SessionWithRelations } from '@/hooks/useSessions';
 import { SessionCard } from './SessionCard';
 import { calculateSessionPositions } from '@/lib/calculateSessionPositions';
+import { useSwipeNavigation } from '@/hooks/useSwipeNavigation';
 
 interface WeekViewProps {
   currentDate: Date;
@@ -14,6 +15,8 @@ interface WeekViewProps {
   onSessionMove?: (sessionId: string, newDate: string, newStartTime: string, newEndTime: string) => void;
   hours?: number[];
   startHour?: number;
+  onSwipeLeft?: () => void;
+  onSwipeRight?: () => void;
 }
 
 const DEFAULT_HOURS = Array.from({ length: 13 }, (_, i) => i + 8);
@@ -35,11 +38,16 @@ function minutesToTime(totalMinutes: number): string {
   return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
 }
 
-export function WeekView({ currentDate, sessions, onSessionClick, onSlotClick, onSessionMove, hours, startHour }: WeekViewProps) {
+export function WeekView({ currentDate, sessions, onSessionClick, onSlotClick, onSessionMove, hours, startHour, onSwipeLeft, onSwipeRight }: WeekViewProps) {
   const displayHours = hours || DEFAULT_HOURS;
   const gridStartHour = startHour ?? 8;
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+
+  const { handleTouchStart, handleTouchEnd } = useSwipeNavigation({
+    onSwipeLeft,
+    onSwipeRight,
+  });
 
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState<SlotPosition | null>(null);
@@ -195,6 +203,8 @@ export function WeekView({ currentDate, sessions, onSessionClick, onSlotClick, o
     <div 
       className="flex flex-col overflow-hidden rounded-lg border"
       onMouseLeave={cancelDrag}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
     >
       {/* Header */}
       <div className="grid grid-cols-8 border-b bg-muted/50">

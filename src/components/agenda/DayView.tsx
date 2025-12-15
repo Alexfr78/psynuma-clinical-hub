@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 import { SessionWithRelations } from '@/hooks/useSessions';
 import { SessionCard } from './SessionCard';
 import { calculateSessionPositions } from '@/lib/calculateSessionPositions';
+import { useSwipeNavigation } from '@/hooks/useSwipeNavigation';
 
 interface DayViewProps {
   currentDate: Date;
@@ -15,6 +16,8 @@ interface DayViewProps {
   onMoveRequest?: (session: SessionWithRelations) => void;
   hours?: number[];
   startHour?: number;
+  onSwipeLeft?: () => void;
+  onSwipeRight?: () => void;
 }
 
 const DEFAULT_HOURS = Array.from({ length: 13 }, (_, i) => i + 8);
@@ -35,11 +38,16 @@ function minutesToTime(totalMinutes: number): string {
   return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
 }
 
-export function DayView({ currentDate, sessions, onSessionClick, onSlotClick, onSessionMove, onMoveRequest, hours, startHour }: DayViewProps) {
+export function DayView({ currentDate, sessions, onSessionClick, onSlotClick, onSessionMove, onMoveRequest, hours, startHour, onSwipeLeft, onSwipeRight }: DayViewProps) {
   const displayHours = hours || DEFAULT_HOURS;
   const gridStartHour = startHour ?? 8;
   const dateKey = format(currentDate, 'yyyy-MM-dd');
   const gridRef = useRef<HTMLDivElement>(null);
+
+  const { handleTouchStart, handleTouchEnd } = useSwipeNavigation({
+    onSwipeLeft,
+    onSwipeRight,
+  });
 
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState<SlotPosition | null>(null);
@@ -198,6 +206,8 @@ export function DayView({ currentDate, sessions, onSessionClick, onSlotClick, on
     <div 
       className="flex flex-col overflow-hidden rounded-lg border"
       onMouseLeave={cancelDrag}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
     >
       {/* Header */}
       <div className="border-b bg-muted/50 p-4 text-center">
