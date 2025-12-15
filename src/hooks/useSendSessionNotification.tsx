@@ -74,17 +74,53 @@ export function useSendSessionNotification() {
         ? `${window.location.origin}/cita/${accessToken}`
         : `${window.location.origin}`;
 
-      // Build template variables
+      // Get professional details for template variables
+      const professionalParts = (params.professionalName || '').split(' ');
+      const professionalFirstName = professionalParts[0] || '';
+      const professionalLastName = professionalParts.slice(1).join(' ') || '';
+
+      // Build full address
+      const centerAddress = [
+        center.address,
+        center.address_details,
+        center.city,
+        center.postal_code,
+        center.province,
+      ].filter(Boolean).join(', ');
+
+      // Build template variables - ALL available variables
       const templateVars: Record<string, string> = {
+        // Patient variables
         '{nombre_paciente}': params.patientName.split(' ')[0],
-        '{profesional_nombre}': params.professionalName || '',
+        '{apellidos_paciente}': params.patientName.split(' ').slice(1).join(' ') || '',
+        '{paciente_nombre_completo}': params.patientName,
+        
+        // Professional variables
+        '{profesional_nombre}': professionalFirstName,
+        '{profesional_apellidos}': professionalLastName,
+        '{profesional_nombre_completo}': params.professionalName || '',
+        
+        // Session variables
         '{fecha}': params.sessionDate,
+        '{hora}': params.sessionTime,
         '{zona_horaria}': params.sessionTime,
         '{sesion_tipo}': params.sessionType || 'Individual',
+        '{tipo_sesion}': params.sessionType || 'Individual',
+        
+        // Center variables
         '{centro_nombre}': center.name || '',
+        '{direccion}': centerAddress,
+        '{direccion_centro}': centerAddress,
+        '{telefono_centro}': center.phone || '',
+        '{email_centro}': center.email || '',
+        
+        // Links
         '{link_sesion}': appointmentLink,
         '{link_confirmar}': appointmentLink,
+        '{link_cita}': appointmentLink,
       };
+
+      console.log('[Notification] Template variables built:', templateVars);
 
       // Handle WhatsApp
       if (params.channels.whatsapp && params.patientPhone) {
@@ -156,9 +192,13 @@ export function useSendSessionNotification() {
 
         const defaults = DEFAULT_TEMPLATES.email[params.type];
         
+        console.log('[Email] Template from DB:', emailTemplate);
+        console.log('[Email] Using defaults:', defaults);
+        
         // Build subject
         const subjectTemplate = emailTemplate?.email_subject || defaults.email_subject || 'Nueva cita - {fecha}';
         const emailSubject = replaceTemplateVariables(subjectTemplate, templateVars);
+        console.log('[Email] Subject:', emailSubject);
 
         // Build message body from template parts
         let emailBody = '';
@@ -168,6 +208,7 @@ export function useSendSessionNotification() {
         if (initialText) {
           emailBody += replaceTemplateVariables(initialText, templateVars);
         }
+        console.log('[Email] Initial text applied:', !!initialText);
 
         // Confirmation text (if link available)
         const confirmationText = emailTemplate?.email_confirmation_text || defaults.email_confirmation_text || '';
@@ -186,6 +227,9 @@ export function useSendSessionNotification() {
         if (footerText) {
           emailBody += '\n\n---\n' + replaceTemplateVariables(footerText, templateVars);
         }
+        console.log('[Email] Footer applied:', !!footerText);
+        console.log('[Email] Final body length:', emailBody.length);
+        console.log('[Email] Final body preview:', emailBody.substring(0, 200) + '...');
 
         const notification = await supabase.from('notifications').insert({
           center_id: profile.center_id,
