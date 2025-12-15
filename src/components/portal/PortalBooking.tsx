@@ -302,7 +302,7 @@ export function PortalBooking({
             </div>
 
             {/* Days */}
-            <div className="grid grid-cols-7 gap-1">
+            <div className="grid grid-cols-7 gap-0.5 sm:gap-1">
               {weekDays.map(date => {
                 const isSelected = selectedDate && format(date, 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd');
                 const isToday = format(date, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
@@ -312,7 +312,7 @@ export function PortalBooking({
                     key={date.toISOString()}
                     onClick={() => handleDateSelect(date)}
                     className={cn(
-                      "p-2 rounded-lg text-center transition-colors",
+                      "p-1.5 sm:p-2 rounded-lg text-center transition-colors",
                       isSelected
                         ? "bg-primary text-primary-foreground"
                         : isToday
@@ -320,10 +320,10 @@ export function PortalBooking({
                         : "hover:bg-muted"
                     )}
                   >
-                    <div className="text-xs font-medium">
+                    <div className="text-[10px] sm:text-xs font-medium">
                       {format(date, 'EEE', { locale: es })}
                     </div>
-                    <div className="text-lg font-semibold">
+                    <div className="text-sm sm:text-lg font-semibold">
                       {format(date, 'd')}
                     </div>
                   </button>

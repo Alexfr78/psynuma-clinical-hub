@@ -77,7 +77,7 @@ export default function Sessions() {
         </div>
 
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-[150px]">
+          <SelectTrigger className="w-full sm:w-[150px]">
             <Filter className="mr-2 h-4 w-4" />
             <SelectValue placeholder="Estado" />
           </SelectTrigger>
@@ -92,7 +92,7 @@ export default function Sessions() {
         </Select>
 
         <Select value={professionalFilter} onValueChange={setProfessionalFilter}>
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="w-full sm:w-[180px]">
             <SelectValue placeholder="Profesional" />
           </SelectTrigger>
           <SelectContent>

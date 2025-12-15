@@ -113,8 +113,8 @@ export function PortalSettingsSection() {
         {/* Portal URL */}
         <div className="space-y-2">
           <Label htmlFor="portalSlug">URL del portal (slug)</Label>
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground whitespace-nowrap">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+            <span className="text-sm text-muted-foreground break-all">
               {window.location.origin}/portal/
             </span>
             <Input

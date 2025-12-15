@@ -44,7 +44,7 @@ export default function Payments() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="font-display text-3xl font-bold">Cobros y Deudas</h1>
+          <h1 className="font-display text-2xl sm:text-3xl font-bold">Cobros y Deudas</h1>
           <p className="text-muted-foreground">Gestiona pagos y deudas pendientes</p>
         </div>
         <Button onClick={() => { setSelectedDebt(null); setPaymentOpen(true); }}>
@@ -53,7 +53,7 @@ export default function Payments() {
         </Button>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Deuda pendiente</CardTitle>
