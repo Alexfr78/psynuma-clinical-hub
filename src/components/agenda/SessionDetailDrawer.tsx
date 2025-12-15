@@ -315,6 +315,16 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
 
   const handleDeleteSession = async () => {
     try {
+      // Sync with Google Calendar first (delete the event)
+      if ((session as any).google_calendar_event_id) {
+        try {
+          await syncToGoogle(session, { status: 'cancelled' });
+        } catch (googleError) {
+          console.error('Error deleting Google Calendar event:', googleError);
+          // Continue with deletion even if Google sync fails
+        }
+      }
+      
       await deleteSession.mutateAsync(session.id);
       toast({ title: 'Sesión eliminada' });
       onOpenChange(false);
