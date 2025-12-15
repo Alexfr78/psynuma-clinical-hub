@@ -99,6 +99,7 @@ import { useGoogleCalendarUpdate } from '@/hooks/useGoogleCalendarUpdate';
 import { PatientSelector } from './PatientSelector';
 import { usePatient } from '@/hooks/usePatients';
 import { supabase } from '@/integrations/supabase/client';
+import { useProfessionalIntegrations } from '@/hooks/useProfessionalIntegrations';
 
 interface SessionDetailDrawerProps {
   session: SessionWithRelations | null;
@@ -153,7 +154,9 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
   const sendWhatsAppNow = useSendWhatsAppNow();
   const isMobile = useIsMobile();
   const { syncToGoogle, syncMoveToGoogle } = useGoogleCalendarUpdate();
+  const { integrations, isProviderConnected } = useProfessionalIntegrations();
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isChangingModality, setIsChangingModality] = useState(false);
   const [editingPrice, setEditingPrice] = useState(false);
   const [editingNotes, setEditingNotes] = useState(false);
   const [editingDateTime, setEditingDateTime] = useState(false);
@@ -380,6 +383,150 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
     } catch {
       toast({ title: 'Error', variant: 'destructive' });
     }
+  };
+
+  // Smart modality change handler - generates video links when needed
+  const handleModalityChange = async (newModality: string) => {
+    const oldModality = sessionData.session_modality;
+    if (newModality === oldModality) return;
+    
+    setIsChangingModality(true);
+    try {
+      const patientDisplayName = displayPatient
+        ? `${displayPatient.first_name} ${displayPatient.last_name}`
+        : 'Paciente';
+
+      // Calculate duration in minutes
+      const [startH, startM] = session.start_time.split(':').map(Number);
+      const [endH, endM] = session.end_time.split(':').map(Number);
+      const durationMinutes = (endH * 60 + endM) - (startH * 60 + startM);
+
+      if (newModality === 'google_meet') {
+        // Check if Google Meet is configured
+        if (!integrations?.google_meet_enabled || !isProviderConnected('google')) {
+          toast({ 
+            title: 'Google Meet no configurado',
+            description: 'Configura Google Meet en Ajustes > Integraciones',
+            variant: 'destructive'
+          });
+          setIsChangingModality(false);
+          return;
+        }
+
+        // Create Google Calendar event with Meet link
+        const { data, error } = await supabase.functions.invoke('create-google-calendar-event', {
+          body: {
+            professional_id: session.professional_id,
+            session_date: session.session_date,
+            start_time: session.start_time,
+            end_time: session.end_time,
+            title: `Sesión con ${patientDisplayName}`,
+            description: `Sesión de ${session.session_type || 'terapia'}`,
+            include_meet: true,
+          },
+        });
+
+        if (error) throw error;
+
+        await updateSession.mutateAsync({
+          id: session.id,
+          session_modality: newModality,
+          video_provider: 'google_meet',
+          video_call_link: data.meet_link,
+          google_calendar_event_id: data.event_id,
+        });
+
+        toast({ title: 'Google Meet creado', description: 'Link de videollamada generado' });
+      } else if (newModality === 'zoom') {
+        // Check if Zoom is configured
+        if (!integrations?.zoom_enabled || !isProviderConnected('zoom')) {
+          toast({ 
+            title: 'Zoom no configurado',
+            description: 'Configura Zoom en Ajustes > Integraciones',
+            variant: 'destructive'
+          });
+          setIsChangingModality(false);
+          return;
+        }
+
+        // Create Zoom meeting
+        const { data, error } = await supabase.functions.invoke('create-zoom-meeting', {
+          body: {
+            professional_id: session.professional_id,
+            topic: `Sesión con ${patientDisplayName}`,
+            session_date: session.session_date,
+            start_time: session.start_time,
+            duration: durationMinutes,
+          },
+        });
+
+        if (error) throw error;
+
+        await updateSession.mutateAsync({
+          id: session.id,
+          session_modality: newModality,
+          video_provider: 'zoom',
+          video_call_link: data.join_url,
+        });
+
+        toast({ title: 'Reunión Zoom creada', description: 'Link de videollamada generado' });
+      } else if (newModality === 'in_person') {
+        // Cancel existing video meeting if any
+        if (sessionData.video_provider === 'zoom' && sessionData.video_call_link) {
+          try {
+            const meetingId = sessionData.video_call_link.split('/').pop()?.split('?')[0];
+            if (meetingId) {
+              await supabase.functions.invoke('delete-zoom-meeting', {
+                body: { professional_id: session.professional_id, meeting_id: meetingId },
+              });
+            }
+          } catch (e) {
+            console.error('Error deleting Zoom meeting:', e);
+          }
+        }
+
+        await updateSession.mutateAsync({
+          id: session.id,
+          session_modality: newModality,
+          video_provider: null,
+          video_call_link: null,
+        });
+
+        toast({ title: 'Modalidad actualizada a presencial' });
+      } else if (newModality === 'custom_link') {
+        // Cancel existing video meeting if Zoom
+        if (sessionData.video_provider === 'zoom' && sessionData.video_call_link) {
+          try {
+            const meetingId = sessionData.video_call_link.split('/').pop()?.split('?')[0];
+            if (meetingId) {
+              await supabase.functions.invoke('delete-zoom-meeting', {
+                body: { professional_id: session.professional_id, meeting_id: meetingId },
+              });
+            }
+          } catch (e) {
+            console.error('Error deleting Zoom meeting:', e);
+          }
+        }
+
+        await updateSession.mutateAsync({
+          id: session.id,
+          session_modality: newModality,
+          video_provider: null,
+        });
+
+        toast({ title: 'Modalidad actualizada', description: 'Puedes añadir un link personalizado' });
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['sessions'] });
+    } catch (error) {
+      console.error('Error changing modality:', error);
+      toast({ 
+        title: 'Error al cambiar modalidad', 
+        description: 'Inténtalo de nuevo',
+        variant: 'destructive' 
+      });
+    }
+    setIsChangingModality(false);
   };
 
   const handleDeleteSession = async () => {
@@ -807,10 +954,18 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
                 <Video className="h-5 w-5 text-muted-foreground" />
                 <Select
                   value={sessionData.session_modality || 'in_person'}
-                  onValueChange={(value) => handleFieldSave('session_modality', value)}
+                  onValueChange={handleModalityChange}
+                  disabled={isChangingModality}
                 >
                   <SelectTrigger className="flex-1 h-8">
-                    <SelectValue placeholder="Seleccionar modalidad" />
+                    {isChangingModality ? (
+                      <div className="flex items-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span>Cambiando...</span>
+                      </div>
+                    ) : (
+                      <SelectValue placeholder="Seleccionar modalidad" />
+                    )}
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="in_person">Presencial</SelectItem>
@@ -820,6 +975,23 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* Show current video link if exists for google_meet or zoom */}
+              {(sessionData.session_modality === 'google_meet' || sessionData.session_modality === 'zoom') && sessionData.video_call_link && (
+                <div className="flex items-center gap-3 ml-8">
+                  <LinkIcon className="h-5 w-5 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground truncate flex-1">{sessionData.video_call_link}</span>
+                  <a 
+                    href={sessionData.video_call_link} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                  >
+                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                      <ExternalLink className="h-4 w-4" />
+                    </Button>
+                  </a>
+                </div>
+              )}
 
               {/* Custom Video Link - Only show when custom_link is selected */}
               {sessionData.session_modality === 'custom_link' && (

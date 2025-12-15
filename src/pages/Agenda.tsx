@@ -84,6 +84,16 @@ export default function Agenda() {
   // Dynamic hours based on center/professional configuration and existing sessions
   const { hours, startHour } = useAgendaHours(selectedProfessional, currentDate, sessions);
 
+  // Sync selectedSession with updated data from sessions query
+  useEffect(() => {
+    if (selectedSession && sessions) {
+      const updatedSession = sessions.find(s => s.id === selectedSession.id);
+      if (updatedSession && JSON.stringify(updatedSession) !== JSON.stringify(selectedSession)) {
+        setSelectedSession(updatedSession);
+      }
+    }
+  }, [sessions, selectedSession]);
+
   const handleSlotClick = (date: Date, startTime: string, endTime: string) => {
     setInitialDate(date);
     setInitialStartTime(startTime);
