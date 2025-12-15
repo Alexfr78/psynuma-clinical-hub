@@ -39,6 +39,7 @@ export function useSessions(startDate?: string, endDate?: string, professionalId
             id, first_name, last_name
           )
         `)
+        .neq('status', 'cancelled') // Exclude cancelled sessions from agenda
         .order('session_date', { ascending: true })
         .order('start_time', { ascending: true });
 
