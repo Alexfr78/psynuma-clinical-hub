@@ -150,18 +150,25 @@ export default function Notifications() {
 
       {/* Notifications List */}
       <Tabs defaultValue="all" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="all">Todas</TabsTrigger>
-          <TabsTrigger value="pending" className="flex items-center gap-2">
-            Pendientes
+        <TabsList className="w-full overflow-x-auto flex-nowrap justify-start">
+          <TabsTrigger value="all" className="flex-shrink-0">Todas</TabsTrigger>
+          <TabsTrigger value="pending" className="flex items-center gap-1 flex-shrink-0">
+            <span className="hidden sm:inline">Pendientes</span>
+            <span className="sm:hidden">Pend.</span>
             {stats.pending > 0 && (
-              <Badge variant="secondary" className="ml-1">
+              <Badge variant="secondary" className="h-5 min-w-5 px-1 flex items-center justify-center text-xs">
                 {stats.pending}
               </Badge>
             )}
           </TabsTrigger>
-          <TabsTrigger value="sent">Enviadas</TabsTrigger>
-          <TabsTrigger value="failed">Fallidas</TabsTrigger>
+          <TabsTrigger value="sent" className="flex-shrink-0">
+            <span className="hidden sm:inline">Enviadas</span>
+            <span className="sm:hidden">Env.</span>
+          </TabsTrigger>
+          <TabsTrigger value="failed" className="flex-shrink-0">
+            <span className="hidden sm:inline">Fallidas</span>
+            <span className="sm:hidden">Fall.</span>
+          </TabsTrigger>
         </TabsList>
 
         {isLoading ? (
