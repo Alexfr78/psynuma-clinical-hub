@@ -68,7 +68,7 @@ const quickSessionSchema = z.object({
   session_date: z.date({ required_error: 'Selecciona una fecha' }),
   start_time: z.string().min(1, 'Hora de inicio requerida'),
   end_time: z.string().min(1, 'Hora de fin requerida'),
-  session_type: z.string().default('individual'),
+  session_type: z.string().min(1, 'Selecciona un tipo de sesión'),
   cancellation_policy: z.string().default('24_hours'),
   session_modality: z.string().default('in_person'),
   video_call_link: z.string().optional(),
@@ -213,7 +213,14 @@ export function QuickCreateSessionDialog({
     }
   }, [watchBonoId, newlyCreatedBonoId]);
 
-  // Update end time when session type changes
+  // Helper to calculate duration from start and end time
+  const calculateSelectedDuration = (startTime: string, endTime: string): number => {
+    const [startH, startM] = startTime.split(':').map(Number);
+    const [endH, endM] = endTime.split(':').map(Number);
+    return (endH * 60 + endM) - (startH * 60 + startM);
+  };
+
+  // Update end time when session type or start time changes (only if session type is selected)
   useEffect(() => {
     if (watchSessionType && sessionTypes) {
       const selectedType = sessionTypes.find(t => t.id === watchSessionType);
@@ -236,23 +243,49 @@ export function QuickCreateSessionDialog({
     }
   }, [sessionModality, locations, form]);
 
-  // Get the default session type (first one or 'individual' fallback)
-  const defaultSessionTypeId = sessionTypes?.[0]?.id || '';
-
   useEffect(() => {
     if (open) {
-      const firstSessionType = sessionTypes?.[0];
-      const initialEndTimeCalculated = firstSessionType && initialStartTime 
-        ? calculateEndTime(initialStartTime, firstSessionType.duration_minutes)
-        : initialEndTime || '10:00';
+      // Calculate the duration of the selected slot
+      const selectedDuration = initialStartTime && initialEndTime 
+        ? calculateSelectedDuration(initialStartTime, initialEndTime)
+        : 15; // Simple click = 15 min default
+      
+      let selectedSessionTypeId = '';
+      let finalEndTime = initialEndTime || '10:00';
+      
+      if (selectedDuration <= 15) {
+        // Simple click: use first session type
+        const firstType = sessionTypes?.[0];
+        selectedSessionTypeId = firstType?.id || '';
+        if (firstType && initialStartTime) {
+          finalEndTime = calculateEndTime(initialStartTime, firstType.duration_minutes);
+        }
+      } else if (selectedDuration <= 60) {
+        // Short drag: find session type matching duration
+        const matchingType = sessionTypes?.find(t => t.duration_minutes === selectedDuration);
+        if (matchingType) {
+          selectedSessionTypeId = matchingType.id;
+          if (initialStartTime) {
+            finalEndTime = calculateEndTime(initialStartTime, matchingType.duration_minutes);
+          }
+        } else {
+          // No match: leave empty, keep dragged end time
+          selectedSessionTypeId = '';
+          finalEndTime = initialEndTime || '10:00';
+        }
+      } else {
+        // Long drag (>60 min): leave empty, keep dragged end time
+        selectedSessionTypeId = '';
+        finalEndTime = initialEndTime || '10:00';
+      }
         
       form.reset({
         patient_id: '',
         professional_id: user?.id || professionals?.[0]?.id || '',
         session_date: initialDate || new Date(),
         start_time: initialStartTime || '09:00',
-        end_time: initialEndTimeCalculated,
-        session_type: firstSessionType?.id || '',
+        end_time: finalEndTime,
+        session_type: selectedSessionTypeId,
         cancellation_policy: '24_hours',
         session_modality: 'in_person',
         video_call_link: '',
