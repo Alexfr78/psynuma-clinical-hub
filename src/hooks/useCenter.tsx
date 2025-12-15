@@ -59,6 +59,12 @@ export interface Center {
   payment_reminder_interval_hours: number | null;
   // Consent settings
   consent_expiration_days: number | null;
+  // Portal settings
+  portal_enabled: boolean | null;
+  portal_slug: string | null;
+  portal_require_approval: boolean | null;
+  portal_allow_professional_selection: boolean | null;
+  portal_default_professional_id: string | null;
   created_at: string;
   updated_at: string;
 }
