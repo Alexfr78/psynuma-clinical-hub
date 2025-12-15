@@ -381,6 +381,11 @@ export type Database = {
           payment_reminder_interval_hours: number | null
           payment_reminder_max_count: number | null
           phone: string | null
+          portal_allow_professional_selection: boolean | null
+          portal_default_professional_id: string | null
+          portal_enabled: boolean | null
+          portal_require_approval: boolean | null
+          portal_slug: string | null
           postal_code: string | null
           province: string | null
           reschedule_max_days: number | null
@@ -434,6 +439,11 @@ export type Database = {
           payment_reminder_interval_hours?: number | null
           payment_reminder_max_count?: number | null
           phone?: string | null
+          portal_allow_professional_selection?: boolean | null
+          portal_default_professional_id?: string | null
+          portal_enabled?: boolean | null
+          portal_require_approval?: boolean | null
+          portal_slug?: string | null
           postal_code?: string | null
           province?: string | null
           reschedule_max_days?: number | null
@@ -487,6 +497,11 @@ export type Database = {
           payment_reminder_interval_hours?: number | null
           payment_reminder_max_count?: number | null
           phone?: string | null
+          portal_allow_professional_selection?: boolean | null
+          portal_default_professional_id?: string | null
+          portal_enabled?: boolean | null
+          portal_require_approval?: boolean | null
+          portal_slug?: string | null
           postal_code?: string | null
           province?: string | null
           reschedule_max_days?: number | null
@@ -508,7 +523,15 @@ export type Database = {
           whatsapp_phone_number_id?: string | null
           whatsapp_send_method?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "centers_portal_default_professional_id_fkey"
+            columns: ["portal_default_professional_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       communication_templates: {
         Row: {
@@ -1282,6 +1305,54 @@ export type Database = {
           },
         ]
       }
+      patient_magic_links: {
+        Row: {
+          center_id: string
+          created_at: string | null
+          email: string
+          expires_at: string
+          id: string
+          patient_id: string | null
+          token: string
+          used_at: string | null
+        }
+        Insert: {
+          center_id: string
+          created_at?: string | null
+          email: string
+          expires_at: string
+          id?: string
+          patient_id?: string | null
+          token: string
+          used_at?: string | null
+        }
+        Update: {
+          center_id?: string
+          created_at?: string | null
+          email?: string
+          expires_at?: string
+          id?: string
+          patient_id?: string | null
+          token?: string
+          used_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_magic_links_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_magic_links_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       patient_portal_accounts: {
         Row: {
           created_at: string
@@ -1959,6 +2030,7 @@ export type Database = {
         | "cancelled"
         | "no_show"
         | "blocked"
+        | "pending_approval"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2102,6 +2174,7 @@ export const Constants = {
         "cancelled",
         "no_show",
         "blocked",
+        "pending_approval",
       ],
     },
   },

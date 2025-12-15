@@ -1,0 +1,378 @@
+import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+function validateSession(sessionToken: string): { valid: boolean; patientId?: string; centerId?: string } {
+  try {
+    const decoded = JSON.parse(atob(sessionToken));
+    if (decoded.exp < Date.now()) {
+      return { valid: false };
+    }
+    return { valid: true, patientId: decoded.patient_id, centerId: decoded.center_id };
+  } catch {
+    return { valid: false };
+  }
+}
+
+serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const { action, sessionToken, ...params } = await req.json();
+
+    // Validate session token
+    const session = validateSession(sessionToken);
+    if (!session.valid || !session.patientId) {
+      return new Response(
+        JSON.stringify({ error: "Sesión inválida o expirada" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (action === "list") {
+      // Get patient's sessions
+      const { data: sessions, error } = await supabase
+        .from("sessions")
+        .select(`
+          id,
+          session_date,
+          start_time,
+          end_time,
+          status,
+          session_type,
+          session_modality,
+          notes,
+          professional:profiles!sessions_professional_id_fkey(
+            id, first_name, last_name
+          ),
+          location:center_locations(
+            id, name, street, city
+          )
+        `)
+        .eq("patient_id", session.patientId)
+        .neq("status", "cancelled")
+        .order("session_date", { ascending: false })
+        .order("start_time", { ascending: false });
+
+      if (error) {
+        console.error("Error fetching sessions:", error);
+        return new Response(
+          JSON.stringify({ error: "Error al obtener las citas" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Separate into upcoming and past
+      const today = new Date().toISOString().split("T")[0];
+      const upcoming = sessions?.filter(s => s.session_date >= today) || [];
+      const past = sessions?.filter(s => s.session_date < today) || [];
+
+      return new Response(
+        JSON.stringify({ upcoming: upcoming.reverse(), past }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (action === "create") {
+      const { professionalId, sessionTypeId, sessionDate, startTime, endTime } = params;
+
+      if (!sessionDate || !startTime || !endTime) {
+        return new Response(
+          JSON.stringify({ error: "Fecha y hora son requeridos" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Get center configuration
+      const { data: center } = await supabase
+        .from("centers")
+        .select("portal_require_approval, portal_default_professional_id, portal_allow_professional_selection")
+        .eq("id", session.centerId)
+        .single();
+
+      // Determine professional
+      let finalProfessionalId = professionalId;
+      if (!center?.portal_allow_professional_selection || !professionalId) {
+        finalProfessionalId = center?.portal_default_professional_id;
+      }
+
+      if (!finalProfessionalId) {
+        return new Response(
+          JSON.stringify({ error: "No hay profesional asignado. Contacta con el centro." }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Get session type details for duration
+      let sessionTypeName = "Consulta";
+      if (sessionTypeId) {
+        const { data: sessionType } = await supabase
+          .from("session_types")
+          .select("name")
+          .eq("id", sessionTypeId)
+          .single();
+        if (sessionType) {
+          sessionTypeName = sessionType.name;
+        }
+      }
+
+      // Create session
+      const status = center?.portal_require_approval ? "pending_approval" : "scheduled";
+      
+      const { data: newSession, error: createError } = await supabase
+        .from("sessions")
+        .insert({
+          center_id: session.centerId,
+          patient_id: session.patientId,
+          professional_id: finalProfessionalId,
+          session_date: sessionDate,
+          start_time: startTime,
+          end_time: endTime,
+          status,
+          session_type: sessionTypeName,
+          session_modality: "in_person",
+          price: 0, // Price not shown to patients
+          notes: "Cita solicitada desde el portal de pacientes",
+        })
+        .select()
+        .single();
+
+      if (createError) {
+        console.error("Error creating session:", createError);
+        return new Response(
+          JSON.stringify({ error: "Error al crear la cita" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          session: newSession,
+          message: center?.portal_require_approval 
+            ? "Cita solicitada. Recibirás confirmación pronto." 
+            : "Cita creada correctamente."
+        }),
+        { status: 201, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (action === "cancel") {
+      const { sessionId, reason } = params;
+
+      if (!sessionId) {
+        return new Response(
+          JSON.stringify({ error: "ID de cita requerido" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Verify session belongs to patient
+      const { data: existingSession } = await supabase
+        .from("sessions")
+        .select("id, patient_id, session_date, start_time, cancellation_policy")
+        .eq("id", sessionId)
+        .eq("patient_id", session.patientId)
+        .single();
+
+      if (!existingSession) {
+        return new Response(
+          JSON.stringify({ error: "Cita no encontrada" }),
+          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Check cancellation policy
+      const sessionDateTime = new Date(`${existingSession.session_date}T${existingSession.start_time}`);
+      const now = new Date();
+      const hoursUntilSession = (sessionDateTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+
+      const policyHours: Record<string, number> = {
+        "not_allowed": Infinity,
+        "until_start": 0,
+        "1_hour": 1,
+        "2_hours": 2,
+        "24_hours": 24,
+        "48_hours": 48,
+        "72_hours": 72,
+      };
+
+      const requiredHours = policyHours[existingSession.cancellation_policy || "24_hours"] || 24;
+      
+      if (hoursUntilSession < requiredHours) {
+        return new Response(
+          JSON.stringify({ 
+            error: requiredHours === Infinity 
+              ? "Esta cita no se puede cancelar" 
+              : `La cita debe cancelarse con al menos ${requiredHours} horas de antelación` 
+          }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Cancel session
+      const { error: updateError } = await supabase
+        .from("sessions")
+        .update({ 
+          status: "cancelled",
+          cancellation_reason: reason || "Cancelada por el paciente desde el portal"
+        })
+        .eq("id", sessionId);
+
+      if (updateError) {
+        console.error("Error cancelling session:", updateError);
+        return new Response(
+          JSON.stringify({ error: "Error al cancelar la cita" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, message: "Cita cancelada correctamente" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (action === "confirm") {
+      const { sessionId } = params;
+
+      if (!sessionId) {
+        return new Response(
+          JSON.stringify({ error: "ID de cita requerido" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Verify session belongs to patient
+      const { data: existingSession } = await supabase
+        .from("sessions")
+        .select("id, patient_id, status")
+        .eq("id", sessionId)
+        .eq("patient_id", session.patientId)
+        .single();
+
+      if (!existingSession) {
+        return new Response(
+          JSON.stringify({ error: "Cita no encontrada" }),
+          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Update to confirmed
+      const { error: updateError } = await supabase
+        .from("sessions")
+        .update({ status: "confirmed" })
+        .eq("id", sessionId);
+
+      if (updateError) {
+        console.error("Error confirming session:", updateError);
+        return new Response(
+          JSON.stringify({ error: "Error al confirmar la cita" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, message: "Cita confirmada" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (action === "get-availability") {
+      const { professionalId, date } = params;
+
+      if (!professionalId || !date) {
+        return new Response(
+          JSON.stringify({ error: "Profesional y fecha son requeridos" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Get professional's availability for the day of week
+      const dayOfWeek = new Date(date).getDay();
+      
+      const { data: availability } = await supabase
+        .from("availability")
+        .select("start_time, end_time, is_available")
+        .eq("professional_id", professionalId)
+        .eq("day_of_week", dayOfWeek)
+        .eq("is_available", true);
+
+      if (!availability || availability.length === 0) {
+        return new Response(
+          JSON.stringify({ slots: [] }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Get existing sessions for that day
+      const { data: existingSessions } = await supabase
+        .from("sessions")
+        .select("start_time, end_time")
+        .eq("professional_id", professionalId)
+        .eq("session_date", date)
+        .not("status", "in", '("cancelled","no_show")');
+
+      // Get center's slot duration
+      const { data: center } = await supabase
+        .from("centers")
+        .select("reschedule_slot_duration")
+        .eq("id", session.centerId)
+        .single();
+
+      const slotDuration = center?.reschedule_slot_duration || 30;
+
+      // Generate available slots
+      const slots: string[] = [];
+      
+      for (const avail of availability) {
+        const startMinutes = parseInt(avail.start_time.split(":")[0]) * 60 + parseInt(avail.start_time.split(":")[1]);
+        const endMinutes = parseInt(avail.end_time.split(":")[0]) * 60 + parseInt(avail.end_time.split(":")[1]);
+
+        for (let time = startMinutes; time + slotDuration <= endMinutes; time += slotDuration) {
+          const hours = Math.floor(time / 60);
+          const mins = time % 60;
+          const slotTime = `${hours.toString().padStart(2, "0")}:${mins.toString().padStart(2, "0")}`;
+          const slotEndTime = `${Math.floor((time + slotDuration) / 60).toString().padStart(2, "0")}:${((time + slotDuration) % 60).toString().padStart(2, "0")}`;
+
+          // Check if slot conflicts with existing sessions
+          const hasConflict = existingSessions?.some(s => {
+            const sessionStart = s.start_time.substring(0, 5);
+            const sessionEnd = s.end_time.substring(0, 5);
+            return slotTime < sessionEnd && slotEndTime > sessionStart;
+          });
+
+          if (!hasConflict) {
+            slots.push(slotTime);
+          }
+        }
+      }
+
+      return new Response(
+        JSON.stringify({ slots, slotDuration }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    return new Response(
+      JSON.stringify({ error: "Acción no válida" }),
+      { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  } catch (error) {
+    console.error("Error in patient-portal-sessions:", error);
+    return new Response(
+      JSON.stringify({ error: "Error interno del servidor" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+});
