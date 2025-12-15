@@ -24,6 +24,8 @@ import SessionManagement from "./pages/SessionManagement";
 import Install from "./pages/Install";
 import Consents from "./pages/Consents";
 import ConsentSignature from "./pages/ConsentSignature";
+import PatientPortal from "./pages/PatientPortal";
+import PatientPortalDashboard from "./pages/PatientPortalDashboard";
 
 const queryClient = new QueryClient();
 
@@ -50,6 +52,8 @@ const App = () => (
             <Route path="/cita/:token" element={<SessionManagement />} />
             <Route path="/consentimiento/:token" element={<ConsentSignature />} />
             <Route path="/instalar" element={<Install />} />
+            <Route path="/portal/:slug" element={<PatientPortal />} />
+            <Route path="/portal/:slug/dashboard" element={<PatientPortalDashboard />} />
             
             {/* Protected Routes */}
             <Route path="/dashboard" element={

@@ -80,3 +80,12 @@ verify_jwt = true
 
 [functions.google-calendar-webhook]
 verify_jwt = false
+
+[functions.patient-portal-auth]
+verify_jwt = false
+
+[functions.patient-portal-register]
+verify_jwt = false
+
+[functions.patient-portal-sessions]
+verify_jwt = false

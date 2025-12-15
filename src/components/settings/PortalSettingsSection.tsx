@@ -1,25 +1,39 @@
 import { useState, useEffect } from 'react';
-import { Save, Loader2, Settings2 } from 'lucide-react';
+import { Save, Loader2, Settings2, Globe, Copy, ExternalLink, Check } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import { useCenter } from '@/hooks/useCenter';
 import { useAuth } from '@/hooks/useAuth';
+import { useProfessionals } from '@/hooks/useProfessionals';
 import { toast } from 'sonner';
 
 export function PortalSettingsSection() {
   const { center, updateCenter } = useCenter();
   const { isAdmin } = useAuth();
+  const { data: professionals } = useProfessionals();
   
-  const [maxDays, setMaxDays] = useState<number>(30);
-  const [slotDuration, setSlotDuration] = useState<string>('30');
-  const [requireConfirmation, setRequireConfirmation] = useState<boolean>(false);
+  const [portalEnabled, setPortalEnabled] = useState(false);
+  const [portalSlug, setPortalSlug] = useState('');
+  const [requireApproval, setRequireApproval] = useState(true);
+  const [allowProfessionalSelection, setAllowProfessionalSelection] = useState(false);
+  const [defaultProfessionalId, setDefaultProfessionalId] = useState<string>('');
+  const [maxDays, setMaxDays] = useState(30);
+  const [slotDuration, setSlotDuration] = useState('30');
+  const [requireConfirmation, setRequireConfirmation] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (center) {
+      setPortalEnabled(center.portal_enabled ?? false);
+      setPortalSlug(center.portal_slug ?? '');
+      setRequireApproval(center.portal_require_approval ?? true);
+      setAllowProfessionalSelection(center.portal_allow_professional_selection ?? false);
+      setDefaultProfessionalId(center.portal_default_professional_id ?? '');
       setMaxDays(center.reschedule_max_days ?? 30);
       setSlotDuration(String(center.reschedule_slot_duration ?? 30));
       setRequireConfirmation(center.reschedule_require_confirmation ?? false);
@@ -27,12 +41,29 @@ export function PortalSettingsSection() {
   }, [center]);
 
   const handleSave = () => {
+    if (portalEnabled && !portalSlug.trim()) {
+      toast.error('El slug del portal es requerido');
+      return;
+    }
+
     if (maxDays < 1 || maxDays > 90) {
       toast.error('Los días máximos deben estar entre 1 y 90');
       return;
     }
 
+    // Validate slug format
+    const slugRegex = /^[a-z0-9-]+$/;
+    if (portalSlug && !slugRegex.test(portalSlug)) {
+      toast.error('El slug solo puede contener letras minúsculas, números y guiones');
+      return;
+    }
+
     updateCenter.mutate({
+      portal_enabled: portalEnabled,
+      portal_slug: portalSlug.trim() || null,
+      portal_require_approval: requireApproval,
+      portal_allow_professional_selection: allowProfessionalSelection,
+      portal_default_professional_id: defaultProfessionalId || null,
       reschedule_max_days: maxDays,
       reschedule_slot_duration: parseInt(slotDuration),
       reschedule_require_confirmation: requireConfirmation,
@@ -46,28 +77,117 @@ export function PortalSettingsSection() {
     });
   };
 
+  const portalUrl = portalSlug ? `${window.location.origin}/portal/${portalSlug}` : '';
+  const embedCode = portalUrl ? `<iframe src="${portalUrl}" width="100%" height="700" frameborder="0" style="border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);"></iframe>` : '';
+
+  const copyEmbedCode = () => {
+    navigator.clipboard.writeText(embedCode);
+    setCopied(true);
+    toast.success('Código copiado');
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Settings2 className="h-5 w-5" />
-          Ajustes del Portal de Pacientes
+          <Globe className="h-5 w-5" />
+          Portal de Pacientes
         </CardTitle>
         <CardDescription>
-          Configura las opciones del portal público de gestión de citas
+          Configura el portal público para que los pacientes gestionen sus citas
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-8">
-        {/* Reschedule Settings Section */}
-        <div className="space-y-6">
-          <div>
-            <h3 className="text-lg font-medium">Reprogramación de Citas</h3>
+        {/* Enable Portal */}
+        <div className="flex items-center justify-between rounded-lg border p-4">
+          <div className="space-y-0.5">
+            <Label className="text-base">Activar portal de pacientes</Label>
             <p className="text-sm text-muted-foreground">
-              Configura cómo los pacientes pueden reprogramar sus citas desde el portal
+              Permite que los pacientes accedan al portal público
+            </p>
+          </div>
+          <Switch checked={portalEnabled} onCheckedChange={setPortalEnabled} />
+        </div>
+
+        {/* Portal URL */}
+        <div className="space-y-2">
+          <Label htmlFor="portalSlug">URL del portal (slug)</Label>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground whitespace-nowrap">
+              {window.location.origin}/portal/
+            </span>
+            <Input
+              id="portalSlug"
+              placeholder="mi-centro"
+              value={portalSlug}
+              onChange={(e) => setPortalSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+              className="flex-1"
+            />
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Solo letras minúsculas, números y guiones. Este será el identificador único de tu portal.
+          </p>
+        </div>
+
+        {/* Appointments Config */}
+        <div className="space-y-6 pt-4 border-t">
+          <div>
+            <h3 className="text-lg font-medium">Configuración de Citas</h3>
+            <p className="text-sm text-muted-foreground">
+              Opciones para las solicitudes de cita desde el portal
             </p>
           </div>
 
-          {/* Max Days */}
+          <div className="flex items-center justify-between rounded-lg border p-4">
+            <div className="space-y-0.5">
+              <Label className="text-base">Requerir aprobación de citas</Label>
+              <p className="text-sm text-muted-foreground">
+                Las citas solicitadas quedarán pendientes hasta que las apruebes
+              </p>
+            </div>
+            <Switch checked={requireApproval} onCheckedChange={setRequireApproval} />
+          </div>
+
+          <div className="flex items-center justify-between rounded-lg border p-4">
+            <div className="space-y-0.5">
+              <Label className="text-base">Permitir selección de profesional</Label>
+              <p className="text-sm text-muted-foreground">
+                Los pacientes podrán elegir con qué profesional quieren la cita
+              </p>
+            </div>
+            <Switch checked={allowProfessionalSelection} onCheckedChange={setAllowProfessionalSelection} />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Profesional por defecto</Label>
+            <Select value={defaultProfessionalId} onValueChange={setDefaultProfessionalId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecciona un profesional" />
+              </SelectTrigger>
+              <SelectContent>
+                {professionals?.map((prof) => (
+                  <SelectItem key={prof.id} value={prof.id}>
+                    {prof.first_name} {prof.last_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Se asignará automáticamente cuando no se permita elegir profesional
+            </p>
+          </div>
+        </div>
+
+        {/* Reschedule Settings */}
+        <div className="space-y-6 pt-4 border-t">
+          <div>
+            <h3 className="text-lg font-medium">Reprogramación de Citas</h3>
+            <p className="text-sm text-muted-foreground">
+              Configura cómo los pacientes pueden reprogramar sus citas
+            </p>
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="maxDays">Días máximos para reprogramar</Label>
             <div className="flex items-center gap-2">
@@ -82,17 +202,13 @@ export function PortalSettingsSection() {
               />
               <span className="text-sm text-muted-foreground">días</span>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Límite de días en el futuro que el paciente puede seleccionar para reprogramar su cita (1-90 días)
-            </p>
           </div>
 
-          {/* Slot Duration */}
           <div className="space-y-2">
-            <Label htmlFor="slotDuration">Duración de los slots de tiempo</Label>
+            <Label>Duración de slots de tiempo</Label>
             <Select value={slotDuration} onValueChange={setSlotDuration}>
               <SelectTrigger className="w-48">
-                <SelectValue placeholder="Selecciona duración" />
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="15">15 minutos</SelectItem>
@@ -101,28 +217,50 @@ export function PortalSettingsSection() {
                 <SelectItem value="60">60 minutos</SelectItem>
               </SelectContent>
             </Select>
-            <p className="text-xs text-muted-foreground">
-              Intervalos de tiempo mostrados en el calendario de reprogramación
-            </p>
           </div>
 
-          {/* Double Confirmation */}
           <div className="flex items-center justify-between rounded-lg border p-4">
             <div className="space-y-0.5">
-              <Label htmlFor="requireConfirmation" className="text-base">
-                Requerir doble confirmación
-              </Label>
+              <Label className="text-base">Requerir doble confirmación</Label>
               <p className="text-sm text-muted-foreground">
-                El paciente deberá confirmar su selección antes de que se aplique el cambio de fecha
+                El paciente confirmará su selección antes del cambio
               </p>
             </div>
-            <Switch
-              id="requireConfirmation"
-              checked={requireConfirmation}
-              onCheckedChange={setRequireConfirmation}
-            />
+            <Switch checked={requireConfirmation} onCheckedChange={setRequireConfirmation} />
           </div>
         </div>
+
+        {/* Embed Code */}
+        {portalEnabled && portalSlug && (
+          <div className="space-y-4 pt-4 border-t">
+            <div>
+              <h3 className="text-lg font-medium">Código para WordPress</h3>
+              <p className="text-sm text-muted-foreground">
+                Copia este código e incrústalo en tu página
+              </p>
+            </div>
+            
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" asChild>
+                <a href={portalUrl} target="_blank" rel="noopener noreferrer">
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  Vista previa
+                </a>
+              </Button>
+            </div>
+
+            <Textarea
+              value={embedCode}
+              readOnly
+              className="font-mono text-xs h-24"
+            />
+            
+            <Button variant="secondary" onClick={copyEmbedCode}>
+              {copied ? <Check className="h-4 w-4 mr-2" /> : <Copy className="h-4 w-4 mr-2" />}
+              {copied ? 'Copiado' : 'Copiar código'}
+            </Button>
+          </div>
+        )}
 
         {/* Save Button */}
         {isAdmin && (

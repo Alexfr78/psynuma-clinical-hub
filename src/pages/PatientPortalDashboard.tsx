@@ -1,0 +1,220 @@
+import { useEffect, useState } from 'react';
+import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
+import { Loader2, LogOut, CalendarPlus, Calendar, History, User } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { usePatientPortal } from '@/hooks/usePatientPortal';
+import { PortalAppointments } from '@/components/portal/PortalAppointments';
+import { PortalBooking } from '@/components/portal/PortalBooking';
+import { toast } from 'sonner';
+
+export default function PatientPortalDashboard() {
+  const { slug } = useParams<{ slug: string }>();
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const token = searchParams.get('token');
+
+  const {
+    isAuthenticated,
+    isLoading,
+    patient,
+    center,
+    sessions,
+    sessionsLoading,
+    verifyMagicLink,
+    logout,
+    fetchSessions,
+    cancelSession,
+    confirmSession,
+    createSession,
+    getAvailability,
+  } = usePatientPortal(slug);
+
+  const [activeTab, setActiveTab] = useState('appointments');
+  const [verifying, setVerifying] = useState(false);
+
+  // Verify magic link token on mount
+  useEffect(() => {
+    if (token && !isAuthenticated && !verifying) {
+      setVerifying(true);
+      verifyMagicLink(token).then((result) => {
+        setVerifying(false);
+        if (!result.success) {
+          toast.error(result.error || 'Enlace inválido o expirado');
+          navigate(`/portal/${slug}`);
+        } else {
+          // Remove token from URL
+          navigate(`/portal/${slug}/dashboard`, { replace: true });
+        }
+      });
+    }
+  }, [token, isAuthenticated, verifying]);
+
+  // Fetch sessions when authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchSessions();
+    }
+  }, [isAuthenticated, fetchSessions]);
+
+  // Redirect if not authenticated and no token
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated && !token && !verifying) {
+      navigate(`/portal/${slug}`);
+    }
+  }, [isLoading, isAuthenticated, token, verifying, slug, navigate]);
+
+  const handleLogout = () => {
+    logout();
+    navigate(`/portal/${slug}`);
+  };
+
+  const handleCancel = async (sessionId: string) => {
+    const result = await cancelSession(sessionId);
+    if (result.success) {
+      toast.success('Cita cancelada');
+    } else {
+      toast.error(result.error || 'Error al cancelar');
+    }
+  };
+
+  const handleConfirm = async (sessionId: string) => {
+    const result = await confirmSession(sessionId);
+    if (result.success) {
+      toast.success('Cita confirmada');
+    } else {
+      toast.error(result.error || 'Error al confirmar');
+    }
+  };
+
+  const handleBookingComplete = () => {
+    setActiveTab('appointments');
+    fetchSessions();
+  };
+
+  if (isLoading || verifying) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center space-y-4">
+          <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
+          <p className="text-muted-foreground">
+            {verifying ? 'Verificando acceso...' : 'Cargando...'}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return null;
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-background to-muted/30">
+      {/* Header */}
+      <header className="bg-card border-b sticky top-0 z-10">
+        <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+              <User className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <p className="font-medium text-sm">
+                {patient?.firstName} {patient?.lastName}
+              </p>
+              <p className="text-xs text-muted-foreground">{center?.name}</p>
+            </div>
+          </div>
+          <Button variant="ghost" size="sm" onClick={handleLogout}>
+            <LogOut className="h-4 w-4 mr-2" />
+            <span className="hidden sm:inline">Salir</span>
+          </Button>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="max-w-4xl mx-auto p-4 space-y-4">
+        {/* Quick Action */}
+        <Card>
+          <CardContent className="pt-6">
+            <Button 
+              className="w-full" 
+              size="lg"
+              onClick={() => setActiveTab('booking')}
+            >
+              <CalendarPlus className="h-5 w-5 mr-2" />
+              Solicitar nueva cita
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Tabs */}
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="appointments" className="flex items-center gap-2">
+              <Calendar className="h-4 w-4" />
+              <span className="hidden sm:inline">Próximas</span>
+            </TabsTrigger>
+            <TabsTrigger value="history" className="flex items-center gap-2">
+              <History className="h-4 w-4" />
+              <span className="hidden sm:inline">Historial</span>
+            </TabsTrigger>
+            <TabsTrigger value="booking" className="flex items-center gap-2">
+              <CalendarPlus className="h-4 w-4" />
+              <span className="hidden sm:inline">Nueva cita</span>
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="appointments" className="mt-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Próximas citas</CardTitle>
+                <CardDescription>
+                  Tus citas programadas
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <PortalAppointments
+                  sessions={sessions.upcoming}
+                  loading={sessionsLoading}
+                  onCancel={handleCancel}
+                  onConfirm={handleConfirm}
+                  emptyMessage="No tienes citas próximas"
+                />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="history" className="mt-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Historial</CardTitle>
+                <CardDescription>
+                  Tus citas anteriores
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <PortalAppointments
+                  sessions={sessions.past}
+                  loading={sessionsLoading}
+                  isPast
+                  emptyMessage="No tienes citas anteriores"
+                />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="booking" className="mt-4">
+            <PortalBooking
+              centerSlug={slug!}
+              onComplete={handleBookingComplete}
+              createSession={createSession}
+              getAvailability={getAvailability}
+            />
+          </TabsContent>
+        </Tabs>
+      </main>
+    </div>
+  );
+}
