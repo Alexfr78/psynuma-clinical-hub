@@ -131,27 +131,33 @@ export function canCancelSession(
     return { allowed: false, reason: 'La cita ya ha pasado.' };
   }
 
-  switch (cancellationPolicy) {
-    case 'not_allowed':
-      return { allowed: false, reason: 'No se permiten cancelaciones para esta cita.' };
-    case 'until_start':
-      return { allowed: true };
-    case '72_hours':
-      if (hoursUntilSession < 72) {
-        return { 
-          allowed: false, 
-          reason: `Las cancelaciones deben realizarse con al menos 72 horas de antelación.` 
-        };
-      }
-      return { allowed: true };
-    case '24_hours':
-    default:
-      if (hoursUntilSession < 24) {
-        return { 
-          allowed: false, 
-          reason: `Las cancelaciones deben realizarse con al menos 24 horas de antelación.` 
-        };
-      }
-      return { allowed: true };
+  // Policy hours mapping
+  const policyHoursMap: Record<string, { hours: number; label: string }> = {
+    'not_allowed': { hours: Infinity, label: 'No se permiten cancelaciones para esta cita.' },
+    'until_start': { hours: 0, label: '' },
+    '1_hour': { hours: 1, label: '1 hora' },
+    '2_hours': { hours: 2, label: '2 horas' },
+    '24_hours': { hours: 24, label: '24 horas' },
+    '48_hours': { hours: 48, label: '48 horas' },
+    '72_hours': { hours: 72, label: '72 horas' },
+  };
+
+  const policy = policyHoursMap[cancellationPolicy || '24_hours'] || policyHoursMap['24_hours'];
+
+  if (policy.hours === Infinity) {
+    return { allowed: false, reason: policy.label };
   }
+
+  if (policy.hours === 0) {
+    return { allowed: true };
+  }
+
+  if (hoursUntilSession < policy.hours) {
+    return { 
+      allowed: false, 
+      reason: `Las cancelaciones deben realizarse con al menos ${policy.label} de antelación.`
+    };
+  }
+
+  return { allowed: true };
 }
