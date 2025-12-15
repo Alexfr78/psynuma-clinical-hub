@@ -12,6 +12,7 @@ export interface CenterLocation {
   postal_code: string | null;
   country: string | null;
   is_active: boolean | null;
+  is_public: boolean | null;
   created_at: string;
   updated_at: string;
 }
@@ -23,6 +24,7 @@ export interface LocationInsert {
   city: string;
   postal_code?: string;
   country?: string;
+  is_public?: boolean;
 }
 
 export function useLocations() {

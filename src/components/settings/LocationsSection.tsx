@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { MapPin, Plus, Trash2, Clock, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
+import { MapPin, Plus, Trash2, Clock, ChevronDown, ChevronUp, Loader2, Globe, Lock } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Separator } from '@/components/ui/separator';
+import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { useLocations, useCreateLocation, useDeleteLocation, useUpdateLocation, type LocationInsert, type CenterLocation } from '@/hooks/useLocations';
 import { useAllLocationSchedules, useUpsertLocationSchedule, useInitializeLocationSchedules, type LocationSchedule } from '@/hooks/useLocationSchedules';
@@ -28,12 +29,15 @@ interface LocationCardProps {
   schedules: LocationSchedule[];
   onDelete: () => void;
   onScheduleChange: (day: number, field: 'is_open' | 'start_time' | 'end_time', value: boolean | string) => void;
+  onVisibilityChange: (isPublic: boolean) => void;
   isUpdating: boolean;
 }
 
-function LocationCard({ location, schedules, onDelete, onScheduleChange, isUpdating }: LocationCardProps) {
+function LocationCard({ location, schedules, onDelete, onScheduleChange, onVisibilityChange, isUpdating }: LocationCardProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+
+  const isPublic = location.is_public ?? true;
 
   const getScheduleForDay = (day: number) => {
     return schedules.find(s => s.day_of_week === day) || {
@@ -63,8 +67,23 @@ function LocationCard({ location, schedules, onDelete, onScheduleChange, isUpdat
               <div className="mt-1 rounded-lg bg-primary/10 p-2">
                 <MapPin className="h-4 w-4 text-primary" />
               </div>
-              <div>
-                <h4 className="font-medium">{location.name}</h4>
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h4 className="font-medium">{location.name}</h4>
+                  <Badge variant={isPublic ? 'default' : 'secondary'} className="text-xs">
+                    {isPublic ? (
+                      <>
+                        <Globe className="h-3 w-3 mr-1" />
+                        Público
+                      </>
+                    ) : (
+                      <>
+                        <Lock className="h-3 w-3 mr-1" />
+                        Privado
+                      </>
+                    )}
+                  </Badge>
+                </div>
                 <p className="text-sm text-muted-foreground">{formatAddress()}</p>
               </div>
             </div>
@@ -72,7 +91,7 @@ function LocationCard({ location, schedules, onDelete, onScheduleChange, isUpdat
               <CollapsibleTrigger asChild>
                 <Button variant="ghost" size="sm">
                   <Clock className="mr-2 h-4 w-4" />
-                  Horarios
+                  <span className="hidden sm:inline">Horarios</span>
                   {isOpen ? (
                     <ChevronUp className="ml-2 h-4 w-4" />
                   ) : (
@@ -93,7 +112,28 @@ function LocationCard({ location, schedules, onDelete, onScheduleChange, isUpdat
 
           <CollapsibleContent>
             <Separator />
-            <div className="p-4 space-y-3">
+            <div className="p-4 space-y-4">
+              {/* Visibility toggle */}
+              <div className="flex items-center justify-between rounded-lg border p-3">
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-2 text-sm font-medium">
+                    {isPublic ? <Globe className="h-4 w-4 text-primary" /> : <Lock className="h-4 w-4 text-muted-foreground" />}
+                    Visible para pacientes
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {isPublic 
+                      ? 'Los pacientes pueden ver esta ubicación en el portal de reservas'
+                      : 'Esta ubicación solo es visible para el equipo del centro'
+                    }
+                  </p>
+                </div>
+                <Switch
+                  checked={isPublic}
+                  onCheckedChange={onVisibilityChange}
+                />
+              </div>
+
+              {/* Schedule section */}
               <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
                 <Clock className="h-4 w-4" />
                 Horarios de apertura
@@ -185,6 +225,7 @@ function NewLocationForm({ onSubmit, onCancel, isLoading }: NewLocationFormProps
     city: '',
     postal_code: '',
     country: 'España',
+    is_public: true,
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -255,6 +296,20 @@ function NewLocationForm({ onSubmit, onCancel, isLoading }: NewLocationFormProps
             </div>
           </div>
 
+          <div className="flex items-center justify-between rounded-lg border p-3">
+            <div className="space-y-0.5">
+              <Label htmlFor="is_public" className="text-sm font-medium">Visible para pacientes</Label>
+              <p className="text-xs text-muted-foreground">
+                Los pacientes podrán ver esta ubicación en el portal de reservas
+              </p>
+            </div>
+            <Switch
+              id="is_public"
+              checked={formData.is_public ?? true}
+              onCheckedChange={(checked) => setFormData({ ...formData, is_public: checked })}
+            />
+          </div>
+
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={onCancel}>
               Cancelar
@@ -277,6 +332,7 @@ export function LocationsSection() {
   const { data: locations, isLoading } = useLocations();
   const createLocation = useCreateLocation();
   const deleteLocation = useDeleteLocation();
+  const updateLocation = useUpdateLocation();
   const upsertSchedule = useUpsertLocationSchedule();
   const initializeSchedules = useInitializeLocationSchedules();
 
@@ -335,6 +391,18 @@ export function LocationsSection() {
     }
   };
 
+  const handleVisibilityChange = async (locationId: string, isPublic: boolean) => {
+    setUpdatingLocation(locationId);
+    try {
+      await updateLocation.mutateAsync({ id: locationId, is_public: isPublic });
+      toast.success(isPublic ? 'Ubicación visible para pacientes' : 'Ubicación ahora es privada');
+    } catch (error) {
+      toast.error('Error al cambiar la visibilidad');
+    } finally {
+      setUpdatingLocation(null);
+    }
+  };
+
   if (isLoading) {
     return (
       <Card>
@@ -368,6 +436,7 @@ export function LocationsSection() {
                 onScheduleChange={(day, field, value) => 
                   handleScheduleChange(location.id, day, field, value)
                 }
+                onVisibilityChange={(isPublic) => handleVisibilityChange(location.id, isPublic)}
                 isUpdating={updatingLocation === location.id}
               />
             ))}
