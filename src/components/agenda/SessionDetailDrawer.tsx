@@ -90,7 +90,7 @@ import { useSessionPaymentStatus } from '@/hooks/useSessionPayment';
 import { useSessionInvoiceStatus } from '@/hooks/useInvoices';
 import { CollectSessionPaymentDialog } from './CollectSessionPaymentDialog';
 import { CreateSessionInvoiceDialog } from './CreateSessionInvoiceDialog';
-import { useSendWhatsAppNow } from '@/hooks/useSendSessionNotification';
+import { useSendWhatsAppNow, useSendSessionNotification } from '@/hooks/useSendSessionNotification';
 import { useCenter } from '@/hooks/useCenter';
 import { DEFAULT_TEMPLATES } from '@/hooks/useCommunicationTemplates';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -152,6 +152,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
   const { data: locations } = useLocations();
   const { center } = useCenter();
   const sendWhatsAppNow = useSendWhatsAppNow();
+  const sendEmailNotification = useSendSessionNotification();
   const isMobile = useIsMobile();
   const { syncToGoogle, syncMoveToGoogle } = useGoogleCalendarUpdate();
   const { integrations, isProviderConnected } = useProfessionalIntegrations();
@@ -1373,9 +1374,41 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
                   <Button 
                     variant="outline" 
                     size="sm"
-                    disabled={!session.patient?.email}
+                    disabled={!session.patient?.email || sendEmailNotification.isPending}
+                    onClick={() => {
+                      if (!session.patient?.email) return;
+                      
+                      const patientFullName = `${session.patient.first_name} ${session.patient.last_name}`;
+                      const professionalName = session.professional 
+                        ? `${session.professional.first_name || ''} ${session.professional.last_name || ''}`.trim()
+                        : '';
+                      const sessionDate = format(new Date(session.session_date), "dd/MM/yyyy", { locale: es });
+                      const sessionTime = session.start_time?.slice(0, 5) || '';
+                      
+                      sendEmailNotification.mutate({
+                        patientId: session.patient.id,
+                        patientName: patientFullName,
+                        patientEmail: session.patient.email,
+                        sessionId: session.id,
+                        sessionDate,
+                        sessionTime,
+                        professionalName,
+                        sessionType: session.session_type || 'Individual',
+                        type: 'notification',
+                        channels: {
+                          whatsapp: false,
+                          email: true,
+                          sms: false,
+                        },
+                        sessionAccessToken: session.access_token,
+                      });
+                    }}
                   >
-                    <Send className="h-4 w-4 mr-1" />
+                    {sendEmailNotification.isPending ? (
+                      <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                    ) : (
+                      <Send className="h-4 w-4 mr-1" />
+                    )}
                     Email
                   </Button>
                 </div>
