@@ -569,10 +569,8 @@ async function syncProfessional(
       );
 
       if (deleted) {
-        await supabase
-          .from('sessions')
-          .update({ google_calendar_event_id: null })
-          .eq('id', session.id);
+        // DO NOT set google_calendar_event_id to null - keep it to prevent re-importing
+        // the same event as a new session on subsequent syncs
         result.deleted++;
       }
     }
