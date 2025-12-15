@@ -201,9 +201,13 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
         status: newStatus as any,
       });
       
-      // Sync status change to Google Calendar (especially for cancellations)
+      // Sync status change to Google Calendar immediately (especially for cancellations)
       if (newStatus === 'cancelled') {
-        syncToGoogle(session, { status: 'cancelled' });
+        try {
+          await syncToGoogle(session, { status: 'cancelled' });
+        } catch (googleError) {
+          console.error('Error syncing cancellation to Google:', googleError);
+        }
       }
       
       toast({
@@ -278,13 +282,17 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
         end_time: dateTimeValue.endTime,
       });
       
-      // Sync date/time changes to Google Calendar
-      syncMoveToGoogle(
-        session,
-        dateTimeValue.date,
-        dateTimeValue.startTime,
-        dateTimeValue.endTime
-      );
+      // Sync date/time changes to Google Calendar immediately
+      try {
+        await syncMoveToGoogle(
+          session,
+          dateTimeValue.date,
+          dateTimeValue.startTime,
+          dateTimeValue.endTime
+        );
+      } catch (googleError) {
+        console.error('Google sync failed:', googleError);
+      }
       
       toast({ title: 'Fecha y hora actualizadas' });
       setEditingDateTime(false);

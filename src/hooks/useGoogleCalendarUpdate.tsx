@@ -21,10 +21,10 @@ export function useGoogleCalendarUpdate() {
   const syncToGoogle = async (
     session: SessionWithRelations,
     updates: SyncOptions
-  ) => {
+  ): Promise<boolean> => {
     if (!isGoogleCalendarConnected) {
       console.log('Google Calendar not connected, skipping sync');
-      return;
+      return true; // Not an error, just skipped
     }
 
     const sessionData = session as any;
@@ -32,7 +32,7 @@ export function useGoogleCalendarUpdate() {
 
     if (!googleEventId) {
       console.log('No Google Calendar event ID, skipping sync');
-      return;
+      return true; // Not an error, just skipped
     }
 
     // If status is cancelled, delete the event
@@ -54,6 +54,7 @@ export function useGoogleCalendarUpdate() {
         updates
       );
     }
+    return true;
   };
 
   // Sync a moved session (date/time changes)
@@ -62,12 +63,12 @@ export function useGoogleCalendarUpdate() {
     newDate: string,
     newStartTime: string,
     newEndTime: string
-  ) => {
+  ): Promise<boolean> => {
     const patientName = session.patient 
       ? `${session.patient.first_name} ${session.patient.last_name}`
       : 'Paciente';
 
-    await syncToGoogle(session, {
+    return syncToGoogle(session, {
       session_date: newDate,
       start_time: newStartTime,
       end_time: newEndTime,
