@@ -29,6 +29,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { useCenter } from '@/hooks/useCenter';
 import { useAuth } from '@/hooks/useAuth';
@@ -328,38 +329,58 @@ export default function Settings() {
         </p>
       </div>
 
+      {/* Mobile Section Selector */}
+      <div className="lg:hidden">
+        <Select value={activeSection} onValueChange={(val) => setActiveSection(val as SettingsSection)}>
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Selecciona una sección" />
+          </SelectTrigger>
+          <SelectContent>
+            {Object.entries(groupedNavItems).map(([group, items]) => (
+              items.map((item) => (
+                <SelectItem key={item.id} value={item.id}>
+                  <span className="flex items-center gap-2">
+                    <item.icon className="h-4 w-4" />
+                    {group} - {item.label}
+                  </span>
+                </SelectItem>
+              ))
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
       <div className="flex flex-col gap-6 lg:flex-row">
-        {/* Sidebar Navigation */}
-        <aside className="w-full lg:w-64 shrink-0">
+        {/* Sidebar Navigation - Hidden on mobile */}
+        <aside className="hidden lg:block w-64 shrink-0">
           <Card className="sticky top-6 overflow-hidden">
             <ScrollArea className="h-[calc(100vh-10rem)]">
               <nav className="p-4 space-y-6">
-
                 {Object.entries(groupedNavItems).map(([group, items]) => (
-                    <div key={group} className="space-y-1">
-                      <div className="flex items-center gap-2 px-3 py-2">
-                        <FileText className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm font-medium">{group}</span>
-                      </div>
-                      <div className="ml-4 space-y-1 border-l pl-4">
-                        {items.map((item) => (
-                          <button
-                            key={item.id}
-                            onClick={() => setActiveSection(item.id)}
-                            className={cn(
-                              "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
-                              activeSection === item.id
-                                ? "bg-primary text-primary-foreground"
-                                : "hover:bg-muted text-muted-foreground hover:text-foreground"
-                            )}
-                          >
-                            <item.icon className="h-4 w-4" />
-                            {item.label}
-                          </button>
-                        ))}
-                      </div>
+                  <div key={group} className="space-y-1">
+                    <div className="flex items-center gap-2 px-3 py-2">
+                      <FileText className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm font-medium">{group}</span>
                     </div>
-                  ))}
+                    <div className="ml-4 space-y-1 border-l pl-4">
+                      {items.map((item) => (
+                        <button
+                          key={item.id}
+                          onClick={() => setActiveSection(item.id)}
+                          className={cn(
+                            "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
+                            activeSection === item.id
+                              ? "bg-primary text-primary-foreground"
+                              : "hover:bg-muted text-muted-foreground hover:text-foreground"
+                          )}
+                        >
+                          <item.icon className="h-4 w-4" />
+                          {item.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
               </nav>
             </ScrollArea>
           </Card>

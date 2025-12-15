@@ -130,30 +130,30 @@ export default function Audit() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-primary/10 rounded-lg">
-            <Shield className="h-6 w-6 text-primary" />
+          <div className="p-2 bg-primary/10 rounded-lg shrink-0">
+            <Shield className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
           </div>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Registro de Auditoría</h1>
-            <p className="text-muted-foreground text-sm">
-              Historial inmutable VeriFactu - Cumplimiento RD 1007/2023
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight truncate">Registro de Auditoría</h1>
+            <p className="text-muted-foreground text-xs sm:text-sm">
+              Historial inmutable VeriFactu
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Button variant="outline" size="sm" onClick={() => refetch()}>
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Actualizar
+            <RefreshCw className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Actualizar</span>
           </Button>
           <Button variant="outline" size="sm" onClick={exportToCSV}>
-            <FileText className="h-4 w-4 mr-2" />
-            CSV
+            <FileText className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">CSV</span>
           </Button>
           <Button variant="outline" size="sm" onClick={exportToJSON}>
-            <FileJson className="h-4 w-4 mr-2" />
-            JSON
+            <FileJson className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">JSON</span>
           </Button>
         </div>
       </div>
@@ -300,8 +300,8 @@ export default function Audit() {
               <p className="text-muted-foreground">No hay eventos de auditoría</p>
             </div>
           ) : (
-            <div className="rounded-md border">
-              <Table>
+            <div className="rounded-md border overflow-x-auto">
+              <Table className="min-w-[600px]">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Fecha/Hora</TableHead>

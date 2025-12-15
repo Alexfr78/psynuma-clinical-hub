@@ -46,23 +46,24 @@ export default function Notifications() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Notificaciones</h1>
-          <p className="text-muted-foreground">
-            Gestiona recordatorios y comunicaciones con pacientes
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Notificaciones</h1>
+          <p className="text-sm text-muted-foreground">
+            Gestiona recordatorios y comunicaciones
           </p>
         </div>
         {pendingNotifications && pendingNotifications.length > 0 && (
-          <Button onClick={handleProcessPending} disabled={sendNotification.isPending}>
+          <Button onClick={handleProcessPending} disabled={sendNotification.isPending} className="w-full sm:w-auto">
             {sendNotification.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Procesar {pendingNotifications.length} pendientes
+            <span className="sm:hidden">Procesar ({pendingNotifications.length})</span>
+            <span className="hidden sm:inline">Procesar {pendingNotifications.length} pendientes</span>
           </Button>
         )}
       </div>
 
       {/* Stats */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Total</CardTitle>
@@ -107,9 +108,9 @@ export default function Notifications() {
           <CardTitle>Filtros</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-wrap gap-4">
+          <div className="flex flex-col sm:flex-row gap-4">
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-full sm:w-[180px]">
                 <SelectValue placeholder="Estado" />
               </SelectTrigger>
               <SelectContent>
@@ -121,7 +122,7 @@ export default function Notifications() {
             </Select>
 
             <Select value={typeFilter} onValueChange={setTypeFilter}>
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-full sm:w-[180px]">
                 <SelectValue placeholder="Tipo" />
               </SelectTrigger>
               <SelectContent>
