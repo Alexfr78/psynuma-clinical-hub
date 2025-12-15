@@ -224,6 +224,18 @@ export function QuickCreateSessionDialog({
     }
   }, [watchSessionType, watchStartTime, sessionTypes, form]);
 
+  // Auto-select "Consulta Eguilaz" location when modality is in_person
+  useEffect(() => {
+    if (sessionModality === 'in_person' && locations && locations.length > 0) {
+      const eguilazLocation = locations.find(loc => 
+        loc.name.toLowerCase().includes('eguilaz')
+      );
+      if (eguilazLocation) {
+        form.setValue('location_id', eguilazLocation.id);
+      }
+    }
+  }, [sessionModality, locations, form]);
+
   // Get the default session type (first one or 'individual' fallback)
   const defaultSessionTypeId = sessionTypes?.[0]?.id || '';
 
