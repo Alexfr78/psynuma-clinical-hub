@@ -1,81 +1,220 @@
-import { Save, Loader2, Zap } from 'lucide-react';
+import { Zap, Mail, MessageSquare } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Switch } from '@/components/ui/switch';
 import { useCenter } from '@/hooks/useCenter';
 import { useAuth } from '@/hooks/useAuth';
+import { Separator } from '@/components/ui/separator';
+
+type InvoiceOnPaymentMode = 'ask' | 'auto' | 'disabled';
+type InvoiceSendChannel = 'email' | 'whatsapp' | 'both';
 
 export function InvoiceAutomationSection() {
   const { center, updateCenter } = useCenter();
   const { isAdmin } = useAuth();
 
-  const handleToggle = (enabled: boolean) => {
+  const invoiceMode = (center?.invoice_on_payment_mode as InvoiceOnPaymentMode) || 'disabled';
+  const sendChannel = (center?.invoice_send_channel as InvoiceSendChannel) || 'email';
+  const autoInvoicingEnabled = center?.auto_invoicing_enabled || false;
+
+  const handleModeChange = (mode: InvoiceOnPaymentMode) => {
+    updateCenter.mutate({ invoice_on_payment_mode: mode });
+  };
+
+  const handleChannelChange = (channel: InvoiceSendChannel) => {
+    updateCenter.mutate({ invoice_send_channel: channel });
+  };
+
+  const handleAutoInvoicingToggle = (enabled: boolean) => {
     updateCenter.mutate({ auto_invoicing_enabled: enabled });
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Automatizar facturas</CardTitle>
-        <CardDescription>
-          Configura la generación automática de facturas
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="flex items-center justify-between rounded-lg border p-4">
-          <div className="flex items-start gap-4">
-            <div className="rounded-full bg-primary/10 p-2">
-              <Zap className="h-5 w-5 text-primary" />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="auto-invoicing" className="text-base font-medium">
-                Facturación automática
-              </Label>
-              <p className="text-sm text-muted-foreground">
-                Genera automáticamente una factura recapitulativa al final de cada mes 
-                con todas las sesiones completadas de cada paciente.
-              </p>
-            </div>
-          </div>
-          {isAdmin ? (
-            <Switch
-              id="auto-invoicing"
-              checked={center?.auto_invoicing_enabled || false}
-              onCheckedChange={handleToggle}
-              disabled={updateCenter.isPending}
-            />
-          ) : (
-            <span className="text-sm text-muted-foreground">
-              {center?.auto_invoicing_enabled ? 'Activado' : 'Desactivado'}
-            </span>
-          )}
-        </div>
+    <div className="space-y-6">
+      {/* Invoice on Payment Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Zap className="h-5 w-5 text-primary" />
+            Facturación al cobrar sesión
+          </CardTitle>
+          <CardDescription>
+            Configura cómo se generan y envían las facturas al registrar un pago
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Mode Selection */}
+          <div className="space-y-4">
+            <Label className="text-base font-medium">Comportamiento al cobrar</Label>
+            {isAdmin ? (
+              <RadioGroup
+                value={invoiceMode}
+                onValueChange={(value) => handleModeChange(value as InvoiceOnPaymentMode)}
+                className="space-y-3"
+              >
+                <div className="flex items-start space-x-3 rounded-lg border p-4 hover:bg-muted/50 transition-colors">
+                  <RadioGroupItem value="ask" id="mode-ask" className="mt-1" />
+                  <div className="space-y-1">
+                    <Label htmlFor="mode-ask" className="font-medium cursor-pointer">
+                      Preguntar antes de generar
+                    </Label>
+                    <p className="text-sm text-muted-foreground">
+                      Al cobrar, te preguntará si deseas generar la factura o solo registrar el pago.
+                    </p>
+                  </div>
+                </div>
 
-        {center?.auto_invoicing_enabled && (
-          <div className="rounded-lg bg-muted/50 p-4 space-y-3">
-            <h4 className="font-medium text-sm">¿Cómo funciona?</h4>
-            <ul className="text-sm text-muted-foreground space-y-2">
-              <li className="flex items-start gap-2">
-                <span className="text-primary font-medium">1.</span>
-                Al finalizar cada mes, el sistema recopila todas las sesiones completadas que no han sido facturadas.
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-primary font-medium">2.</span>
-                Se agrupa por paciente y se genera una factura recapitulativa para cada uno.
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-primary font-medium">3.</span>
-                Las facturas se crean en estado "borrador" para que puedas revisarlas antes de enviarlas.
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-primary font-medium">4.</span>
-                Se usa la serie predeterminada configurada en "Series y numeración".
-              </li>
-            </ul>
+                <div className="flex items-start space-x-3 rounded-lg border p-4 hover:bg-muted/50 transition-colors">
+                  <RadioGroupItem value="auto" id="mode-auto" className="mt-1" />
+                  <div className="space-y-1">
+                    <Label htmlFor="mode-auto" className="font-medium cursor-pointer">
+                      Generar y enviar automáticamente
+                    </Label>
+                    <p className="text-sm text-muted-foreground">
+                      Al cobrar, se genera la factura simplificada automáticamente y se envía al paciente.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start space-x-3 rounded-lg border p-4 hover:bg-muted/50 transition-colors">
+                  <RadioGroupItem value="disabled" id="mode-disabled" className="mt-1" />
+                  <div className="space-y-1">
+                    <Label htmlFor="mode-disabled" className="font-medium cursor-pointer">
+                      Solo registrar el pago
+                    </Label>
+                    <p className="text-sm text-muted-foreground">
+                      Al cobrar, solo se registra el pago sin generar factura automáticamente.
+                    </p>
+                  </div>
+                </div>
+              </RadioGroup>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Modo actual: {
+                  invoiceMode === 'ask' ? 'Preguntar antes de generar' :
+                  invoiceMode === 'auto' ? 'Generar automáticamente' :
+                  'Solo registrar pago'
+                }
+              </p>
+            )}
           </div>
-        )}
-      </CardContent>
-    </Card>
+
+          {/* Send Channel Selection - Only show if not disabled */}
+          {invoiceMode !== 'disabled' && (
+            <>
+              <Separator />
+              <div className="space-y-4">
+                <Label className="text-base font-medium">Canal de envío</Label>
+                {isAdmin ? (
+                  <RadioGroup
+                    value={sendChannel}
+                    onValueChange={(value) => handleChannelChange(value as InvoiceSendChannel)}
+                    className="grid grid-cols-1 sm:grid-cols-3 gap-3"
+                  >
+                    <div className="flex items-center space-x-3 rounded-lg border p-4 hover:bg-muted/50 transition-colors">
+                      <RadioGroupItem value="email" id="channel-email" />
+                      <Label htmlFor="channel-email" className="flex items-center gap-2 cursor-pointer">
+                        <Mail className="h-4 w-4" />
+                        Email
+                      </Label>
+                    </div>
+
+                    <div className="flex items-center space-x-3 rounded-lg border p-4 hover:bg-muted/50 transition-colors">
+                      <RadioGroupItem value="whatsapp" id="channel-whatsapp" />
+                      <Label htmlFor="channel-whatsapp" className="flex items-center gap-2 cursor-pointer">
+                        <MessageSquare className="h-4 w-4" />
+                        WhatsApp
+                      </Label>
+                    </div>
+
+                    <div className="flex items-center space-x-3 rounded-lg border p-4 hover:bg-muted/50 transition-colors">
+                      <RadioGroupItem value="both" id="channel-both" />
+                      <Label htmlFor="channel-both" className="flex items-center gap-2 cursor-pointer">
+                        <Mail className="h-4 w-4" />
+                        <MessageSquare className="h-4 w-4" />
+                        Ambos
+                      </Label>
+                    </div>
+                  </RadioGroup>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Canal: {
+                      sendChannel === 'email' ? 'Email' :
+                      sendChannel === 'whatsapp' ? 'WhatsApp' :
+                      'Email y WhatsApp'
+                    }
+                  </p>
+                )}
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Monthly Auto-Invoicing Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Facturación mensual automática</CardTitle>
+          <CardDescription>
+            Genera facturas recapitulativas al final de cada mes
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="flex items-center justify-between rounded-lg border p-4">
+            <div className="flex items-start gap-4">
+              <div className="rounded-full bg-primary/10 p-2">
+                <Zap className="h-5 w-5 text-primary" />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="auto-invoicing" className="text-base font-medium">
+                  Facturación recapitulativa mensual
+                </Label>
+                <p className="text-sm text-muted-foreground">
+                  Genera automáticamente una factura recapitulativa al final de cada mes 
+                  con todas las sesiones completadas de cada paciente.
+                </p>
+              </div>
+            </div>
+            {isAdmin ? (
+              <Switch
+                id="auto-invoicing"
+                checked={autoInvoicingEnabled}
+                onCheckedChange={handleAutoInvoicingToggle}
+                disabled={updateCenter.isPending}
+              />
+            ) : (
+              <span className="text-sm text-muted-foreground">
+                {autoInvoicingEnabled ? 'Activado' : 'Desactivado'}
+              </span>
+            )}
+          </div>
+
+          {autoInvoicingEnabled && (
+            <div className="rounded-lg bg-muted/50 p-4 space-y-3">
+              <h4 className="font-medium text-sm">¿Cómo funciona?</h4>
+              <ul className="text-sm text-muted-foreground space-y-2">
+                <li className="flex items-start gap-2">
+                  <span className="text-primary font-medium">1.</span>
+                  Al finalizar cada mes, el sistema recopila todas las sesiones completadas que no han sido facturadas.
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-primary font-medium">2.</span>
+                  Se agrupa por paciente y se genera una factura recapitulativa para cada uno.
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-primary font-medium">3.</span>
+                  Las facturas se crean en estado "borrador" para que puedas revisarlas antes de enviarlas.
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-primary font-medium">4.</span>
+                  Se usa la serie predeterminada configurada en "Series y numeración".
+                </li>
+              </ul>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 }

@@ -92,3 +92,6 @@ verify_jwt = false
 
 [functions.generate-pending-debts]
 verify_jwt = false
+
+[functions.send-invoice-notification]
+verify_jwt = false
