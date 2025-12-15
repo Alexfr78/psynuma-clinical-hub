@@ -34,7 +34,7 @@ export function NotificationCard({ notification, onSend }: NotificationCardProps
     : 'Paciente desconocido';
 
   return (
-    <Card>
+    <Card className="overflow-hidden">
       <CardHeader className="pb-2">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2 min-w-0">
@@ -52,11 +52,11 @@ export function NotificationCard({ notification, onSend }: NotificationCardProps
           </Badge>
         </div>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className="space-y-3 overflow-hidden">
         {notification.subject && (
-          <p className="font-medium text-sm truncate">{notification.subject}</p>
+          <p className="font-medium text-sm truncate break-words">{notification.subject}</p>
         )}
-        <p className="text-sm text-muted-foreground line-clamp-2">
+        <p className="text-sm text-muted-foreground line-clamp-2 break-words">
           {notification.message}
         </p>
         
