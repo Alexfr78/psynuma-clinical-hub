@@ -340,6 +340,34 @@ async function deleteGoogleCalendarEvent(
   return response.ok || response.status === 404;
 }
 
+// Parse Google Calendar datetime to Europe/Madrid timezone
+function parseGoogleDateTimeToMadrid(dateTimeStr: string): { date: string; time: string } {
+  const date = new Date(dateTimeStr);
+  
+  // Use Intl.DateTimeFormat to get correct time in Europe/Madrid
+  const formatter = new Intl.DateTimeFormat('es-ES', {
+    timeZone: 'Europe/Madrid',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  });
+  
+  const parts = formatter.formatToParts(date);
+  const year = parts.find(p => p.type === 'year')?.value || '2024';
+  const month = parts.find(p => p.type === 'month')?.value || '01';
+  const day = parts.find(p => p.type === 'day')?.value || '01';
+  const hour = parts.find(p => p.type === 'hour')?.value || '00';
+  const minute = parts.find(p => p.type === 'minute')?.value || '00';
+  
+  return {
+    date: `${year}-${month}-${day}`,
+    time: `${hour}:${minute}`
+  };
+}
+
 async function syncProfessional(
   supabase: any,
   professionalId: string,
@@ -357,7 +385,7 @@ async function syncProfessional(
     .single();
 
   if (connError || !connection) {
-    result.errors.push('No Google connection found');
+    result.errors.push('No hay conexión con Google configurada');
     return result;
   }
 
@@ -369,13 +397,13 @@ async function syncProfessional(
     .single();
 
   if (!integrations?.google_calendar_enabled) {
-    result.errors.push('Google Calendar not enabled');
+    result.errors.push('Google Calendar no está habilitado');
     return result;
   }
 
   const accessToken = await getValidAccessToken(supabase, connection);
   if (!accessToken) {
-    result.errors.push('Could not get valid access token');
+    result.errors.push('Error de autenticación con Google. Reconecta tu cuenta.');
     return result;
   }
 
@@ -475,11 +503,14 @@ async function syncProfessional(
         } else {
           // Event exists - check if Google has newer changes (two-way sync)
           if (integrations?.google_calendar_sync_mode === 'two_way' && googleEvent.start?.dateTime) {
-            const startDate = new Date(googleEvent.start.dateTime);
-            const endDate = new Date(googleEvent.end.dateTime);
-            const googleSessionDate = startDate.toISOString().split('T')[0];
-            const googleStartTime = startDate.toTimeString().slice(0, 5);
-            const googleEndTime = endDate.toTimeString().slice(0, 5);
+            // Parse using Europe/Madrid timezone to avoid timezone drift
+            const parsedStart = parseGoogleDateTimeToMadrid(googleEvent.start.dateTime);
+            const parsedEnd = parseGoogleDateTimeToMadrid(googleEvent.end.dateTime);
+            const googleSessionDate = parsedStart.date;
+            const googleStartTime = parsedStart.time;
+            const googleEndTime = parsedEnd.time;
+
+            console.log(`Comparing session ${session.id}: Psycma(${session.session_date} ${session.start_time}-${session.end_time}) vs Google(${googleSessionDate} ${googleStartTime}-${googleEndTime})`);
 
             // Check if Google event differs from Psycma session
             if (session.session_date !== googleSessionDate ||
@@ -616,11 +647,12 @@ async function syncProfessional(
 
         // Check if Google event was updated
         if (googleEvent.start?.dateTime) {
-          const startDate = new Date(googleEvent.start.dateTime);
-          const endDate = new Date(googleEvent.end.dateTime);
-          const googleSessionDate = startDate.toISOString().split('T')[0];
-          const googleStartTime = startDate.toTimeString().slice(0, 5);
-          const googleEndTime = endDate.toTimeString().slice(0, 5);
+          // Parse using Europe/Madrid timezone
+          const parsedStart = parseGoogleDateTimeToMadrid(googleEvent.start.dateTime);
+          const parsedEnd = parseGoogleDateTimeToMadrid(googleEvent.end.dateTime);
+          const googleSessionDate = parsedStart.date;
+          const googleStartTime = parsedStart.time;
+          const googleEndTime = parsedEnd.time;
 
           if (session.session_date !== googleSessionDate ||
               session.start_time !== googleStartTime ||
@@ -662,13 +694,13 @@ async function syncProfessional(
         continue;
       }
       
-      // Parse event times
-      const startDate = new Date(event.start.dateTime);
-      const endDate = new Date(event.end.dateTime);
+      // Parse event times using Europe/Madrid timezone
+      const parsedStart = parseGoogleDateTimeToMadrid(event.start.dateTime);
+      const parsedEnd = parseGoogleDateTimeToMadrid(event.end.dateTime);
       
-      const sessionDate = startDate.toISOString().split('T')[0];
-      const startTime = startDate.toTimeString().slice(0, 5);
-      const endTime = endDate.toTimeString().slice(0, 5);
+      const sessionDate = parsedStart.date;
+      const startTime = parsedStart.time;
+      const endTime = parsedEnd.time;
       
       // Create a blocked session
       const { error: insertError } = await supabase
