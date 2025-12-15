@@ -1464,6 +1464,8 @@ export type Database = {
           google_event_description_format: string | null
           google_event_title_format: string | null
           google_meet_enabled: boolean | null
+          google_sync_days_future: number | null
+          google_sync_days_past: number | null
           id: string
           last_google_sync_at: string | null
           professional_id: string
@@ -1486,6 +1488,8 @@ export type Database = {
           google_event_description_format?: string | null
           google_event_title_format?: string | null
           google_meet_enabled?: boolean | null
+          google_sync_days_future?: number | null
+          google_sync_days_past?: number | null
           id?: string
           last_google_sync_at?: string | null
           professional_id: string
@@ -1508,6 +1512,8 @@ export type Database = {
           google_event_description_format?: string | null
           google_event_title_format?: string | null
           google_meet_enabled?: boolean | null
+          google_sync_days_future?: number | null
+          google_sync_days_past?: number | null
           id?: string
           last_google_sync_at?: string | null
           professional_id?: string

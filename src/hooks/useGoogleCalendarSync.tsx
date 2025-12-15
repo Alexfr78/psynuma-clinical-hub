@@ -20,11 +20,29 @@ export function useGoogleCalendarSync() {
     mutationFn: async (dateRange?: { from: string; to: string }): Promise<SyncResult> => {
       if (!profile?.id) throw new Error('No professional ID');
 
+      // Calculate date range from configuration or use provided range
+      let dateFrom = dateRange?.from;
+      let dateTo = dateRange?.to;
+
+      if (!dateFrom || !dateTo) {
+        const now = new Date();
+        const daysPast = integrations?.google_sync_days_past ?? 30;
+        const daysFuture = integrations?.google_sync_days_future ?? 90;
+
+        const fromDate = new Date(now);
+        fromDate.setDate(fromDate.getDate() - daysPast);
+        dateFrom = fromDate.toISOString().split('T')[0];
+
+        const toDate = new Date(now);
+        toDate.setDate(toDate.getDate() + daysFuture);
+        dateTo = toDate.toISOString().split('T')[0];
+      }
+
       const { data, error } = await supabase.functions.invoke('sync-google-calendar', {
         body: {
           professional_id: profile.id,
-          date_from: dateRange?.from,
-          date_to: dateRange?.to,
+          date_from: dateFrom,
+          date_to: dateTo,
         },
       });
 
