@@ -370,7 +370,9 @@ export type Database = {
           invoice_footer: string | null
           invoice_logo_url: string | null
           invoice_next_number: number | null
+          invoice_on_payment_mode: string | null
           invoice_prefix: string | null
+          invoice_send_channel: string | null
           logo_url: string | null
           name: string
           oauth_google_client_id: string | null
@@ -428,7 +430,9 @@ export type Database = {
           invoice_footer?: string | null
           invoice_logo_url?: string | null
           invoice_next_number?: number | null
+          invoice_on_payment_mode?: string | null
           invoice_prefix?: string | null
+          invoice_send_channel?: string | null
           logo_url?: string | null
           name: string
           oauth_google_client_id?: string | null
@@ -486,7 +490,9 @@ export type Database = {
           invoice_footer?: string | null
           invoice_logo_url?: string | null
           invoice_next_number?: number | null
+          invoice_on_payment_mode?: string | null
           invoice_prefix?: string | null
+          invoice_send_channel?: string | null
           logo_url?: string | null
           name?: string
           oauth_google_client_id?: string | null
