@@ -89,3 +89,6 @@ verify_jwt = false
 
 [functions.patient-portal-sessions]
 verify_jwt = false
+
+[functions.generate-pending-debts]
+verify_jwt = false
