@@ -375,6 +375,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
         id: session.id,
         [field]: value,
       });
+      queryClient.invalidateQueries({ queryKey: ['sessions'] });
       toast({ title: 'Guardado' });
     } catch {
       toast({ title: 'Error', variant: 'destructive' });
