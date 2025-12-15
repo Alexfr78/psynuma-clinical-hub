@@ -556,6 +556,10 @@ async function syncProfessional(
     const timeMax = `${dateTo}T23:59:59Z`;
     const googleEvents = await fetchGoogleCalendarEvents(accessToken, calendarId, timeMin, timeMax);
     
+    // CRITICAL SAFETY FLAG: Track if we successfully fetched Google events
+    // If googleEvents is empty, it could be an auth failure, not actual empty calendar
+    const googleFetchSuccessful = googleEvents.length > 0 || integrations?.google_calendar_sync_mode !== 'two_way';
+    
     // Build a map of Google event IDs to their data for change detection
     const googleEventMap = new Map<string, any>();
     for (const event of googleEvents) {
@@ -670,29 +674,34 @@ async function syncProfessional(
     }
 
   // Handle cancelled sessions - delete from Google Calendar
-  const { data: cancelledSessions } = await supabase
-    .from('sessions')
-    .select('id, google_calendar_event_id')
-    .eq('professional_id', professionalId)
-    .eq('status', 'cancelled')
-    .not('google_calendar_event_id', 'is', null)
-    .gte('session_date', dateFrom)
-    .lte('session_date', dateTo);
+  // SAFETY: Only delete if we have confirmed Google connection is working
+  if (googleFetchSuccessful) {
+    const { data: cancelledSessions } = await supabase
+      .from('sessions')
+      .select('id, google_calendar_event_id')
+      .eq('professional_id', professionalId)
+      .eq('status', 'cancelled')
+      .not('google_calendar_event_id', 'is', null)
+      .gte('session_date', dateFrom)
+      .lte('session_date', dateTo);
 
-  for (const session of cancelledSessions || []) {
-    if (session.google_calendar_event_id) {
-      const deleted = await deleteGoogleCalendarEvent(
-        accessToken,
-        calendarId,
-        session.google_calendar_event_id
-      );
+    for (const session of cancelledSessions || []) {
+      if (session.google_calendar_event_id) {
+        const deleted = await deleteGoogleCalendarEvent(
+          accessToken,
+          calendarId,
+          session.google_calendar_event_id
+        );
 
-      if (deleted) {
-        // DO NOT set google_calendar_event_id to null - keep it to prevent re-importing
-        // the same event as a new session on subsequent syncs
-        result.deleted++;
+        if (deleted) {
+          // DO NOT set google_calendar_event_id to null - keep it to prevent re-importing
+          // the same event as a new session on subsequent syncs
+          result.deleted++;
+        }
       }
     }
+  } else {
+    console.log('SAFETY: Skipping Google Calendar deletions - could not confirm Google connection');
   }
 
     // Two-way sync: Import events from Google Calendar as blocked slots
@@ -749,18 +758,29 @@ async function syncProfessional(
         .gte('session_date', dateFrom)
         .lte('session_date', dateTo);
 
-      for (const session of importedSessions || []) {
-        const googleEvent = googleEventMap.get(session.google_calendar_event_id);
-        
-        if (!googleEvent) {
-          // Event was deleted from Google Calendar - cancel the session
-          await supabase
-            .from('sessions')
-            .update({ status: 'cancelled' })
-            .eq('id', session.id);
-          result.deleted++;
-          continue;
-        }
+      // CRITICAL SAFETY CHECK: If googleEvents is empty but we have imported sessions,
+      // this could indicate an auth failure rather than actual deletions from Google.
+      // In this case, skip deletion sync entirely to prevent data loss.
+      const hasImportedSessions = (importedSessions || []).length > 0;
+      if (googleEvents.length === 0 && hasImportedSessions) {
+        console.log('SAFETY: Skipping deletion sync - no Google events returned but local imported sessions exist');
+        console.log(`Found ${importedSessions?.length} imported sessions that would have been incorrectly marked as deleted`);
+        result.errors.push('Sincronización de eliminaciones omitida por seguridad - verifica la conexión con Google');
+      } else {
+        // Safe to process deletions - we have Google events to compare against
+        for (const session of importedSessions || []) {
+          const googleEvent = googleEventMap.get(session.google_calendar_event_id);
+          
+          if (!googleEvent) {
+            // Event was deleted from Google Calendar - cancel the session
+            console.log(`Event ${session.google_calendar_event_id} confirmed deleted from Google, cancelling session ${session.id}`);
+            await supabase
+              .from('sessions')
+              .update({ status: 'cancelled' })
+              .eq('id', session.id);
+            result.deleted++;
+            continue;
+          }
 
         // Check if Google event was updated
         if (googleEvent.start?.dateTime) {
@@ -787,7 +807,8 @@ async function syncProfessional(
             result.updated++;
           }
         }
-      }
+        } // End of safe deletion processing block
+      } // End of safety check
 
       // Import new events from Google Calendar
       for (const event of googleEvents) {
