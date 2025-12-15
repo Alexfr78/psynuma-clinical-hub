@@ -26,6 +26,7 @@ import { InvoiceDetailDialog } from '@/components/invoices/InvoiceDetailDialog';
 import { CreateSimpleInvoiceDialog } from '@/components/invoices/CreateSimpleInvoiceDialog';
 import { CreateRecapInvoiceDialog } from '@/components/invoices/CreateRecapInvoiceDialog';
 import { CreateRectificativaDialog } from '@/components/invoices/CreateRectificativaDialog';
+import { SendInvoiceDialog } from '@/components/invoices/SendInvoiceDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -41,6 +42,10 @@ export default function Invoices() {
   // Detail dialog state
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
+  
+  // Send invoice dialog state
+  const [sendDialogOpen, setSendDialogOpen] = useState(false);
+  const [selectedInvoiceForSend, setSelectedInvoiceForSend] = useState<InvoiceWithPatient | null>(null);
 
   const { data: invoices, isLoading, refetch } = useInvoices({ status: statusFilter === 'all' ? undefined : statusFilter });
   const { data: stats } = useInvoiceStats();
@@ -183,6 +188,11 @@ export default function Invoices() {
     setDetailDialogOpen(true);
   };
 
+  const handleSendInvoice = (invoice: InvoiceWithPatient) => {
+    setSelectedInvoiceForSend(invoice);
+    setSendDialogOpen(true);
+  };
+
   const handleRetryVerifactu = async (invoiceId: string) => {
     try {
       toast.info('Reintentando registro en AEAT...');
@@ -299,6 +309,7 @@ export default function Invoices() {
                   onCancelVerifactu={() => handleCancelVerifactuClick(invoice.id, invoice.invoice_number)}
                   onCreateRectificativa={() => handleCreateRectificativa(invoice)}
                   onRetryVerifactu={() => handleRetryVerifactu(invoice.id)}
+                  onSendInvoice={() => handleSendInvoice(invoice)}
                 />
               ))}
             </div>
@@ -320,6 +331,12 @@ export default function Invoices() {
         />
       )}
       
+      <SendInvoiceDialog 
+        open={sendDialogOpen} 
+        onOpenChange={setSendDialogOpen}
+        invoice={selectedInvoiceForSend}
+      />
+
       {detailDialogOpen && selectedInvoiceId && (
         <InvoiceDetailDialog 
           open={detailDialogOpen} 
