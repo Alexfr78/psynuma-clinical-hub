@@ -47,6 +47,10 @@ export function GoogleIntegrationSection() {
   const [titleFormat, setTitleFormat] = useState('{tipo} - {paciente}');
   const [descriptionFormat, setDescriptionFormat] = useState('Profesional: {profesional}\nTipo: {tipo}\nNotas: {notas}');
   const [showFormatSettings, setShowFormatSettings] = useState(false);
+  
+  // Sync days configuration
+  const [syncDaysPast, setSyncDaysPast] = useState(30);
+  const [syncDaysFuture, setSyncDaysFuture] = useState(90);
 
   const isConnected = isProviderConnected('google');
   const connection = getOAuthConnection('google');
@@ -78,6 +82,8 @@ export function GoogleIntegrationSection() {
       setSyncMode(integrations.google_calendar_sync_mode);
       setTitleFormat(integrations.google_event_title_format || '{tipo} - {paciente}');
       setDescriptionFormat(integrations.google_event_description_format || 'Profesional: {profesional}\nTipo: {tipo}\nNotas: {notas}');
+      setSyncDaysPast(integrations.google_sync_days_past ?? 30);
+      setSyncDaysFuture(integrations.google_sync_days_future ?? 90);
     }
   }, [integrations]);
 
@@ -180,6 +186,21 @@ export function GoogleIntegrationSection() {
         google_event_description_format: descriptionFormat,
       });
       toast.success('Formato guardado');
+    } catch {
+      toast.error('Error al guardar');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSaveSyncDays = async () => {
+    setIsSaving(true);
+    try {
+      await updateIntegrations.mutateAsync({
+        google_sync_days_past: syncDaysPast,
+        google_sync_days_future: syncDaysFuture,
+      });
+      toast.success('Rango de sincronización guardado');
     } catch {
       toast.error('Error al guardar');
     } finally {
@@ -411,6 +432,47 @@ export function GoogleIntegrationSection() {
                         </div>
                       </div>
                     </RadioGroup>
+                  </div>
+
+                  {/* Sync Days Configuration */}
+                  <div className="space-y-3 p-3 border rounded-lg bg-muted/30">
+                    <Label className="text-sm font-medium">Sincronizar historial de citas (pasadas y futuras)</Label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">Días pasados</Label>
+                        <Input
+                          type="number"
+                          min={0}
+                          max={365}
+                          value={syncDaysPast}
+                          onChange={(e) => setSyncDaysPast(parseInt(e.target.value) || 0)}
+                          placeholder="30"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">Días futuros</Label>
+                        <Input
+                          type="number"
+                          min={1}
+                          max={365}
+                          value={syncDaysFuture}
+                          onChange={(e) => setSyncDaysFuture(parseInt(e.target.value) || 90)}
+                          placeholder="90"
+                        />
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Introduce 0 en días pasados para no sincronizar eventos anteriores.
+                    </p>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={handleSaveSyncDays}
+                      disabled={isSaving}
+                    >
+                      {isSaving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                      Guardar rango
+                    </Button>
                   </div>
 
                   {/* Format Settings */}

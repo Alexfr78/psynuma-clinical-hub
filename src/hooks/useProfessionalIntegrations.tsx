@@ -22,6 +22,8 @@ export interface ProfessionalIntegration {
   last_google_sync_at: string | null;
   google_event_title_format: string | null;
   google_event_description_format: string | null;
+  google_sync_days_past: number;
+  google_sync_days_future: number;
   // Stripe
   stripe_enabled: boolean;
   stripe_payment_mode: 'required_now' | 'post_pay' | 'scheduled_before';

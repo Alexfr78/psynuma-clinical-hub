@@ -750,15 +750,44 @@ serve(async (req) => {
     const body = await req.json();
     const { professional_id, date_from, date_to, sync_all_professionals } = body;
 
-    // Calculate default date range (30 days back, 90 days forward)
-    const now = new Date();
-    const defaultDateFrom = new Date(now);
-    defaultDateFrom.setDate(defaultDateFrom.getDate() - 30);
-    const defaultDateTo = new Date(now);
-    defaultDateTo.setDate(defaultDateTo.getDate() + 90);
+    // Calculate date range - use provided values or fetch from professional config
+    let dateFrom = date_from;
+    let dateTo = date_to;
 
-    const dateFrom = date_from || defaultDateFrom.toISOString().split('T')[0];
-    const dateTo = date_to || defaultDateTo.toISOString().split('T')[0];
+    if (!dateFrom || !dateTo) {
+      // Try to get configured sync days from professional_integrations
+      if (professional_id) {
+        const { data: profIntegrations } = await supabase
+          .from('professional_integrations')
+          .select('google_sync_days_past, google_sync_days_future')
+          .eq('professional_id', professional_id)
+          .single();
+
+        const daysPast = profIntegrations?.google_sync_days_past ?? 30;
+        const daysFuture = profIntegrations?.google_sync_days_future ?? 90;
+
+        const now = new Date();
+        const fromDate = new Date(now);
+        fromDate.setDate(fromDate.getDate() - daysPast);
+        dateFrom = fromDate.toISOString().split('T')[0];
+
+        const toDate = new Date(now);
+        toDate.setDate(toDate.getDate() + daysFuture);
+        dateTo = toDate.toISOString().split('T')[0];
+
+        console.log(`Using configured sync range: ${daysPast} days past, ${daysFuture} days future`);
+      } else {
+        // Default values for sync_all_professionals
+        const now = new Date();
+        const defaultDateFrom = new Date(now);
+        defaultDateFrom.setDate(defaultDateFrom.getDate() - 30);
+        const defaultDateTo = new Date(now);
+        defaultDateTo.setDate(defaultDateTo.getDate() + 90);
+
+        dateFrom = defaultDateFrom.toISOString().split('T')[0];
+        dateTo = defaultDateTo.toISOString().split('T')[0];
+      }
+    }
 
     let totalResult: SyncResult = { created: 0, updated: 0, deleted: 0, errors: [] };
 
