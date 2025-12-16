@@ -22,7 +22,9 @@ import {
   CreditCard,
   Plug,
   Wallet,
-  Bell
+  Bell,
+  Users,
+  FileDown
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -98,34 +100,58 @@ interface NavItem {
   id: SettingsSection;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
-  parent?: string;
+  parent: string;
+  subgroup?: string;
 }
 
+// Category icons for main sections
+const categoryIcons: Record<string, React.ComponentType<{ className?: string }>> = {
+  'Mi Centro': Building2,
+  'Portal de Pacientes': Users,
+  'Pagos y Facturación': Wallet,
+  'Comunicaciones': Mail,
+  'Conexiones Externas': Plug,
+};
+
+// New organized structure with 5 main sections
 const navItems: NavItem[] = [
-  { id: 'centro-info', label: 'Datos del centro', icon: Building2, parent: 'Centro' },
-  { id: 'centro-ubicaciones', label: 'Ubicaciones', icon: MapPin, parent: 'Centro' },
-  { id: 'centro-portal', label: 'Ajustes del Portal', icon: Settings2, parent: 'Centro' },
-  { id: 'sesiones-tipos', label: 'Tipos de sesión', icon: Calendar, parent: 'Sesiones' },
-  { id: 'pagos-config', label: 'Configuración de pagos', icon: Wallet, parent: 'Pagos' },
-  { id: 'consentimientos-config', label: 'Días de expiración', icon: FileText, parent: 'Consentimientos' },
-  { id: 'facturacion-info', label: 'Información de facturación', icon: Receipt, parent: 'Facturación' },
-  { id: 'facturacion-editar', label: 'Editar factura', icon: Pencil, parent: 'Facturación' },
-  { id: 'facturacion-series', label: 'Series y numeración', icon: List, parent: 'Facturación' },
-  { id: 'facturacion-automatizar', label: 'Automatizar facturas', icon: Zap, parent: 'Facturación' },
-  { id: 'facturacion-verifactu', label: 'Verifactu (AEAT)', icon: Shield, parent: 'Facturación' },
-  { id: 'facturacion-verifactu-declaracion', label: 'Declaración Responsable', icon: FileText, parent: 'Facturación' },
-  { id: 'facturacion-verifactu-exportar', label: 'Exportar Registros', icon: FileText, parent: 'Facturación' },
-  { id: 'comunicaciones-email', label: 'Plantillas Email', icon: Mail, parent: 'Comunicaciones' },
-  { id: 'comunicaciones-whatsapp', label: 'Plantillas WhatsApp', icon: MessageCircle, parent: 'Comunicaciones' },
-  { id: 'comunicaciones-sms', label: 'Plantillas SMS', icon: Smartphone, parent: 'Comunicaciones' },
-  { id: 'comunicaciones-recordatorios', label: 'Recordatorios de Cita', icon: Bell, parent: 'Comunicaciones' },
-  { id: 'integraciones-resumen', label: 'Resumen', icon: Plug, parent: 'Integraciones' },
-  { id: 'integraciones-credenciales', label: 'Credenciales OAuth', icon: Shield, parent: 'Integraciones' },
-  { id: 'integraciones-whatsapp', label: 'WhatsApp Business', icon: MessageCircle, parent: 'Integraciones' },
-  { id: 'integraciones-zoom', label: 'Zoom', icon: Video, parent: 'Integraciones' },
-  { id: 'integraciones-google', label: 'Google Calendar/Meet', icon: Calendar, parent: 'Integraciones' },
-  { id: 'integraciones-stripe', label: 'Stripe', icon: CreditCard, parent: 'Integraciones' },
+  // Mi Centro
+  { id: 'centro-info', label: 'Datos del centro', icon: Building2, parent: 'Mi Centro' },
+  { id: 'centro-ubicaciones', label: 'Ubicaciones', icon: MapPin, parent: 'Mi Centro' },
+  { id: 'sesiones-tipos', label: 'Tipos de cita', icon: Calendar, parent: 'Mi Centro' },
+  
+  // Portal de Pacientes
+  { id: 'centro-portal', label: 'Configuración del portal', icon: Settings2, parent: 'Portal de Pacientes' },
+  { id: 'consentimientos-config', label: 'Consentimientos informados', icon: FileText, parent: 'Portal de Pacientes' },
+  
+  // Pagos y Facturación
+  { id: 'pagos-config', label: 'Métodos de cobro', icon: Wallet, parent: 'Pagos y Facturación' },
+  { id: 'facturacion-info', label: 'Datos fiscales', icon: Receipt, parent: 'Pagos y Facturación' },
+  { id: 'facturacion-editar', label: 'Personalizar facturas', icon: Pencil, parent: 'Pagos y Facturación' },
+  { id: 'facturacion-series', label: 'Series de facturas', icon: List, parent: 'Pagos y Facturación' },
+  { id: 'facturacion-automatizar', label: 'Facturación automática', icon: Zap, parent: 'Pagos y Facturación' },
+  // Verifactu subgroup
+  { id: 'facturacion-verifactu', label: 'Certificado digital', icon: Shield, parent: 'Pagos y Facturación', subgroup: 'Verifactu (AEAT)' },
+  { id: 'facturacion-verifactu-declaracion', label: 'Declaración responsable', icon: FileText, parent: 'Pagos y Facturación', subgroup: 'Verifactu (AEAT)' },
+  { id: 'facturacion-verifactu-exportar', label: 'Exportar registros', icon: FileDown, parent: 'Pagos y Facturación', subgroup: 'Verifactu (AEAT)' },
+  
+  // Comunicaciones
+  { id: 'comunicaciones-recordatorios', label: 'Recordatorios de cita', icon: Bell, parent: 'Comunicaciones' },
+  { id: 'comunicaciones-email', label: 'Plantillas de email', icon: Mail, parent: 'Comunicaciones' },
+  { id: 'comunicaciones-whatsapp', label: 'Plantillas de WhatsApp', icon: MessageCircle, parent: 'Comunicaciones' },
+  { id: 'comunicaciones-sms', label: 'Plantillas de SMS', icon: Smartphone, parent: 'Comunicaciones' },
+  
+  // Conexiones Externas
+  { id: 'integraciones-resumen', label: 'Estado de conexiones', icon: Plug, parent: 'Conexiones Externas' },
+  { id: 'integraciones-whatsapp', label: 'WhatsApp Business', icon: MessageCircle, parent: 'Conexiones Externas' },
+  { id: 'integraciones-google', label: 'Google Calendar y Meet', icon: Calendar, parent: 'Conexiones Externas' },
+  { id: 'integraciones-zoom', label: 'Zoom', icon: Video, parent: 'Conexiones Externas' },
+  { id: 'integraciones-stripe', label: 'Stripe - Cobros online', icon: CreditCard, parent: 'Conexiones Externas' },
+  { id: 'integraciones-credenciales', label: 'Configuración avanzada', icon: Settings2, parent: 'Conexiones Externas' },
 ];
+
+// Order of main categories
+const categoryOrder = ['Mi Centro', 'Portal de Pacientes', 'Pagos y Facturación', 'Comunicaciones', 'Conexiones Externas'];
 
 export default function Settings() {
   const { center, isLoading, updateCenter } = useCenter();
@@ -157,13 +183,21 @@ export default function Settings() {
     );
   }
 
-  // Group nav items by parent
+  // Group nav items by parent and subgroup
   const groupedNavItems = navItems.reduce((acc, item) => {
-    const key = item.parent || 'root';
-    if (!acc[key]) acc[key] = [];
-    acc[key].push(item);
+    const key = item.parent;
+    if (!acc[key]) acc[key] = { items: [], subgroups: {} };
+    
+    if (item.subgroup) {
+      if (!acc[key].subgroups[item.subgroup]) {
+        acc[key].subgroups[item.subgroup] = [];
+      }
+      acc[key].subgroups[item.subgroup].push(item);
+    } else {
+      acc[key].items.push(item);
+    }
     return acc;
-  }, {} as Record<string, NavItem[]>);
+  }, {} as Record<string, { items: NavItem[], subgroups: Record<string, NavItem[]> }>);
 
   const renderContent = () => {
     switch (activeSection) {
@@ -326,6 +360,9 @@ export default function Settings() {
     }
   };
 
+  // Get current item label for mobile selector
+  const currentItem = navItems.find(item => item.id === activeSection);
+
   return (
     <div className="space-y-6">
       <div>
@@ -339,19 +376,51 @@ export default function Settings() {
       <div className="lg:hidden">
         <Select value={activeSection} onValueChange={(val) => setActiveSection(val as SettingsSection)}>
           <SelectTrigger className="w-full">
-            <SelectValue placeholder="Selecciona una sección" />
+            <SelectValue>
+              {currentItem && (
+                <span className="flex items-center gap-2">
+                  <currentItem.icon className="h-4 w-4" />
+                  {currentItem.label}
+                </span>
+              )}
+            </SelectValue>
           </SelectTrigger>
-          <SelectContent>
-            {Object.entries(groupedNavItems).map(([group, items]) => (
-              items.map((item) => (
-                <SelectItem key={item.id} value={item.id}>
-                  <span className="flex items-center gap-2">
-                    <item.icon className="h-4 w-4" />
-                    {group} - {item.label}
-                  </span>
-                </SelectItem>
-              ))
-            ))}
+          <SelectContent className="max-h-[60vh]">
+            {categoryOrder.map((category) => {
+              const group = groupedNavItems[category];
+              if (!group) return null;
+              
+              return (
+                <div key={category}>
+                  <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground bg-muted/50">
+                    {category}
+                  </div>
+                  {group.items.map((item) => (
+                    <SelectItem key={item.id} value={item.id}>
+                      <span className="flex items-center gap-2">
+                        <item.icon className="h-4 w-4" />
+                        {item.label}
+                      </span>
+                    </SelectItem>
+                  ))}
+                  {Object.entries(group.subgroups).map(([subgroupName, subItems]) => (
+                    <div key={subgroupName}>
+                      <div className="px-4 py-1 text-xs font-medium text-muted-foreground">
+                        {subgroupName}
+                      </div>
+                      {subItems.map((item) => (
+                        <SelectItem key={item.id} value={item.id}>
+                          <span className="flex items-center gap-2 pl-2">
+                            <item.icon className="h-4 w-4" />
+                            {item.label}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
           </SelectContent>
         </Select>
       </div>
@@ -362,31 +431,64 @@ export default function Settings() {
           <Card className="sticky top-6 overflow-hidden">
             <ScrollArea className="h-[calc(100vh-10rem)]">
               <nav className="p-4 space-y-6">
-                {Object.entries(groupedNavItems).map(([group, items]) => (
-                  <div key={group} className="space-y-1">
-                    <div className="flex items-center gap-2 px-3 py-2">
-                      <FileText className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm font-medium">{group}</span>
+                {categoryOrder.map((category) => {
+                  const group = groupedNavItems[category];
+                  if (!group) return null;
+                  const CategoryIcon = categoryIcons[category] || FileText;
+                  
+                  return (
+                    <div key={category} className="space-y-1">
+                      <div className="flex items-center gap-2 px-3 py-2">
+                        <CategoryIcon className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm font-medium">{category}</span>
+                      </div>
+                      <div className="ml-4 space-y-1 border-l pl-4">
+                        {group.items.map((item) => (
+                          <button
+                            key={item.id}
+                            onClick={() => setActiveSection(item.id)}
+                            className={cn(
+                              "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
+                              activeSection === item.id
+                                ? "bg-primary text-primary-foreground"
+                                : "hover:bg-muted text-muted-foreground hover:text-foreground"
+                            )}
+                          >
+                            <item.icon className="h-4 w-4" />
+                            {item.label}
+                          </button>
+                        ))}
+                        
+                        {/* Render subgroups */}
+                        {Object.entries(group.subgroups).map(([subgroupName, subItems]) => (
+                          <div key={subgroupName} className="mt-3 space-y-1">
+                            <div className="flex items-center gap-2 px-3 py-1">
+                              <Shield className="h-3 w-3 text-muted-foreground" />
+                              <span className="text-xs font-medium text-muted-foreground">{subgroupName}</span>
+                            </div>
+                            <div className="ml-2 space-y-1 border-l border-dashed pl-3">
+                              {subItems.map((item) => (
+                                <button
+                                  key={item.id}
+                                  onClick={() => setActiveSection(item.id)}
+                                  className={cn(
+                                    "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
+                                    activeSection === item.id
+                                      ? "bg-primary text-primary-foreground"
+                                      : "hover:bg-muted text-muted-foreground hover:text-foreground"
+                                  )}
+                                >
+                                  <item.icon className="h-4 w-4" />
+                                  {item.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                    <div className="ml-4 space-y-1 border-l pl-4">
-                      {items.map((item) => (
-                        <button
-                          key={item.id}
-                          onClick={() => setActiveSection(item.id)}
-                          className={cn(
-                            "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
-                            activeSection === item.id
-                              ? "bg-primary text-primary-foreground"
-                              : "hover:bg-muted text-muted-foreground hover:text-foreground"
-                          )}
-                        >
-                          <item.icon className="h-4 w-4" />
-                          {item.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </nav>
             </ScrollArea>
           </Card>
