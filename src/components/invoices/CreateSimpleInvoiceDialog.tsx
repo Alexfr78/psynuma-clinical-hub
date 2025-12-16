@@ -370,8 +370,11 @@ export function CreateSimpleInvoiceDialog({ open, onOpenChange, preselectedPatie
         seriesId: selectedSeriesId,
       });
 
-      // Si el centro tiene Verifactu configurado, firmar la factura
-      if (center?.verifactu_certificate_base64) {
+      // Si Verifactu automático está activado Y hay certificado, firmar la factura
+      const verifactuAutoEnabled = center?.verifactu_auto_enabled === true;
+      const hasCertificate = !!center?.verifactu_certificate_base64;
+
+      if (verifactuAutoEnabled && hasCertificate) {
         setIsSigningVerifactu(true);
         try {
           const { data: verifactuData, error: verifactuError } = await supabase.functions.invoke('sign-invoice-verifactu', {
@@ -380,9 +383,12 @@ export function CreateSimpleInvoiceDialog({ open, onOpenChange, preselectedPatie
           
           if (verifactuError) {
             console.error('Error Verifactu:', verifactuError);
-            toast.warning(`Factura ${result.invoice_number} emitida, pero hubo un error al registrar en AEAT. Puede reintentar desde Facturas.`);
+            await supabase.from('invoices').update({ 
+              verifactu_pending: true, 
+              verifactu_retry_count: 1 
+            }).eq('id', result.id);
+            toast.warning(`Factura ${result.invoice_number} emitida, pendiente de registro en AEAT. Se reintentará automáticamente.`);
           } else if (verifactuData?.aeat_unavailable) {
-            // AEAT is temporarily unavailable
             toast.info(`Factura ${result.invoice_number} emitida. La Agencia Tributaria no está disponible temporalmente. Se reintentará automáticamente.`, {
               duration: 6000,
             });
@@ -394,11 +400,19 @@ export function CreateSimpleInvoiceDialog({ open, onOpenChange, preselectedPatie
               toast.success(`Factura ${result.invoice_number} emitida y registrada en AEAT`);
             }
           } else {
-            toast.warning(`Factura ${result.invoice_number} emitida, pero hubo un problema con AEAT. Puede reintentar desde Facturas.`);
+            await supabase.from('invoices').update({ 
+              verifactu_pending: true, 
+              verifactu_retry_count: 1 
+            }).eq('id', result.id);
+            toast.warning(`Factura ${result.invoice_number} emitida, pendiente de registro en AEAT.`);
           }
         } catch (verifactuError) {
           console.error('Error Verifactu:', verifactuError);
-          toast.warning(`Factura ${result.invoice_number} emitida, pero hubo un error al registrar en AEAT. Puede reintentar desde Facturas.`);
+          await supabase.from('invoices').update({ 
+            verifactu_pending: true, 
+            verifactu_retry_count: 1 
+          }).eq('id', result.id);
+          toast.warning(`Factura ${result.invoice_number} emitida, pendiente de registro en AEAT. Se reintentará automáticamente.`);
         } finally {
           setIsSigningVerifactu(false);
         }

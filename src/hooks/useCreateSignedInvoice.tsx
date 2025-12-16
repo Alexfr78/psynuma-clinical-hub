@@ -170,7 +170,7 @@ export function useCreateSignedInvoice() {
         try {
           const { data: verifactuData, error: verifactuError } = await supabase.functions.invoke(
             'sign-invoice-verifactu',
-            { body: { invoiceId: invoice.id } }
+            { body: { invoice_id: invoice.id } }
           );
 
           if (verifactuError) {
