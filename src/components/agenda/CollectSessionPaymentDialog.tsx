@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { CreditCard, Calendar, Receipt, FileText, Loader2, Check, X, Mail, MessageSquare, ExternalLink, ShieldCheck, AlertTriangle } from 'lucide-react';
 import {
@@ -24,6 +24,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useCollectSessionPayment } from '@/hooks/useSessionPayment';
 import { useCenter } from '@/hooks/useCenter';
 import { useCreateSignedInvoice } from '@/hooks/useCreateSignedInvoice';
+import { useSessionInvoiceStatus } from '@/hooks/useInvoices';
 import { toast } from 'sonner';
 
 interface CollectSessionPaymentDialogProps {
@@ -69,10 +70,14 @@ export function CollectSessionPaymentDialog({
   const { center } = useCenter();
   const collectPayment = useCollectSessionPayment();
   const createSignedInvoice = useCreateSignedInvoice();
+  const { data: invoiceStatus, refetch: refetchInvoiceStatus } = useSessionInvoiceStatus(sessionId);
 
   const invoiceMode = (center?.invoice_on_payment_mode as string) || 'disabled';
   const sendChannel = (center?.invoice_send_channel as 'email' | 'whatsapp' | 'both') || 'email';
   const verifactuAutoEnabled = center?.verifactu_auto_enabled === true;
+  
+  // Check if session already has a valid invoice
+  const hasExistingInvoice = invoiceStatus?.hasValidInvoice;
 
   const resetForm = () => {
     setStep('payment');
@@ -150,6 +155,13 @@ export function CollectSessionPaymentDialog({
     });
 
     // Handle different modes
+    // If session already has a valid invoice, skip invoice creation flow
+    if (hasExistingInvoice) {
+      handleClose();
+      onSuccess?.();
+      return;
+    }
+    
     if (invoiceMode === 'disabled') {
       handleClose();
       onSuccess?.();
@@ -174,6 +186,8 @@ export function CollectSessionPaymentDialog({
   };
 
   const handleInvoiceQuestionYes = () => {
+    // Double check if invoice was created in the meantime
+    refetchInvoiceStatus();
     setStep('invoice-type');
   };
 
