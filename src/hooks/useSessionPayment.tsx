@@ -6,11 +6,13 @@ import { toast } from 'sonner';
 export interface SessionPaymentStatus {
   hasPendingPayment: boolean;
   isPaid: boolean;
+  isPartial: boolean;
   debt: {
     id: string;
     amount: number;
     paid_amount: number;
     status: string;
+    invoice_id: string | null;
   } | null;
 }
 
@@ -20,7 +22,7 @@ export function useSessionPaymentStatus(sessionId: string | undefined) {
     queryFn: async (): Promise<SessionPaymentStatus> => {
       const { data: debt, error } = await supabase
         .from('debts')
-        .select('id, amount, paid_amount, status')
+        .select('id, amount, paid_amount, status, invoice_id')
         .eq('session_id', sessionId!)
         .maybeSingle();
 
@@ -29,6 +31,7 @@ export function useSessionPaymentStatus(sessionId: string | undefined) {
       return {
         hasPendingPayment: debt ? debt.status !== 'paid' : false,
         isPaid: debt?.status === 'paid',
+        isPartial: debt?.status === 'partial',
         debt: debt as SessionPaymentStatus['debt'],
       };
     },
@@ -57,15 +60,19 @@ export function useCollectSessionPayment() {
       // 1. Check if debt exists for this session
       const { data: existingDebt } = await supabase
         .from('debts')
-        .select('id, amount, paid_amount')
+        .select('id, amount, paid_amount, invoice_id')
         .eq('session_id', params.sessionId)
         .maybeSingle();
 
       let debtId: string;
+      let invoiceId: string | null = null;
+      let debtAmount: number = params.amount;
 
       if (existingDebt) {
         // Update existing debt
         debtId = existingDebt.id;
+        debtAmount = Number(existingDebt.amount);
+        invoiceId = existingDebt.invoice_id;
       } else {
         // Create new debt for session
         const { data: newDebt, error: debtError } = await supabase
@@ -85,7 +92,25 @@ export function useCollectSessionPayment() {
         debtId = newDebt.id;
       }
 
-      // 2. Create the payment
+      // 2. If no invoice linked to debt, check if there's an invoice for this session via invoice_items
+      if (!invoiceId) {
+        const { data: invoiceItem } = await supabase
+          .from('invoice_items')
+          .select('invoice_id')
+          .eq('session_id', params.sessionId)
+          .maybeSingle();
+        
+        if (invoiceItem?.invoice_id) {
+          invoiceId = invoiceItem.invoice_id;
+          // Link the debt to this invoice
+          await supabase
+            .from('debts')
+            .update({ invoice_id: invoiceId })
+            .eq('id', debtId);
+        }
+      }
+
+      // 3. Create the payment
       const { data: payment, error: paymentError } = await supabase
         .from('payments')
         .insert({
@@ -97,29 +122,44 @@ export function useCollectSessionPayment() {
           payment_date: params.paymentDate || new Date().toISOString().split('T')[0],
           reference: params.reference || null,
           notes: params.notes || null,
+          invoice_id: invoiceId,
         })
         .select()
         .single();
 
       if (paymentError) throw paymentError;
 
-      // 3. Update debt to paid
+      // 4. Calculate new paid amount and status (support partial payments)
+      const currentPaidAmount = existingDebt ? Number(existingDebt.paid_amount) : 0;
+      const newPaidAmount = currentPaidAmount + params.amount;
+      const newStatus = newPaidAmount >= debtAmount ? 'paid' : 'partial';
+
+      // 5. Update debt
       const { error: updateError } = await supabase
         .from('debts')
         .update({
-          paid_amount: params.amount,
-          status: 'paid',
+          paid_amount: newPaidAmount,
+          status: newStatus,
         })
         .eq('id', debtId);
 
       if (updateError) throw updateError;
 
-      return { payment, debtId };
+      // 6. If invoice exists and debt is now paid, update invoice status
+      if (invoiceId && newStatus === 'paid') {
+        await supabase
+          .from('invoices')
+          .update({ status: 'paid' })
+          .eq('id', invoiceId);
+      }
+
+      return { payment, debtId, invoiceId };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['payments'] });
       queryClient.invalidateQueries({ queryKey: ['debts'] });
       queryClient.invalidateQueries({ queryKey: ['session-payment-status'] });
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
       toast.success('Pago registrado correctamente');
     },
     onError: (error) => {

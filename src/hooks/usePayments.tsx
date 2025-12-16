@@ -97,7 +97,7 @@ export function useCreatePayment() {
 
       if (error) throw error;
 
-      // If payment is linked to an invoice, update debt if exists
+      // If payment is linked to an invoice, update debt and invoice status
       if (payment.invoice_id) {
         const { data: debt } = await supabase
           .from('debts')
@@ -116,6 +116,14 @@ export function useCreatePayment() {
               status: newStatus,
             })
             .eq('id', debt.id);
+
+          // Update invoice status based on payment
+          if (newStatus === 'paid') {
+            await supabase
+              .from('invoices')
+              .update({ status: 'paid' })
+              .eq('id', payment.invoice_id);
+          }
         }
       }
 
@@ -188,7 +196,7 @@ export function useDeletePayment() {
         }
       }
 
-      // If payment has invoice_id, decrement paid_amount
+      // If payment has invoice_id, decrement paid_amount and update invoice status
       if (payment.invoice_id) {
         const { data: debt } = await supabase
           .from('debts')
@@ -204,6 +212,14 @@ export function useDeletePayment() {
             .from('debts')
             .update({ paid_amount: newPaidAmount, status: newStatus })
             .eq('id', debt.id);
+
+          // Update invoice status: if no longer fully paid, set to 'issued'
+          if (newStatus !== 'paid') {
+            await supabase
+              .from('invoices')
+              .update({ status: 'issued' })
+              .eq('id', payment.invoice_id);
+          }
         }
       }
 

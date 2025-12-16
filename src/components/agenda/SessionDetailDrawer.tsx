@@ -1105,6 +1105,10 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
                         <CheckCircle2 className="h-3 w-3 mr-1" />
                         Pagado
                       </Badge>
+                    ) : paymentStatus?.isPartial ? (
+                      <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200">
+                        Pago parcial
+                      </Badge>
                     ) : localPrice === 0 ? (
                       <Badge variant="outline" className="text-muted-foreground">
                         Sin cargo
@@ -1114,17 +1118,33 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
                         Pendiente de pago
                       </Badge>
                     )}
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6"
-                      onClick={() => {
-                        setPriceValue(localPrice.toString());
-                        setEditingPrice(true);
-                      }}
-                    >
-                      <Edit2 className="h-3 w-3" />
-                    </Button>
+                    {/* Only show edit button if not paid and not invoiced */}
+                    {!paymentStatus?.isPaid && !invoiceStatus?.hasValidInvoice ? (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6"
+                        onClick={() => {
+                          setPriceValue(localPrice.toString());
+                          setEditingPrice(true);
+                        }}
+                      >
+                        <Edit2 className="h-3 w-3" />
+                      </Button>
+                    ) : (
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="h-6 w-6 flex items-center justify-center text-muted-foreground">
+                              <LinkIcon className="h-3 w-3" />
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>No se puede modificar el precio de una sesión cobrada o facturada</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    )}
                   </div>
                 )}
               </div>

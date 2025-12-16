@@ -131,7 +131,90 @@ export function useCreateSignedInvoice() {
 
       result.invoiceId = invoice.id;
 
-      // 5. Create invoice items
+      // 5. Handle billable_event for session-based invoices
+      const sessionId = items[0]?.session_id;
+      let billableEventId: string | null = null;
+
+      if (sessionId) {
+        // Check if billable_event already exists for this session
+        const { data: existingBE } = await supabase
+          .from('billable_events')
+          .select('id')
+          .eq('session_id', sessionId)
+          .maybeSingle();
+
+        if (existingBE) {
+          billableEventId = existingBE.id;
+          // Update status to settled
+          await supabase
+            .from('billable_events')
+            .update({ billing_status: 'settled' })
+            .eq('id', existingBE.id);
+        } else {
+          // Create new billable_event
+          const { data: newBE, error: beError } = await supabase
+            .from('billable_events')
+            .insert({
+              session_id: sessionId,
+              patient_id: patientId,
+              center_id: center.id,
+              amount: total,
+              concept: items[0].description,
+              billing_status: 'settled',
+            })
+            .select()
+            .single();
+
+          if (!beError && newBE) {
+            billableEventId = newBE.id;
+          }
+        }
+
+        // Link debt to invoice and update existing payments
+        const { data: existingDebt } = await supabase
+          .from('debts')
+          .select('id, paid_amount, amount')
+          .eq('session_id', sessionId)
+          .maybeSingle();
+
+        if (existingDebt) {
+          // Update debt to link to invoice
+          await supabase
+            .from('debts')
+            .update({ invoice_id: invoice.id })
+            .eq('id', existingDebt.id);
+
+          // If debt is already paid, mark invoice as paid
+          if (Number(existingDebt.paid_amount) >= Number(existingDebt.amount)) {
+            await supabase
+              .from('invoices')
+              .update({ status: 'paid' })
+              .eq('id', invoice.id);
+          }
+        } else {
+          // Create debt for this invoice
+          await supabase
+            .from('debts')
+            .insert({
+              session_id: sessionId,
+              patient_id: patientId,
+              center_id: center.id,
+              amount: total,
+              paid_amount: 0,
+              status: 'pending',
+              invoice_id: invoice.id,
+            });
+        }
+
+        // Update existing payments for this session to link to invoice
+        await supabase
+          .from('payments')
+          .update({ invoice_id: invoice.id })
+          .eq('session_id', sessionId)
+          .is('invoice_id', null);
+      }
+
+      // 6. Create invoice items with billable_event_id
       const invoiceItems = items.map(item => ({
         invoice_id: invoice.id,
         description: item.description,
@@ -141,7 +224,7 @@ export function useCreateSignedInvoice() {
         tax_amount: item.tax_amount,
         total: item.total,
         session_id: item.session_id || null,
-        billable_event_id: item.billable_event_id || null,
+        billable_event_id: billableEventId || item.billable_event_id || null,
       }));
 
       const { error: itemsError } = await supabase
@@ -247,6 +330,10 @@ export function useCreateSignedInvoice() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
       queryClient.invalidateQueries({ queryKey: ['invoice-series'] });
+      queryClient.invalidateQueries({ queryKey: ['session-invoice-status'] });
+      queryClient.invalidateQueries({ queryKey: ['session-payment-status'] });
+      queryClient.invalidateQueries({ queryKey: ['debts'] });
+      queryClient.invalidateQueries({ queryKey: ['billable-events'] });
     },
     onError: (error) => {
       toast.error(error.message);
