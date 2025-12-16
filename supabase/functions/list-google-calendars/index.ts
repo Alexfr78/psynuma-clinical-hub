@@ -6,18 +6,27 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Decrypt AES-256-GCM encrypted data
+// Decrypt AES-256-GCM encrypted data (must match save-oauth-credentials encryption)
 async function decryptAES256GCM(encryptedData: string, encryptionKey: string): Promise<string> {
+  // Use key as UTF-8 string with padding (same as save-oauth-credentials)
+  const encoder = new TextEncoder();
+  const keyData = encoder.encode(encryptionKey.padEnd(32, '0').slice(0, 32));
+  
+  // Decode Base64
   const encryptedBytes = Uint8Array.from(atob(encryptedData), c => c.charCodeAt(0));
+  
+  // Extract IV (first 12 bytes) and ciphertext+authTag (rest)
   const iv = encryptedBytes.slice(0, 12);
-  const authTag = encryptedBytes.slice(12, 28);
-  const ciphertext = encryptedBytes.slice(28);
-  const ciphertextWithTag = new Uint8Array([...ciphertext, ...authTag]);
+  const ciphertextWithTag = encryptedBytes.slice(12);
   
-  const keyBytes = new Uint8Array(encryptionKey.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)));
-  const cryptoKey = await crypto.subtle.importKey('raw', keyBytes, { name: 'AES-GCM' }, false, ['decrypt']);
+  const key = await crypto.subtle.importKey(
+    'raw', keyData, { name: 'AES-GCM' }, false, ['decrypt']
+  );
   
-  const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, cryptoKey, ciphertextWithTag);
+  const decrypted = await crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv }, key, ciphertextWithTag
+  );
+  
   return new TextDecoder().decode(decrypted);
 }
 
