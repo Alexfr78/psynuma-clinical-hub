@@ -1520,15 +1520,39 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>¿Eliminar esta sesión?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Esta acción no se puede deshacer. La sesión será eliminada permanentemente.
+                  <AlertDialogTitle>
+                    {(paymentStatus?.isPaid || paymentStatus?.isPartial || (invoiceStatus?.isInvoiced && invoiceStatus?.hasValidInvoice))
+                      ? '⚠️ ¿Eliminar sesión con cobros/factura?'
+                      : '¿Eliminar esta sesión?'}
+                  </AlertDialogTitle>
+                  <AlertDialogDescription className="space-y-2">
+                    <span className="block">
+                      Esta acción no se puede deshacer. La sesión será eliminada permanentemente.
+                    </span>
+                    {(paymentStatus?.isPaid || paymentStatus?.isPartial) && (
+                      <span className="block text-destructive font-medium">
+                        Esta sesión tiene pagos registrados que quedarán huérfanos.
+                      </span>
+                    )}
+                    {invoiceStatus?.isInvoiced && invoiceStatus?.hasValidInvoice && (
+                      <span className="block text-destructive font-medium">
+                        Esta sesión tiene una factura asociada que no será eliminada.
+                      </span>
+                    )}
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleDeleteSession}>
-                    Eliminar
+                  <AlertDialogAction 
+                    onClick={handleDeleteSession}
+                    className={cn(
+                      (paymentStatus?.isPaid || paymentStatus?.isPartial || (invoiceStatus?.isInvoiced && invoiceStatus?.hasValidInvoice)) &&
+                      "bg-destructive hover:bg-destructive/90"
+                    )}
+                  >
+                    {(paymentStatus?.isPaid || paymentStatus?.isPartial || (invoiceStatus?.isInvoiced && invoiceStatus?.hasValidInvoice))
+                      ? 'Eliminar de todos modos'
+                      : 'Eliminar'}
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
