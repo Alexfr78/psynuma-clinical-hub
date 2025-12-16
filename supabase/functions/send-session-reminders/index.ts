@@ -397,10 +397,13 @@ serve(async (req) => {
           });
         }
 
-        // Send WhatsApp reminder (only via API mode, web mode is manual)
-        if (channels.whatsapp && patient.phone && center.whatsapp_send_method === 'api') {
-          if (center.whatsapp_access_token && center.whatsapp_phone_number_id) {
-            console.log(`Sending WhatsApp reminder to ${patient.phone} for session ${session.id}`);
+        // Send WhatsApp reminder
+        if (channels.whatsapp && patient.phone) {
+          const sendMethod = center.whatsapp_send_method || 'web';
+          
+          if (sendMethod === 'api' && center.whatsapp_access_token && center.whatsapp_phone_number_id) {
+            // Send via Meta API
+            console.log(`Sending WhatsApp reminder via API to ${patient.phone} for session ${session.id}`);
             const whatsappResult = await sendWhatsAppViaMetaAPI(
               patient.phone,
               message,
@@ -416,7 +419,7 @@ serve(async (req) => {
               errors++;
             }
 
-            // Create notification record for WhatsApp
+            // Create notification record for WhatsApp API
             await supabase.from("notifications").insert({
               center_id: center.id,
               patient_id: patient.id,
@@ -428,6 +431,23 @@ serve(async (req) => {
               sent_at: whatsappResult.success ? new Date().toISOString() : null,
               error_message: whatsappResult.error || null
             });
+          } else {
+            // Web mode - create pending notification for manual sending
+            console.log(`Creating pending WhatsApp reminder for ${patient.phone} (web mode) for session ${session.id}`);
+            
+            await supabase.from("notifications").insert({
+              center_id: center.id,
+              patient_id: patient.id,
+              session_id: session.id,
+              type: 'whatsapp',
+              recipient: patient.phone,
+              message: message,
+              status: 'pending', // Pending for manual send via WhatsApp Web
+              scheduled_for: new Date().toISOString(),
+            });
+            
+            // Mark as processed even though it's pending manual action
+            reminderSent = true;
           }
         }
 

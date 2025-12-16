@@ -12,11 +12,18 @@ import {
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { NotificationCard } from '@/components/notifications/NotificationCard';
-import { useNotifications, useSendNotification, usePendingNotifications } from '@/hooks/useNotifications';
+import { WhatsAppLinkDialog } from '@/components/agenda/WhatsAppLinkDialog';
+import { useNotifications, useSendNotification, usePendingNotifications, NotificationWithRelations } from '@/hooks/useNotifications';
 
 export default function Notifications() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
+  const [whatsappDialog, setWhatsappDialog] = useState<{
+    open: boolean;
+    phone: string;
+    message: string;
+    patientName: string;
+  } | null>(null);
 
   const { data: notifications, isLoading } = useNotifications({
     status: statusFilter !== 'all' ? statusFilter : undefined,
@@ -32,15 +39,43 @@ export default function Notifications() {
     failed: notifications?.filter(n => n.status === 'failed').length || 0,
   };
 
-  const handleSendNotification = (id: string) => {
-    sendNotification.mutate(id);
+  const handleSendNotification = async (id: string, notification?: NotificationWithRelations) => {
+    const result = await sendNotification.mutateAsync(id);
+    
+    // Check if this was a WhatsApp Web notification
+    const whatsappWebResult = result?.results?.find(r => r.type === 'whatsapp' && r.whatsappWebLink);
+    
+    if (whatsappWebResult && notification) {
+      // Open the WhatsApp dialog
+      setWhatsappDialog({
+        open: true,
+        phone: notification.recipient,
+        message: notification.message,
+        patientName: notification.patients 
+          ? `${notification.patients.first_name} ${notification.patients.last_name}`
+          : 'Paciente',
+      });
+    }
   };
 
   const handleProcessPending = async () => {
     if (!pendingNotifications?.length) return;
     
     for (const notification of pendingNotifications) {
-      await sendNotification.mutateAsync(notification.id);
+      const result = await sendNotification.mutateAsync(notification.id);
+      
+      // For WhatsApp web mode, open dialog for each
+      const whatsappWebResult = result?.results?.find(r => r.type === 'whatsapp' && r.whatsappWebLink);
+      if (whatsappWebResult) {
+        setWhatsappDialog({
+          open: true,
+          phone: notification.recipient,
+          message: notification.message,
+          patientName: 'Paciente', // Pending notifications don't have patient data loaded
+        });
+        // Wait for user to close dialog before processing next
+        break;
+      }
     }
   };
 
@@ -191,7 +226,7 @@ export default function Notifications() {
                     <NotificationCard
                       key={notification.id}
                       notification={notification}
-                      onSend={handleSendNotification}
+                      onSend={(id) => handleSendNotification(id, notification)}
                     />
                   ))}
                 </div>
@@ -206,7 +241,7 @@ export default function Notifications() {
                     <NotificationCard
                       key={notification.id}
                       notification={notification}
-                      onSend={handleSendNotification}
+                      onSend={(id) => handleSendNotification(id, notification)}
                     />
                   ))}
               </div>
@@ -233,7 +268,7 @@ export default function Notifications() {
                     <NotificationCard
                       key={notification.id}
                       notification={notification}
-                      onSend={handleSendNotification}
+                      onSend={(id) => handleSendNotification(id, notification)}
                     />
                   ))}
               </div>
@@ -241,6 +276,17 @@ export default function Notifications() {
           </>
         )}
       </Tabs>
+
+      {/* WhatsApp Link Dialog */}
+      {whatsappDialog && (
+        <WhatsAppLinkDialog
+          open={whatsappDialog.open}
+          onOpenChange={(open) => !open && setWhatsappDialog(null)}
+          phone={whatsappDialog.phone}
+          message={whatsappDialog.message}
+          patientName={whatsappDialog.patientName}
+        />
+      )}
     </div>
   );
 }
