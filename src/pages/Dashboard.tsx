@@ -28,7 +28,7 @@ function useDashboardStats() {
 
       const [patientsRes, todaySessionsRes, monthInvoicesRes, debtsRes] = await Promise.all([
         supabase.from('patients').select('id', { count: 'exact', head: true }).eq('status', 'active'),
-        supabase.from('sessions').select('id', { count: 'exact', head: true }).eq('session_date', today),
+        supabase.from('sessions').select('id', { count: 'exact', head: true }).eq('session_date', today).neq('status', 'cancelled').neq('status', 'no_show').neq('status', 'blocked'),
         supabase.from('invoices').select('total, status').gte('issue_date', startOfMonth).lte('issue_date', endOfMonth),
         supabase.from('debts').select('amount, paid_amount').in('status', ['pending', 'partial']),
       ]);
@@ -71,6 +71,9 @@ function useTodaySessions() {
           professional:profiles!sessions_professional_id_fkey(id, first_name, last_name, email)
         `)
         .eq('session_date', today)
+        .neq('status', 'cancelled')
+        .neq('status', 'no_show')
+        .neq('status', 'blocked')
         .order('start_time');
 
       if (error) throw error;
