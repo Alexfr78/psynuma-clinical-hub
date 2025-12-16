@@ -193,8 +193,6 @@ export function CollectSessionPaymentDialog({
     handleClose();
     onSuccess?.();
   };
-    onSuccess?.();
-  };
 
   const renderPaymentStep = () => (
     <form onSubmit={handlePaymentSubmit} className="space-y-4">
