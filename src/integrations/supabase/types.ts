@@ -137,6 +137,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "billable_events_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "portal_centers"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "billable_events_patient_id_fkey"
             columns: ["patient_id"]
             isOneToOne: false
@@ -236,6 +243,13 @@ export type Database = {
             referencedRelation: "centers"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "bono_templates_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "portal_centers"
+            referencedColumns: ["id"]
+          },
         ]
       }
       bonos: {
@@ -287,6 +301,13 @@ export type Database = {
             columns: ["center_id"]
             isOneToOne: false
             referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bonos_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "portal_centers"
             referencedColumns: ["id"]
           },
           {
@@ -347,6 +368,13 @@ export type Database = {
             columns: ["center_id"]
             isOneToOne: false
             referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "center_locations_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "portal_centers"
             referencedColumns: ["id"]
           },
         ]
@@ -614,6 +642,13 @@ export type Database = {
             referencedRelation: "centers"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "communication_templates_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "portal_centers"
+            referencedColumns: ["id"]
+          },
         ]
       }
       consent_signatures: {
@@ -702,6 +737,13 @@ export type Database = {
             referencedRelation: "centers"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "consent_templates_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "portal_centers"
+            referencedColumns: ["id"]
+          },
         ]
       }
       consents: {
@@ -765,6 +807,13 @@ export type Database = {
             columns: ["center_id"]
             isOneToOne: false
             referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consents_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "portal_centers"
             referencedColumns: ["id"]
           },
           {
@@ -839,6 +888,13 @@ export type Database = {
             columns: ["center_id"]
             isOneToOne: false
             referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "debts_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "portal_centers"
             referencedColumns: ["id"]
           },
           {
@@ -1026,6 +1082,13 @@ export type Database = {
             referencedRelation: "centers"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "invoice_series_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "portal_centers"
+            referencedColumns: ["id"]
+          },
         ]
       }
       invoices: {
@@ -1140,6 +1203,13 @@ export type Database = {
             columns: ["center_id"]
             isOneToOne: false
             referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "portal_centers"
             referencedColumns: ["id"]
           },
           {
@@ -1261,6 +1331,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "notifications_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "portal_centers"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "notifications_patient_id_fkey"
             columns: ["patient_id"]
             isOneToOne: false
@@ -1369,6 +1446,13 @@ export type Database = {
             columns: ["center_id"]
             isOneToOne: false
             referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_magic_links_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "portal_centers"
             referencedColumns: ["id"]
           },
           {
@@ -1515,6 +1599,13 @@ export type Database = {
             referencedRelation: "centers"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "patients_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "portal_centers"
+            referencedColumns: ["id"]
+          },
         ]
       }
       payments: {
@@ -1566,6 +1657,13 @@ export type Database = {
             columns: ["center_id"]
             isOneToOne: false
             referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "portal_centers"
             referencedColumns: ["id"]
           },
           {
@@ -1728,6 +1826,13 @@ export type Database = {
             referencedRelation: "centers"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "profiles_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "portal_centers"
+            referencedColumns: ["id"]
+          },
         ]
       }
       session_types: {
@@ -1788,6 +1893,13 @@ export type Database = {
             columns: ["center_id"]
             isOneToOne: false
             referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_types_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "portal_centers"
             referencedColumns: ["id"]
           },
         ]
@@ -1917,6 +2029,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "sessions_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "portal_centers"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "sessions_location_id_fkey"
             columns: ["location_id"]
             isOneToOne: false
@@ -2018,6 +2137,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "verifactu_events_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "portal_centers"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "verifactu_events_invoice_id_fkey"
             columns: ["invoice_id"]
             isOneToOne: false
@@ -2028,9 +2154,87 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      portal_centers: {
+        Row: {
+          city: string | null
+          country: string | null
+          id: string | null
+          logo_url: string | null
+          name: string | null
+          portal_allow_professional_selection: boolean | null
+          portal_default_professional_id: string | null
+          portal_enabled: boolean | null
+          portal_require_approval: boolean | null
+          portal_slug: string | null
+          province: string | null
+          reschedule_max_days: number | null
+          reschedule_require_confirmation: boolean | null
+          reschedule_slot_duration: number | null
+        }
+        Insert: {
+          city?: string | null
+          country?: string | null
+          id?: string | null
+          logo_url?: string | null
+          name?: string | null
+          portal_allow_professional_selection?: boolean | null
+          portal_default_professional_id?: string | null
+          portal_enabled?: boolean | null
+          portal_require_approval?: boolean | null
+          portal_slug?: string | null
+          province?: string | null
+          reschedule_max_days?: number | null
+          reschedule_require_confirmation?: boolean | null
+          reschedule_slot_duration?: number | null
+        }
+        Update: {
+          city?: string | null
+          country?: string | null
+          id?: string | null
+          logo_url?: string | null
+          name?: string | null
+          portal_allow_professional_selection?: boolean | null
+          portal_default_professional_id?: string | null
+          portal_enabled?: boolean | null
+          portal_require_approval?: boolean | null
+          portal_slug?: string | null
+          province?: string | null
+          reschedule_max_days?: number | null
+          reschedule_require_confirmation?: boolean | null
+          reschedule_slot_duration?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "centers_portal_default_professional_id_fkey"
+            columns: ["portal_default_professional_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
+      get_portal_center: {
+        Args: { p_slug: string }
+        Returns: {
+          city: string
+          country: string
+          id: string
+          logo_url: string
+          name: string
+          portal_allow_professional_selection: boolean
+          portal_default_professional_id: string
+          portal_enabled: boolean
+          portal_require_approval: boolean
+          portal_slug: string
+          province: string
+          reschedule_max_days: number
+          reschedule_require_confirmation: boolean
+          reschedule_slot_duration: number
+        }[]
+      }
+      get_session_token: { Args: never; Returns: string }
       get_user_center_id: { Args: { _user_id: string }; Returns: string }
       has_role: {
         Args: {
@@ -2042,6 +2246,18 @@ export type Database = {
       is_admin: { Args: { _user_id: string }; Returns: boolean }
       is_professional: { Args: { _user_id: string }; Returns: boolean }
       user_can_create_center: { Args: { _user_id: string }; Returns: boolean }
+      verify_session_token_for_location: {
+        Args: { location_uuid: string }
+        Returns: boolean
+      }
+      verify_session_token_for_patient: {
+        Args: { patient_uuid: string }
+        Returns: boolean
+      }
+      verify_session_token_for_professional: {
+        Args: { professional_uuid: string }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "admin" | "professional" | "patient"

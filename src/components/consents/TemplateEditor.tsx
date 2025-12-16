@@ -29,6 +29,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+import { sanitizeHtml, sanitizePreview } from '@/lib/sanitize';
 
 interface TemplateEditorProps {
   value: string;
@@ -159,7 +160,8 @@ export function TemplateEditor({ value, onChange }: TemplateEditorProps) {
   const handleInput = useCallback(() => {
     if (!editorRef.current) return;
     
-    onChange(editorRef.current.innerHTML);
+    // Sanitize HTML to prevent XSS
+    onChange(sanitizeHtml(editorRef.current.innerHTML));
     
     // Check for { character to trigger autocomplete
     const selection = window.getSelection();
@@ -454,7 +456,7 @@ export function TemplateEditor({ value, onChange }: TemplateEditorProps) {
           <Card className="min-h-[400px] overflow-auto p-6">
             <div
               className="prose prose-sm max-w-none dark:prose-invert"
-              dangerouslySetInnerHTML={{ __html: renderPreview() }}
+              dangerouslySetInnerHTML={{ __html: sanitizePreview(renderPreview()) }}
             />
           </Card>
           <p className="mt-2 text-xs text-muted-foreground">

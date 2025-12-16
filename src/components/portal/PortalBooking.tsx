@@ -73,48 +73,50 @@ export function PortalBooking({
 
   const fetchInitialData = async () => {
     try {
-      // Get center config
-      const { data: center } = await supabase
-        .from('centers')
-        .select('id, portal_allow_professional_selection, portal_default_professional_id, reschedule_max_days')
-        .eq('portal_slug', centerSlug)
-        .single();
+      // Get center config using secure function (prevents credential exposure)
+      const { data: centerData, error: centerError } = await supabase
+        .rpc('get_portal_center', { p_slug: centerSlug });
 
-      if (center) {
-        setCenterConfig({
-          portal_allow_professional_selection: center.portal_allow_professional_selection || false,
-          portal_default_professional_id: center.portal_default_professional_id,
-          reschedule_max_days: center.reschedule_max_days || 30,
-        });
+      const center = centerData?.[0];
+      if (centerError || !center) {
+        console.error('Error fetching center:', centerError);
+        setLoading(false);
+        return;
+      }
 
-        // Set default professional
-        if (center.portal_default_professional_id) {
-          setSelectedProfessional(center.portal_default_professional_id);
-        }
+      setCenterConfig({
+        portal_allow_professional_selection: center.portal_allow_professional_selection || false,
+        portal_default_professional_id: center.portal_default_professional_id,
+        reschedule_max_days: center.reschedule_max_days || 30,
+      });
 
-        // Get professionals if selection is allowed
-        if (center.portal_allow_professional_selection) {
-          const { data: profs } = await supabase
-            .from('profiles')
-            .select('id, first_name, last_name')
-            .eq('center_id', center.id)
-            .eq('is_active', true);
-          
-          setProfessionals(profs || []);
-        }
+      // Set default professional
+      if (center.portal_default_professional_id) {
+        setSelectedProfessional(center.portal_default_professional_id);
+      }
 
-        // Get session types
-        const { data: types } = await supabase
-          .from('session_types')
-          .select('id, name, duration_minutes')
+      // Get professionals if selection is allowed
+      if (center.portal_allow_professional_selection) {
+        const { data: profs } = await supabase
+          .from('profiles')
+          .select('id, first_name, last_name')
           .eq('center_id', center.id)
           .eq('is_active', true);
+        
+        setProfessionals(profs || []);
+      }
 
-        setSessionTypes(types || []);
-        if (types && types.length > 0) {
-          setSelectedSessionType(types[0].id);
-          setSlotDuration(types[0].duration_minutes);
-        }
+      // Get session types
+      const { data: types } = await supabase
+        .from('session_types')
+        .select('id, name, duration_minutes')
+        .eq('center_id', center.id)
+        .eq('is_active', true);
+
+      setSessionTypes(types || []);
+      if (types && types.length > 0) {
+        setSelectedSessionType(types[0].id);
+        setSlotDuration(types[0].duration_minutes);
       }
     } catch (error) {
       console.error('Error fetching data:', error);
