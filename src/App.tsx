@@ -26,6 +26,7 @@ import Consents from "./pages/Consents";
 import ConsentSignature from "./pages/ConsentSignature";
 import PatientPortal from "./pages/PatientPortal";
 import PatientPortalDashboard from "./pages/PatientPortalDashboard";
+import InvoiceView from "./pages/InvoiceView";
 
 const queryClient = new QueryClient();
 
@@ -51,6 +52,7 @@ const App = () => (
             {/* Public Routes (No Auth Required) */}
             <Route path="/cita/:token" element={<SessionManagement />} />
             <Route path="/consentimiento/:token" element={<ConsentSignature />} />
+            <Route path="/factura/:token" element={<InvoiceView />} />
             <Route path="/instalar" element={<Install />} />
             <Route path="/portal/:slug" element={<PatientPortal />} />
             <Route path="/portal/:slug/dashboard" element={<PatientPortalDashboard />} />
