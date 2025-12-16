@@ -20,6 +20,18 @@ export interface NotificationWithRelations extends Notification {
   } | null;
 }
 
+export interface SendNotificationResult {
+  success: boolean;
+  results?: Array<{
+    id: string;
+    type: string;
+    recipient: string;
+    success: boolean;
+    error?: string | null;
+    whatsappWebLink?: string | null;
+  }>;
+}
+
 export function useNotifications(filters?: { 
   status?: string; 
   type?: string;
@@ -96,20 +108,40 @@ export function useSendNotification() {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: async (notificationId: string) => {
+    mutationFn: async (notificationId: string): Promise<SendNotificationResult> => {
       const { data, error } = await supabase.functions.invoke('send-notification', {
         body: { notificationId },
       });
 
       if (error) throw error;
-      return data;
+      return data as SendNotificationResult;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
-      toast({
-        title: 'Notificación enviada',
-        description: 'La notificación se ha enviado correctamente.',
-      });
+      
+      // Check if this was a WhatsApp Web notification (has link)
+      const results = data?.results || [];
+      const whatsappWebResult = results.find(r => r.type === 'whatsapp' && r.whatsappWebLink);
+      
+      // Only show toast for non-WhatsApp-web notifications
+      // WhatsApp Web will be handled by the component with a dialog
+      if (!whatsappWebResult) {
+        const hasSuccess = results.some(r => r.success);
+        const hasError = results.some(r => !r.success);
+        
+        if (hasSuccess && !hasError) {
+          toast({
+            title: 'Notificación enviada',
+            description: 'La notificación se ha enviado correctamente.',
+          });
+        } else if (hasError) {
+          toast({
+            title: 'Error parcial',
+            description: 'Algunas notificaciones no se pudieron enviar.',
+            variant: 'destructive',
+          });
+        }
+      }
     },
     onError: (error) => {
       toast({

@@ -14,6 +14,54 @@ interface RequestBody {
   channel: 'email' | 'whatsapp' | 'both';
 }
 
+// Send WhatsApp via Meta API
+async function sendWhatsAppViaMetaAPI(
+  phone: string,
+  message: string,
+  accessToken: string,
+  phoneNumberId: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    let cleanPhone = phone.replace(/\D/g, '');
+    if (cleanPhone.length === 9 && /^[67]/.test(cleanPhone)) {
+      cleanPhone = '34' + cleanPhone;
+    }
+
+    console.log(`Sending WhatsApp via Meta API to ${cleanPhone}`);
+
+    const response = await fetch(
+      `https://graph.facebook.com/v18.0/${phoneNumberId}/messages`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messaging_product: 'whatsapp',
+          recipient_type: 'individual',
+          to: cleanPhone,
+          type: 'text',
+          text: { preview_url: false, body: message }
+        })
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error('Meta API error:', data);
+      return { success: false, error: data.error?.message || `API Error: ${response.status}` };
+    }
+
+    console.log('WhatsApp sent successfully via Meta API:', data);
+    return { success: true };
+  } catch (error) {
+    console.error('Error sending WhatsApp via Meta API:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -36,7 +84,12 @@ Deno.serve(async (req) => {
       .select(`
         *,
         patients!inner(first_name, last_name, email, phone),
-        centers!inner(name, email, phone)
+        centers!inner(
+          name, email, phone,
+          whatsapp_send_method,
+          whatsapp_access_token,
+          whatsapp_phone_number_id
+        )
       `)
       .eq('id', invoiceId)
       .single();
@@ -54,6 +107,14 @@ Deno.serve(async (req) => {
     let emailSent = false;
     let whatsappSent = false;
     let whatsappLink = null;
+    let whatsappSendMethod = 'web'; // default
+
+    // Get WhatsApp configuration from center
+    if (center) {
+      whatsappSendMethod = center.whatsapp_send_method || 'web';
+    }
+
+    console.log(`WhatsApp send method: ${whatsappSendMethod}`);
 
     // Generate PDF first
     const { data: pdfData, error: pdfError } = await supabase.functions.invoke('generate-invoice-pdf', {
@@ -152,7 +213,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Generate WhatsApp link if requested and phone available
+    // Handle WhatsApp if requested and phone available
     if ((channel === 'whatsapp' || channel === 'both') && phone) {
       const patientName = `${patient?.first_name || ''} ${patient?.last_name || ''}`.trim();
       const invoiceNumber = invoice.invoice_number;
@@ -166,18 +227,49 @@ Deno.serve(async (req) => {
         cleanPhone = '34' + cleanPhone;
       }
 
-      whatsappLink = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
-      whatsappSent = true;
+      if (whatsappSendMethod === 'api' && center?.whatsapp_access_token && center?.whatsapp_phone_number_id) {
+        // Send via Meta API
+        console.log('Sending WhatsApp via Meta API');
+        const apiResult = await sendWhatsAppViaMetaAPI(
+          phone,
+          message,
+          center.whatsapp_access_token,
+          center.whatsapp_phone_number_id
+        );
 
-      // Log notification
-      await supabase.from('notifications').insert({
-        center_id: invoice.center_id,
-        patient_id: patientId,
-        type: 'whatsapp',
-        recipient: phone,
-        message: message,
-        status: 'pending',
-      });
+        whatsappSent = apiResult.success;
+
+        // Log notification
+        await supabase.from('notifications').insert({
+          center_id: invoice.center_id,
+          patient_id: patientId,
+          type: 'whatsapp',
+          recipient: phone,
+          message: message,
+          status: apiResult.success ? 'sent' : 'failed',
+          sent_at: apiResult.success ? new Date().toISOString() : null,
+          error_message: apiResult.error || null,
+        });
+
+        if (!apiResult.success) {
+          console.error('WhatsApp API failed:', apiResult.error);
+        }
+      } else {
+        // Web mode - generate link for manual sending
+        console.log('WhatsApp Web mode - generating link');
+        whatsappLink = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
+        whatsappSent = true; // Link was generated successfully
+
+        // Log notification as pending (manual send required)
+        await supabase.from('notifications').insert({
+          center_id: invoice.center_id,
+          patient_id: patientId,
+          type: 'whatsapp',
+          recipient: phone,
+          message: message,
+          status: 'pending', // Pending because it requires manual action
+        });
+      }
     }
 
     return new Response(
@@ -186,6 +278,7 @@ Deno.serve(async (req) => {
         emailSent,
         whatsappSent,
         whatsappLink,
+        whatsappSendMethod,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

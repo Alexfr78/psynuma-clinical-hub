@@ -1,6 +1,6 @@
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Mail, MessageSquare, Phone, Clock, CheckCircle, XCircle, Send } from 'lucide-react';
+import { Mail, MessageSquare, Phone, Clock, CheckCircle, XCircle, Send, Smartphone } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -33,6 +33,9 @@ export function NotificationCard({ notification, onSend }: NotificationCardProps
     ? `${notification.patients.first_name} ${notification.patients.last_name}`
     : 'Paciente desconocido';
 
+  // Check if this is a WhatsApp notification that requires manual sending
+  const isWhatsAppManualSend = notification.type === 'whatsapp' && notification.status === 'pending';
+
   return (
     <Card className="overflow-hidden">
       <CardHeader className="pb-2">
@@ -46,10 +49,19 @@ export function NotificationCard({ notification, onSend }: NotificationCardProps
               <p className="text-sm text-muted-foreground truncate">{notification.recipient}</p>
             </div>
           </div>
-          <Badge variant={statusInfo.variant} className="flex items-center gap-1 w-fit flex-shrink-0">
-            <StatusIcon className="h-3 w-3" />
-            <span className="hidden sm:inline">{statusInfo.label}</span>
-          </Badge>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {isWhatsAppManualSend && (
+              <Badge variant="outline" className="text-xs flex items-center gap-1 text-amber-600 border-amber-300">
+                <Smartphone className="h-3 w-3" />
+                <span className="hidden sm:inline">Envío manual</span>
+                <span className="sm:hidden">Manual</span>
+              </Badge>
+            )}
+            <Badge variant={statusInfo.variant} className="flex items-center gap-1 w-fit">
+              <StatusIcon className="h-3 w-3" />
+              <span className="hidden sm:inline">{statusInfo.label}</span>
+            </Badge>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-3 overflow-hidden">
@@ -81,8 +93,17 @@ export function NotificationCard({ notification, onSend }: NotificationCardProps
           {notification.status === 'pending' && onSend && (
             <Button size="sm" variant="outline" onClick={() => onSend(notification.id)} className="w-full sm:w-auto">
               <Send className="h-3 w-3 mr-1" />
-              <span className="hidden sm:inline">Enviar ahora</span>
-              <span className="sm:hidden">Enviar</span>
+              {isWhatsAppManualSend ? (
+                <>
+                  <span className="hidden sm:inline">Abrir WhatsApp</span>
+                  <span className="sm:hidden">WhatsApp</span>
+                </>
+              ) : (
+                <>
+                  <span className="hidden sm:inline">Enviar ahora</span>
+                  <span className="sm:hidden">Enviar</span>
+                </>
+              )}
             </Button>
           )}
         </div>
