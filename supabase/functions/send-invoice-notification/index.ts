@@ -42,7 +42,7 @@ async function sendWhatsAppViaMetaAPI(
           recipient_type: 'individual',
           to: cleanPhone,
           type: 'text',
-          text: { preview_url: false, body: message }
+          text: { preview_url: true, body: message }
         })
       }
     );
@@ -60,6 +60,19 @@ async function sendWhatsAppViaMetaAPI(
     console.error('Error sending WhatsApp via Meta API:', error);
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
+}
+
+// Get the public URL for the invoice
+function getInvoicePublicUrl(accessToken: string): string {
+  // Use the Supabase URL to construct the public app URL
+  const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+  // Extract project ID from Supabase URL (format: https://PROJECT_ID.supabase.co)
+  const projectId = supabaseUrl.split('//')[1]?.split('.')[0] || '';
+  
+  // Construct the Lovable app URL
+  const appUrl = `https://${projectId}.lovable.app`;
+  
+  return `${appUrl}/factura/${accessToken}`;
 }
 
 Deno.serve(async (req) => {
@@ -104,6 +117,13 @@ Deno.serve(async (req) => {
     const email = patientEmail || patient?.email;
     const phone = patientPhone || patient?.phone;
 
+    // Generate the public invoice URL
+    const invoiceUrl = invoice.access_token 
+      ? getInvoicePublicUrl(invoice.access_token)
+      : null;
+
+    console.log('Invoice public URL:', invoiceUrl);
+
     let emailSent = false;
     let whatsappSent = false;
     let whatsappLink = null;
@@ -115,15 +135,6 @@ Deno.serve(async (req) => {
     }
 
     console.log(`WhatsApp send method: ${whatsappSendMethod}`);
-
-    // Generate PDF first
-    const { data: pdfData, error: pdfError } = await supabase.functions.invoke('generate-invoice-pdf', {
-      body: { invoice_id: invoiceId },
-    });
-
-    if (pdfError) {
-      console.error('Error generating PDF:', pdfError);
-    }
 
     // Send email if requested and email available
     if ((channel === 'email' || channel === 'both') && email) {
@@ -142,43 +153,58 @@ Deno.serve(async (req) => {
             <html>
             <head>
               <meta charset="utf-8">
-              <style>
-                body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; }
-                .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-                .header { background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
-                .content { background: #f8fafc; padding: 30px; border: 1px solid #e2e8f0; }
-                .invoice-box { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border: 1px solid #e2e8f0; }
-                .total { font-size: 24px; font-weight: bold; color: #1d4ed8; }
-                .footer { text-align: center; padding: 20px; color: #64748b; font-size: 14px; }
-                .button { display: inline-block; background: #3b82f6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin-top: 20px; }
-              </style>
             </head>
-            <body>
-              <div class="container">
-                <div class="header">
-                  <h1 style="margin: 0;">${center?.name || 'Centro'}</h1>
-                  <p style="margin: 10px 0 0 0; opacity: 0.9;">Factura ${invoiceNumber}</p>
-                </div>
-                <div class="content">
-                  <p>Estimado/a ${patientName},</p>
-                  <p>Le enviamos su factura correspondiente a los servicios prestados.</p>
-                  
-                  <div class="invoice-box">
-                    <p style="margin: 0 0 10px 0;"><strong>Número de factura:</strong> ${invoiceNumber}</p>
-                    <p style="margin: 0 0 10px 0;"><strong>Fecha:</strong> ${new Date(invoice.issue_date).toLocaleDateString('es-ES')}</p>
-                    <p style="margin: 0;"><strong>Total:</strong> <span class="total">${total}€</span></p>
-                  </div>
-                  
-                  <p>Si tiene alguna pregunta sobre esta factura, no dude en contactarnos.</p>
-                  
-                  <p>Atentamente,<br>${center?.name || 'El equipo'}</p>
-                </div>
-                <div class="footer">
-                  <p>${center?.name || ''}</p>
-                  ${center?.email ? `<p>${center.email}</p>` : ''}
-                  ${center?.phone ? `<p>${center.phone}</p>` : ''}
-                </div>
-              </div>
+            <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; margin: 0 auto; padding: 20px;">
+                <tr>
+                  <td style="background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
+                    <h1 style="margin: 0; font-size: 24px;">${center?.name || 'Centro'}</h1>
+                    <p style="margin: 10px 0 0 0; opacity: 0.9;">Factura ${invoiceNumber}</p>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="background: #f8fafc; padding: 30px; border: 1px solid #e2e8f0; border-top: none;">
+                    <p style="margin: 0 0 15px 0;">Estimado/a ${patientName},</p>
+                    <p style="margin: 0 0 20px 0;">Le enviamos su factura correspondiente a los servicios prestados.</p>
+                    
+                    <table width="100%" cellpadding="0" cellspacing="0" style="background: white; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0; margin: 20px 0;">
+                      <tr>
+                        <td>
+                          <p style="margin: 0 0 10px 0;"><strong>Número de factura:</strong> ${invoiceNumber}</p>
+                          <p style="margin: 0 0 10px 0;"><strong>Fecha:</strong> ${new Date(invoice.issue_date).toLocaleDateString('es-ES')}</p>
+                          <p style="margin: 0;"><strong>Total:</strong> <span style="font-size: 24px; font-weight: bold; color: #1d4ed8;">${total}€</span></p>
+                        </td>
+                      </tr>
+                    </table>
+                    
+                    ${invoiceUrl ? `
+                    <table width="100%" cellpadding="0" cellspacing="0" style="margin: 25px 0;">
+                      <tr>
+                        <td align="center">
+                          <a href="${invoiceUrl}" style="display: inline-block; background: #3b82f6; color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;">Ver y descargar factura</a>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td align="center" style="padding-top: 15px;">
+                          <p style="margin: 0; color: #64748b; font-size: 14px;">O copie este enlace: <a href="${invoiceUrl}" style="color: #3b82f6;">${invoiceUrl}</a></p>
+                        </td>
+                      </tr>
+                    </table>
+                    ` : ''}
+                    
+                    <p style="margin: 20px 0 0 0;">Si tiene alguna pregunta sobre esta factura, no dude en contactarnos.</p>
+                    
+                    <p style="margin: 20px 0 0 0;">Atentamente,<br>${center?.name || 'El equipo'}</p>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align: center; padding: 20px; color: #64748b; font-size: 14px;">
+                    <p style="margin: 0;">${center?.name || ''}</p>
+                    ${center?.email ? `<p style="margin: 5px 0 0 0;">${center.email}</p>` : ''}
+                    ${center?.phone ? `<p style="margin: 5px 0 0 0;">${center.phone}</p>` : ''}
+                  </td>
+                </tr>
+              </table>
             </body>
             </html>
           `;
@@ -219,7 +245,14 @@ Deno.serve(async (req) => {
       const invoiceNumber = invoice.invoice_number;
       const total = invoice.total?.toFixed(2) || '0.00';
 
-      const message = `Hola ${patientName}, le enviamos su factura ${invoiceNumber} por un total de ${total}€. Gracias por confiar en ${center?.name || 'nosotros'}.`;
+      // Build message with download link
+      let message = `Hola ${patientName}, le enviamos su factura ${invoiceNumber} por un total de ${total}€.`;
+      
+      if (invoiceUrl) {
+        message += `\n\n📄 Ver y descargar factura:\n${invoiceUrl}`;
+      }
+      
+      message += `\n\nGracias por confiar en ${center?.name || 'nosotros'}.`;
 
       // Clean phone number
       let cleanPhone = phone.replace(/\D/g, '');

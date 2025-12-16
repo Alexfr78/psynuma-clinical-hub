@@ -1096,6 +1096,7 @@ export type Database = {
       }
       invoices: {
         Row: {
+          access_token: string | null
           base_rectificada: number | null
           center_id: string
           created_at: string
@@ -1131,6 +1132,7 @@ export type Database = {
           verifactu_timestamp: string | null
         }
         Insert: {
+          access_token?: string | null
           base_rectificada?: number | null
           center_id: string
           created_at?: string
@@ -1166,6 +1168,7 @@ export type Database = {
           verifactu_timestamp?: string | null
         }
         Update: {
+          access_token?: string | null
           base_rectificada?: number | null
           center_id?: string
           created_at?: string
