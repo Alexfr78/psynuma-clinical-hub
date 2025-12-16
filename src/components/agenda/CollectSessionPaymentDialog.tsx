@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
-import { CreditCard, Calendar, Receipt, FileText, Loader2, Check, X, Mail, MessageSquare, ExternalLink } from 'lucide-react';
+import { CreditCard, Calendar, Receipt, FileText, Loader2, Check, X, Mail, MessageSquare, ExternalLink, ShieldCheck, AlertTriangle } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -23,9 +23,7 @@ import {
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useCollectSessionPayment } from '@/hooks/useSessionPayment';
 import { useCenter } from '@/hooks/useCenter';
-import { useCreateInvoiceWithSeries } from '@/hooks/useInvoices';
-import { useInvoiceSeries } from '@/hooks/useInvoiceSeries';
-import { useSendInvoiceNotification } from '@/hooks/useSendInvoiceNotification';
+import { useCreateSignedInvoice } from '@/hooks/useCreateSignedInvoice';
 import { toast } from 'sonner';
 
 interface CollectSessionPaymentDialogProps {
@@ -65,15 +63,16 @@ export function CollectSessionPaymentDialog({
   const [selectedInvoiceType, setSelectedInvoiceType] = useState<'simplified' | 'complete'>('simplified');
   const [createdInvoiceId, setCreatedInvoiceId] = useState<string | null>(null);
   const [whatsappLink, setWhatsappLink] = useState<string | null>(null);
+  const [verifactuPending, setVerifactuPending] = useState(false);
+  const [processingMessage, setProcessingMessage] = useState('Generando factura...');
 
   const { center } = useCenter();
   const collectPayment = useCollectSessionPayment();
-  const createInvoice = useCreateInvoiceWithSeries();
-  const { series } = useInvoiceSeries();
-  const sendNotification = useSendInvoiceNotification();
+  const createSignedInvoice = useCreateSignedInvoice();
 
   const invoiceMode = (center?.invoice_on_payment_mode as string) || 'disabled';
   const sendChannel = (center?.invoice_send_channel as 'email' | 'whatsapp' | 'both') || 'email';
+  const verifactuAutoEnabled = center?.verifactu_auto_enabled === true;
 
   const resetForm = () => {
     setStep('payment');
@@ -84,6 +83,8 @@ export function CollectSessionPaymentDialog({
     setSelectedInvoiceType('simplified');
     setCreatedInvoiceId(null);
     setWhatsappLink(null);
+    setVerifactuPending(false);
+    setProcessingMessage('Generando factura...');
   };
 
   const handleClose = () => {
@@ -91,34 +92,10 @@ export function CollectSessionPaymentDialog({
     resetForm();
   };
 
-  const getDefaultSeries = (type: 'simplified' | 'complete') => {
-    const seriesType = type === 'simplified' ? 'simplified' : 'complete';
-    return series?.find(s => s.invoice_type === seriesType && !s.is_archived);
-  };
-
   const createInvoiceForSession = async (type: 'simplified' | 'complete') => {
-    const defaultSeries = getDefaultSeries(type);
-    
-    if (!defaultSeries) {
-      toast.error('No hay una serie de facturación configurada. Configúrala en Ajustes > Facturación.');
-      return null;
-    }
-
     const description = sessionType 
       ? `${sessionType} - ${sessionDate ? format(new Date(sessionDate), 'dd/MM/yyyy') : 'Sesión'}`
       : `Sesión - ${sessionDate ? format(new Date(sessionDate), 'dd/MM/yyyy') : ''}`;
-
-    const invoiceData = {
-      patient_id: patientId,
-      series_id: defaultSeries.id,
-      status: 'issued' as const,
-      issue_date: new Date().toISOString().split('T')[0],
-      subtotal: amount,
-      tax_rate: 0,
-      tax_amount: 0,
-      total: amount,
-      notes: `Factura generada automáticamente al cobrar sesión`,
-    };
 
     const items = [{
       description,
@@ -130,26 +107,29 @@ export function CollectSessionPaymentDialog({
       session_id: sessionId,
     }];
 
-    const result = await createInvoice.mutateAsync({
-      invoice: invoiceData,
-      items,
-      seriesId: defaultSeries.id,
-    });
+    // Update processing message if Verifactu is enabled
+    if (verifactuAutoEnabled) {
+      setProcessingMessage('Generando factura y registrando en AEAT...');
+    }
 
-    return result?.id || null;
-  };
-
-  const sendInvoiceNotification = async (invoiceId: string) => {
-    const result = await sendNotification.mutateAsync({
-      invoiceId,
+    const result = await createSignedInvoice.mutateAsync({
       patientId,
+      invoiceType: type,
+      items,
+      notes: 'Factura generada automáticamente al cobrar sesión',
+      sendNotification: true,
       patientEmail,
       patientPhone,
-      channel: sendChannel,
     });
 
-    if (result?.whatsappLink) {
+    if (result.invoiceId) {
+      setCreatedInvoiceId(result.invoiceId);
+    }
+    if (result.whatsappLink) {
       setWhatsappLink(result.whatsappLink);
+    }
+    if (result.verifactuPending) {
+      setVerifactuPending(true);
     }
 
     return result;
@@ -178,11 +158,7 @@ export function CollectSessionPaymentDialog({
     } else if (invoiceMode === 'auto') {
       setStep('processing');
       try {
-        const invoiceId = await createInvoiceForSession('simplified');
-        if (invoiceId) {
-          setCreatedInvoiceId(invoiceId);
-          await sendInvoiceNotification(invoiceId);
-        }
+        await createInvoiceForSession('simplified');
         setStep('complete');
       } catch (error) {
         console.error('Error in auto invoice:', error);
@@ -204,11 +180,7 @@ export function CollectSessionPaymentDialog({
   const handleInvoiceTypeSubmit = async () => {
     setStep('processing');
     try {
-      const invoiceId = await createInvoiceForSession(selectedInvoiceType);
-      if (invoiceId) {
-        setCreatedInvoiceId(invoiceId);
-        await sendInvoiceNotification(invoiceId);
-      }
+      await createInvoiceForSession(selectedInvoiceType);
       setStep('complete');
     } catch (error) {
       console.error('Error creating invoice:', error);
@@ -219,6 +191,8 @@ export function CollectSessionPaymentDialog({
 
   const handleComplete = () => {
     handleClose();
+    onSuccess?.();
+  };
     onSuccess?.();
   };
 
@@ -374,7 +348,7 @@ export function CollectSessionPaymentDialog({
         <Button variant="outline" onClick={handleInvoiceQuestionNo}>
           Cancelar
         </Button>
-        <Button onClick={handleInvoiceTypeSubmit} disabled={createInvoice.isPending}>
+        <Button onClick={handleInvoiceTypeSubmit} disabled={createSignedInvoice.isPending}>
           Generar y enviar
         </Button>
       </DialogFooter>
@@ -384,25 +358,51 @@ export function CollectSessionPaymentDialog({
   const renderProcessingStep = () => (
     <div className="py-8 text-center space-y-4">
       <Loader2 className="h-12 w-12 animate-spin mx-auto text-primary" />
-      <p className="text-muted-foreground">Generando factura y enviando...</p>
+      <p className="text-muted-foreground">{processingMessage}</p>
+      {verifactuAutoEnabled && (
+        <p className="text-xs text-muted-foreground flex items-center justify-center gap-1">
+          <ShieldCheck className="h-3 w-3" />
+          Registrando en AEAT...
+        </p>
+      )}
     </div>
   );
 
   const renderCompleteStep = () => (
     <div className="space-y-6">
       <div className="text-center space-y-2">
-        <div className="mx-auto w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
-          <Check className="h-6 w-6 text-green-600" />
+        <div className={`mx-auto w-12 h-12 rounded-full flex items-center justify-center ${verifactuPending ? 'bg-yellow-100' : 'bg-green-100'}`}>
+          {verifactuPending ? (
+            <AlertTriangle className="h-6 w-6 text-yellow-600" />
+          ) : (
+            <Check className="h-6 w-6 text-green-600" />
+          )}
         </div>
-        <h3 className="font-semibold text-lg">¡Proceso completado!</h3>
+        <h3 className="font-semibold text-lg">
+          {verifactuPending ? 'Factura pendiente de registro' : '¡Proceso completado!'}
+        </h3>
         <p className="text-muted-foreground">
-          {createdInvoiceId 
-            ? 'Pago registrado y factura generada correctamente.'
-            : 'Pago registrado correctamente.'}
+          {verifactuPending 
+            ? 'La factura se ha generado pero está pendiente de registro en AEAT. El envío al cliente se realizará cuando se complete el registro.'
+            : createdInvoiceId 
+              ? 'Pago registrado y factura generada correctamente.'
+              : 'Pago registrado correctamente.'}
         </p>
       </div>
 
-      {whatsappLink && (
+      {verifactuPending && (
+        <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4 space-y-2">
+          <p className="text-sm font-medium text-yellow-800 flex items-center gap-2">
+            <ShieldCheck className="h-4 w-4" />
+            Pendiente AEAT
+          </p>
+          <p className="text-xs text-yellow-700">
+            La factura aparecerá en la pestaña "Pendientes AEAT" para su reintento.
+          </p>
+        </div>
+      )}
+
+      {whatsappLink && !verifactuPending && (
         <div className="rounded-lg border p-4 space-y-3">
           <p className="text-sm font-medium">Enviar factura por WhatsApp:</p>
           <Button asChild className="w-full gap-2">

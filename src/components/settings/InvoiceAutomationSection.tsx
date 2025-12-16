@@ -1,4 +1,4 @@
-import { Zap, Mail, MessageSquare } from 'lucide-react';
+import { Zap, Mail, MessageSquare, ShieldCheck, AlertTriangle } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -6,6 +6,8 @@ import { Switch } from '@/components/ui/switch';
 import { useCenter } from '@/hooks/useCenter';
 import { useAuth } from '@/hooks/useAuth';
 import { Separator } from '@/components/ui/separator';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 
 type InvoiceOnPaymentMode = 'ask' | 'auto' | 'disabled';
 type InvoiceSendChannel = 'email' | 'whatsapp' | 'both';
@@ -17,6 +19,9 @@ export function InvoiceAutomationSection() {
   const invoiceMode = (center?.invoice_on_payment_mode as InvoiceOnPaymentMode) || 'disabled';
   const sendChannel = (center?.invoice_send_channel as InvoiceSendChannel) || 'email';
   const autoInvoicingEnabled = center?.auto_invoicing_enabled || false;
+  const verifactuAutoEnabled = center?.verifactu_auto_enabled || false;
+  const hasCertificate = !!center?.verifactu_certificate_base64;
+  const verifactuEnvironment = center?.verifactu_environment || 'test';
 
   const handleModeChange = (mode: InvoiceOnPaymentMode) => {
     updateCenter.mutate({ invoice_on_payment_mode: mode });
@@ -28,6 +33,13 @@ export function InvoiceAutomationSection() {
 
   const handleAutoInvoicingToggle = (enabled: boolean) => {
     updateCenter.mutate({ auto_invoicing_enabled: enabled });
+  };
+
+  const handleVerifactuAutoToggle = (enabled: boolean) => {
+    if (enabled && !hasCertificate) {
+      return; // Don't enable if no certificate
+    }
+    updateCenter.mutate({ verifactu_auto_enabled: enabled });
   };
 
   return (
@@ -148,6 +160,87 @@ export function InvoiceAutomationSection() {
                 )}
               </div>
             </>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Verifactu Auto Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ShieldCheck className="h-5 w-5 text-primary" />
+            Verifactu automático
+            {verifactuAutoEnabled && (
+              <Badge variant={verifactuEnvironment === 'production' ? 'default' : 'secondary'} className="ml-2">
+                {verifactuEnvironment === 'production' ? 'Producción' : 'Test'}
+              </Badge>
+            )}
+          </CardTitle>
+          <CardDescription>
+            Registra automáticamente las facturas en la Agencia Tributaria (AEAT)
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {!hasCertificate && (
+            <Alert variant="destructive">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>
+                No hay certificado digital configurado. Configúralo en Verifactu antes de activar esta opción.
+              </AlertDescription>
+            </Alert>
+          )}
+
+          <div className="flex items-center justify-between rounded-lg border p-4">
+            <div className="flex items-start gap-4">
+              <div className="rounded-full bg-primary/10 p-2">
+                <ShieldCheck className="h-5 w-5 text-primary" />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="verifactu-auto" className="text-base font-medium">
+                  Registro automático en AEAT
+                </Label>
+                <p className="text-sm text-muted-foreground">
+                  Las facturas se registran automáticamente en Verifactu al generarse.
+                  El envío al cliente solo se realizará tras el registro exitoso.
+                </p>
+              </div>
+            </div>
+            {isAdmin ? (
+              <Switch
+                id="verifactu-auto"
+                checked={verifactuAutoEnabled}
+                onCheckedChange={handleVerifactuAutoToggle}
+                disabled={updateCenter.isPending || !hasCertificate}
+              />
+            ) : (
+              <span className="text-sm text-muted-foreground">
+                {verifactuAutoEnabled ? 'Activado' : 'Desactivado'}
+              </span>
+            )}
+          </div>
+
+          {verifactuAutoEnabled && (
+            <div className="rounded-lg bg-muted/50 p-4 space-y-3">
+              <h4 className="font-medium text-sm">¿Cómo funciona?</h4>
+              <ul className="text-sm text-muted-foreground space-y-2">
+                <li className="flex items-start gap-2">
+                  <span className="text-primary font-medium">1.</span>
+                  Al generar una factura, se firma y registra automáticamente en la AEAT.
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-primary font-medium">2.</span>
+                  La factura incluirá el código QR de verificación y el hash de Verifactu.
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-primary font-medium">3.</span>
+                  <strong>El envío al cliente se retrasa</strong> hasta confirmar el registro en AEAT.
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-primary font-medium">4.</span>
+                  Si el registro falla, la factura queda "Pendiente AEAT" para reintento manual.
+                </li>
+              </ul>
+            </div>
           )}
         </CardContent>
       </Card>
