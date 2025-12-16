@@ -41,6 +41,8 @@ export interface InvoiceWithPatient extends Invoice {
     address: string | null;
     city: string | null;
     postal_code: string | null;
+    email?: string | null;
+    phone?: string | null;
   };
 }
 
@@ -104,7 +106,7 @@ export function useInvoices(filters?: { patientId?: string; status?: string; sta
         .from('invoices')
         .select(`
           *,
-          patients (id, first_name, last_name, tax_id, address, city, postal_code)
+          patients (id, first_name, last_name, tax_id, address, city, postal_code, email, phone)
         `)
         .order('issue_date', { ascending: false });
 
