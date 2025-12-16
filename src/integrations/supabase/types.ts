@@ -432,6 +432,7 @@ export type Database = {
           session_reminder_timing: string | null
           tax_id: string | null
           updated_at: string
+          verifactu_auto_enabled: boolean | null
           verifactu_certificate_base64: string | null
           verifactu_certificate_password: string | null
           verifactu_environment: string | null
@@ -496,6 +497,7 @@ export type Database = {
           session_reminder_timing?: string | null
           tax_id?: string | null
           updated_at?: string
+          verifactu_auto_enabled?: boolean | null
           verifactu_certificate_base64?: string | null
           verifactu_certificate_password?: string | null
           verifactu_environment?: string | null
@@ -560,6 +562,7 @@ export type Database = {
           session_reminder_timing?: string | null
           tax_id?: string | null
           updated_at?: string
+          verifactu_auto_enabled?: boolean | null
           verifactu_certificate_base64?: string | null
           verifactu_certificate_password?: string | null
           verifactu_environment?: string | null

@@ -68,6 +68,8 @@ export interface Center {
   // Invoice automation settings
   invoice_on_payment_mode: string | null;
   invoice_send_channel: string | null;
+  // Verifactu auto settings
+  verifactu_auto_enabled: boolean | null;
   // Session reminder settings
   session_reminder_enabled: boolean | null;
   session_reminder_timing: string | null;
