@@ -11,6 +11,7 @@ import { Consent, useConsentSignatures } from '@/hooks/useConsents';
 import { Download, ExternalLink, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { sanitizeHtml } from '@/lib/sanitize';
 
 interface ConsentDetailDialogProps {
   consent: Consent;
@@ -154,7 +155,7 @@ export function ConsentDetailDialog({
             <Card className="max-h-[300px] overflow-auto p-4">
               <div
                 className="prose prose-sm max-w-none dark:prose-invert"
-                dangerouslySetInnerHTML={{ __html: consent.content_snapshot }}
+                dangerouslySetInnerHTML={{ __html: sanitizeHtml(consent.content_snapshot) }}
               />
             </Card>
           </div>

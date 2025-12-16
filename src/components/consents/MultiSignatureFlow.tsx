@@ -7,6 +7,7 @@ import { SignatureCanvas, SignatureCanvasRef } from './SignatureCanvas';
 import { PublicConsent, usePublicConsent } from '@/hooks/usePublicConsent';
 import { Loader2, CheckCircle2, ArrowRight, Download } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { sanitizeHtml } from '@/lib/sanitize';
 
 interface MultiSignatureFlowProps {
   consent: PublicConsent;
@@ -80,7 +81,7 @@ function DocumentWithVerifications({
     return (
       <div
         className="prose prose-sm max-w-none dark:prose-invert"
-        dangerouslySetInnerHTML={{ __html: cleanContent }}
+        dangerouslySetInnerHTML={{ __html: sanitizeHtml(cleanContent) }}
       />
     );
   }
@@ -92,7 +93,7 @@ function DocumentWithVerifications({
 
     return (
       <div className="prose prose-sm max-w-none dark:prose-invert">
-        <div dangerouslySetInnerHTML={{ __html: parts[0] }} />
+        <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(parts[0]) }} />
         
         {/* Inline checkboxes at placeholder position */}
         <div className="my-4 space-y-3 rounded-md border bg-muted/30 p-4 not-prose">
@@ -115,7 +116,7 @@ function DocumentWithVerifications({
           ))}
         </div>
         
-        {parts[1] && <div dangerouslySetInnerHTML={{ __html: parts[1] }} />}
+        {parts[1] && <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(parts[1]) }} />}
       </div>
     );
   }
@@ -123,7 +124,7 @@ function DocumentWithVerifications({
   // No placeholder - render content then checkboxes at the end
   return (
     <div className="prose prose-sm max-w-none dark:prose-invert">
-      <div dangerouslySetInnerHTML={{ __html: cleanContent }} />
+      <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(cleanContent) }} />
       
       {/* Checkboxes after content */}
       <div className="my-4 space-y-3 rounded-md border bg-muted/30 p-4 not-prose">

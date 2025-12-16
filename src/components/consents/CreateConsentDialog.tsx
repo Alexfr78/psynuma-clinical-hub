@@ -35,6 +35,7 @@ import { Patient } from '@/hooks/usePatients';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { sanitizeHtml } from '@/lib/sanitize';
 
 const schema = z.object({
   template_id: z.string().min(1, 'Selecciona una plantilla'),
@@ -193,7 +194,7 @@ export function CreateConsentDialog({
                 <Card className="max-h-[300px] overflow-auto p-4">
                   <div
                     className="prose prose-sm max-w-none dark:prose-invert"
-                    dangerouslySetInnerHTML={{ __html: preview }}
+                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(preview) }}
                   />
                 </Card>
               </div>
