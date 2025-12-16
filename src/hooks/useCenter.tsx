@@ -68,6 +68,12 @@ export interface Center {
   // Invoice automation settings
   invoice_on_payment_mode: string | null;
   invoice_send_channel: string | null;
+  // Session reminder settings
+  session_reminder_enabled: boolean | null;
+  session_reminder_timing: string | null;
+  session_reminder_hours_before: number | null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  session_reminder_channels: any;
   created_at: string;
   updated_at: string;
 }
@@ -89,7 +95,7 @@ export function useCenter() {
         .maybeSingle();
 
       if (error) throw error;
-      return data as Center | null;
+      return data as unknown as Center | null;
     },
     enabled: !!centerId,
   });

@@ -398,6 +398,10 @@ export type Database = {
           reschedule_slot_duration: number | null
           retention_name: string | null
           retention_rate: number | null
+          session_reminder_channels: Json | null
+          session_reminder_enabled: boolean | null
+          session_reminder_hours_before: number | null
+          session_reminder_timing: string | null
           tax_id: string | null
           updated_at: string
           verifactu_certificate_base64: string | null
@@ -458,6 +462,10 @@ export type Database = {
           reschedule_slot_duration?: number | null
           retention_name?: string | null
           retention_rate?: number | null
+          session_reminder_channels?: Json | null
+          session_reminder_enabled?: boolean | null
+          session_reminder_hours_before?: number | null
+          session_reminder_timing?: string | null
           tax_id?: string | null
           updated_at?: string
           verifactu_certificate_base64?: string | null
@@ -518,6 +526,10 @@ export type Database = {
           reschedule_slot_duration?: number | null
           retention_name?: string | null
           retention_rate?: number | null
+          session_reminder_channels?: Json | null
+          session_reminder_enabled?: boolean | null
+          session_reminder_hours_before?: number | null
+          session_reminder_timing?: string | null
           tax_id?: string | null
           updated_at?: string
           verifactu_certificate_base64?: string | null
@@ -1800,6 +1812,7 @@ export type Database = {
           payment_status: string | null
           price: number
           professional_id: string
+          reminder_sent_at: string | null
           room: string | null
           send_reminder_email: boolean | null
           send_reminder_sms: boolean | null
@@ -1835,6 +1848,7 @@ export type Database = {
           payment_status?: string | null
           price?: number
           professional_id: string
+          reminder_sent_at?: string | null
           room?: string | null
           send_reminder_email?: boolean | null
           send_reminder_sms?: boolean | null
@@ -1870,6 +1884,7 @@ export type Database = {
           payment_status?: string | null
           price?: number
           professional_id?: string
+          reminder_sent_at?: string | null
           room?: string | null
           send_reminder_email?: boolean | null
           send_reminder_sms?: boolean | null

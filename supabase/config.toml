@@ -95,3 +95,6 @@ verify_jwt = false
 
 [functions.send-invoice-notification]
 verify_jwt = false
+
+[functions.send-session-reminders]
+verify_jwt = false
