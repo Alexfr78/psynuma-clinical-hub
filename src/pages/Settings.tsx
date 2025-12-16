@@ -21,7 +21,8 @@ import {
   Video,
   CreditCard,
   Plug,
-  Wallet
+  Wallet,
+  Bell
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -43,6 +44,7 @@ import { PaymentSettingsSection } from '@/components/settings/PaymentSettingsSec
 import { EmailTemplateEditor } from '@/components/settings/communications/EmailTemplateEditor';
 import { WhatsAppTemplateEditor } from '@/components/settings/communications/WhatsAppTemplateEditor';
 import { SmsTemplateEditor } from '@/components/settings/communications/SmsTemplateEditor';
+import { SessionReminderSettingsSection } from '@/components/settings/SessionReminderSettingsSection';
 import { VerifactuConfigSection } from '@/components/settings/VerifactuConfigSection';
 import { ResponsibleDeclarationSection } from '@/components/settings/ResponsibleDeclarationSection';
 import { VerifactuExportSection } from '@/components/settings/VerifactuExportSection';
@@ -84,6 +86,7 @@ type SettingsSection =
   | 'comunicaciones-email'
   | 'comunicaciones-whatsapp'
   | 'comunicaciones-sms'
+  | 'comunicaciones-recordatorios'
   | 'integraciones-resumen'
   | 'integraciones-credenciales'
   | 'integraciones-whatsapp'
@@ -115,6 +118,7 @@ const navItems: NavItem[] = [
   { id: 'comunicaciones-email', label: 'Plantillas Email', icon: Mail, parent: 'Comunicaciones' },
   { id: 'comunicaciones-whatsapp', label: 'Plantillas WhatsApp', icon: MessageCircle, parent: 'Comunicaciones' },
   { id: 'comunicaciones-sms', label: 'Plantillas SMS', icon: Smartphone, parent: 'Comunicaciones' },
+  { id: 'comunicaciones-recordatorios', label: 'Recordatorios de Cita', icon: Bell, parent: 'Comunicaciones' },
   { id: 'integraciones-resumen', label: 'Resumen', icon: Plug, parent: 'Integraciones' },
   { id: 'integraciones-credenciales', label: 'Credenciales OAuth', icon: Shield, parent: 'Integraciones' },
   { id: 'integraciones-whatsapp', label: 'WhatsApp Business', icon: MessageCircle, parent: 'Integraciones' },
@@ -303,6 +307,8 @@ export default function Settings() {
         return <WhatsAppTemplateEditor />;
       case 'comunicaciones-sms':
         return <SmsTemplateEditor />;
+      case 'comunicaciones-recordatorios':
+        return <SessionReminderSettingsSection />;
       case 'integraciones-resumen':
         return <IntegrationsOverview />;
       case 'integraciones-credenciales':
