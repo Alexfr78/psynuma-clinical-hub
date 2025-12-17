@@ -10,6 +10,47 @@ const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const resendApiKey = Deno.env.get("RESEND_API_KEY");
 
+async function sendEmailViaResendAPI(
+  to: string,
+  subject: string,
+  htmlContent: string,
+  fromName: string
+): Promise<{ success: boolean; error?: string }> {
+  if (!resendApiKey) {
+    console.error("RESEND_API_KEY not configured");
+    return { success: false, error: "Email service not configured" };
+  }
+
+  try {
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${resendApiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: `${fromName} <onboarding@resend.dev>`,
+        to: [to],
+        subject: subject,
+        html: htmlContent,
+      }),
+    });
+
+    if (!response.ok) {
+      const data = await response.json();
+      console.error("Resend API error:", data);
+      return { success: false, error: data.message || "Email sending failed" };
+    }
+
+    const result = await response.json();
+    console.log("Email sent successfully:", result);
+    return { success: true };
+  } catch (error: unknown) {
+    console.error("Error sending email:", error);
+    return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -123,9 +164,52 @@ serve(async (req) => {
         expires_at: expiresAt.toISOString(),
       });
 
-    // Log the URL for now - in production would send via Resend
-    const portalUrl = `${req.headers.get("origin") || supabaseUrl.replace(".supabase.co", ".lovable.app")}/portal/${centerSlug}/dashboard?token=${token}`;
-    console.log("Welcome link URL:", portalUrl);
+    // Build portal URL
+    const origin = req.headers.get("origin") || supabaseUrl.replace(".supabase.co", ".lovable.app");
+    const portalUrl = `${origin}/portal/${centerSlug}/dashboard?token=${token}`;
+
+    // Send welcome email
+    const welcomeEmailHtml = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      </head>
+      <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%); padding: 30px; border-radius: 12px 12px 0 0; text-align: center;">
+          <h1 style="color: white; margin: 0; font-size: 24px;">¡Bienvenido/a al Portal de Pacientes!</h1>
+        </div>
+        <div style="background: #f8fafc; padding: 30px; border-radius: 0 0 12px 12px; border: 1px solid #e2e8f0; border-top: none;">
+          <p style="font-size: 16px;">Hola <strong>${firstName}</strong>,</p>
+          <p style="font-size: 16px;">Tu cuenta en <strong>${center.name}</strong> ha sido creada correctamente.</p>
+          <p style="font-size: 16px;">Haz clic en el siguiente enlace para acceder por primera vez:</p>
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${portalUrl}" style="display: inline-block; padding: 14px 32px; background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%); color: white; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px;">Acceder al Portal</a>
+          </div>
+          <p style="font-size: 14px; color: #64748b;">Este enlace es válido por <strong>15 minutos</strong>.</p>
+          <p style="font-size: 14px; color: #64748b;">En el futuro, podrás solicitar un nuevo enlace de acceso desde la página del portal.</p>
+          <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 20px 0;">
+          <p style="font-size: 14px; color: #64748b;">¡Gracias por confiar en nosotros!</p>
+          <p style="font-size: 12px; color: #94a3b8; text-align: center;">${center.name}</p>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const emailResult = await sendEmailViaResendAPI(
+      email.toLowerCase(),
+      `Bienvenido/a a ${center.name}`,
+      welcomeEmailHtml,
+      center.name
+    );
+
+    if (!emailResult.success) {
+      console.error("Failed to send welcome email:", emailResult.error);
+      // Don't fail - registration was successful
+    } else {
+      console.log("Welcome email sent to:", email);
+    }
 
     return new Response(
       JSON.stringify({ 
