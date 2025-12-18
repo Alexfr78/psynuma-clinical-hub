@@ -9,6 +9,18 @@ const corsHeaders = {
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
+// Helper functions for time conversion
+function timeToMinutes(time: string): number {
+  const [h, m] = time.split(":").map(Number);
+  return h * 60 + (m || 0);
+}
+
+function minutesToTime(minutes: number): string {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
+}
+
 function validateSession(sessionToken: string): { valid: boolean; patientId?: string; centerId?: string } {
   try {
     const decoded = JSON.parse(atob(sessionToken));
@@ -298,24 +310,51 @@ serve(async (req) => {
         );
       }
 
-      // Get professional's availability for the day of week
       const dayOfWeek = new Date(date).getDay();
-      
-      const { data: availability } = await supabase
+
+      // 1. Get professional's availability for the day
+      const { data: profAvailability } = await supabase
         .from("availability")
         .select("start_time, end_time, is_available")
         .eq("professional_id", professionalId)
         .eq("day_of_week", dayOfWeek)
         .eq("is_available", true);
 
-      if (!availability || availability.length === 0) {
+      // 2. Get PUBLIC location schedules for this center and day
+      const { data: publicLocations } = await supabase
+        .from("center_locations")
+        .select("id, name, is_public")
+        .eq("center_id", session.centerId)
+        .eq("is_active", true)
+        .eq("is_public", true);
+
+      if (!publicLocations || publicLocations.length === 0) {
+        console.log("No public locations found for center:", session.centerId);
         return new Response(
           JSON.stringify({ slots: [] }),
           { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
-      // Get existing sessions for that day
+      // Get schedules for all public locations
+      const locationIds = publicLocations.map(loc => loc.id);
+      const { data: locationSchedules } = await supabase
+        .from("location_schedules")
+        .select("location_id, day_of_week, start_time, end_time, is_open")
+        .in("location_id", locationIds)
+        .eq("day_of_week", dayOfWeek)
+        .eq("is_open", true);
+
+      // 3. If no professional availability or no public locations open, return empty
+      if (!profAvailability?.length || !locationSchedules?.length) {
+        console.log("No availability - profAvailability:", profAvailability?.length, "locationSchedules:", locationSchedules?.length);
+        return new Response(
+          JSON.stringify({ slots: [] }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // 4. Get existing sessions for that day
       const { data: existingSessions } = await supabase
         .from("sessions")
         .select("start_time, end_time")
@@ -323,7 +362,7 @@ serve(async (req) => {
         .eq("session_date", date)
         .not("status", "in", '("cancelled","no_show")');
 
-      // Get center's slot duration
+      // 5. Get center's slot duration
       const { data: center } = await supabase
         .from("centers")
         .select("reschedule_slot_duration")
@@ -332,31 +371,50 @@ serve(async (req) => {
 
       const slotDuration = center?.reschedule_slot_duration || 30;
 
-      // Generate available slots
+      // 6. Calculate intersection of professional availability and location schedules
+      // Combine all location schedules into time ranges
+      const locationRanges = locationSchedules.map(schedule => ({
+        start: timeToMinutes(schedule.start_time),
+        end: timeToMinutes(schedule.end_time)
+      }));
+
+      // 7. Generate slots from INTERSECTION of prof availability and location schedules
       const slots: string[] = [];
-      
-      for (const avail of availability) {
-        const startMinutes = parseInt(avail.start_time.split(":")[0]) * 60 + parseInt(avail.start_time.split(":")[1]);
-        const endMinutes = parseInt(avail.end_time.split(":")[0]) * 60 + parseInt(avail.end_time.split(":")[1]);
 
-        for (let time = startMinutes; time + slotDuration <= endMinutes; time += slotDuration) {
-          const hours = Math.floor(time / 60);
-          const mins = time % 60;
-          const slotTime = `${hours.toString().padStart(2, "0")}:${mins.toString().padStart(2, "0")}`;
-          const slotEndTime = `${Math.floor((time + slotDuration) / 60).toString().padStart(2, "0")}:${((time + slotDuration) % 60).toString().padStart(2, "0")}`;
+      for (const profSlot of profAvailability) {
+        const profStart = timeToMinutes(profSlot.start_time);
+        const profEnd = timeToMinutes(profSlot.end_time);
 
-          // Check if slot conflicts with existing sessions
-          const hasConflict = existingSessions?.some(s => {
-            const sessionStart = s.start_time.substring(0, 5);
-            const sessionEnd = s.end_time.substring(0, 5);
-            return slotTime < sessionEnd && slotEndTime > sessionStart;
-          });
+        for (const locRange of locationRanges) {
+          // Calculate intersection
+          const intersectionStart = Math.max(profStart, locRange.start);
+          const intersectionEnd = Math.min(profEnd, locRange.end);
 
-          if (!hasConflict) {
-            slots.push(slotTime);
+          if (intersectionStart >= intersectionEnd) continue; // No overlap
+
+          // Generate slots within intersection
+          for (let time = intersectionStart; time + slotDuration <= intersectionEnd; time += slotDuration) {
+            const slotTime = minutesToTime(time);
+            const slotEndTime = minutesToTime(time + slotDuration);
+
+            // Check conflicts with existing sessions
+            const hasConflict = existingSessions?.some(s => {
+              const sessionStart = s.start_time.substring(0, 5);
+              const sessionEnd = s.end_time.substring(0, 5);
+              return slotTime < sessionEnd && slotEndTime > sessionStart;
+            });
+
+            if (!hasConflict && !slots.includes(slotTime)) {
+              slots.push(slotTime);
+            }
           }
         }
       }
+
+      // Sort slots chronologically
+      slots.sort();
+
+      console.log("Generated slots:", slots.length, "for date:", date, "professional:", professionalId);
 
       return new Response(
         JSON.stringify({ slots, slotDuration }),
