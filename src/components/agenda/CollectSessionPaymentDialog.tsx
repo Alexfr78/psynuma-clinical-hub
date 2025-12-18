@@ -25,6 +25,7 @@ import { useCollectSessionPayment } from '@/hooks/useSessionPayment';
 import { useCenter } from '@/hooks/useCenter';
 import { useCreateSignedInvoice } from '@/hooks/useCreateSignedInvoice';
 import { useSessionInvoiceStatus } from '@/hooks/useInvoices';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { toast } from 'sonner';
 
 interface CollectSessionPaymentDialogProps {
@@ -68,6 +69,7 @@ export function CollectSessionPaymentDialog({
   const [processingMessage, setProcessingMessage] = useState('Generando factura...');
 
   const { center } = useCenter();
+  const isMobile = useIsMobile();
   const collectPayment = useCollectSessionPayment();
   const createSignedInvoice = useCreateSignedInvoice();
   const { data: invoiceStatus, refetch: refetchInvoiceStatus } = useSessionInvoiceStatus(sessionId);
@@ -219,17 +221,33 @@ export function CollectSessionPaymentDialog({
       {/* Payment Method */}
       <div className="space-y-2">
         <Label htmlFor="payment-method">Método de pago</Label>
-        <Select value={paymentMethod} onValueChange={setPaymentMethod}>
-          <SelectTrigger id="payment-method">
-            <SelectValue placeholder="Seleccionar método" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="cash">Efectivo</SelectItem>
-            <SelectItem value="card">Tarjeta</SelectItem>
-            <SelectItem value="transfer">Transferencia</SelectItem>
-            <SelectItem value="bizum">Bizum</SelectItem>
-          </SelectContent>
-        </Select>
+        {isMobile ? (
+          // Select nativo para móvil - evita problemas de portales/modales
+          <select
+            id="payment-method"
+            value={paymentMethod}
+            onChange={(e) => setPaymentMethod(e.target.value)}
+            className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+          >
+            <option value="cash">Efectivo</option>
+            <option value="card">Tarjeta</option>
+            <option value="transfer">Transferencia</option>
+            <option value="bizum">Bizum</option>
+          </select>
+        ) : (
+          // Select de Radix para desktop - mejor UX visual
+          <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+            <SelectTrigger id="payment-method">
+              <SelectValue placeholder="Seleccionar método" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="cash">Efectivo</SelectItem>
+              <SelectItem value="card">Tarjeta</SelectItem>
+              <SelectItem value="transfer">Transferencia</SelectItem>
+              <SelectItem value="bizum">Bizum</SelectItem>
+            </SelectContent>
+          </Select>
+        )}
       </div>
 
       {/* Payment Date */}
