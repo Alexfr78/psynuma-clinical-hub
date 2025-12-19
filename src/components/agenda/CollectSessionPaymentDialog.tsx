@@ -9,6 +9,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerFooter,
+} from '@/components/ui/drawer';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -293,7 +300,7 @@ export function CollectSessionPaymentDialog({
         />
       </div>
 
-      <DialogFooter>
+      <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-4">
         <Button 
           type="button" 
           variant="outline" 
@@ -304,7 +311,7 @@ export function CollectSessionPaymentDialog({
         <Button type="submit" disabled={collectPayment.isPending}>
           {collectPayment.isPending ? 'Procesando...' : 'Confirmar pago'}
         </Button>
-      </DialogFooter>
+      </div>
     </form>
   );
 
@@ -374,14 +381,14 @@ export function CollectSessionPaymentDialog({
         {sendChannel === 'both' && <><Mail className="h-4 w-4" /><MessageSquare className="h-4 w-4" /> Se enviará por email y WhatsApp</>}
       </div>
 
-      <DialogFooter>
+      <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-4">
         <Button variant="outline" onClick={handleInvoiceQuestionNo}>
           Cancelar
         </Button>
         <Button onClick={handleInvoiceTypeSubmit} disabled={createSignedInvoice.isPending}>
           Generar y enviar
         </Button>
-      </DialogFooter>
+      </div>
     </div>
   );
 
@@ -445,11 +452,11 @@ export function CollectSessionPaymentDialog({
         </div>
       )}
 
-      <DialogFooter>
+      <div className="pt-4">
         <Button onClick={handleComplete} className="w-full">
           Cerrar
         </Button>
-      </DialogFooter>
+      </div>
     </div>
   );
 
@@ -473,6 +480,41 @@ export function CollectSessionPaymentDialog({
     }
   };
 
+  const renderContent = () => (
+    <>
+      {step === 'payment' && renderPaymentStep()}
+      {step === 'invoice-question' && renderInvoiceQuestionStep()}
+      {step === 'invoice-type' && renderInvoiceTypeStep()}
+      {step === 'processing' && renderProcessingStep()}
+      {step === 'complete' && renderCompleteStep()}
+    </>
+  );
+
+  // En móvil usamos Drawer para evitar conflictos con el SessionDetailDrawer
+  if (isMobile) {
+    return (
+      <Drawer open={open} onOpenChange={handleClose}>
+        <DrawerContent className="max-h-[90vh]">
+          <DrawerHeader className="text-left">
+            <DrawerTitle className="flex items-center gap-2">
+              <CreditCard className="h-5 w-5" />
+              {getDialogTitle()}
+            </DrawerTitle>
+            {getDialogDescription() && (
+              <p className="text-sm text-muted-foreground">
+                {getDialogDescription()}
+              </p>
+            )}
+          </DrawerHeader>
+          <div className="px-4 pb-6 overflow-y-auto">
+            {renderContent()}
+          </div>
+        </DrawerContent>
+      </Drawer>
+    );
+  }
+
+  // En desktop usamos Dialog
   return (
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-[425px]">
@@ -487,12 +529,7 @@ export function CollectSessionPaymentDialog({
             </DialogDescription>
           )}
         </DialogHeader>
-
-        {step === 'payment' && renderPaymentStep()}
-        {step === 'invoice-question' && renderInvoiceQuestionStep()}
-        {step === 'invoice-type' && renderInvoiceTypeStep()}
-        {step === 'processing' && renderProcessingStep()}
-        {step === 'complete' && renderCompleteStep()}
+        {renderContent()}
       </DialogContent>
     </Dialog>
   );
