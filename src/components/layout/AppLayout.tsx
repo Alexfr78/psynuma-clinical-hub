@@ -56,17 +56,17 @@ export function AppLayout({ children }: AppLayoutProps) {
             <Separator orientation="vertical" className="mr-2 h-4" />
             <Breadcrumb>
               <BreadcrumbList>
-                <BreadcrumbItem className="hidden md:block">
+                <BreadcrumbItem className="hidden lg:block">
                   <BreadcrumbLink href="/dashboard">Psycma</BreadcrumbLink>
                 </BreadcrumbItem>
-                <BreadcrumbSeparator className="hidden md:block" />
+                <BreadcrumbSeparator className="hidden lg:block" />
                 <BreadcrumbItem>
                   <BreadcrumbPage>{currentTitle}</BreadcrumbPage>
                 </BreadcrumbItem>
               </BreadcrumbList>
             </Breadcrumb>
           </header>
-          <main className="flex-1 overflow-auto p-4 md:p-6">{children}</main>
+          <main className="flex-1 overflow-auto p-4 lg:p-6">{children}</main>
         </SidebarInset>
       </div>
     </SidebarProvider>
