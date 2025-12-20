@@ -29,6 +29,13 @@ export interface PublicSessionData {
     city: string;
     postal_code: string | null;
   } | null;
+  center: {
+    name: string;
+    address: string | null;
+    address_details: string | null;
+    city: string | null;
+    postal_code: string | null;
+  } | null;
 }
 
 export function usePublicSession(token: string | undefined) {
@@ -53,7 +60,8 @@ export function usePublicSession(token: string | undefined) {
           access_token,
           patient:patients!sessions_patient_id_fkey(first_name, last_name),
           professional:profiles!sessions_professional_id_fkey(first_name, last_name),
-          location:center_locations!sessions_location_id_fkey(name, street, number_details, city, postal_code)
+          location:center_locations!sessions_location_id_fkey(name, street, number_details, city, postal_code),
+          center:centers!sessions_center_id_fkey(name, address, address_details, city, postal_code)
         `)
         .eq('access_token', token)
         .maybeSingle();

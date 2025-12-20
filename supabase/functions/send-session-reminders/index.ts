@@ -13,6 +13,10 @@ interface CenterConfig {
   name: string;
   logo_url: string | null;
   invoice_logo_url: string | null;
+  address: string | null;
+  address_details: string | null;
+  city: string | null;
+  postal_code: string | null;
   session_reminder_enabled: boolean;
   session_reminder_timing: string;
   session_reminder_hours_before: number;
@@ -194,9 +198,18 @@ function formatTime(timeStr: string): string {
   return timeStr.substring(0, 5);
 }
 
+// Build center address string
+function buildCenterAddress(center: CenterConfig): string | null {
+  if (!center.address) return null;
+  const parts = [center.address];
+  if (center.address_details) parts[0] += ` ${center.address_details}`;
+  if (center.city) parts.push(center.city);
+  if (center.postal_code) parts.push(center.postal_code);
+  return parts.join(', ');
+}
+
 // Build reminder message
-function buildReminderMessage(session: SessionToRemind, centerName: string): string {
-  const patientName = `${session.patient.first_name} ${session.patient.last_name}`;
+function buildReminderMessage(session: SessionToRemind, center: CenterConfig): string {
   const professionalName = session.professional.first_name 
     ? `${session.professional.first_name} ${session.professional.last_name || ''}`.trim()
     : 'el profesional';
@@ -211,8 +224,14 @@ function buildReminderMessage(session: SessionToRemind, centerName: string): str
     message += `📋 Tipo: ${session.session_type}\n`;
   }
   
+  // Show location if available, otherwise fallback to center address
   if (session.location) {
     message += `📍 Lugar: ${session.location.name}, ${session.location.street}, ${session.location.city}\n`;
+  } else {
+    const centerAddress = buildCenterAddress(center);
+    if (centerAddress) {
+      message += `📍 Lugar: ${center.name}, ${centerAddress}\n`;
+    }
   }
   
   if (session.video_call_link) {
@@ -220,7 +239,7 @@ function buildReminderMessage(session: SessionToRemind, centerName: string): str
   }
   
   message += `\nSi necesitas cancelar o reprogramar tu cita, por favor contáctanos con la mayor antelación posible.\n\n`;
-  message += `Un saludo,\n${centerName}`;
+  message += `Un saludo,\n${center.name}`;
   
   return message;
 }
@@ -246,6 +265,10 @@ serve(async (req) => {
         name,
         logo_url,
         invoice_logo_url,
+        address,
+        address_details,
+        city,
+        postal_code,
         session_reminder_enabled,
         session_reminder_timing,
         session_reminder_hours_before,
@@ -359,7 +382,7 @@ serve(async (req) => {
           continue;
         }
 
-        const message = buildReminderMessage(session, center.name);
+        const message = buildReminderMessage(session, center);
         const logoUrl = center.invoice_logo_url || center.logo_url;
         let reminderSent = false;
 

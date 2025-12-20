@@ -135,6 +135,16 @@ export default function SessionManagement() {
     return parts.join(', ');
   };
 
+  const buildCenterAddress = () => {
+    const center = session.center;
+    if (!center?.address) return null;
+    const parts = [center.address];
+    if (center.address_details) parts[0] += ` ${center.address_details}`;
+    if (center.city) parts.push(center.city);
+    if (center.postal_code) parts.push(center.postal_code);
+    return parts.join(', ');
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/30 flex items-center justify-center p-4">
       <Card className="w-full max-w-lg shadow-lg">
@@ -224,12 +234,12 @@ export default function SessionManagement() {
                   )
                 ) : (
                   <p className="font-medium">
-                    {session.location?.name || buildLocationString() || 'Ubicación por confirmar'}
+                    {session.location?.name || session.center?.name || 'Ubicación por confirmar'}
                   </p>
                 )}
-                {!isOnline && session.location && (
+                {!isOnline && (session.location || session.center?.address) && (
                   <p className="text-sm text-muted-foreground">
-                    {buildLocationString()}
+                    {buildLocationString() || buildCenterAddress()}
                   </p>
                 )}
               </div>
