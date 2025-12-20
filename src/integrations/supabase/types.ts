@@ -2221,6 +2221,13 @@ export type Database = {
       }
     }
     Functions: {
+      get_center_address_for_session_token: {
+        Args: never
+        Returns: {
+          center_address: string
+          center_name: string
+        }[]
+      }
       get_portal_center: {
         Args: { p_slug: string }
         Returns: {
