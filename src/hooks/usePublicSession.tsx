@@ -36,6 +36,11 @@ export interface PublicSessionData {
     city: string | null;
     postal_code: string | null;
   } | null;
+  // Fallback center address from secure function
+  centerFallback?: {
+    center_name: string;
+    center_address: string;
+  } | null;
 }
 
 export function usePublicSession(token: string | undefined) {
@@ -43,6 +48,9 @@ export function usePublicSession(token: string | undefined) {
     queryKey: ['public-session', token],
     queryFn: async () => {
       if (!token) throw new Error('No token provided');
+
+      // Set the token in headers for RLS functions
+      const headers = { 'x-session-token': token };
 
       const { data, error } = await supabase
         .from('sessions')
@@ -69,7 +77,19 @@ export function usePublicSession(token: string | undefined) {
       if (error) throw error;
       if (!data) throw new Error('Session not found');
       
-      return data as PublicSessionData;
+      // If no location or center data (due to RLS), fetch via secure function
+      let centerFallback = null;
+      if (!data.location && !data.center) {
+        const { data: fallbackData } = await supabase
+          .rpc('get_center_address_for_session_token')
+          .setHeader('x-session-token', token);
+        
+        if (fallbackData && fallbackData.length > 0) {
+          centerFallback = fallbackData[0];
+        }
+      }
+      
+      return { ...data, centerFallback } as PublicSessionData;
     },
     enabled: !!token,
     retry: false,

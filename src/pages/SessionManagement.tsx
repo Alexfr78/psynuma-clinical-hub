@@ -136,13 +136,24 @@ export default function SessionManagement() {
   };
 
   const buildCenterAddress = () => {
+    // First try from center data
     const center = session.center;
-    if (!center?.address) return null;
-    const parts = [center.address];
-    if (center.address_details) parts[0] += ` ${center.address_details}`;
-    if (center.city) parts.push(center.city);
-    if (center.postal_code) parts.push(center.postal_code);
-    return parts.join(', ');
+    if (center?.address) {
+      const parts = [center.address];
+      if (center.address_details) parts[0] += ` ${center.address_details}`;
+      if (center.city) parts.push(center.city);
+      if (center.postal_code) parts.push(center.postal_code);
+      return parts.join(', ');
+    }
+    // Fallback from secure function
+    if (session.centerFallback?.center_address) {
+      return session.centerFallback.center_address;
+    }
+    return null;
+  };
+
+  const getCenterName = () => {
+    return session.center?.name || session.centerFallback?.center_name || null;
   };
 
   return (
@@ -234,10 +245,10 @@ export default function SessionManagement() {
                   )
                 ) : (
                   <p className="font-medium">
-                    {session.location?.name || session.center?.name || 'Ubicación por confirmar'}
+                    {session.location?.name || getCenterName() || 'Ubicación por confirmar'}
                   </p>
                 )}
-                {!isOnline && (session.location || session.center?.address) && (
+                {!isOnline && (session.location || buildCenterAddress()) && (
                   <p className="text-sm text-muted-foreground">
                     {buildLocationString() || buildCenterAddress()}
                   </p>
