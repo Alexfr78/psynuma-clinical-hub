@@ -72,6 +72,7 @@ export function usePublicSession(token: string | undefined) {
           center:centers!sessions_center_id_fkey(name, address, address_details, city, postal_code)
         `)
         .eq('access_token', token)
+        .setHeader('x-session-token', token)
         .maybeSingle();
 
       if (error) throw error;
