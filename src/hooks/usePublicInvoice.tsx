@@ -87,6 +87,7 @@ export function usePublicInvoice(token: string | undefined) {
           center_id
         `)
         .eq('access_token', token)
+        .setHeader('x-invoice-token', token)
         .single();
 
       if (invoiceError || !invoice) {
@@ -94,18 +95,20 @@ export function usePublicInvoice(token: string | undefined) {
         return null;
       }
 
-      // Fetch patient data
+      // Fetch patient data with invoice token header
       const { data: patient } = await supabase
         .from('patients')
         .select('first_name, last_name, email, phone, address, city, postal_code, tax_id')
         .eq('id', invoice.patient_id)
+        .setHeader('x-invoice-token', token)
         .single();
 
-      // Fetch center data
+      // Fetch center data with invoice token header
       const { data: center } = await supabase
         .from('centers')
         .select('name, address, city, postal_code, province, tax_id, phone, email, invoice_logo_url, invoice_footer')
         .eq('id', invoice.center_id)
+        .setHeader('x-invoice-token', token)
         .single();
 
       // Fetch invoice items
