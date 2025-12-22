@@ -2228,6 +2228,7 @@ export type Database = {
           center_name: string
         }[]
       }
+      get_invoice_token: { Args: never; Returns: string }
       get_portal_center: {
         Args: { p_slug: string }
         Returns: {
@@ -2259,6 +2260,10 @@ export type Database = {
       is_admin: { Args: { _user_id: string }; Returns: boolean }
       is_professional: { Args: { _user_id: string }; Returns: boolean }
       user_can_create_center: { Args: { _user_id: string }; Returns: boolean }
+      verify_invoice_token_for_center: {
+        Args: { center_uuid: string }
+        Returns: boolean
+      }
       verify_session_token_for_center: {
         Args: { center_uuid: string }
         Returns: boolean
