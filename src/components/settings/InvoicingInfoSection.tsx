@@ -25,6 +25,7 @@ const invoicingInfoSchema = z.object({
   include_tax_in_price: z.boolean().optional(),
   retention_name: z.string().optional(),
   retention_rate: z.coerce.number().min(0).max(100).optional(),
+  custom_domain: z.string().optional(),
 });
 
 type InvoicingInfoFormValues = z.infer<typeof invoicingInfoSchema>;
@@ -49,6 +50,7 @@ export function InvoicingInfoSection() {
       include_tax_in_price: center?.include_tax_in_price || false,
       retention_name: center?.retention_name || 'IRPF',
       retention_rate: center?.retention_rate || 0,
+      custom_domain: center?.custom_domain || '',
     },
   });
 
@@ -216,6 +218,27 @@ export function InvoicingInfoSection() {
                   placeholder="15"
                 />
               </div>
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Dominio personalizado */}
+          <div className="space-y-4">
+            <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wide">
+              Dominio personalizado
+            </h4>
+            <div className="space-y-2">
+              <Label htmlFor="custom_domain">URL del dominio</Label>
+              <Input
+                id="custom_domain"
+                {...form.register('custom_domain')}
+                placeholder="tucentro.es"
+              />
+              <p className="text-sm text-muted-foreground">
+                Este dominio se usará en los enlaces de las notificaciones de facturas. 
+                Déjalo vacío para usar el dominio por defecto.
+              </p>
             </div>
           </div>
 

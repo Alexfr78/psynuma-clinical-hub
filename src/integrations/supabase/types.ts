@@ -388,6 +388,7 @@ export type Database = {
           consent_expiration_days: number | null
           country: string | null
           created_at: string
+          custom_domain: string | null
           default_payment_mode: string | null
           default_scheduled_hours_before: number | null
           default_tax_name: string | null
@@ -453,6 +454,7 @@ export type Database = {
           consent_expiration_days?: number | null
           country?: string | null
           created_at?: string
+          custom_domain?: string | null
           default_payment_mode?: string | null
           default_scheduled_hours_before?: number | null
           default_tax_name?: string | null
@@ -518,6 +520,7 @@ export type Database = {
           consent_expiration_days?: number | null
           country?: string | null
           created_at?: string
+          custom_domain?: string | null
           default_payment_mode?: string | null
           default_scheduled_hours_before?: number | null
           default_tax_name?: string | null

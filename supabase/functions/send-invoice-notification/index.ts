@@ -63,8 +63,16 @@ async function sendWhatsAppViaMetaAPI(
 }
 
 // Get the public URL for the invoice
-function getInvoicePublicUrl(accessToken: string): string {
-  // Use the Supabase URL to construct the public app URL
+function getInvoicePublicUrl(accessToken: string, customDomain?: string | null): string {
+  // If custom domain is configured, use it
+  if (customDomain) {
+    const baseUrl = customDomain.startsWith('http') ? customDomain : `https://${customDomain}`;
+    // Remove trailing slash if present
+    const cleanUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+    return `${cleanUrl}/factura/${accessToken}`;
+  }
+  
+  // Fallback: Use the Supabase URL to construct the public app URL
   const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
   // Extract project ID from Supabase URL (format: https://PROJECT_ID.supabase.co)
   const projectId = supabaseUrl.split('//')[1]?.split('.')[0] || '';
@@ -99,6 +107,7 @@ Deno.serve(async (req) => {
         patients!inner(first_name, last_name, email, phone),
         centers!inner(
           name, email, phone,
+          custom_domain,
           whatsapp_send_method,
           whatsapp_access_token,
           whatsapp_phone_number_id
@@ -117,9 +126,9 @@ Deno.serve(async (req) => {
     const email = patientEmail || patient?.email;
     const phone = patientPhone || patient?.phone;
 
-    // Generate the public invoice URL
+    // Generate the public invoice URL using custom domain if configured
     const invoiceUrl = invoice.access_token 
-      ? getInvoicePublicUrl(invoice.access_token)
+      ? getInvoicePublicUrl(invoice.access_token, center?.custom_domain)
       : null;
 
     console.log('Invoice public URL:', invoiceUrl);
