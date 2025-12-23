@@ -513,7 +513,15 @@ async function syncProfessional(
     return result;
   }
 
-  const calendarId = connection.google_calendar_id || 'primary';
+  // CRÍTICO: Aislamiento de calendario - NO usar 'primary' como fallback
+  // Esto evita leer eventos del calendario personal en lugar del seleccionado
+  const calendarId = connection.google_calendar_id;
+  if (!calendarId) {
+    console.error('AISLAMIENTO: No hay google_calendar_id configurado - abortando sincronización');
+    result.errors.push('No hay calendario seleccionado. Configura un calendario específico en Ajustes > Integraciones > Google Calendar.');
+    return result;
+  }
+  console.log(`AISLAMIENTO: Usando calendario específico: ${calendarId}`);
 
   // Renew webhook channel if expiring soon
   if (integrations?.google_calendar_sync_mode === 'two_way') {
@@ -810,7 +818,7 @@ async function syncProfessional(
         } // End of safe deletion processing block
       } // End of safety check
 
-      // Import new events from Google Calendar
+      // PASO 4: Lógica UPSERT - Importar nuevos eventos de Google Calendar
       for (const event of googleEvents) {
         // Skip events we created from Psycma
         if (existingEventIds.has(event.id)) continue;
@@ -818,32 +826,23 @@ async function syncProfessional(
         // Skip all-day events
         if (!event.start?.dateTime) continue;
       
-      // Check if this event was already imported
-      const { data: existingImport } = await supabase
-        .from('sessions')
-        .select('id')
-        .eq('google_calendar_event_id', event.id)
-        .maybeSingle();
+        if (!placeholderPatientId) {
+          console.error('Cannot import Google event: no placeholder patient available');
+          continue;
+        }
       
-      if (existingImport) continue;
-      
-      if (!placeholderPatientId) {
-        console.error('Cannot import Google event: no placeholder patient available');
-        continue;
-      }
-      
-      // Parse event times using Europe/Madrid timezone
-      const parsedStart = parseGoogleDateTimeToMadrid(event.start.dateTime);
-      const parsedEnd = parseGoogleDateTimeToMadrid(event.end.dateTime);
-      
-      const sessionDate = parsedStart.date;
-      const startTime = parsedStart.time;
-      const endTime = parsedEnd.time;
-      
-      // Create a blocked session
-      const { error: insertError } = await supabase
-        .from('sessions')
-        .insert({
+        // Parse event times using Europe/Madrid timezone
+        const parsedStart = parseGoogleDateTimeToMadrid(event.start.dateTime);
+        const parsedEnd = parseGoogleDateTimeToMadrid(event.end.dateTime);
+        
+        const sessionDate = parsedStart.date;
+        const startTime = parsedStart.time;
+        const endTime = parsedEnd.time;
+        
+        // UPSERT: Usar ON CONFLICT con el índice único google_calendar_event_id
+        // Esto garantiza idempotencia - si el evento ya existe, se actualiza
+        const sessionData = {
+          google_calendar_event_id: event.id,
           professional_id: professionalId,
           center_id: profData?.center_id,
           patient_id: placeholderPatientId,
@@ -851,18 +850,26 @@ async function syncProfessional(
           start_time: startTime,
           end_time: endTime,
           notes: `[Google Calendar] ${event.summary || 'Evento externo'}\n${event.description || ''}`,
-          status: 'blocked',
-          google_calendar_event_id: event.id,
+          status: 'blocked' as const,
           session_type: 'Bloqueado',
           price: 0,
-        });
+        };
 
-      if (!insertError) {
-        result.created++;
-      } else {
-        console.error('Error importing event:', insertError);
+        const { error: upsertError } = await supabase
+          .from('sessions')
+          .upsert(sessionData, { 
+            onConflict: 'google_calendar_event_id',
+            ignoreDuplicates: false // Actualizar si ya existe
+          });
+
+        if (!upsertError) {
+          result.created++;
+          console.log(`UPSERT: Evento ${event.id} importado/actualizado correctamente`);
+        } else {
+          console.error('Error en upsert de evento:', upsertError);
+          result.errors.push(`Error importando evento: ${upsertError.message}`);
+        }
       }
-    }
   }
 
   // Update last sync time
