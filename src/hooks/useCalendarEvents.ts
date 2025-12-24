@@ -82,6 +82,7 @@ export function useCalendarEvents({
 // Helper to convert CalendarEvent to a session-like format for display
 export function calendarEventToSessionFormat(event: CalendarEvent): {
   id: string;
+  google_calendar_event_id: string;
   session_date: string;
   start_time: string;
   end_time: string;
@@ -119,6 +120,7 @@ export function calendarEventToSessionFormat(event: CalendarEvent): {
 
   return {
     id: event.id,
+    google_calendar_event_id: event.google_event_id,
     session_date: formatDateMadrid(startDate),
     start_time: event.all_day ? '00:00' : formatTimeMadrid(startDate),
     end_time: event.all_day ? '23:59' : formatTimeMadrid(endDate),
