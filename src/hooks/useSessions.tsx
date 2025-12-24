@@ -110,6 +110,10 @@ export function useDeleteSession() {
 
   return useMutation({
     mutationFn: async (id: string) => {
+      // First, remove bono from session (returns used session to bono)
+      await supabase.rpc('remove_bono_from_session', { p_session_id: id });
+      
+      // Then delete the session
       const { error } = await supabase
         .from('sessions')
         .delete()
@@ -119,6 +123,8 @@ export function useDeleteSession() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sessions'] });
+      queryClient.invalidateQueries({ queryKey: ['bonos'] });
+      queryClient.invalidateQueries({ queryKey: ['patient-active-bonos'] });
     },
   });
 }

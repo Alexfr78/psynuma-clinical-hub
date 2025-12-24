@@ -919,6 +919,7 @@ export type Database = {
       debts: {
         Row: {
           amount: number
+          bono_id: string | null
           center_id: string
           created_at: string
           due_date: string | null
@@ -933,6 +934,7 @@ export type Database = {
         }
         Insert: {
           amount: number
+          bono_id?: string | null
           center_id: string
           created_at?: string
           due_date?: string | null
@@ -947,6 +949,7 @@ export type Database = {
         }
         Update: {
           amount?: number
+          bono_id?: string | null
           center_id?: string
           created_at?: string
           due_date?: string | null
@@ -960,6 +963,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "debts_bono_id_fkey"
+            columns: ["bono_id"]
+            isOneToOne: false
+            referencedRelation: "bonos"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "debts_center_id_fkey"
             columns: ["center_id"]
@@ -1038,6 +1048,7 @@ export type Database = {
       invoice_items: {
         Row: {
           billable_event_id: string | null
+          bono_id: string | null
           created_at: string
           description: string
           id: string
@@ -1055,6 +1066,7 @@ export type Database = {
         }
         Insert: {
           billable_event_id?: string | null
+          bono_id?: string | null
           created_at?: string
           description: string
           id?: string
@@ -1072,6 +1084,7 @@ export type Database = {
         }
         Update: {
           billable_event_id?: string | null
+          bono_id?: string | null
           created_at?: string
           description?: string
           id?: string
@@ -1093,6 +1106,13 @@ export type Database = {
             columns: ["billable_event_id"]
             isOneToOne: false
             referencedRelation: "billable_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_items_bono_id_fkey"
+            columns: ["bono_id"]
+            isOneToOne: false
+            referencedRelation: "bonos"
             referencedColumns: ["id"]
           },
           {
@@ -2316,6 +2336,10 @@ export type Database = {
       }
     }
     Functions: {
+      apply_bono_to_session: {
+        Args: { p_bono_id: string; p_session_id: string }
+        Returns: Json
+      }
       get_center_address_for_session_token: {
         Args: never
         Returns: {
@@ -2354,6 +2378,10 @@ export type Database = {
       }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
       is_professional: { Args: { _user_id: string }; Returns: boolean }
+      remove_bono_from_session: {
+        Args: { p_session_id: string }
+        Returns: Json
+      }
       user_can_create_center: { Args: { _user_id: string }; Returns: boolean }
       verify_invoice_token_for_center: {
         Args: { center_uuid: string }
