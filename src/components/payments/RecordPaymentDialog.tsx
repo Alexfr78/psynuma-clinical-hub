@@ -1,4 +1,6 @@
+import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
+import { supabase } from '@/integrations/supabase/client';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format } from 'date-fns';
@@ -95,6 +97,57 @@ export function RecordPaymentDialog({
     },
   });
 
+  // Auto-fill patient_id from debt when in debt payment mode
+  useEffect(() => {
+    let cancelled = false;
+
+    const fillFromDebt = async () => {
+      if (!open || !preselectedDebtId) return;
+
+      // Si ya hay paciente, no sobreescribir
+      const currentPatient = form.getValues("patient_id");
+      if (currentPatient) return;
+
+      const { data, error } = await supabase
+        .from("debts")
+        .select("patient_id")
+        .eq("id", preselectedDebtId)
+        .single();
+
+      if (cancelled) return;
+
+      if (error) {
+        console.error("[RecordPaymentDialog] Error loading debt:", error);
+        return;
+      }
+
+      if (data?.patient_id) {
+        form.setValue("patient_id", data.patient_id, { shouldValidate: true });
+      }
+    };
+
+    fillFromDebt();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, preselectedDebtId]);
+
+  // Sync preselected values when dialog opens or props change
+  useEffect(() => {
+    if (!open) return;
+
+    if (preselectedPatientId) {
+      form.setValue("patient_id", preselectedPatientId, { shouldValidate: true });
+    }
+    if (typeof preselectedAmount === "number" && preselectedAmount > 0) {
+      form.setValue("amount", preselectedAmount, { shouldValidate: true });
+    }
+    if (preselectedInvoiceId) {
+      form.setValue("invoice_id", preselectedInvoiceId);
+    }
+  }, [open, preselectedPatientId, preselectedAmount, preselectedInvoiceId]);
+
   const watchPatientId = form.watch('patient_id');
   const patientInvoices = invoices?.filter(inv => inv.patient_id === watchPatientId) || [];
 
@@ -160,7 +213,7 @@ export function RecordPaymentDialog({
                   >
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Seleccionar paciente" />
+                        <SelectValue placeholder={isDebtPayment ? "Cargando paciente..." : "Seleccionar paciente"} />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
