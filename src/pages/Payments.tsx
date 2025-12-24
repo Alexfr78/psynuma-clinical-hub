@@ -23,7 +23,12 @@ import { EditPaymentDialog } from '@/components/payments/EditPaymentDialog';
 
 export default function Payments() {
   const [paymentOpen, setPaymentOpen] = useState(false);
-  const [selectedDebt, setSelectedDebt] = useState<{ patientId: string; amount: number } | null>(null);
+  const [selectedDebt, setSelectedDebt] = useState<{
+    debtId?: string;
+    patientId: string;
+    amount: number;
+    description?: string;
+  } | null>(null);
   const [editPaymentOpen, setEditPaymentOpen] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState<PaymentWithRelations | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -35,8 +40,18 @@ export default function Payments() {
   const { data: paymentStats } = usePaymentStats();
   const deletePayment = useDeletePayment();
 
-  const handleRecordPayment = (patientId: string, amount: number) => {
-    setSelectedDebt({ patientId, amount });
+  const handleRecordPayment = (debtInfo: {
+    debtId: string;
+    patientId: string;
+    pendingAmount: number;
+    description?: string;
+  }) => {
+    setSelectedDebt({
+      debtId: debtInfo.debtId,
+      patientId: debtInfo.patientId,
+      amount: debtInfo.pendingAmount,
+      description: debtInfo.description,
+    });
     setPaymentOpen(true);
   };
 
@@ -115,10 +130,7 @@ export default function Payments() {
                 <DebtCard
                   key={debt.id}
                   debt={debt}
-                  onRecordPayment={() => handleRecordPayment(
-                    debt.patient_id,
-                    Number(debt.amount) - Number(debt.paid_amount)
-                  )}
+                  onRecordPayment={handleRecordPayment}
                 />
               ))}
             </div>
@@ -147,8 +159,10 @@ export default function Payments() {
       <RecordPaymentDialog
         open={paymentOpen}
         onOpenChange={setPaymentOpen}
+        preselectedDebtId={selectedDebt?.debtId}
         preselectedPatientId={selectedDebt?.patientId}
         preselectedAmount={selectedDebt?.amount}
+        preselectedDescription={selectedDebt?.description}
       />
 
       <EditPaymentDialog
