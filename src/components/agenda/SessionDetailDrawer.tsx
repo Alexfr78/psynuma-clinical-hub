@@ -101,6 +101,7 @@ import { usePatient } from '@/hooks/usePatients';
 import { supabase } from '@/integrations/supabase/client';
 import { useProfessionalIntegrations } from '@/hooks/useProfessionalIntegrations';
 import { ConvertCalendarEventDialog } from './ConvertCalendarEventDialog';
+import { useHideCalendarEvent } from '@/hooks/useHideCalendarEvent';
 import { CalendarEvent } from '@/hooks/useCalendarEvents';
 
 interface SessionDetailDrawerProps {
@@ -158,6 +159,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
   const sendEmailNotification = useSendSessionNotification();
   const isMobile = useIsMobile();
   const { syncToGoogle, syncMoveToGoogle } = useGoogleCalendarUpdate();
+  const hideCalendarEvent = useHideCalendarEvent();
   const { integrations, isProviderConnected } = useProfessionalIntegrations();
   const [isUpdating, setIsUpdating] = useState(false);
   const [isChangingModality, setIsChangingModality] = useState(false);
@@ -1516,7 +1518,28 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
               </Select>
             </div>
 
-            {/* Delete Session */}
+            {/* Hide Google Calendar Block (only for Google events) */}
+            {(session as any).isGoogleEvent && (
+              <Button 
+                variant="outline" 
+                className="w-full mt-4"
+                onClick={() => {
+                  hideCalendarEvent.mutate(session.id);
+                  onOpenChange(false);
+                }}
+                disabled={hideCalendarEvent.isPending}
+              >
+                {hideCalendarEvent.isPending ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Ban className="mr-2 h-4 w-4" />
+                )}
+                Ocultar bloqueo
+              </Button>
+            )}
+
+            {/* Delete Session (only for regular sessions) */}
+            {!(session as any).isGoogleEvent && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="destructive" className="w-full mt-4">
@@ -1563,6 +1586,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
+            )}
 
             {/* External Links */}
             <div className="flex gap-4 pt-4">
