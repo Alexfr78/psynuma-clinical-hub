@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FileText, Plus, RefreshCw } from 'lucide-react';
+import { FileText, Plus, RefreshCw, ArrowUpDown, Hash, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -9,6 +9,8 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu';
 import {
   AlertDialog,
@@ -20,7 +22,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { useInvoices, useUpdateInvoiceStatus, useInvoiceStats, type InvoiceWithPatient } from '@/hooks/useInvoices';
+import { useInvoices, useUpdateInvoiceStatus, useInvoiceStats, type InvoiceWithPatient, type InvoiceSortField, type SortDirection } from '@/hooks/useInvoices';
 import { InvoiceCard } from '@/components/invoices/InvoiceCard';
 import { InvoiceDetailDialog } from '@/components/invoices/InvoiceDetailDialog';
 import { CreateSimpleInvoiceDialog } from '@/components/invoices/CreateSimpleInvoiceDialog';
@@ -39,6 +41,10 @@ export default function Invoices() {
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [invoiceToCancel, setInvoiceToCancel] = useState<{ id: string; number: string } | null>(null);
   
+  // Sort state
+  const [sortBy, setSortBy] = useState<InvoiceSortField>('invoice_number');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+  
   // Detail dialog state
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
@@ -47,9 +53,28 @@ export default function Invoices() {
   const [sendDialogOpen, setSendDialogOpen] = useState(false);
   const [selectedInvoiceForSend, setSelectedInvoiceForSend] = useState<InvoiceWithPatient | null>(null);
 
-  const { data: invoices, isLoading, refetch } = useInvoices({ status: statusFilter === 'all' ? undefined : statusFilter });
+  const { data: invoices, isLoading, refetch } = useInvoices({ 
+    status: statusFilter === 'all' ? undefined : statusFilter,
+    sortBy,
+    sortDirection,
+  });
   const { data: stats } = useInvoiceStats();
   const updateStatus = useUpdateInvoiceStatus();
+  
+  const handleSort = (field: InvoiceSortField) => {
+    if (sortBy === field) {
+      setSortDirection(prev => prev === 'desc' ? 'asc' : 'desc');
+    } else {
+      setSortBy(field);
+      setSortDirection('desc');
+    }
+  };
+  
+  const getSortLabel = () => {
+    const fieldLabel = sortBy === 'invoice_number' ? 'Número' : 'Fecha';
+    const dirLabel = sortDirection === 'desc' ? '↓' : '↑';
+    return `${fieldLabel} ${dirLabel}`;
+  };
 
   const handleStatusChange = async (id: string, status: 'draft' | 'issued' | 'paid' | 'cancelled') => {
     await updateStatus.mutateAsync({ id, status });
@@ -284,7 +309,33 @@ export default function Invoices() {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value={statusFilter} className="mt-4">
+        <div className="flex items-center justify-between mb-4">
+          <div className="text-sm text-muted-foreground">
+            {invoices?.length || 0} facturas
+          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm">
+                <ArrowUpDown className="h-4 w-4 mr-2" />
+                {getSortLabel()}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>Ordenar por</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => handleSort('invoice_number')}>
+                <Hash className="h-4 w-4 mr-2" />
+                Número {sortBy === 'invoice_number' && (sortDirection === 'desc' ? '↓' : '↑')}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleSort('issue_date')}>
+                <Calendar className="h-4 w-4 mr-2" />
+                Fecha {sortBy === 'issue_date' && (sortDirection === 'desc' ? '↓' : '↑')}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+
+        <TabsContent value={statusFilter} className="mt-0">
           {isLoading ? (
             <div className="space-y-4">
               {[1, 2, 3].map(i => <Skeleton key={i} className="h-24" />)}
