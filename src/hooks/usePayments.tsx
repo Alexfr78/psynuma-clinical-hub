@@ -154,6 +154,30 @@ export function useUpdatePayment() {
 
   return useMutation({
     mutationFn: async ({ id, ...updates }: PaymentUpdate & { id: string }) => {
+      // Get payment to check if it has invoice_id (new model)
+      const { data: payment, error: paymentErr } = await supabase
+        .from('payments')
+        .select('id, invoice_id')
+        .eq('id', id)
+        .single();
+
+      if (paymentErr) throw paymentErr;
+
+      // If payment has invoice_id, use RPC v2 for atomic update + recompute
+      if (payment?.invoice_id && updates.amount !== undefined) {
+        const { data, error } = await supabase.rpc('update_payment_and_recompute_debt_v2', {
+          p_payment_id: id,
+          p_amount: updates.amount,
+          p_payment_date: updates.payment_date || new Date().toISOString(),
+          p_payment_method: updates.payment_method || 'cash',
+          p_reference: updates.reference || null,
+          p_notes: updates.notes || null,
+        });
+        if (error) throw error;
+        return data;
+      }
+
+      // Legacy: simple update
       const { data, error } = await supabase
         .from('payments')
         .update(updates)
@@ -167,6 +191,7 @@ export function useUpdatePayment() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['payments'] });
       queryClient.invalidateQueries({ queryKey: ['payment-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['debts'] });
       toast.success('Pago actualizado correctamente');
     },
     onError: (error) => {
@@ -180,7 +205,16 @@ export function useDeletePayment() {
 
   return useMutation({
     mutationFn: async (payment: PaymentWithRelations) => {
-      // If payment has session_id, reset the debt to pending
+      // If payment has invoice_id, use RPC v2 for atomic delete + recompute
+      if (payment.invoice_id) {
+        const { data, error } = await supabase.rpc('delete_payment_and_recompute_debt_v2', {
+          p_payment_id: payment.id,
+        });
+        if (error) throw error;
+        return data;
+      }
+
+      // Legacy: manual handling for payments without invoice_id
       if (payment.session_id) {
         const { data: debt } = await supabase
           .from('debts')
@@ -196,34 +230,6 @@ export function useDeletePayment() {
         }
       }
 
-      // If payment has invoice_id, decrement paid_amount and update invoice status
-      if (payment.invoice_id) {
-        const { data: debt } = await supabase
-          .from('debts')
-          .select('id, paid_amount, amount')
-          .eq('invoice_id', payment.invoice_id)
-          .maybeSingle();
-
-        if (debt) {
-          const newPaidAmount = Math.max(0, Number(debt.paid_amount) - payment.amount);
-          const newStatus = newPaidAmount >= Number(debt.amount) ? 'paid' : newPaidAmount > 0 ? 'partial' : 'pending';
-          
-          await supabase
-            .from('debts')
-            .update({ paid_amount: newPaidAmount, status: newStatus })
-            .eq('id', debt.id);
-
-          // Update invoice status: if no longer fully paid, set to 'issued'
-          if (newStatus !== 'paid') {
-            await supabase
-              .from('invoices')
-              .update({ status: 'issued' })
-              .eq('id', payment.invoice_id);
-          }
-        }
-      }
-
-      // Delete the payment
       const { error } = await supabase
         .from('payments')
         .delete()
@@ -235,6 +241,7 @@ export function useDeletePayment() {
       queryClient.invalidateQueries({ queryKey: ['payments'] });
       queryClient.invalidateQueries({ queryKey: ['payment-stats'] });
       queryClient.invalidateQueries({ queryKey: ['debts'] });
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
       queryClient.invalidateQueries({ queryKey: ['session-payment-status'] });
       toast.success('Pago eliminado correctamente');
     },

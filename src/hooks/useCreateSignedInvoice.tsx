@@ -27,6 +27,11 @@ interface CreateSignedInvoiceParams {
   patientEmail?: string | null;
   patientPhone?: string | null;
   bonoId?: string;
+  /**
+   * If 'draft', creates invoice as draft (no number, no verifactu).
+   * Used for bonos where invoice is issued on first payment.
+   */
+  statusOverride?: 'draft' | 'issued';
 }
 
 interface CreateSignedInvoiceResult {
@@ -60,7 +65,10 @@ export function useCreateSignedInvoice() {
         sendNotification: shouldSendNotification,
         patientEmail,
         patientPhone,
+        statusOverride,
       } = params;
+
+      const isDraft = statusOverride === 'draft';
 
       if (!center?.id) {
         throw new Error('No se ha encontrado el centro');
@@ -90,18 +98,24 @@ export function useCreateSignedInvoice() {
         throw new Error('Error al obtener la serie de facturación');
       }
 
-      // 2. Generate invoice number from series format
+      // 2. Generate invoice number from series format (or BORRADOR for drafts)
       const year = new Date().getFullYear();
       const nextNumber = seriesData.next_number || 1;
       const paddedNumber = nextNumber.toString().padStart(5, '0');
       
-      let invoiceNumber = seriesData.format
-        .replace('{SERIE}', seriesData.name)
-        .replace('{AAAA}', year.toString())
-        .replace('{AA}', year.toString().slice(-2))
-        .replace('{NNNNN}', paddedNumber)
-        .replace('{NNNN}', nextNumber.toString().padStart(4, '0'))
-        .replace('{NNN}', nextNumber.toString().padStart(3, '0'));
+      let invoiceNumber: string;
+      if (isDraft) {
+        // For drafts, use a temporary number that will be replaced when issued
+        invoiceNumber = `BORRADOR-${Date.now()}`;
+      } else {
+        invoiceNumber = seriesData.format
+          .replace('{SERIE}', seriesData.name)
+          .replace('{AAAA}', year.toString())
+          .replace('{AA}', year.toString().slice(-2))
+          .replace('{NNNNN}', paddedNumber)
+          .replace('{NNNN}', nextNumber.toString().padStart(4, '0'))
+          .replace('{NNN}', nextNumber.toString().padStart(3, '0'));
+      }
 
       // 3. Calculate totals
       const subtotal = items.reduce((sum, item) => sum + item.unit_price * item.quantity, 0);
@@ -116,13 +130,13 @@ export function useCreateSignedInvoice() {
           patient_id: patientId,
           series_id: targetSeriesId,
           invoice_number: invoiceNumber,
-          status: 'issued' as const,
-          issue_date: new Date().toISOString().split('T')[0],
+          status: isDraft ? 'draft' : 'issued',
+          issue_date: isDraft ? null : new Date().toISOString().split('T')[0],
           subtotal,
           tax_rate: items[0]?.tax_rate || 0,
           tax_amount: taxAmount,
           total,
-          notes: notes || 'Factura generada automáticamente',
+          notes: notes || (isDraft ? 'Factura borrador (pendiente de emisión)' : 'Factura generada automáticamente'),
         }])
         .select()
         .single();
@@ -238,45 +252,65 @@ export function useCreateSignedInvoice() {
         console.error('Error creating invoice items:', itemsError);
       }
 
-      // 6. Update series counter
-      const { error: seriesUpdateError } = await supabase
-        .from('invoice_series')
-        .update({ next_number: nextNumber + 1 })
-        .eq('id', targetSeriesId);
+      // 6. Update series counter (only if not draft)
+      if (!isDraft) {
+        const { error: seriesUpdateError } = await supabase
+          .from('invoice_series')
+          .update({ next_number: nextNumber + 1 })
+          .eq('id', targetSeriesId);
 
-      if (seriesUpdateError) {
-        console.error('Error updating series counter:', seriesUpdateError);
+        if (seriesUpdateError) {
+          console.error('Error updating series counter:', seriesUpdateError);
+        }
       }
 
       // 7. If Verifactu auto is enabled and certificate is configured, sign the invoice
-      const verifactuAutoEnabled = center?.verifactu_auto_enabled === true;
-      const hasCertificate = !!center?.verifactu_certificate_base64;
+      // Skip Verifactu for drafts - will be signed when issued
+      if (isDraft) {
+        // Drafts don't need Verifactu yet
+        result.verifactuSuccess = true;
+      } else {
+        const verifactuAutoEnabled = center?.verifactu_auto_enabled === true;
+        const hasCertificate = !!center?.verifactu_certificate_base64;
 
-      if (verifactuAutoEnabled && hasCertificate) {
-        try {
-          const { data: verifactuData, error: verifactuError } = await supabase.functions.invoke(
-            'sign-invoice-verifactu',
-            { body: { invoice_id: invoice.id } }
-          );
+        if (verifactuAutoEnabled && hasCertificate) {
+          try {
+            const { data: verifactuData, error: verifactuError } = await supabase.functions.invoke(
+              'sign-invoice-verifactu',
+              { body: { invoice_id: invoice.id } }
+            );
 
-          if (verifactuError) {
-            console.error('Verifactu signing error:', verifactuError);
+            if (verifactuError) {
+              console.error('Verifactu signing error:', verifactuError);
+              result.verifactuPending = true;
+              result.verifactuError = verifactuError.message;
+              
+              // Mark invoice as pending Verifactu
+              await supabase
+                .from('invoices')
+                .update({ 
+                  verifactu_pending: true,
+                  verifactu_retry_count: 1 
+                })
+                .eq('id', invoice.id);
+            } else if (verifactuData?.success) {
+              result.verifactuSuccess = true;
+            } else {
+              result.verifactuPending = true;
+              result.verifactuError = verifactuData?.error || 'Error desconocido en Verifactu';
+              
+              await supabase
+                .from('invoices')
+                .update({ 
+                  verifactu_pending: true,
+                  verifactu_retry_count: 1 
+                })
+                .eq('id', invoice.id);
+            }
+          } catch (error) {
+            console.error('Verifactu error:', error);
             result.verifactuPending = true;
-            result.verifactuError = verifactuError.message;
-            
-            // Mark invoice as pending Verifactu
-            await supabase
-              .from('invoices')
-              .update({ 
-                verifactu_pending: true,
-                verifactu_retry_count: 1 
-              })
-              .eq('id', invoice.id);
-          } else if (verifactuData?.success) {
-            result.verifactuSuccess = true;
-          } else {
-            result.verifactuPending = true;
-            result.verifactuError = verifactuData?.error || 'Error desconocido en Verifactu';
+            result.verifactuError = error instanceof Error ? error.message : 'Error de conexión';
             
             await supabase
               .from('invoices')
@@ -286,22 +320,10 @@ export function useCreateSignedInvoice() {
               })
               .eq('id', invoice.id);
           }
-        } catch (error) {
-          console.error('Verifactu error:', error);
-          result.verifactuPending = true;
-          result.verifactuError = error instanceof Error ? error.message : 'Error de conexión';
-          
-          await supabase
-            .from('invoices')
-            .update({ 
-              verifactu_pending: true,
-              verifactu_retry_count: 1 
-            })
-            .eq('id', invoice.id);
+        } else {
+          // Verifactu not enabled or no certificate - consider it "successful" for flow purposes
+          result.verifactuSuccess = true;
         }
-      } else {
-        // Verifactu not enabled or no certificate - consider it "successful" for flow purposes
-        result.verifactuSuccess = true;
       }
 
       // 8. Send notification ONLY if Verifactu succeeded (or wasn't required)

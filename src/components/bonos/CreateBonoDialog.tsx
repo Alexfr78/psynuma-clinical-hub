@@ -37,6 +37,7 @@ import { useBonoTemplates, useCreateBono } from '@/hooks/useBonos';
 import { useAuth } from '@/hooks/useAuth';
 import { useCenter } from '@/hooks/useCenter';
 import { useCreateSignedInvoice } from '@/hooks/useCreateSignedInvoice';
+import { useIssueInvoice } from '@/hooks/useIssueInvoice';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -68,6 +69,7 @@ export function CreateBonoDialog({ open, onOpenChange, preselectedPatientId, onS
   const { data: templates } = useBonoTemplates();
   const createBono = useCreateBono();
   const createSignedInvoice = useCreateSignedInvoice();
+  const issueInvoice = useIssueInvoice();
   const { profile } = useAuth();
   const { center } = useCenter();
   const [isCustom, setIsCustom] = useState(false);
@@ -148,75 +150,78 @@ export function CreateBonoDialog({ open, onOpenChange, preselectedPatientId, onS
       });
 
       if (result?.id && values.total_price > 0) {
+        const taxRate = center?.default_tax_rate || 0;
+        const taxAmount = (values.total_price * taxRate) / 100;
+
+        // 2. ALWAYS create a DRAFT invoice for the TOTAL bono price
+        const invoiceResult = await createSignedInvoice.mutateAsync({
+          patientId: values.patient_id,
+          invoiceType: 'simplified',
+          bonoId: result.id,
+          statusOverride: 'draft', // ← KEY: Create as draft
+          items: [{
+            description: `Bono: ${values.name} (${values.total_sessions} sesiones)`,
+            quantity: 1,
+            unit_price: values.total_price, // ← TOTAL price, not paid amount
+            tax_rate: taxRate,
+            tax_amount: taxAmount,
+            total: values.total_price + taxAmount,
+            bono_id: result.id,
+          }],
+          notes: `Bono: ${values.name}`,
+          sendNotification: false,
+        });
+
+        const invoiceId = invoiceResult?.invoiceId;
+        if (!invoiceId) {
+          throw new Error('No se pudo crear la factura borrador');
+        }
+
+        // 3. Create debt linked to bono AND invoice (always)
         const paidAmount = values.pay_now ? (values.payment_amount || values.total_price) : 0;
         const debtStatus = paidAmount >= values.total_price ? 'paid' : 
                            paidAmount > 0 ? 'partial' : 'pending';
 
-        // 2. If paying now, create invoice + payment
+        const { data: debtData, error: debtError } = await supabase
+          .from('debts')
+          .insert({
+            patient_id: values.patient_id,
+            bono_id: result.id,
+            amount: values.total_price,
+            paid_amount: 0, // Will be updated via RPC
+            status: 'pending',
+            notes: `Bono: ${values.name} (${values.total_sessions} sesiones)`,
+            center_id: centerId,
+            invoice_id: invoiceId, // ← ALWAYS linked to invoice
+          })
+          .select('id')
+          .single();
+
+        if (debtError) throw debtError;
+
+        // 4. If paying now, record payment and issue invoice
         if (values.pay_now && paidAmount > 0) {
-          const taxRate = center?.default_tax_rate || 0;
-          const taxAmount = (paidAmount * taxRate) / 100;
-
-          // Create invoice using the centralized hook
-          const invoiceResult = await createSignedInvoice.mutateAsync({
-            patientId: values.patient_id,
-            invoiceType: 'simplified',
-            bonoId: result.id,
-            items: [{
-              description: `Bono: ${values.name} (${values.total_sessions} sesiones)`,
-              quantity: 1,
-              unit_price: paidAmount,
-              tax_rate: taxRate,
-              tax_amount: taxAmount,
-              total: paidAmount + taxAmount,
-              bono_id: result.id,
-            }],
-            notes: `Bono: ${values.name}`,
-            sendNotification: false,
-          });
-
-          // Create debt linked to bono and invoice
-          const { error: debtError } = await supabase
-            .from('debts')
-            .insert({
-              patient_id: values.patient_id,
-              bono_id: result.id,
-              amount: values.total_price,
-              paid_amount: paidAmount,
-              status: debtStatus,
-              notes: `Bono: ${values.name} (${values.total_sessions} sesiones)`,
-              center_id: centerId,
-              invoice_id: invoiceResult?.invoiceId || null,
-            });
-
-          if (debtError) throw debtError;
-
-          // Record payment
+          // Record payment against the draft invoice
           const { error: paymentError } = await supabase.from('payments').insert({
             patient_id: values.patient_id,
             amount: paidAmount,
             payment_method: values.payment_method || 'cash',
             payment_date: new Date().toISOString(),
             center_id: centerId,
-            invoice_id: invoiceResult?.invoiceId || null,
+            invoice_id: invoiceId, // ← Linked to the same invoice
           });
 
           if (paymentError) throw paymentError;
 
-          toast.success('Bono creado y facturado correctamente');
-        } else {
-          // 3. Create pending debt (no payment, no invoice yet)
-          const { error: debtError } = await supabase.from('debts').insert({
-            patient_id: values.patient_id,
-            bono_id: result.id,
-            amount: values.total_price,
-            paid_amount: 0,
-            status: 'pending',
-            notes: `Bono: ${values.name} (${values.total_sessions} sesiones)`,
-            center_id: centerId,
-          });
+          // Recompute debt via RPC
+          await supabase.rpc('recompute_debt_by_invoice', { p_debt_id: debtData.id });
 
-          if (debtError) throw debtError;
+          // Issue the invoice (draft → issued + Verifactu)
+          await issueInvoice.mutateAsync(invoiceId);
+
+          toast.success('Bono creado, factura emitida y pago registrado');
+        } else {
+          toast.success('Bono creado con factura borrador');
         }
       }
 

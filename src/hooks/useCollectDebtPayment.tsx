@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useCreateSignedInvoice } from '@/hooks/useCreateSignedInvoice';
+import { useIssueInvoice } from '@/hooks/useIssueInvoice';
 import { useCenter } from '@/hooks/useCenter';
 import { toast } from 'sonner';
 
@@ -12,9 +12,14 @@ interface CollectDebtPaymentArgs {
   notes?: string | null;
 }
 
+/**
+ * Hook to collect payment on a debt that has an invoice_id (new bono model).
+ * Does NOT create a new invoice - uses the existing draft/issued invoice.
+ * Issues the invoice on first payment if it's still draft.
+ */
 export function useCollectDebtPayment() {
   const queryClient = useQueryClient();
-  const createSignedInvoice = useCreateSignedInvoice();
+  const issueInvoice = useIssueInvoice();
   const { center } = useCenter();
 
   return useMutation({
@@ -39,36 +44,27 @@ export function useCollectDebtPayment() {
         throw new Error(`El importe supera el pendiente. Pendiente: ${remaining.toFixed(2)}€`);
       }
 
-      // 2. Create partial invoice for the amount being paid
-      const taxRate = center?.default_tax_rate || 0;
-      const taxAmount = (amount * taxRate) / 100;
-      const isBono = !!debt.bono_id;
+      // 2. Check if this debt has invoice_id (new model) or not (legacy)
+      if (!debt.invoice_id) {
+        throw new Error('Esta deuda no tiene factura asociada. Es una deuda del modelo anterior que requiere regularización.');
+      }
 
-      const invoiceResult = await createSignedInvoice.mutateAsync({
-        patientId: debt.patient_id,
-        invoiceType: 'simplified',
-        items: [{
-          description: debt.notes || (isBono ? 'Pago de bono' : 'Pago de sesión'),
-          quantity: 1,
-          unit_price: amount,
-          tax_rate: taxRate,
-          tax_amount: taxAmount,
-          total: amount + taxAmount,
-          bono_id: debt.bono_id || undefined,
-          session_id: debt.session_id || undefined,
-        }],
-        notes: notes || undefined,
-        sendNotification: false,
-      });
+      // 3. Get the invoice to check its status
+      const { data: invoice, error: invErr } = await supabase
+        .from('invoices')
+        .select('id, status')
+        .eq('id', debt.invoice_id)
+        .single();
 
-      const invoiceId = invoiceResult?.invoiceId;
-      if (!invoiceId) throw new Error('No se pudo crear la factura');
+      if (invErr || !invoice) {
+        throw new Error('No se pudo obtener la factura asociada');
+      }
 
-      // 3. Insert payment linked to invoice
+      // 4. Insert payment linked to the existing invoice
       const { error: payErr } = await supabase.from('payments').insert({
         patient_id: debt.patient_id,
         center_id: debt.center_id,
-        invoice_id: invoiceId,
+        invoice_id: debt.invoice_id,
         session_id: debt.session_id || null,
         amount,
         payment_method: paymentMethod,
@@ -79,30 +75,48 @@ export function useCollectDebtPayment() {
 
       if (payErr) throw payErr;
 
-      // 4. Update debt
-      const newPaid = Number(debt.paid_amount || 0) + amount;
-      const newStatus = newPaid >= Number(debt.amount || 0) - 0.01 ? 'paid' : 'partial';
+      // 5. Recompute debt via RPC
+      const { data: recomputeResult, error: rpcErr } = await supabase.rpc('recompute_debt_by_invoice', { 
+        p_debt_id: debtId 
+      });
 
-      const { error: updErr } = await supabase
-        .from('debts')
-        .update({
-          paid_amount: newPaid,
-          status: newStatus,
-          invoice_id: invoiceId, // last invoice created
-        })
-        .eq('id', debtId);
+      if (rpcErr) {
+        console.error('Error recomputing debt:', rpcErr);
+        throw new Error('Error al recalcular la deuda');
+      }
 
-      if (updErr) throw updErr;
+      // 6. If invoice is draft, issue it (first payment)
+      let invoiceIssued = false;
+      if (invoice.status === 'draft') {
+        try {
+          await issueInvoice.mutateAsync(debt.invoice_id);
+          invoiceIssued = true;
+        } catch (issueErr) {
+          console.error('Error issuing invoice:', issueErr);
+          // Don't fail the whole operation, payment is already recorded
+          toast.warning('Pago registrado, pero hubo un error al emitir la factura');
+        }
+      }
 
-      return { invoiceId, newPaid, newStatus };
+      return { 
+        invoiceId: debt.invoice_id, 
+        newPaid: (recomputeResult as { paid_amount?: number })?.paid_amount,
+        newStatus: (recomputeResult as { status?: string })?.status,
+        invoiceIssued,
+      };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['debts'] });
       queryClient.invalidateQueries({ queryKey: ['debt-stats'] });
       queryClient.invalidateQueries({ queryKey: ['payments'] });
       queryClient.invalidateQueries({ queryKey: ['payment-stats'] });
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
-      toast.success('Pago registrado y factura generada');
+      
+      if (data.invoiceIssued) {
+        toast.success('Pago registrado y factura emitida');
+      } else {
+        toast.success('Pago registrado correctamente');
+      }
     },
     onError: (error) => {
       toast.error('Error al cobrar: ' + error.message);
