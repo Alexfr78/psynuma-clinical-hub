@@ -84,7 +84,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { useLocations } from '@/hooks/useLocations';
-import { usePatientActiveBonos, useDeductBonoSession, useUpdateBono } from '@/hooks/useBonos';
+import { usePatientActiveBonos, useApplyBonoToSession, useRemoveBonoFromSession, useUpdateBono } from '@/hooks/useBonos';
 import { CreateBonoDialog } from '@/components/bonos/CreateBonoDialog';
 import { useSessionPaymentStatus } from '@/hooks/useSessionPayment';
 import { useSessionInvoiceStatus } from '@/hooks/useInvoices';
@@ -147,7 +147,8 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
   const queryClient = useQueryClient();
   const updateSession = useUpdateSession();
   const deleteSession = useDeleteSession();
-  const deductBonoSession = useDeductBonoSession();
+  const applyBonoToSession = useApplyBonoToSession();
+  const removeBonoFromSession = useRemoveBonoFromSession();
   const updateBono = useUpdateBono();
   const { data: locations } = useLocations();
   const { center } = useCenter();
@@ -550,50 +551,51 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
     }
   };
 
-  // Handle bono change for existing bonos (price = 0, already paid)
-  const handleBonoChange = async (newBonoId: string, priceOverride?: number) => {
+  // Handle bono change using transactional RPCs
+  const handleBonoChange = async (newBonoId: string) => {
     try {
       const usesBono = newBonoId !== '__none__';
-      const newPrice = priceOverride !== undefined ? priceOverride : (usesBono ? 0 : session.price);
+      const currentBonoId = localBonoId;
       
       // Update local state immediately for responsive UI
       setLocalBonoId(usesBono ? newBonoId : null);
-      setLocalPrice(Number(newPrice));
       
-      // Update session in database
-      await updateSession.mutateAsync({
-        id: session.id,
-        bono_id: usesBono ? newBonoId : null,
-        price: newPrice,
-      });
-
-      // If assigning a bono, deduct a session from it (idempotent - won't duplicate)
-      if (usesBono) {
-        await deductBonoSession.mutateAsync({
+      if (!usesBono && currentBonoId) {
+        // Removing bono - use RPC to return session to pool
+        await removeBonoFromSession.mutateAsync(session.id);
+        toast({ 
+          title: 'Bono quitado',
+          description: 'La sesión se ha devuelto al bono.',
+        });
+      } else if (usesBono) {
+        // If there was a previous bono, first remove it
+        if (currentBonoId && currentBonoId !== newBonoId) {
+          await removeBonoFromSession.mutateAsync(session.id);
+        }
+        // Apply new bono using transactional RPC
+        await applyBonoToSession.mutateAsync({
           bonoId: newBonoId,
           sessionId: session.id,
         });
+        toast({ 
+          title: 'Bono asignado',
+          description: 'Se ha descontado una sesión del bono.',
+        });
       }
-
-      // Invalidate queries to refresh data
-      queryClient.invalidateQueries({ queryKey: ['sessions'] });
       
-      toast({ 
-        title: usesBono ? 'Bono asignado' : 'Bono quitado',
-        description: usesBono ? 'Se ha descontado una sesión del bono.' : undefined,
-      });
+      // Refresh bonos list
       refetchBonos();
-    } catch {
+    } catch (error: any) {
       // Revert local state on error
       setLocalBonoId(session.bono_id || null);
-      setLocalPrice(Number(session.price) || 0);
-      toast({ title: 'Error al cambiar bono', variant: 'destructive' });
+      toast({ title: 'Error al cambiar bono', description: error.message, variant: 'destructive' });
     }
   };
 
-  // Handle new bono created - price = totalPrice of bono (needs to be paid)
-  const handleNewBonoCreated = async (bonoId: string, totalPrice: number) => {
-    await handleBonoChange(bonoId, totalPrice);
+  // Handle new bono created - apply it to session
+  const handleNewBonoCreated = async (bonoId: string, _totalPrice: number) => {
+    // Apply the bono to this session (price is not changed - bono billing is separate)
+    await handleBonoChange(bonoId);
   };
 
   // Handle generate payment link

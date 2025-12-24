@@ -226,61 +226,65 @@ export function useDeleteBonoTemplate() {
     },
   });
 }
-
-export function useDeductBonoSession() {
+// Apply bono to session using transactional RPC
+export function useApplyBonoToSession() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({ bonoId, sessionId }: { bonoId: string; sessionId: string }) => {
-      // Check if bono_item already exists for this session (prevent duplicates)
-      const { data: existingItem } = await supabase
-        .from('bono_items')
-        .select('id')
-        .eq('bono_id', bonoId)
-        .eq('session_id', sessionId)
-        .maybeSingle();
-
-      if (existingItem) {
-        // Already deducted, don't create duplicate
-        return;
-      }
-
-      // Create bono_item
-      const { error: itemError } = await supabase
-        .from('bono_items')
-        .insert({
-          bono_id: bonoId,
-          session_id: sessionId,
+      const { data, error } = await supabase
+        .rpc('apply_bono_to_session', {
+          p_bono_id: bonoId,
+          p_session_id: sessionId,
         });
 
-      if (itemError) throw itemError;
-
-      // Get current bono
-      const { data: bono, error: bonoError } = await supabase
-        .from('bonos')
-        .select('used_sessions, total_sessions')
-        .eq('id', bonoId)
-        .single();
-
-      if (bonoError) throw bonoError;
-
-      // Update used_sessions and status if exhausted
-      const newUsedSessions = (bono.used_sessions || 0) + 1;
-      const newStatus = newUsedSessions >= bono.total_sessions ? 'exhausted' : 'active';
-
-      const { error: updateError } = await supabase
-        .from('bonos')
-        .update({
-          used_sessions: newUsedSessions,
-          status: newStatus,
-        })
-        .eq('id', bonoId);
-
-      if (updateError) throw updateError;
+      if (error) throw error;
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bonos'] });
       queryClient.invalidateQueries({ queryKey: ['patient-active-bonos'] });
+      queryClient.invalidateQueries({ queryKey: ['sessions'] });
+    },
+    onError: (error) => {
+      toast.error('Error al asignar bono: ' + error.message);
     },
   });
+}
+
+// Remove bono from session using transactional RPC
+export function useRemoveBonoFromSession() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (sessionId: string) => {
+      const { data, error } = await supabase
+        .rpc('remove_bono_from_session', {
+          p_session_id: sessionId,
+        });
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['bonos'] });
+      queryClient.invalidateQueries({ queryKey: ['patient-active-bonos'] });
+      queryClient.invalidateQueries({ queryKey: ['sessions'] });
+    },
+    onError: (error) => {
+      toast.error('Error al quitar bono: ' + error.message);
+    },
+  });
+}
+
+// Legacy hook - kept for backward compatibility but now uses RPC internally
+export function useDeductBonoSession() {
+  const applyBono = useApplyBonoToSession();
+  
+  return {
+    ...applyBono,
+    mutateAsync: async ({ bonoId, sessionId }: { bonoId: string; sessionId: string }) => {
+      return applyBono.mutateAsync({ bonoId, sessionId });
+    },
+  };
 }
