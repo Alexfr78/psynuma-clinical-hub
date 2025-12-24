@@ -319,6 +319,77 @@ export type Database = {
           },
         ]
       }
+      calendar_events: {
+        Row: {
+          all_day: boolean | null
+          calendar_id: string
+          created_at: string | null
+          deleted: boolean | null
+          description: string | null
+          end_at: string | null
+          etag: string | null
+          google_event_id: string
+          id: string
+          location: string | null
+          professional_id: string
+          provider: string
+          raw: Json | null
+          start_at: string | null
+          status: string | null
+          summary: string | null
+          updated_at: string | null
+          updated_at_google: string | null
+        }
+        Insert: {
+          all_day?: boolean | null
+          calendar_id: string
+          created_at?: string | null
+          deleted?: boolean | null
+          description?: string | null
+          end_at?: string | null
+          etag?: string | null
+          google_event_id: string
+          id?: string
+          location?: string | null
+          professional_id: string
+          provider: string
+          raw?: Json | null
+          start_at?: string | null
+          status?: string | null
+          summary?: string | null
+          updated_at?: string | null
+          updated_at_google?: string | null
+        }
+        Update: {
+          all_day?: boolean | null
+          calendar_id?: string
+          created_at?: string | null
+          deleted?: boolean | null
+          description?: string | null
+          end_at?: string | null
+          etag?: string | null
+          google_event_id?: string
+          id?: string
+          location?: string | null
+          professional_id?: string
+          provider?: string
+          raw?: Json | null
+          start_at?: string | null
+          status?: string | null
+          summary?: string | null
+          updated_at?: string | null
+          updated_at_google?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_events_professional_id_fkey"
+            columns: ["professional_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       center_locations: {
         Row: {
           center_id: string
@@ -1369,6 +1440,9 @@ export type Database = {
           expires_at: string | null
           google_calendar_id: string | null
           id: string
+          last_sync_at: string | null
+          last_sync_status: string | null
+          needs_reconnect: boolean | null
           professional_id: string
           provider: string
           provider_account_id: string | null
@@ -1376,7 +1450,11 @@ export type Database = {
           scope: string | null
           stripe_account_id: string | null
           stripe_account_status: string | null
+          sync_token: string | null
           updated_at: string | null
+          watch_channel_id: string | null
+          watch_expires_at: string | null
+          watch_resource_id: string | null
         }
         Insert: {
           access_token?: string | null
@@ -1384,6 +1462,9 @@ export type Database = {
           expires_at?: string | null
           google_calendar_id?: string | null
           id?: string
+          last_sync_at?: string | null
+          last_sync_status?: string | null
+          needs_reconnect?: boolean | null
           professional_id: string
           provider: string
           provider_account_id?: string | null
@@ -1391,7 +1472,11 @@ export type Database = {
           scope?: string | null
           stripe_account_id?: string | null
           stripe_account_status?: string | null
+          sync_token?: string | null
           updated_at?: string | null
+          watch_channel_id?: string | null
+          watch_expires_at?: string | null
+          watch_resource_id?: string | null
         }
         Update: {
           access_token?: string | null
@@ -1399,6 +1484,9 @@ export type Database = {
           expires_at?: string | null
           google_calendar_id?: string | null
           id?: string
+          last_sync_at?: string | null
+          last_sync_status?: string | null
+          needs_reconnect?: boolean | null
           professional_id?: string
           provider?: string
           provider_account_id?: string | null
@@ -1406,7 +1494,11 @@ export type Database = {
           scope?: string | null
           stripe_account_id?: string | null
           stripe_account_status?: string | null
+          sync_token?: string | null
           updated_at?: string | null
+          watch_channel_id?: string | null
+          watch_expires_at?: string | null
+          watch_resource_id?: string | null
         }
         Relationships: [
           {

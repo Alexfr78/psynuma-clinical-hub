@@ -11,6 +11,7 @@ interface SyncResult {
   updated: number;
   deleted: number;
   errors: string[];
+  calendarEventsImported?: number;
 }
 
 // AES-256-GCM decryption for OAuth credentials
@@ -38,7 +39,6 @@ async function decryptAES256GCM(encryptedData: string, encryptionKey: string): P
 }
 
 async function getGoogleOAuthCredentials(supabase: any, professionalId: string): Promise<{ clientId: string; clientSecret: string } | null> {
-  // First try to get credentials from center configuration
   const { data: profile } = await supabase
     .from('profiles')
     .select('center_id')
@@ -57,21 +57,20 @@ async function getGoogleOAuthCredentials(supabase: any, professionalId: string):
         const encryptionKey = Deno.env.get('CERTIFICATE_ENCRYPTION_KEY');
         if (encryptionKey) {
           const clientSecret = await decryptAES256GCM(center.oauth_google_credentials, encryptionKey);
-          console.log('Using OAuth credentials from center configuration');
+          console.log('[SYNC] Using OAuth credentials from center configuration');
           return { clientId: center.oauth_google_client_id, clientSecret };
         }
       } catch (error) {
-        console.error('Error decrypting center OAuth credentials:', error);
+        console.error('[SYNC] Error decrypting center OAuth credentials:', error);
       }
     }
   }
 
-  // Fallback to environment variables
   const clientId = Deno.env.get('GOOGLE_CLIENT_ID');
   const clientSecret = Deno.env.get('GOOGLE_CLIENT_SECRET');
   
   if (clientId && clientSecret) {
-    console.log('Using OAuth credentials from environment variables');
+    console.log('[SYNC] Using OAuth credentials from environment variables');
     return { clientId, clientSecret };
   }
 
@@ -86,12 +85,17 @@ async function refreshGoogleToken(
   const credentials = await getGoogleOAuthCredentials(supabase, professionalId);
 
   if (!credentials) {
-    console.error('Google OAuth credentials not configured (neither center nor env vars)');
+    console.error('[SYNC:TOKEN] Google OAuth credentials not configured');
+    await supabase
+      .from('oauth_connections')
+      .update({ needs_reconnect: true, last_sync_status: 'credentials_missing' })
+      .eq('professional_id', professionalId)
+      .eq('provider', 'google');
     return null;
   }
 
   try {
-    console.log('Attempting to refresh Google token...');
+    console.log('[SYNC:TOKEN] Attempting to refresh Google token...');
     const response = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -104,15 +108,6 @@ async function refreshGoogleToken(
     });
 
     const data = await response.json();
-    
-    // Detailed logging for debugging
-    console.log('Google token refresh response:', {
-      ok: response.ok,
-      status: response.status,
-      hasAccessToken: !!data.access_token,
-      error: data.error,
-      error_description: data.error_description,
-    });
 
     if (data.access_token) {
       const expiresAt = new Date(Date.now() + (data.expires_in * 1000)).toISOString();
@@ -122,32 +117,31 @@ async function refreshGoogleToken(
           access_token: data.access_token,
           expires_at: expiresAt,
           updated_at: new Date().toISOString(),
+          needs_reconnect: false,
         })
         .eq('professional_id', professionalId)
         .eq('provider', 'google');
 
-      console.log('Token refreshed successfully, expires at:', expiresAt);
+      console.log('[SYNC:TOKEN] Token refreshed successfully');
       return data.access_token;
     }
 
-    // Handle specific error cases
-    if (data.error === 'invalid_grant') {
-      console.error('Refresh token has been revoked or expired - user needs to reconnect Google');
-      // Mark the connection as invalid so user knows to reconnect
+    console.error('[SYNC:TOKEN] Google token refresh failed:', data.error, data.error_description);
+
+    // Handle specific error cases - mark needs_reconnect
+    if (data.error === 'invalid_grant' || data.error === 'invalid_client') {
+      console.error('[SYNC:TOKEN] Auth error - marking needs_reconnect');
       await supabase
         .from('oauth_connections')
         .update({
-          access_token: null,
-          refresh_token: null,
-          updated_at: new Date().toISOString(),
+          needs_reconnect: true,
+          last_sync_status: 'needs_reconnect',
         })
         .eq('professional_id', professionalId)
         .eq('provider', 'google');
-    } else {
-      console.error('Google token refresh failed:', data.error, data.error_description);
     }
   } catch (error) {
-    console.error('Error refreshing Google token:', error);
+    console.error('[SYNC:TOKEN] Error refreshing Google token:', error);
   }
   return null;
 }
@@ -170,35 +164,99 @@ async function getValidAccessToken(
   return null;
 }
 
+// Parse Google event times - handles both all-day and timed events
+function parseGoogleEventTimes(ev: any): { start_at: string | null; end_at: string | null; all_day: boolean } {
+  const isAllDay = !!ev.start?.date && !ev.start?.dateTime;
+
+  if (isAllDay) {
+    // All-day events: start.date and end.date are YYYY-MM-DD
+    // Note: end.date is exclusive (the day after the last day)
+    return {
+      all_day: true,
+      start_at: ev.start.date ? new Date(ev.start.date + 'T00:00:00').toISOString() : null,
+      end_at: ev.end.date ? new Date(ev.end.date + 'T00:00:00').toISOString() : null,
+    };
+  }
+
+  return {
+    all_day: false,
+    start_at: ev.start?.dateTime ?? null,
+    end_at: ev.end?.dateTime ?? null,
+  };
+}
+
+// Fetch Google Calendar events with syncToken support and pagination
+async function fetchGoogleCalendarEventsIncremental(
+  accessToken: string,
+  calendarId: string,
+  syncToken?: string | null,
+  timeMin?: string,
+  timeMax?: string
+): Promise<{ events: any[]; nextSyncToken: string | null; fullSync: boolean }> {
+  let allEvents: any[] = [];
+  let pageToken: string | undefined;
+  let nextSyncToken: string | null = null;
+  let fullSync = false;
+
+  const baseUrl = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`;
+
+  do {
+    const params = new URLSearchParams();
+    
+    if (syncToken && !fullSync) {
+      // Incremental sync
+      params.set('syncToken', syncToken);
+    } else {
+      // Full sync
+      fullSync = true;
+      if (timeMin) params.set('timeMin', timeMin);
+      if (timeMax) params.set('timeMax', timeMax);
+      params.set('singleEvents', 'true');
+      params.set('orderBy', 'startTime');
+    }
+
+    params.set('maxResults', '2500');
+    if (pageToken) params.set('pageToken', pageToken);
+
+    const response = await fetch(`${baseUrl}?${params}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+
+    if (response.status === 410) {
+      // 410 Gone - syncToken expired, need full resync
+      console.log('[SYNC:FETCH] SyncToken expired (410 Gone), performing full resync');
+      return fetchGoogleCalendarEventsIncremental(accessToken, calendarId, null, timeMin, timeMax);
+    }
+
+    if (!response.ok) {
+      const error = await response.text();
+      console.error('[SYNC:FETCH] Error fetching Google Calendar events:', error);
+      return { events: [], nextSyncToken: null, fullSync };
+    }
+
+    const data = await response.json();
+    allEvents = allEvents.concat(data.items || []);
+    pageToken = data.nextPageToken;
+    nextSyncToken = data.nextSyncToken || null;
+
+    console.log(`[SYNC:FETCH] Fetched page with ${data.items?.length || 0} events, hasMore: ${!!pageToken}`);
+
+  } while (pageToken);
+
+  console.log(`[SYNC:FETCH] Total events fetched: ${allEvents.length}, nextSyncToken: ${nextSyncToken ? 'yes' : 'no'}`);
+
+  return { events: allEvents, nextSyncToken, fullSync };
+}
+
+// Legacy function for sessions sync compatibility
 async function fetchGoogleCalendarEvents(
   accessToken: string,
   calendarId: string,
   timeMin: string,
   timeMax: string
 ): Promise<any[]> {
-  const params = new URLSearchParams({
-    timeMin,
-    timeMax,
-    singleEvents: 'true',
-    orderBy: 'startTime',
-    maxResults: '2500',
-  });
-
-  const response = await fetch(
-    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?${params}`,
-    {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    }
-  );
-
-  if (!response.ok) {
-    const error = await response.text();
-    console.error('Error fetching Google Calendar events:', error);
-    return [];
-  }
-
-  const data = await response.json();
-  return data.items || [];
+  const { events } = await fetchGoogleCalendarEventsIncremental(accessToken, calendarId, null, timeMin, timeMax);
+  return events;
 }
 
 function formatEventText(
@@ -216,22 +274,18 @@ function formatEventText(
     ? `${professional.first_name || ''} ${professional.last_name || ''}`.trim() 
     : 'Profesional';
   
-  // Modalidad
   const modality = session.session_modality === 'video' || session.video_provider 
     ? 'Online' 
     : 'Presencial';
   
-  // Ubicación
   const locationName = location?.name || '';
   const fullAddress = location 
     ? [location.street, location.number_details, location.city, location.postal_code]
         .filter(Boolean).join(', ')
     : '';
   
-  // Bono
   const bonoName = bono?.name || 'Sin bono';
   
-  // Política de cancelación
   const cancellationPolicies: Record<string, string> = {
     '24_hours': 'Hasta 24 horas antes',
     '48_hours': 'Hasta 48 horas antes',
@@ -305,7 +359,7 @@ async function createGoogleCalendarEvent(
 
   if (!response.ok) {
     const error = await response.text();
-    console.error('Error creating Google Calendar event:', error);
+    console.error('[SYNC] Error creating Google Calendar event:', error);
     return null;
   }
 
@@ -382,7 +436,6 @@ async function deleteGoogleCalendarEvent(
 function parseGoogleDateTimeToMadrid(dateTimeStr: string): { date: string; time: string } {
   const date = new Date(dateTimeStr);
   
-  // Use Intl.DateTimeFormat to get correct time in Europe/Madrid
   const formatter = new Intl.DateTimeFormat('es-ES', {
     timeZone: 'Europe/Madrid',
     year: 'numeric',
@@ -413,7 +466,6 @@ async function renewChannelIfExpiring(
   accessToken: string
 ): Promise<void> {
   try {
-    // Check if there's a channel expiring within 24 hours
     const { data: channel } = await supabase
       .from('google_calendar_channels')
       .select('*')
@@ -427,11 +479,11 @@ async function renewChannelIfExpiring(
     const hoursUntilExpiry = (expiration.getTime() - Date.now()) / (1000 * 60 * 60);
 
     if (hoursUntilExpiry > 24) {
-      console.log(`Channel still valid for ${hoursUntilExpiry.toFixed(1)} hours, no renewal needed`);
+      console.log(`[SYNC] Channel still valid for ${hoursUntilExpiry.toFixed(1)} hours`);
       return;
     }
 
-    console.log(`Channel expiring in ${hoursUntilExpiry.toFixed(1)} hours, renewing...`);
+    console.log(`[SYNC] Channel expiring in ${hoursUntilExpiry.toFixed(1)} hours, renewing...`);
 
     const webhookUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/google-calendar-webhook`;
     const newChannelId = crypto.randomUUID();
@@ -465,13 +517,80 @@ async function renewChannelIfExpiring(
         })
         .eq('id', channel.id);
 
-      console.log(`Channel renewed, new expiration: ${newExpiration}`);
+      // Also update oauth_connections
+      await supabase
+        .from('oauth_connections')
+        .update({
+          watch_channel_id: watchData.id,
+          watch_resource_id: watchData.resourceId,
+          watch_expires_at: newExpiration,
+        })
+        .eq('professional_id', professionalId)
+        .eq('provider', 'google');
+
+      console.log(`[SYNC] Channel renewed, new expiration: ${newExpiration}`);
     } else {
-      console.error('Failed to renew channel:', await watchResponse.text());
+      console.error('[SYNC] Failed to renew channel:', await watchResponse.text());
     }
   } catch (error) {
-    console.error('Error renewing channel:', error);
+    console.error('[SYNC] Error renewing channel:', error);
   }
+}
+
+// Upsert events to calendar_events table
+async function upsertCalendarEvents(
+  supabase: any,
+  professionalId: string,
+  calendarId: string,
+  events: any[]
+): Promise<{ imported: number; deleted: number; errors: string[] }> {
+  const result = { imported: 0, deleted: 0, errors: [] as string[] };
+
+  if (events.length === 0) return result;
+
+  const mappedEvents = events.map((ev: any) => {
+    const times = parseGoogleEventTimes(ev);
+    return {
+      provider: 'google' as const,
+      professional_id: professionalId,
+      calendar_id: calendarId,
+      google_event_id: ev.id,
+      status: ev.status,
+      summary: ev.summary ?? null,
+      description: ev.description ?? null,
+      location: ev.location ?? null,
+      start_at: times.start_at,
+      end_at: times.end_at,
+      all_day: times.all_day,
+      updated_at_google: ev.updated ? new Date(ev.updated).toISOString() : null,
+      etag: ev.etag ?? null,
+      deleted: ev.status === 'cancelled',
+      raw: ev,
+    };
+  });
+
+  // Upsert in batches
+  const batchSize = 100;
+  for (let i = 0; i < mappedEvents.length; i += batchSize) {
+    const batch = mappedEvents.slice(i, i + batchSize);
+    const { error } = await supabase
+      .from('calendar_events')
+      .upsert(batch, { onConflict: 'professional_id,provider,google_event_id' });
+
+    if (error) {
+      console.error('[SYNC:UPSERT] Error upserting calendar events:', error);
+      result.errors.push(`Error upserting batch: ${error.message}`);
+    } else {
+      result.imported += batch.length;
+    }
+  }
+
+  // Count deleted
+  result.deleted = mappedEvents.filter(e => e.deleted).length;
+
+  console.log(`[SYNC:UPSERT] Upserted ${result.imported} events, ${result.deleted} marked deleted`);
+
+  return result;
 }
 
 async function syncProfessional(
@@ -480,7 +599,9 @@ async function syncProfessional(
   dateFrom: string,
   dateTo: string
 ): Promise<SyncResult> {
-  const result: SyncResult = { created: 0, updated: 0, deleted: 0, errors: [] };
+  const result: SyncResult = { created: 0, updated: 0, deleted: 0, errors: [], calendarEventsImported: 0 };
+
+  console.log(`[SYNC:START] Professional ${professionalId}, range ${dateFrom} to ${dateTo}`);
 
   // Get OAuth connection
   const { data: connection, error: connError } = await supabase
@@ -492,6 +613,12 @@ async function syncProfessional(
 
   if (connError || !connection) {
     result.errors.push('No hay conexión con Google configurada');
+    return result;
+  }
+
+  // Check if needs reconnect
+  if (connection.needs_reconnect) {
+    result.errors.push('La conexión con Google necesita reconectarse');
     return result;
   }
 
@@ -513,15 +640,15 @@ async function syncProfessional(
     return result;
   }
 
-  // CRÍTICO: Aislamiento de calendario - NO usar 'primary' como fallback
-  // Esto evita leer eventos del calendario personal en lugar del seleccionado
+  // CRÍTICO: No usar 'primary' como fallback
   const calendarId = connection.google_calendar_id;
   if (!calendarId) {
-    console.error('AISLAMIENTO: No hay google_calendar_id configurado - abortando sincronización');
-    result.errors.push('No hay calendario seleccionado. Configura un calendario específico en Ajustes > Integraciones > Google Calendar.');
+    console.error('[SYNC:ERROR] No hay google_calendar_id configurado');
+    result.errors.push('No hay calendario seleccionado. Configura un calendario específico en Ajustes > Integraciones.');
     return result;
   }
-  console.log(`AISLAMIENTO: Usando calendario específico: ${calendarId}`);
+  
+  console.log(`[SYNC] Using calendar: ${calendarId}`);
 
   // Renew webhook channel if expiring soon
   if (integrations?.google_calendar_sync_mode === 'two_way') {
@@ -531,11 +658,36 @@ async function syncProfessional(
   // Get professional info
   const { data: professional } = await supabase
     .from('profiles')
-    .select('first_name, last_name')
+    .select('first_name, last_name, center_id')
     .eq('id', professionalId)
     .single();
 
-  const professionalName = professional ? `${professional.first_name || ''} ${professional.last_name || ''}`.trim() : 'Profesional';
+  const timeMin = `${dateFrom}T00:00:00Z`;
+  const timeMax = `${dateTo}T23:59:59Z`;
+
+  // Fetch Google events with incremental sync support
+  const { events: googleEvents, nextSyncToken, fullSync } = await fetchGoogleCalendarEventsIncremental(
+    accessToken,
+    calendarId,
+    connection.sync_token,
+    timeMin,
+    timeMax
+  );
+
+  console.log(`[SYNC:FETCHED] ${googleEvents.length} events, fullSync: ${fullSync}`);
+
+  // NUEVO: Upsert events to calendar_events table
+  const upsertResult = await upsertCalendarEvents(supabase, professionalId, calendarId, googleEvents);
+  result.calendarEventsImported = upsertResult.imported;
+  result.errors.push(...upsertResult.errors);
+
+  // Build a map of Google event IDs
+  const googleEventMap = new Map<string, any>();
+  for (const event of googleEvents) {
+    if (event.id) {
+      googleEventMap.set(event.id, event);
+    }
+  }
 
   // Get sessions to sync
   const { data: sessions, error: sessionsError } = await supabase
@@ -559,28 +711,41 @@ async function syncProfessional(
   const titleFormat = integrations?.google_event_title_format || '{tipo} - {paciente}';
   const descriptionFormat = integrations?.google_event_description_format || 'Profesional: {profesional}\nTipo: {tipo}\nNotas: {notas}';
 
-    // Two-way sync preparation: fetch Google events first to detect changes
-    const timeMin = `${dateFrom}T00:00:00Z`;
-    const timeMax = `${dateTo}T23:59:59Z`;
-    const googleEvents = await fetchGoogleCalendarEvents(accessToken, calendarId, timeMin, timeMax);
-    
-    // CRITICAL SAFETY FLAG: Track if we successfully fetched Google events
-    // If googleEvents is empty, it could be an auth failure, not actual empty calendar
-    const googleFetchSuccessful = googleEvents.length > 0 || integrations?.google_calendar_sync_mode !== 'two_way';
-    
-    // Build a map of Google event IDs to their data for change detection
-    const googleEventMap = new Map<string, any>();
-    for (const event of googleEvents) {
-      if (event.id) {
-        googleEventMap.set(event.id, event);
-      }
-    }
+  const googleFetchSuccessful = googleEvents.length > 0 || integrations?.google_calendar_sync_mode !== 'two_way';
 
-    // Sync Psycma sessions to Google Calendar
-    for (const session of sessions || []) {
-      if (!session.google_calendar_event_id) {
-        // Create new event in Google Calendar
-        const eventId = await createGoogleCalendarEvent(
+  // Sync Psycma sessions to Google Calendar
+  for (const session of sessions || []) {
+    if (!session.google_calendar_event_id) {
+      // Create new event in Google Calendar
+      const eventId = await createGoogleCalendarEvent(
+        accessToken,
+        calendarId,
+        session,
+        session.patient,
+        professional,
+        titleFormat,
+        descriptionFormat,
+        session.location,
+        session.bono
+      );
+
+      if (eventId) {
+        await supabase
+          .from('sessions')
+          .update({ google_calendar_event_id: eventId })
+          .eq('id', session.id);
+        result.created++;
+      } else {
+        result.errors.push(`Failed to create event for session ${session.id}`);
+      }
+    } else {
+      // Check if the event still exists in Google Calendar
+      const googleEvent = googleEventMap.get(session.google_calendar_event_id);
+      
+      if (!googleEvent) {
+        // Event was deleted from Google Calendar - recreate it
+        console.log(`[SYNC] Event ${session.google_calendar_event_id} not found in Google, recreating...`);
+        const newEventId = await createGoogleCalendarEvent(
           accessToken,
           calendarId,
           session,
@@ -592,97 +757,58 @@ async function syncProfessional(
           session.bono
         );
 
-        if (eventId) {
+        if (newEventId) {
           await supabase
             .from('sessions')
-            .update({ google_calendar_event_id: eventId })
+            .update({ google_calendar_event_id: newEventId })
             .eq('id', session.id);
           result.created++;
-        } else {
-          result.errors.push(`Failed to create event for session ${session.id}`);
         }
       } else {
-        // Check if the event still exists in Google Calendar
-        const googleEvent = googleEventMap.get(session.google_calendar_event_id);
-        
-        if (!googleEvent) {
-          // Event was deleted from Google Calendar - recreate it
-          console.log(`Event ${session.google_calendar_event_id} not found in Google, recreating...`);
-          const newEventId = await createGoogleCalendarEvent(
-            accessToken,
-            calendarId,
-            session,
-            session.patient,
-            professional,
-            titleFormat,
-            descriptionFormat,
-            session.location,
-            session.bono
-          );
+        // Event exists - check if Google has newer changes (two-way sync)
+        if (integrations?.google_calendar_sync_mode === 'two_way' && googleEvent.start?.dateTime) {
+          const parsedStart = parseGoogleDateTimeToMadrid(googleEvent.start.dateTime);
+          const parsedEnd = parseGoogleDateTimeToMadrid(googleEvent.end.dateTime);
 
-          if (newEventId) {
+          if (session.session_date !== parsedStart.date ||
+              session.start_time !== parsedStart.time ||
+              session.end_time !== parsedEnd.time) {
+            console.log(`[SYNC] Session ${session.id} differs from Google event - updating Psycma`);
             await supabase
               .from('sessions')
-              .update({ google_calendar_event_id: newEventId })
+              .update({
+                session_date: parsedStart.date,
+                start_time: parsedStart.time,
+                end_time: parsedEnd.time,
+              })
               .eq('id', session.id);
-            result.created++;
-          } else {
-            result.errors.push(`Failed to recreate event for session ${session.id}`);
-          }
-        } else {
-          // Event exists - check if Google has newer changes (two-way sync)
-          if (integrations?.google_calendar_sync_mode === 'two_way' && googleEvent.start?.dateTime) {
-            // Parse using Europe/Madrid timezone to avoid timezone drift
-            const parsedStart = parseGoogleDateTimeToMadrid(googleEvent.start.dateTime);
-            const parsedEnd = parseGoogleDateTimeToMadrid(googleEvent.end.dateTime);
-            const googleSessionDate = parsedStart.date;
-            const googleStartTime = parsedStart.time;
-            const googleEndTime = parsedEnd.time;
-
-            console.log(`Comparing session ${session.id}: Psycma(${session.session_date} ${session.start_time}-${session.end_time}) vs Google(${googleSessionDate} ${googleStartTime}-${googleEndTime})`);
-
-            // Check if Google event differs from Psycma session
-            if (session.session_date !== googleSessionDate ||
-                session.start_time !== googleStartTime ||
-                session.end_time !== googleEndTime) {
-              // Google has changes - update Psycma session
-              console.log(`Session ${session.id} differs from Google event - updating Psycma`);
-              await supabase
-                .from('sessions')
-                .update({
-                  session_date: googleSessionDate,
-                  start_time: googleStartTime,
-                  end_time: googleEndTime,
-                })
-                .eq('id', session.id);
-              result.updated++;
-              continue; // Skip updating Google since we just synced from it
-            }
-          }
-          
-          // Update existing event in Google Calendar
-          const updated = await updateGoogleCalendarEvent(
-            accessToken,
-            calendarId,
-            session.google_calendar_event_id,
-            session,
-            session.patient,
-            professional,
-            titleFormat,
-            descriptionFormat,
-            session.location,
-            session.bono
-          );
-
-          if (updated) {
             result.updated++;
+            continue;
           }
+        }
+        
+        // Update existing event in Google Calendar
+        const updated = await updateGoogleCalendarEvent(
+          accessToken,
+          calendarId,
+          session.google_calendar_event_id,
+          session,
+          session.patient,
+          professional,
+          titleFormat,
+          descriptionFormat,
+          session.location,
+          session.bono
+        );
+
+        if (updated) {
+          result.updated++;
         }
       }
     }
+  }
 
-  // Handle cancelled sessions - delete from Google Calendar
-  // SAFETY: Only delete if we have confirmed Google connection is working
+  // Handle cancelled sessions
   if (googleFetchSuccessful) {
     const { data: cancelledSessions } = await supabase
       .from('sessions')
@@ -702,181 +828,29 @@ async function syncProfessional(
         );
 
         if (deleted) {
-          // DO NOT set google_calendar_event_id to null - keep it to prevent re-importing
-          // the same event as a new session on subsequent syncs
           result.deleted++;
         }
       }
     }
-  } else {
-    console.log('SAFETY: Skipping Google Calendar deletions - could not confirm Google connection');
   }
 
-    // Two-way sync: Import events from Google Calendar as blocked slots
-    if (integrations?.google_calendar_sync_mode === 'two_way') {
-      // Get existing session event IDs to check for updates
-      const existingEventIds = new Set(
-        (sessions || [])
-          .map((s: any) => s.google_calendar_event_id)
-          .filter(Boolean)
-      );
-      
-      // Get professional's center_id and a placeholder patient for blocked events
-      const { data: profData } = await supabase
-        .from('profiles')
-        .select('center_id')
-        .eq('id', professionalId)
-        .single();
+  // Update sync state
+  await supabase
+    .from('oauth_connections')
+    .update({
+      sync_token: nextSyncToken ?? connection.sync_token,
+      last_sync_at: new Date().toISOString(),
+      last_sync_status: 'ok',
+    })
+    .eq('professional_id', professionalId)
+    .eq('provider', 'google');
 
-      // Get or create a placeholder patient for blocked events
-      let placeholderPatientId: string | null = null;
-      if (profData?.center_id) {
-        const { data: existingPlaceholder } = await supabase
-          .from('patients')
-          .select('id')
-          .eq('center_id', profData.center_id)
-          .eq('first_name', '[Bloqueado]')
-          .eq('last_name', 'Google Calendar')
-          .maybeSingle();
-        
-        if (existingPlaceholder) {
-          placeholderPatientId = existingPlaceholder.id;
-        } else {
-          const { data: newPlaceholder } = await supabase
-            .from('patients')
-            .insert({
-              center_id: profData.center_id,
-              first_name: '[Bloqueado]',
-              last_name: 'Google Calendar',
-              status: 'inactive',
-            })
-            .select('id')
-            .single();
-          placeholderPatientId = newPlaceholder?.id || null;
-        }
-      }
-
-      // Check for imported sessions that need updates or were deleted from Google
-      const { data: importedSessions } = await supabase
-        .from('sessions')
-        .select('id, google_calendar_event_id, session_date, start_time, end_time, notes, status')
-        .eq('professional_id', professionalId)
-        .eq('status', 'blocked')
-        .not('google_calendar_event_id', 'is', null)
-        .gte('session_date', dateFrom)
-        .lte('session_date', dateTo);
-
-      // CRITICAL SAFETY CHECK: If googleEvents is empty but we have imported sessions,
-      // this could indicate an auth failure rather than actual deletions from Google.
-      // In this case, skip deletion sync entirely to prevent data loss.
-      const hasImportedSessions = (importedSessions || []).length > 0;
-      if (googleEvents.length === 0 && hasImportedSessions) {
-        console.log('SAFETY: Skipping deletion sync - no Google events returned but local imported sessions exist');
-        console.log(`Found ${importedSessions?.length} imported sessions that would have been incorrectly marked as deleted`);
-        result.errors.push('Sincronización de eliminaciones omitida por seguridad - verifica la conexión con Google');
-      } else {
-        // Safe to process deletions - we have Google events to compare against
-        for (const session of importedSessions || []) {
-          const googleEvent = googleEventMap.get(session.google_calendar_event_id);
-          
-          if (!googleEvent) {
-            // Event was deleted from Google Calendar - cancel the session
-            console.log(`Event ${session.google_calendar_event_id} confirmed deleted from Google, cancelling session ${session.id}`);
-            await supabase
-              .from('sessions')
-              .update({ status: 'cancelled' })
-              .eq('id', session.id);
-            result.deleted++;
-            continue;
-          }
-
-        // Check if Google event was updated
-        if (googleEvent.start?.dateTime) {
-          // Parse using Europe/Madrid timezone
-          const parsedStart = parseGoogleDateTimeToMadrid(googleEvent.start.dateTime);
-          const parsedEnd = parseGoogleDateTimeToMadrid(googleEvent.end.dateTime);
-          const googleSessionDate = parsedStart.date;
-          const googleStartTime = parsedStart.time;
-          const googleEndTime = parsedEnd.time;
-
-          if (session.session_date !== googleSessionDate ||
-              session.start_time !== googleStartTime ||
-              session.end_time !== googleEndTime) {
-            // Update Psycma session with Google changes
-            await supabase
-              .from('sessions')
-              .update({
-                session_date: googleSessionDate,
-                start_time: googleStartTime,
-                end_time: googleEndTime,
-                notes: `[Google Calendar] ${googleEvent.summary || 'Evento externo'}\n${googleEvent.description || ''}`,
-              })
-              .eq('id', session.id);
-            result.updated++;
-          }
-        }
-        } // End of safe deletion processing block
-      } // End of safety check
-
-      // PASO 4: Lógica UPSERT - Importar nuevos eventos de Google Calendar
-      for (const event of googleEvents) {
-        // Skip events we created from Psycma
-        if (existingEventIds.has(event.id)) continue;
-        
-        // Skip all-day events
-        if (!event.start?.dateTime) continue;
-      
-        if (!placeholderPatientId) {
-          console.error('Cannot import Google event: no placeholder patient available');
-          continue;
-        }
-      
-        // Parse event times using Europe/Madrid timezone
-        const parsedStart = parseGoogleDateTimeToMadrid(event.start.dateTime);
-        const parsedEnd = parseGoogleDateTimeToMadrid(event.end.dateTime);
-        
-        const sessionDate = parsedStart.date;
-        const startTime = parsedStart.time;
-        const endTime = parsedEnd.time;
-        
-        // UPSERT: Usar ON CONFLICT con el índice único google_calendar_event_id
-        // Esto garantiza idempotencia - si el evento ya existe, se actualiza
-        const sessionData = {
-          google_calendar_event_id: event.id,
-          professional_id: professionalId,
-          center_id: profData?.center_id,
-          patient_id: placeholderPatientId,
-          session_date: sessionDate,
-          start_time: startTime,
-          end_time: endTime,
-          notes: `[Google Calendar] ${event.summary || 'Evento externo'}\n${event.description || ''}`,
-          status: 'blocked' as const,
-          session_type: 'Bloqueado',
-          price: 0,
-        };
-
-        const { error: upsertError } = await supabase
-          .from('sessions')
-          .upsert(sessionData, { 
-            onConflict: 'google_calendar_event_id',
-            ignoreDuplicates: false // Actualizar si ya existe
-          });
-
-        if (!upsertError) {
-          result.created++;
-          console.log(`UPSERT: Evento ${event.id} importado/actualizado correctamente`);
-        } else {
-          console.error('Error en upsert de evento:', upsertError);
-          result.errors.push(`Error importando evento: ${upsertError.message}`);
-        }
-      }
-  }
-
-  // Update last sync time
   await supabase
     .from('professional_integrations')
     .update({ last_google_sync_at: new Date().toISOString() })
     .eq('professional_id', professionalId);
+
+  console.log(`[SYNC:COMPLETE] Professional ${professionalId}`, result);
 
   return result;
 }
@@ -895,12 +869,11 @@ serve(async (req) => {
     const body = await req.json();
     const { professional_id, date_from, date_to, sync_all_professionals } = body;
 
-    // Calculate date range - use provided values or fetch from professional config
+    // Calculate date range
     let dateFrom = date_from;
     let dateTo = date_to;
 
     if (!dateFrom || !dateTo) {
-      // Try to get configured sync days from professional_integrations
       if (professional_id) {
         const { data: profIntegrations } = await supabase
           .from('professional_integrations')
@@ -919,10 +892,7 @@ serve(async (req) => {
         const toDate = new Date(now);
         toDate.setDate(toDate.getDate() + daysFuture);
         dateTo = toDate.toISOString().split('T')[0];
-
-        console.log(`Using configured sync range: ${daysPast} days past, ${daysFuture} days future`);
       } else {
-        // Default values for sync_all_professionals
         const now = new Date();
         const defaultDateFrom = new Date(now);
         defaultDateFrom.setDate(defaultDateFrom.getDate() - 30);
@@ -934,21 +904,41 @@ serve(async (req) => {
       }
     }
 
-    let totalResult: SyncResult = { created: 0, updated: 0, deleted: 0, errors: [] };
+    let totalResult: SyncResult = { created: 0, updated: 0, deleted: 0, errors: [], calendarEventsImported: 0 };
 
     if (sync_all_professionals) {
-      // Sync all professionals with Google Calendar enabled
-      const { data: allIntegrations } = await supabase
+      console.log('[SYNC:CRON] Starting sync for all professionals');
+      
+      // Sync all professionals with Google Calendar enabled and not needing reconnect
+      const { data: allConnections } = await supabase
+        .from('oauth_connections')
+        .select('professional_id')
+        .eq('provider', 'google')
+        .eq('needs_reconnect', false)
+        .not('refresh_token', 'is', null);
+
+      const { data: enabledIntegrations } = await supabase
         .from('professional_integrations')
         .select('professional_id')
         .eq('google_calendar_enabled', true);
 
-      for (const integration of allIntegrations || []) {
-        const result = await syncProfessional(supabase, integration.professional_id, dateFrom, dateTo);
-        totalResult.created += result.created;
-        totalResult.updated += result.updated;
-        totalResult.deleted += result.deleted;
-        totalResult.errors.push(...result.errors);
+      const enabledSet = new Set((enabledIntegrations || []).map(i => i.professional_id));
+      const toSync = (allConnections || []).filter(c => enabledSet.has(c.professional_id));
+
+      console.log(`[SYNC:CRON] Found ${toSync.length} professionals to sync`);
+
+      for (const connection of toSync) {
+        try {
+          const result = await syncProfessional(supabase, connection.professional_id, dateFrom, dateTo);
+          totalResult.created += result.created;
+          totalResult.updated += result.updated;
+          totalResult.deleted += result.deleted;
+          totalResult.calendarEventsImported = (totalResult.calendarEventsImported || 0) + (result.calendarEventsImported || 0);
+          totalResult.errors.push(...result.errors.map(e => `[${connection.professional_id}] ${e}`));
+        } catch (err) {
+          console.error(`[SYNC:CRON] Error syncing ${connection.professional_id}:`, err);
+          totalResult.errors.push(`[${connection.professional_id}] ${err}`);
+        }
       }
     } else if (professional_id) {
       totalResult = await syncProfessional(supabase, professional_id, dateFrom, dateTo);
@@ -959,14 +949,12 @@ serve(async (req) => {
       );
     }
 
-    console.log('Sync completed:', totalResult);
-
     return new Response(
       JSON.stringify(totalResult),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
-    console.error('Sync error:', error);
+    console.error('[SYNC:ERROR]', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return new Response(
       JSON.stringify({ error: errorMessage }),
