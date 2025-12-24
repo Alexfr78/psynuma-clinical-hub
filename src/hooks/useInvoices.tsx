@@ -108,7 +108,7 @@ export function useInvoices(filters?: { patientId?: string; status?: string; sta
           *,
           patients (id, first_name, last_name, tax_id, address, city, postal_code, email, phone)
         `)
-        .order('issue_date', { ascending: false });
+        .order('invoice_number', { ascending: false });
 
       if (filters?.patientId) {
         query = query.eq('patient_id', filters.patientId);
