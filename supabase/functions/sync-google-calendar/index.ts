@@ -216,6 +216,8 @@ async function fetchGoogleCalendarEventsIncremental(
     }
 
     params.set('maxResults', '2500');
+    // CRITICAL: Include deleted/cancelled events so we can mark them as deleted in our DB
+    params.set('showDeleted', 'true');
     if (pageToken) params.set('pageToken', pageToken);
 
     const response = await fetch(`${baseUrl}?${params}`, {
