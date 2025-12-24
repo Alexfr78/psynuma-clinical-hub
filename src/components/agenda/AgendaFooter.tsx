@@ -1,4 +1,4 @@
-import { Globe, CheckCircle } from 'lucide-react';
+import { Globe, CheckCircle, Calendar } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -6,11 +6,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 
 interface AgendaFooterProps {
   timezone: string;
   onTimezoneChange: (timezone: string) => void;
+  showGoogleEvents?: boolean;
+  onShowGoogleEventsChange?: (show: boolean) => void;
 }
 
 const statusLegend = [
@@ -20,6 +24,7 @@ const statusLegend = [
   { label: 'Pendiente de pago', colorClass: 'bg-orange-500' },
   { label: 'Cancelada', colorClass: 'bg-red-500' },
   { label: 'Confirmada', icon: CheckCircle, iconClass: 'text-blue-600' },
+  { label: 'Google Calendar', icon: Calendar, iconClass: 'text-purple-600' },
 ];
 
 const timezones = [
@@ -32,7 +37,12 @@ const timezones = [
   { value: 'America/Los_Angeles', label: 'America/Los_Angeles' },
 ];
 
-export function AgendaFooter({ timezone, onTimezoneChange }: AgendaFooterProps) {
+export function AgendaFooter({ 
+  timezone, 
+  onTimezoneChange,
+  showGoogleEvents = true,
+  onShowGoogleEventsChange,
+}: AgendaFooterProps) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border bg-card p-3 text-sm">
       {/* Color Legend */}
@@ -49,20 +59,37 @@ export function AgendaFooter({ timezone, onTimezoneChange }: AgendaFooterProps) 
         ))}
       </div>
 
-      {/* Timezone Selector */}
-      <Select value={timezone} onValueChange={onTimezoneChange}>
-        <SelectTrigger className="h-8 w-auto gap-1.5 border-none bg-transparent px-2 shadow-none hover:bg-accent">
-          <Globe className="h-3.5 w-3.5 text-muted-foreground" />
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {timezones.map((tz) => (
-            <SelectItem key={tz.value} value={tz.value}>
-              {tz.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <div className="flex items-center gap-4">
+        {/* Google Calendar Toggle */}
+        {onShowGoogleEventsChange && (
+          <div className="flex items-center gap-2">
+            <Switch
+              id="show-google"
+              checked={showGoogleEvents}
+              onCheckedChange={onShowGoogleEventsChange}
+              className="data-[state=checked]:bg-purple-600"
+            />
+            <Label htmlFor="show-google" className="text-muted-foreground cursor-pointer">
+              Google Calendar
+            </Label>
+          </div>
+        )}
+
+        {/* Timezone Selector */}
+        <Select value={timezone} onValueChange={onTimezoneChange}>
+          <SelectTrigger className="h-8 w-auto gap-1.5 border-none bg-transparent px-2 shadow-none hover:bg-accent">
+            <Globe className="h-3.5 w-3.5 text-muted-foreground" />
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {timezones.map((tz) => (
+              <SelectItem key={tz.value} value={tz.value}>
+                {tz.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
     </div>
   );
 }

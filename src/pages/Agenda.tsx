@@ -15,7 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAgendaHours } from '@/hooks/useAgendaHours';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useGoogleCalendarUpdate } from '@/hooks/useGoogleCalendarUpdate';
-
+import { useCalendarEvents, calendarEventToSessionFormat } from '@/hooks/useCalendarEvents';
 export default function Agenda() {
   const isMobile = useIsMobile();
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -81,8 +81,41 @@ export default function Agenda() {
     selectedProfessional
   );
 
+  // Fetch Google Calendar events
+  const [showGoogleEvents, setShowGoogleEvents] = useState(true);
+  const { data: googleCalendarEvents, isLoading: googleLoading } = useCalendarEvents({
+    professionalId: selectedProfessional,
+    rangeStart: dateRange.start || format(new Date(), 'yyyy-MM-dd'),
+    rangeEnd: dateRange.end || format(new Date(), 'yyyy-MM-dd'),
+    enabled: showGoogleEvents,
+  });
+
+  // Merge sessions with Google Calendar events for display
+  const allSessions = useMemo(() => {
+    const baseSessions = sessions || [];
+    if (!showGoogleEvents || !googleCalendarEvents?.length) {
+      return baseSessions;
+    }
+
+    // Convert Google events to session-like format
+    const googleAsSessions = googleCalendarEvents.map(calendarEventToSessionFormat);
+    
+    // Filter out Google events that are already linked to sessions (to avoid duplicates)
+    const sessionGoogleIds = new Set(
+      baseSessions
+        .map((s: any) => s.google_calendar_event_id)
+        .filter(Boolean)
+    );
+    
+    const uniqueGoogleEvents = googleAsSessions.filter(
+      (ge) => !sessionGoogleIds.has(ge.id)
+    );
+
+    return [...baseSessions, ...uniqueGoogleEvents] as SessionWithRelations[];
+  }, [sessions, googleCalendarEvents, showGoogleEvents]);
+
   // Dynamic hours based on center/professional configuration and existing sessions
-  const { hours, startHour } = useAgendaHours(selectedProfessional, currentDate, sessions);
+  const { hours, startHour } = useAgendaHours(selectedProfessional, currentDate, allSessions);
 
   // Sync selectedSession with updated data from sessions query
   useEffect(() => {
@@ -222,7 +255,7 @@ export default function Agenda() {
           {view === 'week' && (
             <WeekView
               currentDate={currentDate}
-              sessions={sessions || []}
+              sessions={allSessions}
               onSessionClick={handleSessionClick}
               onSlotClick={handleSlotClick}
               onSessionMove={handleSessionMove}
@@ -235,7 +268,7 @@ export default function Agenda() {
           {view === 'day' && (
             <DayView
               currentDate={currentDate}
-              sessions={sessions || []}
+              sessions={allSessions}
               onSessionClick={handleSessionClick}
               onSlotClick={handleSlotClick}
               onSessionMove={handleSessionMove}
@@ -249,7 +282,7 @@ export default function Agenda() {
           {view === 'month' && (
             <MonthView
               currentDate={currentDate}
-              sessions={sessions || []}
+              sessions={allSessions}
               onSessionClick={handleSessionClick}
               onDayClick={handleDayClick}
               onSwipeLeft={navigateNext}
@@ -258,7 +291,7 @@ export default function Agenda() {
           )}
           {view === 'list' && (
             <ListView
-              sessions={sessions || []}
+              sessions={allSessions}
               onSessionClick={handleSessionClick}
               onSwipeLeft={navigateNext}
               onSwipeRight={navigatePrev}
@@ -283,8 +316,13 @@ export default function Agenda() {
         onOpenChange={(open) => !open && setSelectedSession(null)}
       />
 
-      {/* Agenda Footer with Legend and Timezone */}
-      <AgendaFooter timezone={timezone} onTimezoneChange={setTimezone} />
+      {/* Agenda Footer with Legend, Timezone and Google Toggle */}
+      <AgendaFooter 
+        timezone={timezone} 
+        onTimezoneChange={setTimezone}
+        showGoogleEvents={showGoogleEvents}
+        onShowGoogleEventsChange={setShowGoogleEvents}
+      />
 
       {/* Move Session Dialog (mobile) */}
       <MoveSessionDialog

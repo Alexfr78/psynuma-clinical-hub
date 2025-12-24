@@ -1,4 +1,4 @@
-import { User, Clock, GripVertical, Move } from 'lucide-react';
+import { User, Clock, GripVertical, Move, Calendar } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SessionWithRelations } from '@/hooks/useSessions';
 import { useCallback, useRef, useState, useEffect } from 'react';
@@ -24,6 +24,7 @@ const statusColors = {
   cancelled: 'bg-red-500/20 border-red-500 text-red-700 dark:text-red-300',
   no_show: 'bg-orange-500/20 border-orange-500 text-orange-700 dark:text-orange-300',
   blocked: 'bg-purple-500/20 border-purple-500 text-purple-700 dark:text-purple-300',
+  google_event: 'bg-purple-500/20 border-purple-500 text-purple-700 dark:text-purple-300',
 };
 
 export function SessionCard({ 
@@ -38,10 +39,21 @@ export function SessionCard({
   style 
 }: SessionCardProps) {
   const isMobile = useIsMobile();
-  const statusColor = statusColors[session.status as keyof typeof statusColors] || statusColors.scheduled;
+  
+  // Check if this is a Google Calendar event (imported)
+  const isGoogleEvent = (session as any).isGoogleEvent === true;
+  
+  // Use google_event color for imported events
+  const effectiveStatus = isGoogleEvent ? 'google_event' : session.status;
+  const statusColor = statusColors[effectiveStatus as keyof typeof statusColors] || statusColors.scheduled;
   
   // For blocked sessions from Google Calendar, extract the event title from notes
   const getDisplayName = () => {
+    if (isGoogleEvent) {
+      // For imported Google events, notes contains the summary
+      const title = session.notes?.split('\n')[0] || 'Evento externo';
+      return title;
+    }
     if (session.status === 'blocked' && session.notes?.startsWith('[Google Calendar]')) {
       const title = session.notes.split('\n')[0].replace('[Google Calendar] ', '');
       return title || 'Bloqueado';
