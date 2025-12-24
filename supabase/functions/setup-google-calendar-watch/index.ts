@@ -52,7 +52,7 @@ async function getGoogleOAuthCredentials(supabase: any, professionalId: string):
           return { clientId: center.oauth_google_client_id, clientSecret };
         }
       } catch (error) {
-        console.error('Error decrypting center OAuth credentials:', error);
+        console.error('[WATCH] Error decrypting center OAuth credentials:', error);
       }
     }
   }
@@ -75,7 +75,13 @@ async function refreshGoogleToken(
   const credentials = await getGoogleOAuthCredentials(supabase, professionalId);
 
   if (!credentials) {
-    console.error('Google OAuth credentials not configured');
+    console.error('[WATCH] Google OAuth credentials not configured');
+    // Mark needs_reconnect
+    await supabase
+      .from('oauth_connections')
+      .update({ needs_reconnect: true, last_sync_status: 'needs_reconnect' })
+      .eq('professional_id', professionalId)
+      .eq('provider', 'google');
     return null;
   }
 
@@ -101,6 +107,7 @@ async function refreshGoogleToken(
           access_token: data.access_token,
           expires_at: expiresAt,
           updated_at: new Date().toISOString(),
+          needs_reconnect: false,
         })
         .eq('professional_id', professionalId)
         .eq('provider', 'google');
@@ -108,9 +115,18 @@ async function refreshGoogleToken(
       return data.access_token;
     }
 
-    console.error('Google token refresh failed:', data.error, data.error_description);
+    console.error('[WATCH] Google token refresh failed:', data.error, data.error_description);
+    
+    // Mark needs_reconnect on auth errors
+    if (data.error === 'invalid_grant' || data.error === 'invalid_client') {
+      await supabase
+        .from('oauth_connections')
+        .update({ needs_reconnect: true, last_sync_status: 'needs_reconnect' })
+        .eq('professional_id', professionalId)
+        .eq('provider', 'google');
+    }
   } catch (error) {
-    console.error('Error refreshing Google token:', error);
+    console.error('[WATCH] Error refreshing Google token:', error);
   }
   return null;
 }
@@ -153,7 +169,7 @@ serve(async (req) => {
       );
     }
 
-    console.log(`Setting up Google Calendar watch for professional ${professional_id}`);
+    console.log(`[WATCH:START] Setting up Google Calendar watch for professional ${professional_id}`);
 
     // Get OAuth connection
     const { data: connection, error: connError } = await supabase
@@ -164,9 +180,31 @@ serve(async (req) => {
       .single();
 
     if (connError || !connection) {
+      console.error('[WATCH] No Google connection found');
       return new Response(
         JSON.stringify({ error: 'No Google connection found' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // CRÍTICO: NO usar 'primary' como fallback - requiere calendario específico
+    const calendarId = connection.google_calendar_id;
+    if (!calendarId) {
+      console.error('[WATCH:ERROR] No google_calendar_id configurado - NO se usará primary');
+      return new Response(
+        JSON.stringify({ 
+          error: 'No hay google_calendar_id configurado. Selecciona un calendario primero en Ajustes > Integraciones > Google Calendar.' 
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Check if needs reconnect
+    if (connection.needs_reconnect) {
+      console.error('[WATCH] Connection needs reconnect');
+      return new Response(
+        JSON.stringify({ error: 'La conexión con Google necesita reconectarse. Ve a Ajustes > Integraciones.' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -178,11 +216,10 @@ serve(async (req) => {
       );
     }
 
-    const calendarId = connection.google_calendar_id || 'primary';
     const channelId = crypto.randomUUID();
     const webhookUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/google-calendar-webhook`;
 
-    console.log(`Creating watch channel ${channelId} for calendar ${calendarId}`);
+    console.log(`[WATCH] Creating watch channel ${channelId} for calendar ${calendarId}`);
 
     // Call Google Calendar API to set up watch
     const watchResponse = await fetch(
@@ -203,7 +240,7 @@ serve(async (req) => {
 
     if (!watchResponse.ok) {
       const errorText = await watchResponse.text();
-      console.error('Google Calendar watch setup failed:', errorText);
+      console.error('[WATCH:ERROR] Google Calendar watch setup failed:', errorText);
       return new Response(
         JSON.stringify({ error: 'Failed to setup watch', details: errorText }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -211,7 +248,7 @@ serve(async (req) => {
     }
 
     const watchData = await watchResponse.json();
-    console.log('Watch setup response:', watchData);
+    console.log('[WATCH] Watch setup response:', watchData);
 
     const expiration = new Date(parseInt(watchData.expiration)).toISOString();
 
@@ -222,7 +259,7 @@ serve(async (req) => {
       .eq('professional_id', professional_id)
       .eq('calendar_id', calendarId);
 
-    // Store the channel info
+    // Store the channel info in google_calendar_channels table
     const { error: insertError } = await supabase
       .from('google_calendar_channels')
       .insert({
@@ -234,25 +271,38 @@ serve(async (req) => {
       });
 
     if (insertError) {
-      console.error('Error storing channel:', insertError);
+      console.error('[WATCH:ERROR] Error storing channel:', insertError);
       return new Response(
         JSON.stringify({ error: 'Failed to store channel info' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log(`Watch channel created successfully, expires at ${expiration}`);
+    // NUEVO: También guardar en oauth_connections para lookup rápido desde webhook
+    await supabase
+      .from('oauth_connections')
+      .update({
+        watch_channel_id: watchData.id,
+        watch_resource_id: watchData.resourceId,
+        watch_expires_at: expiration,
+        last_sync_status: 'watch_configured',
+      })
+      .eq('professional_id', professional_id)
+      .eq('provider', 'google');
+
+    console.log(`[WATCH:SUCCESS] Watch channel created successfully, expires at ${expiration}`);
 
     return new Response(
       JSON.stringify({ 
         success: true, 
         channel_id: watchData.id,
+        calendar_id: calendarId,
         expiration,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
-    console.error('Setup watch error:', error);
+    console.error('[WATCH:ERROR] Setup watch error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return new Response(
       JSON.stringify({ error: errorMessage }),
