@@ -543,13 +543,47 @@ async function upsertCalendarEvents(
   professionalId: string,
   calendarId: string,
   events: any[]
-): Promise<{ imported: number; deleted: number; errors: string[] }> {
-  const result = { imported: 0, deleted: 0, errors: [] as string[] };
+): Promise<{ imported: number; deleted: number; skipped: number; errors: string[] }> {
+  const result = { imported: 0, deleted: 0, skipped: 0, errors: [] as string[] };
 
   if (events.length === 0) return result;
 
-  const mappedEvents = events.map((ev: any) => {
+  // First, check which events have psycma_session_id (already linked to a session)
+  // These should NOT be imported as calendar blocks
+  const eventsWithPsycmaId = events.filter(
+    (ev: any) => ev.extendedProperties?.private?.psycma_session_id
+  );
+  
+  const eventsToImport = events.filter(
+    (ev: any) => !ev.extendedProperties?.private?.psycma_session_id
+  );
+
+  result.skipped = eventsWithPsycmaId.length;
+  
+  if (eventsWithPsycmaId.length > 0) {
+    console.log(`[SYNC:UPSERT] Skipping ${eventsWithPsycmaId.length} events with psycma_session_id`);
+  }
+
+  if (eventsToImport.length === 0) return result;
+
+  // Check which events are already linked to sessions in the sessions table
+  const googleEventIds = eventsToImport.map((ev: any) => ev.id);
+  
+  const { data: linkedSessions } = await supabase
+    .from('sessions')
+    .select('google_calendar_event_id')
+    .eq('professional_id', professionalId)
+    .not('google_calendar_event_id', 'is', null)
+    .in('google_calendar_event_id', googleEventIds);
+
+  const linkedEventIds = new Set(
+    (linkedSessions || []).map((s: any) => s.google_calendar_event_id)
+  );
+
+  const mappedEvents = eventsToImport.map((ev: any) => {
     const times = parseGoogleEventTimes(ev);
+    const isLinkedToSession = linkedEventIds.has(ev.id);
+    
     return {
       provider: 'google' as const,
       professional_id: professionalId,
@@ -566,6 +600,8 @@ async function upsertCalendarEvents(
       etag: ev.etag ?? null,
       deleted: ev.status === 'cancelled',
       raw: ev,
+      // Mark as converted if already linked to a session
+      is_converted: isLinkedToSession,
     };
   });
 
@@ -585,10 +621,11 @@ async function upsertCalendarEvents(
     }
   }
 
-  // Count deleted
+  // Count deleted and linked
   result.deleted = mappedEvents.filter(e => e.deleted).length;
+  const linkedCount = mappedEvents.filter(e => e.is_converted).length;
 
-  console.log(`[SYNC:UPSERT] Upserted ${result.imported} events, ${result.deleted} marked deleted`);
+  console.log(`[SYNC:UPSERT] Upserted ${result.imported} events, ${result.deleted} marked deleted, ${linkedCount} marked as converted (linked to sessions)`);
 
   return result;
 }

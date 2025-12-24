@@ -100,6 +100,8 @@ import { PatientSelector } from './PatientSelector';
 import { usePatient } from '@/hooks/usePatients';
 import { supabase } from '@/integrations/supabase/client';
 import { useProfessionalIntegrations } from '@/hooks/useProfessionalIntegrations';
+import { ConvertCalendarEventDialog } from './ConvertCalendarEventDialog';
+import { CalendarEvent } from '@/hooks/useCalendarEvents';
 
 interface SessionDetailDrawerProps {
   session: SessionWithRelations | null;
@@ -170,6 +172,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
   const [showCreateBonoDialog, setShowCreateBonoDialog] = useState(false);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [showInvoiceDialog, setShowInvoiceDialog] = useState(false);
+  const [showConvertDialog, setShowConvertDialog] = useState(false);
   const [isGeneratingPaymentLink, setIsGeneratingPaymentLink] = useState(false);
   const [paymentLinkUrl, setPaymentLinkUrl] = useState<string | null>(null);
   const [dateTimeValue, setDateTimeValue] = useState({
@@ -1664,6 +1667,30 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
           refetchInvoiceStatus();
           setShowInvoiceDialog(false);
         }}
+      />
+    )}
+
+    {/* Convert Calendar Event Dialog - for Google Calendar blocks */}
+    {(session as any).isGoogleEvent && (
+      <ConvertCalendarEventDialog
+        open={showConvertDialog}
+        onOpenChange={setShowConvertDialog}
+        calendarEvent={{
+          id: session.id,
+          professional_id: session.professional_id,
+          provider: 'google',
+          calendar_id: '',
+          google_event_id: (session as any).google_event_id || '',
+          summary: session.notes?.replace('[Google Calendar] ', '') || null,
+          description: null,
+          location: null,
+          start_at: `${session.session_date}T${session.start_time}`,
+          end_at: `${session.session_date}T${session.end_time}`,
+          all_day: (session as any).all_day || false,
+          deleted: false,
+          status: 'confirmed',
+        } as CalendarEvent}
+        onSuccess={() => onOpenChange(false)}
       />
     )}
     </>
