@@ -323,6 +323,8 @@ export type Database = {
         Row: {
           all_day: boolean | null
           calendar_id: string
+          converted_at: string | null
+          converted_session_id: string | null
           created_at: string | null
           deleted: boolean | null
           description: string | null
@@ -330,6 +332,7 @@ export type Database = {
           etag: string | null
           google_event_id: string
           id: string
+          is_converted: boolean | null
           location: string | null
           professional_id: string
           provider: string
@@ -343,6 +346,8 @@ export type Database = {
         Insert: {
           all_day?: boolean | null
           calendar_id: string
+          converted_at?: string | null
+          converted_session_id?: string | null
           created_at?: string | null
           deleted?: boolean | null
           description?: string | null
@@ -350,6 +355,7 @@ export type Database = {
           etag?: string | null
           google_event_id: string
           id?: string
+          is_converted?: boolean | null
           location?: string | null
           professional_id: string
           provider: string
@@ -363,6 +369,8 @@ export type Database = {
         Update: {
           all_day?: boolean | null
           calendar_id?: string
+          converted_at?: string | null
+          converted_session_id?: string | null
           created_at?: string | null
           deleted?: boolean | null
           description?: string | null
@@ -370,6 +378,7 @@ export type Database = {
           etag?: string | null
           google_event_id?: string
           id?: string
+          is_converted?: boolean | null
           location?: string | null
           professional_id?: string
           provider?: string
@@ -381,6 +390,13 @@ export type Database = {
           updated_at_google?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "calendar_events_converted_session_id_fkey"
+            columns: ["converted_session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "calendar_events_professional_id_fkey"
             columns: ["professional_id"]
@@ -2339,6 +2355,19 @@ export type Database = {
       apply_bono_to_session: {
         Args: { p_bono_id: string; p_session_id: string }
         Returns: Json
+      }
+      convert_calendar_event_to_session: {
+        Args: {
+          p_bono_id?: string
+          p_calendar_event_id: string
+          p_location_id?: string
+          p_notes?: string
+          p_patient_id: string
+          p_price: number
+          p_session_modality?: string
+          p_session_type: string
+        }
+        Returns: string
       }
       delete_payment_and_recompute_debt_v2: {
         Args: { p_payment_id: string }

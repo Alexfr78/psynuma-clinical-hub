@@ -15,6 +15,10 @@ export interface CalendarEvent {
   all_day: boolean;
   deleted: boolean;
   status: string | null;
+  // Conversion tracking fields
+  is_converted?: boolean;
+  converted_session_id?: string | null;
+  converted_at?: string | null;
 }
 
 interface UseCalendarEventsParams {
@@ -43,9 +47,10 @@ export function useCalendarEvents({
         
         const { data, error } = await supabase
           .from('calendar_events')
-          .select('id, professional_id, provider, calendar_id, google_event_id, summary, description, location, start_at, end_at, all_day, deleted, status')
+          .select('id, professional_id, provider, calendar_id, google_event_id, summary, description, location, start_at, end_at, all_day, deleted, status, is_converted, converted_session_id, converted_at')
           .eq('provider', 'google')
           .eq('deleted', false)
+          .eq('is_converted', false)
           .lt('start_at', toIso)
           .gt('end_at', fromIso)
           .order('start_at', { ascending: true });
@@ -57,10 +62,11 @@ export function useCalendarEvents({
       // Specific professional
       const { data, error } = await supabase
         .from('calendar_events')
-        .select('id, professional_id, provider, calendar_id, google_event_id, summary, description, location, start_at, end_at, all_day, deleted, status')
+        .select('id, professional_id, provider, calendar_id, google_event_id, summary, description, location, start_at, end_at, all_day, deleted, status, is_converted, converted_session_id, converted_at')
         .eq('professional_id', professionalId)
         .eq('provider', 'google')
         .eq('deleted', false)
+        .eq('is_converted', false)
         .lt('start_at', toIso)
         .gt('end_at', fromIso)
         .order('start_at', { ascending: true });

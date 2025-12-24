@@ -158,9 +158,10 @@ serve(async (req) => {
       title,
       description,
       status, // 'cancelled' to cancel the event
+      psycma_session_id, // For linking converted events
     } = await req.json();
 
-    console.log('Updating Google Calendar event:', event_id);
+    console.log('Updating Google Calendar event:', event_id, psycma_session_id ? `(linking to session ${psycma_session_id})` : '');
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -231,6 +232,15 @@ serve(async (req) => {
       event.end = {
         dateTime: `${session_date}T${end_time}:00`,
         timeZone: 'Europe/Madrid',
+      };
+    }
+
+    // Add extended properties to link with Psycma session
+    if (psycma_session_id) {
+      event.extendedProperties = {
+        private: {
+          psycma_session_id: psycma_session_id,
+        },
       };
     }
 
