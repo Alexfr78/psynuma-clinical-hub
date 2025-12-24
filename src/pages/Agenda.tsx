@@ -108,7 +108,7 @@ export default function Agenda() {
     );
     
     const uniqueGoogleEvents = googleAsSessions.filter(
-      (ge) => !sessionGoogleIds.has(ge.id)
+      (ge) => !sessionGoogleIds.has(ge.google_calendar_event_id)
     );
 
     return [...baseSessions, ...uniqueGoogleEvents] as SessionWithRelations[];
