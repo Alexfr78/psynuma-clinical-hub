@@ -6,17 +6,77 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+async function decryptAES256GCM(encryptedData: string, encryptionKey: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const keyData = encoder.encode(encryptionKey.padEnd(32, '0').slice(0, 32));
+
+  const encryptedBytes = Uint8Array.from(atob(encryptedData), c => c.charCodeAt(0));
+  const iv = encryptedBytes.slice(0, 12);
+  const ciphertextWithTag = encryptedBytes.slice(12);
+
+  const key = await crypto.subtle.importKey('raw', keyData, { name: 'AES-GCM' }, false, ['decrypt']);
+  const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ciphertextWithTag);
+
+  return new TextDecoder().decode(decrypted);
+}
+
+async function getZoomClientCredentials(supabase: any, professionalId: string) {
+  // 1) Get center_id from professional's profile
+  const { data: profile, error: profileError } = await supabase
+    .from('profiles')
+    .select('center_id')
+    .eq('id', professionalId)
+    .single();
+
+  if (profileError || !profile?.center_id) {
+    console.error('Failed to get center_id for professional:', profileError);
+    return null;
+  }
+
+  // 2) Get credentials from center
+  const { data: center, error: centerError } = await supabase
+    .from('centers')
+    .select('oauth_zoom_client_id, oauth_zoom_credentials')
+    .eq('id', profile.center_id)
+    .single();
+
+  if (centerError || !center?.oauth_zoom_client_id || !center?.oauth_zoom_credentials) {
+    console.error('Missing Zoom OAuth credentials for center:', centerError);
+    return null;
+  }
+
+  const encryptionKey = Deno.env.get('CERTIFICATE_ENCRYPTION_KEY');
+  if (!encryptionKey) {
+    console.error('Missing CERTIFICATE_ENCRYPTION_KEY');
+    return null;
+  }
+
+  try {
+    const clientSecret = await decryptAES256GCM(center.oauth_zoom_credentials, encryptionKey);
+    return {
+      clientId: center.oauth_zoom_client_id,
+      clientSecret,
+    };
+  } catch (err) {
+    console.error('Failed to decrypt Zoom credentials:', err);
+    return null;
+  }
+}
+
 async function refreshZoomToken(supabase: any, professionalId: string, refreshToken: string): Promise<string | null> {
   console.log('Refreshing Zoom token...');
-  
-  const clientId = Deno.env.get('ZOOM_CLIENT_ID');
-  const clientSecret = Deno.env.get('ZOOM_CLIENT_SECRET');
-  
+
+  const creds = await getZoomClientCredentials(supabase, professionalId);
+  if (!creds?.clientId || !creds?.clientSecret) {
+    console.error('Missing Zoom OAuth credentials for center/professional');
+    return null;
+  }
+
   const response = await fetch('https://zoom.us/oauth/token', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
-      'Authorization': `Basic ${btoa(`${clientId}:${clientSecret}`)}`,
+      'Authorization': `Basic ${btoa(`${creds.clientId}:${creds.clientSecret}`)}`,
     },
     body: new URLSearchParams({
       grant_type: 'refresh_token',
