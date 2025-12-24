@@ -2340,12 +2340,20 @@ export type Database = {
         Args: { p_bono_id: string; p_session_id: string }
         Returns: Json
       }
+      delete_payment_and_recompute_debt_v2: {
+        Args: { p_payment_id: string }
+        Returns: Json
+      }
       get_center_address_for_session_token: {
         Args: never
         Returns: {
           center_address: string
           center_name: string
         }[]
+      }
+      get_debt_id_for_payment_by_invoice: {
+        Args: { p_payment_id: string }
+        Returns: string
       }
       get_invoice_token: { Args: never; Returns: string }
       get_portal_center: {
@@ -2378,8 +2386,20 @@ export type Database = {
       }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
       is_professional: { Args: { _user_id: string }; Returns: boolean }
+      recompute_debt_by_invoice: { Args: { p_debt_id: string }; Returns: Json }
       remove_bono_from_session: {
         Args: { p_session_id: string }
+        Returns: Json
+      }
+      update_payment_and_recompute_debt_v2: {
+        Args: {
+          p_amount: number
+          p_notes?: string
+          p_payment_date: string
+          p_payment_id: string
+          p_payment_method: string
+          p_reference?: string
+        }
         Returns: Json
       }
       user_can_create_center: { Args: { _user_id: string }; Returns: boolean }

@@ -1,0 +1,173 @@
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { useCenter } from './useCenter';
+import { useInvoiceSeries } from './useInvoiceSeries';
+import { toast } from 'sonner';
+
+interface IssueInvoiceResult {
+  success: boolean;
+  invoiceNumber?: string;
+  verifactuSuccess: boolean;
+  verifactuPending: boolean;
+  verifactuError?: string;
+}
+
+/**
+ * Hook to issue a draft invoice (draft → issued) and optionally sign with Verifactu.
+ * This is used when the first payment is made on a bono invoice.
+ */
+export function useIssueInvoice() {
+  const queryClient = useQueryClient();
+  const { center } = useCenter();
+  const { series } = useInvoiceSeries();
+
+  return useMutation({
+    mutationFn: async (invoiceId: string): Promise<IssueInvoiceResult> => {
+      if (!center?.id) {
+        throw new Error('No se ha encontrado el centro');
+      }
+
+      const result: IssueInvoiceResult = {
+        success: false,
+        verifactuSuccess: false,
+        verifactuPending: false,
+      };
+
+      // 1. Get invoice and check status
+      const { data: invoice, error: invoiceError } = await supabase
+        .from('invoices')
+        .select('*, series:invoice_series(*)')
+        .eq('id', invoiceId)
+        .single();
+
+      if (invoiceError || !invoice) {
+        throw new Error('Factura no encontrada');
+      }
+
+      // Only process if invoice is draft
+      if (invoice.status !== 'draft') {
+        console.log('[useIssueInvoice] Invoice is not draft, skipping issue process');
+        result.success = true;
+        result.verifactuSuccess = true;
+        result.invoiceNumber = invoice.invoice_number;
+        return result;
+      }
+
+      // 2. Get the series and generate invoice number
+      const seriesId = invoice.series_id;
+      if (!seriesId) {
+        throw new Error('La factura no tiene serie asignada');
+      }
+
+      const { data: seriesData, error: seriesError } = await supabase
+        .from('invoice_series')
+        .select('*')
+        .eq('id', seriesId)
+        .single();
+
+      if (seriesError || !seriesData) {
+        throw new Error('Error al obtener la serie de facturación');
+      }
+
+      // Generate invoice number from series format
+      const year = new Date().getFullYear();
+      const nextNumber = seriesData.next_number || 1;
+      const paddedNumber = nextNumber.toString().padStart(5, '0');
+      
+      const invoiceNumber = seriesData.format
+        .replace('{SERIE}', seriesData.name)
+        .replace('{AAAA}', year.toString())
+        .replace('{AA}', year.toString().slice(-2))
+        .replace('{NNNNN}', paddedNumber)
+        .replace('{NNNN}', nextNumber.toString().padStart(4, '0'))
+        .replace('{NNN}', nextNumber.toString().padStart(3, '0'));
+
+      // 3. Update invoice to issued
+      const { error: updateError } = await supabase
+        .from('invoices')
+        .update({
+          status: 'issued',
+          invoice_number: invoiceNumber,
+          issue_date: new Date().toISOString().split('T')[0],
+        })
+        .eq('id', invoiceId);
+
+      if (updateError) {
+        throw new Error('Error al emitir la factura: ' + updateError.message);
+      }
+
+      // 4. Update series counter
+      await supabase
+        .from('invoice_series')
+        .update({ next_number: nextNumber + 1 })
+        .eq('id', seriesId);
+
+      result.success = true;
+      result.invoiceNumber = invoiceNumber;
+
+      // 5. Sign with Verifactu if enabled
+      const verifactuAutoEnabled = center?.verifactu_auto_enabled === true;
+      const hasCertificate = !!center?.verifactu_certificate_base64;
+
+      if (verifactuAutoEnabled && hasCertificate) {
+        try {
+          const { data: verifactuData, error: verifactuError } = await supabase.functions.invoke(
+            'sign-invoice-verifactu',
+            { body: { invoice_id: invoiceId } }
+          );
+
+          if (verifactuError) {
+            console.error('Verifactu signing error:', verifactuError);
+            result.verifactuPending = true;
+            result.verifactuError = verifactuError.message;
+            
+            await supabase
+              .from('invoices')
+              .update({ 
+                verifactu_pending: true,
+                verifactu_retry_count: 1 
+              })
+              .eq('id', invoiceId);
+          } else if (verifactuData?.success) {
+            result.verifactuSuccess = true;
+          } else {
+            result.verifactuPending = true;
+            result.verifactuError = verifactuData?.error || 'Error desconocido en Verifactu';
+            
+            await supabase
+              .from('invoices')
+              .update({ 
+                verifactu_pending: true,
+                verifactu_retry_count: 1 
+              })
+              .eq('id', invoiceId);
+          }
+        } catch (error) {
+          console.error('Verifactu error:', error);
+          result.verifactuPending = true;
+          result.verifactuError = error instanceof Error ? error.message : 'Error de conexión';
+          
+          await supabase
+            .from('invoices')
+            .update({ 
+              verifactu_pending: true,
+              verifactu_retry_count: 1 
+            })
+            .eq('id', invoiceId);
+        }
+      } else {
+        result.verifactuSuccess = true;
+      }
+
+      return result;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      queryClient.invalidateQueries({ queryKey: ['invoice-series'] });
+      queryClient.invalidateQueries({ queryKey: ['debts'] });
+    },
+    onError: (error) => {
+      toast.error('Error al emitir la factura: ' + error.message);
+    },
+  });
+}
