@@ -82,7 +82,7 @@ export function useCollectDebtPayment() {
 
       if (rpcErr) {
         console.error('Error recomputing debt:', rpcErr);
-        throw new Error('Error al recalcular la deuda');
+        throw new Error(`Error al recalcular la deuda: ${rpcErr.message}`);
       }
 
       // 6. If invoice is draft, issue it (first payment)
