@@ -101,7 +101,7 @@ import { usePatient } from '@/hooks/usePatients';
 import { supabase } from '@/integrations/supabase/client';
 import { useProfessionalIntegrations } from '@/hooks/useProfessionalIntegrations';
 import { ConvertCalendarEventDialog } from './ConvertCalendarEventDialog';
-import { useHideCalendarEvent } from '@/hooks/useHideCalendarEvent';
+import { useDeleteCalendarEvent } from '@/hooks/useDeleteCalendarEvent';
 import { CalendarEvent } from '@/hooks/useCalendarEvents';
 
 interface SessionDetailDrawerProps {
@@ -159,7 +159,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
   const sendEmailNotification = useSendSessionNotification();
   const isMobile = useIsMobile();
   const { syncToGoogle, syncMoveToGoogle } = useGoogleCalendarUpdate();
-  const hideCalendarEvent = useHideCalendarEvent();
+  const deleteCalendarEvent = useDeleteCalendarEvent();
   const { integrations, isProviderConnected } = useProfessionalIntegrations();
   const [isUpdating, setIsUpdating] = useState(false);
   const [isChangingModality, setIsChangingModality] = useState(false);
@@ -1518,24 +1518,35 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
               </Select>
             </div>
 
-            {/* Hide Google Calendar Block (only for Google events) */}
+            {/* Delete Google Calendar Block (only for Google events) */}
             {(session as any).isGoogleEvent && (
-              <Button 
-                variant="outline" 
-                className="w-full mt-4"
-                onClick={() => {
-                  hideCalendarEvent.mutate(session.id);
-                  onOpenChange(false);
-                }}
-                disabled={hideCalendarEvent.isPending}
-              >
-                {hideCalendarEvent.isPending ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Ban className="mr-2 h-4 w-4" />
-                )}
-                Ocultar bloqueo
-              </Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive" className="w-full mt-4">
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Eliminar bloqueo
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>¿Eliminar este bloqueo?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Este bloqueo de Google Calendar será eliminado de la agenda. Esta acción no se puede deshacer.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={() => {
+                        deleteCalendarEvent.mutate(session.id);
+                        onOpenChange(false);
+                      }}
+                    >
+                      Eliminar
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             )}
 
             {/* Delete Session (only for regular sessions) */}
