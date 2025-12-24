@@ -96,19 +96,32 @@ export interface InvoiceItemInsert {
   total: number;
 }
 
-export function useInvoices(filters?: { patientId?: string; status?: string; startDate?: string; endDate?: string }) {
+export type InvoiceSortField = 'invoice_number' | 'issue_date';
+export type SortDirection = 'asc' | 'desc';
+
+export function useInvoices(filters?: { 
+  patientId?: string; 
+  status?: string; 
+  startDate?: string; 
+  endDate?: string;
+  sortBy?: InvoiceSortField;
+  sortDirection?: SortDirection;
+}) {
   const { profile } = useAuth();
 
   return useQuery({
     queryKey: ['invoices', filters],
     queryFn: async () => {
+      const sortField = filters?.sortBy || 'invoice_number';
+      const sortAsc = filters?.sortDirection === 'asc';
+      
       let query = supabase
         .from('invoices')
         .select(`
           *,
           patients (id, first_name, last_name, tax_id, address, city, postal_code, email, phone)
         `)
-        .order('invoice_number', { ascending: false });
+        .order(sortField, { ascending: sortAsc });
 
       if (filters?.patientId) {
         query = query.eq('patient_id', filters.patientId);
