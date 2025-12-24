@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -12,7 +13,7 @@ import { useProfessionalIntegrations } from "@/hooks/useProfessionalIntegrations
 import { useAuth } from "@/hooks/useAuth";
 import { useCenter } from "@/hooks/useCenter";
 import { useGoogleCalendarWatch } from "@/hooks/useGoogleCalendarWatch";
-import { Calendar, Video, ExternalLink, CheckCircle2, AlertCircle, Loader2, Settings2, Zap, RefreshCw } from "lucide-react";
+import { Calendar, Video, ExternalLink, CheckCircle2, AlertCircle, Loader2, Settings2, Zap, RefreshCw, Activity, Clock, Database } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
@@ -20,6 +21,8 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { formatDistanceToNow, format, addDays, startOfWeek, endOfWeek } from "date-fns";
+import { es } from "date-fns/locale";
 
 interface GoogleCalendar {
   id: string;
@@ -57,6 +60,44 @@ export function GoogleIntegrationSection() {
 
   const isConnected = isProviderConnected('google');
   const connection = getOAuthConnection('google');
+
+  // Health Dashboard data
+  const { data: healthData, refetch: refetchHealth } = useQuery({
+    queryKey: ['google-calendar-health', profile?.id],
+    queryFn: async () => {
+      if (!profile?.id) return null;
+      
+      // Get connection data with sync status
+      const { data: conn } = await supabase
+        .from('oauth_connections')
+        .select('last_sync_at, last_sync_status, watch_channel_id, watch_resource_id, watch_expires_at, expires_at, needs_reconnect, sync_token')
+        .eq('professional_id', profile.id)
+        .eq('provider', 'google')
+        .single();
+      
+      if (!conn) return null;
+      
+      // Get events count for current week
+      const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
+      const weekEnd = endOfWeek(new Date(), { weekStartsOn: 1 });
+      
+      const { count } = await supabase
+        .from('calendar_events')
+        .select('*', { count: 'exact', head: true })
+        .eq('professional_id', profile.id)
+        .eq('provider', 'google')
+        .eq('deleted', false)
+        .gte('start_at', weekStart.toISOString())
+        .lte('start_at', weekEnd.toISOString());
+      
+      return {
+        ...conn,
+        eventsThisWeek: count || 0,
+      };
+    },
+    enabled: isConnected && !!profile?.id,
+    refetchInterval: 60000, // Refresh every minute
+  });
 
   // Handle OAuth callback and setup watch
   useEffect(() => {
@@ -460,6 +501,123 @@ export function GoogleIntegrationSection() {
                       </div>
                     </RadioGroup>
                   </div>
+
+                  {/* Health Dashboard */}
+                  <Collapsible>
+                    <CollapsibleTrigger asChild>
+                      <Button variant="ghost" size="sm" className="gap-2 w-full justify-start">
+                        <Activity className="h-4 w-4" />
+                        Estado de sincronización
+                      </Button>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="mt-3 p-3 border rounded-lg bg-muted/30 space-y-3">
+                      {healthData ? (
+                        <div className="space-y-3">
+                          {/* Sync Status */}
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-muted-foreground">Estado</span>
+                            <Badge 
+                              variant="secondary" 
+                              className={
+                                healthData.last_sync_status === 'ok' 
+                                  ? 'bg-green-500/10 text-green-600 border-green-500/20'
+                                  : healthData.last_sync_status === 'needs_reconnect'
+                                  ? 'bg-red-500/10 text-red-600 border-red-500/20'
+                                  : 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20'
+                              }
+                            >
+                              {healthData.last_sync_status === 'ok' && <CheckCircle2 className="h-3 w-3 mr-1" />}
+                              {healthData.last_sync_status === 'needs_reconnect' && <AlertCircle className="h-3 w-3 mr-1" />}
+                              {healthData.last_sync_status || 'Pendiente'}
+                            </Badge>
+                          </div>
+
+                          {/* Last Sync */}
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-muted-foreground flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              Última sincronización
+                            </span>
+                            <span className="text-sm">
+                              {healthData.last_sync_at 
+                                ? formatDistanceToNow(new Date(healthData.last_sync_at), { addSuffix: true, locale: es })
+                                : 'Nunca'}
+                            </span>
+                          </div>
+
+                          {/* Token Expiry */}
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-muted-foreground">Token OAuth</span>
+                            <span className="text-sm">
+                              {healthData.expires_at 
+                                ? new Date(healthData.expires_at) > new Date() 
+                                  ? `Válido (${formatDistanceToNow(new Date(healthData.expires_at), { locale: es })})`
+                                  : 'Expirado'
+                                : 'N/A'}
+                            </span>
+                          </div>
+
+                          {/* Watch Channel */}
+                          {syncMode === 'two_way' && (
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm text-muted-foreground flex items-center gap-1">
+                                <Zap className="h-3 w-3" />
+                                Push webhook
+                              </span>
+                              <span className="text-sm">
+                                {healthData.watch_expires_at 
+                                  ? new Date(healthData.watch_expires_at) > new Date()
+                                    ? `Activo (${formatDistanceToNow(new Date(healthData.watch_expires_at), { locale: es })})`
+                                    : 'Expirado'
+                                  : 'No configurado'}
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Events Count */}
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-muted-foreground flex items-center gap-1">
+                              <Database className="h-3 w-3" />
+                              Eventos esta semana
+                            </span>
+                            <span className="text-sm font-medium">{healthData.eventsThisWeek}</span>
+                          </div>
+
+                          {/* Reconnect Warning */}
+                          {healthData.needs_reconnect && (
+                            <Alert variant="destructive" className="mt-2">
+                              <AlertCircle className="h-4 w-4" />
+                              <AlertDescription>
+                                Se requiere reconexión. Desconecta y vuelve a conectar tu cuenta de Google.
+                              </AlertDescription>
+                            </Alert>
+                          )}
+
+                          {/* Sync Token */}
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-muted-foreground">Sync incremental</span>
+                            <span className="text-xs text-muted-foreground">
+                              {healthData.sync_token ? '✓ Activo' : 'No disponible'}
+                            </span>
+                          </div>
+
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => refetchHealth()}
+                            className="w-full mt-2"
+                          >
+                            <RefreshCw className="h-3 w-3 mr-2" />
+                            Actualizar estado
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="text-sm text-muted-foreground text-center py-2">
+                          Cargando estado de sincronización...
+                        </div>
+                      )}
+                    </CollapsibleContent>
+                  </Collapsible>
 
                   {/* Real-time Sync Status */}
                   {syncMode === 'two_way' && (
