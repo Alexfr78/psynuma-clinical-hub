@@ -9,6 +9,7 @@ export interface Debt {
   center_id: string;
   session_id: string | null;
   invoice_id: string | null;
+  bono_id: string | null;
   amount: number;
   paid_amount: number;
   due_date: string | null;

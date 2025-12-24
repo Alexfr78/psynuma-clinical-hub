@@ -129,6 +129,12 @@ export function CreateBonoDialog({ open, onOpenChange, preselectedPatientId, onS
   };
 
   const onSubmit = async (values: FormValues) => {
+    const centerId = profile?.center_id;
+    if (!centerId) {
+      toast.error('Error: No hay centro configurado. Por favor, recarga la página.');
+      return;
+    }
+    
     setIsSubmitting(true);
     try {
       // 1. Create the bono
@@ -170,7 +176,7 @@ export function CreateBonoDialog({ open, onOpenChange, preselectedPatientId, onS
           });
 
           // Create debt linked to bono and invoice
-          const { data: debt } = await supabase
+          const { error: debtError } = await supabase
             .from('debts')
             .insert({
               patient_id: values.patient_id,
@@ -179,34 +185,38 @@ export function CreateBonoDialog({ open, onOpenChange, preselectedPatientId, onS
               paid_amount: paidAmount,
               status: debtStatus,
               notes: `Bono: ${values.name} (${values.total_sessions} sesiones)`,
-              center_id: profile?.center_id,
+              center_id: centerId,
               invoice_id: invoiceResult?.invoiceId || null,
-            })
-            .select()
-            .single();
+            });
+
+          if (debtError) throw debtError;
 
           // Record payment
-          await supabase.from('payments').insert({
+          const { error: paymentError } = await supabase.from('payments').insert({
             patient_id: values.patient_id,
             amount: paidAmount,
             payment_method: values.payment_method || 'cash',
             payment_date: new Date().toISOString(),
-            center_id: profile?.center_id,
+            center_id: centerId,
             invoice_id: invoiceResult?.invoiceId || null,
           });
+
+          if (paymentError) throw paymentError;
 
           toast.success('Bono creado y facturado correctamente');
         } else {
           // 3. Create pending debt (no payment, no invoice yet)
-          await supabase.from('debts').insert({
+          const { error: debtError } = await supabase.from('debts').insert({
             patient_id: values.patient_id,
             bono_id: result.id,
             amount: values.total_price,
             paid_amount: 0,
             status: 'pending',
             notes: `Bono: ${values.name} (${values.total_sessions} sesiones)`,
-            center_id: profile?.center_id,
+            center_id: centerId,
           });
+
+          if (debtError) throw debtError;
         }
       }
 

@@ -33,6 +33,9 @@ import { cn } from '@/lib/utils';
 import { usePatients } from '@/hooks/usePatients';
 import { useCreatePayment } from '@/hooks/usePayments';
 import { useInvoices } from '@/hooks/useInvoices';
+import { useCollectDebtPayment } from '@/hooks/useCollectDebtPayment';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { FileText } from 'lucide-react';
 
 const formSchema = z.object({
   patient_id: z.string().min(1, 'Selecciona un paciente'),
@@ -49,9 +52,11 @@ type FormValues = z.infer<typeof formSchema>;
 interface RecordPaymentDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  preselectedDebtId?: string;
   preselectedPatientId?: string;
   preselectedInvoiceId?: string;
   preselectedAmount?: number;
+  preselectedDescription?: string;
 }
 
 const paymentMethods = [
@@ -64,13 +69,18 @@ const paymentMethods = [
 export function RecordPaymentDialog({ 
   open, 
   onOpenChange, 
+  preselectedDebtId,
   preselectedPatientId,
   preselectedInvoiceId,
-  preselectedAmount 
+  preselectedAmount,
+  preselectedDescription,
 }: RecordPaymentDialogProps) {
   const { data: patients } = usePatients();
   const { data: invoices } = useInvoices({ status: 'issued' });
   const createPayment = useCreatePayment();
+  const collectDebtPayment = useCollectDebtPayment();
+  
+  const isDebtPayment = !!preselectedDebtId;
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -89,18 +99,32 @@ export function RecordPaymentDialog({
   const patientInvoices = invoices?.filter(inv => inv.patient_id === watchPatientId) || [];
 
   const onSubmit = async (values: FormValues) => {
-    await createPayment.mutateAsync({
-      patient_id: values.patient_id,
-      invoice_id: values.invoice_id || null,
-      amount: values.amount,
-      payment_date: format(values.payment_date, 'yyyy-MM-dd'),
-      payment_method: values.payment_method,
-      reference: values.reference || null,
-      notes: values.notes || null,
-    });
+    if (preselectedDebtId) {
+      // Collect debt: creates invoice + payment + updates debt
+      await collectDebtPayment.mutateAsync({
+        debtId: preselectedDebtId,
+        amount: values.amount,
+        paymentMethod: values.payment_method,
+        reference: values.reference || null,
+        notes: values.notes || null,
+      });
+    } else {
+      // Simple payment (no invoice generation)
+      await createPayment.mutateAsync({
+        patient_id: values.patient_id,
+        invoice_id: values.invoice_id || null,
+        amount: values.amount,
+        payment_date: format(values.payment_date, 'yyyy-MM-dd'),
+        payment_method: values.payment_method,
+        reference: values.reference || null,
+        notes: values.notes || null,
+      });
+    }
     form.reset();
     onOpenChange(false);
   };
+  
+  const isPending = createPayment.isPending || collectDebtPayment.isPending;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -114,13 +138,26 @@ export function RecordPaymentDialog({
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            {isDebtPayment && preselectedDescription && (
+              <Alert>
+                <FileText className="h-4 w-4" />
+                <AlertDescription>
+                  <span className="font-medium">Concepto:</span> {preselectedDescription}
+                </AlertDescription>
+              </Alert>
+            )}
+
             <FormField
               control={form.control}
               name="patient_id"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Paciente</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
+                  <Select 
+                    onValueChange={field.onChange} 
+                    value={field.value}
+                    disabled={isDebtPayment}
+                  >
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Seleccionar paciente" />
@@ -139,7 +176,7 @@ export function RecordPaymentDialog({
               )}
             />
 
-            {watchPatientId && patientInvoices.length > 0 && (
+            {!isDebtPayment && watchPatientId && patientInvoices.length > 0 && (
               <FormField
                 control={form.control}
                 name="invoice_id"
@@ -275,8 +312,8 @@ export function RecordPaymentDialog({
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Cancelar
               </Button>
-              <Button type="submit" disabled={createPayment.isPending}>
-                {createPayment.isPending ? 'Registrando...' : 'Registrar pago'}
+              <Button type="submit" disabled={isPending}>
+                {isPending ? 'Registrando...' : isDebtPayment ? 'Cobrar y facturar' : 'Registrar pago'}
               </Button>
             </div>
           </form>

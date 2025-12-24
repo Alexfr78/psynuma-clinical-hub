@@ -8,7 +8,12 @@ import type { DebtWithRelations } from '@/hooks/useDebts';
 
 interface DebtCardProps {
   debt: DebtWithRelations;
-  onRecordPayment?: () => void;
+  onRecordPayment?: (debtInfo: {
+    debtId: string;
+    patientId: string;
+    pendingAmount: number;
+    description?: string;
+  }) => void;
 }
 
 const statusConfig = {
@@ -74,7 +79,12 @@ export function DebtCard({ debt, onRecordPayment }: DebtCardProps) {
             </div>
             
             {(debt.status === 'pending' || debt.status === 'partial') && (
-              <Button onClick={onRecordPayment}>
+              <Button onClick={() => onRecordPayment?.({
+                debtId: debt.id,
+                patientId: debt.patient_id,
+                pendingAmount: remaining,
+                description: debt.notes || undefined,
+              })}>
                 Registrar pago
               </Button>
             )}
