@@ -149,6 +149,19 @@ export function useProfessionalIntegrations() {
     mutationFn: async (provider: 'google' | 'zoom' | 'stripe') => {
       if (!professionalId) throw new Error('No professional ID');
 
+      // If disconnecting Google, also delete all calendar_events for this professional
+      if (provider === 'google') {
+        const { error: calendarError } = await supabase
+          .from('calendar_events')
+          .delete()
+          .eq('professional_id', professionalId);
+
+        if (calendarError) {
+          console.error('Error deleting calendar events:', calendarError);
+          // Continue with disconnection even if calendar cleanup fails
+        }
+      }
+
       const { error } = await supabase
         .from('oauth_connections')
         .delete()
@@ -159,6 +172,7 @@ export function useProfessionalIntegrations() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['oauth-connections', professionalId] });
+      queryClient.invalidateQueries({ queryKey: ['calendar-events'] });
       toast.success('Integración desconectada');
     },
     onError: (error) => {
