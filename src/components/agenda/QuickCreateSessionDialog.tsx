@@ -324,18 +324,8 @@ export function QuickCreateSessionDialog({
     }
     
     try {
-      
-      // Determine price: new bono = total price, existing bono = 0, no bono = session type default
-      let sessionPrice = selectedSessionType?.default_price || 60;
-      if (usesBono) {
-        if (values.bono_id === newlyCreatedBonoId && newlyCreatedBonoPrice !== null) {
-          // Newly created bono - needs to be paid
-          sessionPrice = newlyCreatedBonoPrice;
-        } else {
-          // Existing bono - already paid
-          sessionPrice = 0;
-        }
-      }
+      // Session always maintains its base price - bono billing is separate
+      const sessionPrice = selectedSessionType?.default_price || 60;
       
       // Determine video provider based on modality
       let videoProvider: string | null = null;

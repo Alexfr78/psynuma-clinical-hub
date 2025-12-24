@@ -29,9 +29,16 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { usePatients } from '@/hooks/usePatients';
 import { useBonoTemplates, useCreateBono } from '@/hooks/useBonos';
+import { useAuth } from '@/hooks/useAuth';
+import { useCenter } from '@/hooks/useCenter';
+import { useCreateSignedInvoice } from '@/hooks/useCreateSignedInvoice';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 const formSchema = z.object({
   patient_id: z.string().min(1, 'Selecciona un paciente'),
@@ -41,6 +48,10 @@ const formSchema = z.object({
   price_per_session: z.coerce.number().min(0, 'El precio no puede ser negativo'),
   total_price: z.coerce.number().min(0, 'El precio no puede ser negativo'),
   expires_at: z.date().optional(),
+  // Payment fields
+  pay_now: z.boolean().default(false),
+  payment_amount: z.coerce.number().optional(),
+  payment_method: z.string().optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -56,7 +67,11 @@ export function CreateBonoDialog({ open, onOpenChange, preselectedPatientId, onS
   const { data: patients } = usePatients();
   const { data: templates } = useBonoTemplates();
   const createBono = useCreateBono();
+  const createSignedInvoice = useCreateSignedInvoice();
+  const { profile } = useAuth();
+  const { center } = useCenter();
   const [isCustom, setIsCustom] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -66,6 +81,8 @@ export function CreateBonoDialog({ open, onOpenChange, preselectedPatientId, onS
       total_sessions: 10,
       price_per_session: 50,
       total_price: 500,
+      pay_now: false,
+      payment_method: 'cash',
     },
   });
 
@@ -77,6 +94,8 @@ export function CreateBonoDialog({ open, onOpenChange, preselectedPatientId, onS
 
   const watchSessions = form.watch('total_sessions');
   const watchPricePerSession = form.watch('price_per_session');
+  const watchPayNow = form.watch('pay_now');
+  const watchTotalPrice = form.watch('total_price');
 
   useEffect(() => {
     if (isCustom) {
@@ -110,19 +129,98 @@ export function CreateBonoDialog({ open, onOpenChange, preselectedPatientId, onS
   };
 
   const onSubmit = async (values: FormValues) => {
-    const result = await createBono.mutateAsync({
-      patient_id: values.patient_id,
-      name: values.name,
-      total_sessions: values.total_sessions,
-      price_per_session: values.price_per_session,
-      total_price: values.total_price,
-      expires_at: values.expires_at?.toISOString() || null,
-    });
-    const totalPrice = values.total_price;
-    form.reset();
-    onOpenChange(false);
-    if (onSuccess && result?.id) {
-      onSuccess(result.id, totalPrice);
+    setIsSubmitting(true);
+    try {
+      // 1. Create the bono
+      const result = await createBono.mutateAsync({
+        patient_id: values.patient_id,
+        name: values.name,
+        total_sessions: values.total_sessions,
+        price_per_session: values.price_per_session,
+        total_price: values.total_price,
+        expires_at: values.expires_at?.toISOString() || null,
+      });
+
+      if (result?.id && values.total_price > 0) {
+        const paidAmount = values.pay_now ? (values.payment_amount || values.total_price) : 0;
+        const debtStatus = paidAmount >= values.total_price ? 'paid' : 
+                           paidAmount > 0 ? 'partial' : 'pending';
+
+        // 2. If paying now, create invoice + payment
+        if (values.pay_now && paidAmount > 0) {
+          const taxRate = center?.default_tax_rate || 0;
+          const taxAmount = (paidAmount * taxRate) / 100;
+
+          // Create invoice using the centralized hook
+          const invoiceResult = await createSignedInvoice.mutateAsync({
+            patientId: values.patient_id,
+            invoiceType: 'simplified',
+            bonoId: result.id,
+            items: [{
+              description: `Bono: ${values.name} (${values.total_sessions} sesiones)`,
+              quantity: 1,
+              unit_price: paidAmount,
+              tax_rate: taxRate,
+              tax_amount: taxAmount,
+              total: paidAmount + taxAmount,
+              bono_id: result.id,
+            }],
+            notes: `Bono: ${values.name}`,
+            sendNotification: false,
+          });
+
+          // Create debt linked to bono and invoice
+          const { data: debt } = await supabase
+            .from('debts')
+            .insert({
+              patient_id: values.patient_id,
+              bono_id: result.id,
+              amount: values.total_price,
+              paid_amount: paidAmount,
+              status: debtStatus,
+              notes: `Bono: ${values.name} (${values.total_sessions} sesiones)`,
+              center_id: profile?.center_id,
+              invoice_id: invoiceResult?.invoiceId || null,
+            })
+            .select()
+            .single();
+
+          // Record payment
+          await supabase.from('payments').insert({
+            patient_id: values.patient_id,
+            amount: paidAmount,
+            payment_method: values.payment_method || 'cash',
+            payment_date: new Date().toISOString(),
+            center_id: profile?.center_id,
+            invoice_id: invoiceResult?.invoiceId || null,
+          });
+
+          toast.success('Bono creado y facturado correctamente');
+        } else {
+          // 3. Create pending debt (no payment, no invoice yet)
+          await supabase.from('debts').insert({
+            patient_id: values.patient_id,
+            bono_id: result.id,
+            amount: values.total_price,
+            paid_amount: 0,
+            status: 'pending',
+            notes: `Bono: ${values.name} (${values.total_sessions} sesiones)`,
+            center_id: profile?.center_id,
+          });
+        }
+      }
+
+      const totalPrice = values.total_price;
+      form.reset();
+      onOpenChange(false);
+      if (onSuccess && result?.id) {
+        onSuccess(result.id, totalPrice);
+      }
+    } catch (error) {
+      console.error('Error creating bono:', error);
+      toast.error('Error al crear el bono');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -283,12 +381,81 @@ export function CreateBonoDialog({ open, onOpenChange, preselectedPatientId, onS
               )}
             />
 
+            <Separator className="my-4" />
+
+            {/* Payment section */}
+            <div className="space-y-4">
+              <FormField
+                control={form.control}
+                name="pay_now"
+                render={({ field }) => (
+                  <FormItem className="flex items-center gap-3 space-y-0">
+                    <FormControl>
+                      <Checkbox
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                    <FormLabel className="font-normal cursor-pointer">
+                      Registrar pago ahora
+                    </FormLabel>
+                  </FormItem>
+                )}
+              />
+
+              {watchPayNow && (
+                <div className="grid grid-cols-2 gap-4 pl-6 border-l-2 border-muted">
+                  <FormField
+                    control={form.control}
+                    name="payment_amount"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Importe pagado (€)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            {...field}
+                            placeholder={String(watchTotalPrice || 0)}
+                            value={field.value ?? ''}
+                            onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="payment_method"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Método de pago</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Seleccionar" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="cash">Efectivo</SelectItem>
+                            <SelectItem value="card">Tarjeta</SelectItem>
+                            <SelectItem value="transfer">Transferencia</SelectItem>
+                            <SelectItem value="bizum">Bizum</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              )}
+            </div>
+
             <div className="flex justify-end gap-2 pt-4">
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Cancelar
               </Button>
-              <Button type="submit" disabled={createBono.isPending}>
-                {createBono.isPending ? 'Creando...' : 'Crear bono'}
+              <Button type="submit" disabled={isSubmitting || createBono.isPending}>
+                {isSubmitting ? 'Creando...' : 'Crear bono'}
               </Button>
             </div>
           </form>
