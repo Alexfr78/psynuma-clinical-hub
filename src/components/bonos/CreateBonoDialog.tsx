@@ -150,8 +150,9 @@ export function CreateBonoDialog({ open, onOpenChange, preselectedPatientId, onS
       });
 
       if (result?.id && values.total_price > 0) {
-        const taxRate = center?.default_tax_rate || 0;
-        const taxAmount = (values.total_price * taxRate) / 100;
+        // Bonos de psicología son exentos de IVA
+        const taxRate = 0;
+        const taxAmount = 0;
 
         // 2. ALWAYS create a DRAFT invoice for the TOTAL bono price
         const invoiceResult = await createSignedInvoice.mutateAsync({
@@ -163,12 +164,12 @@ export function CreateBonoDialog({ open, onOpenChange, preselectedPatientId, onS
             description: `Bono: ${values.name} (${values.total_sessions} sesiones)`,
             quantity: 1,
             unit_price: values.total_price, // ← TOTAL price, not paid amount
-            tax_rate: taxRate,
-            tax_amount: taxAmount,
-            total: values.total_price + taxAmount,
+            tax_rate: 0,
+            tax_amount: 0,
+            total: values.total_price,
             bono_id: result.id,
           }],
-          notes: `Bono: ${values.name}`,
+          notes: `Bono: ${values.name} (Exento de IVA)`,
           sendNotification: false,
         });
 
