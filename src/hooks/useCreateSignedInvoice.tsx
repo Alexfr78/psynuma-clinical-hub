@@ -131,7 +131,7 @@ export function useCreateSignedInvoice() {
           series_id: targetSeriesId,
           invoice_number: invoiceNumber,
           status: isDraft ? 'draft' : 'issued',
-          issue_date: isDraft ? null : new Date().toISOString().split('T')[0],
+          issue_date: new Date().toISOString().split('T')[0],
           subtotal,
           tax_rate: items[0]?.tax_rate || 0,
           tax_amount: taxAmount,
