@@ -97,7 +97,11 @@ export function usePatientActiveBonos(patientId: string | undefined) {
         .order('expires_at', { ascending: true, nullsFirst: false });
 
       if (error) throw error;
-      return data as Bono[];
+      
+      // Filter bonos with available sessions
+      return (data ?? []).filter(
+        bono => (bono.total_sessions - (bono.used_sessions || 0)) > 0
+      ) as Bono[];
     },
     enabled: !!patientId,
   });

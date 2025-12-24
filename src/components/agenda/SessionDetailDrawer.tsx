@@ -903,6 +903,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
                   <Select
                     value={localBonoId || '__none__'}
                     onValueChange={(value) => handleBonoChange(value)}
+                    disabled={applyBonoToSession.isPending || removeBonoFromSession.isPending}
                   >
                     <SelectTrigger className="flex-1 h-8">
                       <SelectValue placeholder="Sin bono" />

@@ -153,15 +153,7 @@ export function CreateSessionDialog({
   const watchBonoId = form.watch('bono_id');
   const { data: patientBonos, refetch: refetchBonos } = usePatientActiveBonos(watchPatientId || undefined);
 
-  // When bono is selected, set price to 0 for existing bonos (not newly created)
-  useEffect(() => {
-    if (watchBonoId && watchBonoId !== 'none') {
-      // Only set price to 0 if NOT a newly created bono
-      if (watchBonoId !== newlyCreatedBonoId) {
-        form.setValue('price', 0);
-      }
-    }
-  }, [watchBonoId, form, newlyCreatedBonoId]);
+  // Bono selection no longer changes session price - bono is billed separately
   
   // Clear new bono tracking when bono selection changes to something else
   useEffect(() => {
@@ -366,7 +358,7 @@ export function CreateSessionDialog({
                     </div>
                     {field.value && field.value !== 'none' && (
                       <p className="text-xs text-muted-foreground">
-                        El precio se establecerá a 0€ al usar el bono
+                        Esta sesión se descontará del bono (ya pagado previamente)
                       </p>
                     )}
                     <FormMessage />
@@ -662,8 +654,7 @@ export function CreateSessionDialog({
         setNewlyCreatedBonoId(bonoId);
         setNewlyCreatedBonoPrice(totalPrice);
         form.setValue('bono_id', bonoId);
-        // New bono needs to be paid, so session price = bono total price
-        form.setValue('price', totalPrice);
+        // Bono has its own billing - session price stays at default
       }}
     />
 

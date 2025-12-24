@@ -14,6 +14,7 @@ interface InvoiceItem {
   total: number;
   session_id?: string;
   billable_event_id?: string;
+  bono_id?: string;
 }
 
 interface CreateSignedInvoiceParams {
@@ -25,6 +26,7 @@ interface CreateSignedInvoiceParams {
   sendNotification?: boolean;
   patientEmail?: string | null;
   patientPhone?: string | null;
+  bonoId?: string;
 }
 
 interface CreateSignedInvoiceResult {
@@ -214,7 +216,7 @@ export function useCreateSignedInvoice() {
           .is('invoice_id', null);
       }
 
-      // 6. Create invoice items with billable_event_id
+      // 6. Create invoice items with billable_event_id and bono_id
       const invoiceItems = items.map(item => ({
         invoice_id: invoice.id,
         description: item.description,
@@ -225,6 +227,7 @@ export function useCreateSignedInvoice() {
         total: item.total,
         session_id: item.session_id || null,
         billable_event_id: billableEventId || item.billable_event_id || null,
+        bono_id: item.bono_id || null,
       }));
 
       const { error: itemsError } = await supabase
