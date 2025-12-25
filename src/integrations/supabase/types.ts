@@ -2374,6 +2374,18 @@ export type Database = {
         Args: { p_bono_id: string; p_session_id: string }
         Returns: Json
       }
+      bootstrap_create_center: {
+        Args: {
+          p_address?: string
+          p_city?: string
+          p_email?: string
+          p_name: string
+          p_phone?: string
+          p_postal_code?: string
+          p_tax_id?: string
+        }
+        Returns: string
+      }
       convert_calendar_event_to_session: {
         Args: {
           p_bono_id?: string
