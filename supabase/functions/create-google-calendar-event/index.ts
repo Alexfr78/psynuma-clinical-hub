@@ -206,9 +206,15 @@ serve(async (req) => {
     const startDateTime = `${session_date}T${start_time}:00`;
     const endDateTime = `${session_date}T${end_time}:00`;
 
+    // Build description with Psycma marker token for fallback detection
+    let eventDescription = description || `Sesión de psicología`;
+    if (session_id) {
+      eventDescription = `${eventDescription}\n\n[PSYCMA_SESSION_ID:${session_id}]`;
+    }
+
     const event: any = {
       summary: title || `Sesión con ${patient_name || 'paciente'}`,
-      description: description || `Sesión de psicología`,
+      description: eventDescription,
       start: {
         dateTime: startDateTime,
         timeZone: 'Europe/Madrid',
@@ -218,6 +224,17 @@ serve(async (req) => {
         timeZone: 'Europe/Madrid',
       },
     };
+
+    // CRITICAL: Add extended properties to mark this as a Psycma-created event
+    // This prevents the sync from re-importing this event as an external block
+    if (session_id) {
+      event.extendedProperties = {
+        private: {
+          psycma_session_id: session_id,
+        },
+      };
+      console.log(`[CREATE] Marking event with psycma_session_id: ${session_id}`);
+    }
 
     // Add location if provided and not a video call
     if (location && !include_meet) {

@@ -46,7 +46,8 @@ export function useGoogleCalendarUpdate() {
       );
     } else {
       // Update the event with new details
-      console.log('Updating Google Calendar event...');
+      // CRITICAL: handleSessionUpdate now sends psycma_session_id to mark the event
+      console.log('Updating Google Calendar event with psycma_session_id marker...');
       await handleSessionUpdate(
         session.id,
         session.professional_id,
