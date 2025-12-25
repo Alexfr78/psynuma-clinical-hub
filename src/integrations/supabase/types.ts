@@ -2410,6 +2410,7 @@ export type Database = {
           center_name: string
         }[]
       }
+      get_consent_token: { Args: never; Returns: string }
       get_debt_id_for_payment_by_invoice: {
         Args: { p_payment_id: string }
         Returns: string
@@ -2432,6 +2433,21 @@ export type Database = {
           reschedule_max_days: number
           reschedule_require_confirmation: boolean
           reschedule_slot_duration: number
+        }[]
+      }
+      get_public_center_info: {
+        Args: { p_center_id: string }
+        Returns: {
+          address: string
+          city: string
+          email: string
+          id: string
+          invoice_footer: string
+          invoice_logo_url: string
+          name: string
+          phone: string
+          postal_code: string
+          province: string
         }[]
       }
       get_session_token: { Args: never; Returns: string }
@@ -2480,6 +2496,23 @@ export type Database = {
         Returns: Json
       }
       user_can_create_center: { Args: { _user_id: string }; Returns: boolean }
+      verify_consent_token: { Args: { consent_uuid: string }; Returns: boolean }
+      verify_consent_token_for_center: {
+        Args: { center_uuid: string }
+        Returns: boolean
+      }
+      verify_consent_token_for_patient: {
+        Args: { patient_uuid: string }
+        Returns: boolean
+      }
+      verify_consent_token_for_professional: {
+        Args: { professional_uuid: string }
+        Returns: boolean
+      }
+      verify_consent_token_for_template: {
+        Args: { template_uuid: string }
+        Returns: boolean
+      }
       verify_invoice_token_for_center: {
         Args: { center_uuid: string }
         Returns: boolean
