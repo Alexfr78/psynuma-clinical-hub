@@ -45,9 +45,11 @@ export function useCalendarEvents({
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return [];
         
+        // Filter by the current user's professional ID to ensure we get their calendar events
         const { data, error } = await supabase
           .from('calendar_events')
           .select('id, professional_id, provider, calendar_id, google_event_id, summary, description, location, start_at, end_at, all_day, deleted, status, is_converted, converted_session_id, converted_at')
+          .eq('professional_id', user.id)
           .eq('provider', 'google')
           .eq('deleted', false)
           .eq('is_converted', false)
