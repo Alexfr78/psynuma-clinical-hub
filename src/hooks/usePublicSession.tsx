@@ -119,6 +119,7 @@ export function useUpdatePublicSession() {
         .from('sessions')
         .update(updateData)
         .eq('access_token', token)
+        .setHeader('x-session-token', token)
         .select()
         .single();
 

@@ -111,11 +111,12 @@ export function usePublicInvoice(token: string | undefined) {
         .setHeader('x-invoice-token', token)
         .single();
 
-      // Fetch invoice items
+      // Fetch invoice items with token header
       const { data: items } = await supabase
         .from('invoice_items')
         .select('id, description, quantity, unit_price, tax_rate, tax_amount, tax_name, retention_rate, retention_amount, retention_name, total')
         .eq('invoice_id', invoice.id)
+        .setHeader('x-invoice-token', token)
         .order('created_at', { ascending: true });
 
       return {

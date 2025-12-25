@@ -58,6 +58,7 @@ export function usePublicConsent(token: string | undefined) {
           signatures:consent_signatures(id, signer_role, signature_order, signed_at)
         `)
         .eq('access_token', token)
+        .setHeader('x-consent-token', token)
         .single();
       
       if (error) throw error;
@@ -80,6 +81,8 @@ export function usePublicConsent(token: string | undefined) {
       signatureOrder: number;
       signatureData: string;
     }) => {
+      if (!token) throw new Error('No token');
+      
       const { data, error } = await supabase
         .from('consent_signatures')
         .insert({
@@ -88,9 +91,10 @@ export function usePublicConsent(token: string | undefined) {
           signer_role: signerRole,
           signature_order: signatureOrder,
           signature_data: signatureData,
-          ip_address: null, // Will be captured by edge function
+          ip_address: null,
           user_agent: navigator.userAgent,
         })
+        .setHeader('x-consent-token', token)
         .select()
         .single();
       
@@ -108,6 +112,8 @@ export function usePublicConsent(token: string | undefined) {
 
   const markAsSigned = useMutation({
     mutationFn: async (consentId: string) => {
+      if (!token) throw new Error('No token');
+      
       const { data, error } = await supabase
         .from('consents')
         .update({
@@ -115,6 +121,7 @@ export function usePublicConsent(token: string | undefined) {
           signed_at: new Date().toISOString(),
         })
         .eq('id', consentId)
+        .setHeader('x-consent-token', token)
         .select()
         .single();
       
