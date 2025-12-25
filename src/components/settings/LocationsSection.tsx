@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { MapPin, Plus, Trash2, Clock, ChevronDown, ChevronUp, Loader2, Globe, Lock } from 'lucide-react';
+import { MapPin, Plus, Trash2, Clock, ChevronDown, ChevronUp, Loader2, Globe, Lock, Video } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,8 +8,9 @@ import { Switch } from '@/components/ui/switch';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { toast } from 'sonner';
-import { useLocations, useCreateLocation, useDeleteLocation, useUpdateLocation, type LocationInsert, type CenterLocation } from '@/hooks/useLocations';
+import { useLocations, useCreateLocation, useDeleteLocation, useUpdateLocation, useOnlineLocationExists, type LocationInsert, type CenterLocation } from '@/hooks/useLocations';
 import { useAllLocationSchedules, useUpsertLocationSchedule, useInitializeLocationSchedules, type LocationSchedule } from '@/hooks/useLocationSchedules';
 import {
   AlertDialog,
@@ -38,6 +39,8 @@ function LocationCard({ location, schedules, onDelete, onScheduleChange, onVisib
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   const isPublic = location.is_public ?? true;
+  const isOnline = location.location_type === 'online';
+  const LocationIcon = isOnline ? Video : MapPin;
 
   const getScheduleForDay = (day: number) => {
     return schedules.find(s => s.day_of_week === day) || {
@@ -49,6 +52,7 @@ function LocationCard({ location, schedules, onDelete, onScheduleChange, onVisib
   };
 
   const formatAddress = () => {
+    if (isOnline) return 'Sesión virtual';
     const parts = [
       location.street,
       location.number_details,
@@ -64,12 +68,15 @@ function LocationCard({ location, schedules, onDelete, onScheduleChange, onVisib
         <Collapsible open={isOpen} onOpenChange={setIsOpen}>
           <div className="flex items-start justify-between p-4">
             <div className="flex items-start gap-3">
-              <div className="mt-1 rounded-lg bg-primary/10 p-2">
-                <MapPin className="h-4 w-4 text-primary" />
+              <div className={`mt-1 rounded-lg p-2 ${isOnline ? 'bg-blue-500/10' : 'bg-primary/10'}`}>
+                <LocationIcon className={`h-4 w-4 ${isOnline ? 'text-blue-500' : 'text-primary'}`} />
               </div>
               <div className="flex flex-col gap-1">
                 <div className="flex items-center gap-2 flex-wrap">
                   <h4 className="font-medium">{location.name}</h4>
+                  <Badge variant="outline" className="text-xs">
+                    {isOnline ? 'Online' : 'Presencial'}
+                  </Badge>
                   <Badge variant={isPublic ? 'default' : 'secondary'} className="text-xs">
                     {isPublic ? (
                       <>
@@ -215,9 +222,11 @@ interface NewLocationFormProps {
   onSubmit: (data: LocationInsert) => void;
   onCancel: () => void;
   isLoading: boolean;
+  onlineExists: boolean;
 }
 
-function NewLocationForm({ onSubmit, onCancel, isLoading }: NewLocationFormProps) {
+function NewLocationForm({ onSubmit, onCancel, isLoading, onlineExists }: NewLocationFormProps) {
+  const [locationType, setLocationType] = useState<'in_person' | 'online'>('in_person');
   const [formData, setFormData] = useState<LocationInsert>({
     name: '',
     street: '',
@@ -228,13 +237,27 @@ function NewLocationForm({ onSubmit, onCancel, isLoading }: NewLocationFormProps
     is_public: true,
   });
 
+  const isOnline = locationType === 'online';
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name || !formData.street || !formData.city) {
-      toast.error('Completa los campos obligatorios');
+    if (!formData.name) {
+      toast.error('El nombre es obligatorio');
       return;
     }
-    onSubmit(formData);
+    if (!isOnline && (!formData.street || !formData.city)) {
+      toast.error('Completa la dirección para ubicaciones presenciales');
+      return;
+    }
+    onSubmit({
+      ...formData,
+      location_type: locationType,
+      // Clear address for online
+      street: isOnline ? undefined : formData.street,
+      city: isOnline ? undefined : formData.city,
+      number_details: isOnline ? undefined : formData.number_details,
+      postal_code: isOnline ? undefined : formData.postal_code,
+    });
   };
 
   return (
@@ -244,63 +267,108 @@ function NewLocationForm({ onSubmit, onCancel, isLoading }: NewLocationFormProps
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Location Type Selector */}
+          <div className="space-y-3">
+            <Label>Tipo de ubicación</Label>
+            <RadioGroup 
+              value={locationType} 
+              onValueChange={(v) => setLocationType(v as 'in_person' | 'online')}
+              className="flex gap-4"
+            >
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="in_person" id="type_in_person" />
+                <Label htmlFor="type_in_person" className="flex items-center gap-1.5 cursor-pointer">
+                  <MapPin className="h-4 w-4" />
+                  Presencial
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem 
+                  value="online" 
+                  id="type_online" 
+                  disabled={onlineExists}
+                />
+                <Label 
+                  htmlFor="type_online" 
+                  className={`flex items-center gap-1.5 cursor-pointer ${onlineExists ? 'text-muted-foreground' : ''}`}
+                >
+                  <Video className="h-4 w-4" />
+                  Online
+                  {onlineExists && (
+                    <span className="text-xs text-amber-600">(Ya existe)</span>
+                  )}
+                </Label>
+              </div>
+            </RadioGroup>
+            {isOnline && (
+              <p className="text-xs text-muted-foreground">
+                Las sesiones online se realizarán por videollamada
+              </p>
+            )}
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="name">Nombre *</Label>
             <Input
               id="name"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              placeholder="Ej: Consulta Principal"
+              placeholder={isOnline ? "Ej: Consulta Online" : "Ej: Consulta Principal"}
             />
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="street">Calle *</Label>
-              <Input
-                id="street"
-                value={formData.street}
-                onChange={(e) => setFormData({ ...formData, street: e.target.value })}
-                placeholder="C/ Gran Vía"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="number_details">Número / Piso</Label>
-              <Input
-                id="number_details"
-                value={formData.number_details || ''}
-                onChange={(e) => setFormData({ ...formData, number_details: e.target.value })}
-                placeholder="15, 2º Izq"
-              />
-            </div>
-          </div>
+          {/* Address fields - only for in_person */}
+          {!isOnline && (
+            <>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="street">Calle *</Label>
+                  <Input
+                    id="street"
+                    value={formData.street || ''}
+                    onChange={(e) => setFormData({ ...formData, street: e.target.value })}
+                    placeholder="C/ Gran Vía"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="number_details">Número / Piso</Label>
+                  <Input
+                    id="number_details"
+                    value={formData.number_details || ''}
+                    onChange={(e) => setFormData({ ...formData, number_details: e.target.value })}
+                    placeholder="15, 2º Izq"
+                  />
+                </div>
+              </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="city">Ciudad *</Label>
-              <Input
-                id="city"
-                value={formData.city}
-                onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                placeholder="Madrid"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="postal_code">Código Postal</Label>
-              <Input
-                id="postal_code"
-                value={formData.postal_code || ''}
-                onChange={(e) => setFormData({ ...formData, postal_code: e.target.value })}
-                placeholder="28001"
-              />
-            </div>
-          </div>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="city">Ciudad *</Label>
+                  <Input
+                    id="city"
+                    value={formData.city || ''}
+                    onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                    placeholder="Madrid"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="postal_code">Código Postal</Label>
+                  <Input
+                    id="postal_code"
+                    value={formData.postal_code || ''}
+                    onChange={(e) => setFormData({ ...formData, postal_code: e.target.value })}
+                    placeholder="28001"
+                  />
+                </div>
+              </div>
+            </>
+          )}
 
           <div className="flex items-center justify-between rounded-lg border p-3">
             <div className="space-y-0.5">
               <Label htmlFor="is_public" className="text-sm font-medium">Visible para pacientes</Label>
               <p className="text-xs text-muted-foreground">
-                Los pacientes podrán ver esta ubicación en el portal de reservas
+                Los pacientes podrán {isOnline ? 'reservar citas online' : 'ver esta ubicación'} en el portal
               </p>
             </div>
             <Switch
@@ -330,6 +398,7 @@ export function LocationsSection() {
   const [updatingLocation, setUpdatingLocation] = useState<string | null>(null);
   
   const { data: locations, isLoading } = useLocations();
+  const { data: onlineExists } = useOnlineLocationExists();
   const createLocation = useCreateLocation();
   const deleteLocation = useDeleteLocation();
   const updateLocation = useUpdateLocation();
@@ -454,6 +523,7 @@ export function LocationsSection() {
             onSubmit={handleCreateLocation}
             onCancel={() => setShowNewForm(false)}
             isLoading={createLocation.isPending || initializeSchedules.isPending}
+            onlineExists={onlineExists ?? false}
           />
         ) : (
           <Button
