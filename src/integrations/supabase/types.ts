@@ -2399,9 +2399,24 @@ export type Database = {
         }
         Returns: string
       }
+      delete_bono_safely: { Args: { p_bono_id: string }; Returns: Json }
       delete_payment_and_recompute_debt_v2: {
         Args: { p_payment_id: string }
         Returns: Json
+      }
+      get_bono_sessions: {
+        Args: { p_bono_id: string }
+        Returns: {
+          consumed_at: string
+          consumes_bono: boolean
+          patient_first_name: string
+          patient_last_name: string
+          professional_first_name: string
+          professional_last_name: string
+          session_date: string
+          session_id: string
+          session_status: string
+        }[]
       }
       get_center_address_for_session_token: {
         Args: never

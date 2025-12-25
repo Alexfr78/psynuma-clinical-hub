@@ -23,7 +23,7 @@ export interface BonoWithPatient extends Bono {
     id: string;
     first_name: string;
     last_name: string;
-  };
+  } | null;
 }
 
 export interface BonoTemplate {
@@ -54,6 +54,29 @@ export interface BonoTemplateInsert {
   total_price: number;
   validity_days?: number | null;
   is_active?: boolean;
+}
+
+export interface BonoSession {
+  session_id: string;
+  session_date: string;
+  session_status: string;
+  patient_first_name: string | null;
+  patient_last_name: string | null;
+  professional_first_name: string | null;
+  professional_last_name: string | null;
+  consumes_bono: boolean;
+  consumed_at: string | null;
+}
+
+export interface DeleteBonoResult {
+  success: boolean;
+  action?: 'deleted' | 'cancelled';
+  message?: string;
+  error?: string;
+  bono_name?: string;
+  sessions_unlinked?: number;
+  used_sessions?: number;
+  total_sessions?: number;
 }
 
 export function useBonos(filters?: { patientId?: string; status?: string }) {
@@ -104,6 +127,24 @@ export function usePatientActiveBonos(patientId: string | undefined) {
       ) as Bono[];
     },
     enabled: !!patientId,
+  });
+}
+
+// Fetch sessions linked to a bono
+export function useBonoSessions(bonoId: string | undefined) {
+  return useQuery({
+    queryKey: ['bono-sessions', bonoId],
+    queryFn: async () => {
+      if (!bonoId) return [];
+
+      const { data, error } = await supabase.rpc('get_bono_sessions', {
+        p_bono_id: bonoId,
+      });
+
+      if (error) throw error;
+      return data as BonoSession[];
+    },
+    enabled: !!bonoId,
   });
 }
 
@@ -158,6 +199,49 @@ export function useUpdateBono() {
     },
     onError: (error) => {
       toast.error('Error al actualizar el bono: ' + error.message);
+    },
+  });
+}
+
+// Delete a bono safely using RPC
+export function useDeleteBono() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (bonoId: string): Promise<DeleteBonoResult> => {
+      const { data, error } = await supabase.rpc('delete_bono_safely', {
+        p_bono_id: bonoId,
+      });
+
+      if (error) throw error;
+      return data as unknown as DeleteBonoResult;
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['bonos'] });
+      queryClient.invalidateQueries({ queryKey: ['patient-active-bonos'] });
+      queryClient.invalidateQueries({ queryKey: ['sessions'] });
+      queryClient.invalidateQueries({ queryKey: ['bono-sessions'] });
+      
+      if (result.success) {
+        if (result.action === 'deleted') {
+          toast.success('Bono eliminado', {
+            description: result.message,
+          });
+        } else if (result.action === 'cancelled') {
+          toast.success('Bono cancelado', {
+            description: result.message,
+          });
+        }
+      } else {
+        toast.error('Error', {
+          description: result.error,
+        });
+      }
+    },
+    onError: (error: Error) => {
+      toast.error('Error al eliminar bono', {
+        description: error.message,
+      });
     },
   });
 }
@@ -230,6 +314,7 @@ export function useDeleteBonoTemplate() {
     },
   });
 }
+
 // Apply bono to session using transactional RPC
 export function useApplyBonoToSession() {
   const queryClient = useQueryClient();
@@ -249,6 +334,7 @@ export function useApplyBonoToSession() {
       queryClient.invalidateQueries({ queryKey: ['bonos'] });
       queryClient.invalidateQueries({ queryKey: ['patient-active-bonos'] });
       queryClient.invalidateQueries({ queryKey: ['sessions'] });
+      queryClient.invalidateQueries({ queryKey: ['bono-sessions'] });
     },
     onError: (error) => {
       toast.error('Error al asignar bono: ' + error.message);
@@ -274,6 +360,7 @@ export function useRemoveBonoFromSession() {
       queryClient.invalidateQueries({ queryKey: ['bonos'] });
       queryClient.invalidateQueries({ queryKey: ['patient-active-bonos'] });
       queryClient.invalidateQueries({ queryKey: ['sessions'] });
+      queryClient.invalidateQueries({ queryKey: ['bono-sessions'] });
     },
     onError: (error) => {
       toast.error('Error al quitar bono: ' + error.message);
