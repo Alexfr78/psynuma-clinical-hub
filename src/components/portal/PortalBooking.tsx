@@ -45,7 +45,7 @@ interface SessionType {
 interface Location {
   id: string;
   name: string;
-  location_type: 'in_person' | 'online';
+  location_type: 'in_person' | 'online' | null;
   street: string | null;
   city: string | null;
 }
@@ -152,16 +152,17 @@ export function PortalBooking({
     }
   };
 
-  // Filter locations by modality
-  const filteredLocations = locations.filter(loc => 
-    selectedModality === 'online' 
-      ? loc.location_type === 'online'
-      : loc.location_type === 'in_person'
-  );
+  // Filter locations by modality - handle null location_type as in_person
+  const filteredLocations = locations.filter(loc => {
+    const locType = loc.location_type || 'in_person';
+    return selectedModality === 'online' 
+      ? locType === 'online'
+      : locType === 'in_person';
+  });
 
   // Check if online is available
   const hasOnlineLocation = locations.some(loc => loc.location_type === 'online');
-  const hasInPersonLocations = locations.some(loc => loc.location_type === 'in_person');
+  const hasInPersonLocations = locations.some(loc => (loc.location_type || 'in_person') === 'in_person');
   const onlineLocation = locations.find(loc => loc.location_type === 'online');
 
   // Auto-select online location when modality is online
@@ -177,22 +178,30 @@ export function PortalBooking({
     }
   }, [selectedModality, onlineLocation]);
 
-  // Generate week days
-  const maxDate = addDays(new Date(), centerConfig?.reschedule_max_days || 30);
+  // Generate week days - stabilize maxDate calculation
+  const maxDays = centerConfig?.reschedule_max_days || 30;
+  const maxDate = useMemo(() => addDays(new Date(), maxDays), [maxDays]);
+  
   const weekDays = useMemo(() => {
+    const today = startOfDay(new Date());
     return Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
-      .filter(date => !isBefore(date, startOfDay(new Date())) && !isBefore(maxDate, date));
+      .filter(date => !isBefore(date, today) && !isBefore(maxDate, date));
   }, [weekStart, maxDate]);
 
   const canGoPrev = !isBefore(addDays(weekStart, -1), startOfDay(new Date()));
   const canGoNext = !isBefore(maxDate, addDays(weekStart, 7));
 
   // Fetch availability for all week days when prerequisites are met
+  // Use serialized weekDays to avoid infinite loops
+  const weekDaysKey = weekDays.map(d => format(d, 'yyyy-MM-dd')).join(',');
+  
   useEffect(() => {
-    if (!selectedSessionType || !selectedLocation) {
+    if (!selectedSessionType || !selectedLocation || weekDays.length === 0) {
       setWeekSlots({});
       return;
     }
+
+    let cancelled = false;
 
     const fetchWeekAvailability = async () => {
       const newWeekSlots: WeekSlots = {};
@@ -222,6 +231,8 @@ export function PortalBooking({
 
       const results = await Promise.all(fetchPromises);
 
+      if (cancelled) return;
+
       const finalWeekSlots: WeekSlots = {};
       results.forEach(result => {
         finalWeekSlots[result.dateKey] = { slots: result.slots, loading: false };
@@ -233,7 +244,11 @@ export function PortalBooking({
     };
 
     fetchWeekAvailability();
-  }, [weekDays, selectedSessionType, selectedLocation, selectedProfessional, getAvailability]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [weekDaysKey, selectedSessionType, selectedLocation, selectedProfessional]);
 
   const handleModalityChange = (value: Modality) => {
     setSelectedModality(value);
