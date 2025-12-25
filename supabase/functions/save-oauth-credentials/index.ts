@@ -178,8 +178,7 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Error in save-oauth-credentials:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    return new Response(JSON.stringify({ error: errorMessage }), {
+    return new Response(JSON.stringify({ error: 'Error interno del servidor' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
