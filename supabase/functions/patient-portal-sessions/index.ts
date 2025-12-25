@@ -68,7 +68,7 @@ serve(async (req) => {
             id, first_name, last_name
           ),
           location:center_locations(
-            id, name, street, city
+            id, name, street, city, location_type
           )
         `)
         .eq("patient_id", session.patientId)
@@ -96,19 +96,41 @@ serve(async (req) => {
     }
 
     if (action === "create") {
-      const { professionalId, sessionTypeId, sessionDate, startTime, endTime } = params;
+      const { professionalId, sessionTypeId, sessionDate, startTime, endTime, locationId } = params;
 
-      if (!sessionDate || !startTime || !endTime) {
+      if (!sessionDate || !startTime || !endTime || !sessionTypeId || !locationId) {
         return new Response(
-          JSON.stringify({ error: "Fecha y hora son requeridos" }),
+          JSON.stringify({ error: "Fecha, hora, tipo de sesión y ubicación son requeridos" }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // CRITICAL: Validate location is public and active
+      const { data: location, error: locationError } = await supabase
+        .from("center_locations")
+        .select("id, name, location_type, is_public, is_active, center_id")
+        .eq("id", locationId)
+        .eq("center_id", session.centerId)
+        .single();
+
+      if (locationError || !location) {
+        return new Response(
+          JSON.stringify({ error: "Ubicación no encontrada" }),
+          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      if (!location.is_public || !location.is_active) {
+        return new Response(
+          JSON.stringify({ error: "Ubicación no disponible para reservas del portal" }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
       // Get center configuration
       const { data: center } = await supabase
         .from("centers")
-        .select("portal_require_approval, portal_default_professional_id, portal_allow_professional_selection")
+        .select("portal_require_approval, portal_default_professional_id, portal_allow_professional_selection, reschedule_slot_duration")
         .eq("id", session.centerId)
         .single();
 
@@ -125,18 +147,123 @@ serve(async (req) => {
         );
       }
 
-      // Get session type details for duration
-      let sessionTypeName = "Consulta";
-      if (sessionTypeId) {
-        const { data: sessionType } = await supabase
-          .from("session_types")
-          .select("name")
-          .eq("id", sessionTypeId)
-          .single();
-        if (sessionType) {
-          sessionTypeName = sessionType.name;
-        }
+      // Get session type details
+      const { data: sessionType, error: typeError } = await supabase
+        .from("session_types")
+        .select("id, name, duration_minutes, default_price")
+        .eq("id", sessionTypeId)
+        .eq("center_id", session.centerId)
+        .single();
+
+      if (typeError || !sessionType) {
+        return new Response(
+          JSON.stringify({ error: "Tipo de sesión no válido" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
       }
+
+      // ANTI-RACE-CONDITION: Re-validate slot availability
+      const dayOfWeek = new Date(sessionDate).getDay();
+      const slotStartMinutes = timeToMinutes(startTime);
+      const slotEndMinutes = timeToMinutes(endTime);
+      const serviceDuration = sessionType.duration_minutes;
+
+      // Check professional availability
+      const { data: profAvailability } = await supabase
+        .from("availability")
+        .select("start_time, end_time")
+        .eq("professional_id", finalProfessionalId)
+        .eq("day_of_week", dayOfWeek)
+        .eq("is_available", true);
+
+      const profAvailable = profAvailability?.some(slot => {
+        const profStart = timeToMinutes(slot.start_time);
+        const profEnd = timeToMinutes(slot.end_time);
+        return slotStartMinutes >= profStart && slotEndMinutes <= profEnd;
+      });
+
+      if (!profAvailable) {
+        return new Response(
+          JSON.stringify({ error: "Ese horario ya no está disponible. Por favor, elige otro." }),
+          { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Check location schedule
+      const { data: locationSchedule } = await supabase
+        .from("location_schedules")
+        .select("start_time, end_time")
+        .eq("location_id", locationId)
+        .eq("day_of_week", dayOfWeek)
+        .eq("is_open", true);
+
+      const locationOpen = locationSchedule?.some(schedule => {
+        const locStart = timeToMinutes(schedule.start_time);
+        const locEnd = timeToMinutes(schedule.end_time);
+        return slotStartMinutes >= locStart && slotEndMinutes <= locEnd;
+      });
+
+      if (!locationOpen) {
+        return new Response(
+          JSON.stringify({ error: "La ubicación no está disponible en ese horario." }),
+          { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Check for conflicts with existing sessions
+      const { data: existingSessions } = await supabase
+        .from("sessions")
+        .select("start_time, end_time")
+        .eq("professional_id", finalProfessionalId)
+        .eq("session_date", sessionDate)
+        .not("status", "in", '("cancelled","no_show")');
+
+      const hasSessionConflict = existingSessions?.some(s => {
+        const sessionStart = timeToMinutes(s.start_time.substring(0, 5));
+        const sessionEnd = timeToMinutes(s.end_time.substring(0, 5));
+        return slotStartMinutes < sessionEnd && slotEndMinutes > sessionStart;
+      });
+
+      if (hasSessionConflict) {
+        return new Response(
+          JSON.stringify({ error: "Ese hueco acaba de ocuparse. Por favor, elige otro horario." }),
+          { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Check for conflicts with calendar events (Google Calendar)
+      const startOfDay = `${sessionDate}T00:00:00`;
+      const endOfDay = `${sessionDate}T23:59:59`;
+
+      const { data: calendarEvents } = await supabase
+        .from("calendar_events")
+        .select("start_at, end_at, status, all_day")
+        .eq("professional_id", finalProfessionalId)
+        .eq("deleted", false)
+        .gte("start_at", startOfDay)
+        .lte("start_at", endOfDay);
+
+      const hasCalendarConflict = calendarEvents?.some(event => {
+        if (event.status === 'cancelled') return false;
+        if (event.all_day) return true;
+
+        const eventStart = new Date(event.start_at);
+        const eventEnd = new Date(event.end_at);
+        const eventStartMinutes = eventStart.getHours() * 60 + eventStart.getMinutes();
+        const eventEndMinutes = eventEnd.getHours() * 60 + eventEnd.getMinutes();
+
+        return slotStartMinutes < eventEndMinutes && slotEndMinutes > eventStartMinutes;
+      });
+
+      if (hasCalendarConflict) {
+        return new Response(
+          JSON.stringify({ error: "Ese hueco acaba de ocuparse. Por favor, elige otro horario." }),
+          { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Determine session modality based on location type
+      const sessionModality = location.location_type === 'online' ? 'online' : 'in_person';
 
       // Create session
       const status = center?.portal_require_approval ? "pending_approval" : "scheduled";
@@ -151,9 +278,10 @@ serve(async (req) => {
           start_time: startTime,
           end_time: endTime,
           status,
-          session_type: sessionTypeName,
-          session_modality: "in_person",
-          price: 0, // Price not shown to patients
+          session_type: sessionType.name,
+          session_modality: sessionModality,
+          location_id: locationId,
+          price: sessionType.default_price || 0,
           notes: "Cita solicitada desde el portal de pacientes",
         })
         .select()
@@ -301,12 +429,73 @@ serve(async (req) => {
     }
 
     if (action === "get-availability") {
-      const { professionalId, date } = params;
+      const { professionalId, date, sessionTypeId, locationId } = params;
 
-      if (!professionalId || !date) {
+      if (!date || !sessionTypeId || !locationId) {
         return new Response(
-          JSON.stringify({ error: "Profesional y fecha son requeridos" }),
+          JSON.stringify({ error: "Fecha, tipo de sesión y ubicación son requeridos" }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // CRITICAL: Validate location is public and active
+      const { data: location, error: locationError } = await supabase
+        .from("center_locations")
+        .select("id, location_type, is_public, is_active, center_id")
+        .eq("id", locationId)
+        .eq("center_id", session.centerId)
+        .single();
+
+      if (locationError || !location) {
+        return new Response(
+          JSON.stringify({ error: "Ubicación no encontrada" }),
+          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      if (!location.is_public || !location.is_active) {
+        return new Response(
+          JSON.stringify({ error: "Ubicación no disponible para el portal" }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Get session type for duration
+      const { data: sessionType, error: typeError } = await supabase
+        .from("session_types")
+        .select("duration_minutes")
+        .eq("id", sessionTypeId)
+        .eq("center_id", session.centerId)
+        .single();
+
+      if (typeError || !sessionType) {
+        return new Response(
+          JSON.stringify({ error: "Tipo de sesión no válido" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const serviceDuration = sessionType.duration_minutes;
+
+      // Get center config for step
+      const { data: center } = await supabase
+        .from("centers")
+        .select("reschedule_slot_duration, portal_default_professional_id, portal_allow_professional_selection")
+        .eq("id", session.centerId)
+        .single();
+
+      const step = center?.reschedule_slot_duration || 30;
+
+      // Determine professional
+      let finalProfessionalId = professionalId;
+      if (!center?.portal_allow_professional_selection || !professionalId) {
+        finalProfessionalId = center?.portal_default_professional_id;
+      }
+
+      if (!finalProfessionalId) {
+        return new Response(
+          JSON.stringify({ slots: [], serviceDuration, step }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
@@ -315,96 +504,103 @@ serve(async (req) => {
       // 1. Get professional's availability for the day
       const { data: profAvailability } = await supabase
         .from("availability")
-        .select("start_time, end_time, is_available")
-        .eq("professional_id", professionalId)
+        .select("start_time, end_time")
+        .eq("professional_id", finalProfessionalId)
         .eq("day_of_week", dayOfWeek)
         .eq("is_available", true);
 
-      // 2. Get PUBLIC location schedules for this center and day
-      const { data: publicLocations } = await supabase
-        .from("center_locations")
-        .select("id, name, is_public")
-        .eq("center_id", session.centerId)
-        .eq("is_active", true)
-        .eq("is_public", true);
-
-      if (!publicLocations || publicLocations.length === 0) {
-        console.log("No public locations found for center:", session.centerId);
+      if (!profAvailability?.length) {
         return new Response(
-          JSON.stringify({ slots: [] }),
+          JSON.stringify({ slots: [], serviceDuration, step }),
           { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
-      // Get schedules for all public locations
-      const locationIds = publicLocations.map(loc => loc.id);
+      // 2. Get location schedule for this day
       const { data: locationSchedules } = await supabase
         .from("location_schedules")
-        .select("location_id, day_of_week, start_time, end_time, is_open")
-        .in("location_id", locationIds)
+        .select("start_time, end_time")
+        .eq("location_id", locationId)
         .eq("day_of_week", dayOfWeek)
         .eq("is_open", true);
 
-      // 3. If no professional availability or no public locations open, return empty
-      if (!profAvailability?.length || !locationSchedules?.length) {
-        console.log("No availability - profAvailability:", profAvailability?.length, "locationSchedules:", locationSchedules?.length);
+      if (!locationSchedules?.length) {
         return new Response(
-          JSON.stringify({ slots: [] }),
+          JSON.stringify({ slots: [], serviceDuration, step }),
           { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
-      // 4. Get existing sessions for that day
+      // 3. Get existing sessions for that day
       const { data: existingSessions } = await supabase
         .from("sessions")
         .select("start_time, end_time")
-        .eq("professional_id", professionalId)
+        .eq("professional_id", finalProfessionalId)
         .eq("session_date", date)
         .not("status", "in", '("cancelled","no_show")');
 
-      // 5. Get center's slot duration
-      const { data: center } = await supabase
-        .from("centers")
-        .select("reschedule_slot_duration")
-        .eq("id", session.centerId)
-        .single();
+      // 4. Get calendar events for that day (Google Calendar blocking)
+      const startOfDay = `${date}T00:00:00`;
+      const endOfDay = `${date}T23:59:59`;
 
-      const slotDuration = center?.reschedule_slot_duration || 30;
+      const { data: calendarEvents } = await supabase
+        .from("calendar_events")
+        .select("start_at, end_at, status, all_day")
+        .eq("professional_id", finalProfessionalId)
+        .eq("deleted", false)
+        .gte("start_at", startOfDay)
+        .lte("start_at", endOfDay);
 
-      // 6. Calculate intersection of professional availability and location schedules
-      // Combine all location schedules into time ranges
-      const locationRanges = locationSchedules.map(schedule => ({
-        start: timeToMinutes(schedule.start_time),
-        end: timeToMinutes(schedule.end_time)
-      }));
-
-      // 7. Generate slots from INTERSECTION of prof availability and location schedules
+      // 5. Calculate intersection and generate slots
       const slots: string[] = [];
 
       for (const profSlot of profAvailability) {
         const profStart = timeToMinutes(profSlot.start_time);
         const profEnd = timeToMinutes(profSlot.end_time);
 
-        for (const locRange of locationRanges) {
-          // Calculate intersection
-          const intersectionStart = Math.max(profStart, locRange.start);
-          const intersectionEnd = Math.min(profEnd, locRange.end);
+        for (const locSchedule of locationSchedules) {
+          const locStart = timeToMinutes(locSchedule.start_time);
+          const locEnd = timeToMinutes(locSchedule.end_time);
 
-          if (intersectionStart >= intersectionEnd) continue; // No overlap
+          // Calculate intersection
+          const intersectionStart = Math.max(profStart, locStart);
+          const intersectionEnd = Math.min(profEnd, locEnd);
+
+          if (intersectionStart >= intersectionEnd) continue;
 
           // Generate slots within intersection
-          for (let time = intersectionStart; time + slotDuration <= intersectionEnd; time += slotDuration) {
+          // CRITICAL: Only accept if serviceDuration fits
+          for (let time = intersectionStart; time + serviceDuration <= intersectionEnd; time += step) {
             const slotTime = minutesToTime(time);
-            const slotEndTime = minutesToTime(time + slotDuration);
+            const slotEndMinutes = time + serviceDuration;
+            const slotEndTime = minutesToTime(slotEndMinutes);
 
             // Check conflicts with existing sessions
-            const hasConflict = existingSessions?.some(s => {
-              const sessionStart = s.start_time.substring(0, 5);
-              const sessionEnd = s.end_time.substring(0, 5);
-              return slotTime < sessionEnd && slotEndTime > sessionStart;
+            const hasSessionConflict = existingSessions?.some(s => {
+              const sessionStart = timeToMinutes(s.start_time.substring(0, 5));
+              const sessionEnd = timeToMinutes(s.end_time.substring(0, 5));
+              return time < sessionEnd && slotEndMinutes > sessionStart;
             });
 
-            if (!hasConflict && !slots.includes(slotTime)) {
+            if (hasSessionConflict) continue;
+
+            // Check conflicts with calendar events
+            const hasCalendarConflict = calendarEvents?.some(event => {
+              if (event.status === 'cancelled') return false;
+              if (event.all_day) return true;
+
+              const eventStart = new Date(event.start_at);
+              const eventEnd = new Date(event.end_at);
+              const eventStartMinutes = eventStart.getHours() * 60 + eventStart.getMinutes();
+              const eventEndMinutes = eventEnd.getHours() * 60 + eventEnd.getMinutes();
+
+              return time < eventEndMinutes && slotEndMinutes > eventStartMinutes;
+            });
+
+            if (hasCalendarConflict) continue;
+
+            // Add slot if not already present
+            if (!slots.includes(slotTime)) {
               slots.push(slotTime);
             }
           }
@@ -414,10 +610,10 @@ serve(async (req) => {
       // Sort slots chronologically
       slots.sort();
 
-      console.log("Generated slots:", slots.length, "for date:", date, "professional:", professionalId);
+      console.log("Generated slots:", slots.length, "for date:", date, "serviceDuration:", serviceDuration);
 
       return new Response(
-        JSON.stringify({ slots, slotDuration }),
+        JSON.stringify({ slots, serviceDuration, step }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
