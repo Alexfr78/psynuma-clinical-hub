@@ -50,64 +50,28 @@ export function CenterSetupWizard() {
 
   const onSubmit = async (values: CenterFormValues) => {
     if (!user) return;
-    
+
     setIsLoading(true);
     try {
-      // 1. Create the center
-      const { data: center, error: centerError } = await supabase
-        .from('centers')
-        .insert({
-          name: values.name,
-          tax_id: values.tax_id || null,
-          address: values.address || null,
-          city: values.city || null,
-          postal_code: values.postal_code || null,
-          phone: values.phone || null,
-          email: values.email || null,
-        })
-        .select()
-        .single();
+      const { data: centerId, error } = await supabase.rpc('bootstrap_create_center', {
+        p_name: values.name,
+        p_tax_id: values.tax_id || null,
+        p_address: values.address || null,
+        p_city: values.city || null,
+        p_postal_code: values.postal_code || null,
+        p_phone: values.phone || null,
+        p_email: values.email || null,
+      });
 
-      if (centerError) throw centerError;
-
-      // 2. Update the user's profile with the center_id
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({ center_id: center.id })
-        .eq('id', user.id);
-
-      if (profileError) throw profileError;
-
-      // 3. Assign admin role to the user (with center_id for multi-tenant security)
-      const { error: roleError } = await supabase
-        .from('user_roles')
-        .insert({
-          user_id: user.id,
-          role: 'admin',
-          center_id: center.id,
-        });
-
-      if (roleError) throw roleError;
-
-      // 4. Also assign professional role (with center_id)
-      const { error: profRoleError } = await supabase
-        .from('user_roles')
-        .insert({
-          user_id: user.id,
-          role: 'professional',
-          center_id: center.id,
-        });
-
-      if (profRoleError) throw profRoleError;
+      if (error) throw error;
+      if (!centerId) throw new Error('No se pudo crear el centro');
 
       toast({
         title: 'Centro configurado',
         description: 'Tu centro ha sido creado correctamente. ¡Ya puedes empezar!',
       });
 
-      // Refresh the profile to get the new center_id
       await refreshProfile();
-      
     } catch (error: any) {
       console.error('Setup error:', error);
       toast({
