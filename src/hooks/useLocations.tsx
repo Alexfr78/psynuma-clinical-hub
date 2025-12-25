@@ -1,30 +1,35 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
+import type { Database } from '@/integrations/supabase/types';
+
+type LocationType = Database['public']['Enums']['location_type_enum'];
 
 export interface CenterLocation {
   id: string;
   center_id: string;
   name: string;
-  street: string;
+  street: string | null;
   number_details: string | null;
-  city: string;
+  city: string | null;
   postal_code: string | null;
   country: string | null;
   is_active: boolean | null;
   is_public: boolean | null;
+  location_type: LocationType | null;
   created_at: string;
   updated_at: string;
 }
 
 export interface LocationInsert {
   name: string;
-  street: string;
+  street?: string;
   number_details?: string;
-  city: string;
+  city?: string;
   postal_code?: string;
   country?: string;
   is_public?: boolean;
+  location_type?: LocationType;
 }
 
 export function useLocations() {
@@ -46,6 +51,26 @@ export function useLocations() {
   });
 }
 
+export function useOnlineLocationExists() {
+  const { profile } = useAuth();
+
+  return useQuery({
+    queryKey: ['online-location-exists', profile?.center_id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('center_locations')
+        .select('id')
+        .eq('location_type', 'online')
+        .eq('is_active', true)
+        .limit(1);
+
+      if (error) throw error;
+      return data && data.length > 0;
+    },
+    enabled: !!profile?.center_id,
+  });
+}
+
 export function useCreateLocation() {
   const queryClient = useQueryClient();
   const { profile } = useAuth();
@@ -56,7 +81,11 @@ export function useCreateLocation() {
 
       const { data, error } = await supabase
         .from('center_locations')
-        .insert({ ...location, center_id: profile.center_id })
+        .insert({ 
+          ...location, 
+          center_id: profile.center_id,
+          location_type: location.location_type || 'in_person'
+        })
         .select()
         .single();
 
@@ -65,6 +94,7 @@ export function useCreateLocation() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['locations'] });
+      queryClient.invalidateQueries({ queryKey: ['online-location-exists'] });
     },
   });
 }
@@ -86,6 +116,7 @@ export function useUpdateLocation() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['locations'] });
+      queryClient.invalidateQueries({ queryKey: ['online-location-exists'] });
     },
   });
 }
@@ -104,6 +135,7 @@ export function useDeleteLocation() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['locations'] });
+      queryClient.invalidateQueries({ queryKey: ['online-location-exists'] });
     },
   });
 }
