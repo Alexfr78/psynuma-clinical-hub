@@ -16,12 +16,17 @@ import { useAgendaHours } from '@/hooks/useAgendaHours';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useGoogleCalendarUpdate } from '@/hooks/useGoogleCalendarUpdate';
 import { useCalendarEvents, calendarEventToSessionFormat } from '@/hooks/useCalendarEvents';
+import { useCenter } from '@/hooks/useCenter';
 export default function Agenda() {
   const isMobile = useIsMobile();
+  const { center } = useCenter();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState<CalendarView>('week');
   const [timezone, setTimezone] = useState('Europe/Madrid');
   const [selectedProfessional, setSelectedProfessional] = useState('all');
+  
+  // Get showWeekends preference from center settings (default true)
+  const showWeekends = center?.agenda_show_weekends !== false;
 
   // Auto-switch to day view on mobile
   useEffect(() => {
@@ -263,6 +268,7 @@ export default function Agenda() {
               startHour={startHour}
               onSwipeLeft={navigateNext}
               onSwipeRight={navigatePrev}
+              showWeekends={showWeekends}
             />
           )}
           {view === 'day' && (
