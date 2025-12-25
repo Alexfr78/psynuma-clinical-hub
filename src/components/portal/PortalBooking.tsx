@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
-import { format, addDays, startOfDay, isBefore } from 'date-fns';
+import { useState, useEffect, useMemo } from 'react';
+import { format, addDays, startOfDay, isBefore, startOfWeek } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Loader2, Calendar, Clock, ChevronLeft, ChevronRight, CheckCircle, Video, MapPin } from 'lucide-react';
+import { Loader2, Calendar, ChevronLeft, ChevronRight, CheckCircle, Video, MapPin, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -59,6 +59,13 @@ interface CenterConfig {
 
 type Modality = 'online' | 'in_person';
 
+interface WeekSlots {
+  [dateKey: string]: {
+    slots: string[];
+    loading: boolean;
+  };
+}
+
 export function PortalBooking({
   centerSlug,
   onComplete,
@@ -80,14 +87,12 @@ export function PortalBooking({
   const [selectedLocation, setSelectedLocation] = useState<string>('');
   const [selectedSessionType, setSelectedSessionType] = useState<string>('');
   const [selectedProfessional, setSelectedProfessional] = useState<string>('');
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [availableSlots, setAvailableSlots] = useState<string[]>([]);
-  const [selectedSlot, setSelectedSlot] = useState<string>('');
   const [serviceDuration, setServiceDuration] = useState(60);
-  const [slotsLoading, setSlotsLoading] = useState(false);
 
-  // Week navigation
-  const [weekStart, setWeekStart] = useState(() => startOfDay(new Date()));
+  // Week view state
+  const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
+  const [weekSlots, setWeekSlots] = useState<WeekSlots>({});
+  const [selectedSlot, setSelectedSlot] = useState<{ date: string; time: string } | null>(null);
 
   useEffect(() => {
     fetchInitialData();
@@ -154,56 +159,92 @@ export function PortalBooking({
       : loc.location_type === 'in_person'
   );
 
+  // Check if online is available
+  const hasOnlineLocation = locations.some(loc => loc.location_type === 'online');
+  const hasInPersonLocations = locations.some(loc => loc.location_type === 'in_person');
+  const onlineLocation = locations.find(loc => loc.location_type === 'online');
+
   // Auto-select online location when modality is online
   useEffect(() => {
     if (selectedModality === 'online') {
-      const onlineLocation = locations.find(loc => loc.location_type === 'online');
       if (onlineLocation) {
         setSelectedLocation(onlineLocation.id);
       } else {
         setSelectedLocation('');
       }
-    } else {
+    } else if (selectedModality === 'in_person') {
       setSelectedLocation('');
     }
-  }, [selectedModality, locations]);
+  }, [selectedModality, onlineLocation]);
 
-  // Fetch availability when relevant params change
+  // Generate week days
+  const maxDate = addDays(new Date(), centerConfig?.reschedule_max_days || 30);
+  const weekDays = useMemo(() => {
+    return Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
+      .filter(date => !isBefore(date, startOfDay(new Date())) && !isBefore(maxDate, date));
+  }, [weekStart, maxDate]);
+
+  const canGoPrev = !isBefore(addDays(weekStart, -1), startOfDay(new Date()));
+  const canGoNext = !isBefore(maxDate, addDays(weekStart, 7));
+
+  // Fetch availability for all week days when prerequisites are met
   useEffect(() => {
-    if (selectedDate && selectedSessionType && selectedLocation) {
-      fetchSlots();
+    if (!selectedSessionType || !selectedLocation) {
+      setWeekSlots({});
+      return;
     }
-  }, [selectedDate, selectedSessionType, selectedLocation, selectedProfessional]);
 
-  const fetchSlots = async () => {
-    if (!selectedDate || !selectedSessionType || !selectedLocation) return;
+    const fetchWeekAvailability = async () => {
+      const newWeekSlots: WeekSlots = {};
+      
+      // Initialize loading state for all days
+      weekDays.forEach(date => {
+        const dateKey = format(date, 'yyyy-MM-dd');
+        newWeekSlots[dateKey] = { slots: [], loading: true };
+      });
+      setWeekSlots(newWeekSlots);
 
-    setSlotsLoading(true);
-    setSelectedSlot('');
+      // Fetch all days in parallel
+      const fetchPromises = weekDays.map(async (date) => {
+        const dateKey = format(date, 'yyyy-MM-dd');
+        try {
+          const result = await getAvailability({
+            professionalId: selectedProfessional || undefined,
+            date: dateKey,
+            sessionTypeId: selectedSessionType,
+            locationId: selectedLocation,
+          });
+          return { dateKey, slots: result.slots, serviceDuration: result.serviceDuration };
+        } catch {
+          return { dateKey, slots: [], serviceDuration: 60 };
+        }
+      });
 
-    const dateStr = format(selectedDate, 'yyyy-MM-dd');
-    const result = await getAvailability({
-      professionalId: selectedProfessional || undefined,
-      date: dateStr,
-      sessionTypeId: selectedSessionType,
-      locationId: selectedLocation,
-    });
-    
-    setAvailableSlots(result.slots);
-    setServiceDuration(result.serviceDuration);
-    setSlotsLoading(false);
-  };
+      const results = await Promise.all(fetchPromises);
+
+      const finalWeekSlots: WeekSlots = {};
+      results.forEach(result => {
+        finalWeekSlots[result.dateKey] = { slots: result.slots, loading: false };
+        if (result.serviceDuration) {
+          setServiceDuration(result.serviceDuration);
+        }
+      });
+      setWeekSlots(finalWeekSlots);
+    };
+
+    fetchWeekAvailability();
+  }, [weekDays, selectedSessionType, selectedLocation, selectedProfessional, getAvailability]);
 
   const handleModalityChange = (value: Modality) => {
     setSelectedModality(value);
-    setSelectedSlot('');
-    setAvailableSlots([]);
+    setSelectedSlot(null);
+    setWeekSlots({});
   };
 
   const handleLocationChange = (value: string) => {
     setSelectedLocation(value);
-    setSelectedSlot('');
-    setAvailableSlots([]);
+    setSelectedSlot(null);
+    setWeekSlots({});
   };
 
   const handleSessionTypeChange = (typeId: string) => {
@@ -212,17 +253,16 @@ export function PortalBooking({
     if (type) {
       setServiceDuration(type.duration_minutes);
     }
-    setSelectedSlot('');
-    setAvailableSlots([]);
+    setSelectedSlot(null);
+    setWeekSlots({});
   };
 
-  const handleDateSelect = (date: Date) => {
-    setSelectedDate(date);
-    setSelectedSlot('');
+  const handleSlotSelect = (date: string, time: string) => {
+    setSelectedSlot({ date, time });
   };
 
   const handleSubmit = async () => {
-    if (!selectedDate || !selectedSlot || !selectedSessionType || !selectedLocation) {
+    if (!selectedSlot || !selectedSessionType || !selectedLocation) {
       toast.error('Completa todos los campos');
       return;
     }
@@ -230,15 +270,15 @@ export function PortalBooking({
     setSubmitting(true);
 
     // Calculate end time using actual service duration
-    const [hours, mins] = selectedSlot.split(':').map(Number);
+    const [hours, mins] = selectedSlot.time.split(':').map(Number);
     const endMinutes = hours * 60 + mins + serviceDuration;
     const endTime = `${Math.floor(endMinutes / 60).toString().padStart(2, '0')}:${(endMinutes % 60).toString().padStart(2, '0')}`;
 
     const result = await createSession({
       professionalId: selectedProfessional || undefined,
       sessionTypeId: selectedSessionType,
-      sessionDate: format(selectedDate, 'yyyy-MM-dd'),
-      startTime: selectedSlot,
+      sessionDate: selectedSlot.date,
+      startTime: selectedSlot.time,
       endTime,
       locationId: selectedLocation,
     });
@@ -259,7 +299,6 @@ export function PortalBooking({
   const canSelectService = selectedLocation !== '';
   const canSelectProfessional = selectedSessionType !== '';
   const canSelectDate = selectedSessionType !== '' && selectedLocation !== '';
-  const canSelectSlot = selectedDate !== null;
 
   if (loading) {
     return (
@@ -289,18 +328,6 @@ export function PortalBooking({
       </Card>
     );
   }
-
-  // Check if online is available
-  const hasOnlineLocation = locations.some(loc => loc.location_type === 'online');
-  const hasInPersonLocations = locations.some(loc => loc.location_type === 'in_person');
-
-  // Generate week days
-  const maxDate = addDays(new Date(), centerConfig?.reschedule_max_days || 30);
-  const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
-    .filter(date => !isBefore(date, startOfDay(new Date())) && !isBefore(maxDate, date));
-
-  const canGoPrev = !isBefore(addDays(weekStart, -1), startOfDay(new Date()));
-  const canGoNext = !isBefore(maxDate, addDays(weekStart, 7));
 
   return (
     <Card>
@@ -354,7 +381,23 @@ export function PortalBooking({
               </div>
             )}
           </RadioGroup>
+          
+          {/* No modalities available */}
+          {!hasOnlineLocation && !hasInPersonLocations && (
+            <div className="p-3 rounded-lg bg-amber-50 text-amber-700 text-sm flex items-center gap-2">
+              <AlertCircle className="h-4 w-4" />
+              <span>No hay ubicaciones disponibles para reservar</span>
+            </div>
+          )}
         </div>
+
+        {/* Message when online selected but no online location is public */}
+        {canSelectLocation && selectedModality === 'online' && !onlineLocation && (
+          <div className="p-3 rounded-lg bg-amber-50 text-amber-700 text-sm flex items-center gap-2">
+            <Video className="h-4 w-4" />
+            <span>No hay disponibilidad online configurada para este centro</span>
+          </div>
+        )}
 
         {/* Step 2: Location (for in-person, auto-selected for online) */}
         {canSelectLocation && selectedModality === 'in_person' && filteredLocations.length > 0 && (
@@ -372,6 +415,14 @@ export function PortalBooking({
                 ))}
               </SelectContent>
             </Select>
+          </div>
+        )}
+
+        {/* Message when in-person selected but no locations */}
+        {canSelectLocation && selectedModality === 'in_person' && filteredLocations.length === 0 && (
+          <div className="p-3 rounded-lg bg-amber-50 text-amber-700 text-sm flex items-center gap-2">
+            <MapPin className="h-4 w-4" />
+            <span>No hay ubicaciones presenciales disponibles</span>
           </div>
         )}
 
@@ -421,10 +472,10 @@ export function PortalBooking({
           </div>
         )}
 
-        {/* Step 5: Date Selection */}
+        {/* Step 5: Weekly Calendar with inline slots */}
         {canSelectDate && (
           <div className="space-y-2">
-            <Label>Fecha</Label>
+            <Label>Selecciona fecha y hora ({serviceDuration} min)</Label>
             <div className="border rounded-lg p-3">
               {/* Week Navigation */}
               <div className="flex items-center justify-between mb-3">
@@ -449,32 +500,63 @@ export function PortalBooking({
                 </Button>
               </div>
 
-              {/* Days */}
-              <div className="grid grid-cols-7 gap-0.5 sm:gap-1">
+              {/* 7-column weekly view with slots under each day */}
+              <div className="grid grid-cols-7 gap-1">
                 {weekDays.map(date => {
-                  const isSelected = selectedDate && format(date, 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd');
+                  const dateKey = format(date, 'yyyy-MM-dd');
+                  const dayData = weekSlots[dateKey];
                   const isToday = format(date, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
 
                   return (
-                    <button
-                      key={date.toISOString()}
-                      onClick={() => handleDateSelect(date)}
+                    <div 
+                      key={dateKey} 
                       className={cn(
-                        "p-1.5 sm:p-2 rounded-lg text-center transition-colors",
-                        isSelected
-                          ? "bg-primary text-primary-foreground"
-                          : isToday
-                          ? "bg-primary/10 hover:bg-primary/20"
-                          : "hover:bg-muted"
+                        "flex flex-col items-center min-h-[120px] p-1 rounded-lg",
+                        isToday && "bg-primary/5"
                       )}
                     >
-                      <div className="text-[10px] sm:text-xs font-medium">
+                      {/* Day header */}
+                      <div className="text-[10px] sm:text-xs font-medium text-muted-foreground uppercase">
                         {format(date, 'EEE', { locale: es })}
                       </div>
-                      <div className="text-sm sm:text-lg font-semibold">
+                      <div className={cn(
+                        "text-sm sm:text-lg font-semibold mb-1",
+                        isToday && "text-primary"
+                      )}>
                         {format(date, 'd')}
                       </div>
-                    </button>
+                      
+                      {/* Slots for this day */}
+                      <div className="flex flex-col gap-0.5 w-full overflow-y-auto max-h-[100px] scrollbar-thin">
+                        {dayData?.loading ? (
+                          <div className="flex justify-center py-2">
+                            <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                          </div>
+                        ) : dayData?.slots && dayData.slots.length > 0 ? (
+                          dayData.slots.map(slot => {
+                            const isSelected = selectedSlot?.date === dateKey && selectedSlot?.time === slot;
+                            return (
+                              <button
+                                key={`${dateKey}-${slot}`}
+                                onClick={() => handleSlotSelect(dateKey, slot)}
+                                className={cn(
+                                  "text-[10px] sm:text-xs py-0.5 px-1 rounded transition-colors font-medium",
+                                  isSelected
+                                    ? "bg-primary text-primary-foreground"
+                                    : "bg-muted hover:bg-muted/80 text-foreground"
+                                )}
+                              >
+                                {slot}
+                              </button>
+                            );
+                          })
+                        ) : (
+                          <span className="text-[9px] sm:text-[10px] text-muted-foreground text-center">
+                            Sin disp.
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   );
                 })}
               </div>
@@ -482,37 +564,13 @@ export function PortalBooking({
           </div>
         )}
 
-        {/* Step 6: Time Slots */}
-        {canSelectSlot && selectedDate && (
-          <div className="space-y-2">
-            <Label>Hora disponible ({serviceDuration} min)</Label>
-            {slotsLoading ? (
-              <div className="flex items-center justify-center py-4">
-                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-              </div>
-            ) : availableSlots.length === 0 ? (
-              <div className="text-center py-4 text-muted-foreground">
-                <Clock className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                <p className="text-sm">No hay horas disponibles este día</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
-                {availableSlots.map(slot => (
-                  <button
-                    key={slot}
-                    onClick={() => setSelectedSlot(slot)}
-                    className={cn(
-                      "p-2 rounded-lg text-sm font-medium transition-colors",
-                      selectedSlot === slot
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted hover:bg-muted/80"
-                    )}
-                  >
-                    {slot}
-                  </button>
-                ))}
-              </div>
-            )}
+        {/* Selected slot confirmation */}
+        {selectedSlot && (
+          <div className="p-3 rounded-lg bg-primary/10 text-sm flex items-center gap-2">
+            <Calendar className="h-4 w-4 text-primary" />
+            <span>
+              Seleccionado: {format(new Date(selectedSlot.date), "EEEE d 'de' MMMM", { locale: es })} a las {selectedSlot.time}
+            </span>
           </div>
         )}
 
@@ -521,7 +579,7 @@ export function PortalBooking({
           className="w-full"
           size="lg"
           onClick={handleSubmit}
-          disabled={!selectedDate || !selectedSlot || !selectedSessionType || !selectedLocation || submitting}
+          disabled={!selectedSlot || !selectedSessionType || !selectedLocation || submitting}
         >
           {submitting ? (
             <Loader2 className="h-4 w-4 animate-spin mr-2" />

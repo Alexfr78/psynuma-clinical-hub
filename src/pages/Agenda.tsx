@@ -11,6 +11,7 @@ import { QuickCreateSessionDialog } from '@/components/agenda/QuickCreateSession
 import { SessionDetailDrawer } from '@/components/agenda/SessionDetailDrawer';
 import { MoveSessionDialog } from '@/components/agenda/MoveSessionDialog';
 import { AgendaFooter } from '@/components/agenda/AgendaFooter';
+import { PendingApprovalsPanel } from '@/components/agenda/PendingApprovalsPanel';
 import { useToast } from '@/hooks/use-toast';
 import { useAgendaHours } from '@/hooks/useAgendaHours';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -238,6 +239,9 @@ export default function Agenda() {
           Gestiona las sesiones y citas de tus pacientes
         </p>
       </div>
+
+      {/* Pending Approvals Panel */}
+      <PendingApprovalsPanel />
 
       {/* Calendar Header */}
       <CalendarHeader
