@@ -149,8 +149,8 @@ export function useProfessionalIntegrations() {
     mutationFn: async (provider: 'google' | 'zoom' | 'stripe') => {
       if (!professionalId) throw new Error('No professional ID');
 
-      // If disconnecting Google, also delete all calendar_events for this professional
       if (provider === 'google') {
+        // 1. Delete calendar_events
         const { error: calendarError } = await supabase
           .from('calendar_events')
           .delete()
@@ -158,7 +158,29 @@ export function useProfessionalIntegrations() {
 
         if (calendarError) {
           console.error('Error deleting calendar events:', calendarError);
-          // Continue with disconnection even if calendar cleanup fails
+        }
+
+        // 2. Delete "Bloqueado" sessions imported from Google
+        const { error: blockedError } = await supabase
+          .from('sessions')
+          .delete()
+          .eq('professional_id', professionalId)
+          .eq('session_type', 'Bloqueado')
+          .not('google_calendar_event_id', 'is', null);
+
+        if (blockedError) {
+          console.error('Error deleting blocked sessions:', blockedError);
+        }
+
+        // 3. Clear google_calendar_event_id from regular sessions
+        const { error: clearError } = await supabase
+          .from('sessions')
+          .update({ google_calendar_event_id: null })
+          .eq('professional_id', professionalId)
+          .not('google_calendar_event_id', 'is', null);
+
+        if (clearError) {
+          console.error('Error clearing google_calendar_event_id:', clearError);
         }
       }
 
