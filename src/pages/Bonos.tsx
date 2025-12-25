@@ -4,15 +4,18 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useBonos } from '@/hooks/useBonos';
+import { useBonos, BonoWithPatient } from '@/hooks/useBonos';
 import { BonoCard } from '@/components/bonos/BonoCard';
 import { CreateBonoDialog } from '@/components/bonos/CreateBonoDialog';
 import { BonoTemplatesDialog } from '@/components/bonos/BonoTemplatesDialog';
+import { BonoDetailDialog } from '@/components/bonos/BonoDetailDialog';
 
 export default function Bonos() {
   const [createOpen, setCreateOpen] = useState(false);
   const [templatesOpen, setTemplatesOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>('active');
+  const [selectedBono, setSelectedBono] = useState<BonoWithPatient | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
 
   const { data: bonos, isLoading } = useBonos({ status: statusFilter === 'all' ? undefined : statusFilter });
 
@@ -20,6 +23,12 @@ export default function Bonos() {
     active: bonos?.filter(b => b.status === 'active').length || 0,
     exhausted: bonos?.filter(b => b.status === 'exhausted').length || 0,
     expired: bonos?.filter(b => b.status === 'expired').length || 0,
+    cancelled: bonos?.filter(b => b.status === 'cancelled').length || 0,
+  };
+
+  const handleBonoClick = (bono: BonoWithPatient) => {
+    setSelectedBono(bono);
+    setDetailOpen(true);
   };
 
   return (
@@ -41,13 +50,13 @@ export default function Bonos() {
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Activos</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">{stats.active}</p>
+            <p className="text-2xl font-bold text-primary">{stats.active}</p>
           </CardContent>
         </Card>
         <Card>
@@ -66,6 +75,14 @@ export default function Bonos() {
             <p className="text-2xl font-bold">{stats.expired}</p>
           </CardContent>
         </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Cancelados</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold">{stats.cancelled}</p>
+          </CardContent>
+        </Card>
       </div>
 
       <Tabs value={statusFilter} onValueChange={setStatusFilter}>
@@ -73,13 +90,14 @@ export default function Bonos() {
           <TabsTrigger value="active">Activos</TabsTrigger>
           <TabsTrigger value="exhausted">Agotados</TabsTrigger>
           <TabsTrigger value="expired">Expirados</TabsTrigger>
+          <TabsTrigger value="cancelled">Cancelados</TabsTrigger>
           <TabsTrigger value="all">Todos</TabsTrigger>
         </TabsList>
 
         <TabsContent value={statusFilter} className="mt-4">
           {isLoading ? (
-            <div className="space-y-4">
-              {[1, 2, 3].map(i => <Skeleton key={i} className="h-32" />)}
+            <div className="grid gap-4 md:grid-cols-2">
+              {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-48" />)}
             </div>
           ) : !bonos || bonos.length === 0 ? (
             <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12">
@@ -90,7 +108,11 @@ export default function Bonos() {
           ) : (
             <div className="grid gap-4 md:grid-cols-2">
               {bonos.map(bono => (
-                <BonoCard key={bono.id} bono={bono} />
+                <BonoCard 
+                  key={bono.id} 
+                  bono={bono} 
+                  onClick={() => handleBonoClick(bono)}
+                />
               ))}
             </div>
           )}
@@ -99,6 +121,11 @@ export default function Bonos() {
 
       <CreateBonoDialog open={createOpen} onOpenChange={setCreateOpen} />
       <BonoTemplatesDialog open={templatesOpen} onOpenChange={setTemplatesOpen} />
+      <BonoDetailDialog 
+        bono={selectedBono} 
+        open={detailOpen} 
+        onOpenChange={setDetailOpen} 
+      />
     </div>
   );
 }

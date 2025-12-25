@@ -1,87 +1,110 @@
-import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
-import { Package, AlertTriangle, User } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import type { BonoWithPatient } from '@/hooks/useBonos';
+import { Calendar, AlertTriangle, User } from 'lucide-react';
+import { format, differenceInDays, isPast } from 'date-fns';
+import { es } from 'date-fns/locale';
+import { BonoWithPatient } from '@/hooks/useBonos';
 
 interface BonoCardProps {
   bono: BonoWithPatient;
   onClick?: () => void;
 }
 
-const statusConfig = {
-  active: { label: 'Activo', variant: 'default' as const },
-  exhausted: { label: 'Agotado', variant: 'secondary' as const },
-  expired: { label: 'Expirado', variant: 'destructive' as const },
-  cancelled: { label: 'Cancelado', variant: 'outline' as const },
+const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
+  active: { label: 'Activo', variant: 'default' },
+  exhausted: { label: 'Agotado', variant: 'secondary' },
+  expired: { label: 'Expirado', variant: 'destructive' },
+  cancelled: { label: 'Cancelado', variant: 'outline' },
 };
 
 export function BonoCard({ bono, onClick }: BonoCardProps) {
-  const status = statusConfig[bono.status] || statusConfig.active;
-  const progress = (bono.used_sessions / bono.total_sessions) * 100;
-  const remainingSessions = bono.total_sessions - bono.used_sessions;
+  const usedSessions = bono.used_sessions || 0;
+  const availableSessions = bono.total_sessions - usedSessions;
+  const progress = (usedSessions / bono.total_sessions) * 100;
+  
+  const isExpiringSoon = bono.expires_at && 
+    differenceInDays(new Date(bono.expires_at), new Date()) <= 7 &&
+    differenceInDays(new Date(bono.expires_at), new Date()) > 0;
 
-  const isExpiringSoon = bono.expires_at && bono.status === 'active' &&
-    new Date(bono.expires_at) <= new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+  const isExpired = bono.expires_at && isPast(new Date(bono.expires_at));
+  
+  const status = statusConfig[bono.status || 'active'] || statusConfig.active;
 
   return (
     <Card 
-      className="transition-all hover:shadow-md cursor-pointer"
+      className="cursor-pointer transition-all hover:shadow-md hover:border-primary/30"
       onClick={onClick}
     >
-      <CardContent className="p-4">
-        <div className="flex flex-col gap-3">
-          <div className="flex items-start justify-between">
-            <div className="flex items-center gap-2">
-              <Package className="h-5 w-5 text-primary" />
-              <div>
-                <h3 className="font-semibold">{bono.name}</h3>
-                <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                  <User className="h-3 w-3" />
-                  <span>{bono.patients.first_name} {bono.patients.last_name}</span>
-                </div>
+      <CardHeader className="pb-2">
+        <div className="flex items-start justify-between gap-2">
+          <div className="space-y-1 min-w-0 flex-1">
+            <CardTitle className="text-base font-semibold truncate">{bono.name}</CardTitle>
+            {bono.patients && (
+              <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                <User className="h-3.5 w-3.5 flex-shrink-0" />
+                <span className="truncate">
+                  {bono.patients.first_name} {bono.patients.last_name}
+                </span>
               </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge variant={status.variant}>{status.label}</Badge>
-              {isExpiringSoon && (
-                <Badge variant="destructive" className="gap-1">
-                  <AlertTriangle className="h-3 w-3" />
-                  Expira pronto
-                </Badge>
-              )}
-            </div>
+            )}
           </div>
+          <Badge variant={status.variant} className="flex-shrink-0">
+            {status.label}
+          </Badge>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Advertencia de expiración próxima */}
+        {isExpiringSoon && bono.status === 'active' && (
+          <div className="flex items-center gap-2 text-amber-600 dark:text-amber-500 text-sm bg-amber-50 dark:bg-amber-950/30 rounded-md p-2">
+            <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+            <span>Expira en {differenceInDays(new Date(bono.expires_at!), new Date())} días</span>
+          </div>
+        )}
 
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Sesiones usadas</span>
-              <span className="font-medium">
-                {bono.used_sessions} / {bono.total_sessions}
+        {/* Contador de sesiones */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">Sesiones</span>
+            <span className="font-medium tabular-nums">
+              <span className="text-primary">{availableSessions}</span>
+              <span className="text-muted-foreground"> / {bono.total_sessions} disponibles</span>
+            </span>
+          </div>
+          <Progress value={progress} className="h-2" />
+          <div className="flex justify-between text-xs text-muted-foreground">
+            <span>Usadas: {usedSessions}</span>
+            <span>Restantes: {availableSessions}</span>
+          </div>
+        </div>
+
+        {/* Precios */}
+        <div className="grid grid-cols-2 gap-2 text-sm">
+          <div className="bg-muted/50 rounded-md p-2">
+            <p className="text-muted-foreground text-xs">Precio/sesión</p>
+            <p className="font-semibold">{bono.price_per_session.toFixed(2)} €</p>
+          </div>
+          <div className="bg-muted/50 rounded-md p-2">
+            <p className="text-muted-foreground text-xs">Total bono</p>
+            <p className="font-semibold">{bono.total_price.toFixed(2)} €</p>
+          </div>
+        </div>
+
+        {/* Fechas */}
+        <div className="flex flex-col gap-1.5 text-xs text-muted-foreground border-t pt-3">
+          <div className="flex items-center gap-1.5">
+            <Calendar className="h-3.5 w-3.5" />
+            <span>Creado: {format(new Date(bono.created_at), "d MMM yyyy", { locale: es })}</span>
+          </div>
+          {bono.expires_at && (
+            <div className={`flex items-center gap-1.5 ${isExpired ? 'text-destructive' : ''}`}>
+              <Calendar className="h-3.5 w-3.5" />
+              <span>
+                {isExpired ? 'Expiró' : 'Expira'}: {format(new Date(bono.expires_at), "d MMM yyyy", { locale: es })}
               </span>
             </div>
-            <Progress value={progress} className="h-2" />
-            <p className="text-xs text-muted-foreground">
-              {remainingSessions} sesiones restantes
-            </p>
-          </div>
-
-          <div className="flex justify-between items-center pt-2 border-t">
-            <div className="text-sm">
-              <span className="text-muted-foreground">Precio/sesión: </span>
-              <span className="font-medium">{Number(bono.price_per_session).toFixed(2)}€</span>
-            </div>
-            <div className="text-right">
-              <p className="text-lg font-bold">{Number(bono.total_price).toFixed(2)}€</p>
-              {bono.expires_at && (
-                <p className="text-xs text-muted-foreground">
-                  Expira: {format(new Date(bono.expires_at), "d MMM yyyy", { locale: es })}
-                </p>
-              )}
-            </div>
-          </div>
+          )}
         </div>
       </CardContent>
     </Card>
