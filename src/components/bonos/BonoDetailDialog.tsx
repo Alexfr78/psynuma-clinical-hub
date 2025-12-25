@@ -48,7 +48,7 @@ const sessionStatusConfig: Record<string, { label: string; className: string }> 
 
 export function BonoDetailDialog({ bono, open, onOpenChange }: BonoDetailDialogProps) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const { data: sessions, isLoading: sessionsLoading } = useBonoSessions(bono?.id);
+  const { data: sessions, isLoading: sessionsLoading, error: sessionsError } = useBonoSessions(bono?.id);
 
   if (!bono) return null;
 
@@ -176,6 +176,14 @@ export function BonoDetailDialog({ bono, open, onOpenChange }: BonoDetailDialogP
                     {[1, 2, 3].map((i) => (
                       <Skeleton key={i} className="h-16 w-full" />
                     ))}
+                  </div>
+                ) : sessionsError ? (
+                  <div className="text-center py-8 text-destructive bg-destructive/10 rounded-lg">
+                    <AlertTriangle className="h-8 w-8 mx-auto mb-2" />
+                    <p className="font-medium">Error al cargar sesiones</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      No se pudieron cargar las sesiones vinculadas. Intenta recargar la página.
+                    </p>
                   </div>
                 ) : !sessions || sessions.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
