@@ -60,12 +60,10 @@ export interface BonoSession {
   session_id: string;
   session_date: string;
   session_status: string;
-  patient_first_name: string | null;
-  patient_last_name: string | null;
-  professional_first_name: string | null;
-  professional_last_name: string | null;
+  patient_name: string | null;
+  professional_name: string | null;
+  session_type_name: string | null;
   consumes_bono: boolean;
-  consumed_at: string | null;
 }
 
 export interface DeleteBonoResult {

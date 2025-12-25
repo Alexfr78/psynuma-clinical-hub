@@ -198,15 +198,20 @@ export function BonoDetailDialog({ bono, open, onOpenChange }: BonoDetailDialogP
                           <div className="space-y-1">
                             <div className="flex items-center gap-2">
                               <span className="font-medium text-sm">
-                                {format(new Date(session.session_date), "EEEE d MMM yyyy, HH:mm", { locale: es })}
+                                {format(new Date(session.session_date), "EEEE d MMM yyyy", { locale: es })}
                               </span>
                               <span className={`text-xs ${sessionStatus.className}`}>
                                 {sessionStatus.label}
                               </span>
                             </div>
-                            {session.professional_first_name && (
+                            {session.professional_name && (
                               <p className="text-xs text-muted-foreground">
-                                {session.professional_first_name} {session.professional_last_name}
+                                {session.professional_name}
+                              </p>
+                            )}
+                            {session.session_type_name && (
+                              <p className="text-xs text-muted-foreground">
+                                {session.session_type_name}
                               </p>
                             )}
                           </div>
