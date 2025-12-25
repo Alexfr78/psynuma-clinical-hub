@@ -295,6 +295,31 @@ serve(async (req) => {
         );
       }
 
+      // If pending_approval, create notification for professional
+      if (status === "pending_approval" && finalProfessionalId) {
+        // Get patient name for notification
+        const { data: patient } = await supabase
+          .from("patients")
+          .select("first_name, last_name")
+          .eq("id", session.patientId)
+          .single();
+
+        const patientName = patient ? `${patient.first_name} ${patient.last_name}` : "Un paciente";
+        
+        await supabase.from("notifications").insert({
+          center_id: session.centerId,
+          patient_id: session.patientId,
+          session_id: newSession.id,
+          type: "email",
+          recipient: "",
+          subject: "Nueva solicitud de cita",
+          message: `${patientName} ha solicitado una cita para el ${sessionDate} a las ${startTime}. Revisa y aprueba o rechaza.`,
+          status: "pending",
+        });
+
+        console.log("Created notification for pending_approval session:", newSession.id);
+      }
+
       return new Response(
         JSON.stringify({ 
           success: true, 
