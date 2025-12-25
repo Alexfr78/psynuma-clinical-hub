@@ -21,6 +21,21 @@ function minutesToTime(minutes: number): string {
   return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
 }
 
+// Convert UTC timestamp to local time minutes for a given timezone
+function getLocalTimeMinutes(isoDatetime: string, timezone: string): number {
+  const date = new Date(isoDatetime);
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    hour: 'numeric',
+    minute: 'numeric',
+    hour12: false,
+    timeZone: timezone
+  });
+  const parts = formatter.formatToParts(date);
+  const hours = parseInt(parts.find(p => p.type === 'hour')?.value || '0');
+  const minutes = parseInt(parts.find(p => p.type === 'minute')?.value || '0');
+  return hours * 60 + minutes;
+}
+
 function validateSession(sessionToken: string): { valid: boolean; patientId?: string; centerId?: string } {
   try {
     const decoded = JSON.parse(atob(sessionToken));
@@ -243,14 +258,15 @@ serve(async (req) => {
         .gte("start_at", startOfDay)
         .lte("start_at", endOfDay);
 
+      // Use Europe/Madrid timezone for calendar events conversion
+      const centerTimezone = 'Europe/Madrid';
+
       const hasCalendarConflict = calendarEvents?.some(event => {
         if (event.status === 'cancelled') return false;
         if (event.all_day) return true;
 
-        const eventStart = new Date(event.start_at);
-        const eventEnd = new Date(event.end_at);
-        const eventStartMinutes = eventStart.getHours() * 60 + eventStart.getMinutes();
-        const eventEndMinutes = eventEnd.getHours() * 60 + eventEnd.getMinutes();
+        const eventStartMinutes = getLocalTimeMinutes(event.start_at, centerTimezone);
+        const eventEndMinutes = getLocalTimeMinutes(event.end_at, centerTimezone);
 
         return slotStartMinutes < eventEndMinutes && slotEndMinutes > eventStartMinutes;
       });
@@ -578,6 +594,13 @@ serve(async (req) => {
 
       // 5. Calculate intersection and generate slots
       const slots: string[] = [];
+      
+      // Use Europe/Madrid timezone for calendar events conversion
+      const centerTimezone = 'Europe/Madrid';
+      
+      // For 60-min services, prefer full-hour slots to maximize capacity
+      const preferFullHours = serviceDuration % 60 === 0;
+      const effectiveStep = preferFullHours ? 60 : step;
 
       for (const profSlot of profAvailability) {
         const profStart = timeToMinutes(profSlot.start_time);
@@ -593,41 +616,60 @@ serve(async (req) => {
 
           if (intersectionStart >= intersectionEnd) continue;
 
-          // Generate slots within intersection
-          // CRITICAL: Only accept if serviceDuration fits
-          for (let time = intersectionStart; time + serviceDuration <= intersectionEnd; time += step) {
-            const slotTime = minutesToTime(time);
+          // Helper to check if a slot is valid (no conflicts)
+          const isSlotValid = (time: number): boolean => {
             const slotEndMinutes = time + serviceDuration;
-            const slotEndTime = minutesToTime(slotEndMinutes);
-
+            
+            // Check if slot fits in the intersection
+            if (slotEndMinutes > intersectionEnd) return false;
+            
             // Check conflicts with existing sessions
             const hasSessionConflict = existingSessions?.some(s => {
               const sessionStart = timeToMinutes(s.start_time.substring(0, 5));
               const sessionEnd = timeToMinutes(s.end_time.substring(0, 5));
               return time < sessionEnd && slotEndMinutes > sessionStart;
             });
+            if (hasSessionConflict) return false;
 
-            if (hasSessionConflict) continue;
-
-            // Check conflicts with calendar events
+            // Check conflicts with calendar events (using correct timezone)
             const hasCalendarConflict = calendarEvents?.some(event => {
               if (event.status === 'cancelled') return false;
               if (event.all_day) return true;
 
-              const eventStart = new Date(event.start_at);
-              const eventEnd = new Date(event.end_at);
-              const eventStartMinutes = eventStart.getHours() * 60 + eventStart.getMinutes();
-              const eventEndMinutes = eventEnd.getHours() * 60 + eventEnd.getMinutes();
+              const eventStartMinutes = getLocalTimeMinutes(event.start_at, centerTimezone);
+              const eventEndMinutes = getLocalTimeMinutes(event.end_at, centerTimezone);
 
               return time < eventEndMinutes && slotEndMinutes > eventStartMinutes;
             });
+            if (hasCalendarConflict) return false;
+            
+            return true;
+          };
 
-            if (hasCalendarConflict) continue;
-
-            // Add slot if not already present
-            if (!slots.includes(slotTime)) {
-              slots.push(slotTime);
+          // Generate primary slots (full hours for 60-min services)
+          for (let time = intersectionStart; time + serviceDuration <= intersectionEnd; time += effectiveStep) {
+            if (isSlotValid(time)) {
+              const slotTime = minutesToTime(time);
+              if (!slots.includes(slotTime)) {
+                slots.push(slotTime);
+              }
             }
+          }
+          
+          // For 60-min services, add :30 slots only where sessions create gaps
+          if (preferFullHours && existingSessions?.length) {
+            existingSessions.forEach(session => {
+              const sessionEnd = timeToMinutes(session.end_time.substring(0, 5));
+              // If session ends at :30 and creates a gap we can fill
+              if (sessionEnd % 60 !== 0 && sessionEnd >= intersectionStart && sessionEnd + serviceDuration <= intersectionEnd) {
+                if (isSlotValid(sessionEnd)) {
+                  const slotTime = minutesToTime(sessionEnd);
+                  if (!slots.includes(slotTime)) {
+                    slots.push(slotTime);
+                  }
+                }
+              }
+            });
           }
         }
       }

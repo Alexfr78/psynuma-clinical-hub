@@ -515,66 +515,89 @@ export function PortalBooking({
                 </Button>
               </div>
 
-              {/* 7-column weekly view with slots under each day */}
-              <div className="grid grid-cols-7 gap-1">
-                {weekDays.map(date => {
+        {/* Filter to only show days with availability */}
+              {(() => {
+                const isLoading = Object.values(weekSlots).some(s => s.loading);
+                const daysWithSlots = weekDays.filter(date => {
                   const dateKey = format(date, 'yyyy-MM-dd');
                   const dayData = weekSlots[dateKey];
-                  const isToday = format(date, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
-
+                  return dayData && !dayData.loading && dayData.slots.length > 0;
+                });
+                
+                // Show loading state
+                if (isLoading && daysWithSlots.length === 0) {
                   return (
-                    <div 
-                      key={dateKey} 
-                      className={cn(
-                        "flex flex-col items-center min-h-[120px] p-1 rounded-lg",
-                        isToday && "bg-primary/5"
-                      )}
-                    >
-                      {/* Day header */}
-                      <div className="text-[10px] sm:text-xs font-medium text-muted-foreground uppercase">
-                        {format(date, 'EEE', { locale: es })}
-                      </div>
-                      <div className={cn(
-                        "text-sm sm:text-lg font-semibold mb-1",
-                        isToday && "text-primary"
-                      )}>
-                        {format(date, 'd')}
-                      </div>
-                      
-                      {/* Slots for this day */}
-                      <div className="flex flex-col gap-0.5 w-full overflow-y-auto max-h-[100px] scrollbar-thin">
-                        {dayData?.loading ? (
-                          <div className="flex justify-center py-2">
-                            <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
-                          </div>
-                        ) : dayData?.slots && dayData.slots.length > 0 ? (
-                          dayData.slots.map(slot => {
-                            const isSelected = selectedSlot?.date === dateKey && selectedSlot?.time === slot;
-                            return (
-                              <button
-                                key={`${dateKey}-${slot}`}
-                                onClick={() => handleSlotSelect(dateKey, slot)}
-                                className={cn(
-                                  "text-[10px] sm:text-xs py-0.5 px-1 rounded transition-colors font-medium",
-                                  isSelected
-                                    ? "bg-primary text-primary-foreground"
-                                    : "bg-muted hover:bg-muted/80 text-foreground"
-                                )}
-                              >
-                                {slot}
-                              </button>
-                            );
-                          })
-                        ) : (
-                          <span className="text-[9px] sm:text-[10px] text-muted-foreground text-center">
-                            Sin disp.
-                          </span>
-                        )}
-                      </div>
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                      <span className="ml-2 text-sm text-muted-foreground">Buscando disponibilidad...</span>
                     </div>
                   );
-                })}
-              </div>
+                }
+                
+                // No availability this week
+                if (!isLoading && daysWithSlots.length === 0) {
+                  return (
+                    <div className="text-center py-6 text-muted-foreground text-sm">
+                      <Calendar className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p>No hay disponibilidad esta semana</p>
+                      <p className="text-xs mt-1">Prueba con la siguiente semana</p>
+                    </div>
+                  );
+                }
+                
+                // Show only days with availability
+                return (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                    {daysWithSlots.map(date => {
+                      const dateKey = format(date, 'yyyy-MM-dd');
+                      const dayData = weekSlots[dateKey];
+                      const isToday = format(date, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
+
+                      return (
+                        <div 
+                          key={dateKey} 
+                          className={cn(
+                            "flex flex-col items-center p-2 rounded-lg border",
+                            isToday && "border-primary bg-primary/5"
+                          )}
+                        >
+                          {/* Day header */}
+                          <div className="text-xs font-medium text-muted-foreground uppercase">
+                            {format(date, 'EEE', { locale: es })}
+                          </div>
+                          <div className={cn(
+                            "text-lg font-semibold mb-2",
+                            isToday && "text-primary"
+                          )}>
+                            {format(date, 'd')}
+                          </div>
+                          
+                          {/* Slots for this day */}
+                          <div className="flex flex-wrap gap-1 justify-center max-h-[120px] overflow-y-auto w-full">
+                            {dayData?.slots.map(slot => {
+                              const isSelected = selectedSlot?.date === dateKey && selectedSlot?.time === slot;
+                              return (
+                                <button
+                                  key={`${dateKey}-${slot}`}
+                                  onClick={() => handleSlotSelect(dateKey, slot)}
+                                  className={cn(
+                                    "text-xs py-1 px-2 rounded transition-colors font-medium",
+                                    isSelected
+                                      ? "bg-primary text-primary-foreground"
+                                      : "bg-muted hover:bg-muted/80 text-foreground"
+                                  )}
+                                >
+                                  {slot}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
             </div>
           </div>
         )}
