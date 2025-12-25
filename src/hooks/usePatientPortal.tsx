@@ -32,6 +32,7 @@ interface Session {
     name: string;
     street: string;
     city: string;
+    location_type?: string;
   } | null;
 }
 
@@ -213,10 +214,11 @@ export function usePatientPortal(centerSlug?: string) {
 
   const createSession = async (params: {
     professionalId?: string;
-    sessionTypeId?: string;
+    sessionTypeId: string;
     sessionDate: string;
     startTime: string;
     endTime: string;
+    locationId: string;
   }): Promise<{ success: boolean; error?: string; message?: string }> => {
     if (!state.sessionToken) {
       return { success: false, error: 'Sesión no válida' };
@@ -283,25 +285,38 @@ export function usePatientPortal(centerSlug?: string) {
     }
   };
 
-  const getAvailability = async (professionalId: string, date: string): Promise<{ slots: string[]; slotDuration: number }> => {
+  const getAvailability = async (params: {
+    professionalId?: string;
+    date: string;
+    sessionTypeId: string;
+    locationId: string;
+  }): Promise<{ slots: string[]; serviceDuration: number; step: number }> => {
     if (!state.sessionToken) {
-      return { slots: [], slotDuration: 30 };
+      return { slots: [], serviceDuration: 60, step: 30 };
     }
 
     try {
       const { data, error } = await supabase.functions.invoke('patient-portal-sessions', {
-        body: { action: 'get-availability', sessionToken: state.sessionToken, professionalId, date },
+        body: { 
+          action: 'get-availability', 
+          sessionToken: state.sessionToken, 
+          ...params 
+        },
       });
 
       if (error) {
         console.error('Error getting availability:', error);
-        return { slots: [], slotDuration: 30 };
+        return { slots: [], serviceDuration: 60, step: 30 };
       }
 
-      return { slots: data?.slots || [], slotDuration: data?.slotDuration || 30 };
+      return { 
+        slots: data?.slots || [], 
+        serviceDuration: data?.serviceDuration || 60,
+        step: data?.step || 30 
+      };
     } catch (error) {
       console.error('Error getting availability:', error);
-      return { slots: [], slotDuration: 30 };
+      return { slots: [], serviceDuration: 60, step: 30 };
     }
   };
 

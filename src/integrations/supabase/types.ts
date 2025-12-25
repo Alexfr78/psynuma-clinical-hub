@@ -409,44 +409,53 @@ export type Database = {
       center_locations: {
         Row: {
           center_id: string
-          city: string
+          city: string | null
           country: string | null
           created_at: string | null
           id: string
           is_active: boolean | null
           is_public: boolean | null
+          location_type:
+            | Database["public"]["Enums"]["location_type_enum"]
+            | null
           name: string
           number_details: string | null
           postal_code: string | null
-          street: string
+          street: string | null
           updated_at: string | null
         }
         Insert: {
           center_id: string
-          city: string
+          city?: string | null
           country?: string | null
           created_at?: string | null
           id?: string
           is_active?: boolean | null
           is_public?: boolean | null
+          location_type?:
+            | Database["public"]["Enums"]["location_type_enum"]
+            | null
           name: string
           number_details?: string | null
           postal_code?: string | null
-          street: string
+          street?: string | null
           updated_at?: string | null
         }
         Update: {
           center_id?: string
-          city?: string
+          city?: string | null
           country?: string | null
           created_at?: string | null
           id?: string
           is_active?: boolean | null
           is_public?: boolean | null
+          location_type?:
+            | Database["public"]["Enums"]["location_type_enum"]
+            | null
           name?: string
           number_details?: string | null
           postal_code?: string | null
-          street?: string
+          street?: string | null
           updated_at?: string | null
         }
         Relationships: [
@@ -2485,6 +2494,19 @@ export type Database = {
       }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
       is_professional: { Args: { _user_id: string }; Returns: boolean }
+      portal_list_locations: {
+        Args: {
+          p_center_slug: string
+          p_location_type?: Database["public"]["Enums"]["location_type_enum"]
+        }
+        Returns: {
+          city: string
+          id: string
+          location_type: Database["public"]["Enums"]["location_type_enum"]
+          name: string
+          street: string
+        }[]
+      }
       portal_list_professionals: {
         Args: { _portal_slug: string }
         Returns: {
@@ -2555,6 +2577,7 @@ export type Database = {
       bono_status: "active" | "exhausted" | "expired" | "cancelled"
       consent_status: "pending" | "signed" | "revoked" | "expired"
       invoice_status: "draft" | "issued" | "paid" | "cancelled"
+      location_type_enum: "in_person" | "online"
       notification_status: "pending" | "sent" | "failed"
       notification_type: "email" | "sms" | "whatsapp"
       patient_status: "active" | "inactive" | "discharged"
@@ -2699,6 +2722,7 @@ export const Constants = {
       bono_status: ["active", "exhausted", "expired", "cancelled"],
       consent_status: ["pending", "signed", "revoked", "expired"],
       invoice_status: ["draft", "issued", "paid", "cancelled"],
+      location_type_enum: ["in_person", "online"],
       notification_status: ["pending", "sent", "failed"],
       notification_type: ["email", "sms", "whatsapp"],
       patient_status: ["active", "inactive", "discharged"],
