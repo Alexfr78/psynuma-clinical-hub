@@ -222,7 +222,20 @@ serve(async (req) => {
     const event: any = {};
     
     if (title) event.summary = title;
-    if (description) event.description = description;
+    
+    // Handle description - preserve or add Psycma marker token
+    if (description !== undefined) {
+      let eventDescription = description || '';
+      
+      // If we have a psycma_session_id, ensure the token is in the description
+      if (psycma_session_id) {
+        // Remove existing token if present, then add fresh one
+        eventDescription = eventDescription.replace(/\n*\[PSYCMA_SESSION_ID:[^\]]+\]/g, '');
+        eventDescription = `${eventDescription}\n\n[PSYCMA_SESSION_ID:${psycma_session_id}]`;
+      }
+      
+      event.description = eventDescription;
+    }
     
     if (session_date && start_time && end_time) {
       event.start = {
@@ -235,13 +248,15 @@ serve(async (req) => {
       };
     }
 
-    // Add extended properties to link with Psycma session
+    // CRITICAL: Always add extended properties to mark this as a Psycma event
+    // This prevents the sync from re-importing this event as an external block
     if (psycma_session_id) {
       event.extendedProperties = {
         private: {
           psycma_session_id: psycma_session_id,
         },
       };
+      console.log(`[UPDATE] Marking event ${event_id} with psycma_session_id: ${psycma_session_id}`);
     }
 
     const updateResponse = await fetch(

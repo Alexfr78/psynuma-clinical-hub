@@ -539,6 +539,26 @@ async function renewChannelIfExpiring(
   }
 }
 
+// Helper to detect Psycma marker in event description (fallback check)
+function hasPsycmaMarkerInDescription(description: string | null | undefined): string | null {
+  if (!description) return null;
+  const match = description.match(/\[PSYCMA_SESSION_ID:([^\]]+)\]/);
+  return match ? match[1] : null;
+}
+
+// Check if event is a Psycma-created event (should NOT be imported as external block)
+function isPsycmaEvent(event: any): boolean {
+  // Primary check: extendedProperties
+  if (event.extendedProperties?.private?.psycma_session_id) {
+    return true;
+  }
+  // Fallback check: description token
+  if (hasPsycmaMarkerInDescription(event.description)) {
+    return true;
+  }
+  return false;
+}
+
 // Upsert events to calendar_events table
 async function upsertCalendarEvents(
   supabase: any,
@@ -550,20 +570,25 @@ async function upsertCalendarEvents(
 
   if (events.length === 0) return result;
 
-  // First, check which events have psycma_session_id (already linked to a session)
-  // These should NOT be imported as calendar blocks
-  const eventsWithPsycmaId = events.filter(
-    (ev: any) => ev.extendedProperties?.private?.psycma_session_id
-  );
+  // CRITICAL: Filter out Psycma-created events using both extendedProperties AND description token
+  const eventsWithPsycmaId: any[] = [];
+  const eventsToImport: any[] = [];
   
-  const eventsToImport = events.filter(
-    (ev: any) => !ev.extendedProperties?.private?.psycma_session_id
-  );
+  for (const ev of events) {
+    if (isPsycmaEvent(ev)) {
+      eventsWithPsycmaId.push(ev);
+      const marker = ev.extendedProperties?.private?.psycma_session_id || 
+                     hasPsycmaMarkerInDescription(ev.description);
+      console.log(`[SYNC:SKIP] Skipping Psycma event ${ev.id} (marker: ${marker})`);
+    } else {
+      eventsToImport.push(ev);
+    }
+  }
 
   result.skipped = eventsWithPsycmaId.length;
   
   if (eventsWithPsycmaId.length > 0) {
-    console.log(`[SYNC:UPSERT] Skipping ${eventsWithPsycmaId.length} events with psycma_session_id`);
+    console.log(`[SYNC:UPSERT] Skipped ${eventsWithPsycmaId.length} Psycma events (extendedProperties or description token)`);
   }
 
   if (eventsToImport.length === 0) return result;
@@ -627,7 +652,7 @@ async function upsertCalendarEvents(
   result.deleted = mappedEvents.filter(e => e.deleted).length;
   const linkedCount = mappedEvents.filter(e => e.is_converted).length;
 
-  console.log(`[SYNC:UPSERT] Upserted ${result.imported} events, ${result.deleted} marked deleted, ${linkedCount} marked as converted (linked to sessions)`);
+  console.log(`[SYNC:UPSERT] Upserted ${result.imported} external events, ${result.deleted} marked deleted, ${linkedCount} marked as converted (linked to sessions)`);
 
   return result;
 }

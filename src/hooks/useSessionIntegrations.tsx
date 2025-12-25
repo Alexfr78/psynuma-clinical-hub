@@ -245,10 +245,13 @@ export async function handleSessionUpdate(
       body: {
         professional_id: professionalId,
         event_id: googleEventId,
+        // CRITICAL: Always send psycma_session_id to mark event as Psycma-created
+        // This prevents the sync from re-importing this event as an external block
+        psycma_session_id: sessionId,
         ...updates,
       },
     });
-    console.log('Google Calendar event updated');
+    console.log('Google Calendar event updated with psycma_session_id marker');
   } catch (err) {
     console.error('Error updating Google Calendar event:', err);
   }
