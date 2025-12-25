@@ -2407,15 +2407,13 @@ export type Database = {
       get_bono_sessions: {
         Args: { p_bono_id: string }
         Returns: {
-          consumed_at: string
           consumes_bono: boolean
-          patient_first_name: string
-          patient_last_name: string
-          professional_first_name: string
-          professional_last_name: string
+          patient_name: string
+          professional_name: string
           session_date: string
           session_id: string
           session_status: string
+          session_type_name: string
         }[]
       }
       get_center_address_for_session_token: {
