@@ -470,6 +470,7 @@ export type Database = {
         Row: {
           address: string | null
           address_details: string | null
+          agenda_show_weekends: boolean | null
           auto_invoicing_enabled: boolean | null
           city: string | null
           consent_expiration_days: number | null
@@ -536,6 +537,7 @@ export type Database = {
         Insert: {
           address?: string | null
           address_details?: string | null
+          agenda_show_weekends?: boolean | null
           auto_invoicing_enabled?: boolean | null
           city?: string | null
           consent_expiration_days?: number | null
@@ -602,6 +604,7 @@ export type Database = {
         Update: {
           address?: string | null
           address_details?: string | null
+          agenda_show_weekends?: boolean | null
           auto_invoicing_enabled?: boolean | null
           city?: string | null
           consent_expiration_days?: number | null

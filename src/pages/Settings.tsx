@@ -24,7 +24,8 @@ import {
   Wallet,
   Bell,
   Users,
-  FileDown
+  FileDown,
+  CalendarDays
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -58,7 +59,7 @@ import { ZoomIntegrationSection } from '@/components/settings/integrations/ZoomI
 import { GoogleIntegrationSection } from '@/components/settings/integrations/GoogleIntegrationSection';
 import { StripeIntegrationSection } from '@/components/settings/integrations/StripeIntegrationSection';
 import { OAuthCredentialsSection } from '@/components/settings/integrations/OAuthCredentialsSection';
-
+import { AgendaSettingsSection } from '@/components/settings/AgendaSettingsSection';
 const centerSchema = z.object({
   name: z.string().min(1, 'El nombre es obligatorio'),
   tax_id: z.string().optional(),
@@ -74,6 +75,7 @@ type CenterFormValues = z.infer<typeof centerSchema>;
 type SettingsSection = 
   | 'centro-info'
   | 'centro-ubicaciones'
+  | 'centro-agenda'
   | 'centro-portal'
   | 'sesiones-tipos'
   | 'pagos-config'
@@ -113,11 +115,11 @@ const categoryIcons: Record<string, React.ComponentType<{ className?: string }>>
   'Conexiones Externas': Plug,
 };
 
-// New organized structure with 5 main sections
 const navItems: NavItem[] = [
   // Mi Centro
   { id: 'centro-info', label: 'Datos del centro', icon: Building2, parent: 'Mi Centro' },
   { id: 'centro-ubicaciones', label: 'Ubicaciones', icon: MapPin, parent: 'Mi Centro' },
+  { id: 'centro-agenda', label: 'Configuración de agenda', icon: CalendarDays, parent: 'Mi Centro' },
   { id: 'sesiones-tipos', label: 'Tipos de cita', icon: Calendar, parent: 'Mi Centro' },
   
   // Portal de Pacientes
@@ -313,6 +315,8 @@ export default function Settings() {
         );
       case 'centro-ubicaciones':
         return <LocationsSection />;
+      case 'centro-agenda':
+        return <AgendaSettingsSection />;
       case 'centro-portal':
         return <PortalSettingsSection />;
       case 'sesiones-tipos':

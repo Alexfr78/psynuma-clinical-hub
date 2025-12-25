@@ -17,6 +17,7 @@ interface WeekViewProps {
   startHour?: number;
   onSwipeLeft?: () => void;
   onSwipeRight?: () => void;
+  showWeekends?: boolean;
 }
 
 const DEFAULT_HOURS = Array.from({ length: 13 }, (_, i) => i + 8);
@@ -38,11 +39,14 @@ function minutesToTime(totalMinutes: number): string {
   return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
 }
 
-export function WeekView({ currentDate, sessions, onSessionClick, onSlotClick, onSessionMove, hours, startHour, onSwipeLeft, onSwipeRight }: WeekViewProps) {
+export function WeekView({ currentDate, sessions, onSessionClick, onSlotClick, onSessionMove, hours, startHour, onSwipeLeft, onSwipeRight, showWeekends = true }: WeekViewProps) {
   const displayHours = hours || DEFAULT_HOURS;
   const gridStartHour = startHour ?? 8;
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
-  const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+  // If showWeekends is false, only show Monday-Friday (5 days)
+  const weekDays = showWeekends 
+    ? Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
+    : Array.from({ length: 5 }, (_, i) => addDays(weekStart, i));
 
   const { handleTouchStart, handleTouchEnd } = useSwipeNavigation({
     onSwipeLeft,
@@ -207,7 +211,10 @@ export function WeekView({ currentDate, sessions, onSessionClick, onSlotClick, o
       onTouchEnd={handleTouchEnd}
     >
       {/* Header */}
-      <div className="grid grid-cols-8 border-b bg-muted/50">
+      <div className={cn(
+        "grid border-b bg-muted/50",
+        showWeekends ? "grid-cols-8" : "grid-cols-6"
+      )}>
         <div className="p-2 text-center text-xs font-medium text-muted-foreground">
           Hora
         </div>
@@ -237,7 +244,10 @@ export function WeekView({ currentDate, sessions, onSessionClick, onSlotClick, o
       {/* Time Grid */}
       <div className="flex-1 overflow-auto">
         <div className="min-h-[600px] relative">
-          <div className="grid grid-cols-8">
+          <div className={cn(
+            "grid",
+            showWeekends ? "grid-cols-8" : "grid-cols-6"
+          )}>
             {/* Hour labels column */}
             <div className="border-r">
               {displayHours.map((hour) => (
