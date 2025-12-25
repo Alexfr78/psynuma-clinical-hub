@@ -2197,24 +2197,42 @@ export type Database = {
       }
       user_roles: {
         Row: {
+          center_id: string
           created_at: string
           id: string
           role: Database["public"]["Enums"]["app_role"]
           user_id: string
         }
         Insert: {
+          center_id: string
           created_at?: string
           id?: string
           role: Database["public"]["Enums"]["app_role"]
           user_id: string
         }
         Update: {
+          center_id?: string
           created_at?: string
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "user_roles_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_roles_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "portal_centers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       verifactu_events: {
         Row: {
@@ -2413,8 +2431,26 @@ export type Database = {
         }
         Returns: boolean
       }
+      has_role_in_center: {
+        Args: {
+          _center_id: string
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
       is_professional: { Args: { _user_id: string }; Returns: boolean }
+      portal_list_professionals: {
+        Args: { _portal_slug: string }
+        Returns: {
+          avatar_url: string
+          first_name: string
+          id: string
+          last_name: string
+          specialty: string
+        }[]
+      }
       recompute_debt_by_invoice: { Args: { p_debt_id: string }; Returns: Json }
       remove_bono_from_session: {
         Args: { p_session_id: string }

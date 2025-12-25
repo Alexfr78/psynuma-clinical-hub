@@ -25,6 +25,7 @@ interface AuthContextType {
   isAdmin: boolean;
   isProfessional: boolean;
   isPatient: boolean;
+  hasCenter: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signUp: (email: string, password: string, firstName?: string, lastName?: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
@@ -142,6 +143,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const isAdmin = roles.includes('admin');
   const isProfessional = roles.includes('professional');
   const isPatient = roles.includes('patient');
+  const hasCenter = Boolean(profile?.center_id);
 
   return (
     <AuthContext.Provider
@@ -154,6 +156,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAdmin,
         isProfessional,
         isPatient,
+        hasCenter,
         signIn,
         signUp,
         signOut,

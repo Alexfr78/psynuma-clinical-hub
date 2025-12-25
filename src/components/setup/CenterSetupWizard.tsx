@@ -78,22 +78,24 @@ export function CenterSetupWizard() {
 
       if (profileError) throw profileError;
 
-      // 3. Assign admin role to the user
+      // 3. Assign admin role to the user (with center_id for multi-tenant security)
       const { error: roleError } = await supabase
         .from('user_roles')
         .insert({
           user_id: user.id,
           role: 'admin',
+          center_id: center.id,
         });
 
       if (roleError) throw roleError;
 
-      // 4. Also assign professional role
+      // 4. Also assign professional role (with center_id)
       const { error: profRoleError } = await supabase
         .from('user_roles')
         .insert({
           user_id: user.id,
           role: 'professional',
+          center_id: center.id,
         });
 
       if (profRoleError) throw profRoleError;
