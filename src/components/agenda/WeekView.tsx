@@ -43,7 +43,8 @@ function minutesToTime(totalMinutes: number): string {
 export function WeekView({ currentDate, sessions, onSessionClick, onSlotClick, onSessionMove, hours, startHour, onSwipeLeft, onSwipeRight, showWeekends = true }: WeekViewProps) {
   const isMobile = useIsMobile();
   const displayHours = hours || DEFAULT_HOURS;
-  const gridStartHour = startHour ?? 8;
+  // CRITICAL: gridStartHour must match the first hour displayed, otherwise sessions will be misaligned
+  const gridStartHour = displayHours[0] ?? startHour ?? 8;
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
   // If showWeekends is false, only show Monday-Friday (5 days)
   const weekDays = showWeekends 
