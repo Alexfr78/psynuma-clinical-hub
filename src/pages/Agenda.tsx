@@ -201,21 +201,42 @@ export default function Agenda() {
       // Sync to Google Calendar immediately with await
       if (session) {
         try {
-          await syncMoveToGoogle(session, newDate, newStartTime, newEndTime);
+          const result = await syncMoveToGoogle(session, newDate, newStartTime, newEndTime);
+          
+          if (result.recreated) {
+            toast({
+              title: 'Sesión movida',
+              description: 'Evento de Google Calendar recreado y vinculado.',
+            });
+          } else if (result.created) {
+            toast({
+              title: 'Sesión movida',
+              description: 'Evento creado en Google Calendar.',
+            });
+          } else if (!result.success) {
+            toast({
+              title: 'Sesión movida',
+              description: result.error || 'Pero hubo un error al sincronizar con Google Calendar',
+            });
+          } else {
+            toast({
+              title: 'Sesión movida',
+              description: `Movida a ${newDate} ${newStartTime}`,
+            });
+          }
         } catch (googleError) {
           console.error('Error syncing to Google:', googleError);
           toast({
             title: 'Sesión movida',
             description: 'Pero hubo un error al sincronizar con Google Calendar',
           });
-          return;
         }
+      } else {
+        toast({
+          title: 'Sesión movida',
+          description: `Movida a ${newDate} ${newStartTime}`,
+        });
       }
-      
-      toast({
-        title: 'Sesión movida',
-        description: `Movida a ${newDate} ${newStartTime}`,
-      });
     } catch {
       toast({
         title: 'Error',

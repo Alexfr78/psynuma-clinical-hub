@@ -143,6 +143,65 @@ async function refreshGoogleToken(
   return null;
 }
 
+// Helper function to create a new Google Calendar event
+async function createGoogleEvent(
+  accessToken: string,
+  calendarId: string,
+  eventData: {
+    title: string;
+    description?: string;
+    session_date: string;
+    start_time: string;
+    end_time: string;
+    psycma_session_id: string;
+  }
+): Promise<{ success: boolean; event_id?: string; error?: string }> {
+  console.log(`[CREATE] Creating new Google Calendar event for session ${eventData.psycma_session_id}`);
+  
+  let eventDescription = eventData.description || '';
+  eventDescription = `${eventDescription}\n\n[PSYCMA_SESSION_ID:${eventData.psycma_session_id}]`;
+  
+  const event = {
+    summary: eventData.title || 'Sesión',
+    description: eventDescription,
+    start: {
+      dateTime: `${eventData.session_date}T${eventData.start_time}:00`,
+      timeZone: 'Europe/Madrid',
+    },
+    end: {
+      dateTime: `${eventData.session_date}T${eventData.end_time}:00`,
+      timeZone: 'Europe/Madrid',
+    },
+    extendedProperties: {
+      private: {
+        psycma_session_id: eventData.psycma_session_id,
+      },
+    },
+  };
+
+  const createResponse = await fetch(
+    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`,
+    {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(event),
+    }
+  );
+
+  if (!createResponse.ok) {
+    const errorData = await createResponse.json();
+    console.error('Error creating event:', errorData);
+    return { success: false, error: `Error al crear evento: ${errorData?.error?.message || 'Unknown error'}` };
+  }
+
+  const newEvent = await createResponse.json();
+  console.log(`[CREATE] Event created successfully: ${newEvent.id}`);
+  return { success: true, event_id: newEvent.id };
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -159,9 +218,15 @@ serve(async (req) => {
       description,
       status, // 'cancelled' to cancel the event
       psycma_session_id, // For linking converted events
+      create_if_not_exists, // If true and event_id is null, create new event
     } = await req.json();
 
-    console.log('Updating Google Calendar event:', event_id, psycma_session_id ? `(linking to session ${psycma_session_id})` : '');
+    console.log('Update Google Calendar event request:', {
+      event_id,
+      psycma_session_id,
+      create_if_not_exists,
+      hasDateTime: !!(session_date && start_time && end_time),
+    });
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -177,28 +242,87 @@ serve(async (req) => {
 
     if (connError || !connection) {
       return new Response(
-        JSON.stringify({ error: 'Google no está conectado' }),
+        JSON.stringify({ success: false, error: 'Google no está conectado' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Refresh token if needed
-    let accessToken = connection.access_token;
-    const expiresAt = new Date(connection.expires_at);
-    if (expiresAt <= new Date()) {
-      accessToken = await refreshGoogleToken(supabase, professional_id, connection.refresh_token);
-      if (!accessToken) {
-        return new Response(
-          JSON.stringify({ error: 'Token expirado, reconecta Google' }),
-          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+    // Helper function to get valid access token (with refresh if needed)
+    const getValidAccessToken = async (retryOnce = true): Promise<string | null> => {
+      let accessToken = connection.access_token;
+      const expiresAt = new Date(connection.expires_at);
+      
+      if (expiresAt <= new Date()) {
+        accessToken = await refreshGoogleToken(supabase, professional_id, connection.refresh_token);
+        if (!accessToken) {
+          return null;
+        }
       }
+      return accessToken;
+    };
+
+    let accessToken = await getValidAccessToken();
+    if (!accessToken) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Token expirado, reconecta Google' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const calendarId = connection.google_calendar_id || 'primary';
 
-    // If cancelling
+    // CASE 1: No event_id provided - create new event if create_if_not_exists is true
+    if (!event_id && create_if_not_exists) {
+      console.log('[UPDATE] No event_id provided, creating new event (auto-migration)');
+      
+      if (!session_date || !start_time || !end_time || !psycma_session_id) {
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: 'Faltan datos para crear evento (session_date, start_time, end_time, psycma_session_id)' 
+          }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const createResult = await createGoogleEvent(accessToken, calendarId, {
+        title: title || 'Sesión',
+        description,
+        session_date,
+        start_time,
+        end_time,
+        psycma_session_id,
+      });
+
+      if (!createResult.success) {
+        return new Response(
+          JSON.stringify({ success: false, error: createResult.error }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          event_id: createResult.event_id, 
+          created: true 
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // If no event_id and create_if_not_exists is false, nothing to do
+    if (!event_id) {
+      console.log('[UPDATE] No event_id and create_if_not_exists is false, skipping');
+      return new Response(
+        JSON.stringify({ success: true, skipped: true }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // CASE 2: Cancelling event
     if (status === 'cancelled') {
+      console.log(`[DELETE] Deleting Google Calendar event: ${event_id}`);
       const deleteResponse = await fetch(
         `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${event_id}`,
         {
@@ -207,7 +331,23 @@ serve(async (req) => {
         }
       );
 
-      if (!deleteResponse.ok && deleteResponse.status !== 404) {
+      // Handle 401 - try refresh and retry once
+      if (deleteResponse.status === 401) {
+        console.log('[DELETE] Got 401, refreshing token and retrying...');
+        accessToken = await refreshGoogleToken(supabase, professional_id, connection.refresh_token);
+        if (accessToken) {
+          const retryResponse = await fetch(
+            `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${event_id}`,
+            {
+              method: 'DELETE',
+              headers: { 'Authorization': `Bearer ${accessToken}` },
+            }
+          );
+          if (!retryResponse.ok && retryResponse.status !== 404 && retryResponse.status !== 410) {
+            console.error('Delete retry failed:', retryResponse.status);
+          }
+        }
+      } else if (!deleteResponse.ok && deleteResponse.status !== 404 && deleteResponse.status !== 410) {
         const errorData = await deleteResponse.json();
         console.error('Error deleting event:', errorData);
       }
@@ -218,7 +358,7 @@ serve(async (req) => {
       );
     }
 
-    // Update event
+    // CASE 3: Updating existing event
     const event: any = {};
     
     if (title) event.summary = title;
@@ -249,7 +389,6 @@ serve(async (req) => {
     }
 
     // CRITICAL: Always add extended properties to mark this as a Psycma event
-    // This prevents the sync from re-importing this event as an external block
     if (psycma_session_id) {
       event.extendedProperties = {
         private: {
@@ -259,7 +398,9 @@ serve(async (req) => {
       console.log(`[UPDATE] Marking event ${event_id} with psycma_session_id: ${psycma_session_id}`);
     }
 
-    const updateResponse = await fetch(
+    // Attempt PATCH
+    console.log(`[UPDATE] Attempting PATCH on event: ${event_id}`);
+    let updateResponse = await fetch(
       `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${event_id}`,
       {
         method: 'PATCH',
@@ -271,16 +412,94 @@ serve(async (req) => {
       }
     );
 
+    // Handle 401 - refresh token and retry once
+    if (updateResponse.status === 401) {
+      console.log('[UPDATE] Got 401, refreshing token and retrying...');
+      accessToken = await refreshGoogleToken(supabase, professional_id, connection.refresh_token);
+      
+      if (!accessToken) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Token expirado, reconecta Google' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Retry the PATCH
+      updateResponse = await fetch(
+        `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${event_id}`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(event),
+        }
+      );
+    }
+
+    // Handle 404 or 410 (event was deleted in Google) - recreate the event
+    if (updateResponse.status === 404 || updateResponse.status === 410) {
+      console.log(`[UPDATE] Event ${event_id} not found/deleted (status ${updateResponse.status}), recreating...`);
+      
+      if (!session_date || !start_time || !end_time || !psycma_session_id) {
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            status: updateResponse.status,
+            error: 'Evento no encontrado en Google y faltan datos para recrearlo' 
+          }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const createResult = await createGoogleEvent(accessToken, calendarId, {
+        title: title || 'Sesión',
+        description,
+        session_date,
+        start_time,
+        end_time,
+        psycma_session_id,
+      });
+
+      if (!createResult.success) {
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            status: updateResponse.status,
+            error: createResult.error 
+          }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          event_id: createResult.event_id, 
+          recreated: true 
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Handle other errors
     if (!updateResponse.ok) {
       const errorData = await updateResponse.json();
       console.error('Error updating event:', errorData);
       return new Response(
-        JSON.stringify({ error: 'Error al actualizar evento', details: errorData }),
+        JSON.stringify({ 
+          success: false, 
+          status: updateResponse.status,
+          error: 'Error al actualizar evento', 
+          details: errorData 
+        }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     const eventData = await updateResponse.json();
+    console.log(`[UPDATE] Event updated successfully: ${eventData.id}`);
 
     return new Response(
       JSON.stringify({ success: true, event_id: eventData.id }),
@@ -291,7 +510,7 @@ serve(async (req) => {
     console.error('Error:', error);
     const message = error instanceof Error ? error.message : 'Unknown error';
     return new Response(
-      JSON.stringify({ error: message }),
+      JSON.stringify({ success: false, error: message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

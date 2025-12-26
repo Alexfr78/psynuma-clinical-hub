@@ -362,17 +362,29 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
       
       // Sync date/time changes to Google Calendar immediately
       try {
-        await syncMoveToGoogle(
+        const result = await syncMoveToGoogle(
           session,
           dateTimeValue.date,
           dateTimeValue.startTime,
           dateTimeValue.endTime
         );
+        
+        if (result.recreated) {
+          toast({ title: 'Fecha y hora actualizadas', description: 'Evento de Google Calendar recreado.' });
+          queryClient.invalidateQueries({ queryKey: ['sessions'] });
+        } else if (result.created) {
+          toast({ title: 'Fecha y hora actualizadas', description: 'Evento creado en Google Calendar.' });
+          queryClient.invalidateQueries({ queryKey: ['sessions'] });
+        } else if (!result.success) {
+          toast({ title: 'Fecha actualizada', description: result.error || 'Error sincronizando con Google.' });
+        } else {
+          toast({ title: 'Fecha y hora actualizadas' });
+        }
       } catch (googleError) {
         console.error('Google sync failed:', googleError);
+        toast({ title: 'Fecha actualizada', description: 'Error sincronizando con Google.' });
       }
       
-      toast({ title: 'Fecha y hora actualizadas' });
       setEditingDateTime(false);
     } catch {
       toast({ title: 'Error al actualizar', variant: 'destructive' });
