@@ -47,6 +47,86 @@ function getLocalDate(isoDatetime: string, timezone: string): string {
   return formatter.format(date);
 }
 
+// Format a date (year, month 1-indexed, day) as YYYY-MM-DD in local TZ
+function formatDateLocal(year: number, month: number, day: number): string {
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+// Check if datetime ends exactly at midnight (00:00:00)
+function endsAtMidnight(isoDatetime: string, timezone: string): boolean {
+  const date = new Date(isoDatetime);
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    hour: 'numeric',
+    minute: 'numeric',
+    second: 'numeric',
+    hour12: false,
+    timeZone: timezone
+  });
+  const parts = formatter.formatToParts(date);
+  const h = parseInt(parts.find(p => p.type === 'hour')?.value || '0');
+  const m = parseInt(parts.find(p => p.type === 'minute')?.value || '0');
+  const s = parseInt(parts.find(p => p.type === 'second')?.value || '0');
+  return h === 0 && m === 0 && s === 0;
+}
+
+// Expand multi-day/all-day event to all dates it covers within month bounds
+function expandEventToDates(
+  event: { start_at: string | null; end_at: string | null; all_day: boolean | null },
+  monthStart: string,
+  monthEnd: string,
+  timezone: string
+): string[] {
+  const dates: string[] = [];
+  
+  if (!event.start_at) return dates;
+  
+  const eventStartDate = getLocalDate(event.start_at, timezone);
+  
+  // For all_day or null end_at, just include start date
+  if (event.all_day || !event.end_at) {
+    if (eventStartDate >= monthStart && eventStartDate < monthEnd) {
+      dates.push(eventStartDate);
+    }
+    return dates;
+  }
+  
+  let eventEndDate = getLocalDate(event.end_at, timezone);
+  
+  // If ends exactly at midnight, the last day is the previous day
+  if (endsAtMidnight(event.end_at, timezone)) {
+    const endDateObj = new Date(event.end_at);
+    endDateObj.setDate(endDateObj.getDate() - 1);
+    eventEndDate = getLocalDate(endDateObj.toISOString(), timezone);
+  }
+  
+  // Clamp to month bounds
+  const clampedStart = eventStartDate < monthStart ? monthStart : eventStartDate;
+  const clampedEnd = eventEndDate >= monthEnd ? 
+    formatDateLocal(
+      parseInt(monthEnd.split('-')[0]),
+      parseInt(monthEnd.split('-')[1]),
+      0 // Day 0 = last day of previous month, but we use monthEnd as exclusive
+    ) : eventEndDate;
+  
+  // Generate all dates from clampedStart to clampedEnd (inclusive)
+  let currentDate = new Date(clampedStart + 'T12:00:00Z'); // Noon to avoid DST issues
+  const endDate = new Date((eventEndDate >= monthEnd ? monthEnd : eventEndDate) + 'T12:00:00Z');
+  
+  while (currentDate <= endDate) {
+    const dateStr = formatDateLocal(
+      currentDate.getUTCFullYear(),
+      currentDate.getUTCMonth() + 1,
+      currentDate.getUTCDate()
+    );
+    if (dateStr >= monthStart && dateStr < monthEnd) {
+      dates.push(dateStr);
+    }
+    currentDate.setUTCDate(currentDate.getUTCDate() + 1);
+  }
+  
+  return dates;
+}
+
 // Booking token functions
 function generateBookingToken(sessionId: string, patientId: string, centerId: string): string {
   const payload = {
@@ -487,6 +567,238 @@ serve(async (req) => {
 
       return new Response(
         JSON.stringify({ slots, serviceDuration }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // ===== GET-AVAILABILITY-MONTH =====
+    if (action === "get-availability-month") {
+      const { month, sessionTypeId, locationId, professionalId } = params;
+
+      if (!centerSlug || !month || !sessionTypeId || !locationId) {
+        return new Response(
+          JSON.stringify({ error: "Faltan parámetros requeridos" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Get center config
+      const { data: center } = await supabase
+        .from("centers")
+        .select(`
+          id, public_booking_enabled,
+          portal_default_professional_id, portal_allow_professional_selection,
+          reschedule_slot_duration
+        `)
+        .eq("portal_slug", centerSlug)
+        .single();
+
+      if (!center?.public_booking_enabled) {
+        return new Response(
+          JSON.stringify({ error: "Reservas no habilitadas", disabled: true }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Validate location is public and active
+      const { data: location } = await supabase
+        .from("center_locations")
+        .select("id, is_public, is_active")
+        .eq("id", locationId)
+        .eq("center_id", center.id)
+        .single();
+
+      if (!location || !location.is_public || !location.is_active) {
+        return new Response(
+          JSON.stringify({ error: "Ubicación no válida" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Validate session type
+      const { data: sessionType } = await supabase
+        .from("session_types")
+        .select("id, duration_minutes, is_public, is_active")
+        .eq("id", sessionTypeId)
+        .eq("center_id", center.id)
+        .single();
+
+      if (!sessionType || !sessionType.is_public || !sessionType.is_active) {
+        return new Response(
+          JSON.stringify({ error: "Servicio no válido" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Determine professional
+      let finalProfessionalId = professionalId;
+      if (!center.portal_allow_professional_selection || !professionalId) {
+        finalProfessionalId = center.portal_default_professional_id;
+      }
+
+      if (!finalProfessionalId) {
+        return new Response(
+          JSON.stringify({ month, days: [] }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const serviceDuration = sessionType.duration_minutes;
+      const step = center.reschedule_slot_duration || 30;
+      const centerTimezone = 'Europe/Madrid';
+
+      // Parse month and calculate range
+      const [yearStr, monthStr] = month.split('-');
+      const year = parseInt(yearStr);
+      const monthNum = parseInt(monthStr); // 1-indexed
+      
+      const startStr = formatDateLocal(year, monthNum, 1); // e.g. 2025-12-01
+      // Next month first day (exclusive end)
+      const nextMonth = monthNum === 12 ? 1 : monthNum + 1;
+      const nextYear = monthNum === 12 ? year + 1 : year;
+      const endStr = formatDateLocal(nextYear, nextMonth, 1); // e.g. 2026-01-01
+
+      // Days in this month
+      const daysInMonth = new Date(year, monthNum, 0).getDate();
+
+      console.log(`[get-availability-month] month=${month} range=${startStr} to ${endStr} days=${daysInMonth}`);
+
+      // Fetch all sessions for the month in ONE query
+      const { data: monthSessions } = await supabase
+        .from("sessions")
+        .select("id, session_date, start_time, end_time, status")
+        .eq("professional_id", finalProfessionalId)
+        .gte("session_date", startStr)
+        .lt("session_date", endStr)
+        .not("status", "in", '("cancelled","no_show")');
+
+      // Fetch all calendar events that INTERSECT the month (multi-day support)
+      const { data: monthEvents } = await supabase
+        .from("calendar_events")
+        .select("id, start_at, end_at, all_day, status, deleted")
+        .eq("professional_id", finalProfessionalId)
+        .eq("deleted", false)
+        .or(`end_at.is.null,end_at.gte.${startStr}T00:00:00`)
+        .lt("start_at", `${endStr}T00:00:00`);
+
+      // Pre-index sessions by date
+      const sessionsByDate: Record<string, typeof monthSessions> = {};
+      for (const s of monthSessions || []) {
+        if (!sessionsByDate[s.session_date]) sessionsByDate[s.session_date] = [];
+        sessionsByDate[s.session_date]!.push(s);
+      }
+
+      // Pre-index events by date (expand multi-day events)
+      const eventsByDate: Record<string, (typeof monthEvents)> = {};
+      for (const e of monthEvents || []) {
+        if (e.status === 'cancelled') continue;
+        const affectedDates = expandEventToDates(e, startStr, endStr, centerTimezone);
+        for (const dateStr of affectedDates) {
+          if (!eventsByDate[dateStr]) eventsByDate[dateStr] = [];
+          eventsByDate[dateStr]!.push(e);
+        }
+      }
+
+      // Cache availability and location_schedules by day of week (0-6)
+      const availabilityByDow: Record<number, { start_time: string; end_time: string }[]> = {};
+      const locationSchedulesByDow: Record<number, { start_time: string; end_time: string }[]> = {};
+
+      // Fetch all 7 days of availability and location schedules
+      const { data: allAvailability } = await supabase
+        .from("availability")
+        .select("day_of_week, start_time, end_time")
+        .eq("professional_id", finalProfessionalId)
+        .eq("is_available", true);
+
+      for (const a of allAvailability || []) {
+        if (!availabilityByDow[a.day_of_week]) availabilityByDow[a.day_of_week] = [];
+        availabilityByDow[a.day_of_week].push({ start_time: a.start_time, end_time: a.end_time });
+      }
+
+      const { data: allLocationSchedules } = await supabase
+        .from("location_schedules")
+        .select("day_of_week, start_time, end_time")
+        .eq("location_id", locationId)
+        .eq("is_open", true);
+
+      for (const l of allLocationSchedules || []) {
+        if (!locationSchedulesByDow[l.day_of_week]) locationSchedulesByDow[l.day_of_week] = [];
+        locationSchedulesByDow[l.day_of_week].push({ start_time: l.start_time, end_time: l.end_time });
+      }
+
+      // Calculate availability for each day
+      const days: { date: string; availableCount: number }[] = [];
+
+      for (let d = 1; d <= daysInMonth; d++) {
+        const dateStr = formatDateLocal(year, monthNum, d);
+        const dateObj = new Date(year, monthNum - 1, d);
+        const dayOfWeek = dateObj.getDay();
+
+        const profAvailability = availabilityByDow[dayOfWeek] || [];
+        const locationSchedules = locationSchedulesByDow[dayOfWeek] || [];
+
+        if (profAvailability.length === 0 || locationSchedules.length === 0) {
+          days.push({ date: dateStr, availableCount: 0 });
+          continue;
+        }
+
+        const daySessions = sessionsByDate[dateStr] || [];
+        const dayEvents = eventsByDate[dateStr] || [];
+
+        // Check if any all_day event blocks the entire day
+        const hasAllDayBlock = dayEvents.some(e => e.all_day);
+        if (hasAllDayBlock) {
+          days.push({ date: dateStr, availableCount: 0 });
+          continue;
+        }
+
+        let availableCount = 0;
+
+        for (const profSlot of profAvailability) {
+          const profStart = timeToMinutes(profSlot.start_time);
+          const profEnd = timeToMinutes(profSlot.end_time);
+
+          for (const locSchedule of locationSchedules) {
+            const locStart = timeToMinutes(locSchedule.start_time);
+            const locEnd = timeToMinutes(locSchedule.end_time);
+
+            const intersectionStart = Math.max(profStart, locStart);
+            const intersectionEnd = Math.min(profEnd, locEnd);
+
+            if (intersectionStart >= intersectionEnd) continue;
+
+            for (let time = intersectionStart; time + serviceDuration <= intersectionEnd; time += step) {
+              const slotEnd = time + serviceDuration;
+
+              // Check session conflicts
+              const hasSessionConflict = daySessions.some(s => {
+                const sessionStart = timeToMinutes(s.start_time.substring(0, 5));
+                const sessionEnd = timeToMinutes(s.end_time.substring(0, 5));
+                return time < sessionEnd && slotEnd > sessionStart;
+              });
+              if (hasSessionConflict) continue;
+
+              // Check calendar event conflicts
+              const hasCalendarConflict = dayEvents.some(event => {
+                if (!event.start_at) return false;
+                const eventStartMinutes = getLocalTimeMinutes(event.start_at, centerTimezone);
+                const eventEndMinutes = event.end_at ? getLocalTimeMinutes(event.end_at, centerTimezone) : eventStartMinutes + 60;
+                return time < eventEndMinutes && slotEnd > eventStartMinutes;
+              });
+              if (hasCalendarConflict) continue;
+
+              availableCount++;
+            }
+          }
+        }
+
+        days.push({ date: dateStr, availableCount });
+      }
+
+      console.log(`[get-availability-month] month=${month} calculated ${days.length} days`);
+
+      return new Response(
+        JSON.stringify({ month, days }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }

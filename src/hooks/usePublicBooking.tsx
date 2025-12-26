@@ -41,6 +41,11 @@ interface Slot {
   endTime: string;
 }
 
+interface DayAvailability {
+  date: string;
+  availableCount: number;
+}
+
 interface BookingResult {
   success: boolean;
   session: any;
@@ -142,6 +147,21 @@ export function usePublicBooking(centerSlug: string) {
     }
   }, [invoke]);
 
+  const getMonthAvailability = useCallback(async (
+    month: string,
+    sessionTypeId: string,
+    locationId: string,
+    professionalId?: string
+  ): Promise<DayAvailability[]> => {
+    try {
+      const data = await invoke('get-availability-month', { month, sessionTypeId, locationId, professionalId });
+      return data?.days || [];
+    } catch (err: any) {
+      setError(err.message);
+      return [];
+    }
+  }, [invoke]);
+
   const createBooking = useCallback(async (params: {
     sessionTypeId: string;
     locationId: string;
@@ -239,6 +259,7 @@ export function usePublicBooking(centerSlug: string) {
     fetchLocations,
     fetchProfessionals,
     getAvailability,
+    getMonthAvailability,
     createBooking,
     getBooking,
     cancelBooking,
