@@ -13,6 +13,8 @@ export interface SessionType {
   duration_minutes: number;
   color: string;
   is_active: boolean | null;
+  is_public: boolean | null;
+  display_order: number | null;
   created_at: string | null;
   updated_at: string | null;
   // Fiscal fields
@@ -29,6 +31,8 @@ export interface SessionTypeInsert {
   commission_rate?: number;
   duration_minutes: number;
   color: string;
+  display_order?: number;
+  is_public?: boolean;
   // Fiscal fields
   tax_treatment?: TaxTreatment;
   vat_rate?: number;
@@ -45,6 +49,8 @@ export interface SessionTypeUpdate {
   duration_minutes?: number;
   color?: string;
   is_active?: boolean;
+  is_public?: boolean;
+  display_order?: number;
   // Fiscal fields
   tax_treatment?: TaxTreatment;
   vat_rate?: number;
@@ -64,7 +70,8 @@ export function useSessionTypes() {
         .from('session_types')
         .select('*')
         .eq('is_active', true)
-        .order('name');
+        .order('display_order', { ascending: true })
+        .order('name', { ascending: true });
 
       if (error) throw error;
       return data as SessionType[];
@@ -83,7 +90,8 @@ export function useAllSessionTypes() {
       const { data, error } = await supabase
         .from('session_types')
         .select('*')
-        .order('name');
+        .order('display_order', { ascending: true })
+        .order('name', { ascending: true });
 
       if (error) throw error;
       return data as SessionType[];
@@ -100,14 +108,22 @@ export function useCreateSessionType() {
     mutationFn: async (sessionType: SessionTypeInsert) => {
       if (!profile?.center_id) throw new Error('No center found');
 
+      // Use the atomic RPC to create with proper display_order
       const { data, error } = await supabase
-        .from('session_types')
-        .insert({
-          ...sessionType,
-          center_id: profile.center_id,
-        })
-        .select()
-        .single();
+        .rpc('create_session_type_with_order', {
+          p_center_id: profile.center_id,
+          p_name: sessionType.name,
+          p_default_price: sessionType.default_price,
+          p_duration_minutes: sessionType.duration_minutes,
+          p_color: sessionType.color,
+          p_commission_rate: sessionType.commission_rate ?? null,
+          p_tax_treatment: sessionType.tax_treatment ?? null,
+          p_vat_rate: sessionType.vat_rate ?? null,
+          p_exemption_code: sessionType.exemption_code ?? null,
+          p_non_subject_code: sessionType.non_subject_code ?? null,
+          p_vat_regime_key: sessionType.vat_regime_key ?? null,
+          p_is_public: sessionType.is_public ?? true,
+        });
 
       if (error) throw error;
       return data;
@@ -172,6 +188,34 @@ export function useDeleteSessionType() {
     onError: (error) => {
       toast.error('Error al eliminar tipo de sesión');
       console.error('Error deleting session type:', error);
+    },
+  });
+}
+
+export function useReorderSessionTypes() {
+  const queryClient = useQueryClient();
+  const { profile } = useAuth();
+
+  return useMutation({
+    mutationFn: async (orderedIds: string[]) => {
+      if (!profile?.center_id) throw new Error('No center found');
+
+      const { data, error } = await supabase
+        .rpc('reorder_session_types', {
+          p_center_id: profile.center_id,
+          p_ordered_ids: orderedIds,
+        });
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['session-types'] });
+      queryClient.invalidateQueries({ queryKey: ['session-types-all'] });
+    },
+    onError: (error) => {
+      toast.error('Error al reordenar tipos de sesión');
+      console.error('Error reordering session types:', error);
     },
   });
 }

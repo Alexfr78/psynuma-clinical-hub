@@ -1994,6 +1994,7 @@ export type Database = {
           commission_rate: number | null
           created_at: string | null
           default_price: number
+          display_order: number | null
           duration_minutes: number
           exemption_code: string | null
           id: string
@@ -2012,6 +2013,7 @@ export type Database = {
           commission_rate?: number | null
           created_at?: string | null
           default_price?: number
+          display_order?: number | null
           duration_minutes?: number
           exemption_code?: string | null
           id?: string
@@ -2030,6 +2032,7 @@ export type Database = {
           commission_rate?: number | null
           created_at?: string | null
           default_price?: number
+          display_order?: number | null
           duration_minutes?: number
           exemption_code?: string | null
           id?: string
@@ -2417,6 +2420,23 @@ export type Database = {
         }
         Returns: string
       }
+      create_session_type_with_order: {
+        Args: {
+          p_center_id: string
+          p_color: string
+          p_commission_rate?: number
+          p_default_price: number
+          p_duration_minutes: number
+          p_exemption_code?: string
+          p_is_public?: boolean
+          p_name: string
+          p_non_subject_code?: string
+          p_tax_treatment?: string
+          p_vat_rate?: number
+          p_vat_regime_key?: string
+        }
+        Returns: string
+      }
       delete_bono_safely: { Args: { p_bono_id: string }; Returns: Json }
       delete_payment_and_recompute_debt_v2: {
         Args: { p_payment_id: string }
@@ -2526,6 +2546,10 @@ export type Database = {
       recompute_debt_by_invoice: { Args: { p_debt_id: string }; Returns: Json }
       remove_bono_from_session: {
         Args: { p_session_id: string }
+        Returns: Json
+      }
+      reorder_session_types: {
+        Args: { p_center_id: string; p_ordered_ids: string[] }
         Returns: Json
       }
       update_payment_and_recompute_debt_v2: {

@@ -175,7 +175,8 @@ serve(async (req) => {
         .eq("center_id", center.id)
         .eq("is_active", true)
         .eq("is_public", true)
-        .order("name");
+        .order("display_order", { ascending: true })
+        .order("name", { ascending: true });
 
       if (error) {
         console.error("Error fetching services:", error);
