@@ -166,7 +166,7 @@ export function CalendarHeader({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="day">Día</SelectItem>
-            {!isMobile && <SelectItem value="week">Semana</SelectItem>}
+            <SelectItem value="week">Semana</SelectItem>
             <SelectItem value="month">Mes</SelectItem>
             <SelectItem value="list">Lista</SelectItem>
           </SelectContent>

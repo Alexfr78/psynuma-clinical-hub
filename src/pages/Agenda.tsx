@@ -29,12 +29,7 @@ export default function Agenda() {
   // Get showWeekends preference from center settings (default true)
   const showWeekends = center?.agenda_show_weekends !== false;
 
-  // Auto-switch to day view on mobile
-  useEffect(() => {
-    if (isMobile && view === 'week') {
-      setView('day');
-    }
-  }, [isMobile, view]);
+  // No longer auto-switch to day view on mobile - week view is now responsive
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [selectedSession, setSelectedSession] = useState<SessionWithRelations | null>(null);
   const [moveSession, setMoveSession] = useState<SessionWithRelations | null>(null);
