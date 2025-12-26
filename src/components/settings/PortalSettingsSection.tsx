@@ -18,6 +18,7 @@ export function PortalSettingsSection() {
   const { data: professionals } = useProfessionals();
   
   const [portalEnabled, setPortalEnabled] = useState(false);
+  const [publicBookingEnabled, setPublicBookingEnabled] = useState(false);
   const [portalSlug, setPortalSlug] = useState('');
   const [requireApproval, setRequireApproval] = useState(true);
   const [allowProfessionalSelection, setAllowProfessionalSelection] = useState(false);
@@ -26,10 +27,12 @@ export function PortalSettingsSection() {
   const [slotDuration, setSlotDuration] = useState('30');
   const [requireConfirmation, setRequireConfirmation] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [copiedPublic, setCopiedPublic] = useState(false);
 
   useEffect(() => {
     if (center) {
       setPortalEnabled(center.portal_enabled ?? false);
+      setPublicBookingEnabled(center.public_booking_enabled ?? false);
       setPortalSlug(center.portal_slug ?? '');
       setRequireApproval(center.portal_require_approval ?? true);
       setAllowProfessionalSelection(center.portal_allow_professional_selection ?? false);
@@ -60,6 +63,7 @@ export function PortalSettingsSection() {
 
     updateCenter.mutate({
       portal_enabled: portalEnabled,
+      public_booking_enabled: publicBookingEnabled,
       portal_slug: portalSlug.trim() || null,
       portal_require_approval: requireApproval,
       portal_allow_professional_selection: allowProfessionalSelection,
@@ -78,13 +82,22 @@ export function PortalSettingsSection() {
   };
 
   const portalUrl = portalSlug ? `${window.location.origin}/portal/${portalSlug}` : '';
+  const publicBookingUrl = portalSlug ? `${window.location.origin}/book/${portalSlug}` : '';
   const embedCode = portalUrl ? `<iframe src="${portalUrl}" width="100%" height="700" frameborder="0" style="border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);"></iframe>` : '';
+  const publicBookingEmbedCode = publicBookingUrl ? `<iframe src="${publicBookingUrl}?embed=1" width="100%" height="900" frameborder="0" style="border:none;"></iframe>` : '';
 
   const copyEmbedCode = () => {
     navigator.clipboard.writeText(embedCode);
     setCopied(true);
     toast.success('Código copiado');
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const copyPublicBookingCode = () => {
+    navigator.clipboard.writeText(publicBookingEmbedCode);
+    setCopiedPublic(true);
+    toast.success('Código copiado');
+    setTimeout(() => setCopiedPublic(false), 2000);
   };
 
   return (
@@ -104,10 +117,21 @@ export function PortalSettingsSection() {
           <div className="space-y-0.5">
             <Label className="text-base">Activar portal de pacientes</Label>
             <p className="text-sm text-muted-foreground">
-              Permite que los pacientes accedan al portal público
+              Permite que los pacientes registrados gestionen sus citas
             </p>
           </div>
           <Switch checked={portalEnabled} onCheckedChange={setPortalEnabled} />
+        </div>
+
+        {/* Enable Public Booking */}
+        <div className="flex items-center justify-between rounded-lg border p-4">
+          <div className="space-y-0.5">
+            <Label className="text-base">Activar reservas públicas</Label>
+            <p className="text-sm text-muted-foreground">
+              Permite que cualquier persona reserve citas sin registro previo (ideal para embeber en tu web)
+            </p>
+          </div>
+          <Switch checked={publicBookingEnabled} onCheckedChange={setPublicBookingEnabled} />
         </div>
 
         {/* Portal URL */}
@@ -230,13 +254,13 @@ export function PortalSettingsSection() {
           </div>
         </div>
 
-        {/* Embed Code */}
+        {/* Embed Code - Patient Portal */}
         {portalEnabled && portalSlug && (
           <div className="space-y-4 pt-4 border-t">
             <div>
-              <h3 className="text-lg font-medium">Código para WordPress</h3>
+              <h3 className="text-lg font-medium">Portal de Pacientes - Código Embed</h3>
               <p className="text-sm text-muted-foreground">
-                Copia este código e incrústalo en tu página
+                Para pacientes registrados que gestionan sus citas
               </p>
             </div>
             
@@ -258,6 +282,44 @@ export function PortalSettingsSection() {
             <Button variant="secondary" onClick={copyEmbedCode}>
               {copied ? <Check className="h-4 w-4 mr-2" /> : <Copy className="h-4 w-4 mr-2" />}
               {copied ? 'Copiado' : 'Copiar código'}
+            </Button>
+          </div>
+        )}
+
+        {/* Embed Code - Public Booking */}
+        {publicBookingEnabled && portalSlug && (
+          <div className="space-y-4 pt-4 border-t">
+            <div>
+              <h3 className="text-lg font-medium">Reservas Públicas - Código Embed</h3>
+              <p className="text-sm text-muted-foreground">
+                Para nuevos clientes que reservan sin registro (ideal para tu web externa)
+              </p>
+            </div>
+            
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" asChild>
+                <a href={publicBookingUrl} target="_blank" rel="noopener noreferrer">
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  Vista previa
+                </a>
+              </Button>
+              <Button variant="outline" size="sm" asChild>
+                <a href={`${publicBookingUrl}?embed=1`} target="_blank" rel="noopener noreferrer">
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  Modo embed
+                </a>
+              </Button>
+            </div>
+
+            <Textarea
+              value={publicBookingEmbedCode}
+              readOnly
+              className="font-mono text-xs h-24"
+            />
+            
+            <Button variant="secondary" onClick={copyPublicBookingCode}>
+              {copiedPublic ? <Check className="h-4 w-4 mr-2" /> : <Copy className="h-4 w-4 mr-2" />}
+              {copiedPublic ? 'Copiado' : 'Copiar código'}
             </Button>
           </div>
         )}

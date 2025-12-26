@@ -65,6 +65,8 @@ export interface Center {
   portal_require_approval: boolean | null;
   portal_allow_professional_selection: boolean | null;
   portal_default_professional_id: string | null;
+  // Public booking
+  public_booking_enabled: boolean | null;
   // Invoice automation settings
   invoice_on_payment_mode: string | null;
   invoice_send_channel: string | null;
