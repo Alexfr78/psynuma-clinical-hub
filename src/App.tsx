@@ -27,6 +27,8 @@ import ConsentSignature from "./pages/ConsentSignature";
 import PatientPortal from "./pages/PatientPortal";
 import PatientPortalDashboard from "./pages/PatientPortalDashboard";
 import InvoiceView from "./pages/InvoiceView";
+import PublicBooking from "./pages/PublicBooking";
+import PublicBookingManage from "./pages/PublicBookingManage";
 
 const queryClient = new QueryClient();
 
@@ -56,6 +58,8 @@ const App = () => (
             <Route path="/instalar" element={<Install />} />
             <Route path="/portal/:slug" element={<PatientPortal />} />
             <Route path="/portal/:slug/dashboard" element={<PatientPortalDashboard />} />
+            <Route path="/book/:centerSlug" element={<PublicBooking />} />
+            <Route path="/book/:centerSlug/manage" element={<PublicBookingManage />} />
             
             {/* Protected Routes */}
             <Route path="/dashboard" element={

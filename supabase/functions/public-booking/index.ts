@@ -1,0 +1,1134 @@
+import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+// ===== Helper functions (reused from patient-portal-sessions) =====
+
+function timeToMinutes(time: string): number {
+  const [h, m] = time.split(":").map(Number);
+  return h * 60 + (m || 0);
+}
+
+function minutesToTime(minutes: number): string {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
+}
+
+function getLocalTimeMinutes(isoDatetime: string, timezone: string): number {
+  const date = new Date(isoDatetime);
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    hour: 'numeric',
+    minute: 'numeric',
+    hour12: false,
+    timeZone: timezone
+  });
+  const parts = formatter.formatToParts(date);
+  const hours = parseInt(parts.find(p => p.type === 'hour')?.value || '0');
+  const minutes = parseInt(parts.find(p => p.type === 'minute')?.value || '0');
+  return hours * 60 + minutes;
+}
+
+function getLocalDate(isoDatetime: string, timezone: string): string {
+  const date = new Date(isoDatetime);
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    timeZone: timezone
+  });
+  return formatter.format(date);
+}
+
+// Booking token functions
+function generateBookingToken(sessionId: string, patientId: string, centerId: string): string {
+  const payload = {
+    session_id: sessionId,
+    patient_id: patientId,
+    center_id: centerId,
+    exp: Date.now() + 30 * 24 * 60 * 60 * 1000 // 30 days
+  };
+  return btoa(JSON.stringify(payload));
+}
+
+function validateBookingToken(token: string): { valid: boolean; sessionId?: string; patientId?: string; centerId?: string } {
+  try {
+    const decoded = JSON.parse(atob(token));
+    if (decoded.exp < Date.now()) {
+      return { valid: false };
+    }
+    return { 
+      valid: true, 
+      sessionId: decoded.session_id,
+      patientId: decoded.patient_id, 
+      centerId: decoded.center_id 
+    };
+  } catch {
+    return { valid: false };
+  }
+}
+
+// Cancellation policy hours mapping
+const policyHoursMap: Record<string, number> = {
+  "not_allowed": Infinity,
+  "until_start": 0,
+  "1_hour": 1,
+  "2_hours": 2,
+  "24_hours": 24,
+  "48_hours": 48,
+  "72_hours": 72,
+};
+
+serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const { action, centerSlug, ...params } = await req.json();
+
+    console.log(`[public-booking] action=${action} centerSlug=${centerSlug}`);
+
+    // ===== GET-CONFIG =====
+    if (action === "get-config") {
+      if (!centerSlug) {
+        return new Response(
+          JSON.stringify({ error: "centerSlug es requerido" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const { data: center, error } = await supabase
+        .from("centers")
+        .select(`
+          id, name, logo_url,
+          public_booking_enabled, portal_require_approval,
+          portal_allow_professional_selection, portal_default_professional_id,
+          reschedule_slot_duration
+        `)
+        .eq("portal_slug", centerSlug)
+        .single();
+
+      if (error || !center) {
+        return new Response(
+          JSON.stringify({ error: "Centro no encontrado" }),
+          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      if (!center.public_booking_enabled) {
+        return new Response(
+          JSON.stringify({ error: "Reservas públicas no habilitadas para este centro", disabled: true }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({
+          centerId: center.id,
+          name: center.name,
+          logoUrl: center.logo_url,
+          timezone: "Europe/Madrid",
+          requireApproval: center.portal_require_approval,
+          allowProfessionalSelection: center.portal_allow_professional_selection,
+          defaultProfessionalId: center.portal_default_professional_id,
+          slotDuration: center.reschedule_slot_duration || 30
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // ===== LIST-SERVICES =====
+    if (action === "list-services") {
+      if (!centerSlug) {
+        return new Response(
+          JSON.stringify({ error: "centerSlug es requerido" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Get center ID from slug
+      const { data: center } = await supabase
+        .from("centers")
+        .select("id, public_booking_enabled")
+        .eq("portal_slug", centerSlug)
+        .single();
+
+      if (!center?.public_booking_enabled) {
+        return new Response(
+          JSON.stringify({ error: "Reservas no habilitadas", disabled: true }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const { data: services, error } = await supabase
+        .from("session_types")
+        .select("id, name, duration_minutes, default_price, color")
+        .eq("center_id", center.id)
+        .eq("is_active", true)
+        .eq("is_public", true)
+        .order("name");
+
+      if (error) {
+        console.error("Error fetching services:", error);
+        return new Response(
+          JSON.stringify({ error: "Error al obtener servicios" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ services: services || [] }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // ===== LIST-LOCATIONS =====
+    if (action === "list-locations") {
+      if (!centerSlug) {
+        return new Response(
+          JSON.stringify({ error: "centerSlug es requerido" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const { data: center } = await supabase
+        .from("centers")
+        .select("id, public_booking_enabled")
+        .eq("portal_slug", centerSlug)
+        .single();
+
+      if (!center?.public_booking_enabled) {
+        return new Response(
+          JSON.stringify({ error: "Reservas no habilitadas", disabled: true }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const { data: locations, error } = await supabase
+        .from("center_locations")
+        .select("id, name, location_type, street, city")
+        .eq("center_id", center.id)
+        .eq("is_public", true)
+        .eq("is_active", true)
+        .order("name");
+
+      if (error) {
+        console.error("Error fetching locations:", error);
+        return new Response(
+          JSON.stringify({ error: "Error al obtener ubicaciones" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ locations: locations || [] }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // ===== LIST-PROFESSIONALS =====
+    if (action === "list-professionals") {
+      if (!centerSlug) {
+        return new Response(
+          JSON.stringify({ error: "centerSlug es requerido" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const { data: center } = await supabase
+        .from("centers")
+        .select("id, public_booking_enabled, portal_allow_professional_selection")
+        .eq("portal_slug", centerSlug)
+        .single();
+
+      if (!center?.public_booking_enabled) {
+        return new Response(
+          JSON.stringify({ error: "Reservas no habilitadas", disabled: true }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Get active professionals for this center
+      const { data: professionals, error } = await supabase
+        .from("profiles")
+        .select("id, first_name, last_name, specialty, avatar_url")
+        .eq("center_id", center.id)
+        .eq("is_active", true)
+        .order("first_name");
+
+      if (error) {
+        console.error("Error fetching professionals:", error);
+        return new Response(
+          JSON.stringify({ error: "Error al obtener profesionales" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ 
+          professionals: professionals || [],
+          allowSelection: center.portal_allow_professional_selection 
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // ===== GET-AVAILABILITY =====
+    if (action === "get-availability") {
+      const { date, sessionTypeId, locationId, professionalId } = params;
+
+      if (!centerSlug || !date || !sessionTypeId || !locationId) {
+        return new Response(
+          JSON.stringify({ error: "Faltan parámetros requeridos" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Get center config
+      const { data: center } = await supabase
+        .from("centers")
+        .select(`
+          id, public_booking_enabled, 
+          portal_default_professional_id, portal_allow_professional_selection,
+          reschedule_slot_duration
+        `)
+        .eq("portal_slug", centerSlug)
+        .single();
+
+      if (!center?.public_booking_enabled) {
+        return new Response(
+          JSON.stringify({ error: "Reservas no habilitadas", disabled: true }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Validate location is public and active
+      const { data: location } = await supabase
+        .from("center_locations")
+        .select("id, location_type, is_public, is_active")
+        .eq("id", locationId)
+        .eq("center_id", center.id)
+        .single();
+
+      if (!location || !location.is_public || !location.is_active) {
+        return new Response(
+          JSON.stringify({ error: "Ubicación no válida" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Validate session type is public
+      const { data: sessionType } = await supabase
+        .from("session_types")
+        .select("id, duration_minutes, is_public, is_active")
+        .eq("id", sessionTypeId)
+        .eq("center_id", center.id)
+        .single();
+
+      if (!sessionType || !sessionType.is_public || !sessionType.is_active) {
+        return new Response(
+          JSON.stringify({ error: "Servicio no válido" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Determine professional
+      let finalProfessionalId = professionalId;
+      if (!center.portal_allow_professional_selection || !professionalId) {
+        finalProfessionalId = center.portal_default_professional_id;
+      }
+
+      if (!finalProfessionalId) {
+        return new Response(
+          JSON.stringify({ slots: [], serviceDuration: sessionType.duration_minutes }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const serviceDuration = sessionType.duration_minutes;
+      const step = center.reschedule_slot_duration || 30;
+      const dayOfWeek = new Date(date).getDay();
+      const centerTimezone = 'Europe/Madrid';
+
+      // Get professional's availability
+      const { data: profAvailability } = await supabase
+        .from("availability")
+        .select("start_time, end_time")
+        .eq("professional_id", finalProfessionalId)
+        .eq("day_of_week", dayOfWeek)
+        .eq("is_available", true);
+
+      if (!profAvailability?.length) {
+        return new Response(
+          JSON.stringify({ slots: [], serviceDuration }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Get location schedule
+      const { data: locationSchedules } = await supabase
+        .from("location_schedules")
+        .select("start_time, end_time")
+        .eq("location_id", locationId)
+        .eq("day_of_week", dayOfWeek)
+        .eq("is_open", true);
+
+      if (!locationSchedules?.length) {
+        return new Response(
+          JSON.stringify({ slots: [], serviceDuration }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Get existing sessions
+      const { data: existingSessions } = await supabase
+        .from("sessions")
+        .select("start_time, end_time")
+        .eq("professional_id", finalProfessionalId)
+        .eq("session_date", date)
+        .not("status", "in", '("cancelled","no_show")');
+
+      // Get calendar events (Google Calendar)
+      const startOfDay = `${date}T00:00:00`;
+      const endOfDay = `${date}T23:59:59`;
+
+      const { data: calendarEvents } = await supabase
+        .from("calendar_events")
+        .select("start_at, end_at, status, all_day")
+        .eq("professional_id", finalProfessionalId)
+        .eq("deleted", false)
+        .gte("start_at", startOfDay)
+        .lte("start_at", endOfDay);
+
+      // Calculate available slots
+      const slots: { startTime: string; endTime: string }[] = [];
+      const preferFullHours = serviceDuration % 60 === 0;
+      const effectiveStep = preferFullHours ? 60 : step;
+
+      for (const profSlot of profAvailability) {
+        const profStart = timeToMinutes(profSlot.start_time);
+        const profEnd = timeToMinutes(profSlot.end_time);
+
+        for (const locSchedule of locationSchedules) {
+          const locStart = timeToMinutes(locSchedule.start_time);
+          const locEnd = timeToMinutes(locSchedule.end_time);
+
+          const intersectionStart = Math.max(profStart, locStart);
+          const intersectionEnd = Math.min(profEnd, locEnd);
+
+          if (intersectionStart >= intersectionEnd) continue;
+
+          const isSlotValid = (time: number): boolean => {
+            const slotEndMinutes = time + serviceDuration;
+            if (slotEndMinutes > intersectionEnd) return false;
+
+            const hasSessionConflict = existingSessions?.some(s => {
+              const sessionStart = timeToMinutes(s.start_time.substring(0, 5));
+              const sessionEnd = timeToMinutes(s.end_time.substring(0, 5));
+              return time < sessionEnd && slotEndMinutes > sessionStart;
+            });
+            if (hasSessionConflict) return false;
+
+            const hasCalendarConflict = calendarEvents?.some(event => {
+              if (event.status === 'cancelled') return false;
+              if (event.all_day) return true;
+
+              const eventStartMinutes = getLocalTimeMinutes(event.start_at, centerTimezone);
+              const eventEndMinutes = getLocalTimeMinutes(event.end_at, centerTimezone);
+
+              return time < eventEndMinutes && slotEndMinutes > eventStartMinutes;
+            });
+            if (hasCalendarConflict) return false;
+
+            return true;
+          };
+
+          for (let time = intersectionStart; time + serviceDuration <= intersectionEnd; time += effectiveStep) {
+            if (isSlotValid(time)) {
+              const slotStartTime = minutesToTime(time);
+              const slotEndTime = minutesToTime(time + serviceDuration);
+              if (!slots.some(s => s.startTime === slotStartTime)) {
+                slots.push({ startTime: slotStartTime, endTime: slotEndTime });
+              }
+            }
+          }
+
+          // Fill gaps created by existing sessions
+          if (preferFullHours && existingSessions?.length) {
+            existingSessions.forEach(session => {
+              const sessionEnd = timeToMinutes(session.end_time.substring(0, 5));
+              if (sessionEnd % 60 !== 0 && sessionEnd >= intersectionStart && sessionEnd + serviceDuration <= intersectionEnd) {
+                if (isSlotValid(sessionEnd)) {
+                  const slotStartTime = minutesToTime(sessionEnd);
+                  const slotEndTime = minutesToTime(sessionEnd + serviceDuration);
+                  if (!slots.some(s => s.startTime === slotStartTime)) {
+                    slots.push({ startTime: slotStartTime, endTime: slotEndTime });
+                  }
+                }
+              }
+            });
+          }
+        }
+      }
+
+      slots.sort((a, b) => a.startTime.localeCompare(b.startTime));
+
+      console.log(`[get-availability] date=${date} slots=${slots.length}`);
+
+      return new Response(
+        JSON.stringify({ slots, serviceDuration }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // ===== CREATE-BOOKING =====
+    if (action === "create-booking") {
+      const { 
+        sessionTypeId, locationId, professionalId, 
+        sessionDate, startTime, endTime,
+        patient, acceptPrivacy, notes 
+      } = params;
+
+      // Validate required fields
+      if (!centerSlug || !sessionTypeId || !locationId || !sessionDate || !startTime || !endTime) {
+        return new Response(
+          JSON.stringify({ error: "Faltan parámetros requeridos" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      if (!patient?.firstName || !patient?.lastName || !patient?.email) {
+        return new Response(
+          JSON.stringify({ error: "Datos del paciente incompletos" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      if (!acceptPrivacy) {
+        return new Response(
+          JSON.stringify({ error: "Debe aceptar la política de privacidad" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Get center
+      const { data: center } = await supabase
+        .from("centers")
+        .select(`
+          id, public_booking_enabled, 
+          portal_require_approval, portal_default_professional_id, portal_allow_professional_selection
+        `)
+        .eq("portal_slug", centerSlug)
+        .single();
+
+      if (!center?.public_booking_enabled) {
+        return new Response(
+          JSON.stringify({ error: "Reservas no habilitadas", disabled: true }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Validate location
+      const { data: location } = await supabase
+        .from("center_locations")
+        .select("id, location_type, is_public, is_active")
+        .eq("id", locationId)
+        .eq("center_id", center.id)
+        .single();
+
+      if (!location || !location.is_public || !location.is_active) {
+        return new Response(
+          JSON.stringify({ error: "Ubicación no válida" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Validate session type
+      const { data: sessionType } = await supabase
+        .from("session_types")
+        .select("id, name, duration_minutes, default_price, is_public, is_active")
+        .eq("id", sessionTypeId)
+        .eq("center_id", center.id)
+        .single();
+
+      if (!sessionType || !sessionType.is_public || !sessionType.is_active) {
+        return new Response(
+          JSON.stringify({ error: "Servicio no válido" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Determine professional
+      let finalProfessionalId = professionalId;
+      if (!center.portal_allow_professional_selection || !professionalId) {
+        finalProfessionalId = center.portal_default_professional_id;
+      }
+
+      if (!finalProfessionalId) {
+        return new Response(
+          JSON.stringify({ error: "No hay profesional disponible" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // ===== ANTI-RACE-CONDITION: Revalidate slot =====
+      const dayOfWeek = new Date(sessionDate).getDay();
+      const slotStartMinutes = timeToMinutes(startTime);
+      const slotEndMinutes = timeToMinutes(endTime);
+      const centerTimezone = 'Europe/Madrid';
+
+      // Check professional availability
+      const { data: profAvailability } = await supabase
+        .from("availability")
+        .select("start_time, end_time")
+        .eq("professional_id", finalProfessionalId)
+        .eq("day_of_week", dayOfWeek)
+        .eq("is_available", true);
+
+      const profAvailable = profAvailability?.some(slot => {
+        const profStart = timeToMinutes(slot.start_time);
+        const profEnd = timeToMinutes(slot.end_time);
+        return slotStartMinutes >= profStart && slotEndMinutes <= profEnd;
+      });
+
+      if (!profAvailable) {
+        return new Response(
+          JSON.stringify({ error: "Ese horario ya no está disponible. Por favor, elige otro." }),
+          { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Check location schedule
+      const { data: locationSchedule } = await supabase
+        .from("location_schedules")
+        .select("start_time, end_time")
+        .eq("location_id", locationId)
+        .eq("day_of_week", dayOfWeek)
+        .eq("is_open", true);
+
+      const locationOpen = locationSchedule?.some(schedule => {
+        const locStart = timeToMinutes(schedule.start_time);
+        const locEnd = timeToMinutes(schedule.end_time);
+        return slotStartMinutes >= locStart && slotEndMinutes <= locEnd;
+      });
+
+      if (!locationOpen) {
+        return new Response(
+          JSON.stringify({ error: "La ubicación no está disponible en ese horario." }),
+          { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Check for conflicts with existing sessions
+      const { data: existingSessions } = await supabase
+        .from("sessions")
+        .select("start_time, end_time")
+        .eq("professional_id", finalProfessionalId)
+        .eq("session_date", sessionDate)
+        .not("status", "in", '("cancelled","no_show")');
+
+      const hasSessionConflict = existingSessions?.some(s => {
+        const sessionStart = timeToMinutes(s.start_time.substring(0, 5));
+        const sessionEnd = timeToMinutes(s.end_time.substring(0, 5));
+        return slotStartMinutes < sessionEnd && slotEndMinutes > sessionStart;
+      });
+
+      if (hasSessionConflict) {
+        return new Response(
+          JSON.stringify({ error: "Ese hueco acaba de ocuparse. Por favor, elige otro horario." }),
+          { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Check for conflicts with calendar events
+      const startOfDay = `${sessionDate}T00:00:00`;
+      const endOfDay = `${sessionDate}T23:59:59`;
+
+      const { data: calendarEvents } = await supabase
+        .from("calendar_events")
+        .select("start_at, end_at, status, all_day")
+        .eq("professional_id", finalProfessionalId)
+        .eq("deleted", false)
+        .gte("start_at", startOfDay)
+        .lte("start_at", endOfDay);
+
+      const hasCalendarConflict = calendarEvents?.some(event => {
+        if (event.status === 'cancelled') return false;
+        if (event.all_day) return true;
+
+        const eventStartMinutes = getLocalTimeMinutes(event.start_at, centerTimezone);
+        const eventEndMinutes = getLocalTimeMinutes(event.end_at, centerTimezone);
+
+        return slotStartMinutes < eventEndMinutes && slotEndMinutes > eventStartMinutes;
+      });
+
+      if (hasCalendarConflict) {
+        return new Response(
+          JSON.stringify({ error: "Ese hueco acaba de ocuparse. Por favor, elige otro horario." }),
+          { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // ===== Upsert patient =====
+      const normalizedEmail = patient.email.toLowerCase().trim();
+      
+      // Try to find existing patient by email in this center
+      const { data: existingPatient } = await supabase
+        .from("patients")
+        .select("id, first_name, last_name, phone")
+        .eq("center_id", center.id)
+        .ilike("email", normalizedEmail)
+        .single();
+
+      let patientId: string;
+
+      if (existingPatient) {
+        // Update patient if phone is missing
+        patientId = existingPatient.id;
+        if (!existingPatient.phone && patient.phone) {
+          await supabase
+            .from("patients")
+            .update({ phone: patient.phone, updated_at: new Date().toISOString() })
+            .eq("id", patientId);
+        }
+      } else {
+        // Create new patient
+        const { data: newPatient, error: patientError } = await supabase
+          .from("patients")
+          .insert({
+            center_id: center.id,
+            first_name: patient.firstName.trim(),
+            last_name: patient.lastName.trim(),
+            email: normalizedEmail,
+            phone: patient.phone?.trim() || null,
+            status: 'active'
+          })
+          .select("id")
+          .single();
+
+        if (patientError || !newPatient) {
+          console.error("Error creating patient:", patientError);
+          return new Response(
+            JSON.stringify({ error: "Error al crear el paciente" }),
+            { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        patientId = newPatient.id;
+      }
+
+      // ===== Create session =====
+      const sessionModality = location.location_type === 'online' ? 'online' : 'in_person';
+      const status = center.portal_require_approval ? "pending_approval" : "scheduled";
+      const sessionNotes = notes 
+        ? `Reserva pública web\n${notes}` 
+        : "Reserva pública web";
+
+      const { data: newSession, error: sessionError } = await supabase
+        .from("sessions")
+        .insert({
+          center_id: center.id,
+          patient_id: patientId,
+          professional_id: finalProfessionalId,
+          session_date: sessionDate,
+          start_time: startTime,
+          end_time: endTime,
+          status,
+          session_type: sessionType.name,
+          session_modality: sessionModality,
+          location_id: locationId,
+          price: sessionType.default_price || 0,
+          notes: sessionNotes,
+        })
+        .select(`
+          id, session_date, start_time, end_time, status, session_type, session_modality,
+          professional:profiles!sessions_professional_id_fkey(first_name, last_name),
+          location:center_locations(name, location_type)
+        `)
+        .single();
+
+      if (sessionError || !newSession) {
+        console.error("Error creating session:", sessionError);
+        return new Response(
+          JSON.stringify({ error: "Error al crear la cita" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Create notification if pending approval
+      if (status === "pending_approval") {
+        const patientName = `${patient.firstName} ${patient.lastName}`;
+        await supabase.from("notifications").insert({
+          center_id: center.id,
+          patient_id: patientId,
+          session_id: newSession.id,
+          type: "email",
+          recipient: "",
+          subject: "Nueva solicitud de cita (reserva pública)",
+          message: `${patientName} ha solicitado una cita para el ${sessionDate} a las ${startTime}. Revisa y aprueba o rechaza.`,
+          status: "pending",
+        });
+      }
+
+      // Generate booking token
+      const bookingToken = generateBookingToken(newSession.id, patientId, center.id);
+      const manageUrl = `/book/${centerSlug}/manage?token=${bookingToken}`;
+
+      console.log(`[create-booking] success sessionId=${newSession.id} status=${status}`);
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          session: newSession,
+          bookingToken,
+          manageUrl,
+          message: center.portal_require_approval
+            ? "Cita solicitada. Recibirás confirmación pronto."
+            : "¡Cita reservada correctamente!"
+        }),
+        { status: 201, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // ===== GET-BOOKING =====
+    if (action === "get-booking") {
+      const { bookingToken } = params;
+
+      if (!bookingToken) {
+        return new Response(
+          JSON.stringify({ error: "Token requerido" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const tokenData = validateBookingToken(bookingToken);
+      if (!tokenData.valid || !tokenData.sessionId) {
+        return new Response(
+          JSON.stringify({ error: "Token inválido o expirado" }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const { data: session, error } = await supabase
+        .from("sessions")
+        .select(`
+          id, session_date, start_time, end_time, status, session_type, session_modality, cancellation_policy,
+          professional:profiles!sessions_professional_id_fkey(first_name, last_name),
+          location:center_locations(name, location_type, street, city)
+        `)
+        .eq("id", tokenData.sessionId)
+        .eq("patient_id", tokenData.patientId)
+        .single();
+
+      if (error || !session) {
+        return new Response(
+          JSON.stringify({ error: "Cita no encontrada" }),
+          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Get center info
+      const { data: center } = await supabase
+        .from("centers")
+        .select("name, portal_slug")
+        .eq("id", tokenData.centerId)
+        .single();
+
+      return new Response(
+        JSON.stringify({ 
+          booking: session,
+          centerName: center?.name,
+          centerSlug: center?.portal_slug 
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // ===== CANCEL-BOOKING =====
+    if (action === "cancel-booking") {
+      const { bookingToken, reason } = params;
+
+      if (!bookingToken) {
+        return new Response(
+          JSON.stringify({ error: "Token requerido" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const tokenData = validateBookingToken(bookingToken);
+      if (!tokenData.valid || !tokenData.sessionId) {
+        return new Response(
+          JSON.stringify({ error: "Token inválido o expirado" }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Get session
+      const { data: session } = await supabase
+        .from("sessions")
+        .select("id, patient_id, session_date, start_time, status, cancellation_policy")
+        .eq("id", tokenData.sessionId)
+        .eq("patient_id", tokenData.patientId)
+        .single();
+
+      if (!session) {
+        return new Response(
+          JSON.stringify({ error: "Cita no encontrada" }),
+          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      if (session.status === 'cancelled') {
+        return new Response(
+          JSON.stringify({ error: "La cita ya está cancelada" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Check cancellation policy
+      const sessionDateTime = new Date(`${session.session_date}T${session.start_time}`);
+      const now = new Date();
+      const hoursUntilSession = (sessionDateTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+      const requiredHours = policyHoursMap[session.cancellation_policy || "24_hours"] || 24;
+
+      if (hoursUntilSession < requiredHours) {
+        return new Response(
+          JSON.stringify({
+            error: requiredHours === Infinity
+              ? "Esta cita no se puede cancelar"
+              : `La cita debe cancelarse con al menos ${requiredHours} horas de antelación`
+          }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Cancel session
+      const { error: updateError } = await supabase
+        .from("sessions")
+        .update({
+          status: "cancelled",
+          cancellation_reason: reason || "Cancelada por el paciente desde reserva pública"
+        })
+        .eq("id", session.id);
+
+      if (updateError) {
+        console.error("Error cancelling session:", updateError);
+        return new Response(
+          JSON.stringify({ error: "Error al cancelar la cita" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      console.log(`[cancel-booking] success sessionId=${session.id}`);
+
+      return new Response(
+        JSON.stringify({ success: true, message: "Cita cancelada correctamente" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // ===== RESCHEDULE-BOOKING =====
+    if (action === "reschedule-booking") {
+      const { bookingToken, newDate, newStartTime, newEndTime } = params;
+
+      if (!bookingToken || !newDate || !newStartTime || !newEndTime) {
+        return new Response(
+          JSON.stringify({ error: "Faltan parámetros requeridos" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const tokenData = validateBookingToken(bookingToken);
+      if (!tokenData.valid || !tokenData.sessionId) {
+        return new Response(
+          JSON.stringify({ error: "Token inválido o expirado" }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Get current session
+      const { data: session } = await supabase
+        .from("sessions")
+        .select("id, patient_id, professional_id, location_id, session_date, start_time, status, cancellation_policy")
+        .eq("id", tokenData.sessionId)
+        .eq("patient_id", tokenData.patientId)
+        .single();
+
+      if (!session) {
+        return new Response(
+          JSON.stringify({ error: "Cita no encontrada" }),
+          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      if (session.status === 'cancelled') {
+        return new Response(
+          JSON.stringify({ error: "No se puede reprogramar una cita cancelada" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Check cancellation policy (applies to reschedule too)
+      const sessionDateTime = new Date(`${session.session_date}T${session.start_time}`);
+      const now = new Date();
+      const hoursUntilSession = (sessionDateTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+      const requiredHours = policyHoursMap[session.cancellation_policy || "24_hours"] || 24;
+
+      if (hoursUntilSession < requiredHours) {
+        return new Response(
+          JSON.stringify({
+            error: requiredHours === Infinity
+              ? "Esta cita no se puede reprogramar"
+              : `La cita debe reprogramarse con al menos ${requiredHours} horas de antelación`
+          }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // ===== ANTI-RACE-CONDITION: Validate new slot =====
+      const dayOfWeek = new Date(newDate).getDay();
+      const slotStartMinutes = timeToMinutes(newStartTime);
+      const slotEndMinutes = timeToMinutes(newEndTime);
+      const centerTimezone = 'Europe/Madrid';
+
+      // Check professional availability
+      const { data: profAvailability } = await supabase
+        .from("availability")
+        .select("start_time, end_time")
+        .eq("professional_id", session.professional_id)
+        .eq("day_of_week", dayOfWeek)
+        .eq("is_available", true);
+
+      const profAvailable = profAvailability?.some(slot => {
+        const profStart = timeToMinutes(slot.start_time);
+        const profEnd = timeToMinutes(slot.end_time);
+        return slotStartMinutes >= profStart && slotEndMinutes <= profEnd;
+      });
+
+      if (!profAvailable) {
+        return new Response(
+          JSON.stringify({ error: "Ese horario ya no está disponible" }),
+          { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Check location schedule
+      const { data: locationSchedule } = await supabase
+        .from("location_schedules")
+        .select("start_time, end_time")
+        .eq("location_id", session.location_id)
+        .eq("day_of_week", dayOfWeek)
+        .eq("is_open", true);
+
+      const locationOpen = locationSchedule?.some(schedule => {
+        const locStart = timeToMinutes(schedule.start_time);
+        const locEnd = timeToMinutes(schedule.end_time);
+        return slotStartMinutes >= locStart && slotEndMinutes <= locEnd;
+      });
+
+      if (!locationOpen) {
+        return new Response(
+          JSON.stringify({ error: "La ubicación no está disponible en ese horario" }),
+          { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Check conflicts with existing sessions (excluding current session)
+      const { data: existingSessions } = await supabase
+        .from("sessions")
+        .select("id, start_time, end_time")
+        .eq("professional_id", session.professional_id)
+        .eq("session_date", newDate)
+        .not("status", "in", '("cancelled","no_show")')
+        .neq("id", session.id);
+
+      const hasSessionConflict = existingSessions?.some(s => {
+        const sessionStart = timeToMinutes(s.start_time.substring(0, 5));
+        const sessionEnd = timeToMinutes(s.end_time.substring(0, 5));
+        return slotStartMinutes < sessionEnd && slotEndMinutes > sessionStart;
+      });
+
+      if (hasSessionConflict) {
+        return new Response(
+          JSON.stringify({ error: "Ese hueco acaba de ocuparse" }),
+          { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Check calendar events
+      const startOfDay = `${newDate}T00:00:00`;
+      const endOfDay = `${newDate}T23:59:59`;
+
+      const { data: calendarEvents } = await supabase
+        .from("calendar_events")
+        .select("start_at, end_at, status, all_day")
+        .eq("professional_id", session.professional_id)
+        .eq("deleted", false)
+        .gte("start_at", startOfDay)
+        .lte("start_at", endOfDay);
+
+      const hasCalendarConflict = calendarEvents?.some(event => {
+        if (event.status === 'cancelled') return false;
+        if (event.all_day) return true;
+
+        const eventStartMinutes = getLocalTimeMinutes(event.start_at, centerTimezone);
+        const eventEndMinutes = getLocalTimeMinutes(event.end_at, centerTimezone);
+
+        return slotStartMinutes < eventEndMinutes && slotEndMinutes > eventStartMinutes;
+      });
+
+      if (hasCalendarConflict) {
+        return new Response(
+          JSON.stringify({ error: "Ese hueco acaba de ocuparse" }),
+          { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Update session
+      const { error: updateError } = await supabase
+        .from("sessions")
+        .update({
+          session_date: newDate,
+          start_time: newStartTime,
+          end_time: newEndTime,
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", session.id);
+
+      if (updateError) {
+        console.error("Error rescheduling session:", updateError);
+        return new Response(
+          JSON.stringify({ error: "Error al reprogramar la cita" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      console.log(`[reschedule-booking] success sessionId=${session.id} newDate=${newDate}`);
+
+      return new Response(
+        JSON.stringify({ success: true, message: "Cita reprogramada correctamente" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    return new Response(
+      JSON.stringify({ error: "Acción no válida" }),
+      { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  } catch (error) {
+    console.error("[public-booking] Error:", error);
+    return new Response(
+      JSON.stringify({ error: "Error interno del servidor" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+});
