@@ -11,10 +11,12 @@ import { Calendar } from '@/components/ui/calendar';
 import { toast } from 'sonner';
 import { format, addDays, isBefore, startOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Loader2, MapPin, Video, Clock, Euro, User, CheckCircle, Calendar as CalendarIcon, ArrowLeft, ArrowRight, Copy } from 'lucide-react';
+import { Loader2, MapPin, Video, Clock, Euro, User, CheckCircle, ArrowLeft, ArrowRight, Copy } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 type Step = 'service' | 'location' | 'professional' | 'datetime' | 'patient' | 'confirmation';
+
+const BOOKING_MAX_DAYS_AHEAD = 90; // TODO: Make configurable from centers table
 
 export default function PublicBooking() {
   const { centerSlug } = useParams<{ centerSlug: string }>();
@@ -24,7 +26,7 @@ export default function PublicBooking() {
   const {
     config, services, locations, professionals, allowProfessionalSelection,
     loading, error, disabled, fetchConfig, fetchServices, fetchLocations,
-    fetchProfessionals, getAvailability, createBooking
+    fetchProfessionals, getAvailability, getMonthAvailability, createBooking
   } = usePublicBooking(centerSlug || '');
 
   const [step, setStep] = useState<Step>('service');
@@ -35,6 +37,11 @@ export default function PublicBooking() {
   const [selectedSlot, setSelectedSlot] = useState<{ startTime: string; endTime: string } | null>(null);
   const [slots, setSlots] = useState<{ startTime: string; endTime: string }[]>([]);
   const [slotsLoading, setSlotsLoading] = useState(false);
+  
+  // Month availability state
+  const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
+  const [availabilityData, setAvailabilityData] = useState<{ month: string; byDate: Record<string, number> }>({ month: '', byDate: {} });
+  const [availabilityLoading, setAvailabilityLoading] = useState(false);
   
   const [patient, setPatient] = useState({ firstName: '', lastName: '', email: '', phone: '' });
   const [acceptPrivacy, setAcceptPrivacy] = useState(false);
@@ -54,6 +61,22 @@ export default function PublicBooking() {
     }
   }, [centerSlug]);
 
+  // Load month availability when entering datetime step or changing month
+  useEffect(() => {
+    if (step === 'datetime' && selectedService && selectedLocation) {
+      const monthStr = format(currentMonth, 'yyyy-MM');
+      setAvailabilityLoading(true);
+      getMonthAvailability(monthStr, selectedService, selectedLocation, selectedProfessional || undefined)
+        .then(days => {
+          const map: Record<string, number> = {};
+          days.forEach(d => { map[d.date] = d.availableCount; });
+          setAvailabilityData({ month: monthStr, byDate: map });
+        })
+        .finally(() => setAvailabilityLoading(false));
+    }
+  }, [step, selectedService, selectedLocation, selectedProfessional, currentMonth, getMonthAvailability]);
+
+  // Load slots for selected date
   useEffect(() => {
     if (selectedDate && selectedService && selectedLocation) {
       setSlotsLoading(true);
@@ -145,6 +168,10 @@ export default function PublicBooking() {
   const selectedServiceData = services.find(s => s.id === selectedService);
   const selectedLocationData = locations.find(l => l.id === selectedLocation);
   const selectedProfessionalData = professionals.find(p => p.id === selectedProfessional);
+
+  // Check if availability data matches current month
+  const currentMonthStr = format(currentMonth, 'yyyy-MM');
+  const dataIsForCurrentMonth = availabilityData.month === currentMonthStr;
 
   return (
     <div className={cn("min-h-screen bg-background", isEmbed ? "p-4" : "py-8 px-4")}>
@@ -278,14 +305,56 @@ export default function PublicBooking() {
 
               {step === 'datetime' && (
                 <div className="space-y-4">
-                  <Calendar
-                    mode="single"
-                    selected={selectedDate}
-                    onSelect={d => { setSelectedDate(d); setSelectedSlot(null); }}
-                    disabled={(date) => isBefore(date, startOfDay(new Date())) || isBefore(addDays(new Date(), 90), date)}
-                    locale={es}
-                    className="rounded-md border mx-auto"
-                  />
+                  <div className="relative">
+                    <Calendar
+                      mode="single"
+                      selected={selectedDate}
+                      month={currentMonth}
+                      onMonthChange={setCurrentMonth}
+                      onSelect={d => { setSelectedDate(d); setSelectedSlot(null); }}
+                      disabled={(date) => {
+                        // Always disable past dates and dates beyond limit
+                        if (isBefore(date, startOfDay(new Date()))) return true;
+                        if (isBefore(addDays(new Date(), BOOKING_MAX_DAYS_AHEAD), date)) return true;
+                        
+                        // Only apply availability logic when we have data for the current month
+                        if (dataIsForCurrentMonth && Object.keys(availabilityData.byDate).length > 0) {
+                          const dateStr = format(date, 'yyyy-MM-dd');
+                          return (availabilityData.byDate[dateStr] || 0) === 0;
+                        }
+                        
+                        return false;
+                      }}
+                      components={{
+                        DayContent: ({ date }) => {
+                          const dateStr = format(date, 'yyyy-MM-dd');
+                          const count = dataIsForCurrentMonth ? (availabilityData.byDate[dateStr] || 0) : 0;
+                          const hasAvailability = count > 0;
+                          
+                          return (
+                            <div className="relative w-full h-full flex items-center justify-center">
+                              <span className={cn(hasAvailability && "font-bold text-primary")}>
+                                {date.getDate()}
+                              </span>
+                              {hasAvailability && (
+                                <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-primary" />
+                              )}
+                            </div>
+                          );
+                        }
+                      }}
+                      locale={es}
+                      className="rounded-md border mx-auto"
+                    />
+                    
+                    {/* Loading overlay */}
+                    {availabilityLoading && (
+                      <div className="absolute inset-0 bg-background/50 flex items-center justify-center rounded-md">
+                        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                      </div>
+                    )}
+                  </div>
+                  
                   {selectedDate && (
                     <div>
                       <h4 className="font-medium mb-2">Horarios disponibles para {format(selectedDate, "d 'de' MMMM", { locale: es })}</h4>
