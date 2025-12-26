@@ -135,7 +135,9 @@ export function PortalBooking({
         .from('session_types')
         .select('id, name, duration_minutes')
         .eq('center_id', center.id)
-        .eq('is_active', true);
+        .eq('is_active', true)
+        .order('display_order', { ascending: true })
+        .order('name', { ascending: true });
 
       setSessionTypes(types || []);
 

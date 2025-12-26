@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, X, Loader2, Save, AlertCircle, Info } from 'lucide-react';
+import { Plus, X, Loader2, Save, AlertCircle, Info, ChevronUp, ChevronDown } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,6 +12,7 @@ import {
   useCreateSessionType,
   useUpdateSessionType,
   useDeleteSessionType,
+  useReorderSessionTypes,
   SessionType,
 } from '@/hooks/useSessionTypes';
 import {
@@ -63,6 +64,7 @@ export function SessionTypesSection() {
   const createMutation = useCreateSessionType();
   const updateMutation = useUpdateSessionType();
   const deleteMutation = useDeleteSessionType();
+  const reorderMutation = useReorderSessionTypes();
 
   const [editableTypes, setEditableTypes] = useState<EditableSessionType[]>([]);
   const [hasChanges, setHasChanges] = useState(false);
@@ -108,6 +110,26 @@ export function SessionTypesSection() {
     setHasChanges(true);
   };
 
+  const handleMoveUp = (index: number) => {
+    if (index === 0) return;
+    setEditableTypes(prev => {
+      const updated = [...prev];
+      [updated[index - 1], updated[index]] = [updated[index], updated[index - 1]];
+      return updated;
+    });
+    setHasChanges(true);
+  };
+
+  const handleMoveDown = (index: number) => {
+    if (index === editableTypes.length - 1) return;
+    setEditableTypes(prev => {
+      const updated = [...prev];
+      [updated[index], updated[index + 1]] = [updated[index + 1], updated[index]];
+      return updated;
+    });
+    setHasChanges(true);
+  };
+
   const handleAddNew = () => {
     const newId = `new-${Date.now()}`;
     setEditableTypes(prev => [
@@ -143,6 +165,7 @@ export function SessionTypesSection() {
 
   const handleSave = async () => {
     const promises: Promise<unknown>[] = [];
+    const existingIds: string[] = [];
 
     for (const item of editableTypes) {
       if (!item.name?.trim()) continue;
@@ -177,6 +200,7 @@ export function SessionTypesSection() {
           })
         );
       } else if (item.id) {
+        existingIds.push(item.id);
         const original = sessionTypes?.find(st => st.id === item.id);
         if (original) {
           const hasChanged =
@@ -212,6 +236,12 @@ export function SessionTypesSection() {
     }
 
     await Promise.all(promises);
+
+    // Reorder existing items (after creates/updates complete)
+    if (existingIds.length > 0) {
+      await reorderMutation.mutateAsync(existingIds);
+    }
+
     setIsInitialized(false);
     setHasChanges(false);
   };
@@ -228,7 +258,7 @@ export function SessionTypesSection() {
     });
   };
 
-  const isSaving = createMutation.isPending || updateMutation.isPending;
+  const isSaving = createMutation.isPending || updateMutation.isPending || reorderMutation.isPending;
 
   if (isLoading) {
     return (
@@ -243,12 +273,14 @@ export function SessionTypesSection() {
       <CardHeader>
         <CardTitle>Tipos de sesión & precios</CardTitle>
         <CardDescription>
-          Configura los tipos de sesión disponibles con sus precios, duraciones y tratamiento fiscal para Verifactu
+          Configura los tipos de sesión disponibles con sus precios, duraciones y tratamiento fiscal para Verifactu. 
+          Usa las flechas ↑↓ para cambiar el orden de visualización.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Header */}
-        <div className="hidden md:grid md:grid-cols-[1fr,100px,100px,140px,80px,40px] gap-4 px-2 text-sm font-medium text-muted-foreground">
+        <div className="hidden md:grid md:grid-cols-[60px,1fr,100px,100px,140px,80px,40px] gap-4 px-2 text-sm font-medium text-muted-foreground">
+          <span>Orden</span>
           <span>Nombre</span>
           <span>Precio (€)</span>
           <span>Comisión (%)</span>
@@ -271,7 +303,31 @@ export function SessionTypesSection() {
                 className={`rounded-lg border bg-card ${hasErrors ? 'border-destructive/50' : ''}`}
               >
                 {/* Main row */}
-                <div className="grid grid-cols-1 md:grid-cols-[1fr,100px,100px,140px,80px,40px] gap-3 md:gap-4 p-3 md:p-2">
+                <div className="grid grid-cols-1 md:grid-cols-[60px,1fr,100px,100px,140px,80px,40px] gap-3 md:gap-4 p-3 md:p-2">
+                  {/* Order controls */}
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleMoveUp(index)}
+                      disabled={index === 0}
+                      className="h-7 w-7"
+                      title="Subir"
+                    >
+                      <ChevronUp className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleMoveDown(index)}
+                      disabled={index === editableTypes.length - 1}
+                      className="h-7 w-7"
+                      title="Bajar"
+                    >
+                      <ChevronDown className="h-4 w-4" />
+                    </Button>
+                  </div>
+
                   {/* Name */}
                   <div className="space-y-1 md:space-y-0">
                     <Label className="md:hidden text-xs text-muted-foreground">Nombre</Label>
@@ -437,9 +493,9 @@ export function SessionTypesSection() {
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
-                                {VAT_RATE_OPTIONS.filter(o => o.value > 0).map(opt => (
+                                {VAT_RATE_OPTIONS.map(opt => (
                                   <SelectItem key={opt.value} value={String(opt.value)}>
-                                    {opt.label} - {opt.description}
+                                    {opt.label}
                                   </SelectItem>
                                 ))}
                               </SelectContent>
@@ -463,7 +519,7 @@ export function SessionTypesSection() {
                                   <SelectItem key={opt.value} value={opt.value}>
                                     <div className="flex flex-col">
                                       <span>{opt.label}</span>
-                                      <span className="text-xs text-muted-foreground">{opt.description}</span>
+                                      <span className="text-xs text-muted-foreground max-w-[250px] truncate">{opt.description}</span>
                                     </div>
                                   </SelectItem>
                                 ))}
@@ -488,7 +544,7 @@ export function SessionTypesSection() {
                                   <SelectItem key={opt.value} value={opt.value}>
                                     <div className="flex flex-col">
                                       <span>{opt.label}</span>
-                                      <span className="text-xs text-muted-foreground">{opt.description}</span>
+                                      <span className="text-xs text-muted-foreground max-w-[250px] truncate">{opt.description}</span>
                                     </div>
                                   </SelectItem>
                                 ))}
@@ -505,24 +561,30 @@ export function SessionTypesSection() {
           })}
         </div>
 
-        {/* Add New Button */}
-        <Button variant="link" onClick={handleAddNew} className="px-0 text-primary">
-          <Plus className="h-4 w-4 mr-1" />
-          Añadir tipo de sesión
+        {/* Add new button */}
+        <Button
+          variant="outline"
+          onClick={handleAddNew}
+          className="w-full"
+        >
+          <Plus className="h-4 w-4 mr-2" />
+          Añadir nuevo tipo de sesión
         </Button>
 
-        {/* Save Button */}
+        {/* Save button */}
         {hasChanges && (
-          <div className="flex justify-end pt-4 border-t">
-            <Button onClick={handleSave} disabled={isSaving}>
-              {isSaving ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Save className="mr-2 h-4 w-4" />
-              )}
-              Guardar cambios
-            </Button>
-          </div>
+          <Button
+            onClick={handleSave}
+            disabled={isSaving}
+            className="w-full"
+          >
+            {isSaving ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Save className="h-4 w-4 mr-2" />
+            )}
+            Guardar cambios
+          </Button>
         )}
       </CardContent>
     </Card>
