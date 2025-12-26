@@ -13,7 +13,7 @@ import { useProfessionalIntegrations } from "@/hooks/useProfessionalIntegrations
 import { useAuth } from "@/hooks/useAuth";
 import { useCenter } from "@/hooks/useCenter";
 import { useGoogleCalendarWatch } from "@/hooks/useGoogleCalendarWatch";
-import { Calendar, Video, ExternalLink, CheckCircle2, AlertCircle, Loader2, Settings2, Zap, RefreshCw, Activity, Clock, Database } from "lucide-react";
+import { Calendar, Video, ExternalLink, CheckCircle2, AlertCircle, Loader2, Settings2, Zap, RefreshCw, Activity, Clock, Database, Trash2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
@@ -36,7 +36,7 @@ export function GoogleIntegrationSection() {
   const { profile } = useAuth();
   const { center } = useCenter();
   const { integrations, isLoading, updateIntegrations, isProviderConnected, getOAuthConnection, disconnectProvider } = useProfessionalIntegrations();
-  const { setupWatch, checkWatchStatus, isSettingUp, watchStatus } = useGoogleCalendarWatch();
+  const { setupWatch, checkWatchStatus, renewWatchIfExpiring, isSettingUp, watchStatus } = useGoogleCalendarWatch();
   const [searchParams, setSearchParams] = useSearchParams();
   
   const [calendarEnabled, setCalendarEnabled] = useState(false);
@@ -57,6 +57,10 @@ export function GoogleIntegrationSection() {
   // Sync days configuration
   const [syncDaysPast, setSyncDaysPast] = useState(30);
   const [syncDaysFuture, setSyncDaysFuture] = useState(90);
+
+  // Cleanup state
+  const [isCleaningUp, setIsCleaningUp] = useState(false);
+  const [showCleanupConfirm, setShowCleanupConfirm] = useState(false);
 
   const isConnected = isProviderConnected('google');
   const connection = getOAuthConnection('google');
@@ -99,7 +103,7 @@ export function GoogleIntegrationSection() {
     refetchInterval: 60000, // Refresh every minute
   });
 
-  // Handle OAuth callback and setup watch
+  // Handle OAuth callback and setup watch with initial sync
   useEffect(() => {
     const oauthStatus = searchParams.get('oauth');
     const provider = searchParams.get('provider');
@@ -111,6 +115,30 @@ export function GoogleIntegrationSection() {
         setTimeout(() => {
           setupWatch();
         }, 1000);
+        
+        // Trigger initial sync after reconnection
+        setTimeout(async () => {
+          if (!profile?.id) return;
+          toast.info('Sincronizando calendario...');
+          try {
+            const { data, error } = await supabase.functions.invoke('sync-google-calendar', {
+              body: { professional_id: profile.id },
+            });
+            
+            if (error || data?.errors?.length > 0) {
+              toast.error(`Error al sincronizar: ${data?.errors?.[0] || error?.message}`);
+            } else {
+              const msgs: string[] = [];
+              if (data?.created > 0) msgs.push(`${data.created} creados`);
+              if (data?.updated > 0) msgs.push(`${data.updated} actualizados`);
+              if (data?.calendarEventsImported > 0) msgs.push(`${data.calendarEventsImported} importados`);
+              toast.success(msgs.length > 0 ? `Sync inicial: ${msgs.join(', ')}` : 'Sincronización completada');
+            }
+            refetchHealth();
+          } catch (e) {
+            toast.error('Error en sincronización inicial');
+          }
+        }, 2500);
       } else if (oauthStatus === 'error') {
         const message = searchParams.get('message');
         toast.error(`Error al conectar Google: ${message || 'Error desconocido'}`);
@@ -121,7 +149,7 @@ export function GoogleIntegrationSection() {
       searchParams.delete('message');
       setSearchParams(searchParams, { replace: true });
     }
-  }, [searchParams, setSearchParams, setupWatch]);
+  }, [searchParams, setSearchParams, setupWatch, profile?.id, refetchHealth]);
 
   // Check watch status on mount
   useEffect(() => {
@@ -129,6 +157,22 @@ export function GoogleIntegrationSection() {
       checkWatchStatus();
     }
   }, [isConnected, checkWatchStatus]);
+
+  // Auto-renew watch channel if expiring soon (< 24h)
+  useEffect(() => {
+    if (isConnected && profile?.id && connection?.refresh_token) {
+      renewWatchIfExpiring().then(result => {
+        if (result.renewed) {
+          console.log('[WATCH] Channel renewed automatically');
+          toast.info('Canal de notificaciones renovado automáticamente');
+          refetchHealth();
+        } else if (result.reason === 'renewal_failed') {
+          console.error('[WATCH] Failed to renew channel');
+          toast.warning('No se pudo renovar el canal de notificaciones');
+        }
+      });
+    }
+  }, [isConnected, profile?.id, connection?.refresh_token, renewWatchIfExpiring, refetchHealth]);
 
   useEffect(() => {
     if (integrations) {
@@ -307,6 +351,31 @@ export function GoogleIntegrationSection() {
     setCalendars([]);
   };
 
+  const handleCleanupEvents = async () => {
+    if (!profile?.id) return;
+    
+    setIsCleaningUp(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('cleanup-google-events', {
+        body: {}, // professional_id is resolved from JWT
+      });
+      
+      if (error) {
+        toast.error(`Error: ${error.message}`);
+      } else if (data?.error) {
+        toast.error(data.error);
+      } else {
+        toast.success(`${data?.deleted || 0} eventos eliminados de ${data?.found || 0} encontrados`);
+        refetchHealth();
+      }
+    } catch (e) {
+      toast.error('Error al eliminar eventos');
+    } finally {
+      setIsCleaningUp(false);
+      setShowCleanupConfirm(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <Card>
@@ -337,12 +406,27 @@ export function GoogleIntegrationSection() {
     { var: '{link_videollamada}', desc: 'Enlace de videollamada' },
     { var: '{email_paciente}', desc: 'Email del paciente' },
     { var: '{precio}', desc: 'Precio de la sesión' },
-    { var: '{tipo}', desc: 'Tipo de sesión' },
-    { var: '{hora}', desc: 'Hora de la sesión' },
-    { var: '{fecha}', desc: 'Fecha de la sesión' },
-    { var: '{notas}', desc: 'Notas de la sesión' },
-    { var: '{telefono}', desc: 'Teléfono del paciente' },
   ];
+
+  // Get sync status display info
+  const getSyncStatusDisplay = (status: string | null) => {
+    if (!status) return { label: 'Pendiente', color: 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20', icon: null };
+    
+    switch (status) {
+      case 'ok':
+      case 'watch_configured':
+        return { label: status, color: 'bg-green-500/10 text-green-600 border-green-500/20', icon: <CheckCircle2 className="h-3 w-3 mr-1" /> };
+      case 'needs_reconnect':
+      case 'watch_setup_failed':
+        return { 
+          label: status === 'watch_setup_failed' ? 'Error en notificaciones' : status, 
+          color: 'bg-red-500/10 text-red-600 border-red-500/20', 
+          icon: <AlertCircle className="h-3 w-3 mr-1" /> 
+        };
+      default:
+        return { label: status, color: 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20', icon: null };
+    }
+  };
 
   return (
     <Card>
@@ -415,6 +499,66 @@ export function GoogleIntegrationSection() {
                 Desconectar
               </Button>
             </div>
+
+            {/* Cleanup Button - Solo visible si hay refresh_token */}
+            {connection?.refresh_token && (
+              <div className="p-3 border rounded-lg bg-muted/30 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium flex items-center gap-2">
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                      Eliminar eventos de Psycma en Google
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Solo se procesarán eventos dentro del rango: {syncDaysPast} días pasados / {syncDaysFuture} días futuros
+                    </p>
+                  </div>
+                </div>
+                
+                {!showCleanupConfirm ? (
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => setShowCleanupConfirm(true)}
+                    className="text-destructive hover:text-destructive border-destructive/30 hover:bg-destructive/10"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Eliminar eventos
+                  </Button>
+                ) : (
+                  <div className="space-y-2">
+                    <Alert variant="destructive">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>
+                        ¿Eliminar todos los eventos creados por Psycma en tu calendario de Google?
+                        Solo se eliminarán eventos dentro del rango configurado ({syncDaysPast} días pasados / {syncDaysFuture} días futuros).
+                      </AlertDescription>
+                    </Alert>
+                    <div className="flex gap-2">
+                      <Button 
+                        variant="destructive" 
+                        size="sm"
+                        onClick={handleCleanupEvents}
+                        disabled={isCleaningUp}
+                      >
+                        {isCleaningUp ? (
+                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                        ) : null}
+                        Confirmar eliminación
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => setShowCleanupConfirm(false)}
+                        disabled={isCleaningUp}
+                      >
+                        Cancelar
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             <Separator />
 
@@ -516,20 +660,15 @@ export function GoogleIntegrationSection() {
                           {/* Sync Status */}
                           <div className="flex items-center justify-between">
                             <span className="text-sm text-muted-foreground">Estado</span>
-                            <Badge 
-                              variant="secondary" 
-                              className={
-                                healthData.last_sync_status === 'ok' 
-                                  ? 'bg-green-500/10 text-green-600 border-green-500/20'
-                                  : healthData.last_sync_status === 'needs_reconnect'
-                                  ? 'bg-red-500/10 text-red-600 border-red-500/20'
-                                  : 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20'
-                              }
-                            >
-                              {healthData.last_sync_status === 'ok' && <CheckCircle2 className="h-3 w-3 mr-1" />}
-                              {healthData.last_sync_status === 'needs_reconnect' && <AlertCircle className="h-3 w-3 mr-1" />}
-                              {healthData.last_sync_status || 'Pendiente'}
-                            </Badge>
+                            {(() => {
+                              const statusInfo = getSyncStatusDisplay(healthData.last_sync_status);
+                              return (
+                                <Badge variant="secondary" className={statusInfo.color}>
+                                  {statusInfo.icon}
+                                  {statusInfo.label}
+                                </Badge>
+                              );
+                            })()}
                           </div>
 
                           {/* Last Sync */}
@@ -589,6 +728,16 @@ export function GoogleIntegrationSection() {
                               <AlertCircle className="h-4 w-4" />
                               <AlertDescription>
                                 Se requiere reconexión. Desconecta y vuelve a conectar tu cuenta de Google.
+                              </AlertDescription>
+                            </Alert>
+                          )}
+
+                          {/* Watch Setup Failed Warning */}
+                          {healthData.last_sync_status === 'watch_setup_failed' && (
+                            <Alert variant="destructive" className="mt-2">
+                              <AlertCircle className="h-4 w-4" />
+                              <AlertDescription>
+                                Error al configurar notificaciones en tiempo real. La sincronización funcionará mediante polling cada 15 minutos.
                               </AlertDescription>
                             </Alert>
                           )}
@@ -735,9 +884,9 @@ export function GoogleIntegrationSection() {
                       <div className="p-3 bg-muted/50 rounded-lg">
                         <p className="text-xs font-medium mb-2">Variables disponibles:</p>
                         <div className="flex flex-wrap gap-1.5">
-                          {formatVariables.map((v) => (
+                          {formatVariables.map((v, idx) => (
                             <code 
-                              key={v.var} 
+                              key={`${v.var}-${idx}`} 
                               className="text-xs bg-background px-1.5 py-0.5 rounded border cursor-help"
                               title={v.desc}
                             >
