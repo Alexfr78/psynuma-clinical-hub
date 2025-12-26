@@ -40,7 +40,8 @@ function minutesToTime(totalMinutes: number): string {
 
 export function DayView({ currentDate, sessions, onSessionClick, onSlotClick, onSessionMove, onMoveRequest, hours, startHour, onSwipeLeft, onSwipeRight }: DayViewProps) {
   const displayHours = hours || DEFAULT_HOURS;
-  const gridStartHour = startHour ?? 8;
+  // CRITICAL: gridStartHour must match the first hour displayed, otherwise sessions will be misaligned
+  const gridStartHour = displayHours[0] ?? startHour ?? 8;
   const dateKey = format(currentDate, 'yyyy-MM-dd');
   const gridRef = useRef<HTMLDivElement>(null);
 
