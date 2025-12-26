@@ -101,3 +101,9 @@ verify_jwt = false
 
 [functions.public-booking]
 verify_jwt = false
+
+[functions.stop-google-channel]
+verify_jwt = true
+
+[functions.cleanup-google-events]
+verify_jwt = true

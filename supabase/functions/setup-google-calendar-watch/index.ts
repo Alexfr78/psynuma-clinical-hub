@@ -210,10 +210,42 @@ serve(async (req) => {
 
     const accessToken = await getValidAccessToken(supabase, connection);
     if (!accessToken) {
+      // Update last_sync_status on failure
+      await supabase
+        .from('oauth_connections')
+        .update({ last_sync_status: 'watch_setup_failed' })
+        .eq('professional_id', professional_id)
+        .eq('provider', 'google');
       return new Response(
         JSON.stringify({ error: 'Failed to get valid access token' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+    }
+
+    // PUNTO 1: Stop existing channel before creating new one (avoid duplicates)
+    if (connection.watch_channel_id && connection.watch_resource_id) {
+      console.log(`[WATCH] Stopping existing channel ${connection.watch_channel_id} before creating new one`);
+      try {
+        const stopResponse = await fetch('https://www.googleapis.com/calendar/v3/channels/stop', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            id: connection.watch_channel_id,
+            resourceId: connection.watch_resource_id,
+          }),
+        });
+        // Treat 404/410 as success (channel already stopped/expired)
+        if (stopResponse.ok || stopResponse.status === 404 || stopResponse.status === 410) {
+          console.log(`[WATCH] Previous channel stopped (status: ${stopResponse.status})`);
+        } else {
+          console.warn(`[WATCH] Could not stop previous channel (status: ${stopResponse.status}), proceeding anyway`);
+        }
+      } catch (e) {
+        console.warn('[WATCH] Error stopping previous channel:', e);
+      }
     }
 
     const channelId = crypto.randomUUID();
@@ -241,6 +273,12 @@ serve(async (req) => {
     if (!watchResponse.ok) {
       const errorText = await watchResponse.text();
       console.error('[WATCH:ERROR] Google Calendar watch setup failed:', errorText);
+      // PUNTO 2: Update last_sync_status on failure (from Edge Function, not client)
+      await supabase
+        .from('oauth_connections')
+        .update({ last_sync_status: 'watch_setup_failed' })
+        .eq('professional_id', professional_id)
+        .eq('provider', 'google');
       return new Response(
         JSON.stringify({ error: 'Failed to setup watch', details: errorText }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
