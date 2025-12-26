@@ -1,0 +1,132 @@
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
+import { Clock, CheckCircle2, XCircle, AlertCircle, MoreVertical, Send, Copy, Eye, Ban } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Assessment } from '@/hooks/useAssessments';
+import { toast } from 'sonner';
+
+interface AssessmentCardProps {
+  assessment: Assessment;
+  onView: (assessment: Assessment) => void;
+  onSend: (assessment: Assessment) => void;
+  onRevoke: (assessment: Assessment) => void;
+}
+
+export function AssessmentCard({ assessment, onView, onSend, onRevoke }: AssessmentCardProps) {
+  const getStatusBadge = () => {
+    const isExpired = new Date(assessment.expires_at) < new Date() && assessment.status === 'pending';
+
+    if (isExpired || assessment.status === 'expired') {
+      return (
+        <Badge variant="outline" className="text-muted-foreground">
+          <AlertCircle className="w-3 h-3 mr-1" />
+          Caducada
+        </Badge>
+      );
+    }
+
+    switch (assessment.status) {
+      case 'pending':
+        return (
+          <Badge variant="outline" className="text-yellow-600 border-yellow-600">
+            <Clock className="w-3 h-3 mr-1" />
+            Pendiente
+          </Badge>
+        );
+      case 'completed':
+        return (
+          <Badge variant="outline" className="text-green-600 border-green-600">
+            <CheckCircle2 className="w-3 h-3 mr-1" />
+            Completada
+          </Badge>
+        );
+      case 'revoked':
+        return (
+          <Badge variant="outline" className="text-red-600 border-red-600">
+            <XCircle className="w-3 h-3 mr-1" />
+            Revocada
+          </Badge>
+        );
+      default:
+        return null;
+    }
+  };
+
+  const handleCopyLink = () => {
+    const link = `${window.location.origin}/evaluacion/${assessment.access_token}`;
+    navigator.clipboard.writeText(link);
+    toast.success('Enlace copiado al portapapeles');
+  };
+
+  const isPending = assessment.status === 'pending' && new Date(assessment.expires_at) > new Date();
+
+  return (
+    <Card className="hover:shadow-md transition-shadow">
+      <CardContent className="p-4">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <h4 className="font-medium truncate">
+                {assessment.patient?.first_name} {assessment.patient?.last_name}
+              </h4>
+              {getStatusBadge()}
+            </div>
+            <p className="text-sm text-muted-foreground mb-2">
+              {assessment.template?.name}
+            </p>
+            <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+              <span>Creada: {format(new Date(assessment.created_at), 'dd MMM yyyy', { locale: es })}</span>
+              {assessment.sent_at && (
+                <span>Enviada: {format(new Date(assessment.sent_at), 'dd MMM yyyy', { locale: es })}</span>
+              )}
+              <span>Caduca: {format(new Date(assessment.expires_at), 'dd MMM yyyy', { locale: es })}</span>
+              {assessment.completed_at && (
+                <span>Completada: {format(new Date(assessment.completed_at), 'dd MMM yyyy', { locale: es })}</span>
+              )}
+            </div>
+          </div>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="shrink-0">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {assessment.status === 'completed' && (
+                <DropdownMenuItem onClick={() => onView(assessment)}>
+                  <Eye className="h-4 w-4 mr-2" />
+                  Ver resultados
+                </DropdownMenuItem>
+              )}
+              {isPending && (
+                <>
+                  <DropdownMenuItem onClick={() => onSend(assessment)}>
+                    <Send className="h-4 w-4 mr-2" />
+                    Enviar enlace
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleCopyLink}>
+                    <Copy className="h-4 w-4 mr-2" />
+                    Copiar enlace
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => onRevoke(assessment)} className="text-destructive">
+                    <Ban className="h-4 w-4 mr-2" />
+                    Revocar
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}

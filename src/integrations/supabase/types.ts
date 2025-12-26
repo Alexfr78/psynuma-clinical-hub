@@ -14,6 +14,194 @@ export type Database = {
   }
   public: {
     Tables: {
+      assessment_responses: {
+        Row: {
+          answers: Json
+          assessment_id: string
+          created_at: string
+          factor_scores: Json
+          flags: Json | null
+          id: string
+          metadata: Json | null
+        }
+        Insert: {
+          answers: Json
+          assessment_id: string
+          created_at?: string
+          factor_scores: Json
+          flags?: Json | null
+          id?: string
+          metadata?: Json | null
+        }
+        Update: {
+          answers?: Json
+          assessment_id?: string
+          created_at?: string
+          factor_scores?: Json
+          flags?: Json | null
+          id?: string
+          metadata?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assessment_responses_assessment_id_fkey"
+            columns: ["assessment_id"]
+            isOneToOne: true
+            referencedRelation: "assessments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      assessment_templates: {
+        Row: {
+          center_id: string
+          code: string
+          created_at: string
+          description: string | null
+          id: string
+          instructions: string | null
+          interpretations: Json | null
+          is_active: boolean
+          items: Json
+          name: string
+          scoring: Json
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          center_id: string
+          code: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          instructions?: string | null
+          interpretations?: Json | null
+          is_active?: boolean
+          items: Json
+          name: string
+          scoring: Json
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          center_id?: string
+          code?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          instructions?: string | null
+          interpretations?: Json | null
+          is_active?: boolean
+          items?: Json
+          name?: string
+          scoring?: Json
+          updated_at?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assessment_templates_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assessment_templates_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "portal_centers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      assessments: {
+        Row: {
+          access_token: string
+          center_id: string
+          completed_at: string | null
+          created_at: string
+          expires_at: string
+          id: string
+          patient_id: string
+          professional_id: string
+          sent_at: string | null
+          sent_to: string | null
+          sent_via: string | null
+          status: Database["public"]["Enums"]["assessment_status"]
+          template_id: string
+          updated_at: string
+        }
+        Insert: {
+          access_token?: string
+          center_id: string
+          completed_at?: string | null
+          created_at?: string
+          expires_at: string
+          id?: string
+          patient_id: string
+          professional_id: string
+          sent_at?: string | null
+          sent_to?: string | null
+          sent_via?: string | null
+          status?: Database["public"]["Enums"]["assessment_status"]
+          template_id: string
+          updated_at?: string
+        }
+        Update: {
+          access_token?: string
+          center_id?: string
+          completed_at?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          patient_id?: string
+          professional_id?: string
+          sent_at?: string | null
+          sent_to?: string | null
+          sent_via?: string | null
+          status?: Database["public"]["Enums"]["assessment_status"]
+          template_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assessments_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assessments_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "portal_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assessments_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assessments_professional_id_fkey"
+            columns: ["professional_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assessments_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "assessment_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_log: {
         Row: {
           action: string
@@ -2442,6 +2630,7 @@ export type Database = {
         Args: { p_payment_id: string }
         Returns: Json
       }
+      get_assessment_token: { Args: never; Returns: string }
       get_bono_sessions: {
         Args: { p_bono_id: string }
         Returns: {
@@ -2564,6 +2753,18 @@ export type Database = {
         Returns: Json
       }
       user_can_create_center: { Args: { _user_id: string }; Returns: boolean }
+      verify_assessment_token: {
+        Args: { assessment_uuid: string }
+        Returns: boolean
+      }
+      verify_assessment_token_for_patient: {
+        Args: { patient_uuid: string }
+        Returns: boolean
+      }
+      verify_assessment_token_for_template: {
+        Args: { template_uuid: string }
+        Returns: boolean
+      }
       verify_consent_token: { Args: { consent_uuid: string }; Returns: boolean }
       verify_consent_token_for_center: {
         Args: { center_uuid: string }
@@ -2604,6 +2805,7 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "professional" | "patient"
+      assessment_status: "pending" | "completed" | "expired" | "revoked"
       bono_status: "active" | "exhausted" | "expired" | "cancelled"
       consent_status: "pending" | "signed" | "revoked" | "expired"
       invoice_status: "draft" | "issued" | "paid" | "cancelled"
@@ -2749,6 +2951,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "professional", "patient"],
+      assessment_status: ["pending", "completed", "expired", "revoked"],
       bono_status: ["active", "exhausted", "expired", "cancelled"],
       consent_status: ["pending", "signed", "revoked", "expired"],
       invoice_status: ["draft", "issued", "paid", "cancelled"],
