@@ -16,8 +16,6 @@ import { cn } from '@/lib/utils';
 
 type Step = 'service' | 'location' | 'professional' | 'datetime' | 'patient' | 'confirmation';
 
-const BOOKING_MAX_DAYS_AHEAD = 90; // TODO: Make configurable from centers table
-
 export default function PublicBooking() {
   const { centerSlug } = useParams<{ centerSlug: string }>();
   const [searchParams] = useSearchParams();
@@ -312,10 +310,13 @@ export default function PublicBooking() {
                       month={currentMonth}
                       onMonthChange={setCurrentMonth}
                       onSelect={d => { setSelectedDate(d); setSelectedSlot(null); }}
-                      disabled={(date) => {
+                    disabled={(date) => {
+                        // Use maxDaysAhead from config (default 90)
+                        const maxDaysAhead = config?.maxDaysAhead ?? 90;
+                        
                         // Always disable past dates and dates beyond limit
                         if (isBefore(date, startOfDay(new Date()))) return true;
-                        if (isBefore(addDays(new Date(), BOOKING_MAX_DAYS_AHEAD), date)) return true;
+                        if (isBefore(addDays(new Date(), maxDaysAhead), date)) return true;
                         
                         // Only apply availability logic when we have data for the current month
                         if (dataIsForCurrentMonth && Object.keys(availabilityData.byDate).length > 0) {
