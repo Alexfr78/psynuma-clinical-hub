@@ -519,6 +519,7 @@ export type Database = {
           portal_slug: string | null
           postal_code: string | null
           province: string | null
+          public_booking_enabled: boolean | null
           reschedule_max_days: number | null
           reschedule_require_confirmation: boolean | null
           reschedule_slot_duration: number | null
@@ -586,6 +587,7 @@ export type Database = {
           portal_slug?: string | null
           postal_code?: string | null
           province?: string | null
+          public_booking_enabled?: boolean | null
           reschedule_max_days?: number | null
           reschedule_require_confirmation?: boolean | null
           reschedule_slot_duration?: number | null
@@ -653,6 +655,7 @@ export type Database = {
           portal_slug?: string | null
           postal_code?: string | null
           province?: string | null
+          public_booking_enabled?: boolean | null
           reschedule_max_days?: number | null
           reschedule_require_confirmation?: boolean | null
           reschedule_slot_duration?: number | null
@@ -1995,6 +1998,7 @@ export type Database = {
           exemption_code: string | null
           id: string
           is_active: boolean | null
+          is_public: boolean | null
           name: string
           non_subject_code: string | null
           tax_treatment: string | null
@@ -2012,6 +2016,7 @@ export type Database = {
           exemption_code?: string | null
           id?: string
           is_active?: boolean | null
+          is_public?: boolean | null
           name: string
           non_subject_code?: string | null
           tax_treatment?: string | null
@@ -2029,6 +2034,7 @@ export type Database = {
           exemption_code?: string | null
           id?: string
           is_active?: boolean | null
+          is_public?: boolean | null
           name?: string
           non_subject_code?: string | null
           tax_treatment?: string | null

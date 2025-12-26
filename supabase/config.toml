@@ -98,3 +98,6 @@ verify_jwt = false
 
 [functions.send-session-reminders]
 verify_jwt = false
+
+[functions.public-booking]
+verify_jwt = false
