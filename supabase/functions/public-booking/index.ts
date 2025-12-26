@@ -192,7 +192,7 @@ serve(async (req) => {
           id, name, logo_url,
           public_booking_enabled, portal_require_approval,
           portal_allow_professional_selection, portal_default_professional_id,
-          reschedule_slot_duration
+          reschedule_slot_duration, reschedule_max_days
         `)
         .eq("portal_slug", centerSlug)
         .single();
@@ -220,7 +220,8 @@ serve(async (req) => {
           requireApproval: center.portal_require_approval,
           allowProfessionalSelection: center.portal_allow_professional_selection,
           defaultProfessionalId: center.portal_default_professional_id,
-          slotDuration: center.reschedule_slot_duration || 30
+          slotDuration: center.reschedule_slot_duration || 30,
+          maxDaysAhead: center.reschedule_max_days ?? 90
         }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
@@ -380,7 +381,7 @@ serve(async (req) => {
         .select(`
           id, public_booking_enabled, 
           portal_default_professional_id, portal_allow_professional_selection,
-          reschedule_slot_duration
+          reschedule_slot_duration, reschedule_max_days
         `)
         .eq("portal_slug", centerSlug)
         .single();
@@ -429,6 +430,21 @@ serve(async (req) => {
       }
 
       if (!finalProfessionalId) {
+        return new Response(
+          JSON.stringify({ slots: [], serviceDuration: sessionType.duration_minutes }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Validate date is within allowed range
+      const maxDaysAhead = center.reschedule_max_days ?? 90;
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const requestedDate = new Date(date);
+      const maxDate = new Date(today);
+      maxDate.setDate(maxDate.getDate() + maxDaysAhead);
+
+      if (requestedDate < today || requestedDate > maxDate) {
         return new Response(
           JSON.stringify({ slots: [], serviceDuration: sessionType.duration_minutes }),
           { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -588,7 +604,7 @@ serve(async (req) => {
         .select(`
           id, public_booking_enabled,
           portal_default_professional_id, portal_allow_professional_selection,
-          reschedule_slot_duration
+          reschedule_slot_duration, reschedule_max_days
         `)
         .eq("portal_slug", centerSlug)
         .single();
@@ -646,6 +662,15 @@ serve(async (req) => {
       const serviceDuration = sessionType.duration_minutes;
       const step = center.reschedule_slot_duration || 30;
       const centerTimezone = 'Europe/Madrid';
+      const maxDaysAhead = center.reschedule_max_days ?? 90;
+
+      // Calculate today and max allowed date
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const maxAllowedDate = new Date(today);
+      maxAllowedDate.setDate(maxAllowedDate.getDate() + maxDaysAhead);
+      const todayStr = formatDateLocal(today.getFullYear(), today.getMonth() + 1, today.getDate());
+      const maxDateStr = formatDateLocal(maxAllowedDate.getFullYear(), maxAllowedDate.getMonth() + 1, maxAllowedDate.getDate());
 
       // Parse month and calculate range
       const [yearStr, monthStr] = month.split('-');
@@ -731,6 +756,13 @@ serve(async (req) => {
 
       for (let d = 1; d <= daysInMonth; d++) {
         const dateStr = formatDateLocal(year, monthNum, d);
+        
+        // Skip dates outside allowed range
+        if (dateStr < todayStr || dateStr > maxDateStr) {
+          days.push({ date: dateStr, availableCount: 0 });
+          continue;
+        }
+        
         const dateObj = new Date(year, monthNum - 1, d);
         const dayOfWeek = dateObj.getDay();
 
@@ -838,7 +870,8 @@ serve(async (req) => {
         .from("centers")
         .select(`
           id, public_booking_enabled, 
-          portal_require_approval, portal_default_professional_id, portal_allow_professional_selection
+          portal_require_approval, portal_default_professional_id, portal_allow_professional_selection,
+          reschedule_max_days
         `)
         .eq("portal_slug", centerSlug)
         .single();
@@ -889,6 +922,28 @@ serve(async (req) => {
       if (!finalProfessionalId) {
         return new Response(
           JSON.stringify({ error: "No hay profesional disponible" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Validate booking date is within allowed range
+      const maxDaysAhead = center.reschedule_max_days ?? 90;
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const bookingDate = new Date(sessionDate);
+      const maxDate = new Date(today);
+      maxDate.setDate(maxDate.getDate() + maxDaysAhead);
+
+      if (bookingDate < today) {
+        return new Response(
+          JSON.stringify({ error: "No se puede reservar en una fecha pasada" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      if (bookingDate > maxDate) {
+        return new Response(
+          JSON.stringify({ error: `Solo se permiten reservas hasta ${maxDaysAhead} días en el futuro` }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
@@ -1286,6 +1341,34 @@ serve(async (req) => {
       if (session.status === 'cancelled') {
         return new Response(
           JSON.stringify({ error: "No se puede reprogramar una cita cancelada" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Validate new date is within allowed range
+      const { data: centerForReschedule } = await supabase
+        .from("centers")
+        .select("reschedule_max_days")
+        .eq("id", tokenData.centerId)
+        .single();
+
+      const maxDaysAhead = centerForReschedule?.reschedule_max_days ?? 90;
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const newBookingDate = new Date(newDate);
+      const maxDate = new Date(today);
+      maxDate.setDate(maxDate.getDate() + maxDaysAhead);
+
+      if (newBookingDate < today) {
+        return new Response(
+          JSON.stringify({ error: "No se puede reprogramar a una fecha pasada" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      if (newBookingDate > maxDate) {
+        return new Response(
+          JSON.stringify({ error: `Solo se permite reprogramar hasta ${maxDaysAhead} días en el futuro` }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }

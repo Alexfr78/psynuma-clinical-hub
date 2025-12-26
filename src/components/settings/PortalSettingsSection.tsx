@@ -213,7 +213,7 @@ export function PortalSettingsSection() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="maxDays">Días máximos para reprogramar</Label>
+            <Label htmlFor="maxDays">Días máximos hacia el futuro (reservas y reprogramación)</Label>
             <div className="flex items-center gap-2">
               <Input
                 id="maxDays"
@@ -226,6 +226,9 @@ export function PortalSettingsSection() {
               />
               <span className="text-sm text-muted-foreground">días</span>
             </div>
+            <p className="text-xs text-muted-foreground">
+              Define cuántos días hacia el futuro pueden reservar o reprogramar los pacientes.
+            </p>
           </div>
 
           <div className="space-y-2">

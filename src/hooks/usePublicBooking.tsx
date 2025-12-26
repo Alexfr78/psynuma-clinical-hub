@@ -10,6 +10,7 @@ interface CenterConfig {
   allowProfessionalSelection: boolean;
   defaultProfessionalId: string | null;
   slotDuration: number;
+  maxDaysAhead: number;
 }
 
 interface Service {
