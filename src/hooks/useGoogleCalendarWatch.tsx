@@ -9,6 +9,12 @@ interface WatchStatus {
   channelId?: string;
 }
 
+interface RenewResult {
+  renewed: boolean;
+  reason?: string;
+  hoursRemaining?: number;
+}
+
 export function useGoogleCalendarWatch() {
   const { profile } = useAuth();
   const [isSettingUp, setIsSettingUp] = useState(false);
@@ -57,22 +63,21 @@ export function useGoogleCalendarWatch() {
     if (!profile?.id) return;
 
     try {
-      const { data: channels } = await supabase
-        .from('google_calendar_channels')
-        .select('channel_id, expiration')
+      const { data: conn } = await supabase
+        .from('oauth_connections')
+        .select('watch_channel_id, watch_expires_at')
         .eq('professional_id', profile.id)
-        .order('created_at', { ascending: false })
-        .limit(1);
+        .eq('provider', 'google')
+        .maybeSingle();
 
-      if (channels && channels.length > 0) {
-        const channel = channels[0];
-        const expiration = new Date(channel.expiration);
+      if (conn?.watch_expires_at) {
+        const expiration = new Date(conn.watch_expires_at);
         const isActive = expiration > new Date();
         
         setWatchStatus({
           isActive,
-          expiration: channel.expiration,
-          channelId: channel.channel_id,
+          expiration: conn.watch_expires_at,
+          channelId: conn.watch_channel_id || undefined,
         });
       } else {
         setWatchStatus({ isActive: false });
@@ -82,9 +87,62 @@ export function useGoogleCalendarWatch() {
     }
   }, [profile?.id]);
 
+  // Check if watch channel is expiring soon and renew if needed
+  // This calls the Edge Function which handles the actual renewal and status updates
+  const renewWatchIfExpiring = useCallback(async (): Promise<RenewResult> => {
+    if (!profile?.id) {
+      return { renewed: false, reason: 'no_profile' };
+    }
+
+    try {
+      // Get watch_expires_at from oauth_connections
+      const { data: conn } = await supabase
+        .from('oauth_connections')
+        .select('watch_expires_at, access_token, refresh_token, google_calendar_id')
+        .eq('professional_id', profile.id)
+        .eq('provider', 'google')
+        .maybeSingle();
+
+      if (!conn) {
+        return { renewed: false, reason: 'no_connection' };
+      }
+
+      if (!conn.watch_expires_at) {
+        return { renewed: false, reason: 'no_watch' };
+      }
+
+      if (!conn.google_calendar_id) {
+        return { renewed: false, reason: 'no_calendar_selected' };
+      }
+
+      const expiresAt = new Date(conn.watch_expires_at);
+      const hoursUntilExpiry = (expiresAt.getTime() - Date.now()) / (1000 * 60 * 60);
+
+      if (hoursUntilExpiry > 24) {
+        return { renewed: false, reason: 'not_expiring', hoursRemaining: hoursUntilExpiry };
+      }
+
+      console.log(`[WATCH] Channel expiring in ${hoursUntilExpiry.toFixed(1)}h, renewing...`);
+
+      // Call setupWatch which handles everything including status updates in Edge Function
+      const success = await setupWatch();
+
+      if (success) {
+        return { renewed: true, hoursRemaining: hoursUntilExpiry };
+      } else {
+        // Edge Function updates last_sync_status on failure
+        return { renewed: false, reason: 'renewal_failed', hoursRemaining: hoursUntilExpiry };
+      }
+    } catch (error) {
+      console.error('[WATCH] Error checking/renewing watch:', error);
+      return { renewed: false, reason: 'error' };
+    }
+  }, [profile?.id, setupWatch]);
+
   return {
     setupWatch,
     checkWatchStatus,
+    renewWatchIfExpiring,
     isSettingUp,
     watchStatus,
   };

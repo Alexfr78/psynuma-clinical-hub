@@ -48,15 +48,15 @@ serve(async (req) => {
     const state = url.searchParams.get('state');
     const error = url.searchParams.get('error');
     
-    console.log('Google OAuth callback received', { code: !!code, state, error });
+    console.log('[OAUTH:CALLBACK] Google OAuth callback received', { code: !!code, state, error });
 
     if (error) {
-      console.error('Google OAuth error:', error);
+      console.error('[OAUTH:ERROR] Google OAuth error:', error);
       return Response.redirect(`${Deno.env.get('SITE_URL') || 'https://psycma.lovable.app'}/configuracion?oauth=error&provider=google&message=${encodeURIComponent(error)}`);
     }
 
     if (!code || !state) {
-      console.error('Missing code or state');
+      console.error('[OAUTH:ERROR] Missing code or state');
       return Response.redirect(`${Deno.env.get('SITE_URL') || 'https://psycma.lovable.app'}/configuracion?oauth=error&provider=google&message=missing_params`);
     }
 
@@ -65,7 +65,7 @@ serve(async (req) => {
     try {
       stateData = JSON.parse(atob(state));
     } catch (e) {
-      console.error('Invalid state:', e);
+      console.error('[OAUTH:ERROR] Invalid state:', e);
       return Response.redirect(`${Deno.env.get('SITE_URL') || 'https://psycma.lovable.app'}/configuracion?oauth=error&provider=google&message=invalid_state`);
     }
 
@@ -84,7 +84,7 @@ serve(async (req) => {
       .single();
 
     if (profileError || !profile?.center_id) {
-      console.error('Could not get professional center:', profileError);
+      console.error('[OAUTH:ERROR] Could not get professional center:', profileError);
       return Response.redirect(`${Deno.env.get('SITE_URL') || 'https://psycma.lovable.app'}/configuracion?oauth=error&provider=google&message=no_center`);
     }
 
@@ -96,14 +96,14 @@ serve(async (req) => {
       .single();
 
     if (centerError || !center?.oauth_google_client_id || !center?.oauth_google_credentials) {
-      console.error('Missing Google OAuth credentials in center:', centerError);
+      console.error('[OAUTH:ERROR] Missing Google OAuth credentials in center:', centerError);
       return Response.redirect(`${Deno.env.get('SITE_URL') || 'https://psycma.lovable.app'}/configuracion?oauth=error&provider=google&message=no_credentials`);
     }
 
     // Decrypt the client secret
     const encryptionKey = Deno.env.get('CERTIFICATE_ENCRYPTION_KEY');
     if (!encryptionKey) {
-      console.error('Missing CERTIFICATE_ENCRYPTION_KEY');
+      console.error('[OAUTH:ERROR] Missing CERTIFICATE_ENCRYPTION_KEY');
       return Response.redirect(`${Deno.env.get('SITE_URL') || 'https://psycma.lovable.app'}/configuracion?oauth=error&provider=google&message=config_error`);
     }
 
@@ -111,13 +111,13 @@ serve(async (req) => {
     try {
       clientSecret = await decryptAES256GCM(center.oauth_google_credentials, encryptionKey);
     } catch (decryptError) {
-      console.error('Failed to decrypt Google credentials:', decryptError);
+      console.error('[OAUTH:ERROR] Failed to decrypt Google credentials:', decryptError);
       return Response.redirect(`${Deno.env.get('SITE_URL') || 'https://psycma.lovable.app'}/configuracion?oauth=error&provider=google&message=decrypt_error`);
     }
 
     const clientId = center.oauth_google_client_id;
 
-    console.log('Using Google credentials from database for center:', profile.center_id);
+    console.log('[OAUTH] Using Google credentials from database for center:', profile.center_id);
 
     // Exchange code for tokens
     const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
@@ -133,10 +133,10 @@ serve(async (req) => {
     });
 
     const tokenData = await tokenResponse.json();
-    console.log('Token exchange response status:', tokenResponse.status);
+    console.log('[OAUTH] Token exchange response status:', tokenResponse.status);
 
     if (!tokenResponse.ok) {
-      console.error('Token exchange error:', tokenData);
+      console.error('[OAUTH:ERROR] Token exchange error:', tokenData);
       return Response.redirect(`${Deno.env.get('SITE_URL') || 'https://psycma.lovable.app'}/configuracion?oauth=error&provider=google&message=token_error`);
     }
 
@@ -145,50 +145,73 @@ serve(async (req) => {
       headers: { Authorization: `Bearer ${tokenData.access_token}` },
     });
     const userInfo = await userInfoResponse.json();
-    console.log('Google user info:', userInfo.email);
+    console.log('[OAUTH] Google user info:', userInfo.email);
 
-    // Get primary calendar ID
-    let calendarId = 'primary';
-    try {
-      const calendarResponse = await fetch('https://www.googleapis.com/calendar/v3/users/me/calendarList/primary', {
-        headers: { Authorization: `Bearer ${tokenData.access_token}` },
-      });
-      if (calendarResponse.ok) {
-        const calendarData = await calendarResponse.json();
-        calendarId = calendarData.id;
-      }
-    } catch (e) {
-      console.log('Could not get calendar ID, using primary');
-    }
+    // FIX 1: Get existing connection to preserve refresh_token and google_calendar_id
+    const { data: existingConnection } = await supabase
+      .from('oauth_connections')
+      .select('refresh_token, google_calendar_id')
+      .eq('professional_id', professional_id)
+      .eq('provider', 'google')
+      .maybeSingle();
+
+    console.log('[OAUTH] Existing connection:', existingConnection ? {
+      has_refresh_token: !!existingConnection.refresh_token,
+      has_calendar_id: !!existingConnection.google_calendar_id,
+    } : 'none');
 
     // Save to database
     const expiresAt = new Date(Date.now() + (tokenData.expires_in * 1000)).toISOString();
 
+    // Build upsert data - preserve existing values if not provided by Google
+    const upsertData: Record<string, any> = {
+      professional_id,
+      provider: 'google',
+      access_token: tokenData.access_token,
+      expires_at: expiresAt,
+      scope: tokenData.scope,
+      provider_account_id: userInfo.email,
+      // Reset sync_token for full resync on reconnection
+      sync_token: null,
+      needs_reconnect: false,
+      updated_at: new Date().toISOString(),
+    };
+
+    // Only update refresh_token if Google provided a new one
+    // Otherwise preserve the existing one (Google doesn't always send it on re-auth)
+    if (tokenData.refresh_token) {
+      upsertData.refresh_token = tokenData.refresh_token;
+      console.log('[OAUTH] Using new refresh_token from Google');
+    } else if (existingConnection?.refresh_token) {
+      upsertData.refresh_token = existingConnection.refresh_token;
+      console.log('[OAUTH] Preserving existing refresh_token (Google did not send new one)');
+    }
+
+    // CRITICAL: DO NOT touch google_calendar_id - preserve user's calendar selection
+    // The user selects their calendar in the UI, and we should never overwrite it here
+    if (existingConnection?.google_calendar_id) {
+      upsertData.google_calendar_id = existingConnection.google_calendar_id;
+      console.log('[OAUTH] Preserving existing google_calendar_id:', existingConnection.google_calendar_id);
+    }
+
+    // DO NOT update last_sync_status - let sync-google-calendar handle that
+
     const { error: upsertError } = await supabase
       .from('oauth_connections')
-      .upsert({
-        professional_id,
-        provider: 'google',
-        access_token: tokenData.access_token,
-        refresh_token: tokenData.refresh_token,
-        expires_at: expiresAt,
-        scope: tokenData.scope,
-        provider_account_id: userInfo.email,
-        google_calendar_id: calendarId,
-      }, {
+      .upsert(upsertData, {
         onConflict: 'professional_id,provider',
       });
 
     if (upsertError) {
-      console.error('Database error:', upsertError);
+      console.error('[OAUTH:ERROR] Database error:', upsertError);
       return Response.redirect(`${Deno.env.get('SITE_URL') || 'https://psycma.lovable.app'}/configuracion?oauth=error&provider=google&message=db_error`);
     }
 
-    console.log('Google OAuth success for:', userInfo.email);
+    console.log('[OAUTH:SUCCESS] Google OAuth success for:', userInfo.email);
     return Response.redirect(`${Deno.env.get('SITE_URL') || 'https://psycma.lovable.app'}/configuracion?oauth=success&provider=google`);
 
   } catch (error) {
-    console.error('OAuth callback error:', error);
+    console.error('[OAUTH:ERROR] OAuth callback error:', error);
     return Response.redirect(`${Deno.env.get('SITE_URL') || 'https://psycma.lovable.app'}/configuracion?oauth=error&provider=google&message=unknown_error`);
   }
 });

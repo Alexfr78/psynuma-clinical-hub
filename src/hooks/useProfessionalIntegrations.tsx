@@ -44,6 +44,8 @@ export interface OAuthConnection {
   stripe_account_id: string | null;
   stripe_account_status: 'pending' | 'active' | 'restricted' | 'disabled' | null;
   google_calendar_id: string | null;
+  watch_channel_id: string | null;
+  watch_resource_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -150,40 +152,120 @@ export function useProfessionalIntegrations() {
       if (!professionalId) throw new Error('No professional ID');
 
       if (provider === 'google') {
-        // 1. Delete calendar_events
-        const { error: calendarError } = await supabase
-          .from('calendar_events')
-          .delete()
-          .eq('professional_id', professionalId);
-
-        if (calendarError) {
-          console.error('Error deleting calendar events:', calendarError);
-        }
-
-        // 2. Delete "Bloqueado" sessions imported from Google
-        const { error: blockedError } = await supabase
-          .from('sessions')
-          .delete()
+        // Get connection with tokens BEFORE any cleanup
+        const { data: connection } = await supabase
+          .from('oauth_connections')
+          .select('refresh_token, access_token, watch_channel_id, watch_resource_id, google_calendar_id')
           .eq('professional_id', professionalId)
-          .eq('session_type', 'Bloqueado')
-          .not('google_calendar_event_id', 'is', null);
+          .eq('provider', 'google')
+          .single();
 
-        if (blockedError) {
-          console.error('Error deleting blocked sessions:', blockedError);
-        }
+        if (connection) {
+          // 1. Stop the watch channel (best-effort via Edge Function)
+          if (connection.watch_channel_id && connection.watch_resource_id) {
+            console.log('[DISCONNECT] Stopping watch channel...');
+            try {
+              const { data, error } = await supabase.functions.invoke('stop-google-channel');
+              if (error) {
+                console.warn('[DISCONNECT] Failed to stop watch channel:', error);
+              } else {
+                console.log('[DISCONNECT] Watch channel stop result:', data);
+              }
+            } catch (e) {
+              console.warn('[DISCONNECT] Error calling stop-google-channel:', e);
+            }
+          }
 
-        // 3. Clear google_calendar_event_id from regular sessions
-        const { error: clearError } = await supabase
-          .from('sessions')
-          .update({ google_calendar_event_id: null })
-          .eq('professional_id', professionalId)
-          .not('google_calendar_event_id', 'is', null);
+          // 2. Revoke the refresh token at Google (best-effort)
+          const tokenToRevoke = connection.refresh_token || connection.access_token;
+          if (tokenToRevoke) {
+            console.log('[DISCONNECT] Revoking token at Google...');
+            try {
+              const revokeResponse = await fetch('https://oauth2.googleapis.com/revoke', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({ token: tokenToRevoke }),
+              });
+              console.log('[DISCONNECT] Revoke response status:', revokeResponse.status);
+            } catch (e) {
+              console.warn('[DISCONNECT] Error revoking token:', e);
+            }
+          }
 
-        if (clearError) {
-          console.error('Error clearing google_calendar_event_id:', clearError);
+          // 3. Delete calendar_events
+          const { error: calendarError } = await supabase
+            .from('calendar_events')
+            .delete()
+            .eq('professional_id', professionalId);
+
+          if (calendarError) {
+            console.error('[DISCONNECT] Error deleting calendar events:', calendarError);
+          }
+
+          // 4. Delete google_calendar_channels
+          const { error: channelsError } = await supabase
+            .from('google_calendar_channels')
+            .delete()
+            .eq('professional_id', professionalId);
+
+          if (channelsError) {
+            console.error('[DISCONNECT] Error deleting calendar channels:', channelsError);
+          }
+
+          // 5. Delete "Bloqueado" sessions imported from Google
+          const { error: blockedError } = await supabase
+            .from('sessions')
+            .delete()
+            .eq('professional_id', professionalId)
+            .eq('session_type', 'Bloqueado')
+            .not('google_calendar_event_id', 'is', null);
+
+          if (blockedError) {
+            console.error('[DISCONNECT] Error deleting blocked sessions:', blockedError);
+          }
+
+          // 6. Clear google_calendar_event_id from regular sessions
+          const { error: clearError } = await supabase
+            .from('sessions')
+            .update({ google_calendar_event_id: null })
+            .eq('professional_id', professionalId)
+            .not('google_calendar_event_id', 'is', null);
+
+          if (clearError) {
+            console.error('[DISCONNECT] Error clearing google_calendar_event_id:', clearError);
+          }
+
+          // 7. Partial reset of oauth_connections - KEEP google_calendar_id for future reconnection
+          const { error: updateError } = await supabase
+            .from('oauth_connections')
+            .update({
+              access_token: null,
+              refresh_token: null,
+              expires_at: null,
+              sync_token: null,
+              watch_channel_id: null,
+              watch_resource_id: null,
+              watch_expires_at: null,
+              last_sync_at: null,
+              last_sync_status: null,
+              needs_reconnect: false,
+              // CRITICAL: Keep google_calendar_id so user doesn't have to re-select
+              // google_calendar_id: connection.google_calendar_id,
+            })
+            .eq('professional_id', professionalId)
+            .eq('provider', 'google');
+
+          if (updateError) {
+            console.error('[DISCONNECT] Error updating oauth_connection:', updateError);
+            throw updateError;
+          }
+
+          console.log('[DISCONNECT] Google disconnected successfully (calendar_id preserved)');
+          return;
         }
       }
 
+      // For non-Google providers, just delete the row
       const { error } = await supabase
         .from('oauth_connections')
         .delete()
@@ -195,6 +277,7 @@ export function useProfessionalIntegrations() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['oauth-connections', professionalId] });
       queryClient.invalidateQueries({ queryKey: ['calendar-events'] });
+      queryClient.invalidateQueries({ queryKey: ['google-calendar-health'] });
       toast.success('Integración desconectada');
     },
     onError: (error) => {
