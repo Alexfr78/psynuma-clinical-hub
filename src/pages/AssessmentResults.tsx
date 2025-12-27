@@ -86,12 +86,12 @@ export default function AssessmentResults() {
         <Card>
           <CardContent className="pt-4 pb-4">
             <div className="flex items-center gap-2 text-muted-foreground text-sm mb-1">
-              <Calendar className="h-4 w-4" />
-              Fecha completado
+              <Calendar className="h-4 w-4 shrink-0" />
+              <span className="truncate">Fecha completado</span>
             </div>
-            <p className="font-medium">
+            <p className="font-medium text-sm sm:text-base">
               {completed_at 
-                ? format(new Date(completed_at), 'dd MMM yyyy, HH:mm', { locale: es })
+                ? format(new Date(completed_at), 'dd MMM yy', { locale: es })
                 : 'No completada'}
             </p>
           </CardContent>
@@ -130,69 +130,116 @@ export default function AssessmentResults() {
         </Card>
       ) : (
         <>
-          {/* Tabla de factores */}
+          {/* Tabla de factores - versión responsive */}
           <Card>
-            <CardHeader>
+            <CardHeader className="pb-3">
               <CardTitle className="text-lg">Puntuaciones por Factor</CardTitle>
               <CardDescription>
                 Umbral de alerta: &gt; {THRESHOLD_HIGH.toFixed(2)}
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Factor</TableHead>
-                    <TableHead className="text-right">Puntuación</TableHead>
-                    <TableHead className="text-center">Nivel</TableHead>
-                    <TableHead className="text-center">Estado</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {FACTOR_ORDER.filter(code => factorScores[code] !== undefined).map(code => {
-                    const score = factorScores[code];
-                    const level = computeLevel(score);
-                    const alert = isAlert(score);
+            <CardContent className="px-2 sm:px-6">
+              {/* Vista móvil: Cards apiladas */}
+              <div className="space-y-3 md:hidden">
+                {FACTOR_ORDER.filter(code => factorScores[code] !== undefined).map(code => {
+                  const score = factorScores[code];
+                  const level = computeLevel(score);
+                  const alert = isAlert(score);
 
-                    return (
-                      <TableRow key={code}>
-                        <TableCell>
-                          <div>
-                            <span className="font-medium">{code}</span>
-                            <span className="text-muted-foreground ml-2 text-sm">
-                              {FACTOR_LABELS[code]?.label || code}
-                            </span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right font-mono">
+                  return (
+                    <div key={code} className="border rounded-lg p-3 space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <span className="font-semibold text-sm">{code}</span>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {FACTOR_LABELS[code]?.label || code}
+                          </p>
+                        </div>
+                        <span className="font-mono text-lg font-semibold shrink-0">
                           {score.toFixed(2)}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <Badge 
-                            variant="outline" 
-                            className={
-                              level === 'alto' 
-                                ? 'border-destructive text-destructive' 
-                                : level === 'moderado'
-                                  ? 'border-yellow-500 text-yellow-600'
-                                  : 'border-green-500 text-green-600'
-                            }
-                          >
-                            {level.charAt(0).toUpperCase() + level.slice(1)}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-center">
-                          {alert ? (
-                            <Badge variant="destructive">Alerta</Badge>
-                          ) : (
-                            <Badge variant="secondary">OK</Badge>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge 
+                          variant="outline" 
+                          className={
+                            level === 'alto' 
+                              ? 'border-destructive text-destructive' 
+                              : level === 'moderado'
+                                ? 'border-yellow-500 text-yellow-600'
+                                : 'border-green-500 text-green-600'
+                          }
+                        >
+                          {level.charAt(0).toUpperCase() + level.slice(1)}
+                        </Badge>
+                        {alert ? (
+                          <Badge variant="destructive">Alerta</Badge>
+                        ) : (
+                          <Badge variant="secondary">OK</Badge>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Vista desktop: Tabla */}
+              <div className="hidden md:block overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Factor</TableHead>
+                      <TableHead className="text-right">Puntuación</TableHead>
+                      <TableHead className="text-center">Nivel</TableHead>
+                      <TableHead className="text-center">Estado</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {FACTOR_ORDER.filter(code => factorScores[code] !== undefined).map(code => {
+                      const score = factorScores[code];
+                      const level = computeLevel(score);
+                      const alert = isAlert(score);
+
+                      return (
+                        <TableRow key={code}>
+                          <TableCell>
+                            <div>
+                              <span className="font-medium">{code}</span>
+                              <span className="text-muted-foreground ml-2 text-sm">
+                                {FACTOR_LABELS[code]?.label || code}
+                              </span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right font-mono">
+                            {score.toFixed(2)}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Badge 
+                              variant="outline" 
+                              className={
+                                level === 'alto' 
+                                  ? 'border-destructive text-destructive' 
+                                  : level === 'moderado'
+                                    ? 'border-yellow-500 text-yellow-600'
+                                    : 'border-green-500 text-green-600'
+                              }
+                            >
+                              {level.charAt(0).toUpperCase() + level.slice(1)}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            {alert ? (
+                              <Badge variant="destructive">Alerta</Badge>
+                            ) : (
+                              <Badge variant="secondary">OK</Badge>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
               <p className="text-xs text-muted-foreground mt-4 italic text-center">
                 Interpretación automática orientativa. Usar juicio clínico.
               </p>
@@ -236,14 +283,14 @@ export default function AssessmentResults() {
 
                   return (
                     <Card key={code} className="border-l-4 border-l-yellow-500">
-                      <CardHeader>
-                        <CardTitle className="text-base">
-                          {code} — {label}
-                          <Badge variant="destructive" className="ml-2">
+                      <CardHeader className="pb-2 sm:pb-4">
+                        <CardTitle className="text-sm sm:text-base flex flex-wrap items-center gap-2">
+                          <span>{code} — {label}</span>
+                          <Badge variant="destructive" className="text-xs">
                             Alto: {score.toFixed(2)}
                           </Badge>
                         </CardTitle>
-                        <CardDescription>Qué puede estar indicando</CardDescription>
+                        <CardDescription className="text-xs sm:text-sm">Qué puede estar indicando</CardDescription>
                       </CardHeader>
                       <CardContent className="space-y-4">
                         <p className="text-sm">{texts.interpretation}</p>
