@@ -59,32 +59,49 @@ export function useAssessmentDetail(assessmentId: string | undefined) {
           response:assessment_responses(id, answers, factor_scores, flags, created_at)
         `)
         .eq('id', assessmentId)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       if (!data) throw new Error('Evaluación no encontrada');
 
       // Transformar response de array a objeto único (relación 1:1)
-      const response = Array.isArray(data.response) && data.response.length > 0
+      const responseData = Array.isArray(data.response) && data.response.length > 0
         ? data.response[0]
-        : null;
+        : data.response;
+
+      // Parsear JSON fields correctamente
+      const parsedResponse = responseData ? {
+        id: (responseData as any).id,
+        answers: typeof (responseData as any).answers === 'string' 
+          ? JSON.parse((responseData as any).answers) 
+          : (responseData as any).answers || {},
+        factor_scores: typeof (responseData as any).factor_scores === 'string'
+          ? JSON.parse((responseData as any).factor_scores)
+          : (responseData as any).factor_scores || {},
+        flags: typeof (responseData as any).flags === 'string'
+          ? JSON.parse((responseData as any).flags)
+          : (responseData as any).flags || null,
+        created_at: (responseData as any).created_at,
+      } as AssessmentDetailResponse : null;
 
       return {
-        ...data,
+        id: data.id,
+        status: data.status,
+        created_at: data.created_at,
+        sent_at: data.sent_at,
+        completed_at: data.completed_at,
+        expires_at: data.expires_at,
         patient: data.patient as unknown as AssessmentDetailPatient,
         template: {
-          ...data.template,
+          id: (data.template as any)?.id,
+          code: (data.template as any)?.code,
+          name: (data.template as any)?.name,
           items: (data.template as any)?.items || [],
           scoring: (data.template as any)?.scoring || {},
           interpretations: (data.template as any)?.interpretations || null,
         } as AssessmentDetailTemplate,
         professional: data.professional as unknown as { id: string; first_name: string; last_name: string },
-        response: response ? {
-          ...response,
-          answers: (response as any).answers || {},
-          factor_scores: (response as any).factor_scores || {},
-          flags: (response as any).flags || null,
-        } as AssessmentDetailResponse : null,
+        response: parsedResponse,
       } as AssessmentDetail;
     },
     enabled: !!assessmentId,
