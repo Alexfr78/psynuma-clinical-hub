@@ -1,5 +1,6 @@
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { useNavigate } from 'react-router-dom';
 import { Clock, CheckCircle2, XCircle, AlertCircle, MoreVertical, Send, Copy, Eye, Ban } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -21,6 +22,8 @@ interface AssessmentCardProps {
 }
 
 export function AssessmentCard({ assessment, onView, onSend, onRevoke }: AssessmentCardProps) {
+  const navigate = useNavigate();
+
   const getStatusBadge = () => {
     const isExpired = new Date(assessment.expires_at) < new Date() && assessment.status === 'pending';
 
@@ -102,7 +105,7 @@ export function AssessmentCard({ assessment, onView, onSend, onRevoke }: Assessm
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               {assessment.status === 'completed' && (
-                <DropdownMenuItem onClick={() => onView(assessment)}>
+                <DropdownMenuItem onClick={() => navigate(`/evaluaciones/${assessment.id}/resultados`)}>
                   <Eye className="h-4 w-4 mr-2" />
                   Ver resultados
                 </DropdownMenuItem>
