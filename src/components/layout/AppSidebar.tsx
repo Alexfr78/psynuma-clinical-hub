@@ -6,6 +6,7 @@ import {
   UserCog,
   FileText,
   FileSignature,
+  ClipboardCheck,
   Package,
   Receipt,
   CreditCard,
@@ -40,6 +41,7 @@ const mainNavItems = [
   { title: 'Pacientes', url: '/pacientes', icon: Users },
   { title: 'Sesiones', url: '/sesiones', icon: FileText },
   { title: 'Consentimientos', url: '/consentimientos', icon: FileSignature },
+  { title: 'Evaluaciones', url: '/evaluaciones', icon: ClipboardCheck },
 ];
 
 const financeNavItems = [

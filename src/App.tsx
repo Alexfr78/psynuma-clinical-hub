@@ -29,6 +29,8 @@ import PatientPortalDashboard from "./pages/PatientPortalDashboard";
 import InvoiceView from "./pages/InvoiceView";
 import PublicBooking from "./pages/PublicBooking";
 import PublicBookingManage from "./pages/PublicBookingManage";
+import Assessments from "./pages/Assessments";
+import AssessmentPublic from "./pages/AssessmentPublic";
 
 const queryClient = new QueryClient();
 
@@ -54,6 +56,7 @@ const App = () => (
             {/* Public Routes (No Auth Required) */}
             <Route path="/cita/:token" element={<SessionManagement />} />
             <Route path="/consentimiento/:token" element={<ConsentSignature />} />
+            <Route path="/evaluacion/:token" element={<AssessmentPublic />} />
             <Route path="/factura/:token" element={<InvoiceView />} />
             <Route path="/instalar" element={<Install />} />
             <Route path="/portal/:slug" element={<PatientPortal />} />
@@ -128,6 +131,11 @@ const App = () => (
             <Route path="/consentimientos" element={
               <ProtectedRoute>
                 <AppLayout><Consents /></AppLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/evaluaciones" element={
+              <ProtectedRoute>
+                <AppLayout><Assessments /></AppLayout>
               </ProtectedRoute>
             } />
             

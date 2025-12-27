@@ -5,6 +5,7 @@ import { PatientSessions } from './tabs/PatientSessions';
 import { PatientInvoices } from './tabs/PatientInvoices';
 import { PatientBonos } from './tabs/PatientBonos';
 import { PatientConsents } from './tabs/PatientConsents';
+import { PatientAssessments } from './tabs/PatientAssessments';
 import { Patient } from '@/hooks/usePatients';
 
 interface PatientDetailTabsProps {
@@ -29,6 +30,7 @@ export function PatientDetailTabs({ patient }: PatientDetailTabsProps) {
         <TabsTrigger value="invoices" className="text-xs sm:text-sm px-2 sm:px-3">Facturas</TabsTrigger>
         <TabsTrigger value="bonos" className="text-xs sm:text-sm px-2 sm:px-3">Bonos</TabsTrigger>
         <TabsTrigger value="consents" className="text-xs sm:text-sm px-2 sm:px-3 whitespace-nowrap">Consentimientos</TabsTrigger>
+        <TabsTrigger value="assessments" className="text-xs sm:text-sm px-2 sm:px-3">Evaluaciones</TabsTrigger>
       </TabsList>
 
       <TabsContent value="summary">
@@ -53,6 +55,10 @@ export function PatientDetailTabs({ patient }: PatientDetailTabsProps) {
 
       <TabsContent value="consents">
         <PatientConsents patientId={patient.id} patient={patient} />
+      </TabsContent>
+
+      <TabsContent value="assessments">
+        <PatientAssessments patientId={patient.id} />
       </TabsContent>
     </Tabs>
   );
