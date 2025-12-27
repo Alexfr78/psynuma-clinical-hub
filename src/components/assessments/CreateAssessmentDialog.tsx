@@ -21,10 +21,10 @@ export function CreateAssessmentDialog({ open, onOpenChange, preselectedPatientI
   
   const [patientId, setPatientId] = useState(preselectedPatientId || '');
   const [templateId, setTemplateId] = useState('');
-  const [sendVia, setSendVia] = useState<'email' | 'whatsapp' | ''>('');
+  const [sendVia, setSendVia] = useState<'email' | 'whatsapp' | 'none'>('none');
 
   const selectedPatient = patients.find(p => p.id === patientId);
-  const sendTo = sendVia === 'email' ? selectedPatient?.email : selectedPatient?.phone;
+  const sendTo = sendVia === 'email' ? selectedPatient?.email : sendVia === 'whatsapp' ? selectedPatient?.phone : undefined;
 
   const handleSubmit = async () => {
     if (!patientId || !templateId) return;
@@ -32,14 +32,14 @@ export function CreateAssessmentDialog({ open, onOpenChange, preselectedPatientI
     await createAssessment.mutateAsync({
       patient_id: patientId,
       template_id: templateId,
-      sent_via: sendVia || undefined,
+      sent_via: sendVia !== 'none' ? sendVia : undefined,
       sent_to: sendTo || undefined,
     });
 
     onOpenChange(false);
     setPatientId(preselectedPatientId || '');
     setTemplateId('');
-    setSendVia('');
+    setSendVia('none');
   };
 
   return (
@@ -84,17 +84,17 @@ export function CreateAssessmentDialog({ open, onOpenChange, preselectedPatientI
 
           <div className="space-y-2">
             <Label>Enviar por (opcional)</Label>
-            <Select value={sendVia} onValueChange={(v) => setSendVia(v as 'email' | 'whatsapp' | '')}>
+            <Select value={sendVia} onValueChange={(v) => setSendVia(v as 'email' | 'whatsapp' | 'none')}>
               <SelectTrigger>
                 <SelectValue placeholder="Solo generar enlace" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Solo generar enlace</SelectItem>
+                <SelectItem value="none">Solo generar enlace</SelectItem>
                 <SelectItem value="email" disabled={!selectedPatient?.email}>Email</SelectItem>
                 <SelectItem value="whatsapp" disabled={!selectedPatient?.phone}>WhatsApp</SelectItem>
               </SelectContent>
             </Select>
-            {sendVia && sendTo && (
+            {sendVia !== 'none' && sendTo && (
               <p className="text-sm text-muted-foreground">Se enviará a: {sendTo}</p>
             )}
           </div>
