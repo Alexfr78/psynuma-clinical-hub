@@ -9,7 +9,7 @@ import { AssessmentDetailDialog } from '@/components/assessments/AssessmentDetai
 import { SendAssessmentDialog } from '@/components/assessments/SendAssessmentDialog';
 
 export default function Assessments() {
-  const { assessments, isLoading, revokeAssessment } = useAssessments();
+  const { assessments, isLoading, revokeAssessment, deleteAssessment } = useAssessments();
   const [createOpen, setCreateOpen] = useState(false);
   const [viewAssessment, setViewAssessment] = useState<Assessment | null>(null);
   const [sendAssessment, setSendAssessment] = useState<Assessment | null>(null);
@@ -69,6 +69,7 @@ export default function Assessments() {
                   onView={setViewAssessment}
                   onSend={setSendAssessment}
                   onRevoke={(a) => revokeAssessment.mutate(a.id)}
+                  onDelete={(a) => deleteAssessment.mutate(a.id)}
                 />
               ))}
             </div>
@@ -90,6 +91,7 @@ export default function Assessments() {
                   onView={setViewAssessment}
                   onSend={setSendAssessment}
                   onRevoke={(a) => revokeAssessment.mutate(a.id)}
+                  onDelete={(a) => deleteAssessment.mutate(a.id)}
                 />
               ))}
             </div>
@@ -111,6 +113,7 @@ export default function Assessments() {
                   onView={setViewAssessment}
                   onSend={setSendAssessment}
                   onRevoke={(a) => revokeAssessment.mutate(a.id)}
+                  onDelete={(a) => deleteAssessment.mutate(a.id)}
                 />
               ))}
             </div>

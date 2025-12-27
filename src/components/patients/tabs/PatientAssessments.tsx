@@ -12,7 +12,7 @@ interface PatientAssessmentsProps {
 }
 
 export function PatientAssessments({ patientId }: PatientAssessmentsProps) {
-  const { assessments, isLoading, revokeAssessment } = useAssessments(patientId);
+  const { assessments, isLoading, revokeAssessment, deleteAssessment } = useAssessments(patientId);
   const [createOpen, setCreateOpen] = useState(false);
   const [viewAssessment, setViewAssessment] = useState<Assessment | null>(null);
   const [sendAssessment, setSendAssessment] = useState<Assessment | null>(null);
@@ -52,6 +52,7 @@ export function PatientAssessments({ patientId }: PatientAssessmentsProps) {
               onView={setViewAssessment}
               onSend={setSendAssessment}
               onRevoke={(a) => revokeAssessment.mutate(a.id)}
+              onDelete={(a) => deleteAssessment.mutate(a.id)}
             />
           ))}
         </div>
