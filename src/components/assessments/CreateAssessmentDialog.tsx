@@ -15,7 +15,7 @@ interface CreateAssessmentDialogProps {
 }
 
 export function CreateAssessmentDialog({ open, onOpenChange, preselectedPatientId }: CreateAssessmentDialogProps) {
-  const { patients } = usePatients();
+  const { data: patients = [] } = usePatients();
   const { templates } = useAssessmentTemplates();
   const { createAssessment } = useAssessments();
   
