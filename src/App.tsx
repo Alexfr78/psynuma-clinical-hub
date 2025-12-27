@@ -31,6 +31,7 @@ import PublicBooking from "./pages/PublicBooking";
 import PublicBookingManage from "./pages/PublicBookingManage";
 import Assessments from "./pages/Assessments";
 import AssessmentPublic from "./pages/AssessmentPublic";
+import AssessmentResults from "./pages/AssessmentResults";
 
 const queryClient = new QueryClient();
 
@@ -136,6 +137,11 @@ const App = () => (
             <Route path="/evaluaciones" element={
               <ProtectedRoute>
                 <AppLayout><Assessments /></AppLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/evaluaciones/:assessmentId/resultados" element={
+              <ProtectedRoute>
+                <AppLayout><AssessmentResults /></AppLayout>
               </ProtectedRoute>
             } />
             
