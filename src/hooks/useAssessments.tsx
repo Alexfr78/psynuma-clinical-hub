@@ -150,6 +150,34 @@ export function useAssessments(patientId?: string) {
     },
   });
 
+  const deleteAssessment = useMutation({
+    mutationFn: async (id: string) => {
+      // Primero eliminar las respuestas asociadas
+      const { error: responseError } = await supabase
+        .from('assessment_responses')
+        .delete()
+        .eq('assessment_id', id);
+
+      if (responseError) throw responseError;
+
+      // Luego eliminar la evaluación
+      const { error } = await supabase
+        .from('assessments')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['assessments'] });
+      toast.success('Evaluación eliminada');
+    },
+    onError: (error) => {
+      toast.error('Error al eliminar la evaluación');
+      console.error(error);
+    },
+  });
+
   const resendAssessment = useMutation({
     mutationFn: async ({ id, sent_via, sent_to }: { id: string; sent_via: 'email' | 'whatsapp'; sent_to: string }) => {
       const { error } = await supabase
@@ -178,6 +206,7 @@ export function useAssessments(patientId?: string) {
     isLoading,
     createAssessment,
     revokeAssessment,
+    deleteAssessment,
     resendAssessment,
   };
 }
