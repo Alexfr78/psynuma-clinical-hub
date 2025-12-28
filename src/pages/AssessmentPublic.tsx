@@ -81,11 +81,12 @@ export default function AssessmentPublic() {
     );
   }
 
-  const template = assessment.template;
+  const template = Array.isArray(assessment.template)
+    ? (assessment.template as any)[0]
+    : (assessment.template as any);
   const items = template?.items || [];
   const answeredCount = Object.keys(answers).length;
   const isComplete = answeredCount === items.length;
-
   // Dynamic scale settings from template
   const responseMin = template?.response_min ?? 1;
   const responseMax = template?.response_max ?? 7;
