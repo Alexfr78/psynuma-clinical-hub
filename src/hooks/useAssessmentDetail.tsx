@@ -15,6 +15,12 @@ export interface AssessmentDetailTemplate {
   items: { index: number; text: string }[];
   scoring: Record<string, { items: number[]; label: string; description?: string }>;
   interpretations: Record<string, { interpretation: string; intervention: string }> | null;
+  response_min: number;
+  response_max: number;
+  chart_full_mark: number;
+  flag_threshold: number;
+  min_label: string | null;
+  max_label: string | null;
 }
 
 export interface AssessmentDetailResponse {
@@ -54,7 +60,7 @@ export function useAssessmentDetail(assessmentId: string | undefined) {
           completed_at,
           expires_at,
           patient:patients(id, first_name, last_name, email),
-          template:assessment_templates(id, code, name, items, scoring, interpretations),
+          template:assessment_templates(id, code, name, items, scoring, interpretations, response_min, response_max, chart_full_mark, flag_threshold, min_label, max_label),
           professional:profiles(id, first_name, last_name),
           response:assessment_responses(id, answers, factor_scores, flags, created_at)
         `)
@@ -99,6 +105,12 @@ export function useAssessmentDetail(assessmentId: string | undefined) {
           items: (data.template as any)?.items || [],
           scoring: (data.template as any)?.scoring || {},
           interpretations: (data.template as any)?.interpretations || null,
+          response_min: (data.template as any)?.response_min ?? 1,
+          response_max: (data.template as any)?.response_max ?? 7,
+          chart_full_mark: (data.template as any)?.chart_full_mark ?? 7,
+          flag_threshold: (data.template as any)?.flag_threshold ?? 4,
+          min_label: (data.template as any)?.min_label ?? null,
+          max_label: (data.template as any)?.max_label ?? null,
         } as AssessmentDetailTemplate,
         professional: data.professional as unknown as { id: string; first_name: string; last_name: string },
         response: parsedResponse,

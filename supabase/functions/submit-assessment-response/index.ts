@@ -16,6 +16,16 @@ interface Scoring {
   [key: string]: ScoringFactor;
 }
 
+interface TemplateData {
+  id: string;
+  code: string;
+  items: { index: number; text: string }[];
+  scoring: Scoring;
+  response_min: number;
+  response_max: number;
+  flag_threshold: number;
+}
+
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -46,7 +56,7 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Find assessment by token
+    // Find assessment by token - now includes template settings
     const { data: assessment, error: assessmentError } = await supabase
       .from('assessments')
       .select(`
@@ -55,8 +65,12 @@ serve(async (req) => {
         expires_at,
         template:assessment_templates(
           id,
+          code,
           items,
-          scoring
+          scoring,
+          response_min,
+          response_max,
+          flag_threshold
         )
       `)
       .eq('access_token', token)
@@ -97,7 +111,7 @@ serve(async (req) => {
       );
     }
 
-    const template = assessment.template as unknown as { id: string; items: { index: number; text: string }[]; scoring: Scoring };
+    const template = assessment.template as unknown as TemplateData;
     
     if (!template) {
       console.error('Template not found');
@@ -109,8 +123,14 @@ serve(async (req) => {
 
     const items = template.items;
     const scoring = template.scoring;
+    const responseMin = template.response_min ?? 1;
+    const responseMax = template.response_max ?? 7;
+    const flagThreshold = template.flag_threshold ?? 4;
+    const isSCL90 = template.code === 'SCL90_V1';
 
-    // Validate all items are answered with valid values (1-7)
+    console.log(`Processing ${template.code} assessment with response range ${responseMin}-${responseMax}`);
+
+    // Validate all items are answered
     const expectedItems = items.map(i => i.index);
     const answeredItems = Object.keys(answers).map(k => parseInt(k, 10));
     
@@ -123,13 +143,13 @@ serve(async (req) => {
       );
     }
 
-    // Validate values are 1-7
+    // Validate values are within template range
     for (const [key, value] of Object.entries(answers)) {
       const numValue = typeof value === 'number' ? value : parseInt(value as string, 10);
-      if (isNaN(numValue) || numValue < 1 || numValue > 7) {
+      if (isNaN(numValue) || numValue < responseMin || numValue > responseMax) {
         console.error(`Invalid value for item ${key}:`, value);
         return new Response(
-          JSON.stringify({ success: false, error: `Valor inválido para el ítem ${key}. Debe ser entre 1 y 7.` }),
+          JSON.stringify({ success: false, error: `Valor inválido para el ítem ${key}. Debe ser entre ${responseMin} y ${responseMax}.` }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
@@ -151,10 +171,51 @@ serve(async (req) => {
       const mean = sum / factorItems.length;
       factorScores[factorCode] = Math.round(mean * 100) / 100; // 2 decimals
       
-      // Flag if score > 4
-      if (factorScores[factorCode] > 4) {
+      // Flag if score > threshold
+      if (factorScores[factorCode] > flagThreshold) {
         flags[`${factorCode}_high`] = true;
       }
+    }
+
+    // For SCL-90-R, calculate global indices
+    if (isSCL90) {
+      // GSI (Global Severity Index) = mean of all 90 items
+      let totalSum = 0;
+      let positiveCount = 0; // PST - count of items > 0
+      let positiveSum = 0; // sum of items > 0 for PSDI
+
+      for (const item of items) {
+        const value = typeof answers[item.index] === 'number' 
+          ? answers[item.index] 
+          : parseInt(answers[item.index], 10);
+        totalSum += value;
+        if (value > 0) {
+          positiveCount++;
+          positiveSum += value;
+        }
+      }
+
+      // GSI: Global Severity Index
+      factorScores['GSI'] = Math.round((totalSum / 90) * 100) / 100;
+      
+      // PST: Positive Symptom Total (count of items > 0)
+      factorScores['PST'] = positiveCount;
+      
+      // PSDI: Positive Symptom Distress Index (mean of positive items)
+      factorScores['PSDI'] = positiveCount > 0 
+        ? Math.round((positiveSum / positiveCount) * 100) / 100 
+        : 0;
+
+      // Flag global indices if needed
+      if (factorScores['GSI'] > flagThreshold) {
+        flags['GSI_high'] = true;
+      }
+      
+      console.log('SCL-90-R Global indices:', {
+        GSI: factorScores['GSI'],
+        PST: factorScores['PST'],
+        PSDI: factorScores['PSDI']
+      });
     }
 
     console.log('Calculated factor scores:', factorScores);

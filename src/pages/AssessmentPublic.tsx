@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { Loader2, CheckCircle2, AlertCircle, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -9,7 +9,6 @@ import { AssessmentProgress } from '@/components/assessments/AssessmentProgress'
 
 export default function AssessmentPublic() {
   const { token } = useParams<{ token: string }>();
-  const navigate = useNavigate();
   const { assessment, isLoading, error, isExpired, isCompleted, isRevoked, canSubmit, submitResponses } = usePublicAssessment(token);
   const [answers, setAnswers] = useState<Record<number, number>>({});
 
@@ -82,6 +81,12 @@ export default function AssessmentPublic() {
   const answeredCount = Object.keys(answers).length;
   const isComplete = answeredCount === items.length;
 
+  // Dynamic scale settings from template
+  const responseMin = template?.response_min ?? 1;
+  const responseMax = template?.response_max ?? 7;
+  const minLabel = template?.min_label ?? 'Nada de acuerdo';
+  const maxLabel = template?.max_label ?? 'Totalmente de acuerdo';
+
   const handleSubmit = async () => {
     if (!isComplete) return;
     await submitResponses.mutateAsync(answers);
@@ -105,7 +110,7 @@ export default function AssessmentPublic() {
 
         <div className="space-y-6">
           {items.map((item, idx) => (
-            <Card key={item.index} className={answers[item.index] ? 'border-primary/30' : ''}>
+            <Card key={item.index} className={answers[item.index] !== undefined ? 'border-primary/30' : ''}>
               <CardContent className="pt-6">
                 <p className="font-medium mb-4">
                   <span className="text-muted-foreground mr-2">{idx + 1}.</span>
@@ -114,6 +119,10 @@ export default function AssessmentPublic() {
                 <LikertScale
                   value={answers[item.index]}
                   onChange={(value) => setAnswers(prev => ({ ...prev, [item.index]: value }))}
+                  min={responseMin}
+                  max={responseMax}
+                  minLabel={minLabel}
+                  maxLabel={maxLabel}
                   disabled={submitResponses.isPending}
                 />
               </CardContent>

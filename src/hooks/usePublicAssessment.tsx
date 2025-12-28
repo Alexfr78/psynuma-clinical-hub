@@ -10,10 +10,15 @@ export interface PublicAssessment {
   completed_at: string | null;
   template: {
     id: string;
+    code: string;
     name: string;
     instructions: string | null;
     items: { index: number; text: string }[];
     scoring: Record<string, { items: number[]; label: string }>;
+    response_min: number;
+    response_max: number;
+    min_label: string | null;
+    max_label: string | null;
   };
 }
 
@@ -33,7 +38,7 @@ export function usePublicAssessment(token: string | undefined) {
           access_token,
           expires_at,
           completed_at,
-          template:assessment_templates(id, name, instructions, items, scoring)
+          template:assessment_templates(id, code, name, instructions, items, scoring, response_min, response_max, min_label, max_label)
         `)
         .eq('access_token', token)
         .setHeader('x-assessment-token', token)

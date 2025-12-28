@@ -55,45 +55,63 @@ export type Database = {
       assessment_templates: {
         Row: {
           center_id: string
+          chart_full_mark: number
           code: string
           created_at: string
           description: string | null
+          flag_threshold: number
           id: string
           instructions: string | null
           interpretations: Json | null
           is_active: boolean
           items: Json
+          max_label: string | null
+          min_label: string | null
           name: string
+          response_max: number
+          response_min: number
           scoring: Json
           updated_at: string
           version: number
         }
         Insert: {
           center_id: string
+          chart_full_mark?: number
           code: string
           created_at?: string
           description?: string | null
+          flag_threshold?: number
           id?: string
           instructions?: string | null
           interpretations?: Json | null
           is_active?: boolean
           items: Json
+          max_label?: string | null
+          min_label?: string | null
           name: string
+          response_max?: number
+          response_min?: number
           scoring: Json
           updated_at?: string
           version?: number
         }
         Update: {
           center_id?: string
+          chart_full_mark?: number
           code?: string
           created_at?: string
           description?: string | null
+          flag_threshold?: number
           id?: string
           instructions?: string | null
           interpretations?: Json | null
           is_active?: boolean
           items?: Json
+          max_label?: string | null
+          min_label?: string | null
           name?: string
+          response_max?: number
+          response_min?: number
           scoring?: Json
           updated_at?: string
           version?: number
