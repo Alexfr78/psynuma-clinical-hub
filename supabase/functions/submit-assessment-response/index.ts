@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { sendAdminAlert, buildAlertMessage } from "../_shared/adminAlerts.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -196,6 +197,44 @@ serve(async (req) => {
         JSON.stringify({ success: false, error: 'Error al actualizar el estado' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+    }
+
+    // Get assessment details for alert
+    const { data: assessmentDetails } = await supabase
+      .from('assessments')
+      .select('center_id, patient_id, professional_id, template:assessment_templates(name)')
+      .eq('id', assessment.id)
+      .single();
+
+    if (assessmentDetails) {
+      const { data: patientData } = await supabase
+        .from('patients')
+        .select('first_name, last_name, email')
+        .eq('id', assessmentDetails.patient_id)
+        .single();
+
+      if (patientData) {
+        const templateName = Array.isArray(assessmentDetails.template) 
+          ? assessmentDetails.template[0]?.name 
+          : (assessmentDetails.template as any)?.name || 'Evaluación';
+
+        const alertMessage = buildAlertMessage({
+          eventType: 'Evaluación completada por el paciente',
+          patientName: `${patientData.first_name} ${patientData.last_name}`,
+          patientEmail: patientData.email,
+          testName: templateName,
+        });
+
+        await sendAdminAlert({
+          supabase,
+          centerId: assessmentDetails.center_id,
+          eventKey: 'assessment_completed',
+          subject: `Evaluación completada — ${patientData.first_name} ${patientData.last_name} — ${templateName}`,
+          message: alertMessage,
+          patientId: assessmentDetails.patient_id,
+          professionalId: assessmentDetails.professional_id,
+        });
+      }
     }
 
     console.log('Assessment completed successfully:', assessment.id);

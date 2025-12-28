@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { sendAdminAlert, buildAlertMessage } from "../_shared/adminAlerts.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -73,11 +74,19 @@ serve(async (req) => {
           .single();
 
         if (sessionData) {
-          // Create payment record
-          const { error: paymentError } = await supabase
-            .from('payments')
-            .insert({
-              patient_id: sessionData.patient_id,
+          // Get more session details for alert
+          const { data: fullSession } = await supabase
+            .from('sessions')
+            .select('session_date, start_time, professional_id')
+            .eq('id', sessionId)
+            .single();
+
+          // Get patient info
+          const { data: patientData } = await supabase
+            .from('patients')
+            .select('first_name, last_name, email')
+            .eq('id', sessionData.patient_id)
+            .single();
               center_id: sessionData.center_id,
               session_id: sessionId,
               amount: sessionData.price,

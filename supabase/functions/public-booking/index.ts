@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { sendAdminAlert, buildAlertMessage } from "../_shared/adminAlerts.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -1132,20 +1133,39 @@ serve(async (req) => {
         );
       }
 
-      // Create notification if pending approval
-      if (status === "pending_approval") {
-        const patientName = `${patient.firstName} ${patient.lastName}`;
-        await supabase.from("notifications").insert({
-          center_id: center.id,
-          patient_id: patientId,
-          session_id: newSession.id,
-          type: "email",
-          recipient: "",
-          subject: "Nueva solicitud de cita (reserva pública)",
-          message: `${patientName} ha solicitado una cita para el ${sessionDate} a las ${startTime}. Revisa y aprueba o rechaza.`,
-          status: "pending",
-        });
-      }
+      // Send admin alert for new booking (replaces the empty recipient notification)
+      const prof = Array.isArray(newSession.professional) ? newSession.professional[0] : newSession.professional;
+      const loc = Array.isArray(newSession.location) ? newSession.location[0] : newSession.location;
+      const professionalName = prof ? `${prof.first_name} ${prof.last_name}` : 'Sin asignar';
+      const locationName = loc?.name || 'Sin especificar';
+      
+      const alertSubject = status === "pending_approval" 
+        ? `Nueva solicitud de cita — ${patient.firstName} ${patient.lastName} — ${sessionDate} ${startTime}`
+        : `Nueva cita reservada — ${patient.firstName} ${patient.lastName} — ${sessionDate} ${startTime}`;
+      
+      const alertMessage = buildAlertMessage({
+        eventType: status === "pending_approval" ? 'Nueva solicitud de cita (reserva pública)' : 'Nueva cita reservada (reserva pública)',
+        patientName: `${patient.firstName} ${patient.lastName}`,
+        patientEmail: patient.email,
+        patientPhone: patient.phone,
+        sessionDate: sessionDate,
+        sessionTime: startTime,
+        professionalName,
+        modality: sessionModality,
+        locationName,
+        status: status === "pending_approval" ? 'Pendiente de aprobación' : 'Confirmada',
+      });
+
+      await sendAdminAlert({
+        supabase,
+        centerId: center.id,
+        eventKey: 'booking_created',
+        subject: alertSubject,
+        message: alertMessage,
+        patientId,
+        sessionId: newSession.id,
+        professionalId: finalProfessionalId,
+      });
 
       // Generate booking token
       const bookingToken = generateBookingToken(newSession.id, patientId, center.id);
@@ -1294,6 +1314,42 @@ serve(async (req) => {
           JSON.stringify({ error: "Error al cancelar la cita" }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
+      }
+
+      // Get patient and professional info for alert
+      const { data: patientData } = await supabase
+        .from("patients")
+        .select("first_name, last_name, email, phone")
+        .eq("id", session.patient_id)
+        .single();
+
+      const { data: sessionFull } = await supabase
+        .from("sessions")
+        .select("professional_id, center_id")
+        .eq("id", session.id)
+        .single();
+
+      if (patientData && sessionFull) {
+        const alertMessage = buildAlertMessage({
+          eventType: 'Cita cancelada por el cliente (reserva pública)',
+          patientName: `${patientData.first_name} ${patientData.last_name}`,
+          patientEmail: patientData.email,
+          patientPhone: patientData.phone,
+          sessionDate: session.session_date,
+          sessionTime: session.start_time,
+          details: reason || 'Sin motivo especificado',
+        });
+
+        await sendAdminAlert({
+          supabase,
+          centerId: sessionFull.center_id,
+          eventKey: 'booking_cancelled',
+          subject: `Cita cancelada — ${patientData.first_name} ${patientData.last_name} — ${session.session_date} ${session.start_time}`,
+          message: alertMessage,
+          patientId: session.patient_id,
+          sessionId: session.id,
+          professionalId: sessionFull.professional_id,
+        });
       }
 
       console.log(`[cancel-booking] success sessionId=${session.id}`);
@@ -1506,6 +1562,36 @@ serve(async (req) => {
           JSON.stringify({ error: "Error al reprogramar la cita" }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
+      }
+
+      // Get patient info for alert
+      const { data: patientData } = await supabase
+        .from("patients")
+        .select("first_name, last_name, email")
+        .eq("id", session.patient_id)
+        .single();
+
+      if (patientData && tokenData.centerId) {
+        const alertMessage = buildAlertMessage({
+          eventType: 'Cita reprogramada por el cliente (reserva pública)',
+          patientName: `${patientData.first_name} ${patientData.last_name}`,
+          patientEmail: patientData.email,
+          oldDate: session.session_date,
+          oldTime: session.start_time,
+          newDate: newDate,
+          newTime: newStartTime,
+        });
+
+        await sendAdminAlert({
+          supabase,
+          centerId: tokenData.centerId,
+          eventKey: 'booking_rescheduled',
+          subject: `Cita reprogramada — ${patientData.first_name} ${patientData.last_name}`,
+          message: alertMessage,
+          patientId: session.patient_id,
+          sessionId: session.id,
+          professionalId: session.professional_id,
+        });
       }
 
       console.log(`[reschedule-booking] success sessionId=${session.id} newDate=${newDate}`);
