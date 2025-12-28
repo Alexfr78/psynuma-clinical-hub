@@ -195,8 +195,8 @@ serve(async (req) => {
         }
       }
 
-      // GSI: Global Severity Index
-      factorScores['GSI'] = Math.round((totalSum / 90) * 100) / 100;
+      // GSI: Global Severity Index (use actual item count for safety)
+      factorScores['GSI'] = Math.round((totalSum / items.length) * 100) / 100;
       
       // PST: Positive Symptom Total (count of items > 0)
       factorScores['PST'] = positiveCount;
