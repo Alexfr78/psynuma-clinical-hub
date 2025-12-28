@@ -130,15 +130,23 @@ export async function sendAdminAlert(params: AdminAlertParams): Promise<AdminAle
       }
 
       // Invoke send-notification immediately
-      const { error: invokeError } = await supabase.functions.invoke('send-notification', {
+      const { data: sendResult, error: invokeError } = await supabase.functions.invoke('send-notification', {
         body: { notificationId: notification.id },
       });
 
       if (invokeError) {
-        console.error(`[adminAlerts] Failed to send notification ${notification.id}:`, invokeError);
-      } else {
-        console.log(`[adminAlerts] Sent notification ${notification.id} to ${recipient}`);
+        console.error(`[adminAlerts] Failed to invoke send-notification for ${notification.id}:`, invokeError);
+        continue;
+      }
+
+      // Check the actual result from send-notification
+      if (sendResult?.ok === true) {
+        const providerMsgId = sendResult.results?.[0]?.providerMessageId || 'unknown';
+        console.log(`[adminAlerts] Successfully sent notification ${notification.id} to ${recipient}. Provider ID: ${providerMsgId}`);
         sentTo.push(recipient);
+      } else {
+        const errorDetail = sendResult?.results?.[0]?.error || sendResult?.error || 'Unknown error';
+        console.error(`[adminAlerts] send-notification returned failure for ${notification.id}: ${errorDetail}`);
       }
     } catch (err) {
       console.error(`[adminAlerts] Error processing recipient ${recipient}:`, err);
