@@ -87,6 +87,12 @@ serve(async (req) => {
             .select('first_name, last_name, email')
             .eq('id', sessionData.patient_id)
             .single();
+
+          // Create payment record
+          const { error: paymentError } = await supabase
+            .from('payments')
+            .insert({
+              patient_id: sessionData.patient_id,
               center_id: sessionData.center_id,
               session_id: sessionId,
               amount: sessionData.price,
