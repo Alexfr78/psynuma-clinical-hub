@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { Loader2, CheckCircle2, AlertCircle, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -11,6 +11,11 @@ export default function AssessmentPublic() {
   const { token } = useParams<{ token: string }>();
   const { assessment, isLoading, error, isExpired, isCompleted, isRevoked, canSubmit, submitResponses } = usePublicAssessment(token);
   const [answers, setAnswers] = useState<Record<number, number>>({});
+
+  // Reset answers when assessment changes (different token/template)
+  useEffect(() => {
+    setAnswers({});
+  }, [assessment?.id]);
 
   if (isLoading) {
     return (
