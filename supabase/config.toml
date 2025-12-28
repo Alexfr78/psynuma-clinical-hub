@@ -7,7 +7,7 @@ verify_jwt = true
 verify_jwt = false
 
 [functions.send-notification]
-verify_jwt = true
+verify_jwt = false
 
 [functions.generate-invoice-pdf]
 verify_jwt = true
