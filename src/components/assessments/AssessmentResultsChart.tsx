@@ -18,21 +18,42 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 interface AssessmentResultsChartProps {
   factorScores: Record<string, number>;
   scoring: Record<string, { label: string; description?: string }>;
+  fullMark?: number;
 }
 
-export function AssessmentResultsChart({ factorScores, scoring }: AssessmentResultsChartProps) {
-  const data = Object.entries(factorScores).map(([code, score]) => ({
+export function AssessmentResultsChart({ factorScores, scoring, fullMark = 7 }: AssessmentResultsChartProps) {
+  // Filter out global indices for main chart (PST can be very high numbers)
+  const chartFactors = Object.entries(factorScores).filter(([code]) => 
+    code !== 'PST' && code !== 'PSDI' && code !== 'GSI'
+  );
+
+  const data = chartFactors.map(([code, score]) => ({
     factor: code,
     label: scoring[code]?.label || code,
     score,
-    fullMark: 7,
+    fullMark,
   }));
 
-  const getBarColor = (score: number) => {
-    if (score > 5) return 'hsl(0, 84%, 60%)'; // Red - high concern
-    if (score > 4) return 'hsl(38, 92%, 50%)'; // Orange - moderate
-    if (score > 3) return 'hsl(48, 96%, 53%)'; // Yellow - low-moderate
+  const getBarColor = (score: number, maxScore: number) => {
+    const ratio = score / maxScore;
+    if (ratio > 0.75) return 'hsl(0, 84%, 60%)'; // Red - high concern
+    if (ratio > 0.5) return 'hsl(38, 92%, 50%)'; // Orange - moderate
+    if (ratio > 0.35) return 'hsl(48, 96%, 53%)'; // Yellow - low-moderate
     return 'hsl(142, 76%, 36%)'; // Green - healthy
+  };
+
+  // Dynamic legend based on fullMark
+  const getLegendLabels = (maxScore: number) => {
+    const q1 = Math.round(maxScore * 0.35 * 10) / 10;
+    const q2 = Math.round(maxScore * 0.5 * 10) / 10;
+    const q3 = Math.round(maxScore * 0.75 * 10) / 10;
+    
+    return [
+      { color: 'hsl(142, 76%, 36%)', label: `Bajo (≤${q1})` },
+      { color: 'hsl(48, 96%, 53%)', label: `Moderado (${q1}-${q2})` },
+      { color: 'hsl(38, 92%, 50%)', label: `Elevado (${q2}-${q3})` },
+      { color: 'hsl(0, 84%, 60%)', label: `Alto (>${q3})` },
+    ];
   };
 
   return (
@@ -53,7 +74,7 @@ export function AssessmentResultsChart({ factorScores, scoring }: AssessmentResu
               />
               <PolarRadiusAxis
                 angle={30}
-                domain={[0, 7]}
+                domain={[0, fullMark]}
                 tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
               />
               <Radar
@@ -76,7 +97,7 @@ export function AssessmentResultsChart({ factorScores, scoring }: AssessmentResu
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
               <XAxis
                 type="number"
-                domain={[0, 7]}
+                domain={[0, fullMark]}
                 tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
               />
               <YAxis
@@ -95,29 +116,19 @@ export function AssessmentResultsChart({ factorScores, scoring }: AssessmentResu
               />
               <Bar dataKey="score" radius={[0, 4, 4, 0]}>
                 {data.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={getBarColor(entry.score)} />
+                  <Cell key={`cell-${index}`} fill={getBarColor(entry.score, fullMark)} />
                 ))}
               </Bar>
             </BarChart>
           </ResponsiveContainer>
         </div>
-        <div className="flex justify-center gap-4 mt-4 text-xs">
-          <div className="flex items-center gap-1">
-            <div className="w-3 h-3 rounded" style={{ backgroundColor: 'hsl(142, 76%, 36%)' }} />
-            <span>Saludable (≤3)</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <div className="w-3 h-3 rounded" style={{ backgroundColor: 'hsl(48, 96%, 53%)' }} />
-            <span>Moderado (3-4)</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <div className="w-3 h-3 rounded" style={{ backgroundColor: 'hsl(38, 92%, 50%)' }} />
-            <span>Elevado (4-5)</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <div className="w-3 h-3 rounded" style={{ backgroundColor: 'hsl(0, 84%, 60%)' }} />
-            <span>Alto (&gt;5)</span>
-          </div>
+        <div className="flex flex-wrap justify-center gap-4 mt-4 text-xs">
+          {getLegendLabels(fullMark).map((item, idx) => (
+            <div key={idx} className="flex items-center gap-1">
+              <div className="w-3 h-3 rounded" style={{ backgroundColor: item.color }} />
+              <span>{item.label}</span>
+            </div>
+          ))}
         </div>
       </TabsContent>
     </Tabs>

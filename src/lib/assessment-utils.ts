@@ -2,8 +2,9 @@
 export const THRESHOLD_HIGH = 4.00;
 export const THRESHOLD_MODERATE = 3.00;
 
-// Mapeo de factores a labels completos
+// Mapeo de factores a labels completos - SELFCARE
 export const FACTOR_LABELS: Record<string, { label: string; description: string }> = {
+  // SELFCARE factors
   AD: { 
     label: 'Conducta Autodestructiva', 
     description: 'Patrón de autocuidado invertido' 
@@ -28,10 +29,61 @@ export const FACTOR_LABELS: Record<string, { label: string; description: string 
     label: 'No atender las propias necesidades', 
     description: 'Prioriza necesidades ajenas' 
   },
+  // SCL-90-R factors
+  SOM: { 
+    label: 'Somatización', 
+    description: 'Síntomas somáticos y físicos' 
+  },
+  OBS: { 
+    label: 'Obsesión-Compulsión', 
+    description: 'Pensamientos y conductas obsesivas' 
+  },
+  SEN: { 
+    label: 'Sensibilidad Interpersonal', 
+    description: 'Sentimientos de inadecuación' 
+  },
+  DEP: { 
+    label: 'Depresión', 
+    description: 'Síntomas depresivos' 
+  },
+  ANS: { 
+    label: 'Ansiedad', 
+    description: 'Síntomas de ansiedad' 
+  },
+  HOS: { 
+    label: 'Hostilidad', 
+    description: 'Pensamientos y conductas hostiles' 
+  },
+  FOB: { 
+    label: 'Ansiedad Fóbica', 
+    description: 'Miedos fóbicos' 
+  },
+  PAR: { 
+    label: 'Ideación Paranoide', 
+    description: 'Suspicacia y desconfianza' 
+  },
+  PSI: { 
+    label: 'Psicoticismo', 
+    description: 'Síntomas psicóticos' 
+  },
+  // SCL-90-R Global indices
+  GSI: { 
+    label: 'Índice de Severidad Global', 
+    description: 'Media de todos los ítems' 
+  },
+  PST: { 
+    label: 'Total de Síntomas Positivos', 
+    description: 'Número de síntomas presentes' 
+  },
+  PSDI: { 
+    label: 'Índice de Malestar de Síntomas Positivos', 
+    description: 'Intensidad promedio de síntomas presentes' 
+  },
 };
 
 // Textos exactos de interpretación e intervención para cada factor
 export const INTERPRETATION_TEXTS: Record<string, { interpretation: string; interventions: string[] }> = {
+  // SELFCARE interpretations
   AD: {
     interpretation: 'Patrón de autocuidado invertido: cuando se encuentra peor, tiende a tratarse peor. Puede haber rabia dirigida hacia sí mismo y una voz crítica interiorizada.',
     interventions: [
@@ -86,39 +138,154 @@ export const INTERPRETATION_TEXTS: Record<string, { interpretation: string; inte
       'Ensayar frases y conductas de protección del espacio personal.',
     ],
   },
+  // SCL-90-R interpretations
+  SOM: {
+    interpretation: 'Elevado nivel de síntomas somáticos. Puede indicar somatización de la ansiedad o malestar emocional expresado a través del cuerpo.',
+    interventions: [
+      'Psicoeducación sobre la conexión mente-cuerpo.',
+      'Técnicas de relajación y respiración.',
+      'Explorar factores emocionales asociados a los síntomas.',
+      'Valorar derivación médica si procede.',
+    ],
+  },
+  OBS: {
+    interpretation: 'Presencia significativa de pensamientos intrusivos, compulsiones o dificultad para soltar ideas. Puede afectar la funcionalidad diaria.',
+    interventions: [
+      'Técnicas de exposición con prevención de respuesta (si TOC).',
+      'Reestructuración cognitiva de pensamientos obsesivos.',
+      'Mindfulness para desapego de pensamientos.',
+      'Valorar tratamiento farmacológico si severidad alta.',
+    ],
+  },
+  SEN: {
+    interpretation: 'Alta sensibilidad al rechazo y evaluación negativa de los demás. Sentimientos de inadecuación e inferioridad en contextos sociales.',
+    interventions: [
+      'Trabajo con autoestima y autoimagen.',
+      'Exposición gradual a situaciones sociales temidas.',
+      'Reestructuración de creencias sobre evaluación social.',
+      'Entrenamiento en habilidades sociales.',
+    ],
+  },
+  DEP: {
+    interpretation: 'Síntomas depresivos significativos: bajo estado de ánimo, pérdida de interés, fatiga, pensamientos negativos sobre sí mismo y el futuro.',
+    interventions: [
+      'Activación conductual gradual.',
+      'Reestructuración de pensamientos negativos automáticos.',
+      'Evaluar ideación autolítica y establecer plan de seguridad si precisa.',
+      'Valorar tratamiento farmacológico.',
+    ],
+  },
+  ANS: {
+    interpretation: 'Elevados niveles de ansiedad: nerviosismo, tensión, síntomas de pánico. Puede estar afectando la funcionalidad.',
+    interventions: [
+      'Psicoeducación sobre la respuesta de ansiedad.',
+      'Técnicas de relajación y respiración diafragmática.',
+      'Exposición gradual a situaciones evitadas.',
+      'Reestructuración de pensamientos catastróficos.',
+    ],
+  },
+  HOS: {
+    interpretation: 'Presencia de hostilidad, irritabilidad e ira. Puede manifestarse en pensamientos agresivos o dificultad para controlar impulsos.',
+    interventions: [
+      'Técnicas de control de la ira.',
+      'Identificar desencadenantes y señales de alerta.',
+      'Entrenamiento en comunicación asertiva.',
+      'Explorar fuentes subyacentes de frustración.',
+    ],
+  },
+  FOB: {
+    interpretation: 'Miedos fóbicos significativos: agorafobia, fobias sociales o específicas que limitan el funcionamiento.',
+    interventions: [
+      'Jerarquía de exposición gradual.',
+      'Técnicas de afrontamiento en situaciones temidas.',
+      'Reestructuración de creencias sobre el peligro.',
+      'Considerar EMDR si hay trauma asociado.',
+    ],
+  },
+  PAR: {
+    interpretation: 'Tendencia a la suspicacia, desconfianza hacia los demás, sensación de que otros hablan mal o tienen intenciones hostiles.',
+    interventions: [
+      'Explorar experiencias pasadas de traición o daño.',
+      'Trabajo con distorsiones cognitivas (lectura de mente, personalización).',
+      'Construir experiencias relacionales seguras.',
+      'Evaluar contexto actual de relaciones.',
+    ],
+  },
+  PSI: {
+    interpretation: 'Presencia de síntomas del espectro psicótico: experiencias inusuales, pensamiento mágico, aislamiento, despersonalización.',
+    interventions: [
+      'Evaluación exhaustiva de síntomas psicóticos.',
+      'Valorar derivación a psiquiatría.',
+      'Trabajo con síntomas disociativos si presentes.',
+      'Intervención temprana si síndrome prodrómico.',
+    ],
+  },
+  GSI: {
+    interpretation: 'El Índice de Severidad Global indica el nivel medio de malestar. Valores elevados sugieren alta sintomatología general.',
+    interventions: [
+      'Priorizar áreas de mayor malestar.',
+      'Establecer plan terapéutico integral.',
+      'Considerar apoyo farmacológico si severidad alta.',
+      'Seguimiento frecuente de evolución.',
+    ],
+  },
 };
 
-// Orden canónico de factores para visualización consistente
+// Orden canónico de factores para visualización consistente - SELFCARE
 export const FACTOR_ORDER = ['AD', 'TA', 'PA', 'R', 'NP', 'NN'];
 
+// Orden canónico de factores para SCL-90-R
+export const SCL90_FACTOR_ORDER = ['SOM', 'OBS', 'SEN', 'DEP', 'ANS', 'HOS', 'FOB', 'PAR', 'PSI'];
+export const SCL90_GLOBAL_ORDER = ['GSI', 'PST', 'PSDI'];
+
+// Función para obtener el orden correcto según el código de plantilla
+export function getFactorOrder(templateCode: string): string[] {
+  if (templateCode === 'SCL90_V1') {
+    return SCL90_FACTOR_ORDER;
+  }
+  return FACTOR_ORDER;
+}
+
 // Función para calcular nivel según puntuación
-export function computeLevel(score: number): 'bajo' | 'moderado' | 'alto' {
-  if (score > THRESHOLD_HIGH) return 'alto';
-  if (score > THRESHOLD_MODERATE) return 'moderado';
+export function computeLevel(score: number, threshold?: number): 'bajo' | 'moderado' | 'alto' {
+  const high = threshold ?? THRESHOLD_HIGH;
+  const moderate = threshold ? threshold * 0.75 : THRESHOLD_MODERATE;
+  if (score > high) return 'alto';
+  if (score > moderate) return 'moderado';
   return 'bajo';
 }
 
 // Función para determinar si un factor está en alerta
-export function isAlert(score: number): boolean {
-  return score > THRESHOLD_HIGH;
+export function isAlert(score: number, threshold?: number): boolean {
+  return score > (threshold ?? THRESHOLD_HIGH);
 }
 
 // Función para obtener factores en alerta ordenados
-export function getHighFactors(factorScores: Record<string, number>): { code: string; score: number }[] {
-  return FACTOR_ORDER
-    .filter(code => factorScores[code] !== undefined && isAlert(factorScores[code]))
+export function getHighFactors(
+  factorScores: Record<string, number>, 
+  templateCode?: string,
+  threshold?: number
+): { code: string; score: number }[] {
+  const order = templateCode ? getFactorOrder(templateCode) : FACTOR_ORDER;
+  const alertThreshold = threshold ?? THRESHOLD_HIGH;
+  
+  return order
+    .filter(code => factorScores[code] !== undefined && isAlert(factorScores[code], alertThreshold))
     .map(code => ({ code, score: factorScores[code] }))
     .sort((a, b) => b.score - a.score);
 }
 
 // Función para formatear datos para el gráfico
-export function formatChartData(factorScores: Record<string, number>) {
-  return FACTOR_ORDER
+export function formatChartData(factorScores: Record<string, number>, templateCode?: string, fullMark?: number) {
+  const order = templateCode ? getFactorOrder(templateCode) : FACTOR_ORDER;
+  const maxValue = fullMark ?? 7;
+  
+  return order
     .filter(code => factorScores[code] !== undefined)
     .map(code => ({
       factor: code,
       label: FACTOR_LABELS[code]?.label || code,
       score: factorScores[code],
-      fullMark: 7,
+      fullMark: maxValue,
     }));
 }

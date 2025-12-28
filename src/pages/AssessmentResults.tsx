@@ -1,7 +1,7 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { ArrowLeft, User, Calendar, FileText, CheckCircle2, AlertTriangle, Loader2 } from 'lucide-react';
+import { ArrowLeft, User, Calendar, FileText, CheckCircle2, AlertTriangle, Loader2, Activity } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -11,9 +11,10 @@ import { useAssessmentDetail } from '@/hooks/useAssessmentDetail';
 import { AssessmentResultsChart } from '@/components/assessments/AssessmentResultsChart';
 import {
   FACTOR_LABELS,
-  FACTOR_ORDER,
   INTERPRETATION_TEXTS,
-  THRESHOLD_HIGH,
+  SCL90_FACTOR_ORDER,
+  SCL90_GLOBAL_ORDER,
+  getFactorOrder,
   computeLevel,
   isAlert,
   getHighFactors,
@@ -53,7 +54,13 @@ export default function AssessmentResults() {
   const { patient, template, response, completed_at, status } = assessment;
   const factorScores = response?.factor_scores || {};
   const answers = response?.answers || {};
-  const highFactors = getHighFactors(factorScores);
+  const templateCode = template.code;
+  const isSCL90 = templateCode === 'SCL90_V1';
+  const flagThreshold = template.flag_threshold;
+  const chartFullMark = template.chart_full_mark;
+  
+  const factorOrder = getFactorOrder(templateCode);
+  const highFactors = getHighFactors(factorScores, templateCode, flagThreshold);
   const hasResults = Object.keys(factorScores).length > 0;
 
   return (
@@ -130,21 +137,58 @@ export default function AssessmentResults() {
         </Card>
       ) : (
         <>
+          {/* Índices globales para SCL-90-R */}
+          {isSCL90 && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Activity className="h-5 w-5" />
+                  Índices Globales
+                </CardTitle>
+                <CardDescription>
+                  Indicadores generales del SCL-90-R
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {SCL90_GLOBAL_ORDER.map(code => {
+                    const score = factorScores[code];
+                    if (score === undefined) return null;
+                    const label = FACTOR_LABELS[code];
+                    const isPST = code === 'PST';
+                    
+                    return (
+                      <div key={code} className="border rounded-lg p-4 text-center">
+                        <p className="text-sm text-muted-foreground mb-1">{label?.label || code}</p>
+                        <p className="text-3xl font-bold">
+                          {isPST ? Math.round(score) : score.toFixed(2)}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {label?.description}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Tabla de factores - versión responsive */}
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-lg">Puntuaciones por Factor</CardTitle>
+              <CardTitle className="text-lg">Puntuaciones por {isSCL90 ? 'Dimensión' : 'Factor'}</CardTitle>
               <CardDescription>
-                Umbral de alerta: &gt; {THRESHOLD_HIGH.toFixed(2)}
+                Umbral de alerta: &gt; {flagThreshold.toFixed(2)} | Escala: 0-{chartFullMark}
               </CardDescription>
             </CardHeader>
             <CardContent className="px-2 sm:px-6">
               {/* Vista móvil: Cards apiladas */}
               <div className="space-y-3 md:hidden">
-                {FACTOR_ORDER.filter(code => factorScores[code] !== undefined).map(code => {
+                {factorOrder.filter(code => factorScores[code] !== undefined).map(code => {
                   const score = factorScores[code];
-                  const level = computeLevel(score);
-                  const alert = isAlert(score);
+                  const level = computeLevel(score, flagThreshold);
+                  const alert = isAlert(score, flagThreshold);
 
                   return (
                     <div key={code} className="border rounded-lg p-3 space-y-2">
@@ -188,17 +232,17 @@ export default function AssessmentResults() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Factor</TableHead>
+                      <TableHead>{isSCL90 ? 'Dimensión' : 'Factor'}</TableHead>
                       <TableHead className="text-right">Puntuación</TableHead>
                       <TableHead className="text-center">Nivel</TableHead>
                       <TableHead className="text-center">Estado</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {FACTOR_ORDER.filter(code => factorScores[code] !== undefined).map(code => {
+                    {factorOrder.filter(code => factorScores[code] !== undefined).map(code => {
                       const score = factorScores[code];
-                      const level = computeLevel(score);
-                      const alert = isAlert(score);
+                      const level = computeLevel(score, flagThreshold);
+                      const alert = isAlert(score, flagThreshold);
 
                       return (
                         <TableRow key={code}>
@@ -255,6 +299,7 @@ export default function AssessmentResults() {
               <AssessmentResultsChart
                 factorScores={factorScores}
                 scoring={template.scoring}
+                fullMark={chartFullMark}
               />
             </CardContent>
           </Card>
@@ -269,7 +314,7 @@ export default function AssessmentResults() {
             {highFactors.length === 0 ? (
               <Card>
                 <CardContent className="py-6 text-center text-muted-foreground">
-                  No hay factores por encima del umbral de alerta (&gt;{THRESHOLD_HIGH.toFixed(2)}). 
+                  No hay {isSCL90 ? 'dimensiones' : 'factores'} por encima del umbral de alerta (&gt;{flagThreshold.toFixed(2)}). 
                   Revisa tendencias y contexto clínico.
                 </CardContent>
               </Card>
