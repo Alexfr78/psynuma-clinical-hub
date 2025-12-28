@@ -45,7 +45,13 @@ export function usePublicAssessment(token: string | undefined) {
         .single();
 
       if (error) throw error;
-      return data as unknown as PublicAssessment;
+
+      // PostgREST may return embedded relations as an array depending on relationship metadata.
+      // Normalize to an object so the public page can reliably read template.response_min/max.
+      const raw = data as any;
+      const template = Array.isArray(raw?.template) ? raw.template[0] : raw?.template;
+
+      return { ...raw, template } as PublicAssessment;
     },
     enabled: !!token,
   });
