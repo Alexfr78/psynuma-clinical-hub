@@ -667,6 +667,10 @@ export type Database = {
         Row: {
           address: string | null
           address_details: string | null
+          admin_alerts_emails: string | null
+          admin_alerts_enabled: boolean | null
+          admin_alerts_events: Json | null
+          admin_alerts_include_professional: boolean | null
           agenda_show_weekends: boolean | null
           auto_invoicing_enabled: boolean | null
           city: string | null
@@ -735,6 +739,10 @@ export type Database = {
         Insert: {
           address?: string | null
           address_details?: string | null
+          admin_alerts_emails?: string | null
+          admin_alerts_enabled?: boolean | null
+          admin_alerts_events?: Json | null
+          admin_alerts_include_professional?: boolean | null
           agenda_show_weekends?: boolean | null
           auto_invoicing_enabled?: boolean | null
           city?: string | null
@@ -803,6 +811,10 @@ export type Database = {
         Update: {
           address?: string | null
           address_details?: string | null
+          admin_alerts_emails?: string | null
+          admin_alerts_enabled?: boolean | null
+          admin_alerts_events?: Json | null
+          admin_alerts_include_professional?: boolean | null
           agenda_show_weekends?: boolean | null
           auto_invoicing_enabled?: boolean | null
           city?: string | null

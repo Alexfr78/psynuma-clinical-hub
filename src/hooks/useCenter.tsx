@@ -82,6 +82,12 @@ export interface Center {
   session_reminder_channels: any;
   // Agenda settings
   agenda_show_weekends: boolean | null;
+  // Admin alert settings
+  admin_alerts_enabled: boolean | null;
+  admin_alerts_emails: string | null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  admin_alerts_events: any;
+  admin_alerts_include_professional: boolean | null;
   created_at: string;
   updated_at: string;
 }

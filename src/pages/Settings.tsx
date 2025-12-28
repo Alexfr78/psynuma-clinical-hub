@@ -60,6 +60,7 @@ import { GoogleIntegrationSection } from '@/components/settings/integrations/Goo
 import { StripeIntegrationSection } from '@/components/settings/integrations/StripeIntegrationSection';
 import { OAuthCredentialsSection } from '@/components/settings/integrations/OAuthCredentialsSection';
 import { AgendaSettingsSection } from '@/components/settings/AgendaSettingsSection';
+import { AdminAlertsSettingsSection } from '@/components/settings/AdminAlertsSettingsSection';
 const centerSchema = z.object({
   name: z.string().min(1, 'El nombre es obligatorio'),
   tax_id: z.string().optional(),
@@ -91,6 +92,7 @@ type SettingsSection =
   | 'comunicaciones-whatsapp'
   | 'comunicaciones-sms'
   | 'comunicaciones-recordatorios'
+  | 'comunicaciones-alertas-admin'
   | 'integraciones-resumen'
   | 'integraciones-credenciales'
   | 'integraciones-whatsapp'
@@ -139,6 +141,7 @@ const navItems: NavItem[] = [
   
   // Comunicaciones
   { id: 'comunicaciones-recordatorios', label: 'Recordatorios de cita', icon: Bell, parent: 'Comunicaciones' },
+  { id: 'comunicaciones-alertas-admin', label: 'Alertas al profesional', icon: Bell, parent: 'Comunicaciones' },
   { id: 'comunicaciones-email', label: 'Plantillas de email', icon: Mail, parent: 'Comunicaciones' },
   { id: 'comunicaciones-whatsapp', label: 'Plantillas de WhatsApp', icon: MessageCircle, parent: 'Comunicaciones' },
   { id: 'comunicaciones-sms', label: 'Plantillas de SMS', icon: Smartphone, parent: 'Comunicaciones' },
@@ -347,6 +350,8 @@ export default function Settings() {
         return <SmsTemplateEditor />;
       case 'comunicaciones-recordatorios':
         return <SessionReminderSettingsSection />;
+      case 'comunicaciones-alertas-admin':
+        return <AdminAlertsSettingsSection />;
       case 'integraciones-resumen':
         return <IntegrationsOverview />;
       case 'integraciones-credenciales':

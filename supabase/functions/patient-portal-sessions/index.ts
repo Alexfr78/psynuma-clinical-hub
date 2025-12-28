@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { sendAdminAlert, buildAlertMessage } from "../_shared/adminAlerts.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -311,29 +312,36 @@ serve(async (req) => {
         );
       }
 
-      // If pending_approval, create notification for professional
-      if (status === "pending_approval" && finalProfessionalId) {
-        // Get patient name for notification
-        const { data: patient } = await supabase
-          .from("patients")
-          .select("first_name, last_name")
-          .eq("id", session.patientId)
-          .single();
+      // Send admin alert for portal session created
+      const { data: patientData } = await supabase
+        .from("patients")
+        .select("first_name, last_name, email, phone")
+        .eq("id", session.patientId)
+        .single();
 
-        const patientName = patient ? `${patient.first_name} ${patient.last_name}` : "Un paciente";
-        
-        await supabase.from("notifications").insert({
-          center_id: session.centerId,
-          patient_id: session.patientId,
-          session_id: newSession.id,
-          type: "email",
-          recipient: "",
-          subject: "Nueva solicitud de cita",
-          message: `${patientName} ha solicitado una cita para el ${sessionDate} a las ${startTime}. Revisa y aprueba o rechaza.`,
-          status: "pending",
+      if (patientData) {
+        const alertMessage = buildAlertMessage({
+          eventType: status === "pending_approval" ? 'Nueva solicitud de cita (portal paciente)' : 'Nueva cita reservada (portal paciente)',
+          patientName: `${patientData.first_name} ${patientData.last_name}`,
+          patientEmail: patientData.email,
+          patientPhone: patientData.phone,
+          sessionDate: sessionDate,
+          sessionTime: startTime,
+          modality: sessionModality,
+          locationName: location.name,
+          status: status === "pending_approval" ? 'Pendiente de aprobación' : 'Confirmada',
         });
 
-        console.log("Created notification for pending_approval session:", newSession.id);
+        await sendAdminAlert({
+          supabase,
+          centerId: session.centerId!,
+          eventKey: 'portal_created',
+          subject: `Nueva cita (portal) — ${patientData.first_name} ${patientData.last_name} — ${sessionDate} ${startTime}`,
+          message: alertMessage,
+          patientId: session.patientId,
+          sessionId: newSession.id,
+          professionalId: finalProfessionalId,
+        });
       }
 
       return new Response(
@@ -416,6 +424,34 @@ serve(async (req) => {
           JSON.stringify({ error: "Error al cancelar la cita" }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
+      }
+
+      // Send admin alert for cancellation
+      const { data: patientData } = await supabase
+        .from("patients")
+        .select("first_name, last_name, email")
+        .eq("id", session.patientId)
+        .single();
+
+      if (patientData && session.centerId) {
+        const alertMessage = buildAlertMessage({
+          eventType: 'Cita cancelada desde el portal del paciente',
+          patientName: `${patientData.first_name} ${patientData.last_name}`,
+          patientEmail: patientData.email,
+          sessionDate: existingSession.session_date,
+          sessionTime: existingSession.start_time,
+          details: reason || 'Sin motivo especificado',
+        });
+
+        await sendAdminAlert({
+          supabase,
+          centerId: session.centerId,
+          eventKey: 'portal_cancelled',
+          subject: `Cita cancelada (portal) — ${patientData.first_name} ${patientData.last_name} — ${existingSession.session_date}`,
+          message: alertMessage,
+          patientId: session.patientId,
+          sessionId: sessionId,
+        });
       }
 
       return new Response(
