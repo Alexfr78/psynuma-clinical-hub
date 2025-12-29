@@ -70,9 +70,9 @@ export function PatientBonos({ patientId }: PatientBonosProps) {
             <CardContent className="p-4">
               <div className="space-y-4">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex items-center gap-2">
-                    <Ticket className="h-5 w-5 text-primary" />
-                    <span className="font-semibold">{bono.name}</span>
+                  <div className="flex flex-wrap items-center gap-2 min-w-0">
+                    <Ticket className="h-5 w-5 text-primary shrink-0" />
+                    <span className="font-semibold truncate max-w-[200px] sm:max-w-none">{bono.name}</span>
                     <Badge variant={status.variant}>{status.label}</Badge>
                     {isExpiringSoon && bono.status === 'active' && (
                       <Badge variant="outline" className="border-warning text-warning">

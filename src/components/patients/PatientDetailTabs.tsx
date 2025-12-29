@@ -1,4 +1,12 @@
+import { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { PatientSummary } from './tabs/PatientSummary';
 import { PatientData } from './tabs/PatientData';
 import { PatientSessions } from './tabs/PatientSessions';
@@ -20,22 +28,49 @@ interface PatientDetailTabsProps {
   };
 }
 
+const tabOptions = [
+  { value: 'summary', label: 'Resumen' },
+  { value: 'data', label: 'Datos' },
+  { value: 'sessions', label: 'Sesiones' },
+  { value: 'invoices', label: 'Facturas' },
+  { value: 'bonos', label: 'Bonos' },
+  { value: 'consents', label: 'Consentimientos' },
+  { value: 'assessments', label: 'Evaluaciones' },
+];
+
 export function PatientDetailTabs({ patient }: PatientDetailTabsProps) {
+  const [activeTab, setActiveTab] = useState('summary');
+
   return (
-    <Tabs defaultValue="summary" className="w-full">
-      <div className="relative mb-4 sm:mb-6">
-        <div className="absolute left-0 top-0 bottom-0 w-4 bg-gradient-to-r from-background to-transparent pointer-events-none z-10 sm:hidden" />
-        <div className="absolute right-0 top-0 bottom-0 w-4 bg-gradient-to-l from-background to-transparent pointer-events-none z-10 sm:hidden" />
-        <TabsList className="w-full justify-start overflow-x-auto flex-nowrap scrollbar-hide gap-1">
-          <TabsTrigger value="summary" className="text-xs sm:text-sm px-3 py-2 min-h-[40px]">Resumen</TabsTrigger>
-          <TabsTrigger value="data" className="text-xs sm:text-sm px-3 py-2 min-h-[40px]">Datos</TabsTrigger>
-          <TabsTrigger value="sessions" className="text-xs sm:text-sm px-3 py-2 min-h-[40px]">Sesiones</TabsTrigger>
-          <TabsTrigger value="invoices" className="text-xs sm:text-sm px-3 py-2 min-h-[40px]">Facturas</TabsTrigger>
-          <TabsTrigger value="bonos" className="text-xs sm:text-sm px-3 py-2 min-h-[40px]">Bonos</TabsTrigger>
-          <TabsTrigger value="consents" className="text-xs sm:text-sm px-3 py-2 min-h-[40px] whitespace-nowrap">Consent.</TabsTrigger>
-          <TabsTrigger value="assessments" className="text-xs sm:text-sm px-3 py-2 min-h-[40px]">Evalua.</TabsTrigger>
-        </TabsList>
+    <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+      {/* Mobile: Select dropdown */}
+      <div className="mb-4 sm:hidden">
+        <Select value={activeTab} onValueChange={setActiveTab}>
+          <SelectTrigger className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {tabOptions.map((tab) => (
+              <SelectItem key={tab.value} value={tab.value}>
+                {tab.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
+
+      {/* Desktop: Horizontal tabs */}
+      <TabsList className="hidden sm:flex mb-4 sm:mb-6 w-full justify-start flex-wrap h-auto gap-1">
+        {tabOptions.map((tab) => (
+          <TabsTrigger 
+            key={tab.value} 
+            value={tab.value} 
+            className="text-xs sm:text-sm px-3 py-2"
+          >
+            {tab.label}
+          </TabsTrigger>
+        ))}
+      </TabsList>
 
       <TabsContent value="summary">
         <PatientSummary patient={patient} />

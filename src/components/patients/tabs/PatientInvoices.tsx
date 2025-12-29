@@ -70,10 +70,10 @@ export function PatientInvoices({ patientId }: PatientInvoicesProps) {
           )}>
             <CardContent className="p-4">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <FileText className="h-4 w-4 text-primary" />
-                    <span className={cn("font-medium", isInvalidated && "line-through text-muted-foreground")}>
+                <div className="space-y-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <FileText className="h-4 w-4 text-primary shrink-0" />
+                    <span className={cn("font-medium truncate max-w-[150px] sm:max-w-none", isInvalidated && "line-through text-muted-foreground")}>
                       {invoice.invoice_number}
                     </span>
                     <Badge variant={status.variant}>{status.label}</Badge>
@@ -90,15 +90,15 @@ export function PatientInvoices({ patientId }: PatientInvoicesProps) {
                   </p>
                 </div>
 
-                <div className="flex items-center gap-4">
-                  <div className="text-right">
+                <div className="flex items-center justify-between sm:justify-end gap-4">
+                  <div className="text-left sm:text-right">
                     <p className="text-lg font-semibold">{Number(invoice.total).toFixed(2)}€</p>
                     <p className="text-xs text-muted-foreground">
                       Base: {Number(invoice.subtotal).toFixed(2)}€ + IVA {invoice.tax_rate}%
                     </p>
                   </div>
                   
-                  <Button variant="ghost" size="icon">
+                  <Button variant="ghost" size="icon" className="shrink-0">
                     <Download className="h-4 w-4" />
                   </Button>
                 </div>
