@@ -176,3 +176,33 @@
 ::-webkit-scrollbar-thumb:hover {
   background: hsl(var(--muted-foreground) / 0.5);
 }
+
+/* Touch-friendly improvements for mobile */
+@media (max-width: 640px) {
+  button, 
+  [role="button"],
+  a,
+  input[type="checkbox"],
+  input[type="radio"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Except for icon buttons that already have proper sizing */
+  button.h-8,
+  button.h-9,
+  button.h-10 {
+    min-height: unset;
+    min-width: unset;
+  }
+}
+
+/* Hide scrollbar but keep functionality for horizontal scrolling tabs */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}

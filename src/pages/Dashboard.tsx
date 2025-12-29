@@ -225,25 +225,25 @@ export default function Dashboard() {
       </Card>
 
       {/* 3. Stats Grid - AL FINAL */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
         {statCards.map((stat) => (
           <Link key={stat.title} to={stat.href}>
             <Card className={`shadow-card transition-shadow hover:shadow-card-hover ${stat.alert ? 'border-destructive/50' : ''}`}>
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
+              <CardHeader className="flex flex-row items-center justify-between pb-1 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
+                <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">
                   {stat.title}
                 </CardTitle>
                 <stat.icon className={`h-4 w-4 ${stat.alert ? 'text-destructive' : 'text-muted-foreground'}`} />
               </CardHeader>
-              <CardContent>
+              <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
                 {statsLoading ? (
-                  <Skeleton className="h-8 w-20" />
+                  <Skeleton className="h-6 sm:h-8 w-16 sm:w-20" />
                 ) : (
-                  <div className={`text-2xl font-bold ${stat.alert ? 'text-destructive' : ''}`}>
+                  <div className={`text-lg sm:text-2xl font-bold ${stat.alert ? 'text-destructive' : ''}`}>
                     {stat.value}
                   </div>
                 )}
-                <p className="text-xs text-muted-foreground">{stat.description}</p>
+                <p className="text-[10px] sm:text-xs text-muted-foreground">{stat.description}</p>
               </CardContent>
             </Card>
           </Link>

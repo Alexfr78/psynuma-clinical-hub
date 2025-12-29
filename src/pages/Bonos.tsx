@@ -50,49 +50,53 @@ export default function Bonos() {
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-3 sm:gap-4 grid-cols-2 md:grid-cols-4">
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Activos</CardTitle>
+          <CardHeader className="pb-1 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
+            <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">Activos</CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold text-primary">{stats.active}</p>
+          <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+            <p className="text-lg sm:text-2xl font-bold text-primary">{stats.active}</p>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Agotados</CardTitle>
+          <CardHeader className="pb-1 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
+            <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">Agotados</CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">{stats.exhausted}</p>
+          <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+            <p className="text-lg sm:text-2xl font-bold">{stats.exhausted}</p>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Expirados</CardTitle>
+          <CardHeader className="pb-1 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
+            <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">Expirados</CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">{stats.expired}</p>
+          <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+            <p className="text-lg sm:text-2xl font-bold">{stats.expired}</p>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Cancelados</CardTitle>
+          <CardHeader className="pb-1 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
+            <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">Cancelados</CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">{stats.cancelled}</p>
+          <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+            <p className="text-lg sm:text-2xl font-bold">{stats.cancelled}</p>
           </CardContent>
         </Card>
       </div>
 
       <Tabs value={statusFilter} onValueChange={setStatusFilter}>
-        <TabsList>
-          <TabsTrigger value="active">Activos</TabsTrigger>
-          <TabsTrigger value="exhausted">Agotados</TabsTrigger>
-          <TabsTrigger value="expired">Expirados</TabsTrigger>
-          <TabsTrigger value="cancelled">Cancelados</TabsTrigger>
-          <TabsTrigger value="all">Todos</TabsTrigger>
-        </TabsList>
+        <div className="relative">
+          <div className="absolute left-0 top-0 bottom-0 w-3 bg-gradient-to-r from-background to-transparent pointer-events-none z-10 sm:hidden" />
+          <div className="absolute right-0 top-0 bottom-0 w-3 bg-gradient-to-l from-background to-transparent pointer-events-none z-10 sm:hidden" />
+          <TabsList className="w-full sm:w-auto justify-start overflow-x-auto flex-nowrap gap-1">
+            <TabsTrigger value="active" className="text-xs sm:text-sm px-3 py-2 min-h-[40px]">Activos</TabsTrigger>
+            <TabsTrigger value="exhausted" className="text-xs sm:text-sm px-3 py-2 min-h-[40px]">Agotados</TabsTrigger>
+            <TabsTrigger value="expired" className="text-xs sm:text-sm px-3 py-2 min-h-[40px]">Expirados</TabsTrigger>
+            <TabsTrigger value="cancelled" className="text-xs sm:text-sm px-3 py-2 min-h-[40px]">Cancelados</TabsTrigger>
+            <TabsTrigger value="all" className="text-xs sm:text-sm px-3 py-2 min-h-[40px]">Todos</TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value={statusFilter} className="mt-4">
           {isLoading ? (

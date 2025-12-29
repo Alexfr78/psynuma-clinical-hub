@@ -68,41 +68,41 @@ export default function Payments() {
         </Button>
       </div>
 
-      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Deuda pendiente</CardTitle>
+          <CardHeader className="pb-1 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
+            <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">Deuda pend.</CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold text-destructive">{debtStats?.totalPending.toFixed(2) || '0.00'}€</p>
+          <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+            <p className="text-lg sm:text-2xl font-bold text-destructive">{debtStats?.totalPending.toFixed(0) || '0'}€</p>
           </CardContent>
         </Card>
         <Card className={debtStats?.overdueCount ? 'border-destructive/50' : ''}>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1">
-              {debtStats?.overdueCount ? <AlertTriangle className="h-4 w-4 text-destructive" /> : null}
+          <CardHeader className="pb-1 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
+            <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground flex items-center gap-1">
+              {debtStats?.overdueCount ? <AlertTriangle className="h-3 w-3 sm:h-4 sm:w-4 text-destructive" /> : null}
               Vencido
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold text-destructive">{debtStats?.overdueAmount.toFixed(2) || '0.00'}€</p>
-            <p className="text-xs text-muted-foreground">{debtStats?.overdueCount || 0} deudas vencidas</p>
+          <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+            <p className="text-lg sm:text-2xl font-bold text-destructive">{debtStats?.overdueAmount.toFixed(0) || '0'}€</p>
+            <p className="text-[10px] sm:text-xs text-muted-foreground">{debtStats?.overdueCount || 0} vencidas</p>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Cobrado este mes</CardTitle>
+          <CardHeader className="pb-1 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
+            <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">Cobrado</CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold text-green-600">{paymentStats?.totalAmount.toFixed(2) || '0.00'}€</p>
+          <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+            <p className="text-lg sm:text-2xl font-bold text-green-600">{paymentStats?.totalAmount.toFixed(0) || '0'}€</p>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Pagos este mes</CardTitle>
+          <CardHeader className="pb-1 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
+            <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">Pagos</CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">{paymentStats?.count || 0}</p>
+          <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+            <p className="text-lg sm:text-2xl font-bold">{paymentStats?.count || 0}</p>
           </CardContent>
         </Card>
       </div>
