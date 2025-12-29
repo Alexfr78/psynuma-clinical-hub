@@ -6,7 +6,21 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { usePatients } from '@/hooks/usePatients';
 import { useAssessmentTemplates } from '@/hooks/useAssessmentTemplates';
 import { useAssessments } from '@/hooks/useAssessments';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Check, ChevronsUpDown, Search, User } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 
 interface CreateAssessmentDialogProps {
   open: boolean;
@@ -15,7 +29,9 @@ interface CreateAssessmentDialogProps {
 }
 
 export function CreateAssessmentDialog({ open, onOpenChange, preselectedPatientId }: CreateAssessmentDialogProps) {
-  const { data: patients = [] } = usePatients();
+  const [searchValue, setSearchValue] = useState('');
+  const [patientPopoverOpen, setPatientPopoverOpen] = useState(false);
+  const { data: patients = [] } = usePatients({ search: searchValue });
   const { templates } = useAssessmentTemplates();
   const { createAssessment } = useAssessments();
   
@@ -52,18 +68,70 @@ export function CreateAssessmentDialog({ open, onOpenChange, preselectedPatientI
         <div className="space-y-4">
           <div className="space-y-2">
             <Label>Paciente</Label>
-            <Select value={patientId} onValueChange={setPatientId} disabled={!!preselectedPatientId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Selecciona un paciente" />
-              </SelectTrigger>
-              <SelectContent>
-                {patients.map(p => (
-                  <SelectItem key={p.id} value={p.id}>
-                    {p.first_name} {p.last_name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Popover open={patientPopoverOpen} onOpenChange={setPatientPopoverOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={patientPopoverOpen}
+                  className="w-full justify-between font-normal"
+                  disabled={!!preselectedPatientId}
+                >
+                  {selectedPatient ? (
+                    <span>{selectedPatient.first_name} {selectedPatient.last_name}</span>
+                  ) : (
+                    <span className="text-muted-foreground">Buscar paciente...</span>
+                  )}
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                <Command shouldFilter={false}>
+                  <CommandInput
+                    placeholder="Buscar por nombre..."
+                    value={searchValue}
+                    onValueChange={setSearchValue}
+                  />
+                  <CommandList>
+                    <CommandEmpty>No se encontraron pacientes.</CommandEmpty>
+                    <CommandGroup>
+                      {patients.map((patient) => (
+                        <CommandItem
+                          key={patient.id}
+                          value={patient.id}
+                          onSelect={() => {
+                            setPatientId(patient.id);
+                            setPatientPopoverOpen(false);
+                            setSearchValue('');
+                          }}
+                          className="flex items-center gap-2"
+                        >
+                          <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                            <User className="h-3.5 w-3.5 text-primary" />
+                          </div>
+                          <div className="flex-1 overflow-hidden">
+                            <p className="truncate">
+                              {patient.first_name} {patient.last_name}
+                            </p>
+                            {patient.email && (
+                              <p className="text-xs text-muted-foreground truncate">
+                                {patient.email}
+                              </p>
+                            )}
+                          </div>
+                          <Check
+                            className={cn(
+                              "h-4 w-4 shrink-0",
+                              patientId === patient.id ? "opacity-100" : "opacity-0"
+                            )}
+                          />
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
           </div>
 
           <div className="space-y-2">
