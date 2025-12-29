@@ -36,17 +36,17 @@ export function PatientFilters({ filters, onFiltersChange }: PatientFiltersProps
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
         <Select
           value={filters.status || 'all'}
           onValueChange={(value) => onFiltersChange({ ...filters, status: value })}
         >
-          <SelectTrigger className="w-full sm:w-[140px]">
-            <Filter className="mr-2 h-4 w-4 shrink-0" />
+          <SelectTrigger className="w-full sm:w-[160px]">
+            <Filter className="mr-2 h-4 w-4 shrink-0 text-muted-foreground" />
             <SelectValue placeholder="Estado" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Todos</SelectItem>
+            <SelectItem value="all">Todos los estados</SelectItem>
             <SelectItem value="active">Activo</SelectItem>
             <SelectItem value="inactive">Inactivo</SelectItem>
             <SelectItem value="discharged">Alta</SelectItem>
@@ -57,11 +57,11 @@ export function PatientFilters({ filters, onFiltersChange }: PatientFiltersProps
           value={filters.professionalId || 'all'}
           onValueChange={(value) => onFiltersChange({ ...filters, professionalId: value })}
         >
-          <SelectTrigger className="w-full sm:w-[180px]">
+          <SelectTrigger className="w-full sm:w-[200px]">
             <SelectValue placeholder="Profesional" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Todos</SelectItem>
+            <SelectItem value="all">Todos los profesionales</SelectItem>
             {professionals?.map((prof) => (
               <SelectItem key={prof.id} value={prof.id}>
                 {prof.first_name} {prof.last_name}
@@ -71,9 +71,9 @@ export function PatientFilters({ filters, onFiltersChange }: PatientFiltersProps
         </Select>
 
         {hasActiveFilters && (
-          <Button variant="ghost" size="sm" onClick={clearFilters} className="col-span-2 sm:col-span-1">
+          <Button variant="ghost" size="sm" onClick={clearFilters} className="w-full sm:w-auto">
             <X className="mr-1 h-4 w-4" />
-            Limpiar
+            Limpiar filtros
           </Button>
         )}
       </div>
