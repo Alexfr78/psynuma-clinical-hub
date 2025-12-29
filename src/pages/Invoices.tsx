@@ -270,44 +270,48 @@ export default function Invoices() {
         </DropdownMenu>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-3 sm:gap-4 grid-cols-3">
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Facturado este mes</CardTitle>
+          <CardHeader className="pb-1 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
+            <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">Facturado</CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">{stats?.totalIssued.toFixed(2) || '0.00'}€</p>
+          <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+            <p className="text-lg sm:text-2xl font-bold">{stats?.totalIssued.toFixed(0) || '0'}€</p>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Cobrado</CardTitle>
+          <CardHeader className="pb-1 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
+            <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">Cobrado</CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold text-green-600">{stats?.totalPaid.toFixed(2) || '0.00'}€</p>
+          <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+            <p className="text-lg sm:text-2xl font-bold text-green-600">{stats?.totalPaid.toFixed(0) || '0'}€</p>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Pendiente</CardTitle>
+          <CardHeader className="pb-1 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
+            <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">Pendiente</CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold text-amber-600">{stats?.totalPending.toFixed(2) || '0.00'}€</p>
+          <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+            <p className="text-lg sm:text-2xl font-bold text-amber-600">{stats?.totalPending.toFixed(0) || '0'}€</p>
           </CardContent>
         </Card>
       </div>
 
       <Tabs value={statusFilter} onValueChange={setStatusFilter}>
-        <TabsList className="w-full justify-start overflow-x-auto flex-nowrap h-auto p-1">
-          <TabsTrigger value="all" className="shrink-0 text-xs sm:text-sm">Todas</TabsTrigger>
-          <TabsTrigger value="draft" className="shrink-0 text-xs sm:text-sm">Borrador</TabsTrigger>
-          <TabsTrigger value="issued" className="shrink-0 text-xs sm:text-sm">Emitidas</TabsTrigger>
-          <TabsTrigger value="paid" className="shrink-0 text-xs sm:text-sm">Pagadas</TabsTrigger>
-          <TabsTrigger value="verifactu_pending" className="gap-1 shrink-0 text-xs sm:text-sm">
-            <RefreshCw className="h-3 w-3" />
-            <span className="hidden sm:inline">Pendientes</span> AEAT
-          </TabsTrigger>
-        </TabsList>
+        <div className="relative">
+          <div className="absolute left-0 top-0 bottom-0 w-3 bg-gradient-to-r from-background to-transparent pointer-events-none z-10 sm:hidden" />
+          <div className="absolute right-0 top-0 bottom-0 w-3 bg-gradient-to-l from-background to-transparent pointer-events-none z-10 sm:hidden" />
+          <TabsList className="w-full justify-start overflow-x-auto flex-nowrap h-auto p-1 gap-1">
+            <TabsTrigger value="all" className="shrink-0 text-xs sm:text-sm px-3 py-2 min-h-[40px]">Todas</TabsTrigger>
+            <TabsTrigger value="draft" className="shrink-0 text-xs sm:text-sm px-3 py-2 min-h-[40px]">Borrador</TabsTrigger>
+            <TabsTrigger value="issued" className="shrink-0 text-xs sm:text-sm px-3 py-2 min-h-[40px]">Emitidas</TabsTrigger>
+            <TabsTrigger value="paid" className="shrink-0 text-xs sm:text-sm px-3 py-2 min-h-[40px]">Pagadas</TabsTrigger>
+            <TabsTrigger value="verifactu_pending" className="gap-1 shrink-0 text-xs sm:text-sm px-3 py-2 min-h-[40px]">
+              <RefreshCw className="h-3 w-3" />
+              <span className="hidden sm:inline">Pend.</span> AEAT
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         <div className="flex items-center justify-between mb-4">
           <div className="text-sm text-muted-foreground">

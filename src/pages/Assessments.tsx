@@ -48,11 +48,15 @@ export default function Assessments() {
       </div>
 
       <Tabs defaultValue="pending" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="pending">Pendientes ({pending.length})</TabsTrigger>
-          <TabsTrigger value="completed">Completadas ({completed.length})</TabsTrigger>
-          <TabsTrigger value="other">Otras ({other.length})</TabsTrigger>
-        </TabsList>
+        <div className="relative">
+          <div className="absolute left-0 top-0 bottom-0 w-3 bg-gradient-to-r from-background to-transparent pointer-events-none z-10 sm:hidden" />
+          <div className="absolute right-0 top-0 bottom-0 w-3 bg-gradient-to-l from-background to-transparent pointer-events-none z-10 sm:hidden" />
+          <TabsList className="w-full sm:w-auto justify-start sm:justify-center overflow-x-auto flex-nowrap gap-1">
+            <TabsTrigger value="pending" className="text-xs sm:text-sm px-3 py-2 min-h-[40px]">Pend. ({pending.length})</TabsTrigger>
+            <TabsTrigger value="completed" className="text-xs sm:text-sm px-3 py-2 min-h-[40px]">Compl. ({completed.length})</TabsTrigger>
+            <TabsTrigger value="other" className="text-xs sm:text-sm px-3 py-2 min-h-[40px]">Otras ({other.length})</TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="pending" className="mt-6">
           {pending.length === 0 ? (
