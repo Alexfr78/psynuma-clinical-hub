@@ -66,7 +66,7 @@ export function AppLayout({ children }: AppLayoutProps) {
               </BreadcrumbList>
             </Breadcrumb>
           </header>
-          <main className="flex-1 overflow-auto p-4 lg:p-6">{children}</main>
+          <main className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden p-4 lg:p-6">{children}</main>
         </SidebarInset>
       </div>
     </SidebarProvider>

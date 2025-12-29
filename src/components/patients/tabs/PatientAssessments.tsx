@@ -27,9 +27,9 @@ export function PatientAssessments({ patientId }: PatientAssessmentsProps) {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <h3 className="font-medium">Evaluaciones</h3>
-        <Button size="sm" onClick={() => setCreateOpen(true)}>
+        <Button size="sm" className="w-full sm:w-auto" onClick={() => setCreateOpen(true)}>
           <Plus className="h-4 w-4 mr-1" />
           Nueva
         </Button>

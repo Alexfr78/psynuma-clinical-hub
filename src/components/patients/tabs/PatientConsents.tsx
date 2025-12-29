@@ -35,11 +35,11 @@ export function PatientConsents({ patientId, patient }: PatientConsentsProps) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <h2 className="font-display text-lg font-semibold">
           Consentimientos informados
         </h2>
-        <Button size="sm" onClick={() => setCreateDialogOpen(true)}>
+        <Button size="sm" className="w-full sm:w-auto" onClick={() => setCreateDialogOpen(true)}>
           <Plus className="mr-2 h-4 w-4" />
           Nuevo
         </Button>

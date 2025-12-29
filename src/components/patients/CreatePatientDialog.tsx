@@ -150,7 +150,7 @@ export function CreatePatientDialog() {
             {/* Basic Info */}
             <div className="space-y-4">
               <h4 className="text-sm font-medium text-muted-foreground">Datos personales</h4>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
                   name="first_name"
@@ -179,7 +179,7 @@ export function CreatePatientDialog() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
                   name="email"
@@ -208,7 +208,7 @@ export function CreatePatientDialog() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
                   name="date_of_birth"
@@ -278,7 +278,7 @@ export function CreatePatientDialog() {
                   </FormItem>
                 )}
               />
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
                   name="city"
@@ -331,7 +331,7 @@ export function CreatePatientDialog() {
               {isMinor && (
                 <div className="space-y-4 rounded-lg border border-dashed p-4">
                   <h4 className="text-sm font-medium">Datos del tutor/responsable</h4>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
                       name="guardian_name"
@@ -369,7 +369,7 @@ export function CreatePatientDialog() {
                       )}
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
                       name="guardian_phone"
@@ -404,7 +404,7 @@ export function CreatePatientDialog() {
             {/* Emergency Contact */}
             <div className="space-y-4">
               <h4 className="text-sm font-medium text-muted-foreground">Contacto de emergencia</h4>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
                   name="emergency_contact_name"
