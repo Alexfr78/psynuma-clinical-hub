@@ -1,11 +1,15 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
-import { sendAdminAlert, buildAlertMessage } from "../_shared/adminAlerts.ts";
+import Stripe from "https://esm.sh/stripe@14.9.0";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, stripe-signature',
 };
+
+// Initialize Stripe with the secret key
+const stripeSecretKey = Deno.env.get('STRIPE_SECRET_KEY');
+const webhookSecret = Deno.env.get('STRIPE_WEBHOOK_SECRET');
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -18,21 +22,56 @@ serve(async (req) => {
     
     console.log('Stripe webhook received, signature present:', !!signature);
 
-    // For now, we'll process without signature verification
-    // In production, you should verify the signature using STRIPE_WEBHOOK_SECRET
-    
-    let event;
-    try {
-      event = JSON.parse(body);
-    } catch (err) {
-      console.error('Invalid JSON:', err);
+    // SECURITY: Verify webhook signature
+    if (!signature) {
+      console.error('No Stripe signature provided');
       return new Response(
-        JSON.stringify({ error: 'Invalid payload' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: 'No signature provided' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log('Webhook event type:', event.type);
+    if (!webhookSecret) {
+      console.error('STRIPE_WEBHOOK_SECRET not configured');
+      return new Response(
+        JSON.stringify({ error: 'Webhook secret not configured' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!stripeSecretKey) {
+      console.error('STRIPE_SECRET_KEY not configured');
+      return new Response(
+        JSON.stringify({ error: 'Stripe not configured' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Initialize Stripe
+    const stripe = new Stripe(stripeSecretKey, {
+      apiVersion: '2023-10-16',
+      httpClient: Stripe.createFetchHttpClient(),
+    });
+
+    // Verify the webhook signature
+    let event: Stripe.Event;
+    try {
+      event = await stripe.webhooks.constructEventAsync(
+        body,
+        signature,
+        webhookSecret
+      );
+      console.log('Webhook signature verified successfully');
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown verification error';
+      console.error('Webhook signature verification failed:', errorMessage);
+      return new Response(
+        JSON.stringify({ error: 'Invalid signature' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log('Verified webhook event type:', event.type);
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -41,7 +80,7 @@ serve(async (req) => {
     // Handle different event types
     switch (event.type) {
       case 'checkout.session.completed': {
-        const session = event.data.object;
+        const session = event.data.object as Stripe.Checkout.Session;
         const sessionId = session.metadata?.session_id;
         
         if (!sessionId) {
@@ -74,20 +113,6 @@ serve(async (req) => {
           .single();
 
         if (sessionData) {
-          // Get more session details for alert
-          const { data: fullSession } = await supabase
-            .from('sessions')
-            .select('session_date, start_time, professional_id')
-            .eq('id', sessionId)
-            .single();
-
-          // Get patient info
-          const { data: patientData } = await supabase
-            .from('patients')
-            .select('first_name, last_name, email')
-            .eq('id', sessionData.patient_id)
-            .single();
-
           // Create payment record
           const { error: paymentError } = await supabase
             .from('payments')
@@ -98,7 +123,7 @@ serve(async (req) => {
               amount: sessionData.price,
               payment_method: 'stripe',
               payment_date: new Date().toISOString().split('T')[0],
-              reference: session.payment_intent,
+              reference: session.payment_intent as string,
               notes: `Pago online - Stripe Checkout ${session.id}`,
             });
 
@@ -129,7 +154,7 @@ serve(async (req) => {
       }
 
       case 'checkout.session.expired': {
-        const session = event.data.object;
+        const session = event.data.object as Stripe.Checkout.Session;
         const sessionId = session.metadata?.session_id;
         
         if (sessionId) {
@@ -145,7 +170,7 @@ serve(async (req) => {
       }
 
       case 'payment_intent.payment_failed': {
-        const paymentIntent = event.data.object;
+        const paymentIntent = event.data.object as Stripe.PaymentIntent;
         const sessionId = paymentIntent.metadata?.session_id;
         
         if (sessionId) {
@@ -161,7 +186,7 @@ serve(async (req) => {
       }
 
       case 'charge.refunded': {
-        const charge = event.data.object;
+        const charge = event.data.object as Stripe.Charge;
         console.log('Refund processed for charge:', charge.id);
         // Could update payment/debt status to refunded
         break;

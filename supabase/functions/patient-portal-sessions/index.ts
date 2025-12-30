@@ -10,6 +10,9 @@ const corsHeaders = {
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
+// Use SUPABASE_SERVICE_ROLE_KEY as HMAC secret for verifying tokens
+const TOKEN_SECRET = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
 // Helper functions for time conversion
 function timeToMinutes(time: string): number {
   const [h, m] = time.split(":").map(Number);
@@ -37,14 +40,44 @@ function getLocalTimeMinutes(isoDatetime: string, timezone: string): number {
   return hours * 60 + minutes;
 }
 
-function validateSession(sessionToken: string): { valid: boolean; patientId?: string; centerId?: string } {
+// Cryptographic token verification using HMAC-SHA256
+async function validateSession(sessionToken: string): Promise<{ valid: boolean; patientId?: string; centerId?: string }> {
   try {
-    const decoded = JSON.parse(atob(sessionToken));
-    if (decoded.exp < Date.now()) {
+    const [payloadB64, signatureB64] = sessionToken.split(".");
+    if (!payloadB64 || !signatureB64) {
       return { valid: false };
     }
-    return { valid: true, patientId: decoded.patient_id, centerId: decoded.center_id };
-  } catch {
+    
+    const data = atob(payloadB64);
+    const encoder = new TextEncoder();
+    
+    const key = await crypto.subtle.importKey(
+      "raw",
+      encoder.encode(TOKEN_SECRET),
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["verify"]
+    );
+    
+    const signatureBytes = Uint8Array.from(atob(signatureB64), c => c.charCodeAt(0));
+    const isValid = await crypto.subtle.verify("HMAC", key, signatureBytes, encoder.encode(data));
+    
+    if (!isValid) {
+      console.error("Token signature verification failed");
+      return { valid: false };
+    }
+    
+    const payload = JSON.parse(data);
+    
+    // Check expiration
+    if (payload.exp < Date.now()) {
+      console.error("Token expired");
+      return { valid: false };
+    }
+    
+    return { valid: true, patientId: payload.patient_id, centerId: payload.center_id };
+  } catch (error) {
+    console.error("Token validation error:", error);
     return { valid: false };
   }
 }
@@ -58,8 +91,8 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     const { action, sessionToken, ...params } = await req.json();
 
-    // Validate session token
-    const session = validateSession(sessionToken);
+    // Validate session token cryptographically
+    const session = await validateSession(sessionToken);
     if (!session.valid || !session.patientId) {
       return new Response(
         JSON.stringify({ error: "Sesión inválida o expirada" }),
@@ -485,7 +518,14 @@ serve(async (req) => {
         );
       }
 
-      // Update to confirmed
+      if (existingSession.status !== "pending_confirmation") {
+        return new Response(
+          JSON.stringify({ error: "Esta cita no requiere confirmación" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Confirm session
       const { error: updateError } = await supabase
         .from("sessions")
         .update({ status: "confirmed" })
@@ -500,13 +540,13 @@ serve(async (req) => {
       }
 
       return new Response(
-        JSON.stringify({ success: true, message: "Cita confirmada" }),
+        JSON.stringify({ success: true, message: "Cita confirmada correctamente" }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     if (action === "get-availability") {
-      const { professionalId, date, sessionTypeId, locationId } = params;
+      const { date, professionalId: requestedProfId, sessionTypeId, locationId } = params;
 
       if (!date || !sessionTypeId || !locationId) {
         return new Response(
@@ -515,37 +555,34 @@ serve(async (req) => {
         );
       }
 
-      // CRITICAL: Validate location is public and active
-      const { data: location, error: locationError } = await supabase
-        .from("center_locations")
-        .select("id, location_type, is_public, is_active, center_id")
-        .eq("id", locationId)
-        .eq("center_id", session.centerId)
+      // Get center configuration
+      const { data: center } = await supabase
+        .from("centers")
+        .select("portal_default_professional_id, portal_allow_professional_selection, reschedule_slot_duration")
+        .eq("id", session.centerId)
         .single();
 
-      if (locationError || !location) {
-        return new Response(
-          JSON.stringify({ error: "Ubicación no encontrada" }),
-          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+      // Determine professional
+      let professionalId = requestedProfId;
+      if (!center?.portal_allow_professional_selection || !professionalId) {
+        professionalId = center?.portal_default_professional_id;
       }
 
-      if (!location.is_public || !location.is_active) {
+      if (!professionalId) {
         return new Response(
-          JSON.stringify({ error: "Ubicación no disponible para el portal" }),
-          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          JSON.stringify({ error: "No hay profesional configurado" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
       // Get session type for duration
-      const { data: sessionType, error: typeError } = await supabase
+      const { data: sessionType } = await supabase
         .from("session_types")
         .select("duration_minutes")
         .eq("id", sessionTypeId)
-        .eq("center_id", session.centerId)
         .single();
 
-      if (typeError || !sessionType) {
+      if (!sessionType) {
         return new Response(
           JSON.stringify({ error: "Tipo de sesión no válido" }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -553,121 +590,85 @@ serve(async (req) => {
       }
 
       const serviceDuration = sessionType.duration_minutes;
-
-      // Get center config for step
-      const { data: center } = await supabase
-        .from("centers")
-        .select("reschedule_slot_duration, portal_default_professional_id, portal_allow_professional_selection")
-        .eq("id", session.centerId)
-        .single();
-
-      const step = center?.reschedule_slot_duration || 30;
-
-      // Determine professional
-      let finalProfessionalId = professionalId;
-      if (!center?.portal_allow_professional_selection || !professionalId) {
-        finalProfessionalId = center?.portal_default_professional_id;
-      }
-
-      if (!finalProfessionalId) {
-        return new Response(
-          JSON.stringify({ slots: [], serviceDuration, step }),
-          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
+      const slotDuration = center?.reschedule_slot_duration || 30;
       const dayOfWeek = new Date(date).getDay();
 
-      // 1. Get professional's availability for the day
+      // Get professional availability
       const { data: profAvailability } = await supabase
         .from("availability")
         .select("start_time, end_time")
-        .eq("professional_id", finalProfessionalId)
+        .eq("professional_id", professionalId)
         .eq("day_of_week", dayOfWeek)
         .eq("is_available", true);
 
-      if (!profAvailability?.length) {
-        return new Response(
-          JSON.stringify({ slots: [], serviceDuration, step }),
-          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      // 2. Get location schedule for this day
-      const { data: locationSchedules } = await supabase
+      // Get location schedule
+      const { data: locationSchedule } = await supabase
         .from("location_schedules")
         .select("start_time, end_time")
         .eq("location_id", locationId)
         .eq("day_of_week", dayOfWeek)
         .eq("is_open", true);
 
-      if (!locationSchedules?.length) {
+      if (!profAvailability?.length || !locationSchedule?.length) {
         return new Response(
-          JSON.stringify({ slots: [], serviceDuration, step }),
+          JSON.stringify({ slots: [] }),
           { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
-      // 3. Get existing sessions for that day
+      // Get existing sessions
       const { data: existingSessions } = await supabase
         .from("sessions")
         .select("start_time, end_time")
-        .eq("professional_id", finalProfessionalId)
+        .eq("professional_id", professionalId)
         .eq("session_date", date)
         .not("status", "in", '("cancelled","no_show")');
 
-      // 4. Get calendar events for that day (Google Calendar blocking)
+      // Get calendar events
       const startOfDay = `${date}T00:00:00`;
       const endOfDay = `${date}T23:59:59`;
 
       const { data: calendarEvents } = await supabase
         .from("calendar_events")
         .select("start_at, end_at, status, all_day")
-        .eq("professional_id", finalProfessionalId)
+        .eq("professional_id", professionalId)
         .eq("deleted", false)
         .gte("start_at", startOfDay)
         .lte("start_at", endOfDay);
 
-      // 5. Calculate intersection and generate slots
-      const slots: string[] = [];
-      
-      // Use Europe/Madrid timezone for calendar events conversion
       const centerTimezone = 'Europe/Madrid';
-      
-      // For 60-min services, prefer full-hour slots to maximize capacity
-      const preferFullHours = serviceDuration % 60 === 0;
-      const effectiveStep = preferFullHours ? 60 : step;
+
+      // Calculate available slots
+      const slots: { startTime: string; endTime: string }[] = [];
 
       for (const profSlot of profAvailability) {
-        const profStart = timeToMinutes(profSlot.start_time);
-        const profEnd = timeToMinutes(profSlot.end_time);
+        const profStartMins = timeToMinutes(profSlot.start_time);
+        const profEndMins = timeToMinutes(profSlot.end_time);
 
-        for (const locSchedule of locationSchedules) {
-          const locStart = timeToMinutes(locSchedule.start_time);
-          const locEnd = timeToMinutes(locSchedule.end_time);
+        for (const locSlot of locationSchedule) {
+          const locStartMins = timeToMinutes(locSlot.start_time);
+          const locEndMins = timeToMinutes(locSlot.end_time);
 
-          // Calculate intersection
-          const intersectionStart = Math.max(profStart, locStart);
-          const intersectionEnd = Math.min(profEnd, locEnd);
+          // Intersection of professional and location availability
+          const availStart = Math.max(profStartMins, locStartMins);
+          const availEnd = Math.min(profEndMins, locEndMins);
 
-          if (intersectionStart >= intersectionEnd) continue;
+          if (availEnd <= availStart) continue;
 
-          // Helper to check if a slot is valid (no conflicts)
-          const isSlotValid = (time: number): boolean => {
-            const slotEndMinutes = time + serviceDuration;
-            
-            // Check if slot fits in the intersection
-            if (slotEndMinutes > intersectionEnd) return false;
-            
-            // Check conflicts with existing sessions
+          // Generate slots
+          for (let slotStart = availStart; slotStart + serviceDuration <= availEnd; slotStart += slotDuration) {
+            const slotEnd = slotStart + serviceDuration;
+
+            // Check session conflicts
             const hasSessionConflict = existingSessions?.some(s => {
               const sessionStart = timeToMinutes(s.start_time.substring(0, 5));
               const sessionEnd = timeToMinutes(s.end_time.substring(0, 5));
-              return time < sessionEnd && slotEndMinutes > sessionStart;
+              return slotStart < sessionEnd && slotEnd > sessionStart;
             });
-            if (hasSessionConflict) return false;
 
-            // Check conflicts with calendar events (using correct timezone)
+            if (hasSessionConflict) continue;
+
+            // Check calendar conflicts
             const hasCalendarConflict = calendarEvents?.some(event => {
               if (event.status === 'cancelled') return false;
               if (event.all_day) return true;
@@ -675,48 +676,31 @@ serve(async (req) => {
               const eventStartMinutes = getLocalTimeMinutes(event.start_at, centerTimezone);
               const eventEndMinutes = getLocalTimeMinutes(event.end_at, centerTimezone);
 
-              return time < eventEndMinutes && slotEndMinutes > eventStartMinutes;
+              return slotStart < eventEndMinutes && slotEnd > eventStartMinutes;
             });
-            if (hasCalendarConflict) return false;
-            
-            return true;
-          };
 
-          // Generate primary slots (full hours for 60-min services)
-          for (let time = intersectionStart; time + serviceDuration <= intersectionEnd; time += effectiveStep) {
-            if (isSlotValid(time)) {
-              const slotTime = minutesToTime(time);
-              if (!slots.includes(slotTime)) {
-                slots.push(slotTime);
-              }
-            }
-          }
-          
-          // For 60-min services, add :30 slots only where sessions create gaps
-          if (preferFullHours && existingSessions?.length) {
-            existingSessions.forEach(session => {
-              const sessionEnd = timeToMinutes(session.end_time.substring(0, 5));
-              // If session ends at :30 and creates a gap we can fill
-              if (sessionEnd % 60 !== 0 && sessionEnd >= intersectionStart && sessionEnd + serviceDuration <= intersectionEnd) {
-                if (isSlotValid(sessionEnd)) {
-                  const slotTime = minutesToTime(sessionEnd);
-                  if (!slots.includes(slotTime)) {
-                    slots.push(slotTime);
-                  }
-                }
-              }
+            if (hasCalendarConflict) continue;
+
+            // Check if slot is in the past
+            const now = new Date();
+            const slotDateTime = new Date(`${date}T${minutesToTime(slotStart)}:00`);
+            if (slotDateTime <= now) continue;
+
+            slots.push({
+              startTime: minutesToTime(slotStart),
+              endTime: minutesToTime(slotEnd),
             });
           }
         }
       }
 
-      // Sort slots chronologically
-      slots.sort();
-
-      console.log("Generated slots:", slots.length, "for date:", date, "serviceDuration:", serviceDuration);
+      // Remove duplicates and sort
+      const uniqueSlots = slots.filter((slot, index, self) =>
+        index === self.findIndex(s => s.startTime === slot.startTime && s.endTime === slot.endTime)
+      ).sort((a, b) => a.startTime.localeCompare(b.startTime));
 
       return new Response(
-        JSON.stringify({ slots, serviceDuration, step }),
+        JSON.stringify({ slots: uniqueSlots }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
