@@ -2561,6 +2561,7 @@ export type Database = {
           portal_require_approval: boolean | null
           portal_slug: string | null
           province: string | null
+          public_booking_enabled: boolean | null
           reschedule_max_days: number | null
           reschedule_require_confirmation: boolean | null
           reschedule_slot_duration: number | null
@@ -2577,6 +2578,7 @@ export type Database = {
           portal_require_approval?: boolean | null
           portal_slug?: string | null
           province?: string | null
+          public_booking_enabled?: boolean | null
           reschedule_max_days?: number | null
           reschedule_require_confirmation?: boolean | null
           reschedule_slot_duration?: number | null
@@ -2593,6 +2595,7 @@ export type Database = {
           portal_require_approval?: boolean | null
           portal_slug?: string | null
           province?: string | null
+          public_booking_enabled?: boolean | null
           reschedule_max_days?: number | null
           reschedule_require_confirmation?: boolean | null
           reschedule_slot_duration?: number | null

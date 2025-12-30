@@ -10,6 +10,69 @@ const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const resendApiKey = Deno.env.get("RESEND_API_KEY");
 
+// Use SUPABASE_SERVICE_ROLE_KEY as HMAC secret for signing tokens
+// This is secure because the service key is never exposed to clients
+const TOKEN_SECRET = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const TOKEN_EXPIRY_MS = 60 * 60 * 1000; // 1 hour
+
+// HMAC-SHA256 signing for secure tokens
+async function signToken(payload: object): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = JSON.stringify(payload);
+  
+  const key = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(TOKEN_SECRET),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  
+  const signature = await crypto.subtle.sign("HMAC", key, encoder.encode(data));
+  const signatureB64 = btoa(String.fromCharCode(...new Uint8Array(signature)));
+  
+  // Token format: base64(payload).base64(signature)
+  return `${btoa(data)}.${signatureB64}`;
+}
+
+async function verifyToken(token: string): Promise<{ valid: boolean; payload?: { patient_id: string; center_id: string; exp: number } }> {
+  try {
+    const [payloadB64, signatureB64] = token.split(".");
+    if (!payloadB64 || !signatureB64) {
+      return { valid: false };
+    }
+    
+    const data = atob(payloadB64);
+    const encoder = new TextEncoder();
+    
+    const key = await crypto.subtle.importKey(
+      "raw",
+      encoder.encode(TOKEN_SECRET),
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["verify"]
+    );
+    
+    const signatureBytes = Uint8Array.from(atob(signatureB64), c => c.charCodeAt(0));
+    const isValid = await crypto.subtle.verify("HMAC", key, signatureBytes, encoder.encode(data));
+    
+    if (!isValid) {
+      return { valid: false };
+    }
+    
+    const payload = JSON.parse(data);
+    
+    // Check expiration
+    if (payload.exp < Date.now()) {
+      return { valid: false };
+    }
+    
+    return { valid: true, payload };
+  } catch {
+    return { valid: false };
+  }
+}
+
 async function sendEmailViaResendAPI(
   to: string,
   subject: string,
@@ -236,12 +299,12 @@ serve(async (req) => {
           .eq("id", magicLink.id);
       }
 
-      // Generate session token (simple JWT-like for this use case)
-      const sessionToken = btoa(JSON.stringify({
+      // Generate cryptographically signed session token
+      const sessionToken = await signToken({
         patient_id: magicLink.patient_id,
         center_id: magicLink.center_id,
-        exp: Date.now() + 60 * 60 * 1000, // 1 hour
-      }));
+        exp: Date.now() + TOKEN_EXPIRY_MS,
+      });
 
       return new Response(
         JSON.stringify({
@@ -272,50 +335,44 @@ serve(async (req) => {
         );
       }
 
-      try {
-        const decoded = JSON.parse(atob(sessionToken));
-        if (decoded.exp < Date.now()) {
-          return new Response(
-            JSON.stringify({ valid: false, error: "Sesión expirada" }),
-            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
-        }
-
-        // Get fresh patient data
-        const { data: patient } = await supabase
-          .from("patients")
-          .select("id, first_name, last_name, email, center_id")
-          .eq("id", decoded.patient_id)
-          .single();
-
-        const { data: center } = await supabase
-          .from("centers")
-          .select("name, portal_slug")
-          .eq("id", decoded.center_id)
-          .single();
-
+      const result = await verifyToken(sessionToken);
+      
+      if (!result.valid || !result.payload) {
         return new Response(
-          JSON.stringify({
-            valid: true,
-            patient: patient ? {
-              id: patient.id,
-              firstName: patient.first_name,
-              lastName: patient.last_name,
-              email: patient.email,
-            } : null,
-            center: center ? {
-              name: center.name,
-              slug: center.portal_slug,
-            } : null,
-          }),
-          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      } catch {
-        return new Response(
-          JSON.stringify({ valid: false }),
+          JSON.stringify({ valid: false, error: "Sesión inválida o expirada" }),
           { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
+
+      // Get fresh patient data
+      const { data: patient } = await supabase
+        .from("patients")
+        .select("id, first_name, last_name, email, center_id")
+        .eq("id", result.payload.patient_id)
+        .single();
+
+      const { data: center } = await supabase
+        .from("centers")
+        .select("name, portal_slug")
+        .eq("id", result.payload.center_id)
+        .single();
+
+      return new Response(
+        JSON.stringify({
+          valid: true,
+          patient: patient ? {
+            id: patient.id,
+            firstName: patient.first_name,
+            lastName: patient.last_name,
+            email: patient.email,
+          } : null,
+          center: center ? {
+            name: center.name,
+            slug: center.portal_slug,
+          } : null,
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     return new Response(
