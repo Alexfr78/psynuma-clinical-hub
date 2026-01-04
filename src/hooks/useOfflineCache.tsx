@@ -32,6 +32,15 @@ export function useOfflineCache(options: UseOfflineCacheOptions = {}) {
   const [isInitialized, setIsInitialized] = useState(false);
   const [cacheError, setCacheError] = useState<string | null>(null);
   const lastSaveRef = useRef<number>(0);
+  
+  // Stabilize callbacks to prevent infinite loops
+  const onCacheRestoredRef = useRef(options.onCacheRestored);
+  const onPendingChangesRestoredRef = useRef(options.onPendingChangesRestored);
+  
+  useEffect(() => {
+    onCacheRestoredRef.current = options.onCacheRestored;
+    onPendingChangesRestoredRef.current = options.onPendingChangesRestored;
+  }, [options.onCacheRestored, options.onPendingChangesRestored]);
 
   // Validate cache data integrity
   const validateCacheData = useCallback((data: unknown): data is CacheData => {
@@ -68,7 +77,7 @@ export function useOfflineCache(options: UseOfflineCacheOptions = {}) {
     return true;
   }, []);
 
-  // Load cache on mount with defensive parsing
+  // Load cache on mount with defensive parsing - runs only once
   useEffect(() => {
     try {
       const raw = localStorage.getItem(CACHE_KEY);
@@ -92,8 +101,8 @@ export function useOfflineCache(options: UseOfflineCacheOptions = {}) {
       if (validateCacheData(parsed)) {
         setCachedSessions(parsed.sessions);
         setPendingChanges(parsed.pendingChanges || []);
-        options.onCacheRestored?.(parsed.sessions);
-        options.onPendingChangesRestored?.(parsed.pendingChanges || []);
+        onCacheRestoredRef.current?.(parsed.sessions);
+        onPendingChangesRestoredRef.current?.(parsed.pendingChanges || []);
         console.log(`[OfflineCache] Restored ${parsed.sessions.length} sessions from cache`);
       } else {
         localStorage.removeItem(CACHE_KEY);
@@ -105,7 +114,8 @@ export function useOfflineCache(options: UseOfflineCacheOptions = {}) {
       setCacheError('Error al cargar caché local');
       setIsInitialized(true);
     }
-  }, [validateCacheData, options]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [validateCacheData]);
 
   // Save to cache with debouncing
   const saveToCache = useCallback((sessions: SessionWithRelations[], changes?: PendingChange[]) => {
