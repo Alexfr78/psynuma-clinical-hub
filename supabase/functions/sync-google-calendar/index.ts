@@ -665,7 +665,10 @@ async function syncProfessional(
 ): Promise<SyncResult> {
   const result: SyncResult = { created: 0, updated: 0, deleted: 0, errors: [], calendarEventsImported: 0 };
 
-  console.log(`[SYNC:START] Professional ${professionalId}, range ${dateFrom} to ${dateTo}`);
+  console.log(`[SYNC:START] ====================================`);
+  console.log(`[SYNC:START] Professional ${professionalId}`);
+  console.log(`[SYNC:START] Date range: ${dateFrom} to ${dateTo}`);
+  console.log(`[SYNC:START] ====================================`);
 
   // Get OAuth connection
   const { data: connection, error: connError } = await supabase
@@ -676,12 +679,18 @@ async function syncProfessional(
     .single();
 
   if (connError || !connection) {
+    console.error('[SYNC:ERROR] No OAuth connection found');
     result.errors.push('No hay conexión con Google configurada');
     return result;
   }
 
+  console.log(`[SYNC:CONFIG] sync_token: ${connection.sync_token ? 'present (incremental sync)' : 'null (full sync)'}`);
+  console.log(`[SYNC:CONFIG] needs_reconnect: ${connection.needs_reconnect}`);
+  console.log(`[SYNC:CONFIG] calendar_id: ${connection.google_calendar_id || 'NOT SET'}`);
+
   // Check if needs reconnect
   if (connection.needs_reconnect) {
+    console.error('[SYNC:ERROR] Connection needs reconnect');
     result.errors.push('La conexión con Google necesita reconectarse');
     return result;
   }
@@ -694,12 +703,17 @@ async function syncProfessional(
     .single();
 
   if (!integrations?.google_calendar_enabled) {
+    console.error('[SYNC:ERROR] Google Calendar not enabled');
     result.errors.push('Google Calendar no está habilitado');
     return result;
   }
 
+  console.log(`[SYNC:CONFIG] sync_mode: ${integrations.google_calendar_sync_mode}`);
+  console.log(`[SYNC:CONFIG] days_past: ${integrations.google_sync_days_past ?? 30}, days_future: ${integrations.google_sync_days_future ?? 90}`);
+
   const accessToken = await getValidAccessToken(supabase, connection);
   if (!accessToken) {
+    console.error('[SYNC:ERROR] Could not get valid access token');
     result.errors.push('Error de autenticación con Google. Reconecta tu cuenta.');
     return result;
   }
@@ -707,12 +721,12 @@ async function syncProfessional(
   // CRÍTICO: No usar 'primary' como fallback
   const calendarId = connection.google_calendar_id;
   if (!calendarId) {
-    console.error('[SYNC:ERROR] No hay google_calendar_id configurado');
+    console.error('[SYNC:ERROR] No google_calendar_id configured');
     result.errors.push('No hay calendario seleccionado. Configura un calendario específico en Ajustes > Integraciones.');
     return result;
   }
   
-  console.log(`[SYNC] Using calendar: ${calendarId}`);
+  console.log(`[SYNC:CALENDAR] Using calendar: ${calendarId}`);
 
   // Renew webhook channel if expiring soon
   if (integrations?.google_calendar_sync_mode === 'two_way') {

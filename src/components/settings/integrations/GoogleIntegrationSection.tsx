@@ -61,6 +61,9 @@ export function GoogleIntegrationSection() {
   // Cleanup state
   const [isCleaningUp, setIsCleaningUp] = useState(false);
   const [showCleanupConfirm, setShowCleanupConfirm] = useState(false);
+  
+  // Force resync state
+  const [isForceResyncing, setIsForceResyncing] = useState(false);
 
   const isConnected = isProviderConnected('google');
   const connection = getOAuthConnection('google');
@@ -345,10 +348,64 @@ export function GoogleIntegrationSection() {
   };
 
   const handleDisconnect = async () => {
+    // Clear sync_token before disconnecting to ensure full resync on reconnect
+    if (profile?.id) {
+      await supabase
+        .from('oauth_connections')
+        .update({ sync_token: null })
+        .eq('professional_id', profile.id)
+        .eq('provider', 'google');
+    }
     await disconnectProvider.mutateAsync('google');
     setCalendarEnabled(false);
     setMeetEnabled(false);
     setCalendars([]);
+  };
+
+  const handleForceFullResync = async () => {
+    if (!profile?.id) return;
+    
+    setIsForceResyncing(true);
+    try {
+      // Clear sync_token to force full resync
+      await supabase
+        .from('oauth_connections')
+        .update({ sync_token: null })
+        .eq('professional_id', profile.id)
+        .eq('provider', 'google');
+      
+      // Extended range: 90 days past, 120 days future
+      const now = new Date();
+      const dateFrom = new Date(now);
+      dateFrom.setDate(dateFrom.getDate() - 90);
+      const dateTo = new Date(now);
+      dateTo.setDate(dateTo.getDate() + 120);
+      
+      toast.info('Iniciando resincronización completa...');
+      
+      const { data, error } = await supabase.functions.invoke('sync-google-calendar', {
+        body: { 
+          professional_id: profile.id,
+          date_from: dateFrom.toISOString().split('T')[0],
+          date_to: dateTo.toISOString().split('T')[0],
+        },
+      });
+      
+      if (error || data?.errors?.length > 0) {
+        toast.error(`Error: ${data?.errors?.[0] || error?.message}`);
+      } else {
+        const msgs: string[] = [];
+        if (data?.created > 0) msgs.push(`${data.created} creados`);
+        if (data?.updated > 0) msgs.push(`${data.updated} actualizados`);
+        if (data?.calendarEventsImported > 0) msgs.push(`${data.calendarEventsImported} eventos importados`);
+        toast.success(msgs.length > 0 ? `Resync completo: ${msgs.join(', ')}` : 'Sincronización completada');
+        refetchHealth();
+      }
+    } catch (e) {
+      toast.error('Error en resincronización');
+    } finally {
+      setIsForceResyncing(false);
+    }
   };
 
   const handleCleanupEvents = async () => {
@@ -746,8 +803,30 @@ export function GoogleIntegrationSection() {
                           <div className="flex items-center justify-between">
                             <span className="text-sm text-muted-foreground">Sync incremental</span>
                             <span className="text-xs text-muted-foreground">
-                              {healthData.sync_token ? '✓ Activo' : 'No disponible'}
+                              {healthData.sync_token ? '✓ Activo' : 'No disponible (full sync)'}
                             </span>
+                          </div>
+
+                          {/* Force Full Resync Button */}
+                          <Separator className="my-2" />
+                          <div className="space-y-2">
+                            <p className="text-xs text-muted-foreground">
+                              Si los eventos externos no aparecen, fuerza una resincronización completa (90 días pasado/120 días futuro).
+                            </p>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={handleForceFullResync}
+                              disabled={isForceResyncing}
+                              className="w-full gap-2"
+                            >
+                              {isForceResyncing ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <RefreshCw className="h-4 w-4" />
+                              )}
+                              Forzar resincronización completa
+                            </Button>
                           </div>
 
                           <Button 
