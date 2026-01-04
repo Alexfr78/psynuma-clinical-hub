@@ -12,12 +12,17 @@ import { SessionDetailDrawer } from '@/components/agenda/SessionDetailDrawer';
 import { MoveSessionDialog } from '@/components/agenda/MoveSessionDialog';
 import { AgendaFooter } from '@/components/agenda/AgendaFooter';
 import { PendingApprovalsPanel } from '@/components/agenda/PendingApprovalsPanel';
+import { NetworkStatusIndicator } from '@/components/agenda/NetworkStatusIndicator';
 import { useToast } from '@/hooks/use-toast';
 import { useAgendaHours } from '@/hooks/useAgendaHours';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useGoogleCalendarUpdate } from '@/hooks/useGoogleCalendarUpdate';
 import { useCalendarEvents, calendarEventToSessionFormat } from '@/hooks/useCalendarEvents';
 import { useCenter } from '@/hooks/useCenter';
+import { useNetworkStatus } from '@/hooks/useNetworkStatus';
+import { useOfflineCache } from '@/hooks/useOfflineCache';
+import { useGoogleCalendarSync } from '@/hooks/useGoogleCalendarSync';
+
 export default function Agenda() {
   const isMobile = useIsMobile();
   const { center } = useCenter();
@@ -40,6 +45,22 @@ export default function Agenda() {
   const { toast } = useToast();
   const updateSession = useUpdateSession();
   const { syncMoveToGoogle } = useGoogleCalendarUpdate();
+
+  // Network and offline cache hooks
+  const networkStatus = useNetworkStatus();
+  const { 
+    cachedSessions, 
+    saveToCache, 
+    hasPendingChanges, 
+    pendingChanges,
+    cacheError,
+    isInitialized: isCacheInitialized,
+  } = useOfflineCache();
+  const { 
+    sync: triggerGoogleSync, 
+    isSyncing: isGoogleSyncing, 
+    isAvailable: isGoogleSyncAvailable,
+  } = useGoogleCalendarSync();
 
   // Calculate date range based on view
   const dateRange = useMemo(() => {
@@ -91,9 +112,36 @@ export default function Agenda() {
     enabled: showGoogleEvents,
   });
 
+  // Save sessions to cache when they change
+  useEffect(() => {
+    if (sessions && sessions.length > 0) {
+      saveToCache(sessions);
+    }
+  }, [sessions, saveToCache]);
+
+  // Determine which sessions to show (server or cache fallback)
+  const effectiveSessions = useMemo(() => {
+    if (sessions && sessions.length > 0) {
+      return sessions;
+    }
+    if (!networkStatus.isOnline || isLoading) {
+      return cachedSessions;
+    }
+    return sessions || [];
+  }, [sessions, cachedSessions, networkStatus.isOnline, isLoading]);
+
+  const isUsingCache = !networkStatus.isOnline || (isLoading && cachedSessions.length > 0);
+  const canSync = networkStatus.isOnline && isGoogleSyncAvailable && !isGoogleSyncing;
+
+  const handleSync = useCallback(() => {
+    if (canSync) {
+      triggerGoogleSync();
+    }
+  }, [canSync, triggerGoogleSync]);
+
   // Merge sessions with Google Calendar events for display
   const allSessions = useMemo(() => {
-    const baseSessions = sessions || [];
+    const baseSessions = effectiveSessions || [];
     if (!showGoogleEvents || !googleCalendarEvents?.length) {
       return baseSessions;
     }
@@ -113,7 +161,7 @@ export default function Agenda() {
     );
 
     return [...baseSessions, ...uniqueGoogleEvents] as SessionWithRelations[];
-  }, [sessions, googleCalendarEvents, showGoogleEvents]);
+  }, [effectiveSessions, googleCalendarEvents, showGoogleEvents]);
 
   // Dynamic hours based on center/professional configuration and existing sessions
   const { hours, startHour } = useAgendaHours(selectedProfessional, currentDate, allSessions);
@@ -249,11 +297,26 @@ export default function Agenda() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="font-display text-2xl font-bold text-foreground">Agenda</h1>
-        <p className="text-muted-foreground">
-          Gestiona las sesiones y citas de tus pacientes
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="font-display text-2xl font-bold text-foreground">Agenda</h1>
+          <p className="text-muted-foreground">
+            Gestiona las sesiones y citas de tus pacientes
+          </p>
+        </div>
+        
+        {/* Network Status Indicator */}
+        <NetworkStatusIndicator
+          isOnline={networkStatus.isOnline}
+          isSlowConnection={networkStatus.isSlowConnection}
+          isUsingCache={isUsingCache}
+          hasPendingChanges={hasPendingChanges}
+          pendingChangesCount={pendingChanges.length}
+          isSyncing={isGoogleSyncing}
+          canSync={canSync}
+          onSync={handleSync}
+          cacheError={cacheError}
+        />
       </div>
 
       {/* Pending Approvals Panel */}
@@ -271,7 +334,7 @@ export default function Agenda() {
       />
 
       {/* Calendar Views */}
-      {isLoading ? (
+      {isLoading && cachedSessions.length === 0 ? (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
