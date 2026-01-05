@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { CalendarIcon, User, Globe, ChevronDown, Plus, Video, MapPin, Ban, Settings2, Package, CreditCard, AlertCircle } from 'lucide-react';
+import { Calendar } from '@/components/ui/calendar';
 import { Link } from 'react-router-dom';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -95,12 +96,12 @@ interface QuickCreateSessionDialogProps {
   initialEndTime?: string;
 }
 
-// Generate 15-minute interval time slots
+// Generate 15-minute interval time slots (extended to 23:00 for flexibility)
 const generateTimeSlots = () => {
   const slots: string[] = [];
-  for (let hour = 8; hour <= 20; hour++) {
+  for (let hour = 6; hour <= 23; hour++) {
     for (let minute = 0; minute < 60; minute += 15) {
-      if (hour === 20 && minute > 0) break;
+      if (hour === 23 && minute > 0) break;
       slots.push(`${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`);
     }
   }
@@ -910,13 +911,39 @@ export function QuickCreateSessionDialog({
             <div className="space-y-2">
               <FormLabel className="text-sm font-medium">Fecha y hora</FormLabel>
               <div className="flex items-center gap-2">
-                {/* Date Display */}
-                <div className="flex items-center gap-2 px-3 py-2 border rounded-md bg-muted/30 flex-1">
-                  <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm capitalize">
-                    {format(form.watch('session_date'), "EEE d 'de' MMM", { locale: es })}
-                  </span>
-                </div>
+                {/* Date Picker */}
+                <FormField
+                  control={form.control}
+                  name="session_date"
+                  render={({ field }) => (
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            'flex-1 justify-start text-left font-normal h-10',
+                            !field.value && 'text-muted-foreground'
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          <span className="capitalize">
+                            {field.value ? format(field.value, "EEE d 'de' MMM", { locale: es }) : 'Seleccionar fecha'}
+                          </span>
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={field.value}
+                          onSelect={field.onChange}
+                          initialFocus
+                          className="pointer-events-auto"
+                          locale={es}
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  )}
+                />
                 
                 {/* Time Selects */}
                 <FormField
