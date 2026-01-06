@@ -241,7 +241,7 @@ export async function handleSessionUpdate(
   if (!googleEventId) return;
 
   try {
-    await supabase.functions.invoke('update-google-calendar-event', {
+    const { data, error } = await supabase.functions.invoke('update-google-calendar-event', {
       body: {
         professional_id: professionalId,
         event_id: googleEventId,
@@ -251,6 +251,14 @@ export async function handleSessionUpdate(
         ...updates,
       },
     });
+
+    if (error || data?.success === false) {
+      const msg = (data?.message || data?.error || error?.message) as string | undefined;
+      console.error('Error updating Google Calendar event:', error || data);
+      toast.error(msg || 'No se pudo sincronizar con Google Calendar');
+      return;
+    }
+
     console.log('Google Calendar event updated with psycma_session_id marker');
   } catch (err) {
     console.error('Error updating Google Calendar event:', err);
@@ -266,14 +274,21 @@ export async function handleSessionCancellation(
   // Cancel Google Calendar event
   if (googleEventId) {
     try {
-      await supabase.functions.invoke('update-google-calendar-event', {
+      const { data, error } = await supabase.functions.invoke('update-google-calendar-event', {
         body: {
           professional_id: professionalId,
           event_id: googleEventId,
           status: 'cancelled',
         },
       });
-      console.log('Google Calendar event cancelled');
+
+      if (error || data?.success === false) {
+        const msg = (data?.message || data?.error || error?.message) as string | undefined;
+        console.error('Error cancelling Google Calendar event:', error || data);
+        toast.error(msg || 'No se pudo cancelar el evento en Google Calendar');
+      } else {
+        console.log('Google Calendar event cancelled');
+      }
     } catch (err) {
       console.error('Error cancelling Google Calendar event:', err);
     }
