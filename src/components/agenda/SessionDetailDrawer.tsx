@@ -106,6 +106,8 @@ import { CalendarEvent } from '@/hooks/useCalendarEvents';
 import { EditRecurringScopeDialog } from './EditRecurringScopeDialog';
 import { useUpdateRecurringSession, useCancelRecurringSession } from '@/hooks/useRecurringSeries';
 import { EditScope } from '@/types/recurring';
+import { checkSessionConflicts, ConflictResult } from '@/lib/conflicts';
+import { ConflictsDialog } from './ConflictsDialog';
 
 interface SessionDetailDrawerProps {
   session: SessionWithRelations | null;
@@ -192,6 +194,11 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
   const [showRecurringScopeDialog, setShowRecurringScopeDialog] = useState(false);
   const [recurringScopeAction, setRecurringScopeAction] = useState<'edit' | 'cancel'>('edit');
   const [pendingRecurringUpdate, setPendingRecurringUpdate] = useState<Record<string, unknown> | null>(null);
+  
+  // Conflict detection state
+  const [conflictsDialogOpen, setConflictsDialogOpen] = useState(false);
+  const [detectedConflicts, setDetectedConflicts] = useState<ConflictResult[]>([]);
+  const [isCheckingConflicts, setIsCheckingConflicts] = useState(false);
   
   // Local state for immediate UI update
   const [localBonoId, setLocalBonoId] = useState<string | null>(null);
@@ -394,7 +401,8 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
     setEditingDateTime(true);
   };
 
-  const handleDateTimeSave = async () => {
+  // Execute the actual date/time save
+  const executeDateTimeSave = async () => {
     try {
       await updateSession.mutateAsync({
         id: session.id,
@@ -432,6 +440,61 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
     } catch {
       toast({ title: 'Error al actualizar', variant: 'destructive' });
     }
+  };
+
+  const handleDateTimeSave = async () => {
+    if (!center?.id || !session.professional_id) {
+      await executeDateTimeSave();
+      return;
+    }
+
+    // Check if date/time actually changed
+    const dateChanged = dateTimeValue.date !== session.session_date;
+    const timeChanged = dateTimeValue.startTime !== session.start_time?.slice(0, 5) || 
+                        dateTimeValue.endTime !== session.end_time?.slice(0, 5);
+
+    if (!dateChanged && !timeChanged) {
+      setEditingDateTime(false);
+      return;
+    }
+
+    setIsCheckingConflicts(true);
+    try {
+      // Build the new session time range
+      const newStart = new Date(`${dateTimeValue.date}T${dateTimeValue.startTime}`);
+      const newEnd = new Date(`${dateTimeValue.date}T${dateTimeValue.endTime}`);
+
+      const conflicts = await checkSessionConflicts({
+        centerId: center.id,
+        professionalId: session.professional_id,
+        sessionsToCheck: [{ start: newStart, end: newEnd }],
+        excludeSessionId: session.id,
+      });
+
+      if (conflicts.length > 0) {
+        setDetectedConflicts(conflicts);
+        setConflictsDialogOpen(true);
+      } else {
+        await executeDateTimeSave();
+      }
+    } catch (error) {
+      console.error('Error checking conflicts:', error);
+      // If conflict check fails, proceed anyway
+      await executeDateTimeSave();
+    } finally {
+      setIsCheckingConflicts(false);
+    }
+  };
+
+  const handleConflictForceCreate = async () => {
+    setConflictsDialogOpen(false);
+    setDetectedConflicts([]);
+    await executeDateTimeSave();
+  };
+
+  const handleConflictCancel = () => {
+    setConflictsDialogOpen(false);
+    setDetectedConflicts([]);
   };
 
   const handleFieldSave = async (field: string, value: any) => {
@@ -1822,6 +1885,15 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
         isLoading={updateRecurringSession.isPending || cancelRecurringSession.isPending}
       />
     )}
+
+    {/* Conflicts Dialog for date/time edits */}
+    <ConflictsDialog
+      open={conflictsDialogOpen}
+      conflicts={detectedConflicts}
+      onCancel={handleConflictCancel}
+      onForceCreate={handleConflictForceCreate}
+      isRecurring={false}
+    />
     </>
   );
 }

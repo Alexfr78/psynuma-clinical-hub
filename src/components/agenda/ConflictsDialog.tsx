@@ -15,12 +15,12 @@ import { ConflictResult } from '@/lib/conflicts';
 
 interface ConflictsDialogProps {
   open: boolean;
-  onOpenChange: (open: boolean) => void;
+  onOpenChange?: (open: boolean) => void;
   conflicts: ConflictResult[];
-  isRecurring: boolean;
-  totalSessions: number;
+  isRecurring?: boolean;
+  totalSessions?: number;
   onCancel: () => void;
-  onCreateNonConflicting: () => void;
+  onCreateNonConflicting?: () => void;
   onForceCreate: () => void;
 }
 
@@ -30,8 +30,8 @@ export function ConflictsDialog({
   open,
   onOpenChange,
   conflicts,
-  isRecurring,
-  totalSessions,
+  isRecurring = false,
+  totalSessions = 1,
   onCancel,
   onCreateNonConflicting,
   onForceCreate,
@@ -43,21 +43,21 @@ export function ConflictsDialog({
 
   const handleCancel = () => {
     onCancel();
-    onOpenChange(false);
+    onOpenChange?.(false);
   };
 
   const handleCreateNonConflicting = () => {
-    onCreateNonConflicting();
-    onOpenChange(false);
+    onCreateNonConflicting?.();
+    onOpenChange?.(false);
   };
 
   const handleForceCreate = () => {
     onForceCreate();
-    onOpenChange(false);
+    onOpenChange?.(false);
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange ?? (() => {})}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-amber-600">
