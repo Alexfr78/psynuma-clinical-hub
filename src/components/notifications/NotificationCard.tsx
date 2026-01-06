@@ -38,91 +38,66 @@ export function NotificationCard({ notification, onSend, onDelete }: Notificatio
   const isWhatsAppManualSend = notification.type === 'whatsapp' && notification.status === 'pending';
 
   return (
-    <Card className="overflow-hidden">
-      <CardHeader className="pb-2">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-2 min-w-0">
+    <Card className="h-full flex flex-col">
+      <CardHeader className="pb-2 flex-shrink-0">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
             <div className={`p-2 rounded-lg flex-shrink-0 ${typeInfo.color}`}>
               <TypeIcon className="h-4 w-4" />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="font-medium truncate">{patientName}</p>
-              <p className="text-sm text-muted-foreground truncate">{notification.recipient}</p>
+              <p className="font-medium text-sm truncate">{patientName}</p>
+              <p className="text-xs text-muted-foreground truncate">{notification.recipient}</p>
             </div>
           </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="flex items-center gap-1 flex-shrink-0">
             {isWhatsAppManualSend && (
-              <Badge variant="outline" className="text-xs flex items-center gap-1 text-amber-600 border-amber-300">
+              <Badge variant="outline" className="text-[10px] px-1.5 py-0.5 flex items-center gap-1 text-amber-600 border-amber-300">
                 <Smartphone className="h-3 w-3" />
-                <span className="hidden sm:inline">Envío manual</span>
-                <span className="sm:hidden">Manual</span>
+                <span className="hidden lg:inline">Manual</span>
               </Badge>
             )}
-            <Badge variant={statusInfo.variant} className="flex items-center gap-1 w-fit">
+            <Badge variant={statusInfo.variant} className="text-[10px] px-1.5 py-0.5 flex items-center gap-1">
               <StatusIcon className="h-3 w-3" />
-              <span className="hidden sm:inline">{statusInfo.label}</span>
             </Badge>
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-3 overflow-hidden">
-        {notification.subject && (
-          <p className="font-medium text-sm truncate break-words">{notification.subject}</p>
-        )}
-        <p className="text-sm text-muted-foreground line-clamp-2 break-words">
-          {notification.message}
-        </p>
-        
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-xs text-muted-foreground">
-          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-4">
-            {notification.scheduled_for && (
-              <span className="truncate">
-                <span className="hidden sm:inline">Programado:</span>
-                <span className="sm:hidden">Prog:</span>
-                {' '}{format(new Date(notification.scheduled_for), "dd/MM HH:mm", { locale: es })}
-              </span>
-            )}
-            {notification.sent_at && (
-              <span className="truncate">
-                <span className="hidden sm:inline">Enviado:</span>
-                <span className="sm:hidden">Env:</span>
-                {' '}{format(new Date(notification.sent_at), "dd/MM HH:mm", { locale: es })}
-              </span>
-            )}
-          </div>
-          
-          <div className="flex gap-2">
-            {notification.status === 'pending' && onSend && (
-              <Button size="sm" variant="outline" onClick={() => onSend(notification.id)} className="flex-1 sm:flex-none">
-                <Send className="h-3 w-3 mr-1" />
-                {isWhatsAppManualSend ? (
-                  <>
-                    <span className="hidden sm:inline">Abrir WhatsApp</span>
-                    <span className="sm:hidden">WhatsApp</span>
-                  </>
-                ) : (
-                  <>
-                    <span className="hidden sm:inline">Enviar ahora</span>
-                    <span className="sm:hidden">Enviar</span>
-                  </>
-                )}
-              </Button>
-            )}
             {onDelete && (
               <Button 
-                size="sm" 
+                size="icon" 
                 variant="ghost" 
                 onClick={() => onDelete(notification.id)}
-                className="text-muted-foreground hover:text-destructive"
+                className="h-6 w-6 text-muted-foreground hover:text-destructive flex-shrink-0"
               >
                 <Trash2 className="h-3 w-3" />
               </Button>
             )}
           </div>
         </div>
+      </CardHeader>
+      <CardContent className="flex-1 flex flex-col gap-2 pt-0">
+        <p className="text-xs text-muted-foreground line-clamp-2 flex-1">
+          {notification.message}
+        </p>
+        
+        <div className="flex items-center justify-between gap-2 text-[10px] text-muted-foreground mt-auto">
+          <span className="truncate">
+            {notification.scheduled_for 
+              ? format(new Date(notification.scheduled_for), "dd/MM HH:mm", { locale: es })
+              : notification.sent_at 
+                ? format(new Date(notification.sent_at), "dd/MM HH:mm", { locale: es })
+                : ''
+            }
+          </span>
+          
+          {notification.status === 'pending' && onSend && (
+            <Button size="sm" variant="outline" onClick={() => onSend(notification.id)} className="h-7 text-xs px-2">
+              <Send className="h-3 w-3 mr-1" />
+              {isWhatsAppManualSend ? 'WhatsApp' : 'Enviar'}
+            </Button>
+          )}
+        </div>
 
         {notification.error_message && (
-          <p className="text-xs text-destructive truncate">
+          <p className="text-[10px] text-destructive truncate">
             Error: {notification.error_message}
           </p>
         )}
