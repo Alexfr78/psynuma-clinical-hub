@@ -58,6 +58,7 @@ import { WhatsAppIntegrationSection } from '@/components/settings/integrations/W
 import { ZoomIntegrationSection } from '@/components/settings/integrations/ZoomIntegrationSection';
 import { GoogleIntegrationSection } from '@/components/settings/integrations/GoogleIntegrationSection';
 import { StripeIntegrationSection } from '@/components/settings/integrations/StripeIntegrationSection';
+import { EmailIntegrationSection } from '@/components/settings/integrations/EmailIntegrationSection';
 import { OAuthCredentialsSection } from '@/components/settings/integrations/OAuthCredentialsSection';
 import { AgendaSettingsSection } from '@/components/settings/AgendaSettingsSection';
 import { AdminAlertsSettingsSection } from '@/components/settings/AdminAlertsSettingsSection';
@@ -95,6 +96,7 @@ type SettingsSection =
   | 'comunicaciones-alertas-admin'
   | 'integraciones-resumen'
   | 'integraciones-credenciales'
+  | 'integraciones-email'
   | 'integraciones-whatsapp'
   | 'integraciones-zoom'
   | 'integraciones-google'
@@ -148,6 +150,7 @@ const navItems: NavItem[] = [
   
   // Conexiones Externas
   { id: 'integraciones-resumen', label: 'Estado de conexiones', icon: Plug, parent: 'Conexiones Externas' },
+  { id: 'integraciones-email', label: 'Email (Resend)', icon: Mail, parent: 'Conexiones Externas' },
   { id: 'integraciones-whatsapp', label: 'WhatsApp Business', icon: MessageCircle, parent: 'Conexiones Externas' },
   { id: 'integraciones-google', label: 'Google Calendar y Meet', icon: Calendar, parent: 'Conexiones Externas' },
   { id: 'integraciones-zoom', label: 'Zoom', icon: Video, parent: 'Conexiones Externas' },
@@ -354,6 +357,8 @@ export default function Settings() {
         return <AdminAlertsSettingsSection />;
       case 'integraciones-resumen':
         return <IntegrationsOverview />;
+      case 'integraciones-email':
+        return <EmailIntegrationSection />;
       case 'integraciones-credenciales':
         return <OAuthCredentialsSection />;
       case 'integraciones-whatsapp':
