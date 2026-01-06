@@ -56,7 +56,7 @@ export function useConvertCalendarEvent() {
 
       // 2. Update the Google Calendar event with extendedProperties and new title
       try {
-        const { error: updateError } = await supabase.functions.invoke(
+        const { data, error: updateError } = await supabase.functions.invoke(
           'update-google-calendar-event',
           {
             body: {
@@ -68,8 +68,8 @@ export function useConvertCalendarEvent() {
           }
         );
 
-        if (updateError) {
-          console.error('Error updating Google Calendar event:', updateError);
+        if (updateError || data?.success === false) {
+          console.error('Error updating Google Calendar event:', updateError || data);
           // Don't throw - the session was created successfully
         }
       } catch (googleError) {

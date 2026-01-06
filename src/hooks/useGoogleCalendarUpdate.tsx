@@ -92,16 +92,18 @@ export function useGoogleCalendarUpdate() {
     if (updates.status === 'cancelled') {
       if (googleEventId) {
         console.log(`[SYNC] Session cancelled, deleting Google Calendar event ${googleEventId}`);
-        const { error } = await supabase.functions.invoke('update-google-calendar-event', {
+        const { data, error } = await supabase.functions.invoke('update-google-calendar-event', {
           body: {
             professional_id: session.professional_id,
             event_id: googleEventId,
             status: 'cancelled',
           },
         });
-        if (error) {
-          console.error('[SYNC] Error deleting Google event:', error);
-          return { success: false, error: error.message };
+
+        if (error || data?.success === false) {
+          const msg = (data?.message || data?.error || error?.message) as string | undefined;
+          console.error('[SYNC] Error deleting Google event:', error || data);
+          return { success: false, error: msg || 'No se pudo actualizar Google Calendar' };
         }
       }
       return { success: true };
@@ -133,9 +135,10 @@ export function useGoogleCalendarUpdate() {
       },
     });
 
-    if (error) {
-      console.error('[SYNC] Error updating Google event:', error);
-      return { success: false, error: error.message };
+    if (error || data?.success === false) {
+      const msg = (data?.message || data?.error || error?.message) as string | undefined;
+      console.error('[SYNC] Error updating Google event:', error || data);
+      return { success: false, error: msg || 'No se pudo actualizar Google Calendar' };
     }
 
     // If the event was recreated (404/410), save the new event_id

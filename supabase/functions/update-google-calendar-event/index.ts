@@ -79,12 +79,17 @@ async function refreshGoogleToken(
   const credentials = await getGoogleOAuthCredentials(supabase, professionalId);
 
   if (!credentials) {
-    console.error('Google OAuth credentials not configured');
+    console.error('[UPDATE:TOKEN] Google OAuth credentials not configured');
+    await supabase
+      .from('oauth_connections')
+      .update({ needs_reconnect: true, last_sync_status: 'credentials_missing' })
+      .eq('professional_id', professionalId)
+      .eq('provider', 'google');
     return null;
   }
 
   try {
-    console.log('Attempting to refresh Google token...');
+    console.log('[UPDATE:TOKEN] Attempting to refresh Google token...');
     const response = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -97,8 +102,8 @@ async function refreshGoogleToken(
     });
 
     const data = await response.json();
-    
-    console.log('Google token refresh response:', {
+
+    console.log('[UPDATE:TOKEN] Refresh response:', {
       ok: response.ok,
       status: response.status,
       hasAccessToken: !!data.access_token,
@@ -114,32 +119,64 @@ async function refreshGoogleToken(
           access_token: data.access_token,
           expires_at: expiresAt,
           updated_at: new Date().toISOString(),
+          needs_reconnect: false,
+          last_sync_status: 'token_refreshed',
         })
         .eq('professional_id', professionalId)
         .eq('provider', 'google');
 
-      console.log('Token refreshed successfully');
+      console.log('[UPDATE:TOKEN] Token refreshed successfully');
       return data.access_token;
     }
 
-    // Handle revoked token
-    if (data.error === 'invalid_grant') {
-      console.error('Refresh token has been revoked - user needs to reconnect Google');
+    console.error('[UPDATE:TOKEN] Google token refresh failed:', data.error, data.error_description);
+
+    if (data.error === 'invalid_grant' || data.error === 'invalid_client') {
+      console.error('[UPDATE:TOKEN] Auth error - marking needs_reconnect');
       await supabase
         .from('oauth_connections')
         .update({
+          needs_reconnect: true,
+          last_sync_status: 'needs_reconnect',
+          // If token is revoked, clear access_token to force reconnect UX
           access_token: null,
-          refresh_token: null,
-          updated_at: new Date().toISOString(),
         })
         .eq('professional_id', professionalId)
         .eq('provider', 'google');
-    } else {
-      console.error('Google token refresh failed:', data.error, data.error_description);
     }
   } catch (error) {
-    console.error('Error refreshing Google token:', error);
+    console.error('[UPDATE:TOKEN] Error refreshing Google token:', error);
   }
+
+  return null;
+}
+
+// Refresh token with exponential backoff retries
+async function refreshGoogleTokenWithRetry(
+  supabase: any,
+  professionalId: string,
+  refreshToken: string,
+  maxRetries: number = 3
+): Promise<string | null> {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    console.log(`[UPDATE:TOKEN] Refresh attempt ${attempt}/${maxRetries}`);
+    const token = await refreshGoogleToken(supabase, professionalId, refreshToken);
+    if (token) return token;
+
+    if (attempt < maxRetries) {
+      const waitMs = 1000 * Math.pow(2, attempt - 1); // 1s, 2s, 4s
+      console.log(`[UPDATE:TOKEN] Retry ${attempt}/${maxRetries} failed, waiting ${waitMs}ms...`);
+      await new Promise(r => setTimeout(r, waitMs));
+    }
+  }
+
+  console.error('[UPDATE:TOKEN] All refresh attempts failed');
+  await supabase
+    .from('oauth_connections')
+    .update({ needs_reconnect: true, last_sync_status: 'token_refresh_failed', access_token: null })
+    .eq('professional_id', professionalId)
+    .eq('provider', 'google');
+
   return null;
 }
 
@@ -247,25 +284,45 @@ serve(async (req) => {
       );
     }
 
-    // Helper function to get valid access token (with refresh if needed)
-    const getValidAccessToken = async (retryOnce = true): Promise<string | null> => {
-      let accessToken = connection.access_token;
-      const expiresAt = new Date(connection.expires_at);
-      
-      if (expiresAt <= new Date()) {
-        accessToken = await refreshGoogleToken(supabase, professional_id, connection.refresh_token);
-        if (!accessToken) {
-          return null;
-        }
+    // Helper function to get valid access token (with refresh + retry)
+    const getValidAccessToken = async (): Promise<string | null> => {
+      // Always fetch the latest connection row (it can be updated by other processes)
+      const { data: freshConn } = await supabase
+        .from('oauth_connections')
+        .select('access_token, expires_at, refresh_token, needs_reconnect')
+        .eq('professional_id', professional_id)
+        .eq('provider', 'google')
+        .single();
+
+      const conn = freshConn || connection;
+
+      if (!conn?.refresh_token && !conn?.access_token) {
+        return null;
       }
-      return accessToken;
+
+      const now = Date.now();
+      const expiresAtMs = conn?.expires_at ? new Date(conn.expires_at).getTime() : 0;
+      const bufferMs = 5 * 60 * 1000;
+
+      // If token is valid (with buffer), use it.
+      if (conn?.access_token && expiresAtMs && (expiresAtMs - bufferMs) > now) {
+        return conn.access_token;
+      }
+
+      // Try refresh (even if needs_reconnect was set due to transient errors)
+      if (conn?.refresh_token) {
+        return await refreshGoogleTokenWithRetry(supabase, professional_id, conn.refresh_token);
+      }
+
+      return null;
     };
 
     let accessToken = await getValidAccessToken();
     if (!accessToken) {
+      console.warn('[UPDATE:TOKEN] No valid token - needs reconnect');
       return new Response(
-        JSON.stringify({ success: false, error: 'Token expirado, reconecta Google' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ success: false, error: 'needs_reconnect', message: 'Token expirado, reconecta Google' }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -415,12 +472,16 @@ serve(async (req) => {
     // Handle 401 - refresh token and retry once
     if (updateResponse.status === 401) {
       console.log('[UPDATE] Got 401, refreshing token and retrying...');
-      accessToken = await refreshGoogleToken(supabase, professional_id, connection.refresh_token);
-      
+      if (connection.refresh_token) {
+        accessToken = await refreshGoogleTokenWithRetry(supabase, professional_id, connection.refresh_token);
+      } else {
+        accessToken = null;
+      }
+
       if (!accessToken) {
         return new Response(
-          JSON.stringify({ success: false, error: 'Token expirado, reconecta Google' }),
-          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify({ success: false, error: 'needs_reconnect', message: 'Token expirado, reconecta Google' }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
