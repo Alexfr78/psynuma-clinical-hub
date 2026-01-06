@@ -107,3 +107,9 @@ verify_jwt = true
 
 [functions.cleanup-google-events]
 verify_jwt = true
+
+[functions.submit-assessment-response]
+verify_jwt = false
+
+[functions.interpret-pai-results]
+verify_jwt = true
