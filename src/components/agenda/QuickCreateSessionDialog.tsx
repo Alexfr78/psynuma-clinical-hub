@@ -62,6 +62,10 @@ import { EditLocationsDialog } from '@/components/settings/EditLocationsDialog';
 import { CreateBonoDialog } from '@/components/bonos/CreateBonoDialog';
 import { SessionNotificationSettings } from './SessionNotificationSettings';
 import { WhatsAppLinkDialog } from './WhatsAppLinkDialog';
+import { RecurrenceSettings, defaultRecurrenceConfig } from './RecurrenceSettings';
+import { useCreateRecurringSeries } from '@/hooks/useRecurringSeries';
+import { generateRecurrenceOccurrences } from '@/lib/recurrence-utils';
+import { RecurrenceConfig } from '@/types/recurring';
 
 const quickSessionSchema = z.object({
   patient_id: z.string().uuid('Selecciona un paciente'),
@@ -146,6 +150,7 @@ export function QuickCreateSessionDialog({
   const { user } = useAuth();
   const createSession = useCreateSession();
   const updateSession = useUpdateSession();
+  const createRecurringSeries = useCreateRecurringSeries();
   const deductBonoSession = useDeductBonoSession();
   const scheduleReminder = useScheduleSessionReminder();
   const sendNotification = useSendSessionNotification();
@@ -165,6 +170,9 @@ export function QuickCreateSessionDialog({
   const [newlyCreatedBonoPrice, setNewlyCreatedBonoPrice] = useState<number | null>(null);
   // WhatsApp dialog state
   const [whatsappDialogData, setWhatsappDialogData] = useState<WhatsAppDialogData | null>(null);
+  // Recurrence state
+  const [recurrenceEnabled, setRecurrenceEnabled] = useState(false);
+  const [recurrenceConfig, setRecurrenceConfig] = useState<RecurrenceConfig>(defaultRecurrenceConfig);
 
   const form = useForm<QuickSessionFormValues>({
     resolver: zodResolver(quickSessionSchema),
@@ -301,6 +309,9 @@ export function QuickCreateSessionDialog({
         send_reminder_sms: false,
       });
       setPatientSearch('');
+      // Reset recurrence state
+      setRecurrenceEnabled(false);
+      setRecurrenceConfig(defaultRecurrenceConfig);
     }
   }, [open, initialDate, initialStartTime, initialEndTime, user?.id, professionals, sessionTypes, form]);
 
@@ -338,6 +349,58 @@ export function QuickCreateSessionDialog({
       
       const effectivePaymentMode = values.payment_mode === '__default__' ? null : values.payment_mode;
       
+      // Calculate duration in minutes
+      const [startH, startM] = values.start_time.split(':').map(Number);
+      const [endH, endM] = values.end_time.split(':').map(Number);
+      const durationMinutes = (endH * 60 + endM) - (startH * 60 + startM);
+
+      // Handle recurring series creation
+      if (recurrenceEnabled) {
+        // Build the full start datetime
+        const fullStartDate = new Date(values.session_date);
+        fullStartDate.setHours(startH, startM, 0, 0);
+
+        // Generate occurrences
+        const occurrences = generateRecurrenceOccurrences(
+          recurrenceConfig,
+          fullStartDate,
+          50,
+          365
+        );
+
+        if (occurrences.length === 0) {
+          toast({
+            title: 'Error',
+            description: 'No se generaron citas con la configuración de recurrencia.',
+            variant: 'destructive',
+          });
+          return;
+        }
+
+        await createRecurringSeries.mutateAsync({
+          seriesData: {
+            patient_id: values.patient_id,
+            professional_id: values.professional_id,
+            base_start_datetime: fullStartDate.toISOString(),
+            duration_minutes: durationMinutes > 0 ? durationMinutes : 60,
+            timezone: 'Europe/Madrid',
+            session_type: selectedSessionType?.name?.toLowerCase() || 'individual',
+            price: sessionPrice,
+            session_modality: values.session_modality,
+            location_id: values.session_modality === 'in_person' && values.location_id ? values.location_id : null,
+            cancellation_policy: values.cancellation_policy,
+            notes_default: null,
+            bono_id: usesBono ? values.bono_id : null,
+            rrule_json: recurrenceConfig,
+          },
+          occurrences,
+        });
+
+        onOpenChange(false);
+        return;
+      }
+
+      // Single session creation (existing logic)
       const newSession = await createSession.mutateAsync({
         patient_id: values.patient_id,
         professional_id: values.professional_id,
@@ -1040,31 +1103,42 @@ export function QuickCreateSessionDialog({
               onReminderSmsChange={(checked) => form.setValue('send_reminder_sms', checked)}
             />
 
-            {/* Non-repeating & Timezone */}
-            <div className="flex items-center gap-4 text-sm text-muted-foreground">
-              <span>No se repite</span>
-              <div className="flex items-center gap-1">
+            {/* Recurrence Settings */}
+            <RecurrenceSettings
+              enabled={recurrenceEnabled}
+              onEnabledChange={setRecurrenceEnabled}
+              config={recurrenceConfig}
+              onConfigChange={setRecurrenceConfig}
+              startDate={form.watch('session_date')}
+              startTime={form.watch('start_time')}
+            />
+
+            {/* Timezone (only show if not recurring) */}
+            {!recurrenceEnabled && (
+              <div className="flex items-center gap-1 text-sm text-muted-foreground">
                 <Globe className="h-3 w-3" />
                 <span>Europe/Madrid</span>
               </div>
-            </div>
+            )}
 
             {/* Action Buttons */}
             <div className="flex justify-end gap-2 pt-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => form.handleSubmit((v) => onSubmit(v, true))()}
-                disabled={createSession.isPending}
-              >
-                Guardar borrador
-              </Button>
+              {!recurrenceEnabled && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => form.handleSubmit((v) => onSubmit(v, true))()}
+                  disabled={createSession.isPending || createRecurringSeries.isPending}
+                >
+                  Guardar borrador
+                </Button>
+              )}
               <Button
                 type="button"
                 onClick={() => form.handleSubmit((v) => onSubmit(v, false))()}
-                disabled={createSession.isPending}
+                disabled={createSession.isPending || createRecurringSeries.isPending}
               >
-                Crear sesión
+                {createRecurringSeries.isPending ? 'Creando...' : recurrenceEnabled ? 'Crear serie' : 'Crear sesión'}
               </Button>
             </div>
           </form>
