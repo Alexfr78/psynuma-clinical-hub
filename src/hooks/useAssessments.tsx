@@ -41,6 +41,7 @@ export interface Assessment {
     id: string;
     factor_scores: Record<string, number>;
     flags: Record<string, boolean> | null;
+    metadata?: Record<string, unknown> | null;
     created_at: string;
   } | null;
 }
@@ -70,7 +71,7 @@ export function useAssessments(patientId?: string) {
           patient:patients(id, first_name, last_name, email, phone),
           template:assessment_templates(id, code, name),
           professional:profiles(id, first_name, last_name),
-          response:assessment_responses(id, factor_scores, flags, created_at)
+          response:assessment_responses(id, factor_scores, flags, metadata, created_at)
         `)
         .eq('center_id', profile.center_id)
         .order('created_at', { ascending: false });

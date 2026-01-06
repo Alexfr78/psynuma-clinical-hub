@@ -127,6 +127,7 @@ serve(async (req) => {
     const responseMax = template.response_max ?? 7;
     const flagThreshold = template.flag_threshold ?? 4;
     const isSCL90 = template.code === 'SCL90_V1';
+    const isPAI = template.code === 'PAI_V1';
 
     console.log(`Processing ${template.code} assessment with response range ${responseMin}-${responseMax}`);
 
@@ -159,8 +160,12 @@ serve(async (req) => {
     const factorScores: Record<string, number> = {};
     const flags: Record<string, boolean> = {};
 
+    // For PAI, we calculate raw scores and convert to T-scores
+    // For other tests, we use mean scores
     for (const [factorCode, factor] of Object.entries(scoring)) {
       const factorItems = factor.items;
+      if (factorItems.length === 0) continue; // Skip scales without items (like INC)
+      
       let sum = 0;
       for (const itemIndex of factorItems) {
         const value = typeof answers[itemIndex] === 'number' 
@@ -168,12 +173,37 @@ serve(async (req) => {
           : parseInt(answers[itemIndex], 10);
         sum += value;
       }
-      const mean = sum / factorItems.length;
-      factorScores[factorCode] = Math.round(mean * 100) / 100; // 2 decimals
       
-      // Flag if score > threshold
-      if (factorScores[factorCode] > flagThreshold) {
-        flags[`${factorCode}_high`] = true;
+      if (isPAI) {
+        // PAI: Calculate raw score (sum) and convert to T-score
+        const rawScore = sum;
+        // Simplified T-score conversion: T = 50 + 10 * ((raw - mean) / sd)
+        // Using approximate norms: mean ≈ 50% of max, sd ≈ 10% of max
+        const maxPossible = factorItems.length * responseMax;
+        const expectedMean = maxPossible * 0.35; // Clinical population approximation
+        const expectedSd = maxPossible * 0.15;
+        const tScore = Math.round(50 + 10 * ((rawScore - expectedMean) / expectedSd));
+        // Clamp T-score to valid range
+        factorScores[factorCode] = Math.min(100, Math.max(30, tScore));
+        
+        // PAI uses T ≥ 65 as clinical threshold
+        if (factorScores[factorCode] >= 65) {
+          flags[`${factorCode}_high`] = true;
+        }
+        // Critical scales get special flags
+        const criticalScales = ['SUI', 'AGG-P', 'SCZ-P', 'BOR-S'];
+        if (criticalScales.includes(factorCode) && factorScores[factorCode] >= 70) {
+          flags[`${factorCode}_critical`] = true;
+        }
+      } else {
+        // Default: Mean score for non-PAI tests
+        const mean = sum / factorItems.length;
+        factorScores[factorCode] = Math.round(mean * 100) / 100; // 2 decimals
+        
+        // Flag if score > threshold
+        if (factorScores[factorCode] > flagThreshold) {
+          flags[`${factorCode}_high`] = true;
+        }
       }
     }
 

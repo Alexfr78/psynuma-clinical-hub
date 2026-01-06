@@ -6,6 +6,8 @@ import { AlertTriangle, Loader2 } from 'lucide-react';
 import { Assessment } from '@/hooks/useAssessments';
 import { useAssessmentTemplates } from '@/hooks/useAssessmentTemplates';
 import { AssessmentResultsChart } from './AssessmentResultsChart';
+import { PAIResultsView } from './PAIResultsView';
+import { PAIInterpretation } from '@/hooks/usePAIInterpretation';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -29,10 +31,14 @@ export function AssessmentDetailDialog({ assessment, onClose }: AssessmentDetail
   const highFactors = Object.keys(flags).filter(k => k.endsWith('_high')).map(k => k.replace('_high', ''));
 
   const hasResults = response && Object.keys(factorScores).length > 0;
+  
+  // Check if this is a PAI assessment
+  const isPAI = template?.code === 'PAI_V1';
+  const existingPAIInterpretation = response?.metadata?.paiInterpretation as PAIInterpretation | undefined;
 
   return (
     <Dialog open={!!assessment} onOpenChange={() => onClose()}>
-      <DialogContent className="max-w-3xl max-h-[90vh]">
+      <DialogContent className={`max-h-[90vh] ${isPAI ? 'max-w-4xl' : 'max-w-3xl'}`}>
         <DialogHeader>
           <DialogTitle>
             {assessment.status === 'completed' ? 'Resultados' : 'Detalle'}: {assessment.patient?.first_name} {assessment.patient?.last_name}
@@ -55,7 +61,16 @@ export function AssessmentDetailDialog({ assessment, onClose }: AssessmentDetail
               <p>Esta evaluación aún no tiene resultados.</p>
               <p className="text-sm mt-2">El paciente debe completar el cuestionario primero.</p>
             </div>
+          ) : isPAI ? (
+            // Render specialized PAI view
+            <PAIResultsView
+              assessmentId={assessment.id}
+              factorScores={factorScores}
+              patientName={`${assessment.patient?.first_name} ${assessment.patient?.last_name}`}
+              existingInterpretation={existingPAIInterpretation}
+            />
           ) : (
+            // Default view for other assessments
             <div className="space-y-6">
               {/* Scores Table */}
               <Card>
