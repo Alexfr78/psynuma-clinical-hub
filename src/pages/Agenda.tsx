@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, addDays, addMonths } from 'date-fns';
 import { Loader2 } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useSessions, useUpdateSession, SessionWithRelations } from '@/hooks/useSessions';
 import { CalendarHeader, CalendarView } from '@/components/agenda/CalendarHeader';
 import { WeekView } from '@/components/agenda/WeekView';
@@ -22,6 +23,7 @@ import { useCenter } from '@/hooks/useCenter';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useOfflineCache } from '@/hooks/useOfflineCache';
 import { useGoogleCalendarSync } from '@/hooks/useGoogleCalendarSync';
+import { supabase } from '@/integrations/supabase/client';
 
 export default function Agenda() {
   const isMobile = useIsMobile();
@@ -43,6 +45,7 @@ export default function Agenda() {
   const [initialEndTime, setInitialEndTime] = useState<string | undefined>();
 
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const updateSession = useUpdateSession();
   const { syncMoveToGoogle } = useGoogleCalendarUpdate();
 
@@ -236,8 +239,65 @@ export default function Agenda() {
 
   const handleSessionMove = async (sessionId: string, newDate: string, newStartTime: string, newEndTime: string) => {
     try {
-      // Find the session to get Google Calendar event ID
+      // First check if this is a Google Calendar event (not a session)
+      const sessionOrEvent = allSessions?.find(s => s.id === sessionId);
+      
+      if ((sessionOrEvent as any)?.isGoogleEvent) {
+        // This is a Google Calendar event - update it directly in Google
+        const googleEvent = sessionOrEvent as any;
+        
+        const { data, error } = await supabase.functions.invoke('update-google-calendar-event', {
+          body: {
+            professional_id: googleEvent.professional_id,
+            event_id: googleEvent.google_calendar_event_id,
+            session_date: newDate,
+            start_time: newStartTime,
+            end_time: newEndTime,
+          }
+        });
+        
+        if (error || !data?.success) {
+          const errorMessage = data?.error === 'needs_reconnect' 
+            ? 'Token expirado, reconecta Google Calendar'
+            : (data?.message || 'No se pudo mover el evento de Google');
+          toast({
+            title: 'Error',
+            description: errorMessage,
+            variant: 'destructive',
+          });
+          return;
+        }
+        
+        // Update the local calendar_events table
+        await supabase
+          .from('calendar_events')
+          .update({
+            start_at: `${newDate}T${newStartTime}:00`,
+            end_at: `${newDate}T${newEndTime}:00`,
+          })
+          .eq('id', sessionId);
+        
+        // Invalidate queries to refresh
+        queryClient.invalidateQueries({ queryKey: ['calendar-events'] });
+        
+        toast({
+          title: 'Evento movido',
+          description: `Movido a ${newDate} ${newStartTime}`,
+        });
+        return;
+      }
+      
+      // This is a regular Psycma session
       const session = sessions?.find(s => s.id === sessionId);
+      
+      if (!session) {
+        toast({
+          title: 'Error',
+          description: 'No se encontró la sesión',
+          variant: 'destructive',
+        });
+        return;
+      }
       
       await updateSession.mutateAsync({
         id: sessionId,
@@ -247,42 +307,35 @@ export default function Agenda() {
       });
       
       // Sync to Google Calendar immediately with await
-      if (session) {
-        try {
-          const result = await syncMoveToGoogle(session, newDate, newStartTime, newEndTime);
-          
-          if (result.recreated) {
-            toast({
-              title: 'Sesión movida',
-              description: 'Evento de Google Calendar recreado y vinculado.',
-            });
-          } else if (result.created) {
-            toast({
-              title: 'Sesión movida',
-              description: 'Evento creado en Google Calendar.',
-            });
-          } else if (!result.success) {
-            toast({
-              title: 'Sesión movida',
-              description: result.error || 'Pero hubo un error al sincronizar con Google Calendar',
-            });
-          } else {
-            toast({
-              title: 'Sesión movida',
-              description: `Movida a ${newDate} ${newStartTime}`,
-            });
-          }
-        } catch (googleError) {
-          console.error('Error syncing to Google:', googleError);
+      try {
+        const result = await syncMoveToGoogle(session, newDate, newStartTime, newEndTime);
+        
+        if (result.recreated) {
           toast({
             title: 'Sesión movida',
-            description: 'Pero hubo un error al sincronizar con Google Calendar',
+            description: 'Evento de Google Calendar recreado y vinculado.',
+          });
+        } else if (result.created) {
+          toast({
+            title: 'Sesión movida',
+            description: 'Evento creado en Google Calendar.',
+          });
+        } else if (!result.success) {
+          toast({
+            title: 'Sesión movida',
+            description: result.error || 'Pero hubo un error al sincronizar con Google Calendar',
+          });
+        } else {
+          toast({
+            title: 'Sesión movida',
+            description: `Movida a ${newDate} ${newStartTime}`,
           });
         }
-      } else {
+      } catch (googleError) {
+        console.error('Error syncing to Google:', googleError);
         toast({
           title: 'Sesión movida',
-          description: `Movida a ${newDate} ${newStartTime}`,
+          description: 'Pero hubo un error al sincronizar con Google Calendar',
         });
       }
     } catch {
