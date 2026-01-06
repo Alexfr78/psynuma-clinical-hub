@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ClipboardCheck, Plus, Loader2 } from 'lucide-react';
+import { ClipboardCheck, Plus, Loader2, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAssessments, Assessment } from '@/hooks/useAssessments';
@@ -7,12 +7,14 @@ import { AssessmentCard } from '@/components/assessments/AssessmentCard';
 import { CreateAssessmentDialog } from '@/components/assessments/CreateAssessmentDialog';
 import { AssessmentDetailDialog } from '@/components/assessments/AssessmentDetailDialog';
 import { SendAssessmentDialog } from '@/components/assessments/SendAssessmentDialog';
+import { AddTemplateDialog } from '@/components/assessments/AddTemplateDialog';
 
 export default function Assessments() {
   const { assessments, isLoading, revokeAssessment, deleteAssessment } = useAssessments();
   const [createOpen, setCreateOpen] = useState(false);
   const [viewAssessment, setViewAssessment] = useState<Assessment | null>(null);
   const [sendAssessment, setSendAssessment] = useState<Assessment | null>(null);
+  const [addTemplateOpen, setAddTemplateOpen] = useState(false);
 
   const now = new Date();
   const pending = assessments.filter(a => a.status === 'pending' && new Date(a.expires_at) > now);
@@ -41,10 +43,16 @@ export default function Assessments() {
           </h1>
           <p className="text-muted-foreground">Gestiona las evaluaciones de tus pacientes</p>
         </div>
-        <Button onClick={() => setCreateOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Nueva evaluación
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setAddTemplateOpen(true)}>
+            <FileText className="h-4 w-4 mr-2" />
+            Añadir plantilla
+          </Button>
+          <Button onClick={() => setCreateOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Nueva evaluación
+          </Button>
+        </div>
       </div>
 
       <Tabs defaultValue="pending" className="w-full">
@@ -128,6 +136,7 @@ export default function Assessments() {
       <CreateAssessmentDialog open={createOpen} onOpenChange={setCreateOpen} />
       <AssessmentDetailDialog assessment={viewAssessment} onClose={() => setViewAssessment(null)} />
       <SendAssessmentDialog assessment={sendAssessment} onClose={() => setSendAssessment(null)} />
+      <AddTemplateDialog open={addTemplateOpen} onOpenChange={setAddTemplateOpen} />
     </div>
   );
 }
