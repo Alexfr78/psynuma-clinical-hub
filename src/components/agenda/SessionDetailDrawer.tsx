@@ -103,6 +103,9 @@ import { useProfessionalIntegrations } from '@/hooks/useProfessionalIntegrations
 import { ConvertCalendarEventDialog } from './ConvertCalendarEventDialog';
 import { useDeleteCalendarEvent } from '@/hooks/useDeleteCalendarEvent';
 import { CalendarEvent } from '@/hooks/useCalendarEvents';
+import { EditRecurringScopeDialog } from './EditRecurringScopeDialog';
+import { useUpdateRecurringSession, useCancelRecurringSession } from '@/hooks/useRecurringSeries';
+import { EditScope } from '@/types/recurring';
 
 interface SessionDetailDrawerProps {
   session: SessionWithRelations | null;
@@ -150,6 +153,8 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
   const queryClient = useQueryClient();
   const updateSession = useUpdateSession();
   const deleteSession = useDeleteSession();
+  const updateRecurringSession = useUpdateRecurringSession();
+  const cancelRecurringSession = useCancelRecurringSession();
   const applyBonoToSession = useApplyBonoToSession();
   const removeBonoFromSession = useRemoveBonoFromSession();
   const updateBono = useUpdateBono();
@@ -183,6 +188,11 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
     endTime: '',
   });
   
+  // Recurring session state
+  const [showRecurringScopeDialog, setShowRecurringScopeDialog] = useState(false);
+  const [recurringScopeAction, setRecurringScopeAction] = useState<'edit' | 'cancel'>('edit');
+  const [pendingRecurringUpdate, setPendingRecurringUpdate] = useState<Record<string, unknown> | null>(null);
+  
   // Local state for immediate UI update
   const [localBonoId, setLocalBonoId] = useState<string | null>(null);
   const [localPrice, setLocalPrice] = useState<number>(0);
@@ -209,6 +219,11 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
 
   const sessionData = session as any; // For new fields not yet in types
   const selectedLocation = locations?.find(l => l.id === sessionData.location_id);
+  
+  // Check if this is a recurring session
+  const isRecurringSession = !!sessionData.recurring_series_id;
+  const recurringSeriesId = sessionData.recurring_series_id;
+  const occurrenceIndex = sessionData.occurrence_index || 1;
 
   const status = statusConfig[session.status as keyof typeof statusConfig] || statusConfig.scheduled;
   const isBlockedSession = session.status === 'blocked';
@@ -218,6 +233,34 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
   const patientName = displayPatient
     ? `${displayPatient.first_name} ${displayPatient.last_name}`
     : 'Sin paciente';
+
+  // Handle recurring scope confirmation
+  const handleRecurringScopeConfirm = async (scope: EditScope) => {
+    if (!recurringSeriesId) return;
+
+    if (recurringScopeAction === 'edit' && pendingRecurringUpdate) {
+      await updateRecurringSession.mutateAsync({
+        sessionId: session.id,
+        updates: pendingRecurringUpdate,
+        scope,
+        seriesId: recurringSeriesId,
+        occurrenceIndex,
+      });
+    } else if (recurringScopeAction === 'cancel') {
+      await cancelRecurringSession.mutateAsync({
+        sessionId: session.id,
+        scope,
+        seriesId: recurringSeriesId,
+        occurrenceIndex,
+      });
+      if (scope !== 'this') {
+        onOpenChange(false);
+      }
+    }
+
+    setShowRecurringScopeDialog(false);
+    setPendingRecurringUpdate(null);
+  };
 
   // Handle patient change (and convert blocked sessions to scheduled)
   const handlePatientChange = async (newPatientId: string) => {
@@ -668,7 +711,15 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
       >
         <X className="h-5 w-5" />
       </Button>
-      <span className="text-lg font-semibold flex-1 text-center">Detalle de sesión</span>
+      <div className="flex-1 text-center">
+        <span className="text-lg font-semibold">Detalle de sesión</span>
+        {isRecurringSession && (
+          <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground mt-0.5">
+            <RefreshCw className="h-3 w-3" />
+            <span>Cita recurrente</span>
+          </div>
+        )}
+      </div>
       <Badge className={cn(status.className, "shrink-0")} variant={status.variant}>
         {status.label}
       </Badge>
@@ -1565,54 +1616,70 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
               </AlertDialog>
             )}
 
-            {/* Delete Session (only for regular sessions) */}
+            {/* Delete/Cancel Session (only for regular sessions) */}
             {!(session as any).isGoogleEvent && (
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="destructive" className="w-full mt-4">
+              isRecurringSession ? (
+                // Recurring session - use scope dialog
+                <Button 
+                  variant="destructive" 
+                  className="w-full mt-4"
+                  onClick={() => {
+                    setRecurringScopeAction('cancel');
+                    setShowRecurringScopeDialog(true);
+                  }}
+                >
                   <Trash2 className="mr-2 h-4 w-4" />
-                  Eliminar sesión
+                  Cancelar cita recurrente
                 </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>
-                    {(paymentStatus?.isPaid || paymentStatus?.isPartial || (invoiceStatus?.isInvoiced && invoiceStatus?.hasValidInvoice))
-                      ? '⚠️ ¿Eliminar sesión con cobros/factura?'
-                      : '¿Eliminar esta sesión?'}
-                  </AlertDialogTitle>
-                  <AlertDialogDescription className="space-y-2">
-                    <span className="block">
-                      Esta acción no se puede deshacer. La sesión será eliminada permanentemente.
-                    </span>
-                    {(paymentStatus?.isPaid || paymentStatus?.isPartial) && (
-                      <span className="block text-destructive font-medium">
-                        Esta sesión tiene pagos registrados que quedarán huérfanos.
-                      </span>
-                    )}
-                    {invoiceStatus?.isInvoiced && invoiceStatus?.hasValidInvoice && (
-                      <span className="block text-destructive font-medium">
-                        Esta sesión tiene una factura asociada que no será eliminada.
-                      </span>
-                    )}
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                  <AlertDialogAction 
-                    onClick={handleDeleteSession}
-                    className={cn(
-                      (paymentStatus?.isPaid || paymentStatus?.isPartial || (invoiceStatus?.isInvoiced && invoiceStatus?.hasValidInvoice)) &&
-                      "bg-destructive hover:bg-destructive/90"
-                    )}
-                  >
-                    {(paymentStatus?.isPaid || paymentStatus?.isPartial || (invoiceStatus?.isInvoiced && invoiceStatus?.hasValidInvoice))
-                      ? 'Eliminar de todos modos'
-                      : 'Eliminar'}
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+              ) : (
+                // Regular session - use existing delete dialog
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="destructive" className="w-full mt-4">
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Eliminar sesión
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>
+                        {(paymentStatus?.isPaid || paymentStatus?.isPartial || (invoiceStatus?.isInvoiced && invoiceStatus?.hasValidInvoice))
+                          ? '⚠️ ¿Eliminar sesión con cobros/factura?'
+                          : '¿Eliminar esta sesión?'}
+                      </AlertDialogTitle>
+                      <AlertDialogDescription className="space-y-2">
+                        <span className="block">
+                          Esta acción no se puede deshacer. La sesión será eliminada permanentemente.
+                        </span>
+                        {(paymentStatus?.isPaid || paymentStatus?.isPartial) && (
+                          <span className="block text-destructive font-medium">
+                            Esta sesión tiene pagos registrados que quedarán huérfanos.
+                          </span>
+                        )}
+                        {invoiceStatus?.isInvoiced && invoiceStatus?.hasValidInvoice && (
+                          <span className="block text-destructive font-medium">
+                            Esta sesión tiene una factura asociada que no será eliminada.
+                          </span>
+                        )}
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                      <AlertDialogAction 
+                        onClick={handleDeleteSession}
+                        className={cn(
+                          (paymentStatus?.isPaid || paymentStatus?.isPartial || (invoiceStatus?.isInvoiced && invoiceStatus?.hasValidInvoice)) &&
+                          "bg-destructive hover:bg-destructive/90"
+                        )}
+                      >
+                        {(paymentStatus?.isPaid || paymentStatus?.isPartial || (invoiceStatus?.isInvoiced && invoiceStatus?.hasValidInvoice))
+                          ? 'Eliminar de todos modos'
+                          : 'Eliminar'}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              )
             )}
 
             {/* External Links */}
@@ -1742,6 +1809,17 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
           status: 'confirmed',
         } as CalendarEvent}
         onSuccess={() => onOpenChange(false)}
+      />
+    )}
+
+    {/* Recurring Scope Dialog */}
+    {isRecurringSession && (
+      <EditRecurringScopeDialog
+        open={showRecurringScopeDialog}
+        onOpenChange={setShowRecurringScopeDialog}
+        onConfirm={handleRecurringScopeConfirm}
+        action={recurringScopeAction}
+        isLoading={updateRecurringSession.isPending || cancelRecurringSession.isPending}
       />
     )}
     </>
