@@ -1,7 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useProfessionalIntegrations } from "@/hooks/useProfessionalIntegrations";
-import { MessageSquare, Video, Calendar, CreditCard, CheckCircle2, XCircle } from "lucide-react";
+import { MessageSquare, Video, Calendar, CreditCard, Mail, CheckCircle2, XCircle } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface IntegrationStatusProps {
@@ -54,7 +54,7 @@ export function IntegrationsOverview() {
           <Skeleton className="h-4 w-72" />
         </CardHeader>
         <CardContent className="space-y-3">
-          {[1, 2, 3, 4].map(i => (
+          {[1, 2, 3, 4, 5].map(i => (
             <Skeleton key={i} className="h-20 w-full" />
           ))}
         </CardContent>
@@ -71,6 +71,14 @@ export function IntegrationsOverview() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
+        <IntegrationStatus
+          icon={<Mail className="h-5 w-5" />}
+          name="Email (Resend)"
+          description="Envío de facturas, recordatorios y notificaciones"
+          enabled={true}
+          connected={true}
+        />
+        
         <IntegrationStatus
           icon={<MessageSquare className="h-5 w-5" />}
           name="WhatsApp Business"
