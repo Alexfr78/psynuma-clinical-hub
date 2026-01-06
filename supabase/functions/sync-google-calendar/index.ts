@@ -118,6 +118,7 @@ async function refreshGoogleToken(
           expires_at: expiresAt,
           updated_at: new Date().toISOString(),
           needs_reconnect: false,
+          last_sync_status: 'token_refreshed',
         })
         .eq('professional_id', professionalId)
         .eq('provider', 'google');
@@ -146,6 +147,38 @@ async function refreshGoogleToken(
   return null;
 }
 
+// Refresh token with exponential backoff retries
+async function refreshGoogleTokenWithRetry(
+  supabase: any,
+  professionalId: string,
+  refreshToken: string,
+  maxRetries: number = 3
+): Promise<string | null> {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    console.log(`[SYNC:TOKEN] Refresh attempt ${attempt}/${maxRetries}`);
+    const token = await refreshGoogleToken(supabase, professionalId, refreshToken);
+    if (token) return token;
+    
+    if (attempt < maxRetries) {
+      const waitMs = 1000 * Math.pow(2, attempt - 1); // Exponential backoff: 1s, 2s, 4s
+      console.log(`[SYNC:TOKEN] Retry ${attempt}/${maxRetries} failed, waiting ${waitMs}ms...`);
+      await new Promise(r => setTimeout(r, waitMs));
+    }
+  }
+  
+  console.error('[SYNC:TOKEN] All refresh attempts failed');
+  await supabase
+    .from('oauth_connections')
+    .update({
+      needs_reconnect: true,
+      last_sync_status: 'token_refresh_failed',
+    })
+    .eq('professional_id', professionalId)
+    .eq('provider', 'google');
+  
+  return null;
+}
+
 async function getValidAccessToken(
   supabase: any,
   connection: any
@@ -153,12 +186,15 @@ async function getValidAccessToken(
   const now = new Date();
   const expiresAt = connection.expires_at ? new Date(connection.expires_at) : null;
 
-  if (expiresAt && expiresAt > now && connection.access_token) {
+  // Add 5 minute buffer to handle edge cases
+  const bufferMs = 5 * 60 * 1000;
+  if (expiresAt && (expiresAt.getTime() - bufferMs) > now.getTime() && connection.access_token) {
     return connection.access_token;
   }
 
   if (connection.refresh_token) {
-    return await refreshGoogleToken(supabase, connection.professional_id, connection.refresh_token);
+    // Use retry version for better reliability
+    return await refreshGoogleTokenWithRetry(supabase, connection.professional_id, connection.refresh_token);
   }
 
   return null;

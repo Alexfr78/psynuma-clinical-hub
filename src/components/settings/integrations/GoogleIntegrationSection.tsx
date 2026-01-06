@@ -534,11 +534,39 @@ export function GoogleIntegrationSection() {
           </>
         ) : (
           <div className="space-y-6">
+            {/* Reconnection Alert - Shows when needs_reconnect is true */}
+            {healthData?.needs_reconnect && (
+              <Alert variant="destructive" className="border-destructive/50 bg-destructive/10">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium">La conexión con Google ha expirado</p>
+                    <p className="text-sm mt-1">Reconecta tu cuenta para continuar sincronizando citas automáticamente.</p>
+                  </div>
+                  <Button 
+                    variant="destructive" 
+                    size="sm"
+                    onClick={handleConnect}
+                    className="ml-4 shrink-0"
+                  >
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Reconectar ahora
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            )}
+
             <div className="flex items-center justify-between p-3 border rounded-lg bg-muted/30">
               <div className="flex items-center gap-3">
-                <CheckCircle2 className="h-5 w-5 text-green-600" />
+                {healthData?.needs_reconnect ? (
+                  <AlertCircle className="h-5 w-5 text-destructive" />
+                ) : (
+                  <CheckCircle2 className="h-5 w-5 text-green-600" />
+                )}
                 <div>
-                  <p className="font-medium">Cuenta conectada</p>
+                  <p className="font-medium">
+                    {healthData?.needs_reconnect ? 'Reconexión necesaria' : 'Cuenta conectada'}
+                  </p>
                   <p className="text-sm text-muted-foreground">
                     {connection?.provider_account_id || 'Google conectado'}
                   </p>
