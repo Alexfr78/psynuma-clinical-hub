@@ -66,6 +66,8 @@ import { RecurrenceSettings, defaultRecurrenceConfig } from './RecurrenceSetting
 import { useCreateRecurringSeries } from '@/hooks/useRecurringSeries';
 import { generateRecurrenceOccurrences } from '@/lib/recurrence-utils';
 import { RecurrenceConfig } from '@/types/recurring';
+import { checkSessionConflicts, ConflictResult, SessionToCheck } from '@/lib/conflicts';
+import { ConflictsDialog } from './ConflictsDialog';
 
 const quickSessionSchema = z.object({
   patient_id: z.string().uuid('Selecciona un paciente'),
@@ -173,6 +175,12 @@ export function QuickCreateSessionDialog({
   // Recurrence state
   const [recurrenceEnabled, setRecurrenceEnabled] = useState(false);
   const [recurrenceConfig, setRecurrenceConfig] = useState<RecurrenceConfig>(defaultRecurrenceConfig);
+  // Conflict detection state
+  const [conflictsDialogOpen, setConflictsDialogOpen] = useState(false);
+  const [detectedConflicts, setDetectedConflicts] = useState<ConflictResult[]>([]);
+  const [pendingFormValues, setPendingFormValues] = useState<{ values: QuickSessionFormValues; asDraft: boolean } | null>(null);
+  const [allSessionsToCreate, setAllSessionsToCreate] = useState<SessionToCheck[]>([]);
+  const [isCheckingConflicts, setIsCheckingConflicts] = useState(false);
 
   const form = useForm<QuickSessionFormValues>({
     resolver: zodResolver(quickSessionSchema),
@@ -325,48 +333,76 @@ export function QuickCreateSessionDialog({
   const selectedPatient = patients?.find((p) => p.id === form.watch('patient_id'));
   const selectedProfessional = professionals?.find((p) => p.id === form.watch('professional_id'));
 
-  const onSubmit = async (values: QuickSessionFormValues, asDraft: boolean) => {
+  // Build sessions to check for conflicts
+  const buildSessionsToCheck = (values: QuickSessionFormValues, durationMinutes: number): SessionToCheck[] => {
+    const [startH, startM] = values.start_time.split(':').map(Number);
+    
+    if (recurrenceEnabled) {
+      const fullStartDate = new Date(values.session_date);
+      fullStartDate.setHours(startH, startM, 0, 0);
+      
+      const occurrences = generateRecurrenceOccurrences(
+        recurrenceConfig,
+        fullStartDate,
+        50,
+        365
+      );
+      
+      return occurrences.map((start, index) => {
+        const end = new Date(start.getTime() + durationMinutes * 60000);
+        return { start, end, tempId: `occ-${index}` };
+      });
+    } else {
+      // Single session
+      const start = new Date(values.session_date);
+      start.setHours(startH, startM, 0, 0);
+      const end = new Date(start.getTime() + durationMinutes * 60000);
+      return [{ start, end, tempId: 'single' }];
+    }
+  };
+
+  // Execute the actual session creation (after conflict check or force)
+  const executeSessionCreation = async (
+    values: QuickSessionFormValues,
+    asDraft: boolean,
+    sessionsToCreate?: SessionToCheck[]
+  ) => {
     const usesBono = values.bono_id && values.bono_id !== 'none' && values.bono_id !== '';
     const selectedSessionType = sessionTypes?.find(t => t.id === values.session_type);
+    const sessionPrice = selectedSessionType?.default_price || 60;
     
-    // Validate and fix end_time if it's equal or less than start_time
-    if (values.end_time <= values.start_time) {
-      const duration = selectedSessionType?.duration_minutes || 60;
-      values.end_time = calculateEndTime(values.start_time, duration);
+    let videoProvider: string | null = null;
+    if (values.session_modality === 'zoom') {
+      videoProvider = 'zoom';
+    } else if (values.session_modality === 'google_meet') {
+      videoProvider = 'google_meet';
     }
     
-    try {
-      // Session always maintains its base price - bono billing is separate
-      const sessionPrice = selectedSessionType?.default_price || 60;
-      
-      // Determine video provider based on modality
-      let videoProvider: string | null = null;
-      if (values.session_modality === 'zoom') {
-        videoProvider = 'zoom';
-      } else if (values.session_modality === 'google_meet') {
-        videoProvider = 'google_meet';
-      }
-      
-      const effectivePaymentMode = values.payment_mode === '__default__' ? null : values.payment_mode;
-      
-      // Calculate duration in minutes
-      const [startH, startM] = values.start_time.split(':').map(Number);
-      const [endH, endM] = values.end_time.split(':').map(Number);
-      const durationMinutes = (endH * 60 + endM) - (startH * 60 + startM);
+    const effectivePaymentMode = values.payment_mode === '__default__' ? null : values.payment_mode;
+    
+    const [startH, startM] = values.start_time.split(':').map(Number);
+    const [endH, endM] = values.end_time.split(':').map(Number);
+    const durationMinutes = (endH * 60 + endM) - (startH * 60 + startM);
 
+    try {
       // Handle recurring series creation
       if (recurrenceEnabled) {
-        // Build the full start datetime
         const fullStartDate = new Date(values.session_date);
         fullStartDate.setHours(startH, startM, 0, 0);
 
-        // Generate occurrences
-        const occurrences = generateRecurrenceOccurrences(
-          recurrenceConfig,
-          fullStartDate,
-          50,
-          365
-        );
+        // If sessionsToCreate is provided (filtered), use those dates
+        // Otherwise generate all occurrences
+        let occurrences: Date[];
+        if (sessionsToCreate && sessionsToCreate.length > 0) {
+          occurrences = sessionsToCreate.map(s => s.start);
+        } else {
+          occurrences = generateRecurrenceOccurrences(
+            recurrenceConfig,
+            fullStartDate,
+            50,
+            365
+          );
+        }
 
         if (occurrences.length === 0) {
           toast({
@@ -376,6 +412,14 @@ export function QuickCreateSessionDialog({
           });
           return;
         }
+
+        const originalTotal = generateRecurrenceOccurrences(
+          recurrenceConfig,
+          fullStartDate,
+          50,
+          365
+        ).length;
+        const omittedCount = originalTotal - occurrences.length;
 
         await createRecurringSeries.mutateAsync({
           seriesData: {
@@ -395,6 +439,13 @@ export function QuickCreateSessionDialog({
           },
           occurrences,
         });
+
+        if (omittedCount > 0) {
+          toast({
+            title: 'Serie creada',
+            description: `Creadas ${occurrences.length} citas. Omitidas ${omittedCount} por conflicto.`,
+          });
+        }
 
         onOpenChange(false);
         return;
@@ -461,7 +512,6 @@ export function QuickCreateSessionDialog({
           }
         } catch (integrationError) {
           console.error('Integration error (non-critical):', integrationError);
-          // Don't fail the session creation - integrations are non-critical
         }
 
         // Handle Stripe payment if enabled (non-critical)
@@ -488,7 +538,6 @@ export function QuickCreateSessionDialog({
               oauthConnections || []
             );
 
-            // Update session with Stripe payment info
             if (stripeResult.payment_status) {
               await updateSession.mutateAsync({
                 id: newSession.id,
@@ -496,7 +545,6 @@ export function QuickCreateSessionDialog({
                 stripe_payment_mode: integrations.stripe_payment_mode,
               });
 
-              // If required_now mode, redirect to checkout
               if (stripeResult.checkout_url) {
                 toast({
                   title: 'Sesión creada',
@@ -584,6 +632,90 @@ export function QuickCreateSessionDialog({
         variant: 'destructive',
       });
     }
+  };
+
+  const onSubmit = async (values: QuickSessionFormValues, asDraft: boolean) => {
+    const selectedSessionType = sessionTypes?.find(t => t.id === values.session_type);
+    
+    // Validate and fix end_time if it's equal or less than start_time
+    if (values.end_time <= values.start_time) {
+      const duration = selectedSessionType?.duration_minutes || 60;
+      values.end_time = calculateEndTime(values.start_time, duration);
+    }
+    
+    const [startH, startM] = values.start_time.split(':').map(Number);
+    const [endH, endM] = values.end_time.split(':').map(Number);
+    const durationMinutes = (endH * 60 + endM) - (startH * 60 + startM);
+    
+    // Build sessions to check
+    const sessionsToCheck = buildSessionsToCheck(values, durationMinutes > 0 ? durationMinutes : 60);
+    
+    // Check for conflicts
+    setIsCheckingConflicts(true);
+    try {
+      const conflicts = await checkSessionConflicts({
+        centerId: center?.id || '',
+        professionalId: values.professional_id,
+        sessionsToCheck,
+      });
+      
+      if (conflicts.length > 0) {
+        // Store state for conflict resolution
+        setDetectedConflicts(conflicts);
+        setAllSessionsToCreate(sessionsToCheck);
+        setPendingFormValues({ values, asDraft });
+        setConflictsDialogOpen(true);
+      } else {
+        // No conflicts, proceed directly
+        await executeSessionCreation(values, asDraft);
+      }
+    } catch (error) {
+      console.error('Error checking conflicts:', error);
+      // If conflict check fails, proceed anyway
+      await executeSessionCreation(values, asDraft);
+    } finally {
+      setIsCheckingConflicts(false);
+    }
+  };
+
+  // Conflict dialog handlers
+  const handleConflictCancel = () => {
+    setPendingFormValues(null);
+    setDetectedConflicts([]);
+    setAllSessionsToCreate([]);
+  };
+
+  const handleCreateNonConflicting = async () => {
+    if (!pendingFormValues) return;
+    
+    // Filter out conflicting sessions
+    const conflictTempIds = new Set(detectedConflicts.map(c => c.tempId));
+    const nonConflicting = allSessionsToCreate.filter(s => !conflictTempIds.has(s.tempId));
+    
+    if (nonConflicting.length > 0) {
+      await executeSessionCreation(pendingFormValues.values, pendingFormValues.asDraft, nonConflicting);
+    } else {
+      toast({
+        title: 'Sin citas para crear',
+        description: 'Todas las citas tienen conflictos.',
+        variant: 'destructive',
+      });
+    }
+    
+    setPendingFormValues(null);
+    setDetectedConflicts([]);
+    setAllSessionsToCreate([]);
+  };
+
+  const handleForceCreate = async () => {
+    if (!pendingFormValues) return;
+    
+    // Create all sessions regardless of conflicts
+    await executeSessionCreation(pendingFormValues.values, pendingFormValues.asDraft);
+    
+    setPendingFormValues(null);
+    setDetectedConflicts([]);
+    setAllSessionsToCreate([]);
   };
 
   return (
@@ -1128,7 +1260,7 @@ export function QuickCreateSessionDialog({
                   type="button"
                   variant="outline"
                   onClick={() => form.handleSubmit((v) => onSubmit(v, true))()}
-                  disabled={createSession.isPending || createRecurringSeries.isPending}
+                  disabled={createSession.isPending || createRecurringSeries.isPending || isCheckingConflicts}
                 >
                   Guardar borrador
                 </Button>
@@ -1136,9 +1268,9 @@ export function QuickCreateSessionDialog({
               <Button
                 type="button"
                 onClick={() => form.handleSubmit((v) => onSubmit(v, false))()}
-                disabled={createSession.isPending || createRecurringSeries.isPending}
+                disabled={createSession.isPending || createRecurringSeries.isPending || isCheckingConflicts}
               >
-                {createRecurringSeries.isPending ? 'Creando...' : recurrenceEnabled ? 'Crear serie' : 'Crear sesión'}
+                {isCheckingConflicts ? 'Verificando...' : createRecurringSeries.isPending ? 'Creando...' : recurrenceEnabled ? 'Crear serie' : 'Crear sesión'}
               </Button>
             </div>
           </form>
@@ -1188,6 +1320,17 @@ export function QuickCreateSessionDialog({
         patientName={whatsappDialogData.patientName}
       />
     )}
+
+    <ConflictsDialog
+      open={conflictsDialogOpen}
+      onOpenChange={setConflictsDialogOpen}
+      conflicts={detectedConflicts}
+      isRecurring={recurrenceEnabled}
+      totalSessions={allSessionsToCreate.length}
+      onCancel={handleConflictCancel}
+      onCreateNonConflicting={handleCreateNonConflicting}
+      onForceCreate={handleForceCreate}
+    />
   </>
   );
 }
