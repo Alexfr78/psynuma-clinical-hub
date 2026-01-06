@@ -1,8 +1,9 @@
-import { User, Clock, GripVertical, Move, Calendar } from 'lucide-react';
+import { User, Clock, GripVertical, Move, Calendar, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SessionWithRelations } from '@/hooks/useSessions';
 import { useCallback, useRef, useState, useEffect } from 'react';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface SessionCardProps {
   session: SessionWithRelations;
@@ -42,6 +43,7 @@ export function SessionCard({
   
   // Check if this is a Google Calendar event (imported)
   const isGoogleEvent = (session as any).isGoogleEvent === true;
+  const isRecurring = !!(session as any).recurring_series_id;
   
   // Use google_event color for imported events
   const effectiveStatus = isGoogleEvent ? 'google_event' : session.status;
@@ -214,6 +216,16 @@ export function SessionCard({
         )}
         <div className="flex items-center gap-1">
           {draggable && !isMobile && <GripVertical className="h-3 w-3 opacity-50 flex-shrink-0" />}
+          {isRecurring && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <RefreshCw className="h-3 w-3 opacity-60 flex-shrink-0" />
+                </TooltipTrigger>
+                <TooltipContent>Cita recurrente</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
           <div className="font-medium truncate flex-1">{displayName}</div>
         </div>
         <div className="text-[10px] opacity-75">
@@ -254,7 +266,19 @@ export function SessionCard({
       <div className="flex items-start justify-between gap-2">
         {draggable && !isMobile && <GripVertical className="h-4 w-4 opacity-50 flex-shrink-0 mt-0.5" />}
         <div className="min-w-0 flex-1">
-          <h4 className="font-medium truncate">{displayName}</h4>
+          <div className="flex items-center gap-1.5">
+            {isRecurring && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <RefreshCw className="h-3.5 w-3.5 opacity-60 flex-shrink-0" />
+                  </TooltipTrigger>
+                  <TooltipContent>Cita recurrente</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+            <h4 className="font-medium truncate">{displayName}</h4>
+          </div>
           <div className="mt-1 flex items-center gap-3 text-sm text-muted-foreground">
             <div className="flex items-center gap-1">
               <Clock className="h-3.5 w-3.5" />

@@ -2205,6 +2205,128 @@ export type Database = {
           },
         ]
       }
+      recurring_series: {
+        Row: {
+          base_start_datetime: string
+          bono_id: string | null
+          cancellation_policy: string | null
+          center_id: string
+          created_at: string | null
+          created_by: string
+          duration_minutes: number
+          id: string
+          is_active: boolean | null
+          last_generated_until: string | null
+          location_id: string | null
+          max_occurrences: number | null
+          notes_default: string | null
+          patient_id: string
+          price: number
+          professional_id: string
+          rrule_json: Json
+          session_modality: string | null
+          session_type: string | null
+          timezone: string
+          updated_at: string | null
+        }
+        Insert: {
+          base_start_datetime: string
+          bono_id?: string | null
+          cancellation_policy?: string | null
+          center_id: string
+          created_at?: string | null
+          created_by: string
+          duration_minutes?: number
+          id?: string
+          is_active?: boolean | null
+          last_generated_until?: string | null
+          location_id?: string | null
+          max_occurrences?: number | null
+          notes_default?: string | null
+          patient_id: string
+          price?: number
+          professional_id: string
+          rrule_json: Json
+          session_modality?: string | null
+          session_type?: string | null
+          timezone?: string
+          updated_at?: string | null
+        }
+        Update: {
+          base_start_datetime?: string
+          bono_id?: string | null
+          cancellation_policy?: string | null
+          center_id?: string
+          created_at?: string | null
+          created_by?: string
+          duration_minutes?: number
+          id?: string
+          is_active?: boolean | null
+          last_generated_until?: string | null
+          location_id?: string | null
+          max_occurrences?: number | null
+          notes_default?: string | null
+          patient_id?: string
+          price?: number
+          professional_id?: string
+          rrule_json?: Json
+          session_modality?: string | null
+          session_type?: string | null
+          timezone?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recurring_series_bono_id_fkey"
+            columns: ["bono_id"]
+            isOneToOne: false
+            referencedRelation: "bonos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recurring_series_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recurring_series_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "portal_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recurring_series_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recurring_series_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "center_locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recurring_series_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recurring_series_professional_id_fkey"
+            columns: ["professional_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       session_types: {
         Row: {
           center_id: string
@@ -2291,15 +2413,19 @@ export type Database = {
           end_time: string
           google_calendar_event_id: string | null
           id: string
+          is_exception: boolean | null
           last_payment_reminder_at: string | null
           location_id: string | null
           notes: string | null
+          occurrence_index: number | null
+          original_start_datetime: string | null
           patient_id: string
           payment_mode: string | null
           payment_reminder_count: number | null
           payment_status: string | null
           price: number
           professional_id: string
+          recurring_series_id: string | null
           reminder_sent_at: string | null
           room: string | null
           send_reminder_email: boolean | null
@@ -2327,15 +2453,19 @@ export type Database = {
           end_time: string
           google_calendar_event_id?: string | null
           id?: string
+          is_exception?: boolean | null
           last_payment_reminder_at?: string | null
           location_id?: string | null
           notes?: string | null
+          occurrence_index?: number | null
+          original_start_datetime?: string | null
           patient_id: string
           payment_mode?: string | null
           payment_reminder_count?: number | null
           payment_status?: string | null
           price?: number
           professional_id: string
+          recurring_series_id?: string | null
           reminder_sent_at?: string | null
           room?: string | null
           send_reminder_email?: boolean | null
@@ -2363,15 +2493,19 @@ export type Database = {
           end_time?: string
           google_calendar_event_id?: string | null
           id?: string
+          is_exception?: boolean | null
           last_payment_reminder_at?: string | null
           location_id?: string | null
           notes?: string | null
+          occurrence_index?: number | null
+          original_start_datetime?: string | null
           patient_id?: string
           payment_mode?: string | null
           payment_reminder_count?: number | null
           payment_status?: string | null
           price?: number
           professional_id?: string
+          recurring_series_id?: string | null
           reminder_sent_at?: string | null
           room?: string | null
           send_reminder_email?: boolean | null
@@ -2430,6 +2564,13 @@ export type Database = {
             columns: ["professional_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_recurring_series_id_fkey"
+            columns: ["recurring_series_id"]
+            isOneToOne: false
+            referencedRelation: "recurring_series"
             referencedColumns: ["id"]
           },
         ]
