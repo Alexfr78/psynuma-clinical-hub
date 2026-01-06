@@ -2997,6 +2997,7 @@ export type Database = {
         | "no_show"
         | "blocked"
         | "pending_approval"
+        | "reschedule_requested"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -3143,6 +3144,7 @@ export const Constants = {
         "no_show",
         "blocked",
         "pending_approval",
+        "reschedule_requested",
       ],
     },
   },
