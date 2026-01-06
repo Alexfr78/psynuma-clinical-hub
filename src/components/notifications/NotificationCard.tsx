@@ -1,6 +1,6 @@
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Mail, MessageSquare, Phone, Clock, CheckCircle, XCircle, Send, Smartphone } from 'lucide-react';
+import { Mail, MessageSquare, Phone, Clock, CheckCircle, XCircle, Send, Smartphone, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,7 @@ import type { NotificationWithRelations } from '@/hooks/useNotifications';
 interface NotificationCardProps {
   notification: NotificationWithRelations;
   onSend?: (id: string) => void;
+  onDelete?: (id: string) => void;
 }
 
 const typeConfig = {
@@ -23,7 +24,7 @@ const statusConfig = {
   failed: { icon: XCircle, label: 'Fallido', variant: 'destructive' as const },
 };
 
-export function NotificationCard({ notification, onSend }: NotificationCardProps) {
+export function NotificationCard({ notification, onSend, onDelete }: NotificationCardProps) {
   const typeInfo = typeConfig[notification.type];
   const statusInfo = statusConfig[notification.status || 'pending'];
   const TypeIcon = typeInfo.icon;
@@ -90,22 +91,34 @@ export function NotificationCard({ notification, onSend }: NotificationCardProps
             )}
           </div>
           
-          {notification.status === 'pending' && onSend && (
-            <Button size="sm" variant="outline" onClick={() => onSend(notification.id)} className="w-full sm:w-auto">
-              <Send className="h-3 w-3 mr-1" />
-              {isWhatsAppManualSend ? (
-                <>
-                  <span className="hidden sm:inline">Abrir WhatsApp</span>
-                  <span className="sm:hidden">WhatsApp</span>
-                </>
-              ) : (
-                <>
-                  <span className="hidden sm:inline">Enviar ahora</span>
-                  <span className="sm:hidden">Enviar</span>
-                </>
-              )}
-            </Button>
-          )}
+          <div className="flex gap-2">
+            {notification.status === 'pending' && onSend && (
+              <Button size="sm" variant="outline" onClick={() => onSend(notification.id)} className="flex-1 sm:flex-none">
+                <Send className="h-3 w-3 mr-1" />
+                {isWhatsAppManualSend ? (
+                  <>
+                    <span className="hidden sm:inline">Abrir WhatsApp</span>
+                    <span className="sm:hidden">WhatsApp</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="hidden sm:inline">Enviar ahora</span>
+                    <span className="sm:hidden">Enviar</span>
+                  </>
+                )}
+              </Button>
+            )}
+            {onDelete && (
+              <Button 
+                size="sm" 
+                variant="ghost" 
+                onClick={() => onDelete(notification.id)}
+                className="text-muted-foreground hover:text-destructive"
+              >
+                <Trash2 className="h-3 w-3" />
+              </Button>
+            )}
+          </div>
         </div>
 
         {notification.error_message && (

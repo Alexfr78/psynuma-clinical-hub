@@ -10,10 +10,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { NotificationCard } from '@/components/notifications/NotificationCard';
 import { WhatsAppLinkDialog } from '@/components/agenda/WhatsAppLinkDialog';
-import { useNotifications, useSendNotification, usePendingNotifications, NotificationWithRelations } from '@/hooks/useNotifications';
+import { useNotifications, useSendNotification, usePendingNotifications, useDeleteNotification, NotificationWithRelations } from '@/hooks/useNotifications';
 
 export default function Notifications() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -24,6 +34,8 @@ export default function Notifications() {
     message: string;
     patientName: string;
   } | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [notificationToDelete, setNotificationToDelete] = useState<NotificationWithRelations | null>(null);
 
   const { data: notifications, isLoading } = useNotifications({
     status: statusFilter !== 'all' ? statusFilter : undefined,
@@ -31,6 +43,7 @@ export default function Notifications() {
   });
   const { data: pendingNotifications } = usePendingNotifications();
   const sendNotification = useSendNotification();
+  const deleteNotification = useDeleteNotification();
 
   const stats = {
     total: notifications?.length || 0,
@@ -77,6 +90,11 @@ export default function Notifications() {
         break;
       }
     }
+  };
+
+  const handleDeleteNotification = (notification: NotificationWithRelations) => {
+    setNotificationToDelete(notification);
+    setDeleteDialogOpen(true);
   };
 
   return (
@@ -227,6 +245,7 @@ export default function Notifications() {
                       key={notification.id}
                       notification={notification}
                       onSend={(id) => handleSendNotification(id, notification)}
+                      onDelete={() => handleDeleteNotification(notification)}
                     />
                   ))}
                 </div>
@@ -242,6 +261,7 @@ export default function Notifications() {
                       key={notification.id}
                       notification={notification}
                       onSend={(id) => handleSendNotification(id, notification)}
+                      onDelete={() => handleDeleteNotification(notification)}
                     />
                   ))}
               </div>
@@ -255,6 +275,7 @@ export default function Notifications() {
                     <NotificationCard
                       key={notification.id}
                       notification={notification}
+                      onDelete={() => handleDeleteNotification(notification)}
                     />
                   ))}
               </div>
@@ -269,6 +290,7 @@ export default function Notifications() {
                       key={notification.id}
                       notification={notification}
                       onSend={(id) => handleSendNotification(id, notification)}
+                      onDelete={() => handleDeleteNotification(notification)}
                     />
                   ))}
               </div>
@@ -287,6 +309,37 @@ export default function Notifications() {
           patientName={whatsappDialog.patientName}
         />
       )}
+
+      {/* Delete Notification Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar notificación?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {notificationToDelete && (
+                <>
+                  Se eliminará la notificación de tipo <strong>{notificationToDelete.type}</strong> destinada a{' '}
+                  <strong>{notificationToDelete.recipient}</strong>. Esta acción no se puede deshacer.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={async () => {
+                if (notificationToDelete) {
+                  await deleteNotification.mutateAsync(notificationToDelete.id);
+                  setNotificationToDelete(null);
+                }
+              }}
+            >
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
