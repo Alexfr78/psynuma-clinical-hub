@@ -164,3 +164,26 @@ export function useDebtStats() {
     enabled: !!profile?.center_id,
   });
 }
+
+export function useDeleteDebt() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (debtId: string) => {
+      const { error } = await supabase
+        .from('debts')
+        .delete()
+        .eq('id', debtId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['debts'] });
+      queryClient.invalidateQueries({ queryKey: ['debt-stats'] });
+      toast.success('Deuda eliminada');
+    },
+    onError: (error) => {
+      toast.error('Error al eliminar la deuda: ' + error.message);
+    },
+  });
+}

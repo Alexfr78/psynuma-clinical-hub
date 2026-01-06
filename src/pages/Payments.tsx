@@ -14,7 +14,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { useDebts, useDebtStats } from '@/hooks/useDebts';
+import { useDebts, useDebtStats, useDeleteDebt, DebtWithRelations } from '@/hooks/useDebts';
 import { usePayments, usePaymentStats, useDeletePayment, PaymentWithRelations } from '@/hooks/usePayments';
 import { DebtCard } from '@/components/payments/DebtCard';
 import { PaymentHistoryTable } from '@/components/payments/PaymentHistoryTable';
@@ -33,12 +33,15 @@ export default function Payments() {
   const [selectedPayment, setSelectedPayment] = useState<PaymentWithRelations | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [paymentToDelete, setPaymentToDelete] = useState<PaymentWithRelations | null>(null);
+  const [deleteDebtDialogOpen, setDeleteDebtDialogOpen] = useState(false);
+  const [debtToDelete, setDebtToDelete] = useState<DebtWithRelations | null>(null);
 
   const { data: debts, isLoading: debtsLoading } = useDebts();
   const { data: payments, isLoading: paymentsLoading } = usePayments();
   const { data: debtStats } = useDebtStats();
   const { data: paymentStats } = usePaymentStats();
   const deletePayment = useDeletePayment();
+  const deleteDebt = useDeleteDebt();
 
   const handleRecordPayment = (debtInfo: {
     debtId: string;
@@ -53,6 +56,11 @@ export default function Payments() {
       description: debtInfo.description,
     });
     setPaymentOpen(true);
+  };
+
+  const handleDeleteDebt = (debt: DebtWithRelations) => {
+    setDebtToDelete(debt);
+    setDeleteDebtDialogOpen(true);
   };
 
   return (
@@ -131,6 +139,7 @@ export default function Payments() {
                   key={debt.id}
                   debt={debt}
                   onRecordPayment={handleRecordPayment}
+                  onDelete={() => handleDeleteDebt(debt)}
                 />
               ))}
             </div>
@@ -193,6 +202,37 @@ export default function Payments() {
                 if (paymentToDelete) {
                   await deletePayment.mutateAsync(paymentToDelete);
                   setPaymentToDelete(null);
+                }
+              }}
+            >
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Debt Dialog */}
+      <AlertDialog open={deleteDebtDialogOpen} onOpenChange={setDeleteDebtDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar deuda?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {debtToDelete && (
+                <>
+                  Se eliminará la deuda de <strong>{(Number(debtToDelete.amount) - Number(debtToDelete.paid_amount)).toFixed(2)}€</strong> de{' '}
+                  <strong>{debtToDelete.patients.first_name} {debtToDelete.patients.last_name}</strong>. Esta acción no se puede deshacer.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={async () => {
+                if (debtToDelete) {
+                  await deleteDebt.mutateAsync(debtToDelete.id);
+                  setDebtToDelete(null);
                 }
               }}
             >

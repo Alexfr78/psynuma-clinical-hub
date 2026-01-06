@@ -268,3 +268,34 @@ export function usePendingNotifications() {
     enabled: !!profile?.center_id,
   });
 }
+
+export function useDeleteNotification() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async (notificationId: string) => {
+      const { error } = await supabase
+        .from('notifications')
+        .delete()
+        .eq('id', notificationId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      toast({
+        title: 'Notificación eliminada',
+        description: 'La notificación se ha eliminado correctamente.',
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: 'Error',
+        description: 'No se pudo eliminar la notificación.',
+        variant: 'destructive',
+      });
+      console.error('Error deleting notification:', error);
+    },
+  });
+}

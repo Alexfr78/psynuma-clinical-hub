@@ -1,6 +1,6 @@
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { AlertCircle, User, FileText, Clock } from 'lucide-react';
+import { AlertCircle, User, FileText, Clock, Trash2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,7 @@ interface DebtCardProps {
     pendingAmount: number;
     description?: string;
   }) => void;
+  onDelete?: (debtId: string) => void;
 }
 
 const statusConfig = {
@@ -23,7 +24,7 @@ const statusConfig = {
   cancelled: { label: 'Cancelada', variant: 'secondary' as const },
 };
 
-export function DebtCard({ debt, onRecordPayment }: DebtCardProps) {
+export function DebtCard({ debt, onRecordPayment, onDelete }: DebtCardProps) {
   const status = statusConfig[debt.status] || statusConfig.pending;
   const remaining = Number(debt.amount) - Number(debt.paid_amount);
   const isOverdue = debt.due_date && new Date(debt.due_date) < new Date();
@@ -79,14 +80,26 @@ export function DebtCard({ debt, onRecordPayment }: DebtCardProps) {
             </div>
             
             {(debt.status === 'pending' || debt.status === 'partial') && (
-              <Button onClick={() => onRecordPayment?.({
-                debtId: debt.id,
-                patientId: debt.patient_id,
-                pendingAmount: remaining,
-                description: debt.notes || undefined,
-              })}>
-                Registrar pago
-              </Button>
+              <div className="flex gap-2">
+                <Button onClick={() => onRecordPayment?.({
+                  debtId: debt.id,
+                  patientId: debt.patient_id,
+                  pendingAmount: remaining,
+                  description: debt.notes || undefined,
+                })}>
+                  Registrar pago
+                </Button>
+                {onDelete && (
+                  <Button 
+                    variant="ghost" 
+                    size="icon"
+                    onClick={() => onDelete(debt.id)}
+                    className="text-muted-foreground hover:text-destructive"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
             )}
           </div>
         </div>
