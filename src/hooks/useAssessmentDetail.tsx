@@ -6,6 +6,8 @@ export interface AssessmentDetailPatient {
   first_name: string;
   last_name: string;
   email: string | null;
+  date_of_birth: string | null;
+  gender: string | null;
 }
 
 export interface AssessmentDetailTemplate {
@@ -28,6 +30,7 @@ export interface AssessmentDetailResponse {
   answers: Record<string, number>;
   factor_scores: Record<string, number>;
   flags: Record<string, boolean> | null;
+  metadata: Record<string, unknown> | null;
   created_at: string;
 }
 
@@ -59,10 +62,10 @@ export function useAssessmentDetail(assessmentId: string | undefined) {
           sent_at,
           completed_at,
           expires_at,
-          patient:patients(id, first_name, last_name, email),
+          patient:patients(id, first_name, last_name, email, date_of_birth, gender),
           template:assessment_templates(id, code, name, items, scoring, interpretations, response_min, response_max, chart_full_mark, flag_threshold, min_label, max_label),
           professional:profiles(id, first_name, last_name),
-          response:assessment_responses(id, answers, factor_scores, flags, created_at)
+          response:assessment_responses(id, answers, factor_scores, flags, metadata, created_at)
         `)
         .eq('id', assessmentId)
         .maybeSingle();
@@ -87,6 +90,9 @@ export function useAssessmentDetail(assessmentId: string | undefined) {
         flags: typeof (responseData as any).flags === 'string'
           ? JSON.parse((responseData as any).flags)
           : (responseData as any).flags || null,
+        metadata: typeof (responseData as any).metadata === 'string'
+          ? JSON.parse((responseData as any).metadata)
+          : (responseData as any).metadata || null,
         created_at: (responseData as any).created_at,
       } as AssessmentDetailResponse : null;
 

@@ -1,7 +1,7 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { ArrowLeft, User, Calendar, FileText, CheckCircle2, AlertTriangle, Loader2, Activity } from 'lucide-react';
+import { ArrowLeft, User, Calendar, FileText, CheckCircle2, AlertTriangle, Loader2, Activity, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -9,6 +9,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { useAssessmentDetail } from '@/hooks/useAssessmentDetail';
 import { AssessmentResultsChart } from '@/components/assessments/AssessmentResultsChart';
+import { PAIInterpretationPanel } from '@/components/assessments/PAIInterpretationPanel';
+import { usePAIInterpretation, PAIInterpretation } from '@/hooks/usePAIInterpretation';
 import {
   FACTOR_LABELS,
   INTERPRETATION_TEXTS,
@@ -24,6 +26,7 @@ export default function AssessmentResults() {
   const { assessmentId } = useParams<{ assessmentId: string }>();
   const navigate = useNavigate();
   const { data: assessment, isLoading, error } = useAssessmentDetail(assessmentId);
+  const { generateInterpretation, isGenerating } = usePAIInterpretation();
 
   if (isLoading) {
     return (
@@ -56,12 +59,29 @@ export default function AssessmentResults() {
   const answers = response?.answers || {};
   const templateCode = template.code;
   const isSCL90 = templateCode === 'SCL90_V1';
+  const isPAI = templateCode === 'PAI_V1';
   const flagThreshold = template.flag_threshold;
   const chartFullMark = template.chart_full_mark;
   
   const factorOrder = getFactorOrder(templateCode);
   const highFactors = getHighFactors(factorScores, templateCode, flagThreshold);
   const hasResults = Object.keys(factorScores).length > 0;
+
+  // Get stored PAI interpretation from metadata
+  const storedInterpretation = response?.metadata?.paiInterpretation as PAIInterpretation | undefined;
+
+  const handleGeneratePAIInterpretation = () => {
+    if (!assessmentId) return;
+    
+    generateInterpretation.mutate({
+      assessmentId,
+      tScores: factorScores,
+      patientAge: patient.date_of_birth 
+        ? new Date().getFullYear() - new Date(patient.date_of_birth).getFullYear() 
+        : undefined,
+      patientGender: patient.gender || undefined,
+    });
+  };
 
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-6xl mx-auto">
@@ -304,57 +324,122 @@ export default function AssessmentResults() {
             </CardContent>
           </Card>
 
-          {/* Interpretación dinámica - Solo factores altos */}
+          {/* Interpretación dinámica */}
           <div className="space-y-4">
-            <h2 className="text-lg font-semibold flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-yellow-500" />
-              Interpretación y Sugerencias de Intervención
-            </h2>
+            <div className="flex items-center justify-between gap-4">
+              <h2 className="text-lg font-semibold flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-yellow-500" />
+                Interpretación y Sugerencias de Intervención
+              </h2>
+              {isPAI && !storedInterpretation && (
+                <Button 
+                  onClick={handleGeneratePAIInterpretation}
+                  disabled={isGenerating}
+                  className="gap-2"
+                >
+                  {isGenerating ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Generando...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="h-4 w-4" />
+                      Generar Interpretación IA
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
 
-            {highFactors.length === 0 ? (
-              <Card>
-                <CardContent className="py-6 text-center text-muted-foreground">
-                  No hay {isSCL90 ? 'dimensiones' : 'factores'} por encima del umbral de alerta (&gt;{flagThreshold.toFixed(2)}). 
-                  Revisa tendencias y contexto clínico.
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="space-y-4">
-                {highFactors.map(({ code, score }) => {
-                  const texts = INTERPRETATION_TEXTS[code];
-                  const label = FACTOR_LABELS[code]?.label || code;
+            {/* PAI: Mostrar interpretación IA */}
+            {isPAI && (
+              <>
+                {storedInterpretation ? (
+                  <PAIInterpretationPanel 
+                    interpretation={storedInterpretation}
+                    onRegenerate={handleGeneratePAIInterpretation}
+                    isRegenerating={isGenerating}
+                  />
+                ) : (
+                  <Card>
+                    <CardContent className="py-8 text-center">
+                      <Sparkles className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                      <p className="text-muted-foreground mb-4">
+                        Genera una interpretación clínica detallada del PAI usando inteligencia artificial.
+                      </p>
+                      <Button 
+                        onClick={handleGeneratePAIInterpretation}
+                        disabled={isGenerating}
+                        className="gap-2"
+                      >
+                        {isGenerating ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Analizando perfil...
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="h-4 w-4" />
+                            Generar Interpretación IA
+                          </>
+                        )}
+                      </Button>
+                    </CardContent>
+                  </Card>
+                )}
+              </>
+            )}
 
-                  if (!texts) return null;
+            {/* Otros tests: Interpretación basada en factores altos */}
+            {!isPAI && (
+              <>
+                {highFactors.length === 0 ? (
+                  <Card>
+                    <CardContent className="py-6 text-center text-muted-foreground">
+                      No hay {isSCL90 ? 'dimensiones' : 'factores'} por encima del umbral de alerta (&gt;{flagThreshold.toFixed(2)}). 
+                      Revisa tendencias y contexto clínico.
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <div className="space-y-4">
+                    {highFactors.map(({ code, score }) => {
+                      const texts = INTERPRETATION_TEXTS[code];
+                      const label = FACTOR_LABELS[code]?.label || code;
 
-                  return (
-                    <Card key={code} className="border-l-4 border-l-yellow-500">
-                      <CardHeader className="pb-2 sm:pb-4">
-                        <CardTitle className="text-sm sm:text-base flex flex-wrap items-center gap-2">
-                          <span>{code} — {label}</span>
-                          <Badge variant="destructive" className="text-xs">
-                            Alto: {score.toFixed(2)}
-                          </Badge>
-                        </CardTitle>
-                        <CardDescription className="text-xs sm:text-sm">Qué puede estar indicando</CardDescription>
-                      </CardHeader>
-                      <CardContent className="space-y-4">
-                        <p className="text-sm">{texts.interpretation}</p>
+                      if (!texts) return null;
 
-                        <div>
-                          <h4 className="font-semibold text-sm mb-2">
-                            Líneas de intervención sugeridas
-                          </h4>
-                          <ul className="list-disc pl-5 space-y-1 text-sm text-muted-foreground">
-                            {texts.interventions.map((intervention, idx) => (
-                              <li key={idx}>{intervention}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </div>
+                      return (
+                        <Card key={code} className="border-l-4 border-l-yellow-500">
+                          <CardHeader className="pb-2 sm:pb-4">
+                            <CardTitle className="text-sm sm:text-base flex flex-wrap items-center gap-2">
+                              <span>{code} — {label}</span>
+                              <Badge variant="destructive" className="text-xs">
+                                Alto: {score.toFixed(2)}
+                              </Badge>
+                            </CardTitle>
+                            <CardDescription className="text-xs sm:text-sm">Qué puede estar indicando</CardDescription>
+                          </CardHeader>
+                          <CardContent className="space-y-4">
+                            <p className="text-sm">{texts.interpretation}</p>
+
+                            <div>
+                              <h4 className="font-semibold text-sm mb-2">
+                                Líneas de intervención sugeridas
+                              </h4>
+                              <ul className="list-disc pl-5 space-y-1 text-sm text-muted-foreground">
+                                {texts.interventions.map((intervention, idx) => (
+                                  <li key={idx}>{intervention}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                )}
+              </>
             )}
           </div>
 
