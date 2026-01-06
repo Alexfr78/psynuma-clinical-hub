@@ -1550,7 +1550,11 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
                     <AlertDialogCancel>Cancelar</AlertDialogCancel>
                     <AlertDialogAction
                       onClick={() => {
-                        deleteCalendarEvent.mutate(session.id);
+                        deleteCalendarEvent.mutate({
+                          calendarEventId: session.id,
+                          googleEventId: (session as any).google_calendar_event_id,
+                          professionalId: (session as any).professional_id,
+                        });
                         onOpenChange(false);
                       }}
                     >
