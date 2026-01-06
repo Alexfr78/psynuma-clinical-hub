@@ -41,7 +41,7 @@ const mainNavItems = [
   { title: 'Pacientes', url: '/pacientes', icon: Users },
   { title: 'Sesiones', url: '/sesiones', icon: FileText },
   { title: 'Consentimientos', url: '/consentimientos', icon: FileSignature },
-  { title: 'Evaluaciones', url: '/evaluaciones', icon: ClipboardCheck },
+  { title: 'Evaluaciones', url: '/evaluaciones', icon: ClipboardCheck }, // PAI y otras evaluaciones
 ];
 
 const financeNavItems = [
