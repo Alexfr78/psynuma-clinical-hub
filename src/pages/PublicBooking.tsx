@@ -11,7 +11,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { toast } from 'sonner';
 import { format, addDays, isBefore, startOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Loader2, MapPin, Video, Clock, Euro, User, CheckCircle, ArrowLeft, ArrowRight, Copy } from 'lucide-react';
+import { Loader2, MapPin, Video, Clock, User, CheckCircle, ArrowLeft, ArrowRight, Copy } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 type Step = 'service' | 'location' | 'professional' | 'datetime' | 'patient' | 'confirmation';
@@ -244,9 +244,6 @@ export default function PublicBooking() {
                       <div className="font-medium">{service.name}</div>
                       <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
                         <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{service.duration_minutes} min</span>
-                        {service.default_price != null && (
-                          <span className="flex items-center gap-1"><Euro className="h-3 w-3" />{service.default_price}</span>
-                        )}
                       </div>
                     </button>
                   ))}
