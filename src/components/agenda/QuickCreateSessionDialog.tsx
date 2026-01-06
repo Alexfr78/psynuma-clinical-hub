@@ -369,7 +369,7 @@ export function QuickCreateSessionDialog({
   ) => {
     const usesBono = values.bono_id && values.bono_id !== 'none' && values.bono_id !== '';
     const selectedSessionType = sessionTypes?.find(t => t.id === values.session_type);
-    const sessionPrice = selectedSessionType?.default_price || 60;
+    const sessionPrice = selectedSessionType?.default_price ?? 0;
     
     let videoProvider: string | null = null;
     if (values.session_modality === 'zoom') {
