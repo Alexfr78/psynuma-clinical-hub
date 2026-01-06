@@ -370,9 +370,13 @@ async function createGoogleCalendarEvent(
   const title = formatEventText(titleFormat || defaultTitle, session, patient, professional, location, bono);
   const description = formatEventText(descriptionFormat || defaultDescription, session, patient, professional, location, bono);
 
+  // Add Psycma marker to description for identification during sync
+  const psycmaMarker = `\n\n[PSYCMA:${session.id}]`;
+  const descriptionWithMarker = description + psycmaMarker;
+
   const event = {
     summary: title,
-    description: description,
+    description: descriptionWithMarker,
     start: {
       dateTime: startDateTime,
       timeZone: 'Europe/Madrid',
@@ -381,7 +385,16 @@ async function createGoogleCalendarEvent(
       dateTime: endDateTime,
       timeZone: 'Europe/Madrid',
     },
+    extendedProperties: {
+      private: {
+        psycma_session_id: session.id,
+        psycma_created: 'true',
+      },
+    },
   };
+
+  console.log(`[SYNC:CREATE] Creating event for session ${session.id} in calendar ${calendarId}`);
+  console.log(`[SYNC:CREATE] Event: ${title} on ${session.session_date} ${session.start_time}-${session.end_time}`);
 
   const response = await fetch(
     `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`,
@@ -397,11 +410,12 @@ async function createGoogleCalendarEvent(
 
   if (!response.ok) {
     const error = await response.text();
-    console.error('[SYNC] Error creating Google Calendar event:', error);
+    console.error('[SYNC:CREATE] Error creating Google Calendar event:', error);
     return null;
   }
 
   const data = await response.json();
+  console.log(`[SYNC:CREATE] Successfully created event ${data.id}`);
   return data.id;
 }
 
@@ -426,9 +440,13 @@ async function updateGoogleCalendarEvent(
   const title = formatEventText(titleFormat || defaultTitle, session, patient, professional, location, bono);
   const description = formatEventText(descriptionFormat || defaultDescription, session, patient, professional, location, bono);
 
+  // Add Psycma marker to description for identification during sync
+  const psycmaMarker = `\n\n[PSYCMA:${session.id}]`;
+  const descriptionWithMarker = description + psycmaMarker;
+
   const event = {
     summary: title,
-    description: description,
+    description: descriptionWithMarker,
     start: {
       dateTime: startDateTime,
       timeZone: 'Europe/Madrid',
@@ -436,6 +454,12 @@ async function updateGoogleCalendarEvent(
     end: {
       dateTime: endDateTime,
       timeZone: 'Europe/Madrid',
+    },
+    extendedProperties: {
+      private: {
+        psycma_session_id: session.id,
+        psycma_created: 'true',
+      },
     },
   };
 
@@ -451,7 +475,13 @@ async function updateGoogleCalendarEvent(
     }
   );
 
-  return response.ok;
+  if (!response.ok) {
+    const error = await response.text();
+    console.error(`[SYNC:UPDATE] Error updating event ${eventId}:`, error);
+    return false;
+  }
+
+  return true;
 }
 
 async function deleteGoogleCalendarEvent(
@@ -468,6 +498,34 @@ async function deleteGoogleCalendarEvent(
   );
 
   return response.ok || response.status === 404;
+}
+
+// Check if a specific event exists in Google Calendar
+async function checkGoogleEventExists(
+  accessToken: string,
+  calendarId: string,
+  eventId: string
+): Promise<boolean> {
+  try {
+    const response = await fetch(
+      `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${eventId}`,
+      {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${accessToken}` },
+      }
+    );
+
+    if (!response.ok) {
+      return false;
+    }
+
+    const event = await response.json();
+    // Event exists and is not cancelled
+    return event.status !== 'cancelled';
+  } catch (error) {
+    console.error(`[SYNC:CHECK] Error checking event ${eventId}:`, error);
+    return false;
+  }
 }
 
 // Parse Google Calendar datetime to Europe/Madrid timezone
@@ -854,11 +912,20 @@ async function syncProfessional(
       }
     } else {
       // Check if the event still exists in Google Calendar
-      const googleEvent = googleEventMap.get(session.google_calendar_event_id);
+      let googleEvent = googleEventMap.get(session.google_calendar_event_id);
+      let eventExists = !!googleEvent;
       
-      if (!googleEvent) {
-        // Event was deleted from Google Calendar - recreate it
-        console.log(`[SYNC] Event ${session.google_calendar_event_id} not found in Google, recreating...`);
+      // If event is not in the fetched list and this is a full sync, verify it exists via API
+      // This handles cases where the calendar was changed or the event was deleted outside the sync range
+      if (!googleEvent && fullSync) {
+        console.log(`[SYNC:CHECK] Event ${session.google_calendar_event_id} not in fetched events, checking via API...`);
+        eventExists = await checkGoogleEventExists(accessToken, calendarId, session.google_calendar_event_id);
+        console.log(`[SYNC:CHECK] Event ${session.google_calendar_event_id} exists: ${eventExists}`);
+      }
+      
+      if (!eventExists) {
+        // Event was deleted from Google Calendar or doesn't exist in this calendar - recreate it
+        console.log(`[SYNC:RECREATE] Event ${session.google_calendar_event_id} not found in Google Calendar, recreating...`);
         const newEventId = await createGoogleCalendarEvent(
           accessToken,
           calendarId,
@@ -877,8 +944,11 @@ async function syncProfessional(
             .update({ google_calendar_event_id: newEventId })
             .eq('id', session.id);
           result.created++;
+          console.log(`[SYNC:RECREATE] Created new event ${newEventId} for session ${session.id}`);
+        } else {
+          result.errors.push(`Failed to recreate event for session ${session.id}`);
         }
-      } else {
+      } else if (googleEvent) {
         // Event exists - check if Google has newer changes (two-way sync)
         if (integrations?.google_calendar_sync_mode === 'two_way' && googleEvent.start?.dateTime) {
           const parsedStart = parseGoogleDateTimeToMadrid(googleEvent.start.dateTime);
