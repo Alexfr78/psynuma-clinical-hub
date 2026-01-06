@@ -1,0 +1,102 @@
+import { useState } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { ClipboardCheck, Plus, Loader2, Check } from 'lucide-react';
+import { useAssessmentTemplates } from '@/hooks/useAssessmentTemplates';
+import { getPAITemplateData } from '@/data/pai-template';
+import { toast } from 'sonner';
+
+interface AddTemplateDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+const PREDEFINED_TEMPLATES = [
+  {
+    id: 'PAI_V1',
+    name: 'PAI - Inventario de Evaluación de la Personalidad',
+    description: 'Evaluación multidimensional de la personalidad y psicopatología para adultos. Incluye 22 escalas principales y 31 subescalas.',
+    items: 344,
+    time: '45-60 min',
+    getData: getPAITemplateData,
+  },
+];
+
+export function AddTemplateDialog({ open, onOpenChange }: AddTemplateDialogProps) {
+  const { templates, createTemplate } = useAssessmentTemplates();
+  const [adding, setAdding] = useState<string | null>(null);
+
+  const existingCodes = templates.map(t => t.code);
+
+  const handleAdd = async (template: typeof PREDEFINED_TEMPLATES[0]) => {
+    setAdding(template.id);
+    try {
+      const data = template.getData();
+      await createTemplate.mutateAsync(data as any);
+      toast.success(`Plantilla "${template.name}" añadida correctamente`);
+    } catch (error) {
+      console.error('Error adding template:', error);
+    } finally {
+      setAdding(null);
+    }
+  };
+
+  const availableTemplates = PREDEFINED_TEMPLATES.filter(t => !existingCodes.includes(t.id));
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <ClipboardCheck className="h-5 w-5" />
+            Añadir plantilla de evaluación
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4 mt-4">
+          {availableTemplates.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <Check className="h-12 w-12 mx-auto mb-4 text-primary" />
+              <p>Ya tienes todas las plantillas disponibles</p>
+            </div>
+          ) : (
+            availableTemplates.map(template => (
+              <Card key={template.id}>
+                <CardHeader className="pb-2">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <CardTitle className="text-lg">{template.name}</CardTitle>
+                      <CardDescription className="mt-1">{template.description}</CardDescription>
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={() => handleAdd(template)}
+                      disabled={adding === template.id}
+                    >
+                      {adding === template.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <>
+                          <Plus className="h-4 w-4 mr-1" />
+                          Añadir
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  <div className="flex gap-2">
+                    <Badge variant="secondary">{template.items} ítems</Badge>
+                    <Badge variant="outline">{template.time}</Badge>
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
