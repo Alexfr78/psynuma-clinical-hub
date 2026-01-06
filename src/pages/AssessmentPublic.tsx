@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { usePublicAssessment } from '@/hooks/usePublicAssessment';
 import { LikertScale } from '@/components/assessments/LikertScale';
+import { TrueFalseButtons } from '@/components/assessments/TrueFalseButtons';
 import { AssessmentProgress } from '@/components/assessments/AssessmentProgress';
 
 export default function AssessmentPublic() {
@@ -92,6 +93,8 @@ export default function AssessmentPublic() {
   const responseMax = template?.response_max ?? 7;
   const minLabel = template?.min_label ?? 'Nada de acuerdo';
   const maxLabel = template?.max_label ?? 'Totalmente de acuerdo';
+  // Detect if this is a True/False assessment (response_max = 1)
+  const isTrueFalse = responseMax === 1 && responseMin === 0;
 
   const handleSubmit = async () => {
     if (!isComplete) return;
@@ -122,15 +125,25 @@ export default function AssessmentPublic() {
                   <span className="text-muted-foreground mr-2">{idx + 1}.</span>
                   {item.text}
                 </p>
-                <LikertScale
-                  value={answers[item.index]}
-                  onChange={(value) => setAnswers(prev => ({ ...prev, [item.index]: value }))}
-                  min={responseMin}
-                  max={responseMax}
-                  minLabel={minLabel}
-                  maxLabel={maxLabel}
-                  disabled={submitResponses.isPending}
-                />
+                {isTrueFalse ? (
+                  <TrueFalseButtons
+                    value={answers[item.index]}
+                    onChange={(value) => setAnswers(prev => ({ ...prev, [item.index]: value }))}
+                    disabled={submitResponses.isPending}
+                    trueLabel={maxLabel}
+                    falseLabel={minLabel}
+                  />
+                ) : (
+                  <LikertScale
+                    value={answers[item.index]}
+                    onChange={(value) => setAnswers(prev => ({ ...prev, [item.index]: value }))}
+                    min={responseMin}
+                    max={responseMax}
+                    minLabel={minLabel}
+                    maxLabel={maxLabel}
+                    disabled={submitResponses.isPending}
+                  />
+                )}
               </CardContent>
             </Card>
           ))}

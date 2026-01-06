@@ -113,3 +113,6 @@ verify_jwt = false
 
 [functions.interpret-pai-results]
 verify_jwt = true
+
+[functions.interpret-mmpi2rf-results]
+verify_jwt = true

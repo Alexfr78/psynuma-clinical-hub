@@ -10,6 +10,8 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { useAssessmentDetail } from '@/hooks/useAssessmentDetail';
 import { AssessmentResultsChart } from '@/components/assessments/AssessmentResultsChart';
 import { PAIInterpretationPanel } from '@/components/assessments/PAIInterpretationPanel';
+import { MMPI2RFResultsView } from '@/components/assessments/MMPI2RFResultsView';
+import { MMPI2RFInterpretation } from '@/hooks/useMMPI2RFInterpretation';
 import { usePAIInterpretation, PAIInterpretation } from '@/hooks/usePAIInterpretation';
 import {
   FACTOR_LABELS,
@@ -60,6 +62,7 @@ export default function AssessmentResults() {
   const templateCode = template.code;
   const isSCL90 = templateCode === 'SCL90_V1';
   const isPAI = templateCode === 'PAI_V1';
+  const isMMPI2RF = templateCode === 'MMPI2RF';
   const flagThreshold = template.flag_threshold;
   const chartFullMark = template.chart_full_mark;
   
@@ -67,8 +70,9 @@ export default function AssessmentResults() {
   const highFactors = getHighFactors(factorScores, templateCode, flagThreshold);
   const hasResults = Object.keys(factorScores).length > 0;
 
-  // Get stored PAI interpretation from metadata
+  // Get stored interpretations from metadata
   const storedInterpretation = response?.metadata?.paiInterpretation as PAIInterpretation | undefined;
+  const storedMMPI2RFInterpretation = response?.metadata?.mmpi2rfInterpretation as MMPI2RFInterpretation | undefined;
 
   const handleGeneratePAIInterpretation = () => {
     if (!assessmentId) return;
@@ -147,7 +151,18 @@ export default function AssessmentResults() {
         </Card>
       </div>
 
-      {!hasResults ? (
+      {/* MMPI-2-RF: Use specialized view */}
+      {isMMPI2RF && Object.keys(answers).length > 0 ? (
+        <MMPI2RFResultsView
+          assessmentId={assessmentId!}
+          answers={answers}
+          storedInterpretation={storedMMPI2RFInterpretation}
+          patientAge={patient.date_of_birth 
+            ? new Date().getFullYear() - new Date(patient.date_of_birth).getFullYear() 
+            : undefined}
+          patientGender={patient.gender || undefined}
+        />
+      ) : !hasResults ? (
         <Card>
           <CardContent className="py-12 text-center">
             <p className="text-muted-foreground">
