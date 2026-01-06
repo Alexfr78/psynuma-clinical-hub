@@ -64,11 +64,41 @@ serve(async (req) => {
         return new Response('OK', { status: 200, headers: corsHeaders });
       }
 
-      // Check if needs reconnect
+      // Check if needs reconnect - but attempt token refresh first
       if (oauthConn.needs_reconnect) {
-        console.warn('[WEBHOOK] Connection needs reconnect, skipping sync', { 
+        console.warn('[WEBHOOK] Connection marked needs_reconnect, attempting token refresh...', { 
           professionalId: oauthConn.professional_id 
         });
+        
+        // Try to invoke sync anyway - it will attempt token refresh with retries
+        // This gives us a chance to auto-recover from temporary token issues
+        try {
+          const syncResponse = await fetch(
+            `${Deno.env.get('SUPABASE_URL')}/functions/v1/sync-google-calendar`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+              },
+              body: JSON.stringify({
+                professional_id: oauthConn.professional_id,
+              }),
+            }
+          );
+          
+          if (syncResponse.ok) {
+            const syncResult = await syncResponse.json();
+            if (!syncResult.errors?.length) {
+              console.log('[WEBHOOK] Auto-recovery succeeded after needs_reconnect');
+            } else {
+              console.warn('[WEBHOOK] Sync had errors:', syncResult.errors);
+            }
+          }
+        } catch (e) {
+          console.error('[WEBHOOK] Auto-recovery sync failed:', e);
+        }
+        
         return new Response('OK', { status: 200, headers: corsHeaders });
       }
 
