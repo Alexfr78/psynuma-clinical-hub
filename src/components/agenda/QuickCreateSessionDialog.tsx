@@ -296,6 +296,10 @@ export function QuickCreateSessionDialog({
         finalEndTime = initialEndTime || '10:00';
       }
         
+      // Get reminder channel defaults from center configuration
+      const reminderChannels = center?.session_reminder_channels as { email?: boolean; whatsapp?: boolean; sms?: boolean } | null;
+      const reminderEnabled = center?.session_reminder_enabled ?? false;
+      
       form.reset({
         patient_id: '',
         professional_id: user?.id || professionals?.[0]?.id || '',
@@ -312,16 +316,17 @@ export function QuickCreateSessionDialog({
         notify_whatsapp: false,
         notify_email: false,
         notify_sms: false,
-        send_reminder_whatsapp: false,
-        send_reminder_email: true,
-        send_reminder_sms: false,
+        // Apply reminder defaults from center configuration
+        send_reminder_whatsapp: reminderEnabled && (reminderChannels?.whatsapp ?? false),
+        send_reminder_email: reminderEnabled && (reminderChannels?.email ?? true),
+        send_reminder_sms: reminderEnabled && (reminderChannels?.sms ?? false),
       });
       setPatientSearch('');
       // Reset recurrence state
       setRecurrenceEnabled(false);
       setRecurrenceConfig(defaultRecurrenceConfig);
     }
-  }, [open, initialDate, initialStartTime, initialEndTime, user?.id, professionals, sessionTypes, form]);
+  }, [open, initialDate, initialStartTime, initialEndTime, user?.id, professionals, sessionTypes, form, center]);
 
   const filteredPatients = patients?.filter(
     (patient) =>
