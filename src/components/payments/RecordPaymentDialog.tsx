@@ -87,9 +87,9 @@ export function RecordPaymentDialog({
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      patient_id: preselectedPatientId || '',
-      invoice_id: preselectedInvoiceId || '',
-      amount: preselectedAmount || 0,
+      patient_id: '',
+      invoice_id: '',
+      amount: 0,
       payment_date: new Date(),
       payment_method: 'cash',
       reference: '',
@@ -97,33 +97,36 @@ export function RecordPaymentDialog({
     },
   });
 
-  // Auto-fill patient_id from debt when in debt payment mode
+  // Reset and sync form values when dialog opens
   useEffect(() => {
+    if (open) {
+      form.reset({
+        patient_id: preselectedPatientId || '',
+        invoice_id: preselectedInvoiceId || '',
+        amount: preselectedAmount || 0,
+        payment_date: new Date(),
+        payment_method: 'cash',
+        reference: '',
+        notes: '',
+      });
+    }
+  }, [open, preselectedPatientId, preselectedInvoiceId, preselectedAmount]);
+
+  // Fallback: if preselectedDebtId is present but preselectedPatientId was missing, fetch patient_id
+  useEffect(() => {
+    if (!open || !preselectedDebtId || preselectedPatientId) return;
+
     let cancelled = false;
 
     const fillFromDebt = async () => {
-      if (!open || !preselectedDebtId) return;
-
-      // Si ya hay paciente, no sobreescribir
-      const currentPatient = form.getValues("patient_id");
-      if (currentPatient) return;
-
       const { data, error } = await supabase
         .from("debts")
         .select("patient_id")
         .eq("id", preselectedDebtId)
         .single();
 
-      if (cancelled) return;
-
-      if (error) {
-        console.error("[RecordPaymentDialog] Error loading debt:", error);
-        return;
-      }
-
-      if (data?.patient_id) {
-        form.setValue("patient_id", data.patient_id, { shouldValidate: true });
-      }
+      if (cancelled || error || !data?.patient_id) return;
+      form.setValue("patient_id", data.patient_id, { shouldValidate: true });
     };
 
     fillFromDebt();
@@ -131,22 +134,7 @@ export function RecordPaymentDialog({
     return () => {
       cancelled = true;
     };
-  }, [open, preselectedDebtId]);
-
-  // Sync preselected values when dialog opens or props change
-  useEffect(() => {
-    if (!open) return;
-
-    if (preselectedPatientId) {
-      form.setValue("patient_id", preselectedPatientId, { shouldValidate: true });
-    }
-    if (typeof preselectedAmount === "number" && preselectedAmount > 0) {
-      form.setValue("amount", preselectedAmount, { shouldValidate: true });
-    }
-    if (preselectedInvoiceId) {
-      form.setValue("invoice_id", preselectedInvoiceId);
-    }
-  }, [open, preselectedPatientId, preselectedAmount, preselectedInvoiceId]);
+  }, [open, preselectedDebtId, preselectedPatientId]);
 
   const watchPatientId = form.watch('patient_id');
   const patientInvoices = invoices?.filter(inv => inv.patient_id === watchPatientId) || [];
