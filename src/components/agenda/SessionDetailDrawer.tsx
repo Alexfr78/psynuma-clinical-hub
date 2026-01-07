@@ -87,8 +87,10 @@ import { useLocations } from '@/hooks/useLocations';
 import { usePatientActiveBonos, useApplyBonoToSession, useRemoveBonoFromSession, useUpdateBono } from '@/hooks/useBonos';
 import { CreateBonoDialog } from '@/components/bonos/CreateBonoDialog';
 import { useSessionPaymentStatus } from '@/hooks/useSessionPayment';
+import { useBonoPaymentStatus } from '@/hooks/useBonoPaymentStatus';
 import { useSessionInvoiceStatus } from '@/hooks/useInvoices';
 import { CollectSessionPaymentDialog } from './CollectSessionPaymentDialog';
+import { CollectBonoPaymentDialog } from './CollectBonoPaymentDialog';
 import { CreateSessionInvoiceDialog } from './CreateSessionInvoiceDialog';
 import { useSendWhatsAppNow, useSendSessionNotification } from '@/hooks/useSendSessionNotification';
 import { useCenter } from '@/hooks/useCenter';
@@ -180,6 +182,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
   const [notesOpen, setNotesOpen] = useState(false);
   const [showCreateBonoDialog, setShowCreateBonoDialog] = useState(false);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
+  const [showBonoPaymentDialog, setShowBonoPaymentDialog] = useState(false);
   const [showInvoiceDialog, setShowInvoiceDialog] = useState(false);
   const [showConvertDialog, setShowConvertDialog] = useState(false);
   const [isGeneratingPaymentLink, setIsGeneratingPaymentLink] = useState(false);
@@ -208,6 +211,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
   const { data: patientBonos, refetch: refetchBonos } = usePatientActiveBonos(session?.patient_id);
   const { data: paymentStatus, refetch: refetchPaymentStatus } = useSessionPaymentStatus(session?.id);
   const { data: invoiceStatus, refetch: refetchInvoiceStatus } = useSessionInvoiceStatus(session?.id);
+  const { data: bonoPaymentStatus, refetch: refetchBonoPaymentStatus } = useBonoPaymentStatus(localBonoId);
   
   // For blocked sessions with newly assigned patient
   const { data: newPatientData } = usePatient(localPatientId || undefined);
@@ -1320,19 +1324,33 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
                     )}
                   </div>
                 ) : localBonoId ? (
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button size="sm" variant="outline" disabled>
-                          <Package className="h-4 w-4 mr-1" />
-                          Cubierto por bono
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Las sesiones cubiertas por bono no generan factura individual</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
+                  <>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button size="sm" variant="outline" disabled>
+                            <Package className="h-4 w-4 mr-1" />
+                            Cubierto por bono
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Las sesiones cubiertas por bono no generan factura individual</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    {/* Show "Cobrar bono" button if bono has pending payment */}
+                    {bonoPaymentStatus?.hasPendingPayment && bonoPaymentStatus.debt && (
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        className="text-purple-600 border-purple-300 hover:bg-purple-50"
+                        onClick={() => setShowBonoPaymentDialog(true)}
+                      >
+                        <CreditCard className="h-4 w-4 mr-1" />
+                        Cobrar bono
+                      </Button>
+                    )}
+                  </>
                 ) : localPrice === 0 ? (
                   <TooltipProvider>
                     <Tooltip>
@@ -1358,11 +1376,11 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
                   </Button>
                 )}
                 
-                {!paymentStatus?.isPaid && (
+                {!paymentStatus?.isPaid && !localBonoId && (
                   <Button 
                     size="sm" 
                     variant="outline"
-                    disabled={localBonoId !== null || localPrice === 0}
+                    disabled={localPrice === 0}
                     onClick={() => setShowPaymentDialog(true)}
                   >
                     <CreditCard className="h-4 w-4 mr-1" />
@@ -1894,6 +1912,26 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
       onForceCreate={handleConflictForceCreate}
       isRecurring={false}
     />
+
+    {/* Collect Bono Payment Dialog */}
+    {session && localBonoId && bonoPaymentStatus?.debt && bonoPaymentStatus.bono && (
+      <CollectBonoPaymentDialog
+        open={showBonoPaymentDialog}
+        onOpenChange={setShowBonoPaymentDialog}
+        bonoId={localBonoId}
+        bonoName={bonoPaymentStatus.bono.name}
+        patientId={session.patient_id}
+        patientName={patientName}
+        debtId={bonoPaymentStatus.debt.id}
+        invoiceId={bonoPaymentStatus.debt.invoice_id}
+        totalAmount={bonoPaymentStatus.bono.total_price}
+        paidAmount={bonoPaymentStatus.debt.paid_amount}
+        onSuccess={() => {
+          refetchBonoPaymentStatus();
+          refetchPaymentStatus();
+        }}
+      />
+    )}
     </>
   );
 }
