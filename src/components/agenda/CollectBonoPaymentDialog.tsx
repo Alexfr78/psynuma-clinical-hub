@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
-import { CreditCard, Calendar, Receipt, FileText, Loader2, Check, Package, ShieldCheck, AlertTriangle } from 'lucide-react';
+import { CreditCard, Calendar, Receipt, FileText, Loader2, Check, Package, ShieldCheck, AlertTriangle, FileQuestion } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -25,9 +25,11 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useCollectDebtPayment } from '@/hooks/useCollectDebtPayment';
+import { useCreateSignedInvoice } from '@/hooks/useCreateSignedInvoice';
 import { useCenter } from '@/hooks/useCenter';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 interface CollectBonoPaymentDialogProps {
@@ -44,7 +46,7 @@ interface CollectBonoPaymentDialogProps {
   onSuccess?: () => void;
 }
 
-type Step = 'payment' | 'processing' | 'complete';
+type Step = 'payment' | 'ask_invoice' | 'processing' | 'complete';
 
 export function CollectBonoPaymentDialog({
   open,
@@ -66,14 +68,22 @@ export function CollectBonoPaymentDialog({
   const [notes, setNotes] = useState('');
   const [paymentAmount, setPaymentAmount] = useState((totalAmount - paidAmount).toFixed(2));
   const [verifactuPending, setVerifactuPending] = useState(false);
+  const [pendingPaymentData, setPendingPaymentData] = useState<{
+    amount: number;
+    paymentMethod: string;
+    reference: string;
+    notes: string;
+  } | null>(null);
 
   const { center } = useCenter();
   const isMobile = useIsMobile();
   const collectDebtPayment = useCollectDebtPayment();
+  const createSignedInvoice = useCreateSignedInvoice();
   const queryClient = useQueryClient();
 
   const remainingAmount = totalAmount - paidAmount;
   const verifactuAutoEnabled = center?.verifactu_auto_enabled === true;
+  const invoiceOnPaymentMode = center?.invoice_on_payment_mode || 'ask';
 
   const resetForm = () => {
     setStep('payment');
@@ -83,6 +93,7 @@ export function CollectBonoPaymentDialog({
     setNotes('');
     setPaymentAmount(remainingAmount.toFixed(2));
     setVerifactuPending(false);
+    setPendingPaymentData(null);
   };
 
   const handleClose = () => {
@@ -90,26 +101,62 @@ export function CollectBonoPaymentDialog({
     resetForm();
   };
 
-  const handlePaymentSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const processPayment = async (generateInvoice: boolean) => {
+    if (!pendingPaymentData) return;
+    
     setStep('processing');
+    const { amount, paymentMethod: method, reference: ref, notes: n } = pendingPaymentData;
 
     try {
-      const amount = parseFloat(paymentAmount);
-      
-      // Collect the payment (hook handles invoice issuance automatically)
+      let effectiveInvoiceId = invoiceId;
+
+      // If we need to generate an invoice and don't have one yet
+      if (generateInvoice && !effectiveInvoiceId) {
+        // Fetch bono details
+        const { data: bono } = await supabase
+          .from('bonos')
+          .select('id, name, total_sessions, total_price')
+          .eq('id', bonoId)
+          .single();
+
+        if (bono) {
+          const invoiceResult = await createSignedInvoice.mutateAsync({
+            patientId,
+            invoiceType: 'simplified',
+            bonoId: bono.id,
+            statusOverride: 'draft',
+            items: [
+              {
+                description: `Bono: ${bono.name} (${bono.total_sessions} sesiones)`,
+                quantity: 1,
+                unit_price: totalAmount,
+                tax_rate: 0,
+                tax_amount: 0,
+                total: totalAmount,
+                bono_id: bono.id,
+              },
+            ],
+            notes: `Bono: ${bono.name}`,
+            sendNotification: false,
+          });
+          effectiveInvoiceId = invoiceResult.invoiceId;
+        }
+      }
+
+      // Collect the payment
       const result = await collectDebtPayment.mutateAsync({
         debtId,
         amount,
-        paymentMethod,
-        reference: reference || undefined,
-        notes: notes || `Pago de bono: ${bonoName}`,
+        paymentMethod: method,
+        reference: ref || undefined,
+        notes: n || `Pago de bono: ${bonoName}`,
+        invoiceId: effectiveInvoiceId || undefined,
+        issueInvoice: generateInvoice, // Only issue if we're generating
       });
 
-      // Check if there was an issue with Verifactu (invoice wasn't issued)
+      // Check if there was an issue with Verifactu
       const newPaidAmount = paidAmount + amount;
-      const effectiveInvoiceId = result.invoiceId || invoiceId;
-      if (newPaidAmount >= totalAmount && effectiveInvoiceId && !result.invoiceIssued) {
+      if (generateInvoice && newPaidAmount >= totalAmount && effectiveInvoiceId && !result.invoiceIssued) {
         setVerifactuPending(true);
       }
 
@@ -124,6 +171,62 @@ export function CollectBonoPaymentDialog({
       console.error('Error collecting payment:', error);
       toast.error('Error al registrar el pago');
       setStep('payment');
+    }
+  };
+
+  const handlePaymentSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    const amount = parseFloat(paymentAmount);
+    const paymentData = {
+      amount,
+      paymentMethod,
+      reference,
+      notes: notes || `Pago de bono: ${bonoName}`,
+    };
+    setPendingPaymentData(paymentData);
+
+    // If there's already an invoice, just process payment
+    if (invoiceId) {
+      setStep('processing');
+      try {
+        const result = await collectDebtPayment.mutateAsync({
+          debtId,
+          amount,
+          paymentMethod,
+          reference: reference || undefined,
+          notes: paymentData.notes,
+          invoiceId,
+          issueInvoice: true,
+        });
+
+        const newPaidAmount = paidAmount + amount;
+        if (newPaidAmount >= totalAmount && !result.invoiceIssued) {
+          setVerifactuPending(true);
+        }
+
+        queryClient.invalidateQueries({ queryKey: ['bono-payment-status'] });
+        queryClient.invalidateQueries({ queryKey: ['debts'] });
+        queryClient.invalidateQueries({ queryKey: ['payments'] });
+        queryClient.invalidateQueries({ queryKey: ['invoices'] });
+
+        setStep('complete');
+      } catch (error) {
+        console.error('Error collecting payment:', error);
+        toast.error('Error al registrar el pago');
+        setStep('payment');
+      }
+      return;
+    }
+
+    // No invoice yet - check center settings
+    if (invoiceOnPaymentMode === 'auto') {
+      await processPayment(true);
+    } else if (invoiceOnPaymentMode === 'disabled') {
+      await processPayment(false);
+    } else {
+      // 'ask' mode - show question step
+      setStep('ask_invoice');
     }
   };
 
@@ -250,11 +353,59 @@ export function CollectBonoPaymentDialog({
         <Button type="button" variant="outline" onClick={handleClose}>
           Cancelar
         </Button>
-        <Button type="submit" disabled={collectDebtPayment.isPending}>
+        <Button type="submit" disabled={collectDebtPayment.isPending || createSignedInvoice.isPending}>
           {collectDebtPayment.isPending ? 'Procesando...' : 'Confirmar pago'}
         </Button>
       </div>
     </form>
+  );
+
+  const renderAskInvoiceStep = () => (
+    <div className="space-y-6">
+      <div className="text-center space-y-2">
+        <div className="mx-auto w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+          <FileQuestion className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+        </div>
+        <h3 className="font-semibold text-lg">¿Generar factura?</h3>
+        <p className="text-sm text-muted-foreground">
+          Elige si deseas generar una factura simplificada para este pago o solo registrar el cobro.
+        </p>
+      </div>
+
+      <div className="p-4 rounded-lg bg-muted/50 text-center">
+        <p className="text-sm text-muted-foreground">Importe a cobrar</p>
+        <p className="text-2xl font-bold">{pendingPaymentData?.amount.toFixed(2)}€</p>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <Button 
+          onClick={() => processPayment(true)}
+          disabled={collectDebtPayment.isPending || createSignedInvoice.isPending}
+          className="w-full"
+        >
+          <Receipt className="h-4 w-4 mr-2" />
+          Generar factura y cobrar
+        </Button>
+        <Button 
+          variant="outline"
+          onClick={() => processPayment(false)}
+          disabled={collectDebtPayment.isPending || createSignedInvoice.isPending}
+          className="w-full"
+        >
+          Solo registrar el pago
+        </Button>
+        <Button 
+          variant="ghost"
+          onClick={() => {
+            setStep('payment');
+            setPendingPaymentData(null);
+          }}
+          className="w-full"
+        >
+          Volver
+        </Button>
+      </div>
+    </div>
   );
 
   const renderProcessingStep = () => (
@@ -313,6 +464,7 @@ export function CollectBonoPaymentDialog({
   const content = (
     <>
       {step === 'payment' && renderPaymentStep()}
+      {step === 'ask_invoice' && renderAskInvoiceStep()}
       {step === 'processing' && renderProcessingStep()}
       {step === 'complete' && renderCompleteStep()}
     </>

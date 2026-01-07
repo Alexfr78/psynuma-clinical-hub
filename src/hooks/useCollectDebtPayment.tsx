@@ -1,8 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useIssueInvoice } from '@/hooks/useIssueInvoice';
-import { useCreateSignedInvoice } from '@/hooks/useCreateSignedInvoice';
-import { useCenter } from '@/hooks/useCenter';
 import { toast } from 'sonner';
 
 interface CollectDebtPaymentArgs {
@@ -11,21 +9,32 @@ interface CollectDebtPaymentArgs {
   paymentMethod: string;
   reference?: string | null;
   notes?: string | null;
+  /** If provided, use this invoice. If debt has no invoice and this is not provided, error. */
+  invoiceId?: string;
+  /** If true, issue the invoice on first payment (when draft). Default true. */
+  issueInvoice?: boolean;
 }
 
 /**
- * Hook to collect payment on a debt that has an invoice_id (new bono model).
- * Does NOT create a new invoice - uses the existing draft/issued invoice.
- * Issues the invoice on first payment if it's still draft.
+ * Hook to collect payment on a debt.
+ * If the debt already has an invoice_id, uses that invoice.
+ * If the debt has no invoice_id but invoiceId is passed, links and uses that.
+ * Does NOT auto-create invoices - caller must handle that decision based on center settings.
  */
 export function useCollectDebtPayment() {
   const queryClient = useQueryClient();
-  const issueInvoice = useIssueInvoice();
-  const createSignedInvoice = useCreateSignedInvoice();
-  const { center } = useCenter();
+  const issueInvoiceMutation = useIssueInvoice();
 
   return useMutation({
-    mutationFn: async ({ debtId, amount, paymentMethod, reference, notes }: CollectDebtPaymentArgs) => {
+    mutationFn: async ({ 
+      debtId, 
+      amount, 
+      paymentMethod, 
+      reference, 
+      notes,
+      invoiceId: providedInvoiceId,
+      issueInvoice: shouldIssue = true,
+    }: CollectDebtPaymentArgs) => {
       if (!amount || amount <= 0) {
         throw new Error('El importe debe ser mayor que 0');
       }
@@ -46,69 +55,36 @@ export function useCollectDebtPayment() {
         throw new Error(`El importe supera el pendiente. Pendiente: ${remaining.toFixed(2)}€`);
       }
 
-      // 2. Ensure this debt has an invoice_id (new model). If it's a legacy debt, auto-regularize.
-      let invoiceId: string | null = debt.invoice_id;
-      if (!invoiceId) {
-        if (!debt.bono_id) {
-          throw new Error('Esta deuda no tiene factura asociada. Es una deuda del modelo anterior que requiere regularización.');
-        }
-
-        // Legacy bono debt: create a draft invoice and link it to the debt
-        const { data: bono, error: bonoErr } = await supabase
-          .from('bonos')
-          .select('id, name, total_sessions, total_price')
-          .eq('id', debt.bono_id)
-          .single();
-
-        if (bonoErr || !bono) {
-          throw new Error('No se pudo obtener el bono para crear la factura');
-        }
-
-        const invoiceResult = await createSignedInvoice.mutateAsync({
-          patientId: debt.patient_id,
-          invoiceType: 'simplified',
-          bonoId: bono.id,
-          statusOverride: 'draft',
-          items: [
-            {
-              description: `Bono: ${bono.name} (${bono.total_sessions} sesiones)`,
-              quantity: 1,
-              unit_price: Number(debt.amount),
-              tax_rate: 0,
-              tax_amount: 0,
-              total: Number(debt.amount),
-              bono_id: bono.id,
-            },
-          ],
-          notes: `Bono: ${bono.name} (Regularización)` ,
-          sendNotification: false,
-        });
-
-        invoiceId = invoiceResult.invoiceId;
-        if (!invoiceId) {
-          throw new Error('No se pudo crear la factura borrador');
-        }
-
+      // 2. Determine invoice ID to use
+      let invoiceId: string | null = debt.invoice_id || providedInvoiceId || null;
+      
+      // If no invoice_id on debt but one was provided, link it
+      if (!debt.invoice_id && providedInvoiceId) {
         const { error: linkErr } = await supabase
           .from('debts')
-          .update({ invoice_id: invoiceId })
+          .update({ invoice_id: providedInvoiceId })
           .eq('id', debtId);
 
         if (linkErr) throw linkErr;
+        invoiceId = providedInvoiceId;
       }
 
-      // 3. Get the invoice to check its status
-      const { data: invoice, error: invErr } = await supabase
-        .from('invoices')
-        .select('id, status')
-        .eq('id', invoiceId)
-        .single();
+      // 3. Get invoice status if we have one
+      let invoiceStatus: string | null = null;
+      if (invoiceId) {
+        const { data: invoice, error: invErr } = await supabase
+          .from('invoices')
+          .select('id, status')
+          .eq('id', invoiceId)
+          .single();
 
-      if (invErr || !invoice) {
-        throw new Error('No se pudo obtener la factura asociada');
+        if (invErr || !invoice) {
+          throw new Error('No se pudo obtener la factura asociada');
+        }
+        invoiceStatus = invoice.status;
       }
 
-      // 4. Insert payment linked to the existing invoice
+      // 4. Insert payment
       const { error: payErr } = await supabase.from('payments').insert({
         patient_id: debt.patient_id,
         center_id: debt.center_id,
@@ -123,33 +99,40 @@ export function useCollectDebtPayment() {
 
       if (payErr) throw payErr;
 
-      // 5. Recompute debt via RPC
-      const { data: recomputeResult, error: rpcErr } = await supabase.rpc('recompute_debt_by_invoice', { 
-        p_debt_id: debtId 
-      });
+      // 5. Recompute debt via RPC if there's an invoice
+      if (invoiceId) {
+        const { error: rpcErr } = await supabase.rpc('recompute_debt_by_invoice', { 
+          p_debt_id: debtId 
+        });
 
-      if (rpcErr) {
-        console.error('Error recomputing debt:', rpcErr);
-        throw new Error(`Error al recalcular la deuda: ${rpcErr.message}`);
+        if (rpcErr) {
+          console.error('Error recomputing debt:', rpcErr);
+          // Don't fail, payment is recorded
+        }
+      } else {
+        // Manual update if no invoice
+        const newPaid = Number(debt.paid_amount || 0) + amount;
+        const newStatus = newPaid >= Number(debt.amount) ? 'paid' : 'partial';
+        await supabase
+          .from('debts')
+          .update({ paid_amount: newPaid, status: newStatus })
+          .eq('id', debtId);
       }
 
-      // 6. If invoice is draft, issue it (first payment)
+      // 6. If invoice is draft and shouldIssue, issue it
       let invoiceIssued = false;
-      if (invoice.status === 'draft') {
+      if (invoiceId && invoiceStatus === 'draft' && shouldIssue) {
         try {
-          await issueInvoice.mutateAsync(invoiceId);
+          await issueInvoiceMutation.mutateAsync(invoiceId);
           invoiceIssued = true;
         } catch (issueErr) {
           console.error('Error issuing invoice:', issueErr);
-          // Don't fail the whole operation, payment is already recorded
           toast.warning('Pago registrado, pero hubo un error al emitir la factura');
         }
       }
 
       return { 
         invoiceId,
-        newPaid: (recomputeResult as { paid_amount?: number })?.paid_amount,
-        newStatus: (recomputeResult as { status?: string })?.status,
         invoiceIssued,
       };
     },
@@ -159,6 +142,7 @@ export function useCollectDebtPayment() {
       queryClient.invalidateQueries({ queryKey: ['payments'] });
       queryClient.invalidateQueries({ queryKey: ['payment-stats'] });
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      queryClient.invalidateQueries({ queryKey: ['bono-payment-status'] });
       
       if (data.invoiceIssued) {
         toast.success('Pago registrado y factura emitida');
