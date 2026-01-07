@@ -108,7 +108,8 @@ export function CollectBonoPaymentDialog({
 
       // Check if there was an issue with Verifactu (invoice wasn't issued)
       const newPaidAmount = paidAmount + amount;
-      if (newPaidAmount >= totalAmount && invoiceId && !result.invoiceIssued) {
+      const effectiveInvoiceId = result.invoiceId || invoiceId;
+      if (newPaidAmount >= totalAmount && effectiveInvoiceId && !result.invoiceIssued) {
         setVerifactuPending(true);
       }
 

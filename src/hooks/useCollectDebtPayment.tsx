@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useIssueInvoice } from '@/hooks/useIssueInvoice';
+import { useCreateSignedInvoice } from '@/hooks/useCreateSignedInvoice';
 import { useCenter } from '@/hooks/useCenter';
 import { toast } from 'sonner';
 
@@ -20,6 +21,7 @@ interface CollectDebtPaymentArgs {
 export function useCollectDebtPayment() {
   const queryClient = useQueryClient();
   const issueInvoice = useIssueInvoice();
+  const createSignedInvoice = useCreateSignedInvoice();
   const { center } = useCenter();
 
   return useMutation({
@@ -44,16 +46,62 @@ export function useCollectDebtPayment() {
         throw new Error(`El importe supera el pendiente. Pendiente: ${remaining.toFixed(2)}€`);
       }
 
-      // 2. Check if this debt has invoice_id (new model) or not (legacy)
-      if (!debt.invoice_id) {
-        throw new Error('Esta deuda no tiene factura asociada. Es una deuda del modelo anterior que requiere regularización.');
+      // 2. Ensure this debt has an invoice_id (new model). If it's a legacy debt, auto-regularize.
+      let invoiceId: string | null = debt.invoice_id;
+      if (!invoiceId) {
+        if (!debt.bono_id) {
+          throw new Error('Esta deuda no tiene factura asociada. Es una deuda del modelo anterior que requiere regularización.');
+        }
+
+        // Legacy bono debt: create a draft invoice and link it to the debt
+        const { data: bono, error: bonoErr } = await supabase
+          .from('bonos')
+          .select('id, name, total_sessions, total_price')
+          .eq('id', debt.bono_id)
+          .single();
+
+        if (bonoErr || !bono) {
+          throw new Error('No se pudo obtener el bono para crear la factura');
+        }
+
+        const invoiceResult = await createSignedInvoice.mutateAsync({
+          patientId: debt.patient_id,
+          invoiceType: 'simplified',
+          bonoId: bono.id,
+          statusOverride: 'draft',
+          items: [
+            {
+              description: `Bono: ${bono.name} (${bono.total_sessions} sesiones)`,
+              quantity: 1,
+              unit_price: Number(debt.amount),
+              tax_rate: 0,
+              tax_amount: 0,
+              total: Number(debt.amount),
+              bono_id: bono.id,
+            },
+          ],
+          notes: `Bono: ${bono.name} (Regularización)` ,
+          sendNotification: false,
+        });
+
+        invoiceId = invoiceResult.invoiceId;
+        if (!invoiceId) {
+          throw new Error('No se pudo crear la factura borrador');
+        }
+
+        const { error: linkErr } = await supabase
+          .from('debts')
+          .update({ invoice_id: invoiceId })
+          .eq('id', debtId);
+
+        if (linkErr) throw linkErr;
       }
 
       // 3. Get the invoice to check its status
       const { data: invoice, error: invErr } = await supabase
         .from('invoices')
         .select('id, status')
-        .eq('id', debt.invoice_id)
+        .eq('id', invoiceId)
         .single();
 
       if (invErr || !invoice) {
@@ -64,7 +112,7 @@ export function useCollectDebtPayment() {
       const { error: payErr } = await supabase.from('payments').insert({
         patient_id: debt.patient_id,
         center_id: debt.center_id,
-        invoice_id: debt.invoice_id,
+        invoice_id: invoiceId,
         session_id: debt.session_id || null,
         amount,
         payment_method: paymentMethod,
@@ -89,7 +137,7 @@ export function useCollectDebtPayment() {
       let invoiceIssued = false;
       if (invoice.status === 'draft') {
         try {
-          await issueInvoice.mutateAsync(debt.invoice_id);
+          await issueInvoice.mutateAsync(invoiceId);
           invoiceIssued = true;
         } catch (issueErr) {
           console.error('Error issuing invoice:', issueErr);
@@ -99,7 +147,7 @@ export function useCollectDebtPayment() {
       }
 
       return { 
-        invoiceId: debt.invoice_id, 
+        invoiceId,
         newPaid: (recomputeResult as { paid_amount?: number })?.paid_amount,
         newStatus: (recomputeResult as { status?: string })?.status,
         invoiceIssued,

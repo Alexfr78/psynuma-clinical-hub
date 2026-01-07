@@ -152,7 +152,6 @@ export function useCreateBono() {
 
   return useMutation({
     mutationFn: async (bono: BonoInsert) => {
-      // Create the bono
       const { data, error } = await supabase
         .from('bonos')
         .insert({
@@ -163,34 +162,11 @@ export function useCreateBono() {
         .single();
 
       if (error) throw error;
-
-      // Create associated debt for the bono payment
-      if (data && bono.total_price > 0) {
-        const { error: debtError } = await supabase
-          .from('debts')
-          .insert({
-            center_id: profile!.center_id!,
-            patient_id: bono.patient_id,
-            bono_id: data.id,
-            amount: bono.total_price,
-            paid_amount: 0,
-            status: 'pending',
-            notes: `Pago por bono: ${bono.name}`,
-          });
-
-        if (debtError) {
-          console.error('Error creating debt for bono:', debtError);
-          // Don't fail the bono creation, but log the error
-        }
-      }
-
       return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bonos'] });
       queryClient.invalidateQueries({ queryKey: ['patient-active-bonos'] });
-      queryClient.invalidateQueries({ queryKey: ['debts'] });
-      queryClient.invalidateQueries({ queryKey: ['bono-payment-status'] });
       toast.success('Bono creado correctamente');
     },
     onError: (error) => {
