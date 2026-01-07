@@ -121,26 +121,39 @@ serve(async (req) => {
       );
     }
 
-    const items = template.items;
-    const scoring = template.scoring;
+    const items = Array.isArray(template.items) ? template.items : [];
+
+    // scoring can be null or malformed depending on how template JSON was saved.
+    // Normalize it to a plain object of factors.
+    const scoringRaw: unknown = (template as any).scoring;
+    const scoring: Record<string, any> =
+      scoringRaw && typeof scoringRaw === 'object' && !Array.isArray(scoringRaw)
+        ? (scoringRaw as Record<string, any>)
+        : {};
+
     const responseMin = template.response_min ?? 1;
     const responseMax = template.response_max ?? 7;
     const flagThreshold = template.flag_threshold ?? 4;
     const isSCL90 = template.code === 'SCL90_V1';
     const isPAI = template.code === 'PAI_V1';
 
-    console.log(`Processing ${template.code} assessment with response range ${responseMin}-${responseMax}`);
+    console.log(
+      `Processing ${template.code} assessment with response range ${responseMin}-${responseMax} (items=${items.length}, scales=${Object.keys(scoring).length})`
+    );
 
     // Validate all items are answered
-    const expectedItems = items.map(i => i.index);
-    const answeredItems = Object.keys(answers).map(k => parseInt(k, 10));
-    
-    const missingItems = expectedItems.filter(i => !answeredItems.includes(i));
+    const expectedItems = items.map((i) => i.index);
+    const answeredItems = Object.keys(answers).map((k) => parseInt(k, 10));
+
+    const missingItems = expectedItems.filter((i) => !answeredItems.includes(i));
     if (missingItems.length > 0) {
       console.error('Missing items:', missingItems);
       return new Response(
-        JSON.stringify({ success: false, error: `Faltan respuestas para los ítems: ${missingItems.join(', ')}` }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({
+          success: false,
+          error: `Faltan respuestas para los ítems: ${missingItems.join(', ')}`,
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
 
@@ -150,8 +163,11 @@ serve(async (req) => {
       if (isNaN(numValue) || numValue < responseMin || numValue > responseMax) {
         console.error(`Invalid value for item ${key}:`, value);
         return new Response(
-          JSON.stringify({ success: false, error: `Valor inválido para el ítem ${key}. Debe ser entre ${responseMin} y ${responseMax}.` }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify({
+            success: false,
+            error: `Valor inválido para el ítem ${key}. Debe ser entre ${responseMin} y ${responseMax}.`,
+          }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
         );
       }
     }
@@ -162,18 +178,20 @@ serve(async (req) => {
 
     // For PAI, we calculate raw scores and convert to T-scores
     // For other tests, we use mean scores
-    for (const [factorCode, factor] of Object.entries(scoring)) {
-      const factorItems = factor.items;
-      if (factorItems.length === 0) continue; // Skip scales without items (like INC)
-      
+    for (const [factorCode, factorValue] of Object.entries(scoring)) {
+      const factorItems = (factorValue as any)?.items;
+      if (!Array.isArray(factorItems) || factorItems.length === 0) {
+        // Skip scales without a proper item list (common in templates like MMPI2RF)
+        continue;
+      }
+
       let sum = 0;
       for (const itemIndex of factorItems) {
-        const value = typeof answers[itemIndex] === 'number' 
-          ? answers[itemIndex] 
-          : parseInt(answers[itemIndex], 10);
+        const raw = (answers as any)[itemIndex];
+        const value = typeof raw === 'number' ? raw : parseInt(raw, 10);
         sum += value;
       }
-      
+
       if (isPAI) {
         // PAI: Calculate raw score (sum) and convert to T-score
         const rawScore = sum;
@@ -185,7 +203,7 @@ serve(async (req) => {
         const tScore = Math.round(50 + 10 * ((rawScore - expectedMean) / expectedSd));
         // Clamp T-score to valid range
         factorScores[factorCode] = Math.min(100, Math.max(30, tScore));
-        
+
         // PAI uses T ≥ 65 as clinical threshold
         if (factorScores[factorCode] >= 65) {
           flags[`${factorCode}_high`] = true;
@@ -199,7 +217,7 @@ serve(async (req) => {
         // Default: Mean score for non-PAI tests
         const mean = sum / factorItems.length;
         factorScores[factorCode] = Math.round(mean * 100) / 100; // 2 decimals
-        
+
         // Flag if score > threshold
         if (factorScores[factorCode] > flagThreshold) {
           flags[`${factorCode}_high`] = true;
