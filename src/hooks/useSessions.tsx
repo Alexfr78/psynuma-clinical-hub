@@ -97,10 +97,50 @@ export function useUpdateSession() {
         .single();
 
       if (error) throw error;
+
+      // If price changed, update the associated debt amount
+      if (updates.price !== undefined) {
+        const { data: debt } = await supabase
+          .from('debts')
+          .select('id, paid_amount, status')
+          .eq('session_id', id)
+          .maybeSingle();
+
+        if (debt) {
+          const newAmount = updates.price;
+          const paidAmount = debt.paid_amount || 0;
+          // Determine new status based on payment
+          let newStatus = debt.status;
+          if (paidAmount >= newAmount) {
+            newStatus = 'paid';
+          } else if (paidAmount > 0) {
+            newStatus = 'partial';
+          } else {
+            newStatus = 'pending';
+          }
+
+          await supabase
+            .from('debts')
+            .update({ 
+              amount: newAmount,
+              status: newStatus 
+            })
+            .eq('id', debt.id);
+        }
+
+        // Also update billable_events if exists
+        await supabase
+          .from('billable_events')
+          .update({ amount: updates.price })
+          .eq('session_id', id);
+      }
+
       return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sessions'] });
+      queryClient.invalidateQueries({ queryKey: ['debts'] });
+      queryClient.invalidateQueries({ queryKey: ['billable-events'] });
     },
   });
 }
