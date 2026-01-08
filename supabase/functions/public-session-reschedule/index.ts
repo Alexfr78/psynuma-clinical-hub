@@ -93,8 +93,12 @@ Deno.serve(async (req) => {
       );
     }
 
-    const slotDuration = center?.reschedule_slot_duration || 60;
     const maxDays = center?.reschedule_max_days || 30;
+
+    // Calculate session duration from the original session's start and end times
+    const [startHours, startMinutes] = session.start_time.split(":").map(Number);
+    const [endHours, endMinutes] = session.end_time.split(":").map(Number);
+    const sessionDuration = (endHours * 60 + endMinutes) - (startHours * 60 + startMinutes);
 
     if (action === "get-available-days") {
       // Return list of dates that have at least some availability
@@ -110,7 +114,8 @@ Deno.serve(async (req) => {
           supabase,
           session.professional_id,
           session.location_id,
-          dateStr
+          dateStr,
+          sessionDuration
         );
 
         if (hasAvailability) {
@@ -119,7 +124,7 @@ Deno.serve(async (req) => {
       }
 
       return new Response(
-        JSON.stringify({ availableDays, maxDays, slotDuration }),
+        JSON.stringify({ availableDays, maxDays, sessionDuration }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -139,11 +144,11 @@ Deno.serve(async (req) => {
         session.center_id,
         date,
         session.id,
-        slotDuration
+        sessionDuration
       );
 
       return new Response(
-        JSON.stringify({ slots, maxDays, slotDuration }),
+        JSON.stringify({ slots, maxDays, sessionDuration }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -164,7 +169,7 @@ Deno.serve(async (req) => {
         session.center_id,
         newDate,
         session.id,
-        slotDuration
+        sessionDuration
       );
 
       const slotAvailable = slots.some(
@@ -387,37 +392,64 @@ async function checkDayHasAvailability(
   supabase: any,
   professionalId: string,
   locationId: string | null,
-  date: string
+  date: string,
+  sessionDuration: number
 ): Promise<boolean> {
   const dayOfWeek = new Date(date).getDay();
 
   // Check professional availability for this day
   const { data: availability } = await supabase
     .from("availability")
-    .select("id")
+    .select("start_time, end_time")
     .eq("professional_id", professionalId)
     .eq("day_of_week", dayOfWeek)
-    .eq("is_available", true)
-    .limit(1);
+    .eq("is_available", true);
 
   if (!availability || availability.length === 0) {
     return false;
   }
 
   // Check location schedule if location exists
+  let locationSchedule: { start_time: string; end_time: string } | null = null;
   if (locationId) {
     const { data: schedule } = await supabase
       .from("location_schedules")
-      .select("id")
+      .select("start_time, end_time")
       .eq("location_id", locationId)
       .eq("day_of_week", dayOfWeek)
       .eq("is_open", true)
-      .limit(1);
+      .maybeSingle();
 
-    if (!schedule || schedule.length === 0) {
+    if (!schedule) {
       return false;
+    }
+    locationSchedule = schedule;
+  }
+
+  // Check if there's at least one window that can fit the session duration
+  for (const avail of availability as { start_time: string; end_time: string }[]) {
+    let startTime = avail.start_time;
+    let endTime = avail.end_time;
+
+    // Intersect with location schedule if available
+    if (locationSchedule) {
+      if (locationSchedule.start_time > startTime) {
+        startTime = locationSchedule.start_time;
+      }
+      if (locationSchedule.end_time < endTime) {
+        endTime = locationSchedule.end_time;
+      }
+    }
+
+    // Check if window can fit the session duration
+    const [startH, startM] = startTime.split(":").map(Number);
+    const [endH, endM] = endTime.split(":").map(Number);
+    const windowMinutes = (endH * 60 + endM) - (startH * 60 + startM);
+
+    if (windowMinutes >= sessionDuration) {
+      return true;
     }
   }
 
-  return true;
+  return false;
 }
