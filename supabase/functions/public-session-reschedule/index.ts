@@ -115,7 +115,8 @@ Deno.serve(async (req) => {
           session.professional_id,
           session.location_id,
           dateStr,
-          sessionDuration
+          sessionDuration,
+          session.id // Exclude current session when checking availability
         );
 
         if (hasAvailability) {
@@ -387,15 +388,18 @@ async function getAvailability(
   return slots.sort((a, b) => a.startTime.localeCompare(b.startTime));
 }
 
-// Helper function to check if a day has any potential availability
+// Helper function to check if a day has any actual availability (including existing sessions check)
 async function checkDayHasAvailability(
   supabase: any,
   professionalId: string,
   locationId: string | null,
   date: string,
-  sessionDuration: number
+  sessionDuration: number,
+  excludeSessionId?: string
 ): Promise<boolean> {
   const dayOfWeek = new Date(date).getDay();
+  const now = new Date();
+  const isToday = date === now.toISOString().split("T")[0];
 
   // Check professional availability for this day
   const { data: availability } = await supabase
@@ -426,7 +430,26 @@ async function checkDayHasAvailability(
     locationSchedule = schedule;
   }
 
-  // Check if there's at least one window that can fit the session duration
+  // Get existing sessions for this day to check for conflicts
+  let sessionsQuery = supabase
+    .from("sessions")
+    .select("start_time, end_time")
+    .eq("professional_id", professionalId)
+    .eq("session_date", date)
+    .not("status", "in", '("cancelled","no_show")');
+
+  if (excludeSessionId) {
+    sessionsQuery = sessionsQuery.neq("id", excludeSessionId);
+  }
+
+  const { data: existingSessions } = await sessionsQuery;
+
+  const bookedSlots = (existingSessions || []).map((s: { start_time: string; end_time: string }) => ({
+    start: s.start_time,
+    end: s.end_time,
+  }));
+
+  // Check if there's at least one slot available
   for (const avail of availability as { start_time: string; end_time: string }[]) {
     let startTime = avail.start_time;
     let endTime = avail.end_time;
@@ -441,13 +464,36 @@ async function checkDayHasAvailability(
       }
     }
 
-    // Check if window can fit the session duration
-    const [startH, startM] = startTime.split(":").map(Number);
-    const [endH, endM] = endTime.split(":").map(Number);
-    const windowMinutes = (endH * 60 + endM) - (startH * 60 + startM);
+    // Try to find at least one available slot
+    let currentStart = startTime;
+    while (currentStart < endTime) {
+      const [hours, minutes] = currentStart.split(":").map(Number);
+      const slotStartMinutes = hours * 60 + minutes;
+      const slotEndMinutes = slotStartMinutes + sessionDuration;
+      const slotEnd = `${Math.floor(slotEndMinutes / 60).toString().padStart(2, "0")}:${(slotEndMinutes % 60).toString().padStart(2, "0")}:00`;
 
-    if (windowMinutes >= sessionDuration) {
-      return true;
+      // Check if slot end is within availability
+      if (slotEnd > endTime) break;
+
+      // Check if slot is not booked
+      const isBooked = bookedSlots.some((booked: { start: string; end: string }) => {
+        return currentStart < booked.end && slotEnd > booked.start;
+      });
+
+      // Check if slot is in the future (for today)
+      let isInFuture = true;
+      if (isToday) {
+        const slotDateTime = new Date(`${date}T${currentStart}`);
+        isInFuture = slotDateTime > now;
+      }
+
+      if (!isBooked && isInFuture) {
+        return true; // Found at least one available slot
+      }
+
+      // Move to next slot
+      const nextMinutes = slotStartMinutes + sessionDuration;
+      currentStart = `${Math.floor(nextMinutes / 60).toString().padStart(2, "0")}:${(nextMinutes % 60).toString().padStart(2, "0")}:00`;
     }
   }
 
