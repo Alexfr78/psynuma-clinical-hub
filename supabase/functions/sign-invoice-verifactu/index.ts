@@ -119,13 +119,13 @@ async function generateSHA256(data: string): Promise<string> {
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
 }
 
-// Format date for Verifactu (YYYY-MM-DD ISO format - AEAT requirement)
+// Format date for Verifactu (DD-MM-YYYY format - VeriFactu XSD requirement)
 function formatDateVerifactu(dateStr: string): string {
   const date = new Date(dateStr);
-  const year = date.getFullYear();
-  const month = (date.getMonth() + 1).toString().padStart(2, '0');
   const day = date.getDate().toString().padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  const month = (date.getMonth() + 1).toString().padStart(2, '0');
+  const year = date.getFullYear();
+  return `${day}-${month}-${year}`;
 }
 
 // Format timestamp for Verifactu - ISO 8601 with timezone offset (AEAT requirement)
