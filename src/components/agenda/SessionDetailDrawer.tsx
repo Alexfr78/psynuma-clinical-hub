@@ -290,19 +290,12 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
       
       await updateSession.mutateAsync({ id: session.id, ...updates });
       
-      // If there's a Google Calendar event, update it with the patient name
+      // If there's a Google Calendar event, update it with the new patient
+      // The edge function will apply the configured format template
       if ((session as any).google_calendar_event_id) {
         try {
-          const patientData = await supabase
-            .from('patients')
-            .select('first_name, last_name')
-            .eq('id', newPatientId)
-            .maybeSingle();
-          
-          if (patientData.data) {
-            const name = `${patientData.data.first_name} ${patientData.data.last_name}`;
-            await syncToGoogle(session, { title: `Sesión con ${name}` });
-          }
+          // Sync to Google - the edge function will fetch patient data and apply format
+          await syncToGoogle(session, {});
         } catch (googleError) {
           console.error('Error updating Google Calendar:', googleError);
         }

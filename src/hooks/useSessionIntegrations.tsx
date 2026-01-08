@@ -96,7 +96,7 @@ export async function handleSessionIntegrations(
     const includeMeet = videoProvider === 'google_meet';
     
     try {
-      console.log('Creating Google Calendar event...');
+      console.log('Creating Google Calendar event with patient_id:', session.patient_id);
       const { data, error } = await supabase.functions.invoke('create-google-calendar-event', {
         body: {
           professional_id: session.professional_id,
@@ -104,9 +104,7 @@ export async function handleSessionIntegrations(
           session_date: session.session_date,
           start_time: session.start_time,
           end_time: session.end_time,
-          title: `Sesión con ${patientName}`,
-          description: `Sesión de ${session.session_type || 'psicología'}`,
-          patient_name: patientName,
+          patient_id: session.patient_id, // Pass patient_id for format templates
           patient_email: patient.email,
           include_meet: includeMeet,
         },
