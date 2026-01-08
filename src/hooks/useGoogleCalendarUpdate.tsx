@@ -30,16 +30,11 @@ export function useGoogleCalendarUpdate() {
     session: SessionWithRelations,
     updates: SyncOptions
   ): Promise<SyncResult> => {
-    const patientName = session.patient 
-      ? `${session.patient.first_name} ${session.patient.last_name}` 
-      : 'Paciente';
-    
     const sessionDate = updates.session_date || session.session_date;
     const startTime = updates.start_time || session.start_time;
     const endTime = updates.end_time || session.end_time;
-    const title = updates.title || `Sesión con ${patientName}`;
     
-    console.log(`[SYNC] Creating Google event for session ${session.id} (no existing event_id)`);
+    console.log(`[SYNC] Creating Google event for session ${session.id} with patient_id: ${session.patient_id}`);
 
     const { data, error } = await supabase.functions.invoke('create-google-calendar-event', {
       body: {
@@ -48,8 +43,7 @@ export function useGoogleCalendarUpdate() {
         session_date: sessionDate,
         start_time: startTime,
         end_time: endTime,
-        title,
-        patient_name: patientName,
+        patient_id: session.patient_id, // Pass patient_id for format templates
         patient_email: session.patient?.email,
         include_meet: false,
       },
@@ -183,15 +177,10 @@ export function useGoogleCalendarUpdate() {
     newStartTime: string,
     newEndTime: string
   ): Promise<SyncResult> => {
-    const patientName = session.patient 
-      ? `${session.patient.first_name} ${session.patient.last_name}`
-      : 'Paciente';
-
     return syncToGoogle(session, {
       session_date: newDate,
       start_time: newStartTime,
       end_time: newEndTime,
-      title: `Sesión con ${patientName}`,
     });
   };
 

@@ -118,6 +118,65 @@ async function refreshGoogleToken(
   return tokenData.access_token;
 }
 
+// Format event text using template variables (same logic as sync-google-calendar)
+function formatEventText(
+  template: string,
+  session: any,
+  patient: any,
+  professional: any,
+  location?: any,
+  bono?: any
+): string {
+  const patientName = patient 
+    ? `${patient.first_name || ''} ${patient.last_name || ''}`.trim() 
+    : 'Paciente';
+  const professionalName = professional 
+    ? `${professional.first_name || ''} ${professional.last_name || ''}`.trim() 
+    : 'Profesional';
+  
+  const modality = session.session_modality === 'video' || session.video_provider 
+    ? 'Online' 
+    : 'Presencial';
+  
+  const locationName = location?.name || '';
+  const fullAddress = location 
+    ? [location.street, location.number_details, location.city, location.postal_code]
+        .filter(Boolean).join(', ')
+    : '';
+  
+  const bonoName = bono?.name || 'Sin bono';
+  
+  const cancellationPolicies: Record<string, string> = {
+    '24_hours': 'Hasta 24 horas antes',
+    '48_hours': 'Hasta 48 horas antes',
+    'flexible': 'Flexible',
+    'strict': 'No reembolsable',
+    'not_allowed': 'No permitido',
+    'until_start': 'Hasta la hora de inicio',
+    '1_hour': 'Hasta 1 hora antes',
+    '2_hours': 'Hasta 2 horas antes',
+    '72_hours': 'Hasta 72 horas antes',
+  };
+  const cancellationPolicy = cancellationPolicies[session.cancellation_policy] || session.cancellation_policy || '';
+  
+  return template
+    .replace(/{paciente}/g, patientName)
+    .replace(/{profesional}/g, professionalName)
+    .replace(/{tipo}/g, session.session_type || 'Sesión')
+    .replace(/{hora}/g, session.start_time || '')
+    .replace(/{fecha}/g, session.session_date || '')
+    .replace(/{notas}/g, session.notes || '')
+    .replace(/{telefono}/g, patient?.phone || '')
+    .replace(/{modalidad}/g, modality)
+    .replace(/{ubicacion}/g, locationName)
+    .replace(/{direccion}/g, fullAddress)
+    .replace(/{bono}/g, bonoName)
+    .replace(/{politica_cancelacion}/g, cancellationPolicy)
+    .replace(/{link_videollamada}/g, session.video_call_link || '')
+    .replace(/{email_paciente}/g, patient?.email || '')
+    .replace(/{precio}/g, session.price ? `${session.price}€` : '');
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -134,11 +193,13 @@ serve(async (req) => {
       description,
       patient_name,
       patient_email,
+      patient_id,
       include_meet,
       location,
     } = await req.json();
 
     console.log('Creating Google Calendar event for professional:', professional_id);
+    console.log('Session ID:', session_id, 'Patient ID:', patient_id);
 
     // Validate that event has duration (start_time != end_time)
     if (start_time === end_time) {
@@ -153,10 +214,10 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Get professional's center_id
+    // Get professional's center_id and name
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('center_id')
+      .select('center_id, first_name, last_name')
       .eq('id', professional_id)
       .single();
 
@@ -199,6 +260,86 @@ serve(async (req) => {
       }
     }
 
+    // Get integration settings for format templates
+    const { data: integrations } = await supabase
+      .from('professional_integrations')
+      .select('google_event_title_format, google_event_description_format')
+      .eq('professional_id', professional_id)
+      .single();
+
+    const titleFormat = integrations?.google_event_title_format || '{tipo} - {paciente}';
+    const descriptionFormat = integrations?.google_event_description_format || 'Profesional: {profesional}\nTipo: {tipo}\nNotas: {notas}';
+
+    console.log('Using title format:', titleFormat);
+    console.log('Using description format:', descriptionFormat);
+
+    // Get patient data if patient_id is provided
+    let patientData = null;
+    if (patient_id) {
+      const { data: patient } = await supabase
+        .from('patients')
+        .select('first_name, last_name, phone, email')
+        .eq('id', patient_id)
+        .single();
+      patientData = patient;
+    }
+
+    // Get session data if session_id is provided (for more complete information)
+    let sessionData: any = {
+      session_date,
+      start_time,
+      end_time,
+      session_type: 'Sesión',
+      notes: '',
+      video_call_link: '',
+      video_provider: include_meet ? 'google_meet' : null,
+      price: null,
+      cancellation_policy: null,
+    };
+    
+    let locationData = null;
+    let bonoData = null;
+
+    if (session_id) {
+      const { data: session } = await supabase
+        .from('sessions')
+        .select(`
+          *,
+          location:center_locations(name, street, number_details, city, postal_code),
+          bono:bonos(name)
+        `)
+        .eq('id', session_id)
+        .single();
+      
+      if (session) {
+        sessionData = { ...sessionData, ...session };
+        locationData = session.location;
+        bonoData = session.bono;
+      }
+    }
+
+    // Format title and description using templates
+    const formattedTitle = formatEventText(
+      titleFormat,
+      sessionData,
+      patientData || { first_name: patient_name?.split(' ')[0], last_name: patient_name?.split(' ').slice(1).join(' ') },
+      profile,
+      locationData,
+      bonoData
+    );
+
+    const formattedDescription = formatEventText(
+      descriptionFormat,
+      sessionData,
+      patientData || { first_name: patient_name?.split(' ')[0], last_name: patient_name?.split(' ').slice(1).join(' ') },
+      profile,
+      locationData,
+      bonoData
+    );
+
+    console.log('Formatted title:', formattedTitle);
+    console.log('Formatted description:', formattedDescription);
+
     // Build event
     const calendarId = connection.google_calendar_id || 'primary';
     
@@ -207,13 +348,13 @@ serve(async (req) => {
     const endDateTime = `${session_date}T${end_time}:00`;
 
     // Build description with Psycma marker token for fallback detection
-    let eventDescription = description || `Sesión de psicología`;
+    let eventDescription = formattedDescription;
     if (session_id) {
       eventDescription = `${eventDescription}\n\n[PSYCMA_SESSION_ID:${session_id}]`;
     }
 
     const event: any = {
-      summary: title || `Sesión con ${patient_name || 'paciente'}`,
+      summary: formattedTitle,
       description: eventDescription,
       start: {
         dateTime: startDateTime,
@@ -239,11 +380,19 @@ serve(async (req) => {
     // Add location if provided and not a video call
     if (location && !include_meet) {
       event.location = location;
+    } else if (locationData && !include_meet) {
+      // Build location from session location data
+      const fullAddress = [locationData.name, locationData.street, locationData.number_details, locationData.city, locationData.postal_code]
+        .filter(Boolean).join(', ');
+      if (fullAddress) {
+        event.location = fullAddress;
+      }
     }
 
     // Add patient as attendee if email provided
-    if (patient_email) {
-      event.attendees = [{ email: patient_email }];
+    const attendeeEmail = patient_email || patientData?.email;
+    if (attendeeEmail) {
+      event.attendees = [{ email: attendeeEmail }];
     }
 
     // Add Google Meet if requested
