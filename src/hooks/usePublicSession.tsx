@@ -203,8 +203,32 @@ export function usePublicSessionReschedule(token: string | undefined) {
   const queryClient = useQueryClient();
   const [slots, setSlots] = useState<AvailabilitySlot[]>([]);
   const [slotsLoading, setSlotsLoading] = useState(false);
+  const [availableDays, setAvailableDays] = useState<string[]>([]);
+  const [availableDaysLoading, setAvailableDaysLoading] = useState(false);
   const [maxDays, setMaxDays] = useState(30);
   const [slotDuration, setSlotDuration] = useState(60);
+
+  const getAvailableDays = useCallback(async () => {
+    if (!token) return;
+    
+    setAvailableDaysLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('public-session-reschedule', {
+        body: { action: 'get-available-days', token }
+      });
+
+      if (error) throw error;
+      
+      setAvailableDays(data.availableDays || []);
+      setMaxDays(data.maxDays || 30);
+      setSlotDuration(data.slotDuration || 60);
+    } catch (error) {
+      console.error('Error fetching available days:', error);
+      setAvailableDays([]);
+    } finally {
+      setAvailableDaysLoading(false);
+    }
+  }, [token]);
 
   const getAvailability = useCallback(async (date: string) => {
     if (!token) return;
@@ -271,8 +295,11 @@ export function usePublicSessionReschedule(token: string | undefined) {
   return {
     slots,
     slotsLoading,
+    availableDays,
+    availableDaysLoading,
     maxDays,
     slotDuration,
+    getAvailableDays,
     getAvailability,
     reschedule: rescheduleMutation.mutate,
     isRescheduling: rescheduleMutation.isPending,
