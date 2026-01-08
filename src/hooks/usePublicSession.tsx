@@ -292,6 +292,35 @@ export function usePublicSessionReschedule(token: string | undefined) {
     },
   });
 
+  const cancelMutation = useMutation({
+    mutationFn: async ({ 
+      cancellation_reason 
+    }: { 
+      cancellation_reason?: string;
+    }) => {
+      const { data, error } = await supabase.functions.invoke('public-session-reschedule', {
+        body: { 
+          action: 'cancel', 
+          token, 
+          cancellation_reason 
+        }
+      });
+
+      if (error) throw error;
+      if (data.error) throw new Error(data.error);
+      
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['public-session', token] });
+      toast.success(data.message || 'Cita cancelada');
+    },
+    onError: (error: Error) => {
+      console.error('Error cancelling session:', error);
+      toast.error(error.message || 'Error al cancelar la cita');
+    },
+  });
+
   return {
     slots,
     slotsLoading,
@@ -303,5 +332,7 @@ export function usePublicSessionReschedule(token: string | undefined) {
     getAvailability,
     reschedule: rescheduleMutation.mutate,
     isRescheduling: rescheduleMutation.isPending,
+    cancelSession: cancelMutation.mutate,
+    isCancelling: cancelMutation.isPending,
   };
 }
