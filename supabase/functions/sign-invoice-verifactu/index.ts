@@ -119,13 +119,13 @@ async function generateSHA256(data: string): Promise<string> {
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
 }
 
-// Format date for Verifactu (DD-MM-YYYY)
+// Format date for Verifactu (YYYY-MM-DD ISO format - AEAT requirement)
 function formatDateVerifactu(dateStr: string): string {
   const date = new Date(dateStr);
-  const day = date.getDate().toString().padStart(2, '0');
-  const month = (date.getMonth() + 1).toString().padStart(2, '0');
   const year = date.getFullYear();
-  return `${day}-${month}-${year}`;
+  const month = (date.getMonth() + 1).toString().padStart(2, '0');
+  const day = date.getDate().toString().padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 // Format timestamp for Verifactu - ISO 8601 with timezone offset (AEAT requirement)
@@ -505,6 +505,8 @@ function buildRegistroAltaXML(
   const softwareSistemaInfo = sanitizeNombreSistemaInformatico(center.verifactu_sistema_informatico || 'PSYCMA');
   const softwareVersion = center.verifactu_software_version || '1.0.0';
   const softwareNif = (center.verifactu_software_nif || nifEmisor).replace(/[^A-Z0-9]/gi, '');
+  // NumeroInstalacion: identifies the installation, can be incremented to start a new chain
+  const numeroInstalacion = String(center.verifactu_numero_instalacion || 1);
 
   // Determine invoice type using the unified function
   const tipoFactura = determineInvoiceType(invoice);
@@ -623,7 +625,7 @@ ${desgloseXML}
             <sum1:NombreSistemaInformatico>${softwareSistemaInfo}</sum1:NombreSistemaInformatico>
             <sum1:IdSistemaInformatico>01</sum1:IdSistemaInformatico>
             <sum1:Version>${softwareVersion}</sum1:Version>
-            <sum1:NumeroInstalacion>1</sum1:NumeroInstalacion>
+            <sum1:NumeroInstalacion>${numeroInstalacion}</sum1:NumeroInstalacion>
             <sum1:TipoUsoPosibleSoloVerifactu>S</sum1:TipoUsoPosibleSoloVerifactu>
             <sum1:TipoUsoPosibleMultiOT>N</sum1:TipoUsoPosibleMultiOT>
             <sum1:IndicadorMultiplesOT>N</sum1:IndicadorMultiplesOT>
@@ -986,7 +988,8 @@ serve(async (req) => {
           id, name, tax_id,
           verifactu_certificate_base64, verifactu_certificate_password,
           verifactu_environment, verifactu_software_name, 
-          verifactu_software_version, verifactu_software_nif
+          verifactu_software_version, verifactu_software_nif,
+          verifactu_numero_instalacion
         )
       `)
       .eq("id", invoice_id)
