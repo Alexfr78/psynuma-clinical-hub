@@ -69,11 +69,21 @@ export default function SessionManagement() {
   const {
     slots,
     slotsLoading,
+    availableDays,
+    availableDaysLoading,
     maxDays,
+    getAvailableDays,
     getAvailability,
     reschedule,
     isRescheduling
   } = usePublicSessionReschedule(token);
+
+  // Load available days when entering reschedule mode
+  useEffect(() => {
+    if (mode === 'reschedule') {
+      getAvailableDays();
+    }
+  }, [mode, getAvailableDays]);
 
   // Load availability when date is selected
   useEffect(() => {
@@ -193,6 +203,13 @@ export default function SessionManagement() {
   if (mode === 'reschedule') {
     const today = new Date();
     const maxDate = addDays(today, maxDays);
+    const modalityLabel = modalityLabels[session.session_modality || 'in_person'];
+
+    // Helper to check if a date has availability
+    const hasAvailability = (date: Date) => {
+      const dateStr = format(date, 'yyyy-MM-dd');
+      return availableDays.includes(dateStr);
+    };
 
     return (
       <div className="min-h-screen bg-gradient-to-b from-background to-muted/30 flex items-center justify-center p-4">
@@ -218,34 +235,59 @@ export default function SessionManagement() {
           </CardHeader>
 
           <CardContent className="space-y-6">
-            {/* Current appointment info */}
-            <Alert className="bg-muted">
-              <CalendarIcon className="h-4 w-4" />
-              <AlertDescription>
-                <span className="font-medium">Cita actual:</span>{' '}
-                <span className="capitalize">{formattedDate}</span> a las {formattedTime.split(' - ')[0]}
-              </AlertDescription>
-            </Alert>
-
-            {/* Calendar */}
-            <div className="flex justify-center">
-              <Calendar
-                mode="single"
-                selected={selectedDate}
-                onSelect={setSelectedDate}
-                disabled={(date) => {
-                  const dateStr = format(date, 'yyyy-MM-dd');
-                  const todayStr = format(today, 'yyyy-MM-dd');
-                  return dateStr < todayStr || date > maxDate;
-                }}
-                locale={es}
-                className="rounded-md border"
-                components={{
-                  IconLeft: () => <ChevronLeft className="h-4 w-4" />,
-                  IconRight: () => <ChevronRight className="h-4 w-4" />,
-                }}
-              />
+            {/* Modality badge and current appointment info */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Badge variant={isOnline ? "secondary" : "outline"} className="gap-1">
+                  {isOnline ? <Video className="h-3 w-3" /> : <MapPin className="h-3 w-3" />}
+                  {modalityLabel}
+                </Badge>
+                <span className="text-xs text-muted-foreground">
+                  Solo se muestran horarios para esta modalidad
+                </span>
+              </div>
+              <Alert className="bg-muted">
+                <CalendarIcon className="h-4 w-4" />
+                <AlertDescription>
+                  <span className="font-medium">Cita actual:</span>{' '}
+                  <span className="capitalize">{formattedDate}</span> a las {formattedTime.split(' - ')[0]}
+                </AlertDescription>
+              </Alert>
             </div>
+
+            {/* Calendar with availability indicators */}
+            {availableDaysLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                <span className="ml-2 text-muted-foreground">Cargando disponibilidad...</span>
+              </div>
+            ) : (
+              <div className="flex justify-center">
+                <Calendar
+                  mode="single"
+                  selected={selectedDate}
+                  onSelect={setSelectedDate}
+                  disabled={(date) => {
+                    const dateStr = format(date, 'yyyy-MM-dd');
+                    const todayStr = format(today, 'yyyy-MM-dd');
+                    // Disable past dates, dates beyond max, and dates without availability
+                    return dateStr < todayStr || date > maxDate || !hasAvailability(date);
+                  }}
+                  modifiers={{
+                    available: (date) => hasAvailability(date) && date >= today && date <= maxDate,
+                  }}
+                  modifiersClassNames={{
+                    available: "relative after:absolute after:bottom-1 after:left-1/2 after:-translate-x-1/2 after:w-1.5 after:h-1.5 after:bg-green-500 after:rounded-full",
+                  }}
+                  locale={es}
+                  className="rounded-md border"
+                  components={{
+                    IconLeft: () => <ChevronLeft className="h-4 w-4" />,
+                    IconRight: () => <ChevronRight className="h-4 w-4" />,
+                  }}
+                />
+              </div>
+            )}
 
             {/* Time slots */}
             {selectedDate && (

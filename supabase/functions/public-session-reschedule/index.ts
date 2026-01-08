@@ -96,6 +96,34 @@ Deno.serve(async (req) => {
     const slotDuration = center?.reschedule_slot_duration || 60;
     const maxDays = center?.reschedule_max_days || 30;
 
+    if (action === "get-available-days") {
+      // Return list of dates that have at least some availability
+      const today = new Date();
+      const availableDays: string[] = [];
+
+      for (let i = 0; i <= maxDays; i++) {
+        const checkDate = new Date(today);
+        checkDate.setDate(today.getDate() + i);
+        const dateStr = checkDate.toISOString().split("T")[0];
+
+        const hasAvailability = await checkDayHasAvailability(
+          supabase,
+          session.professional_id,
+          session.location_id,
+          dateStr
+        );
+
+        if (hasAvailability) {
+          availableDays.push(dateStr);
+        }
+      }
+
+      return new Response(
+        JSON.stringify({ availableDays, maxDays, slotDuration }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     if (action === "get-availability") {
       if (!date) {
         return new Response(
@@ -273,6 +301,11 @@ async function getAvailability(
       .eq("is_open", true)
       .maybeSingle();
     locationSchedule = schedule;
+
+    // If location exists but is closed on this day, return no slots
+    if (!schedule) {
+      return [];
+    }
   }
 
   // Get existing sessions for this professional on this date (excluding current session)
@@ -347,4 +380,44 @@ async function getAvailability(
   }
 
   return slots.sort((a, b) => a.startTime.localeCompare(b.startTime));
+}
+
+// Helper function to check if a day has any potential availability
+async function checkDayHasAvailability(
+  supabase: any,
+  professionalId: string,
+  locationId: string | null,
+  date: string
+): Promise<boolean> {
+  const dayOfWeek = new Date(date).getDay();
+
+  // Check professional availability for this day
+  const { data: availability } = await supabase
+    .from("availability")
+    .select("id")
+    .eq("professional_id", professionalId)
+    .eq("day_of_week", dayOfWeek)
+    .eq("is_available", true)
+    .limit(1);
+
+  if (!availability || availability.length === 0) {
+    return false;
+  }
+
+  // Check location schedule if location exists
+  if (locationId) {
+    const { data: schedule } = await supabase
+      .from("location_schedules")
+      .select("id")
+      .eq("location_id", locationId)
+      .eq("day_of_week", dayOfWeek)
+      .eq("is_open", true)
+      .limit(1);
+
+    if (!schedule || schedule.length === 0) {
+      return false;
+    }
+  }
+
+  return true;
 }
