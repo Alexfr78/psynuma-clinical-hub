@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { sendAdminAlert, buildAlertMessage, formatDateSpanish, formatTime } from "../_shared/adminAlerts.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -26,7 +27,7 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    const { action, token, date, newDate, newStartTime, newEndTime } = await req.json();
+    const { action, token, date, newDate, newStartTime, newEndTime, cancellation_reason } = await req.json();
 
     if (!token) {
       return new Response(
@@ -70,25 +71,43 @@ Deno.serve(async (req) => {
       .eq("id", session.patient_id)
       .single();
 
+    // Get professional info
+    const { data: professional } = await supabase
+      .from("profiles")
+      .select("first_name, last_name")
+      .eq("id", session.professional_id)
+      .single();
+
     // Get center config
     const { data: center } = await supabase
       .from("centers")
-      .select("name, reschedule_max_days, reschedule_slot_duration, reschedule_require_confirmation, admin_alerts_enabled, admin_alerts_events, admin_alerts_emails")
+      .select("name, reschedule_max_days, reschedule_slot_duration, reschedule_require_confirmation")
       .eq("id", session.center_id)
       .single();
+
+    // Get location info if exists
+    let locationName = null;
+    if (session.location_id) {
+      const { data: location } = await supabase
+        .from("center_locations")
+        .select("name")
+        .eq("id", session.location_id)
+        .single();
+      locationName = location?.name;
+    }
 
     // Check if session can be rescheduled (not in the past, not cancelled)
     const sessionDateTime = new Date(`${session.session_date}T${session.start_time}`);
     if (sessionDateTime < new Date()) {
       return new Response(
-        JSON.stringify({ error: "Cannot reschedule past sessions" }),
+        JSON.stringify({ error: "Cannot modify past sessions" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     if (session.status === "cancelled") {
       return new Response(
-        JSON.stringify({ error: "Cannot reschedule cancelled sessions" }),
+        JSON.stringify({ error: "Cannot modify cancelled sessions" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -99,6 +118,9 @@ Deno.serve(async (req) => {
     const [startHours, startMinutes] = session.start_time.split(":").map(Number);
     const [endHours, endMinutes] = session.end_time.split(":").map(Number);
     const sessionDuration = (endHours * 60 + endMinutes) - (startHours * 60 + startMinutes);
+
+    const patientName = patient ? `${patient.first_name} ${patient.last_name}` : "Paciente";
+    const professionalName = professional ? `${professional.first_name} ${professional.last_name}` : undefined;
 
     if (action === "get-available-days") {
       // Return list of dates that have at least some availability
@@ -207,41 +229,32 @@ Deno.serve(async (req) => {
         );
       }
 
-      // Send admin alert about the reschedule
+      // Send admin alert about the reschedule using the helper
       try {
-        if (center?.admin_alerts_enabled && center.admin_alerts_emails) {
-          const events = center.admin_alerts_events as string[] | null;
-          if (events?.includes("session_rescheduled")) {
-            const patientName = patient 
-              ? `${patient.first_name} ${patient.last_name}`
-              : "Paciente";
+        const alertMessage = buildAlertMessage({
+          eventType: "Cita reprogramada por el paciente",
+          patientName,
+          patientEmail: patient?.email,
+          patientPhone: patient?.phone,
+          professionalName,
+          modality: session.session_modality,
+          locationName,
+          oldDate: session.session_date,
+          oldTime: session.start_time,
+          newDate,
+          newTime: newStartTime,
+        });
 
-            const oldDate = new Date(session.session_date).toLocaleDateString("es-ES", {
-              weekday: "long",
-              day: "numeric",
-              month: "long",
-            });
-            const oldTime = session.start_time.slice(0, 5);
-
-            const formattedNewDate = new Date(newDate).toLocaleDateString("es-ES", {
-              weekday: "long",
-              day: "numeric",
-              month: "long",
-            });
-            const formattedNewTime = newStartTime.slice(0, 5);
-
-            await supabase.from("notifications").insert({
-              center_id: session.center_id,
-              patient_id: session.patient_id,
-              session_id: session.id,
-              type: "email",
-              recipient: center.admin_alerts_emails,
-              subject: `Cita reprogramada por ${patientName}`,
-              message: `El paciente ${patientName} ha reprogramado su cita.\n\nFecha anterior: ${oldDate} a las ${oldTime}\nNueva fecha: ${formattedNewDate} a las ${formattedNewTime}`,
-              status: "pending",
-            });
-          }
-        }
+        await sendAdminAlert({
+          supabase,
+          centerId: session.center_id,
+          eventKey: "booking_rescheduled",
+          subject: `Cita reprogramada por ${patientName}`,
+          message: alertMessage,
+          patientId: session.patient_id,
+          sessionId: session.id,
+          professionalId: session.professional_id,
+        });
       } catch (alertError) {
         console.error("Error sending admin alert:", alertError);
         // Don't fail the reschedule if alert fails
@@ -259,11 +272,97 @@ Deno.serve(async (req) => {
       );
     }
 
+    if (action === "cancel") {
+      // Check cancellation policy
+      const policy = session.cancellation_policy || "24_hours";
+      const hoursUntilSession = (sessionDateTime.getTime() - new Date().getTime()) / (1000 * 60 * 60);
+      
+      const policyHoursMap: Record<string, number> = {
+        "not_allowed": Infinity,
+        "until_start": 0,
+        "1_hour": 1,
+        "2_hours": 2,
+        "24_hours": 24,
+        "48_hours": 48,
+        "72_hours": 72,
+      };
+      
+      const requiredHours = policyHoursMap[policy] ?? 24;
+      
+      if (requiredHours === Infinity) {
+        return new Response(
+          JSON.stringify({ error: "No se permiten cancelaciones para esta cita" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      
+      if (hoursUntilSession < requiredHours && requiredHours > 0) {
+        return new Response(
+          JSON.stringify({ error: `Las cancelaciones deben realizarse con al menos ${requiredHours} horas de antelación` }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Update the session status to cancelled
+      const { error: updateError } = await supabase
+        .from("sessions")
+        .update({
+          status: "cancelled",
+          cancellation_reason: cancellation_reason || "Cancelada por el paciente",
+        })
+        .eq("id", session.id);
+
+      if (updateError) {
+        console.error("Error cancelling session:", updateError);
+        return new Response(
+          JSON.stringify({ error: "Failed to cancel session" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Send admin alert about the cancellation
+      try {
+        const alertMessage = buildAlertMessage({
+          eventType: "Cita cancelada por el paciente",
+          patientName,
+          patientEmail: patient?.email,
+          patientPhone: patient?.phone,
+          sessionDate: session.session_date,
+          sessionTime: session.start_time,
+          professionalName,
+          modality: session.session_modality,
+          locationName,
+          details: cancellation_reason || undefined,
+        });
+
+        await sendAdminAlert({
+          supabase,
+          centerId: session.center_id,
+          eventKey: "booking_cancelled",
+          subject: `Cita cancelada por ${patientName}`,
+          message: alertMessage,
+          patientId: session.patient_id,
+          sessionId: session.id,
+          professionalId: session.professional_id,
+        });
+      } catch (alertError) {
+        console.error("Error sending admin alert:", alertError);
+        // Don't fail the cancellation if alert fails
+      }
+
+      return new Response(
+        JSON.stringify({ 
+          success: true,
+          message: "Cita cancelada correctamente"
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     return new Response(
       JSON.stringify({ error: "Invalid action" }),
       { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
-
   } catch (error) {
     console.error("Error in public-session-reschedule:", error);
     return new Response(

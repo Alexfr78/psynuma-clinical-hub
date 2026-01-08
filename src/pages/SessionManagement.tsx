@@ -75,7 +75,9 @@ export default function SessionManagement() {
     getAvailableDays,
     getAvailability,
     reschedule,
-    isRescheduling
+    isRescheduling,
+    cancelSession,
+    isCancelling
   } = usePublicSessionReschedule(token);
 
   // Load available days when entering reschedule mode
@@ -146,13 +148,9 @@ export default function SessionManagement() {
   };
 
   const handleCancel = () => {
-    if (token) {
-      updateSession.mutate({ 
-        token, 
-        status: 'cancelled',
-        cancellation_reason: cancellationReason || 'Cancelada por el paciente'
-      });
-    }
+    cancelSession({ 
+      cancellation_reason: cancellationReason || 'Cancelada por el paciente'
+    });
   };
 
   const handleRescheduleConfirm = () => {
@@ -508,7 +506,7 @@ export default function SessionManagement() {
                     variant="ghost" 
                     className="w-full text-destructive hover:text-destructive hover:bg-destructive/10" 
                     size="lg"
-                    disabled={!cancellationCheck.allowed}
+                    disabled={!cancellationCheck.allowed || isCancelling}
                   >
                     <XCircle className="h-4 w-4 mr-2" />
                     Cancelar cita
@@ -535,8 +533,16 @@ export default function SessionManagement() {
                     <AlertDialogAction
                       onClick={handleCancel}
                       className="bg-destructive hover:bg-destructive/90"
+                      disabled={isCancelling}
                     >
-                      Sí, cancelar cita
+                      {isCancelling ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Cancelando...
+                        </>
+                      ) : (
+                        'Sí, cancelar cita'
+                      )}
                     </AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>
