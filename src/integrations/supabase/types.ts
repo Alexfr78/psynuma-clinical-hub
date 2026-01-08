@@ -745,6 +745,7 @@ export type Database = {
           verifactu_certificate_base64: string | null
           verifactu_certificate_password: string | null
           verifactu_environment: string | null
+          verifactu_numero_instalacion: number | null
           verifactu_sistema_informatico: string | null
           verifactu_software_name: string | null
           verifactu_software_nif: string | null
@@ -817,6 +818,7 @@ export type Database = {
           verifactu_certificate_base64?: string | null
           verifactu_certificate_password?: string | null
           verifactu_environment?: string | null
+          verifactu_numero_instalacion?: number | null
           verifactu_sistema_informatico?: string | null
           verifactu_software_name?: string | null
           verifactu_software_nif?: string | null
@@ -889,6 +891,7 @@ export type Database = {
           verifactu_certificate_base64?: string | null
           verifactu_certificate_password?: string | null
           verifactu_environment?: string | null
+          verifactu_numero_instalacion?: number | null
           verifactu_sistema_informatico?: string | null
           verifactu_software_name?: string | null
           verifactu_software_nif?: string | null
