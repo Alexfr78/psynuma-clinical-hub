@@ -1,8 +1,8 @@
 import { useParams } from 'react-router-dom';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, addDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { 
-  Calendar, 
+  Calendar as CalendarIcon, 
   Clock, 
   User, 
   MapPin, 
@@ -13,7 +13,10 @@ import {
   AlertCircle,
   Loader2,
   Building2,
-  Ban
+  Ban,
+  ArrowLeft,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -31,8 +34,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { usePublicSession, useUpdatePublicSession, canCancelSession } from '@/hooks/usePublicSession';
-import { useState } from 'react';
+import { Calendar } from '@/components/ui/calendar';
+import { usePublicSession, useUpdatePublicSession, canCancelSession, usePublicSessionReschedule } from '@/hooks/usePublicSession';
+import { useState, useEffect } from 'react';
 import { Textarea } from '@/components/ui/textarea';
 
 const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive'; icon: React.ReactNode }> = {
@@ -58,6 +62,27 @@ export default function SessionManagement() {
   const { data: session, isLoading, error } = usePublicSession(token);
   const updateSession = useUpdatePublicSession();
   const [cancellationReason, setCancellationReason] = useState('');
+  const [mode, setMode] = useState<'view' | 'reschedule'>('view');
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+  const [selectedSlot, setSelectedSlot] = useState<{ startTime: string; endTime: string } | null>(null);
+  
+  const {
+    slots,
+    slotsLoading,
+    maxDays,
+    getAvailability,
+    reschedule,
+    isRescheduling
+  } = usePublicSessionReschedule(token);
+
+  // Load availability when date is selected
+  useEffect(() => {
+    if (selectedDate && mode === 'reschedule') {
+      const dateStr = format(selectedDate, 'yyyy-MM-dd');
+      getAvailability(dateStr);
+      setSelectedSlot(null);
+    }
+  }, [selectedDate, mode, getAvailability]);
 
   if (isLoading) {
     return (
@@ -120,10 +145,20 @@ export default function SessionManagement() {
     }
   };
 
-  const handleReschedule = () => {
-    if (token) {
-      updateSession.mutate({ token, status: 'reschedule_requested' });
-    }
+  const handleRescheduleConfirm = () => {
+    if (!selectedDate || !selectedSlot) return;
+    
+    reschedule({
+      newDate: format(selectedDate, 'yyyy-MM-dd'),
+      newStartTime: selectedSlot.startTime,
+      newEndTime: selectedSlot.endTime,
+    }, {
+      onSuccess: () => {
+        setMode('view');
+        setSelectedDate(undefined);
+        setSelectedSlot(null);
+      }
+    });
   };
 
   const buildLocationString = () => {
@@ -136,7 +171,6 @@ export default function SessionManagement() {
   };
 
   const buildCenterAddress = () => {
-    // First try from center data
     const center = session.center;
     if (center?.address) {
       const parts = [center.address];
@@ -145,7 +179,6 @@ export default function SessionManagement() {
       if (center.postal_code) parts.push(center.postal_code);
       return parts.join(', ');
     }
-    // Fallback from secure function
     if (session.centerFallback?.center_address) {
       return session.centerFallback.center_address;
     }
@@ -156,12 +189,146 @@ export default function SessionManagement() {
     return session.center?.name || session.centerFallback?.center_name || null;
   };
 
+  // Reschedule mode view
+  if (mode === 'reschedule') {
+    const today = new Date();
+    const maxDate = addDays(today, maxDays);
+
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-background to-muted/30 flex items-center justify-center p-4">
+        <Card className="w-full max-w-lg shadow-lg">
+          <CardHeader className="pb-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setMode('view');
+                setSelectedDate(undefined);
+                setSelectedSlot(null);
+              }}
+              className="w-fit -ml-2 mb-2"
+            >
+              <ArrowLeft className="h-4 w-4 mr-1" />
+              Volver
+            </Button>
+            <CardTitle className="text-xl">Cambiar fecha</CardTitle>
+            <CardDescription>
+              Selecciona una nueva fecha y hora para tu cita
+            </CardDescription>
+          </CardHeader>
+
+          <CardContent className="space-y-6">
+            {/* Current appointment info */}
+            <Alert className="bg-muted">
+              <CalendarIcon className="h-4 w-4" />
+              <AlertDescription>
+                <span className="font-medium">Cita actual:</span>{' '}
+                <span className="capitalize">{formattedDate}</span> a las {formattedTime.split(' - ')[0]}
+              </AlertDescription>
+            </Alert>
+
+            {/* Calendar */}
+            <div className="flex justify-center">
+              <Calendar
+                mode="single"
+                selected={selectedDate}
+                onSelect={setSelectedDate}
+                disabled={(date) => {
+                  const dateStr = format(date, 'yyyy-MM-dd');
+                  const todayStr = format(today, 'yyyy-MM-dd');
+                  return dateStr < todayStr || date > maxDate;
+                }}
+                locale={es}
+                className="rounded-md border"
+                components={{
+                  IconLeft: () => <ChevronLeft className="h-4 w-4" />,
+                  IconRight: () => <ChevronRight className="h-4 w-4" />,
+                }}
+              />
+            </div>
+
+            {/* Time slots */}
+            {selectedDate && (
+              <div className="space-y-3">
+                <h4 className="font-medium text-sm text-muted-foreground">
+                  Horarios disponibles para el {format(selectedDate, "d 'de' MMMM", { locale: es })}
+                </h4>
+                
+                {slotsLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                  </div>
+                ) : slots.length === 0 ? (
+                  <Alert>
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>
+                      No hay horarios disponibles para esta fecha. Por favor, selecciona otro día.
+                    </AlertDescription>
+                  </Alert>
+                ) : (
+                  <div className="grid grid-cols-3 gap-2">
+                    {slots.map((slot) => (
+                      <Button
+                        key={slot.startTime}
+                        variant={selectedSlot?.startTime === slot.startTime ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setSelectedSlot(slot)}
+                        className="text-sm"
+                      >
+                        {slot.startTime.slice(0, 5)}
+                      </Button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <Separator />
+
+            {/* Confirm button */}
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => {
+                  setMode('view');
+                  setSelectedDate(undefined);
+                  setSelectedSlot(null);
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button
+                className="flex-1"
+                disabled={!selectedDate || !selectedSlot || isRescheduling}
+                onClick={handleRescheduleConfirm}
+              >
+                {isRescheduling ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Reprogramando...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="h-4 w-4 mr-2" />
+                    Confirmar cambio
+                  </>
+                )}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Normal view mode
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/30 flex items-center justify-center p-4">
       <Card className="w-full max-w-lg shadow-lg">
         <CardHeader className="text-center pb-2">
           <div className="mx-auto mb-2 h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-            <Calendar className="h-6 w-6 text-primary" />
+            <CalendarIcon className="h-6 w-6 text-primary" />
           </div>
           <CardTitle className="text-xl">Tu cita</CardTitle>
           <Badge variant={statusInfo.variant} className="mx-auto mt-2 gap-1">
@@ -176,7 +343,7 @@ export default function SessionManagement() {
             {/* Date & Time */}
             <div className="flex items-start gap-3">
               <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                <Calendar className="h-5 w-5 text-primary" />
+                <CalendarIcon className="h-5 w-5 text-primary" />
               </div>
               <div>
                 <p className="font-medium capitalize">{formattedDate}</p>
@@ -279,30 +446,17 @@ export default function SessionManagement() {
                 </Button>
               )}
 
-              {/* Reschedule Button */}
+              {/* Reschedule Button - now opens reschedule mode */}
               {status !== 'reschedule_requested' && (
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button variant="outline" className="w-full" size="lg">
-                      <CalendarClock className="h-4 w-4 mr-2" />
-                      Solicitar nueva fecha
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Solicitar reprogramación</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        Tu solicitud será enviada al centro y te contactarán para coordinar una nueva fecha.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                      <AlertDialogAction onClick={handleReschedule}>
-                        Solicitar
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
+                <Button 
+                  variant="outline" 
+                  className="w-full" 
+                  size="lg"
+                  onClick={() => setMode('reschedule')}
+                >
+                  <CalendarClock className="h-4 w-4 mr-2" />
+                  Cambiar fecha
+                </Button>
               )}
 
               {/* Cancel Button */}
@@ -322,7 +476,7 @@ export default function SessionManagement() {
                   <AlertDialogHeader>
                     <AlertDialogTitle>¿Cancelar esta cita?</AlertDialogTitle>
                     <AlertDialogDescription>
-                      Esta acción no se puede deshacer. Si necesitas reprogramar, usa la opción "Solicitar nueva fecha".
+                      Esta acción no se puede deshacer. Si necesitas reprogramar, usa la opción "Cambiar fecha".
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <div className="py-4">

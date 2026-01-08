@@ -1,6 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useState, useCallback } from 'react';
+
+export interface AvailabilitySlot {
+  startTime: string;
+  endTime: string;
+}
 
 export interface PublicSessionData {
   id: string;
@@ -190,4 +196,85 @@ export function canCancelSession(
   }
 
   return { allowed: true };
+}
+
+// Hook for getting availability and rescheduling a session
+export function usePublicSessionReschedule(token: string | undefined) {
+  const queryClient = useQueryClient();
+  const [slots, setSlots] = useState<AvailabilitySlot[]>([]);
+  const [slotsLoading, setSlotsLoading] = useState(false);
+  const [maxDays, setMaxDays] = useState(30);
+  const [slotDuration, setSlotDuration] = useState(60);
+
+  const getAvailability = useCallback(async (date: string) => {
+    if (!token) return;
+    
+    setSlotsLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('public-session-reschedule', {
+        body: { action: 'get-availability', token, date }
+      });
+
+      if (error) throw error;
+      
+      setSlots(data.slots || []);
+      setMaxDays(data.maxDays || 30);
+      setSlotDuration(data.slotDuration || 60);
+    } catch (error) {
+      console.error('Error fetching availability:', error);
+      toast.error('Error al cargar disponibilidad');
+      setSlots([]);
+    } finally {
+      setSlotsLoading(false);
+    }
+  }, [token]);
+
+  const rescheduleMutation = useMutation({
+    mutationFn: async ({ 
+      newDate, 
+      newStartTime, 
+      newEndTime 
+    }: { 
+      newDate: string; 
+      newStartTime: string; 
+      newEndTime: string;
+    }) => {
+      const { data, error } = await supabase.functions.invoke('public-session-reschedule', {
+        body: { 
+          action: 'reschedule', 
+          token, 
+          newDate, 
+          newStartTime, 
+          newEndTime 
+        }
+      });
+
+      if (error) throw error;
+      if (data.error) throw new Error(data.error);
+      
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['public-session', token] });
+      toast.success(data.message || '¡Cita reprogramada!');
+    },
+    onError: (error: Error) => {
+      console.error('Error rescheduling session:', error);
+      if (error.message.includes('no longer available')) {
+        toast.error('El horario seleccionado ya no está disponible');
+      } else {
+        toast.error('Error al reprogramar la cita');
+      }
+    },
+  });
+
+  return {
+    slots,
+    slotsLoading,
+    maxDays,
+    slotDuration,
+    getAvailability,
+    reschedule: rescheduleMutation.mutate,
+    isRescheduling: rescheduleMutation.isPending,
+  };
 }
