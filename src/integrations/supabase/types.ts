@@ -2617,6 +2617,64 @@ export type Database = {
           },
         ]
       }
+      verifactu_chain_status: {
+        Row: {
+          center_id: string
+          created_at: string
+          id: string
+          id_sistema_informatico: string
+          nif_emisor: string
+          numero_instalacion: number
+          ultima_factura_id: string | null
+          ultimo_hash: string
+          updated_at: string
+        }
+        Insert: {
+          center_id: string
+          created_at?: string
+          id?: string
+          id_sistema_informatico: string
+          nif_emisor: string
+          numero_instalacion: number
+          ultima_factura_id?: string | null
+          ultimo_hash: string
+          updated_at?: string
+        }
+        Update: {
+          center_id?: string
+          created_at?: string
+          id?: string
+          id_sistema_informatico?: string
+          nif_emisor?: string
+          numero_instalacion?: number
+          ultima_factura_id?: string | null
+          ultimo_hash?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "verifactu_chain_status_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "verifactu_chain_status_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "portal_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "verifactu_chain_status_ultima_factura_id_fkey"
+            columns: ["ultima_factura_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       verifactu_events: {
         Row: {
           aeat_csv: string | null

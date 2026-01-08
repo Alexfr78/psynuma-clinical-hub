@@ -1040,21 +1040,25 @@ serve(async (req) => {
       );
     }
 
-    // Get previous invoice hash for chaining - ONLY from successfully AEAT-accepted invoices
-    // This ensures that failed invoices don't break the chain
-    const { data: previousInvoice } = await supabase
-      .from("invoices")
-      .select("verifactu_hash, verifactu_timestamp")
+    // Get chain identity parameters for this installation
+    const nifEmisor = center.tax_id?.replace(/[^A-Z0-9]/gi, '') || '';
+    const idSistemaInformatico = '01'; // Fixed in our system
+    const numeroInstalacion = center.verifactu_numero_instalacion || 1;
+    
+    // Get previous hash from chain status table (per installation)
+    // This ensures proper chaining per NIF + Sistema + Instalación
+    const { data: chainStatus } = await supabase
+      .from("verifactu_chain_status")
+      .select("ultimo_hash, ultima_factura_id")
       .eq("center_id", invoice.center_id)
-      .not("verifactu_registration_id", "is", null)  // Only AEAT-accepted invoices (have CSV)
-      .not("verifactu_hash", "is", null)
-      .neq("id", invoice_id)
-      .order("verifactu_timestamp", { ascending: false })  // Order by AEAT acceptance time
-      .limit(1)
+      .eq("nif_emisor", nifEmisor)
+      .eq("id_sistema_informatico", idSistemaInformatico)
+      .eq("numero_instalacion", numeroInstalacion)
       .maybeSingle();
 
-    const previousHash = previousInvoice?.verifactu_hash || null;
-    console.log("Previous invoice hash:", previousHash ? "found" : "none (first invoice or no accepted invoices)");
+    const previousHash = chainStatus?.ultimo_hash || null;
+    console.log(`Chain status for NIF=${nifEmisor}, Sistema=${idSistemaInformatico}, Instalacion=${numeroInstalacion}:`, 
+      previousHash ? `found hash from invoice ${chainStatus?.ultima_factura_id}` : "none (first invoice in this chain)");
 
     // Generate timestamp
     const generationTimestamp = formatTimestampVerifactu(new Date());
@@ -1162,8 +1166,7 @@ serve(async (req) => {
     // Send to AEAT with mTLS using extracted certificate
     const aeatResult = await sendToAEAT(signedXml, environment, certData.privateKey, certData.certificate);
 
-    // Generate QR URL
-    const nifEmisor = center.tax_id?.replace(/[^A-Z0-9]/gi, '') || '';
+    // Generate QR URL (nifEmisor already defined above)
     const fechaExpedicion = formatDateVerifactu(invoice.issue_date);
     const qrUrl = generateQRUrl(nifEmisor, invoice.invoice_number, fechaExpedicion, Number(invoice.total), environment);
 
@@ -1249,6 +1252,29 @@ serve(async (req) => {
         JSON.stringify({ error: "Error actualizando la factura" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
+    }
+
+    // Update chain status with the new hash for this installation
+    // This ensures proper chaining for subsequent invoices
+    const { error: chainUpdateError } = await supabase
+      .from("verifactu_chain_status")
+      .upsert({
+        center_id: invoice.center_id,
+        nif_emisor: nifEmisor,
+        id_sistema_informatico: idSistemaInformatico,
+        numero_instalacion: numeroInstalacion,
+        ultimo_hash: invoiceHash,
+        ultima_factura_id: invoice_id,
+        updated_at: new Date().toISOString()
+      }, {
+        onConflict: 'center_id,nif_emisor,id_sistema_informatico,numero_instalacion'
+      });
+
+    if (chainUpdateError) {
+      console.error("Error updating chain status:", chainUpdateError);
+      // Don't fail the request, just log - the invoice was already registered
+    } else {
+      console.log(`Chain status updated: NIF=${nifEmisor}, Sistema=${idSistemaInformatico}, Instalacion=${numeroInstalacion}, Hash=${invoiceHash.substring(0, 16)}...`);
     }
 
     console.log("Invoice signed and registered successfully");
