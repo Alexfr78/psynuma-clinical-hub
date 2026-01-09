@@ -1,4 +1,5 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { Link } from "react-router-dom";
+import { Button } from "@/components/ui/button";
 
 const Index = () => {
   return (
@@ -7,6 +8,11 @@ const Index = () => {
         <div className="text-center">
           <h1 className="mb-4 text-4xl font-bold">Psycma</h1>
           <p className="text-xl text-muted-foreground">Sistema de gestión para profesionales de la salud mental</p>
+          <div className="mt-6">
+            <Button asChild>
+              <Link to="/auth">Iniciar sesión</Link>
+            </Button>
+          </div>
         </div>
       </div>
       <footer className="border-t py-4">
