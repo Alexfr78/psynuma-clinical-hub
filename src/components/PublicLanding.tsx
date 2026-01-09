@@ -1,21 +1,18 @@
-import { Navigate } from "react-router-dom";
+import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import Index from "@/pages/Index";
 
 export const PublicLanding = () => {
   const { user, isLoading } = useAuth();
+  const navigate = useNavigate();
   
-  if (isLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
+  useEffect(() => {
+    if (!isLoading && user) {
+      navigate("/dashboard", { replace: true });
+    }
+  }, [user, isLoading, navigate]);
   
-  if (user) {
-    return <Navigate to="/dashboard" replace />;
-  }
-  
+  // Always render Index immediately - Google bot will see this
   return <Index />;
 };
