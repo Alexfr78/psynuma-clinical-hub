@@ -337,9 +337,28 @@ export default function Auth() {
         </Tabs>
       </Card>
 
-      <p className="mt-8 text-center text-sm text-muted-foreground">
-        Plataforma segura para profesionales de la salud mental
-      </p>
+      <footer className="mt-8 text-center text-sm text-muted-foreground">
+        <p className="mb-2">Plataforma segura para profesionales de la salud mental</p>
+        <div className="flex flex-wrap items-center justify-center gap-4">
+          <a 
+            href="https://psicologosexual.com/terminos-y-condiciones/" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="hover:text-foreground hover:underline"
+          >
+            Términos y condiciones de uso
+          </a>
+          <span>•</span>
+          <a 
+            href="https://psicologosexual.com/politica-de-privacidad/" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="hover:text-foreground hover:underline"
+          >
+            Política de privacidad
+          </a>
+        </div>
+      </footer>
     </div>
   );
 }
