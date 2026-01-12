@@ -20,12 +20,14 @@ serve(async (req) => {
   try {
     // Extract Google push notification headers
     const channelId = req.headers.get('x-goog-channel-id');
+    const channelToken = req.headers.get('x-goog-channel-token');
     const resourceState = req.headers.get('x-goog-resource-state');
     const resourceId = req.headers.get('x-goog-resource-id');
     const messageNumber = req.headers.get('x-goog-message-number');
 
     console.log('[WEBHOOK:RECEIVED]', {
       channelId,
+      hasToken: !!channelToken,
       resourceState,
       resourceId,
       messageNumber,
@@ -42,10 +44,10 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // NUEVO: Buscar primero en oauth_connections por watch_channel_id (más rápido)
+    // Buscar en oauth_connections por watch_channel_id (más rápido)
     const { data: oauthConn } = await supabase
       .from('oauth_connections')
-      .select('professional_id, google_calendar_id, watch_resource_id, needs_reconnect')
+      .select('professional_id, google_calendar_id, watch_resource_id, watch_channel_token, needs_reconnect')
       .eq('provider', 'google')
       .eq('watch_channel_id', channelId)
       .maybeSingle();
@@ -54,6 +56,20 @@ serve(async (req) => {
     let calendarId: string | null = null;
 
     if (oauthConn) {
+      // SECURITY: Verify channel token to prevent webhook spoofing
+      if (oauthConn.watch_channel_token) {
+        if (!channelToken || channelToken !== oauthConn.watch_channel_token) {
+          console.warn('[WEBHOOK] Token verification failed', { 
+            channelId, 
+            hasReceivedToken: !!channelToken,
+            tokenMatch: channelToken === oauthConn.watch_channel_token
+          });
+          // Return 200 to prevent Google retries but don't process
+          return new Response('OK', { status: 200, headers: corsHeaders });
+        }
+        console.log('[WEBHOOK] Token verified successfully');
+      }
+
       // Validate resource_id matches
       if (oauthConn.watch_resource_id && resourceId && oauthConn.watch_resource_id !== resourceId) {
         console.warn('[WEBHOOK] Resource ID mismatch', { 

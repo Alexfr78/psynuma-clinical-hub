@@ -249,11 +249,13 @@ serve(async (req) => {
     }
 
     const channelId = crypto.randomUUID();
+    // Generate a secure channel token for webhook verification
+    const channelToken = crypto.randomUUID() + '-' + crypto.randomUUID();
     const webhookUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/google-calendar-webhook`;
 
     console.log(`[WATCH] Creating watch channel ${channelId} for calendar ${calendarId}`);
 
-    // Call Google Calendar API to set up watch
+    // Call Google Calendar API to set up watch with token for verification
     const watchResponse = await fetch(
       `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/watch`,
       {
@@ -266,6 +268,7 @@ serve(async (req) => {
           id: channelId,
           type: 'web_hook',
           address: webhookUrl,
+          token: channelToken, // Custom token for webhook verification
         }),
       }
     );
@@ -317,11 +320,13 @@ serve(async (req) => {
     }
 
     // NUEVO: También guardar en oauth_connections para lookup rápido desde webhook
+    // Include the channel token for webhook verification
     await supabase
       .from('oauth_connections')
       .update({
         watch_channel_id: watchData.id,
         watch_resource_id: watchData.resourceId,
+        watch_channel_token: channelToken, // Store token for webhook verification
         watch_expires_at: expiration,
         last_sync_status: 'watch_configured',
       })
