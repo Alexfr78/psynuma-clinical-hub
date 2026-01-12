@@ -9,9 +9,10 @@ export interface ProfessionalIntegration {
   // WhatsApp
   whatsapp_enabled: boolean;
   whatsapp_send_method: 'web' | 'api';
-  whatsapp_access_token: string | null;
+  whatsapp_access_token: string | null; // Note: This is encrypted in the database - don't expose to UI
   whatsapp_phone_number_id: string | null;
   whatsapp_business_account_id: string | null;
+  // Note: whatsapp_access_token is handled separately via save-oauth-credentials edge function
   // Video
   zoom_enabled: boolean;
   google_meet_enabled: boolean;

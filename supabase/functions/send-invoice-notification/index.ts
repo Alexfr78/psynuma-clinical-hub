@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { Resend } from 'https://esm.sh/resend@2.0.0';
+import { decryptSecret } from "../_shared/crypto.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -272,10 +273,12 @@ Deno.serve(async (req) => {
       if (whatsappSendMethod === 'api' && center?.whatsapp_access_token && center?.whatsapp_phone_number_id) {
         // Send via Meta API
         console.log('Sending WhatsApp via Meta API');
+        // Decrypt the access token
+        const decryptedToken = await decryptSecret(center.whatsapp_access_token);
         const apiResult = await sendWhatsAppViaMetaAPI(
           phone,
           message,
-          center.whatsapp_access_token,
+          decryptedToken,
           center.whatsapp_phone_number_id
         );
 

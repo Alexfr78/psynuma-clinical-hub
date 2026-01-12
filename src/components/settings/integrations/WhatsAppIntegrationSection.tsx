@@ -9,6 +9,8 @@ import { useProfessionalIntegrations } from "@/hooks/useProfessionalIntegrations
 import { MessageSquare, Eye, EyeOff, ExternalLink, CheckCircle2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 export function WhatsAppIntegrationSection() {
   const { integrations, isLoading, updateIntegrations } = useProfessionalIntegrations();
@@ -25,7 +27,8 @@ export function WhatsAppIntegrationSection() {
     if (integrations) {
       setEnabled(integrations.whatsapp_enabled);
       setSendMethod(integrations.whatsapp_send_method);
-      setAccessToken(integrations.whatsapp_access_token || '');
+      // Note: We don't populate accessToken from integrations since it should be encrypted
+      // The field shows empty on load - user must re-enter to update
       setPhoneNumberId(integrations.whatsapp_phone_number_id || '');
       setBusinessAccountId(integrations.whatsapp_business_account_id || '');
     }
@@ -34,13 +37,39 @@ export function WhatsAppIntegrationSection() {
   const handleSave = async () => {
     setIsSaving(true);
     try {
+      // Update basic settings via the hook
       await updateIntegrations.mutateAsync({
         whatsapp_enabled: enabled,
         whatsapp_send_method: sendMethod,
-        whatsapp_access_token: sendMethod === 'api' ? accessToken : null,
+        // Don't save sensitive data here - use edge function
         whatsapp_phone_number_id: sendMethod === 'api' ? phoneNumberId : null,
         whatsapp_business_account_id: sendMethod === 'api' ? businessAccountId : null,
       });
+
+      // If API mode and access token is provided, save it encrypted via edge function
+      if (sendMethod === 'api' && accessToken) {
+        const { error } = await supabase.functions.invoke('save-oauth-credentials', {
+          body: {
+            provider: 'whatsapp',
+            credentials: {
+              accessToken,
+              phoneNumberId,
+              businessAccountId,
+              sendMethod,
+            },
+          },
+        });
+        
+        if (error) {
+          console.error('Error saving WhatsApp credentials:', error);
+          toast.error('Error al guardar las credenciales de WhatsApp');
+          return;
+        }
+        
+        // Clear the access token field after successful save
+        setAccessToken('');
+        toast.success('Credenciales de WhatsApp guardadas de forma segura');
+      }
     } finally {
       setIsSaving(false);
     }
@@ -132,13 +161,16 @@ export function WhatsAppIntegrationSection() {
               
               <div className="space-y-2">
                 <Label htmlFor="access-token">Access Token</Label>
+                <p className="text-xs text-muted-foreground">
+                  El token se almacena de forma segura y encriptada. Introduce un nuevo token para actualizarlo.
+                </p>
                 <div className="relative">
                   <Input
                     id="access-token"
                     type={showToken ? "text" : "password"}
                     value={accessToken}
                     onChange={(e) => setAccessToken(e.target.value)}
-                    placeholder="EAAxxxxxxx..."
+                    placeholder={integrations?.whatsapp_access_token ? "••••••••• (token guardado)" : "EAAxxxxxxx..."}
                     className="pr-10"
                   />
                   <Button
