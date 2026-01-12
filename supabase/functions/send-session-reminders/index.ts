@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { decryptSecret } from "../_shared/crypto.ts";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 
@@ -427,10 +428,12 @@ serve(async (req) => {
           if (sendMethod === 'api' && center.whatsapp_access_token && center.whatsapp_phone_number_id) {
             // Send via Meta API
             console.log(`Sending WhatsApp reminder via API to ${patient.phone} for session ${session.id}`);
+            // Decrypt the access token
+            const decryptedToken = await decryptSecret(center.whatsapp_access_token);
             const whatsappResult = await sendWhatsAppViaMetaAPI(
               patient.phone,
               message,
-              center.whatsapp_access_token,
+              decryptedToken,
               center.whatsapp_phone_number_id
             );
             

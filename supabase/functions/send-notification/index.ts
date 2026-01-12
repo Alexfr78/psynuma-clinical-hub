@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { decryptSecret } from "../_shared/crypto.ts";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 const RESEND_FROM_EMAIL = Deno.env.get("RESEND_FROM_EMAIL"); // e.g., "noreply@tudominio.com"
@@ -334,14 +335,17 @@ serve(async (req) => {
             console.log(`[send-notification] WhatsApp send method: ${sendMethod}`);
 
             if (sendMethod === 'api') {
-              const accessToken = centerConfig?.whatsapp_access_token;
+              const encryptedToken = centerConfig?.whatsapp_access_token;
               const phoneNumberId = centerConfig?.whatsapp_phone_number_id;
 
-              if (!accessToken || !phoneNumberId) {
+              if (!encryptedToken || !phoneNumberId) {
                 errorMessage = 'Credenciales de API de Meta no configuradas';
                 console.error(`[send-notification] ${errorMessage}`);
                 break;
               }
+
+              // Decrypt the access token
+              const accessToken = await decryptSecret(encryptedToken);
 
               const apiResult = await sendWhatsAppViaMetaAPI(
                 notification.recipient,
