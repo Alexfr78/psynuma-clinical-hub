@@ -119,3 +119,6 @@ verify_jwt = true
 
 [functions.public-session-reschedule]
 verify_jwt = false
+
+[functions.generate-assessment-pdf]
+verify_jwt = true

@@ -1,7 +1,8 @@
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
-import { Clock, CheckCircle2, XCircle, AlertCircle, MoreVertical, Send, Copy, Eye, Ban, Trash2 } from 'lucide-react';
+import { Clock, CheckCircle2, XCircle, AlertCircle, MoreVertical, Send, Copy, Eye, Ban, Trash2, Download, Loader2 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -38,6 +39,35 @@ interface AssessmentCardProps {
 export function AssessmentCard({ assessment, onView, onSend, onRevoke, onDelete }: AssessmentCardProps) {
   const navigate = useNavigate();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  const handleDownloadPDF = async () => {
+    setIsDownloading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-assessment-pdf', {
+        body: { assessment_id: assessment.id },
+      });
+
+      if (error) throw error;
+      if (!data?.html) throw new Error('No se pudo generar el PDF');
+
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.write(data.html);
+        printWindow.document.close();
+        printWindow.onload = () => {
+          printWindow.print();
+        };
+      }
+      
+      toast.success('PDF generado correctamente');
+    } catch (err) {
+      console.error('Error generating PDF:', err);
+      toast.error('Error al generar el PDF');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
 
   const getStatusBadge = () => {
     const isExpired = new Date(assessment.expires_at) < new Date() && assessment.status === 'pending';
@@ -126,10 +156,20 @@ export function AssessmentCard({ assessment, onView, onSend, onRevoke, onDelete 
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 {assessment.status === 'completed' && (
-                  <DropdownMenuItem onClick={() => navigate(`/evaluaciones/${assessment.id}/resultados`)}>
-                    <Eye className="h-4 w-4 mr-2" />
-                    Ver resultados
-                  </DropdownMenuItem>
+                  <>
+                    <DropdownMenuItem onClick={() => navigate(`/evaluaciones/${assessment.id}/resultados`)}>
+                      <Eye className="h-4 w-4 mr-2" />
+                      Ver resultados
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleDownloadPDF} disabled={isDownloading}>
+                      {isDownloading ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Download className="h-4 w-4 mr-2" />
+                      )}
+                      Descargar PDF
+                    </DropdownMenuItem>
+                  </>
                 )}
                 {isPending && (
                   <>
