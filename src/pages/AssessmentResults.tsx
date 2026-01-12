@@ -1,7 +1,10 @@
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { ArrowLeft, User, Calendar, FileText, CheckCircle2, AlertTriangle, Loader2, Activity, Sparkles } from 'lucide-react';
+import { ArrowLeft, User, Calendar, FileText, CheckCircle2, AlertTriangle, Loader2, Activity, Sparkles, Download } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -29,6 +32,38 @@ export default function AssessmentResults() {
   const navigate = useNavigate();
   const { data: assessment, isLoading, error } = useAssessmentDetail(assessmentId);
   const { generateInterpretation, isGenerating } = usePAIInterpretation();
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  const handleDownloadPDF = async () => {
+    if (!assessmentId) return;
+    
+    setIsDownloading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-assessment-pdf', {
+        body: { assessment_id: assessmentId },
+      });
+
+      if (error) throw error;
+      if (!data?.html) throw new Error('No se pudo generar el PDF');
+
+      // Open new window with HTML and trigger print
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.write(data.html);
+        printWindow.document.close();
+        printWindow.onload = () => {
+          printWindow.print();
+        };
+      }
+      
+      toast.success('PDF generado correctamente');
+    } catch (err) {
+      console.error('Error generating PDF:', err);
+      toast.error('Error al generar el PDF');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -90,14 +125,31 @@ export default function AssessmentResults() {
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-6xl mx-auto">
       {/* Header con navegación */}
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => navigate('/evaluaciones')}>
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <div>
-          <h1 className="text-2xl font-bold">Resultados de Evaluación</h1>
-          <p className="text-muted-foreground">{template.name}</p>
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="icon" onClick={() => navigate('/evaluaciones')}>
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold">Resultados de Evaluación</h1>
+            <p className="text-muted-foreground">{template.name}</p>
+          </div>
         </div>
+        {status === 'completed' && (
+          <Button 
+            onClick={handleDownloadPDF} 
+            disabled={isDownloading}
+            variant="outline"
+            className="gap-2"
+          >
+            {isDownloading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="h-4 w-4" />
+            )}
+            <span className="hidden sm:inline">Descargar PDF</span>
+          </Button>
+        )}
       </div>
 
       {/* Cards de resumen superior */}
