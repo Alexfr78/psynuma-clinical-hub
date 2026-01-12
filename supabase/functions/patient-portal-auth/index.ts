@@ -15,7 +15,18 @@ const resendApiKey = Deno.env.get("RESEND_API_KEY");
 const TOKEN_SECRET = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const TOKEN_EXPIRY_MS = 60 * 60 * 1000; // 1 hour
 
-// HMAC-SHA256 signing for secure tokens
+// Generate a fingerprint hash from user-agent to bind tokens to a specific browser
+// This reduces the impact of token theft as the attacker would need the same browser
+async function generateFingerprint(userAgent: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(userAgent);
+  const hash = await crypto.subtle.digest("SHA-256", data);
+  const hashArray = Array.from(new Uint8Array(hash));
+  // Use first 16 chars of hex for reasonable uniqueness without bloating token
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 16);
+}
+
+// HMAC-SHA256 signing for secure tokens with fingerprint binding
 async function signToken(payload: object): Promise<string> {
   const encoder = new TextEncoder();
   const data = JSON.stringify(payload);
@@ -35,7 +46,14 @@ async function signToken(payload: object): Promise<string> {
   return `${btoa(data)}.${signatureB64}`;
 }
 
-async function verifyToken(token: string): Promise<{ valid: boolean; payload?: { patient_id: string; center_id: string; exp: number } }> {
+interface TokenPayload {
+  patient_id: string;
+  center_id: string;
+  exp: number;
+  fp?: string; // fingerprint for token binding
+}
+
+async function verifyToken(token: string, expectedFingerprint?: string): Promise<{ valid: boolean; payload?: TokenPayload }> {
   try {
     const [payloadB64, signatureB64] = token.split(".");
     if (!payloadB64 || !signatureB64) {
@@ -60,10 +78,17 @@ async function verifyToken(token: string): Promise<{ valid: boolean; payload?: {
       return { valid: false };
     }
     
-    const payload = JSON.parse(data);
+    const payload = JSON.parse(data) as TokenPayload;
     
     // Check expiration
     if (payload.exp < Date.now()) {
+      return { valid: false };
+    }
+    
+    // Verify fingerprint if present in token and expected fingerprint provided
+    // This binds the token to the original browser/device
+    if (payload.fp && expectedFingerprint && payload.fp !== expectedFingerprint) {
+      console.warn("Token fingerprint mismatch - possible token theft attempt");
       return { valid: false };
     }
     
@@ -299,11 +324,16 @@ serve(async (req) => {
           .eq("id", magicLink.id);
       }
 
-      // Generate cryptographically signed session token
+      // Generate fingerprint from user-agent to bind token to browser
+      const userAgent = req.headers.get("user-agent") || "";
+      const fingerprint = await generateFingerprint(userAgent);
+
+      // Generate cryptographically signed session token with fingerprint binding
       const sessionToken = await signToken({
         patient_id: magicLink.patient_id,
         center_id: magicLink.center_id,
         exp: Date.now() + TOKEN_EXPIRY_MS,
+        fp: fingerprint,
       });
 
       return new Response(
@@ -335,7 +365,12 @@ serve(async (req) => {
         );
       }
 
-      const result = await verifyToken(sessionToken);
+      // Generate fingerprint from current request to verify token binding
+      const userAgent = req.headers.get("user-agent") || "";
+      const currentFingerprint = await generateFingerprint(userAgent);
+
+      // Verify token with fingerprint validation
+      const result = await verifyToken(sessionToken, currentFingerprint);
       
       if (!result.valid || !result.payload) {
         return new Response(
