@@ -10,6 +10,10 @@ const corsHeaders = {
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
+// Use SUPABASE_SERVICE_ROLE_KEY as HMAC secret for signing tokens
+// This is secure because the service key is never exposed to clients
+const TOKEN_SECRET = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
 // ===== Helper functions (reused from patient-portal-sessions) =====
 
 function timeToMinutes(time: string): number {
@@ -128,32 +132,84 @@ function expandEventToDates(
   return dates;
 }
 
-// Booking token functions
-function generateBookingToken(sessionId: string, patientId: string, centerId: string): string {
-  const payload = {
-    session_id: sessionId,
-    patient_id: patientId,
-    center_id: centerId,
-    exp: Date.now() + 30 * 24 * 60 * 60 * 1000 // 30 days
-  };
-  return btoa(JSON.stringify(payload));
+// ===== HMAC-SHA256 Signed Booking Tokens =====
+// Prevents token forgery by cryptographically signing the payload
+
+async function signBookingToken(payload: object): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = JSON.stringify(payload);
+  
+  const key = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(TOKEN_SECRET),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  
+  const signature = await crypto.subtle.sign("HMAC", key, encoder.encode(data));
+  const signatureB64 = btoa(String.fromCharCode(...new Uint8Array(signature)));
+  
+  // Token format: base64(payload).base64(signature)
+  return `${btoa(data)}.${signatureB64}`;
 }
 
-function validateBookingToken(token: string): { valid: boolean; sessionId?: string; patientId?: string; centerId?: string } {
+async function verifyBookingToken(token: string): Promise<{ valid: boolean; sessionId?: string; patientId?: string; centerId?: string }> {
   try {
-    const decoded = JSON.parse(atob(token));
-    if (decoded.exp < Date.now()) {
+    const [payloadB64, signatureB64] = token.split(".");
+    if (!payloadB64 || !signatureB64) {
+      console.log("[verifyBookingToken] Invalid token format - missing parts");
       return { valid: false };
     }
+    
+    const data = atob(payloadB64);
+    const encoder = new TextEncoder();
+    
+    const key = await crypto.subtle.importKey(
+      "raw",
+      encoder.encode(TOKEN_SECRET),
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["verify"]
+    );
+    
+    const signatureBytes = Uint8Array.from(atob(signatureB64), c => c.charCodeAt(0));
+    const isValid = await crypto.subtle.verify("HMAC", key, signatureBytes, encoder.encode(data));
+    
+    if (!isValid) {
+      console.log("[verifyBookingToken] Invalid signature");
+      return { valid: false };
+    }
+    
+    const decoded = JSON.parse(data);
+    
+    // Check expiration
+    if (decoded.exp < Date.now()) {
+      console.log("[verifyBookingToken] Token expired");
+      return { valid: false };
+    }
+    
     return { 
       valid: true, 
       sessionId: decoded.session_id,
       patientId: decoded.patient_id, 
       centerId: decoded.center_id 
     };
-  } catch {
+  } catch (error) {
+    console.error("[verifyBookingToken] Error:", error);
     return { valid: false };
   }
+}
+
+// Wrapper to generate signed booking token
+async function generateBookingToken(sessionId: string, patientId: string, centerId: string): Promise<string> {
+  const payload = {
+    session_id: sessionId,
+    patient_id: patientId,
+    center_id: centerId,
+    exp: Date.now() + 30 * 24 * 60 * 60 * 1000 // 30 days
+  };
+  return signBookingToken(payload);
 }
 
 // Cancellation policy hours mapping
@@ -1167,8 +1223,8 @@ serve(async (req) => {
         professionalId: finalProfessionalId,
       });
 
-      // Generate booking token
-      const bookingToken = generateBookingToken(newSession.id, patientId, center.id);
+      // Generate booking token (async now for HMAC signing)
+      const bookingToken = await generateBookingToken(newSession.id, patientId, center.id);
       const manageUrl = `/book/${centerSlug}/manage?token=${bookingToken}`;
 
       console.log(`[create-booking] success sessionId=${newSession.id} status=${status}`);
@@ -1198,7 +1254,7 @@ serve(async (req) => {
         );
       }
 
-      const tokenData = validateBookingToken(bookingToken);
+      const tokenData = await verifyBookingToken(bookingToken);
       if (!tokenData.valid || !tokenData.sessionId) {
         return new Response(
           JSON.stringify({ error: "Token inválido o expirado" }),
@@ -1252,7 +1308,7 @@ serve(async (req) => {
         );
       }
 
-      const tokenData = validateBookingToken(bookingToken);
+      const tokenData = await verifyBookingToken(bookingToken);
       if (!tokenData.valid || !tokenData.sessionId) {
         return new Response(
           JSON.stringify({ error: "Token inválido o expirado" }),
@@ -1371,7 +1427,7 @@ serve(async (req) => {
         );
       }
 
-      const tokenData = validateBookingToken(bookingToken);
+      const tokenData = await verifyBookingToken(bookingToken);
       if (!tokenData.valid || !tokenData.sessionId) {
         return new Response(
           JSON.stringify({ error: "Token inválido o expirado" }),
