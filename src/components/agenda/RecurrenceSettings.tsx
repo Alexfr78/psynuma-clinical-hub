@@ -113,17 +113,21 @@ export function RecurrenceSettings({
   return (
     <div className="space-y-4">
       {/* Enable Toggle */}
-      <div className="flex items-center justify-between">
+      <div 
+        className="flex items-center justify-between p-3 rounded-lg border bg-muted/50 hover:bg-muted transition-colors cursor-pointer"
+        onClick={() => onEnabledChange(!enabled)}
+      >
         <div className="flex items-center gap-2">
-          <RefreshCw className="h-4 w-4 text-muted-foreground" />
-          <Label htmlFor="recurrence-toggle" className="font-medium">
-            Repetir
+          <RefreshCw className={cn("h-4 w-4", enabled ? "text-primary" : "text-muted-foreground")} />
+          <Label htmlFor="recurrence-toggle" className="font-medium cursor-pointer">
+            {enabled ? 'Esta cita se repite' : 'No se repite'}
           </Label>
         </div>
         <Switch
           id="recurrence-toggle"
           checked={enabled}
           onCheckedChange={onEnabledChange}
+          onClick={(e) => e.stopPropagation()}
         />
       </div>
 
