@@ -100,32 +100,51 @@ export function useUpdateSession() {
 
       // If price changed, update the associated debt amount
       if (updates.price !== undefined) {
-        const { data: debt } = await supabase
+        const { data: debt, error: debtError } = await supabase
           .from('debts')
           .select('id, paid_amount, status')
           .eq('session_id', id)
           .maybeSingle();
 
-        if (debt) {
-          const newAmount = updates.price;
-          const paidAmount = debt.paid_amount || 0;
-          // Determine new status based on payment
-          let newStatus = debt.status;
-          if (paidAmount >= newAmount) {
-            newStatus = 'paid';
-          } else if (paidAmount > 0) {
-            newStatus = 'partial';
-          } else {
-            newStatus = 'pending';
-          }
+        if (debtError) {
+          console.error('Error fetching debt for session:', debtError);
+        }
 
-          await supabase
-            .from('debts')
-            .update({ 
-              amount: newAmount,
-              status: newStatus 
-            })
-            .eq('id', debt.id);
+        if (debt) {
+          const newAmount = Number(updates.price);
+          const paidAmount = Number(debt.paid_amount) || 0;
+          
+          // If the new amount is 0 and no payments have been made, delete the debt
+          if (newAmount === 0 && paidAmount === 0) {
+            const { error: deleteError } = await supabase
+              .from('debts')
+              .delete()
+              .eq('id', debt.id);
+            
+            if (deleteError) {
+              console.error('Error deleting zero-amount debt:', deleteError);
+            }
+          } else {
+            // Determine new status based on payment
+            let newStatus: 'pending' | 'partial' | 'paid' = 'pending';
+            if (newAmount > 0 && paidAmount >= newAmount) {
+              newStatus = 'paid';
+            } else if (paidAmount > 0) {
+              newStatus = 'partial';
+            }
+
+            const { error: updateError } = await supabase
+              .from('debts')
+              .update({ 
+                amount: newAmount,
+                status: newStatus 
+              })
+              .eq('id', debt.id);
+
+            if (updateError) {
+              console.error('Error updating debt:', updateError);
+            }
+          }
         }
 
         // Also update billable_events if exists
