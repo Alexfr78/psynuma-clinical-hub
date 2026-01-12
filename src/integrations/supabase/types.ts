@@ -1725,6 +1725,7 @@ export type Database = {
           sync_token: string | null
           updated_at: string | null
           watch_channel_id: string | null
+          watch_channel_token: string | null
           watch_expires_at: string | null
           watch_resource_id: string | null
         }
@@ -1747,6 +1748,7 @@ export type Database = {
           sync_token?: string | null
           updated_at?: string | null
           watch_channel_id?: string | null
+          watch_channel_token?: string | null
           watch_expires_at?: string | null
           watch_resource_id?: string | null
         }
@@ -1769,6 +1771,7 @@ export type Database = {
           sync_token?: string | null
           updated_at?: string | null
           watch_channel_id?: string | null
+          watch_channel_token?: string | null
           watch_expires_at?: string | null
           watch_resource_id?: string | null
         }
