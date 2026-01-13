@@ -260,6 +260,7 @@ function generateAssessmentHTML(params: GenerateHTMLParams): string {
   const isSCL90 = templateCode === 'SCL90_V1';
   const isPAI = templateCode === 'PAI_V1';
   const isMMPI2RF = templateCode === 'MMPI2RF';
+  const isBDI2 = templateCode === 'BDI2';
   const flagThreshold = template.flag_threshold || 4;
   const factorOrder = getFactorOrder(templateCode);
 
@@ -339,7 +340,49 @@ function generateAssessmentHTML(params: GenerateHTMLParams): string {
     }
   }
 
-  // Generate interpretation section
+  // Generate BDI-II specific section
+  let bdi2HTML = '';
+  if (isBDI2 && factorScores['TOTAL'] !== undefined) {
+    const totalScore = factorScores['TOTAL'];
+    const cogAffect = factorScores['COG_AFECT'] ?? 0;
+    const somVeg = factorScores['SOM_VEG'] ?? 0;
+    const item9 = factorScores['ITEM9'] ?? 0;
+    const suicideAlert = item9 >= 2;
+
+    const BDI2_CUTOFFS = [
+      { min: 0, max: 13, level: 'Mínima', color: '#16a34a' },
+      { min: 14, max: 19, level: 'Leve', color: '#d97706' },
+      { min: 20, max: 28, level: 'Moderada', color: '#ea580c' },
+      { min: 29, max: 63, level: 'Grave', color: '#dc2626' },
+    ];
+    const levelInfo = BDI2_CUTOFFS.find(c => totalScore >= c.min && totalScore <= c.max) || BDI2_CUTOFFS[0];
+
+    bdi2HTML = `
+      <div class="section">
+        <h3>Resultado BDI-II</h3>
+        ${suicideAlert ? `
+          <div style="background: #fef2f2; border: 2px solid #dc2626; border-radius: 8px; padding: 12px; margin-bottom: 16px;">
+            <p style="color: #dc2626; font-weight: bold; margin-bottom: 6px;">⚠️ ALERTA DE RIESGO SUICIDA</p>
+            <p style="font-size: 10px; color: #7f1d1d;">El paciente ha indicado ideación suicida significativa (Ítem 9 = ${item9}). Realizar valoración inmediata de riesgo suicida.</p>
+          </div>
+        ` : ''}
+        <div class="global-indices" style="grid-template-columns: repeat(2, 1fr);">
+          <div class="global-index" style="border-left: 4px solid ${levelInfo.color};">
+            <div class="index-value" style="color: ${levelInfo.color};">${totalScore}</div>
+            <div class="index-label">Puntuación Total</div>
+            <div class="index-desc">Depresión ${levelInfo.level}</div>
+          </div>
+          <div class="global-index">
+            <div style="display: flex; justify-content: space-around;">
+              <div><div class="index-value" style="font-size: 18px;">${cogAffect}</div><div class="index-desc">Cognitivo-Afectivo</div></div>
+              <div><div class="index-value" style="font-size: 18px;">${somVeg}</div><div class="index-desc">Somático-Vegetativo</div></div>
+            </div>
+          </div>
+        </div>
+        <p class="note" style="margin-top: 12px;">Puntos de corte: 0-13 Mínima, 14-19 Leve, 20-28 Moderada, 29-63 Grave</p>
+      </div>
+    `;
+  }
   let interpretationHTML = '';
   
   // For PAI with stored AI interpretation
@@ -587,6 +630,7 @@ function generateAssessmentHTML(params: GenerateHTMLParams): string {
     </div>
 
     ${globalIndicesHTML}
+    ${bdi2HTML}
     ${factorScoresHTML}
     ${mmpi2rfSummaryHTML}
     ${interpretationHTML}

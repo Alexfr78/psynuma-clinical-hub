@@ -136,6 +136,7 @@ serve(async (req) => {
     const flagThreshold = template.flag_threshold ?? 4;
     const isSCL90 = template.code === 'SCL90_V1';
     const isPAI = template.code === 'PAI_V1';
+    const isBDI2 = template.code === 'BDI2';
 
     console.log(
       `Processing ${template.code} assessment with response range ${responseMin}-${responseMax} (items=${items.length}, scales=${Object.keys(scoring).length})`
@@ -175,6 +176,64 @@ serve(async (req) => {
     // Calculate factor scores
     const factorScores: Record<string, number> = {};
     const flags: Record<string, boolean> = {};
+
+    // ===== BDI-II SCORING =====
+    // BDI-II uses a simple sum of all 21 items (0-3 each)
+    // Total score range: 0-63
+    if (isBDI2) {
+      let totalSum = 0;
+      let cogAffectSum = 0; // Items 1-14
+      let somVegSum = 0; // Items 15-21
+
+      for (const item of items) {
+        const raw = (answers as any)[item.index];
+        const value = typeof raw === 'number' ? raw : parseInt(raw, 10);
+
+        if (!isNaN(value)) {
+          totalSum += value;
+
+          // Cognitivo-Afectivo: Items 1-14
+          if (item.index >= 1 && item.index <= 14) {
+            cogAffectSum += value;
+          }
+          // Somático-Vegetativo: Items 15-21
+          else if (item.index >= 15 && item.index <= 21) {
+            somVegSum += value;
+          }
+        }
+      }
+
+      factorScores['TOTAL'] = totalSum;
+      factorScores['COG_AFECT'] = cogAffectSum;
+      factorScores['SOM_VEG'] = somVegSum;
+
+      // Flags based on cutoffs
+      if (totalSum >= 29) {
+        flags['TOTAL_grave'] = true;
+      } else if (totalSum >= 20) {
+        flags['TOTAL_moderada'] = true;
+      } else if (totalSum >= 14) {
+        flags['TOTAL_leve'] = true;
+      }
+
+      // Special flag for item 9 (suicide ideation)
+      const item9Value = (answers as any)[9];
+      const item9Score = typeof item9Value === 'number' ? item9Value : parseInt(item9Value, 10);
+      if (!isNaN(item9Score) && item9Score >= 2) {
+        flags['SUICIDIO_alerta'] = true;
+        flags['ITEM9_score'] = true; // Store as flag for reference
+      }
+      // Store item 9 score in factor scores for easy access
+      factorScores['ITEM9'] = item9Score;
+
+      console.log('BDI-II scores:', {
+        TOTAL: factorScores['TOTAL'],
+        COG_AFECT: factorScores['COG_AFECT'],
+        SOM_VEG: factorScores['SOM_VEG'],
+        ITEM9: factorScores['ITEM9'],
+        flags,
+      });
+    }
 
     // For PAI, we calculate raw scores and convert to T-scores
     // For other tests, we use mean scores

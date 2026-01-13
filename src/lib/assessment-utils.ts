@@ -2,6 +2,24 @@
 export const THRESHOLD_HIGH = 4.00;
 export const THRESHOLD_MODERATE = 3.00;
 
+// ===== BDI-II SPECIFIC =====
+export const BDI2_CUTOFFS = [
+  { min: 0, max: 13, level: 'minima', label: 'Depresión Mínima', color: 'green' },
+  { min: 14, max: 19, level: 'leve', label: 'Depresión Leve', color: 'yellow' },
+  { min: 20, max: 28, level: 'moderada', label: 'Depresión Moderada', color: 'orange' },
+  { min: 29, max: 63, level: 'grave', label: 'Depresión Grave', color: 'red' },
+];
+
+export const BDI2_FACTOR_LABELS: Record<string, { label: string; description: string }> = {
+  TOTAL: { label: 'Puntuación Total', description: 'Índice global de severidad depresiva (0-63)' },
+  COG_AFECT: { label: 'Cognitivo-Afectivo', description: 'Síntomas cognitivos y afectivos (ítems 1-14)' },
+  SOM_VEG: { label: 'Somático-Vegetativo', description: 'Síntomas somáticos y vegetativos (ítems 15-21)' },
+};
+
+export function getBDI2Level(totalScore: number): { level: string; label: string; color: string } {
+  return BDI2_CUTOFFS.find(c => totalScore >= c.min && totalScore <= c.max) || BDI2_CUTOFFS[0];
+}
+
 // Mapeo de factores a labels completos - SELFCARE
 export const FACTOR_LABELS: Record<string, { label: string; description: string }> = {
   // SELFCARE factors
