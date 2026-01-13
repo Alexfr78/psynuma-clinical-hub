@@ -122,3 +122,6 @@ verify_jwt = false
 
 [functions.generate-assessment-pdf]
 verify_jwt = true
+
+[functions.analyze-des-examples]
+verify_jwt = false
