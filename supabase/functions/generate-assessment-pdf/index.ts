@@ -262,6 +262,7 @@ function generateAssessmentHTML(params: GenerateHTMLParams): string {
   const isMMPI2RF = templateCode === 'MMPI2RF';
   const isBDI2 = templateCode === 'BDI2';
   const isDCI = templateCode === 'DCI';
+  const isDES = templateCode === 'DES';
   const flagThreshold = template.flag_threshold || 4;
   const factorOrder = getFactorOrder(templateCode);
 
@@ -443,6 +444,56 @@ function generateAssessmentHTML(params: GenerateHTMLParams): string {
           ` : ''}
         </div>
         <p class="note" style="margin-top: 12px;">Puntos de corte basados en la adaptación española (Perona-Garcerán et al., 2021)</p>
+      </div>
+    `;
+  }
+
+  // Generate DES specific section
+  let desHTML = '';
+  if (isDES && factorScores['TOTAL'] !== undefined) {
+    const totalScore = factorScores['TOTAL'] ?? 0;
+    const amnesiaScore = factorScores['DES_A'] ?? 0;
+    const depersonScore = factorScores['DES_D'] ?? 0;
+    const absorptionScore = factorScores['DES_I'] ?? 0;
+    const taxonScore = factorScores['DES_T'] ?? 0;
+
+    const isClinical = totalScore >= 30;
+    const isElevated = totalScore >= 20 && totalScore < 30;
+    const isTaxonPositive = taxonScore >= 20;
+
+    const levelColor = isClinical ? '#dc2626' : isElevated ? '#d97706' : '#16a34a';
+    const levelLabel = isClinical ? 'Clínico (≥30)' : isElevated ? 'Elevado (≥20)' : 'Normal (<20)';
+
+    desHTML = `
+      <div class="section">
+        <h3>Resultado DES - Escala de Experiencias Disociativas</h3>
+        ${isTaxonPositive ? `
+          <div style="background: #fef2f2; border: 2px solid #dc2626; border-radius: 8px; padding: 12px; margin-bottom: 16px;">
+            <p style="color: #dc2626; font-weight: bold; margin-bottom: 6px;">⚠️ TAXÓN DISOCIATIVO POSITIVO</p>
+            <p style="font-size: 10px; color: #7f1d1d;">DES-T ≥ 20 sugiere experiencias disociativas de tipo patológico. Se recomienda evaluación clínica más exhaustiva.</p>
+          </div>
+        ` : ''}
+        <div class="global-indices" style="grid-template-columns: 1fr 1fr;">
+          <div class="global-index" style="border-left: 4px solid ${levelColor};">
+            <div class="index-value" style="color: ${levelColor};">${totalScore.toFixed(1)}%</div>
+            <div class="index-label">Puntuación Total</div>
+            <div class="index-desc">${levelLabel}</div>
+          </div>
+          <div class="global-index" style="border-left: 4px solid ${isTaxonPositive ? '#dc2626' : '#16a34a'};">
+            <div class="index-value" style="color: ${isTaxonPositive ? '#dc2626' : '#16a34a'};">${taxonScore.toFixed(1)}%</div>
+            <div class="index-label">Taxón Disociativo</div>
+            <div class="index-desc">${isTaxonPositive ? 'Positivo (≥20)' : 'Negativo (<20)'}</div>
+          </div>
+        </div>
+        <div style="margin-top: 16px;">
+          <h4 style="font-size: 12px; margin-bottom: 8px;">Subescalas</h4>
+          <table style="width: 100%; font-size: 11px;">
+            <tr><td>Amnesia Disociativa (DES-A)</td><td style="text-align: right; font-weight: bold;">${amnesiaScore.toFixed(1)}%</td></tr>
+            <tr><td>Despersonalización/Desrealización (DES-D)</td><td style="text-align: right; font-weight: bold;">${depersonScore.toFixed(1)}%</td></tr>
+            <tr><td>Absorción/Imaginación (DES-I)</td><td style="text-align: right; font-weight: bold;">${absorptionScore.toFixed(1)}%</td></tr>
+          </table>
+        </div>
+        <p class="note" style="margin-top: 12px;">Puntos de corte: ≥30 Clínico, ≥20 Elevado. DES-T ≥20 indica taxón disociativo (Carlson & Putnam, 1993; Waller et al., 1996).</p>
       </div>
     `;
   }
@@ -696,6 +747,7 @@ function generateAssessmentHTML(params: GenerateHTMLParams): string {
     ${globalIndicesHTML}
     ${bdi2HTML}
     ${dciHTML}
+    ${desHTML}
     ${factorScoresHTML}
     ${mmpi2rfSummaryHTML}
     ${interpretationHTML}

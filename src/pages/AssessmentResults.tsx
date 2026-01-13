@@ -16,6 +16,7 @@ import { PAIInterpretationPanel } from '@/components/assessments/PAIInterpretati
 import { MMPI2RFResultsView } from '@/components/assessments/MMPI2RFResultsView';
 import { BDI2ResultsView } from '@/components/assessments/BDI2ResultsView';
 import { DCIResultsView } from '@/components/assessments/DCIResultsView';
+import { DESResultsView } from '@/components/assessments/DESResultsView';
 import { MMPI2RFInterpretation } from '@/hooks/useMMPI2RFInterpretation';
 import { usePAIInterpretation, PAIInterpretation } from '@/hooks/usePAIInterpretation';
 import {
@@ -102,6 +103,7 @@ export default function AssessmentResults() {
   const isMMPI2RF = templateCode === 'MMPI2RF';
   const isBDI2 = templateCode === 'BDI2';
   const isDCI = templateCode === 'DCI';
+  const isDES = templateCode === 'DES';
   const flagThreshold = template.flag_threshold;
   const chartFullMark = template.chart_full_mark;
   
@@ -300,6 +302,49 @@ export default function AssessmentResults() {
                           </span>
                           <Badge variant="outline" className="shrink-0 font-mono">
                             {answer !== undefined ? answer : '—'}
+                          </Badge>
+                        </div>
+                      );
+                    })}
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+        </>
+      ) : isDES && hasResults ? (
+        /* DES: Use specialized view */
+        <>
+          <DESResultsView
+            totalScore={factorScores['TOTAL'] ?? 0}
+            amnesiaScore={factorScores['DES_A'] ?? 0}
+            depersonScore={factorScores['DES_D'] ?? 0}
+            absorptionScore={factorScores['DES_I'] ?? 0}
+            taxonScore={factorScores['DES_T'] ?? 0}
+            flags={response?.flags}
+          />
+          {/* Detailed answers accordion */}
+          <Accordion type="single" collapsible>
+            <AccordionItem value="answers">
+              <AccordionTrigger className="text-lg font-semibold">
+                Ver respuestas detalladas ({Object.keys(answers).length} ítems)
+              </AccordionTrigger>
+              <AccordionContent>
+                <div className="grid gap-2 pt-2">
+                  {template.items
+                    .sort((a, b) => a.index - b.index)
+                    .map(item => {
+                      const answer = answers[item.index.toString()];
+                      return (
+                        <div 
+                          key={item.index} 
+                          className="flex justify-between items-start py-2 border-b last:border-b-0 gap-4"
+                        >
+                          <span className="text-sm flex-1">
+                            <span className="font-medium mr-2">{item.index}.</span>
+                            {item.text}
+                          </span>
+                          <Badge variant="outline" className="shrink-0 font-mono">
+                            {answer !== undefined ? `${answer}%` : '—'}
                           </Badge>
                         </div>
                       );

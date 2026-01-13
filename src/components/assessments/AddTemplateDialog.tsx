@@ -8,6 +8,7 @@ import { useAssessmentTemplates } from '@/hooks/useAssessmentTemplates';
 import { getPAITemplateData } from '@/data/pai-template';
 import { getBDI2TemplateData } from '@/data/bdi2-template';
 import { getDCITemplateData } from '@/data/dci-template';
+import { getDESTemplateData } from '@/data/des-template';
 import { toast } from 'sonner';
 
 interface AddTemplateDialogProps {
@@ -31,6 +32,14 @@ const PREDEFINED_TEMPLATES = [
     items: 22,
     time: '5-10 min',
     getData: getDCITemplateData,
+  },
+  {
+    id: 'DES',
+    name: 'DES - Escala de Experiencias Disociativas',
+    description: 'Evaluación de experiencias disociativas: amnesia, despersonalización, absorción y taxón disociativo.',
+    items: 28,
+    time: '10-15 min',
+    getData: getDESTemplateData,
   },
   {
     id: 'PAI_V1',
