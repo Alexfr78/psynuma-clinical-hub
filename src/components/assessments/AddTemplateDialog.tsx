@@ -7,6 +7,7 @@ import { ClipboardCheck, Plus, Loader2, Check } from 'lucide-react';
 import { useAssessmentTemplates } from '@/hooks/useAssessmentTemplates';
 import { getPAITemplateData } from '@/data/pai-template';
 import { getBDI2TemplateData } from '@/data/bdi2-template';
+import { getDCITemplateData } from '@/data/dci-template';
 import { toast } from 'sonner';
 
 interface AddTemplateDialogProps {
@@ -22,6 +23,14 @@ const PREDEFINED_TEMPLATES = [
     items: 21,
     time: '5-10 min',
     getData: getBDI2TemplateData,
+  },
+  {
+    id: 'DCI',
+    name: 'DCI - Inventario de Distanciamiento y Compartimentación',
+    description: 'Evaluación de experiencias disociativas: distanciamiento del presente y compartimentación del self.',
+    items: 22,
+    time: '5-10 min',
+    getData: getDCITemplateData,
   },
   {
     id: 'PAI_V1',

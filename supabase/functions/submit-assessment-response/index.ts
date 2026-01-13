@@ -137,6 +137,7 @@ serve(async (req) => {
     const isSCL90 = template.code === 'SCL90_V1';
     const isPAI = template.code === 'PAI_V1';
     const isBDI2 = template.code === 'BDI2';
+    const isDCI = template.code === 'DCI';
 
     console.log(
       `Processing ${template.code} assessment with response range ${responseMin}-${responseMax} (items=${items.length}, scales=${Object.keys(scoring).length})`
@@ -235,7 +236,55 @@ serve(async (req) => {
       });
     }
 
-    // For PAI, we calculate raw scores and convert to T-scores
+    // ===== DCI SCORING =====
+    // DCI uses sum of items for each scale
+    // Distanciamiento (DET): Items 1, 2, 3, 4, 7, 11, 12, 18, 19, 22
+    // Compartimentación (COM): Items 5, 6, 9, 10, 13, 14, 16, 17, 20, 21
+    // Validez (VAL): Items 8, 15
+    if (isDCI) {
+      const detItems = [1, 2, 3, 4, 7, 11, 12, 18, 19, 22];
+      const comItems = [5, 6, 9, 10, 13, 14, 16, 17, 20, 21];
+      const valItems = [8, 15];
+
+      let detSum = 0;
+      let comSum = 0;
+      let valSum = 0;
+
+      for (const item of items) {
+        const raw = (answers as any)[item.index];
+        const value = typeof raw === 'number' ? raw : parseInt(raw, 10);
+
+        if (!isNaN(value)) {
+          if (detItems.includes(item.index)) detSum += value;
+          if (comItems.includes(item.index)) comSum += value;
+          if (valItems.includes(item.index)) valSum += value;
+        }
+      }
+
+      factorScores['DET'] = detSum;
+      factorScores['COM'] = comSum;
+      factorScores['VAL'] = valSum;
+
+      // Flags based on cutoffs (17.50 for DET, 9.50 for COM)
+      if (detSum >= 18) {
+        flags['DET_high'] = true;
+      }
+      if (comSum >= 10) {
+        flags['COM_high'] = true;
+      }
+      // High validity score may indicate acquiescent responding
+      if (valSum >= 10) {
+        flags['VAL_warning'] = true;
+      }
+
+      console.log('DCI scores:', {
+        DET: factorScores['DET'],
+        COM: factorScores['COM'],
+        VAL: factorScores['VAL'],
+        flags,
+      });
+    }
+
     // For other tests, we use mean scores
     for (const [factorCode, factorValue] of Object.entries(scoring)) {
       const factorItems = (factorValue as any)?.items;

@@ -15,6 +15,7 @@ import { AssessmentResultsChart } from '@/components/assessments/AssessmentResul
 import { PAIInterpretationPanel } from '@/components/assessments/PAIInterpretationPanel';
 import { MMPI2RFResultsView } from '@/components/assessments/MMPI2RFResultsView';
 import { BDI2ResultsView } from '@/components/assessments/BDI2ResultsView';
+import { DCIResultsView } from '@/components/assessments/DCIResultsView';
 import { MMPI2RFInterpretation } from '@/hooks/useMMPI2RFInterpretation';
 import { usePAIInterpretation, PAIInterpretation } from '@/hooks/usePAIInterpretation';
 import {
@@ -100,6 +101,7 @@ export default function AssessmentResults() {
   const isPAI = templateCode === 'PAI_V1';
   const isMMPI2RF = templateCode === 'MMPI2RF';
   const isBDI2 = templateCode === 'BDI2';
+  const isDCI = templateCode === 'DCI';
   const flagThreshold = template.flag_threshold;
   const chartFullMark = template.chart_full_mark;
   
@@ -224,6 +226,13 @@ export default function AssessmentResults() {
           somVegScore={factorScores['SOM_VEG']}
           suicideAlert={response?.flags?.['SUICIDIO_alerta']}
           item9Score={factorScores['ITEM9']}
+        />
+      ) : isDCI && hasResults ? (
+        /* DCI: Use specialized view */
+        <DCIResultsView
+          detScore={factorScores['DET'] ?? 0}
+          comScore={factorScores['COM'] ?? 0}
+          valScore={factorScores['VAL'] ?? 0}
         />
       ) : !hasResults ? (
         <Card>
