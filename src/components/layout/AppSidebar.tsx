@@ -35,7 +35,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { useState, useEffect } from 'react';
-import { useIsMobile } from '@/hooks/use-mobile';
+
 
 const mainNavItems = [
   { title: 'Dashboard', url: '/dashboard', icon: LayoutDashboard },
@@ -63,8 +63,7 @@ export function AppSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const { signOut, profile, isAdmin } = useAuth();
-  const { setOpenMobile } = useSidebar();
-  const isMobile = useIsMobile();
+  const { setOpenMobile, isMobile } = useSidebar();
   const [isDark, setIsDark] = useState(false);
 
   useEffect(() => {
