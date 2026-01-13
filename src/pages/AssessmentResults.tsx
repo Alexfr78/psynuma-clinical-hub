@@ -14,6 +14,7 @@ import { useAssessmentDetail } from '@/hooks/useAssessmentDetail';
 import { AssessmentResultsChart } from '@/components/assessments/AssessmentResultsChart';
 import { PAIInterpretationPanel } from '@/components/assessments/PAIInterpretationPanel';
 import { MMPI2RFResultsView } from '@/components/assessments/MMPI2RFResultsView';
+import { BDI2ResultsView } from '@/components/assessments/BDI2ResultsView';
 import { MMPI2RFInterpretation } from '@/hooks/useMMPI2RFInterpretation';
 import { usePAIInterpretation, PAIInterpretation } from '@/hooks/usePAIInterpretation';
 import {
@@ -98,6 +99,7 @@ export default function AssessmentResults() {
   const isSCL90 = templateCode === 'SCL90_V1';
   const isPAI = templateCode === 'PAI_V1';
   const isMMPI2RF = templateCode === 'MMPI2RF';
+  const isBDI2 = templateCode === 'BDI2';
   const flagThreshold = template.flag_threshold;
   const chartFullMark = template.chart_full_mark;
   
@@ -213,6 +215,15 @@ export default function AssessmentResults() {
             ? new Date().getFullYear() - new Date(patient.date_of_birth).getFullYear() 
             : undefined}
           patientGender={patient.gender || undefined}
+        />
+      ) : isBDI2 && hasResults ? (
+        /* BDI-II: Use specialized view */
+        <BDI2ResultsView
+          totalScore={factorScores['TOTAL'] ?? 0}
+          cogAffectScore={factorScores['COG_AFECT']}
+          somVegScore={factorScores['SOM_VEG']}
+          suicideAlert={response?.flags?.['SUICIDIO_alerta']}
+          item9Score={factorScores['ITEM9']}
         />
       ) : !hasResults ? (
         <Card>

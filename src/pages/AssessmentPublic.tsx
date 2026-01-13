@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { usePublicAssessment } from '@/hooks/usePublicAssessment';
 import { LikertScale } from '@/components/assessments/LikertScale';
 import { TrueFalseButtons } from '@/components/assessments/TrueFalseButtons';
+import { BDI2ItemRenderer } from '@/components/assessments/BDI2ItemRenderer';
 import { AssessmentProgress } from '@/components/assessments/AssessmentProgress';
 
 export default function AssessmentPublic() {
@@ -95,6 +96,8 @@ export default function AssessmentPublic() {
   const maxLabel = template?.max_label ?? 'Totalmente de acuerdo';
   // Detect if this is a True/False assessment (response_max = 1)
   const isTrueFalse = responseMax === 1 && responseMin === 0;
+  // Detect if this is a BDI-II assessment
+  const isBDI2 = template?.code === 'BDI2';
 
   const handleSubmit = async () => {
     if (!isComplete) return;
@@ -121,28 +124,43 @@ export default function AssessmentPublic() {
           {items.map((item, idx) => (
             <Card key={item.index} className={answers[item.index] !== undefined ? 'border-primary/30' : ''}>
               <CardContent className="pt-6">
-                <p className="font-medium mb-4">
-                  <span className="text-muted-foreground mr-2">{idx + 1}.</span>
-                  {item.text}
-                </p>
-                {isTrueFalse ? (
-                  <TrueFalseButtons
+                {isBDI2 ? (
+                  <BDI2ItemRenderer
+                    item={{
+                      index: item.index,
+                      label: item.label || item.text,
+                      options: item.options || [],
+                    }}
                     value={answers[item.index]}
                     onChange={(value) => setAnswers(prev => ({ ...prev, [item.index]: value }))}
                     disabled={submitResponses.isPending}
-                    trueLabel={maxLabel}
-                    falseLabel={minLabel}
                   />
                 ) : (
-                  <LikertScale
-                    value={answers[item.index]}
-                    onChange={(value) => setAnswers(prev => ({ ...prev, [item.index]: value }))}
-                    min={responseMin}
-                    max={responseMax}
-                    minLabel={minLabel}
-                    maxLabel={maxLabel}
-                    disabled={submitResponses.isPending}
-                  />
+                  <>
+                    <p className="font-medium mb-4">
+                      <span className="text-muted-foreground mr-2">{idx + 1}.</span>
+                      {item.text}
+                    </p>
+                    {isTrueFalse ? (
+                      <TrueFalseButtons
+                        value={answers[item.index]}
+                        onChange={(value) => setAnswers(prev => ({ ...prev, [item.index]: value }))}
+                        disabled={submitResponses.isPending}
+                        trueLabel={maxLabel}
+                        falseLabel={minLabel}
+                      />
+                    ) : (
+                      <LikertScale
+                        value={answers[item.index]}
+                        onChange={(value) => setAnswers(prev => ({ ...prev, [item.index]: value }))}
+                        min={responseMin}
+                        max={responseMax}
+                        minLabel={minLabel}
+                        maxLabel={maxLabel}
+                        disabled={submitResponses.isPending}
+                      />
+                    )}
+                  </>
                 )}
               </CardContent>
             </Card>
