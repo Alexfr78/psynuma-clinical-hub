@@ -312,7 +312,7 @@ export default function AssessmentResults() {
           </Accordion>
         </>
       ) : isDES && hasResults ? (
-        /* DES: Use specialized view */
+        /* DES: Use specialized view with AI analysis */
         <>
           <DESResultsView
             totalScore={factorScores['TOTAL'] ?? 0}
@@ -321,6 +321,7 @@ export default function AssessmentResults() {
             absorptionScore={factorScores['DES_I'] ?? 0}
             taxonScore={factorScores['DES_T'] ?? 0}
             flags={response?.flags}
+            aiAnalysis={response?.metadata?.aiAnalysis as any}
           />
           {/* Detailed answers accordion */}
           <Accordion type="single" collapsible>

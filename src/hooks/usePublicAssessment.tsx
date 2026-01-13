@@ -22,6 +22,11 @@ export interface PublicAssessment {
   };
 }
 
+interface SubmitParams {
+  answers: Record<number, number>;
+  examples?: Record<number, string>;
+}
+
 export function usePublicAssessment(token: string | undefined) {
   const queryClient = useQueryClient();
 
@@ -57,11 +62,11 @@ export function usePublicAssessment(token: string | undefined) {
   });
 
   const submitResponses = useMutation({
-    mutationFn: async (answers: Record<number, number>) => {
+    mutationFn: async ({ answers, examples }: SubmitParams) => {
       if (!token) throw new Error('No token');
 
       const { data, error } = await supabase.functions.invoke('submit-assessment-response', {
-        body: { token, answers },
+        body: { token, answers, examples },
       });
 
       if (error) throw error;

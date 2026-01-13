@@ -1,7 +1,26 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { AlertTriangle, CheckCircle2, Activity, Brain } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Activity, Brain, Sparkles, MessageSquareText, Lightbulb } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+
+interface ItemAnalysis {
+  example: string;
+  frequency: number;
+  category: string;
+  categoryLabel: string;
+  interpretation: string;
+  clinicalRelevance: 'high' | 'moderate' | 'low';
+  patterns?: string[];
+  suggestedExploration?: string[];
+}
+
+interface AIAnalysis {
+  itemAnalysis: Record<string, ItemAnalysis>;
+  overallPatterns: string[];
+  clinicalSummary: string;
+  analyzedAt: string;
+}
 
 interface DESResultsViewProps {
   totalScore: number;
@@ -10,6 +29,7 @@ interface DESResultsViewProps {
   absorptionScore: number;
   taxonScore: number;
   flags?: Record<string, boolean> | null;
+  aiAnalysis?: AIAnalysis | null;
 }
 
 const DES_CUTOFFS = {
@@ -18,10 +38,30 @@ const DES_CUTOFFS = {
   taxon: 20,
 };
 
+const CATEGORY_ORDER = ['amnesia', 'depersonalization', 'absorption', 'taxon', 'other'];
+const CATEGORY_LABELS: Record<string, string> = {
+  amnesia: 'Amnesia Disociativa',
+  depersonalization: 'Despersonalización/Desrealización',
+  absorption: 'Absorción/Imaginación',
+  taxon: 'Síntomas Disociativos Patológicos',
+  other: 'Otras Experiencias',
+};
+
 function getLevel(score: number) {
   if (score >= DES_CUTOFFS.clinical) return { label: 'Clínico', color: 'text-destructive', bgColor: 'bg-destructive/10', borderColor: 'border-destructive' };
   if (score >= DES_CUTOFFS.elevated) return { label: 'Elevado', color: 'text-amber-600', bgColor: 'bg-amber-50', borderColor: 'border-amber-500' };
   return { label: 'Normal', color: 'text-green-600', bgColor: 'bg-green-50', borderColor: 'border-green-500' };
+}
+
+function getRelevanceBadge(relevance: string) {
+  switch (relevance) {
+    case 'high':
+      return <Badge variant="destructive" className="text-xs">Alta relevancia</Badge>;
+    case 'moderate':
+      return <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-800">Moderada</Badge>;
+    default:
+      return <Badge variant="outline" className="text-xs">Baja</Badge>;
+  }
 }
 
 export function DESResultsView({
@@ -31,6 +71,7 @@ export function DESResultsView({
   absorptionScore,
   taxonScore,
   flags,
+  aiAnalysis,
 }: DESResultsViewProps) {
   const level = getLevel(totalScore);
   const isClinical = flags?.clinical || totalScore >= DES_CUTOFFS.clinical;
@@ -43,6 +84,20 @@ export function DESResultsView({
     { code: 'DES_I', label: 'Absorción/Imaginación', score: absorptionScore, description: 'Absorción en experiencias internas' },
     { code: 'DES_T', label: 'Taxón Disociativo', score: taxonScore, description: 'Indicador de disociación patológica' },
   ];
+
+  // Group AI analysis by category
+  const analysisByCategory: Record<string, ItemAnalysis[]> = {};
+  if (aiAnalysis?.itemAnalysis) {
+    Object.entries(aiAnalysis.itemAnalysis).forEach(([index, analysis]) => {
+      const category = analysis.category || 'other';
+      if (!analysisByCategory[category]) {
+        analysisByCategory[category] = [];
+      }
+      analysisByCategory[category].push({ ...analysis, index } as any);
+    });
+  }
+
+  const hasAIAnalysis = aiAnalysis && Object.keys(aiAnalysis.itemAnalysis || {}).length > 0;
 
   return (
     <div className="space-y-6">
@@ -136,6 +191,99 @@ export function DESResultsView({
           })}
         </CardContent>
       </Card>
+
+      {/* AI Analysis Section */}
+      {hasAIAnalysis && (
+        <Card className="border-primary/20">
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-primary" />
+              Análisis Profundo de Experiencias
+            </CardTitle>
+            <CardDescription>
+              Análisis clínico de los ejemplos proporcionados por el paciente
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Clinical Summary */}
+            {aiAnalysis.clinicalSummary && (
+              <div className="bg-muted/50 rounded-lg p-4">
+                <p className="text-sm">{aiAnalysis.clinicalSummary}</p>
+              </div>
+            )}
+
+            {/* Overall Patterns */}
+            {aiAnalysis.overallPatterns && aiAnalysis.overallPatterns.length > 0 && (
+              <div className="space-y-2">
+                <h4 className="font-medium flex items-center gap-2">
+                  <Lightbulb className="h-4 w-4 text-amber-500" />
+                  Patrones Identificados
+                </h4>
+                <ul className="space-y-1">
+                  {aiAnalysis.overallPatterns.map((pattern, idx) => (
+                    <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
+                      <span className="text-primary">•</span>
+                      {pattern}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Detailed Analysis by Category */}
+            <Accordion type="multiple" className="w-full">
+              {CATEGORY_ORDER.filter(cat => analysisByCategory[cat]?.length > 0).map(category => (
+                <AccordionItem key={category} value={category}>
+                  <AccordionTrigger className="text-sm">
+                    <span className="flex items-center gap-2">
+                      <MessageSquareText className="h-4 w-4" />
+                      {CATEGORY_LABELS[category] || category}
+                      <Badge variant="outline" className="ml-2">
+                        {analysisByCategory[category].length} ejemplo{analysisByCategory[category].length > 1 ? 's' : ''}
+                      </Badge>
+                    </span>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <div className="space-y-4 pt-2">
+                      {analysisByCategory[category].map((item, idx) => (
+                        <div key={idx} className="border-l-2 border-muted pl-4 space-y-2">
+                          {/* Patient example */}
+                          <div className="bg-muted/30 rounded p-3">
+                            <p className="text-xs text-muted-foreground mb-1">
+                              Frecuencia: {item.frequency}%
+                            </p>
+                            <p className="text-sm italic">"{item.example}"</p>
+                          </div>
+                          
+                          {/* AI interpretation */}
+                          <div className="flex items-start justify-between gap-2">
+                            <p className="text-sm">{item.interpretation}</p>
+                            {getRelevanceBadge(item.clinicalRelevance)}
+                          </div>
+
+                          {/* Suggested exploration */}
+                          {item.suggestedExploration && item.suggestedExploration.length > 0 && (
+                            <div className="text-xs text-muted-foreground">
+                              <span className="font-medium">Explorar:</span>{' '}
+                              {item.suggestedExploration.join(' • ')}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
+
+            <p className="text-xs text-muted-foreground mt-4">
+              Análisis generado el {new Date(aiAnalysis.analyzedAt).toLocaleDateString('es-ES', { 
+                day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' 
+              })}
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Interpretación clínica */}
       <Card>

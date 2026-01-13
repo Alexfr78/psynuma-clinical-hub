@@ -8,15 +8,19 @@ import { LikertScale } from '@/components/assessments/LikertScale';
 import { TrueFalseButtons } from '@/components/assessments/TrueFalseButtons';
 import { BDI2ItemRenderer } from '@/components/assessments/BDI2ItemRenderer';
 import { AssessmentProgress } from '@/components/assessments/AssessmentProgress';
+import { PercentageSlider } from '@/components/assessments/PercentageSlider';
+import { ExampleInput } from '@/components/assessments/ExampleInput';
 
 export default function AssessmentPublic() {
   const { token } = useParams<{ token: string }>();
   const { assessment, isLoading, error, isExpired, isCompleted, isRevoked, canSubmit, submitResponses } = usePublicAssessment(token);
   const [answers, setAnswers] = useState<Record<number, number>>({});
+  const [examples, setExamples] = useState<Record<number, string>>({});
 
   // Reset answers when assessment changes (different token/template)
   useEffect(() => {
     setAnswers({});
+    setExamples({});
   }, [assessment?.id]);
 
   if (isLoading) {
@@ -105,7 +109,11 @@ export default function AssessmentPublic() {
 
   const handleSubmit = async () => {
     if (!isComplete) return;
-    await submitResponses.mutateAsync(answers);
+    // Filter examples to only include non-empty ones
+    const filteredExamples = Object.fromEntries(
+      Object.entries(examples).filter(([_, text]) => text && text.trim().length > 0)
+    );
+    await submitResponses.mutateAsync({ answers, examples: filteredExamples });
   };
 
   return (
@@ -139,6 +147,30 @@ export default function AssessmentPublic() {
                     onChange={(value) => setAnswers(prev => ({ ...prev, [item.index]: value }))}
                     disabled={submitResponses.isPending}
                   />
+                ) : isDES ? (
+                  // DES: Use percentage slider with example input
+                  <>
+                    <p className="font-medium mb-6">
+                      <span className="text-muted-foreground mr-2">{idx + 1}.</span>
+                      {item.text}
+                    </p>
+                    <PercentageSlider
+                      value={answers[item.index]}
+                      onChange={(value) => setAnswers(prev => ({ ...prev, [item.index]: value }))}
+                      disabled={submitResponses.isPending}
+                      minLabel={minLabel}
+                      maxLabel={maxLabel}
+                    />
+                    {/* Show example input when value > 0 */}
+                    {answers[item.index] !== undefined && answers[item.index] > 0 && (
+                      <ExampleInput
+                        value={examples[item.index] || ''}
+                        onChange={(text) => setExamples(prev => ({ ...prev, [item.index]: text }))}
+                        disabled={submitResponses.isPending}
+                        itemIndex={item.index}
+                      />
+                    )}
+                  </>
                 ) : (
                   <>
                     <p className="font-medium mb-4">
@@ -163,7 +195,7 @@ export default function AssessmentPublic() {
                         maxLabel={maxLabel}
                         disabled={submitResponses.isPending}
                         step={responseStep}
-                        showPercentage={isDES}
+                        showPercentage={false}
                       />
                     )}
                   </>

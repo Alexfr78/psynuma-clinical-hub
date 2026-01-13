@@ -33,7 +33,7 @@ serve(async (req) => {
   }
 
   try {
-    const { token, answers } = await req.json();
+    const { token, answers, examples } = await req.json();
 
     if (!token) {
       console.error('No token provided');
@@ -437,6 +437,18 @@ serve(async (req) => {
     // Get user agent for metadata
     const userAgent = req.headers.get('user-agent') || 'unknown';
 
+    // Build metadata with examples if provided (for DES)
+    const responseMetadata: Record<string, any> = { 
+      userAgent, 
+      submittedAt: new Date().toISOString() 
+    };
+    
+    // Store examples in metadata for DES assessments
+    if (isDES && examples && typeof examples === 'object' && Object.keys(examples).length > 0) {
+      responseMetadata.examples = examples;
+      responseMetadata.examplesSubmittedAt = new Date().toISOString();
+    }
+
     // Insert response
     const { error: insertError } = await supabase
       .from('assessment_responses')
@@ -445,7 +457,7 @@ serve(async (req) => {
         answers,
         factor_scores: factorScores,
         flags: Object.keys(flags).length > 0 ? flags : null,
-        metadata: { userAgent, submittedAt: new Date().toISOString() }
+        metadata: responseMetadata
       });
 
     if (insertError) {
@@ -509,6 +521,23 @@ serve(async (req) => {
           professionalId: assessmentDetails.professional_id,
         });
       }
+    }
+
+    // For DES with examples, trigger async AI analysis
+    if (isDES && examples && typeof examples === 'object' && Object.keys(examples).length > 0) {
+      console.log('Triggering DES examples analysis for assessment:', assessment.id);
+      // Fire and forget - don't wait for analysis to complete
+      supabase.functions.invoke('analyze-des-examples', {
+        body: { assessmentId: assessment.id },
+      }).then(({ error }) => {
+        if (error) {
+          console.error('Error invoking analyze-des-examples:', error);
+        } else {
+          console.log('DES analysis triggered successfully');
+        }
+      }).catch(err => {
+        console.error('Failed to invoke analyze-des-examples:', err);
+      });
     }
 
     console.log('Assessment completed successfully:', assessment.id);
