@@ -2,6 +2,20 @@
 export const THRESHOLD_HIGH = 4.00;
 export const THRESHOLD_MODERATE = 3.00;
 
+// ===== DCI SPECIFIC =====
+export const DCI_CUTOFFS = {
+  DET: 17.50, // Distanciamiento: suma >= 18 indica nivel clínico
+  COM: 9.50,  // Compartimentación: suma >= 10 indica nivel clínico
+};
+
+export const DCI_FACTOR_LABELS: Record<string, { label: string; description: string }> = {
+  DET: { label: 'Distanciamiento', description: 'Experiencias de distanciamiento del presente y de la realidad' },
+  COM: { label: 'Compartimentación', description: 'División de partes del self o experiencias fragmentadas' },
+  VAL: { label: 'Validez', description: 'Indicador de aquiescencia o respuesta aleatoria' },
+};
+
+export const DCI_FACTOR_ORDER = ['DET', 'COM'];
+
 // ===== BDI-II SPECIFIC =====
 export const BDI2_CUTOFFS = [
   { min: 0, max: 13, level: 'minima', label: 'Depresión Mínima', color: 'green' },
@@ -260,6 +274,9 @@ export const SCL90_GLOBAL_ORDER = ['GSI', 'PST', 'PSDI'];
 export function getFactorOrder(templateCode: string): string[] {
   if (templateCode === 'SCL90_V1') {
     return SCL90_FACTOR_ORDER;
+  }
+  if (templateCode === 'DCI') {
+    return DCI_FACTOR_ORDER;
   }
   return FACTOR_ORDER;
 }

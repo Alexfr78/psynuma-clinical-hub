@@ -261,6 +261,7 @@ function generateAssessmentHTML(params: GenerateHTMLParams): string {
   const isPAI = templateCode === 'PAI_V1';
   const isMMPI2RF = templateCode === 'MMPI2RF';
   const isBDI2 = templateCode === 'BDI2';
+  const isDCI = templateCode === 'DCI';
   const flagThreshold = template.flag_threshold || 4;
   const factorOrder = getFactorOrder(templateCode);
 
@@ -383,6 +384,69 @@ function generateAssessmentHTML(params: GenerateHTMLParams): string {
       </div>
     `;
   }
+
+  // Generate DCI specific section
+  let dciHTML = '';
+  if (isDCI && factorScores['DET'] !== undefined) {
+    const detScore = factorScores['DET'] ?? 0;
+    const comScore = factorScores['COM'] ?? 0;
+    const valScore = factorScores['VAL'] ?? 0;
+
+    const detClinical = detScore >= 18;
+    const comClinical = comScore >= 10;
+    const valWarning = valScore >= 10;
+
+    const detMax = 70;
+    const comMax = 70;
+
+    dciHTML = `
+      <div class="section">
+        <h3>Resultado DCI</h3>
+        ${valWarning ? `
+          <div style="background: #fefce8; border: 2px solid #d97706; border-radius: 8px; padding: 12px; margin-bottom: 16px;">
+            <p style="color: #d97706; font-weight: bold; margin-bottom: 6px;">⚠️ ADVERTENCIA DE VALIDEZ</p>
+            <p style="font-size: 10px; color: #92400e;">Puntuación de validez elevada (${valScore}/14). Posible patrón de respuesta aquiescente o aleatorio.</p>
+          </div>
+        ` : ''}
+        <div class="global-indices" style="grid-template-columns: repeat(2, 1fr);">
+          <div class="global-index" style="border-left: 4px solid ${detClinical ? '#dc2626' : '#16a34a'};">
+            <div class="index-value" style="color: ${detClinical ? '#dc2626' : '#16a34a'};">${detScore}</div>
+            <div class="index-label">Distanciamiento</div>
+            <div class="index-desc">${detClinical ? 'Nivel clínico (≥18)' : 'Normal (<18)'}</div>
+            <p style="font-size: 9px; color: #666; margin-top: 4px;">Máximo: ${detMax} | Punto de corte: 17.50</p>
+          </div>
+          <div class="global-index" style="border-left: 4px solid ${comClinical ? '#dc2626' : '#16a34a'};">
+            <div class="index-value" style="color: ${comClinical ? '#dc2626' : '#16a34a'};">${comScore}</div>
+            <div class="index-label">Compartimentación</div>
+            <div class="index-desc">${comClinical ? 'Nivel clínico (≥10)' : 'Normal (<10)'}</div>
+            <p style="font-size: 9px; color: #666; margin-top: 4px;">Máximo: ${comMax} | Punto de corte: 9.50</p>
+          </div>
+        </div>
+        <div style="margin-top: 16px; padding: 12px; background: #f8fafc; border-radius: 8px;">
+          ${detClinical ? `
+            <div style="border-left: 3px solid #dc2626; padding-left: 10px; margin-bottom: 12px;">
+              <p style="font-weight: bold; color: #dc2626; margin-bottom: 4px;">Distanciamiento Elevado</p>
+              <p style="font-size: 10px; color: #64748b;">Experiencias significativas de desrealización, despersonalización y desconexión del entorno. Incluye: percepción alterada del tiempo, sensación de irrealidad, estado de observador de uno mismo.</p>
+            </div>
+          ` : ''}
+          ${comClinical ? `
+            <div style="border-left: 3px solid #dc2626; padding-left: 10px; margin-bottom: 12px;">
+              <p style="font-weight: bold; color: #dc2626; margin-bottom: 4px;">Compartimentación Elevada</p>
+              <p style="font-size: 10px; color: #64748b;">Experiencias de fragmentación del self, sensación de partes separadas o conflictivas, emociones que no se perciben como propias, cambios conductuales notables.</p>
+            </div>
+          ` : ''}
+          ${!detClinical && !comClinical ? `
+            <div style="border-left: 3px solid #16a34a; padding-left: 10px;">
+              <p style="font-weight: bold; color: #16a34a; margin-bottom: 4px;">Puntuaciones dentro del rango normal</p>
+              <p style="font-size: 10px; color: #64748b;">No se identifican experiencias disociativas clínicamente significativas a través de este instrumento.</p>
+            </div>
+          ` : ''}
+        </div>
+        <p class="note" style="margin-top: 12px;">Puntos de corte basados en la adaptación española (Perona-Garcerán et al., 2021)</p>
+      </div>
+    `;
+  }
+
   let interpretationHTML = '';
   
   // For PAI with stored AI interpretation
@@ -631,6 +695,7 @@ function generateAssessmentHTML(params: GenerateHTMLParams): string {
 
     ${globalIndicesHTML}
     ${bdi2HTML}
+    ${dciHTML}
     ${factorScoresHTML}
     ${mmpi2rfSummaryHTML}
     ${interpretationHTML}
