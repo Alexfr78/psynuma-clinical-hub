@@ -220,20 +220,95 @@ export default function AssessmentResults() {
         />
       ) : isBDI2 && hasResults ? (
         /* BDI-II: Use specialized view */
-        <BDI2ResultsView
-          totalScore={factorScores['TOTAL'] ?? 0}
-          cogAffectScore={factorScores['COG_AFECT']}
-          somVegScore={factorScores['SOM_VEG']}
-          suicideAlert={response?.flags?.['SUICIDIO_alerta']}
-          item9Score={factorScores['ITEM9']}
-        />
+        <>
+          <BDI2ResultsView
+            totalScore={factorScores['TOTAL'] ?? 0}
+            cogAffectScore={factorScores['COG_AFECT']}
+            somVegScore={factorScores['SOM_VEG']}
+            suicideAlert={response?.flags?.['SUICIDIO_alerta']}
+            item9Score={factorScores['ITEM9']}
+          />
+          {/* Detailed answers accordion */}
+          <Accordion type="single" collapsible>
+            <AccordionItem value="answers">
+              <AccordionTrigger className="text-lg font-semibold">
+                Ver respuestas detalladas ({Object.keys(answers).length} ítems)
+              </AccordionTrigger>
+              <AccordionContent>
+                <div className="grid gap-2 pt-2">
+                  {template.items
+                    .sort((a: { index: number }, b: { index: number }) => a.index - b.index)
+                    .map((item: { index: number; text: string; options?: Array<{ value: number; text: string }> }) => {
+                      const answer = answers[item.index.toString()];
+                      const options = item.options as Array<{ value: number; text: string }> | undefined;
+                      const selectedOption = options?.find(opt => opt.value === answer);
+                      return (
+                        <div 
+                          key={item.index} 
+                          className="flex justify-between items-start py-2 border-b last:border-b-0 gap-4"
+                        >
+                          <span className="text-sm flex-1">
+                            <span className="font-medium mr-2">{item.index}.</span>
+                            {item.text}
+                          </span>
+                          <div className="shrink-0 text-right">
+                            <Badge variant="outline" className="font-mono">
+                              {answer !== undefined ? answer : '—'}
+                            </Badge>
+                            {selectedOption && (
+                              <p className="text-xs text-muted-foreground mt-1 max-w-[200px]">
+                                {selectedOption.text}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+        </>
       ) : isDCI && hasResults ? (
         /* DCI: Use specialized view */
-        <DCIResultsView
-          detScore={factorScores['DET'] ?? 0}
-          comScore={factorScores['COM'] ?? 0}
-          valScore={factorScores['VAL'] ?? 0}
-        />
+        <>
+          <DCIResultsView
+            detScore={factorScores['DET'] ?? 0}
+            comScore={factorScores['COM'] ?? 0}
+            valScore={factorScores['VAL'] ?? 0}
+          />
+          {/* Detailed answers accordion */}
+          <Accordion type="single" collapsible>
+            <AccordionItem value="answers">
+              <AccordionTrigger className="text-lg font-semibold">
+                Ver respuestas detalladas ({Object.keys(answers).length} ítems)
+              </AccordionTrigger>
+              <AccordionContent>
+                <div className="grid gap-2 pt-2">
+                  {template.items
+                    .sort((a, b) => a.index - b.index)
+                    .map(item => {
+                      const answer = answers[item.index.toString()];
+                      return (
+                        <div 
+                          key={item.index} 
+                          className="flex justify-between items-start py-2 border-b last:border-b-0 gap-4"
+                        >
+                          <span className="text-sm flex-1">
+                            <span className="font-medium mr-2">{item.index}.</span>
+                            {item.text}
+                          </span>
+                          <Badge variant="outline" className="shrink-0 font-mono">
+                            {answer !== undefined ? answer : '—'}
+                          </Badge>
+                        </div>
+                      );
+                    })}
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+        </>
       ) : !hasResults ? (
         <Card>
           <CardContent className="py-12 text-center">
