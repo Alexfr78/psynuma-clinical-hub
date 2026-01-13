@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { ClipboardCheck, Plus, Loader2, Check } from 'lucide-react';
 import { useAssessmentTemplates } from '@/hooks/useAssessmentTemplates';
 import { getPAITemplateData } from '@/data/pai-template';
+import { getBDI2TemplateData } from '@/data/bdi2-template';
 import { toast } from 'sonner';
 
 interface AddTemplateDialogProps {
@@ -14,6 +15,14 @@ interface AddTemplateDialogProps {
 }
 
 const PREDEFINED_TEMPLATES = [
+  {
+    id: 'BDI2',
+    name: 'BDI-II - Inventario de Depresión de Beck-II',
+    description: 'Evaluación de la presencia y gravedad de síntomas depresivos en adultos y adolescentes. Marco temporal: últimas dos semanas.',
+    items: 21,
+    time: '5-10 min',
+    getData: getBDI2TemplateData,
+  },
   {
     id: 'PAI_V1',
     name: 'PAI - Inventario de Evaluación de la Personalidad',

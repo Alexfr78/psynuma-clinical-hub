@@ -290,4 +290,25 @@ Asegúrese de no elegir más de una respuesta por grupo, incluyendo el grupo 16 
   cutoffs: BDI2_CUTOFFS,
 };
 
+// Function to get template data for database insertion
+export function getBDI2TemplateData() {
+  return {
+    code: BDI2_TEMPLATE.code,
+    name: BDI2_TEMPLATE.name,
+    description: BDI2_TEMPLATE.description,
+    version: BDI2_TEMPLATE.version,
+    response_min: BDI2_TEMPLATE.response_min,
+    response_max: BDI2_TEMPLATE.response_max,
+    min_label: '', // Not used for BDI-II
+    max_label: '', // Not used for BDI-II
+    items: BDI2_TEMPLATE.items,
+    scoring: BDI2_TEMPLATE.scoring,
+    instructions: BDI2_TEMPLATE.instructions,
+    flag_threshold: BDI2_TEMPLATE.flag_threshold,
+    chart_full_mark: BDI2_TEMPLATE.chart_full_mark,
+    is_active: true,
+    interpretations: null,
+  };
+}
+
 export default BDI2_TEMPLATE;
