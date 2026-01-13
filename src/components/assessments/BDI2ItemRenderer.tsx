@@ -19,6 +19,21 @@ interface BDI2ItemRendererProps {
 }
 
 export function BDI2ItemRenderer({ item, value, onChange, disabled }: BDI2ItemRendererProps) {
+  // Ensure options is always an array
+  const options = Array.isArray(item.options) ? item.options : [];
+  
+  if (options.length === 0) {
+    return (
+      <div className="space-y-3">
+        <p className="font-medium text-base">
+          <span className="text-muted-foreground mr-2">{item.index}.</span>
+          {item.label}
+        </p>
+        <p className="text-sm text-muted-foreground">No hay opciones disponibles</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-3">
       <p className="font-medium text-base">
@@ -26,12 +41,12 @@ export function BDI2ItemRenderer({ item, value, onChange, disabled }: BDI2ItemRe
         {item.label}
       </p>
       <RadioGroup
-        value={value?.toString()}
+        value={value !== undefined ? value.toString() : undefined}
         onValueChange={(v) => onChange(parseInt(v, 10))}
         disabled={disabled}
         className="space-y-2"
       >
-        {item.options.map((option) => (
+        {options.map((option) => (
           <div
             key={option.value}
             className={cn(
