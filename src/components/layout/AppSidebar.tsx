@@ -30,10 +30,12 @@ import {
   SidebarHeader,
   SidebarFooter,
   SidebarSeparator,
+  useSidebar,
 } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { useState, useEffect } from 'react';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 const mainNavItems = [
   { title: 'Dashboard', url: '/dashboard', icon: LayoutDashboard },
@@ -61,6 +63,8 @@ export function AppSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const { signOut, profile, isAdmin } = useAuth();
+  const { setOpenMobile } = useSidebar();
+  const isMobile = useIsMobile();
   const [isDark, setIsDark] = useState(false);
 
   useEffect(() => {
@@ -80,6 +84,14 @@ export function AppSidebar() {
 
   const isActive = (url: string) => location.pathname === url;
 
+  const handleNavigation = (url: string) => {
+    navigate(url);
+    // Close sidebar on mobile after navigation
+    if (isMobile) {
+      setOpenMobile(false);
+    }
+  };
+
   const NavItem = ({ item }: { item: typeof mainNavItems[0] }) => (
     <SidebarMenuItem>
       <SidebarMenuButton
@@ -90,7 +102,7 @@ export function AppSidebar() {
         <a
           onClick={(e) => {
             e.preventDefault();
-            navigate(item.url);
+            handleNavigation(item.url);
           }}
           className="flex items-center gap-3"
         >
