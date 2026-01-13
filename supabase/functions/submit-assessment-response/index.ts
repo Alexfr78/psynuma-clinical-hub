@@ -138,6 +138,7 @@ serve(async (req) => {
     const isPAI = template.code === 'PAI_V1';
     const isBDI2 = template.code === 'BDI2';
     const isDCI = template.code === 'DCI';
+    const isDES = template.code === 'DES';
 
     console.log(
       `Processing ${template.code} assessment with response range ${responseMin}-${responseMax} (items=${items.length}, scales=${Object.keys(scoring).length})`
@@ -281,6 +282,62 @@ serve(async (req) => {
         DET: factorScores['DET'],
         COM: factorScores['COM'],
         VAL: factorScores['VAL'],
+        flags,
+      });
+    }
+
+    // ===== DES SCORING =====
+    // DES (Dissociative Experiences Scale) uses mean percentages (0-100%)
+    // Total: mean of all 28 items
+    // Subscales: DES-A (Amnesia), DES-D (Depersonalization), DES-I (Absorption), DES-T (Taxon)
+    if (isDES) {
+      const amnesiaItems = [3, 4, 5, 6, 8, 10, 25, 26];
+      const depersonItems = [7, 11, 12, 13, 16, 28];
+      const absorptionItems = [2, 14, 15, 17, 18, 20];
+      const taxonItems = [3, 5, 7, 8, 12, 13, 22, 27];
+
+      let totalSum = 0;
+      let amnesiaSum = 0;
+      let depersonSum = 0;
+      let absorptionSum = 0;
+      let taxonSum = 0;
+
+      for (const item of items) {
+        const raw = (answers as any)[item.index];
+        const value = typeof raw === 'number' ? raw : parseInt(raw, 10);
+
+        if (!isNaN(value)) {
+          totalSum += value;
+          if (amnesiaItems.includes(item.index)) amnesiaSum += value;
+          if (depersonItems.includes(item.index)) depersonSum += value;
+          if (absorptionItems.includes(item.index)) absorptionSum += value;
+          if (taxonItems.includes(item.index)) taxonSum += value;
+        }
+      }
+
+      // Calculate means
+      factorScores['TOTAL'] = Math.round((totalSum / 28) * 10) / 10;
+      factorScores['DES_A'] = Math.round((amnesiaSum / amnesiaItems.length) * 10) / 10;
+      factorScores['DES_D'] = Math.round((depersonSum / depersonItems.length) * 10) / 10;
+      factorScores['DES_I'] = Math.round((absorptionSum / absorptionItems.length) * 10) / 10;
+      factorScores['DES_T'] = Math.round((taxonSum / taxonItems.length) * 10) / 10;
+
+      // Clinical flags based on cutoffs
+      if (factorScores['TOTAL'] >= 30) {
+        flags['clinical'] = true;
+      } else if (factorScores['TOTAL'] >= 20) {
+        flags['elevated'] = true;
+      }
+      if (factorScores['DES_T'] >= 20) {
+        flags['taxon_positive'] = true;
+      }
+
+      console.log('DES scores:', {
+        TOTAL: factorScores['TOTAL'],
+        DES_A: factorScores['DES_A'],
+        DES_D: factorScores['DES_D'],
+        DES_I: factorScores['DES_I'],
+        DES_T: factorScores['DES_T'],
         flags,
       });
     }

@@ -16,6 +16,23 @@ export const DCI_FACTOR_LABELS: Record<string, { label: string; description: str
 
 export const DCI_FACTOR_ORDER = ['DET', 'COM'];
 
+// ===== DES SPECIFIC =====
+export const DES_CUTOFFS = {
+  clinical: 30,  // Mean >= 30 indicates probable dissociative disorder
+  elevated: 20,  // Mean >= 20 indicates elevated dissociative experiences
+  taxon: 20,     // DES-T >= 20 indicates pathological dissociation (taxon)
+};
+
+export const DES_FACTOR_LABELS: Record<string, { label: string; description: string }> = {
+  TOTAL: { label: 'Puntuación Total', description: 'Media de todas las experiencias disociativas' },
+  DES_A: { label: 'Amnesia Disociativa', description: 'Experiencias de pérdida de memoria' },
+  DES_D: { label: 'Despersonalización/Desrealización', description: 'Sensación de irrealidad' },
+  DES_I: { label: 'Absorción/Imaginación', description: 'Absorción en experiencias internas' },
+  DES_T: { label: 'Taxón Disociativo', description: 'Indicador de disociación patológica' },
+};
+
+export const DES_FACTOR_ORDER = ['TOTAL', 'DES_A', 'DES_D', 'DES_I', 'DES_T'];
+
 // ===== BDI-II SPECIFIC =====
 export const BDI2_CUTOFFS = [
   { min: 0, max: 13, level: 'minima', label: 'Depresión Mínima', color: 'green' },
@@ -277,6 +294,9 @@ export function getFactorOrder(templateCode: string): string[] {
   }
   if (templateCode === 'DCI') {
     return DCI_FACTOR_ORDER;
+  }
+  if (templateCode === 'DES') {
+    return DES_FACTOR_ORDER;
   }
   return FACTOR_ORDER;
 }

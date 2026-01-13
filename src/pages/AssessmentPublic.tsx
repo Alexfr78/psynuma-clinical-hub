@@ -98,6 +98,10 @@ export default function AssessmentPublic() {
   const isTrueFalse = responseMax === 1 && responseMin === 0;
   // Detect if this is a BDI-II assessment
   const isBDI2 = template?.code === 'BDI2';
+  // Detect if this is a DES (percentage scale 0-100)
+  const isDES = template?.code === 'DES';
+  // Get response step for slider-based scales (DES uses 10% increments)
+  const responseStep = (template as any)?.response_step ?? 1;
 
   const handleSubmit = async () => {
     if (!isComplete) return;
@@ -158,6 +162,8 @@ export default function AssessmentPublic() {
                         minLabel={minLabel}
                         maxLabel={maxLabel}
                         disabled={submitResponses.isPending}
+                        step={responseStep}
+                        showPercentage={isDES}
                       />
                     )}
                   </>
