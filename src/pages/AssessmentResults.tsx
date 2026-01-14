@@ -17,6 +17,7 @@ import { MMPI2RFResultsView } from '@/components/assessments/MMPI2RFResultsView'
 import { BDI2ResultsView } from '@/components/assessments/BDI2ResultsView';
 import { DCIResultsView } from '@/components/assessments/DCIResultsView';
 import { DESResultsView } from '@/components/assessments/DESResultsView';
+import { STAIResultsView } from '@/components/assessments/STAIResultsView';
 import { MMPI2RFInterpretation } from '@/hooks/useMMPI2RFInterpretation';
 import { usePAIInterpretation, PAIInterpretation } from '@/hooks/usePAIInterpretation';
 import {
@@ -104,6 +105,7 @@ export default function AssessmentResults() {
   const isBDI2 = templateCode === 'BDI2';
   const isDCI = templateCode === 'DCI';
   const isDES = templateCode === 'DES';
+  const isSTAI = templateCode === 'STAI';
   const flagThreshold = template.flag_threshold;
   const chartFullMark = template.chart_full_mark;
   
@@ -350,6 +352,81 @@ export default function AssessmentResults() {
                         </div>
                       );
                     })}
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+        </>
+      ) : isSTAI && hasResults ? (
+        /* STAI: Use specialized view for State-Trait Anxiety */
+        <>
+          <STAIResultsView
+            aeScore={factorScores['A_E'] ?? 0}
+            arScore={factorScores['A_R'] ?? 0}
+            patientGender={patient.gender || undefined}
+          />
+          {/* Detailed answers accordion */}
+          <Accordion type="single" collapsible>
+            <AccordionItem value="answers">
+              <AccordionTrigger className="text-lg font-semibold">
+                Ver respuestas detalladas ({Object.keys(answers).length} ítems)
+              </AccordionTrigger>
+              <AccordionContent>
+                <div className="space-y-4 pt-2">
+                  {/* Estado */}
+                  <div>
+                    <h4 className="font-semibold mb-2 text-sm">Parte 1: Ansiedad Estado (A/E)</h4>
+                    <div className="grid gap-1">
+                      {template.items
+                        .filter((item: any) => item.index >= 1 && item.index <= 20)
+                        .sort((a: any, b: any) => a.index - b.index)
+                        .map((item: any) => {
+                          const answer = answers[item.index.toString()];
+                          const labels = ['Nada', 'Algo', 'Bastante', 'Mucho'];
+                          return (
+                            <div 
+                              key={item.index} 
+                              className="flex justify-between items-start py-1 border-b last:border-b-0 gap-4"
+                            >
+                              <span className="text-xs flex-1">
+                                <span className="font-medium mr-2">{item.index}.</span>
+                                {item.text}
+                              </span>
+                              <Badge variant="outline" className="shrink-0 font-mono text-xs">
+                                {answer !== undefined ? `${answer} - ${labels[answer] || answer}` : '—'}
+                              </Badge>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  </div>
+                  {/* Rasgo */}
+                  <div>
+                    <h4 className="font-semibold mb-2 text-sm">Parte 2: Ansiedad Rasgo (A/R)</h4>
+                    <div className="grid gap-1">
+                      {template.items
+                        .filter((item: any) => item.index >= 21 && item.index <= 40)
+                        .sort((a: any, b: any) => a.index - b.index)
+                        .map((item: any) => {
+                          const answer = answers[item.index.toString()];
+                          const labels = ['Casi nunca', 'A veces', 'A menudo', 'Casi siempre'];
+                          return (
+                            <div 
+                              key={item.index} 
+                              className="flex justify-between items-start py-1 border-b last:border-b-0 gap-4"
+                            >
+                              <span className="text-xs flex-1">
+                                <span className="font-medium mr-2">{item.index}.</span>
+                                {item.text}
+                              </span>
+                              <Badge variant="outline" className="shrink-0 font-mono text-xs">
+                                {answer !== undefined ? `${answer} - ${labels[answer] || answer}` : '—'}
+                              </Badge>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  </div>
                 </div>
               </AccordionContent>
             </AccordionItem>

@@ -9,6 +9,7 @@ import { getPAITemplateData } from '@/data/pai-template';
 import { getBDI2TemplateData } from '@/data/bdi2-template';
 import { getDCITemplateData } from '@/data/dci-template';
 import { getDESTemplateData } from '@/data/des-template';
+import { getSTAITemplateData } from '@/data/stai-template';
 import { toast } from 'sonner';
 
 interface AddTemplateDialogProps {
@@ -48,6 +49,14 @@ const PREDEFINED_TEMPLATES = [
     items: 344,
     time: '45-60 min',
     getData: getPAITemplateData,
+  },
+  {
+    id: 'STAI',
+    name: 'STAI - Cuestionario de Ansiedad Estado Rasgo',
+    description: 'Evaluación diferenciada de la ansiedad como estado emocional transitorio y como rasgo estable de personalidad.',
+    items: 40,
+    time: '10-15 min',
+    getData: getSTAITemplateData,
   },
 ];
 
