@@ -726,13 +726,13 @@ export function QuickCreateSessionDialog({
   return (
     <>
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[480px] p-0 max-h-[90vh] overflow-y-auto">
-        <DialogHeader className="px-6 pt-6 pb-4">
-          <DialogTitle className="text-xl font-semibold">Nueva reserva</DialogTitle>
+      <DialogContent className="w-[95vw] max-w-[500px] p-0 max-h-[90vh] overflow-y-auto overflow-x-hidden">
+        <DialogHeader className="px-4 sm:px-6 pt-4 sm:pt-6 pb-3 sm:pb-4">
+          <DialogTitle className="text-lg sm:text-xl font-semibold">Nueva reserva</DialogTitle>
         </DialogHeader>
 
         <Form {...form}>
-          <form className="space-y-4 px-6 pb-6">
+          <form className="space-y-4 px-4 sm:px-6 pb-4 sm:pb-6">
             {/* Patient Search */}
             <FormField
               control={form.control}
@@ -765,7 +765,7 @@ export function QuickCreateSessionDialog({
                         </Button>
                       </FormControl>
                     </PopoverTrigger>
-                    <PopoverContent className="w-[430px] p-0" align="start">
+                    <PopoverContent className="w-[--radix-popover-trigger-width] max-w-[calc(100vw-2rem)] p-0" align="start">
                       <Command>
                         <CommandInput 
                           placeholder="Buscar paciente..." 
@@ -885,16 +885,16 @@ export function QuickCreateSessionDialog({
                 <FormItem>
                   <FormLabel className="text-sm font-medium">Profesional</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
-                    <SelectTrigger className="h-10">
+                    <SelectTrigger className="h-10 min-w-0">
                       <SelectValue>
                         {selectedProfessional ? (
-                          <span className="flex items-center gap-2">
-                            <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center">
+                          <span className="flex items-center gap-2 min-w-0">
+                            <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
                               <User className="h-3 w-3 text-primary" />
                             </div>
-                            {selectedProfessional.first_name} {selectedProfessional.last_name}
-                            <Badge variant="secondary" className="ml-auto text-xs">
-                              Profesional principal
+                            <span className="truncate">{selectedProfessional.first_name} {selectedProfessional.last_name}</span>
+                            <Badge variant="secondary" className="ml-auto text-xs hidden sm:inline-flex shrink-0">
+                              Principal
                             </Badge>
                           </span>
                         ) : (
@@ -1110,7 +1110,7 @@ export function QuickCreateSessionDialog({
             {/* Date & Time Row */}
             <div className="space-y-2">
               <FormLabel className="text-sm font-medium">Fecha y hora</FormLabel>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                 {/* Date Picker */}
                 <FormField
                   control={form.control}
@@ -1121,12 +1121,12 @@ export function QuickCreateSessionDialog({
                         <Button
                           variant="outline"
                           className={cn(
-                            'flex-1 justify-start text-left font-normal h-10',
+                            'w-full sm:flex-1 justify-start text-left font-normal h-10',
                             !field.value && 'text-muted-foreground'
                           )}
                         >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          <span className="capitalize">
+                          <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
+                          <span className="capitalize truncate">
                             {field.value ? format(field.value, "EEE d 'de' MMM", { locale: es }) : 'Seleccionar fecha'}
                           </span>
                         </Button>
@@ -1146,45 +1146,47 @@ export function QuickCreateSessionDialog({
                 />
                 
                 {/* Time Selects */}
-                <FormField
-                  control={form.control}
-                  name="start_time"
-                  render={({ field }) => (
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <SelectTrigger className="w-24 h-10">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {TIME_SLOTS.map((time) => (
-                          <SelectItem key={time} value={time}>
-                            {time}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
-                
-                <span className="text-muted-foreground">-</span>
-                
-                <FormField
-                  control={form.control}
-                  name="end_time"
-                  render={({ field }) => (
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <SelectTrigger className="w-24 h-10">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {TIME_SLOTS.map((time) => (
-                          <SelectItem key={time} value={time}>
-                            {time}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
+                <div className="flex items-center gap-2">
+                  <FormField
+                    control={form.control}
+                    name="start_time"
+                    render={({ field }) => (
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <SelectTrigger className="w-full sm:w-24 h-10">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {TIME_SLOTS.map((time) => (
+                            <SelectItem key={time} value={time}>
+                              {time}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                  
+                  <span className="text-muted-foreground shrink-0">-</span>
+                  
+                  <FormField
+                    control={form.control}
+                    name="end_time"
+                    render={({ field }) => (
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <SelectTrigger className="w-full sm:w-24 h-10">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {TIME_SLOTS.map((time) => (
+                            <SelectItem key={time} value={time}>
+                              {time}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                </div>
               </div>
             </div>
 
@@ -1259,13 +1261,14 @@ export function QuickCreateSessionDialog({
             )}
 
             {/* Action Buttons */}
-            <div className="flex justify-end gap-2 pt-4">
+            <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 pt-4">
               {!recurrenceEnabled && (
                 <Button
                   type="button"
                   variant="outline"
                   onClick={() => form.handleSubmit((v) => onSubmit(v, true))()}
                   disabled={createSession.isPending || createRecurringSeries.isPending || isCheckingConflicts}
+                  className="w-full sm:w-auto"
                 >
                   Guardar borrador
                 </Button>
@@ -1274,6 +1277,7 @@ export function QuickCreateSessionDialog({
                 type="button"
                 onClick={() => form.handleSubmit((v) => onSubmit(v, false))()}
                 disabled={createSession.isPending || createRecurringSeries.isPending || isCheckingConflicts}
+                className="w-full sm:w-auto"
               >
                 {isCheckingConflicts ? 'Verificando...' : createRecurringSeries.isPending ? 'Creando...' : recurrenceEnabled ? 'Crear serie' : 'Crear sesión'}
               </Button>
