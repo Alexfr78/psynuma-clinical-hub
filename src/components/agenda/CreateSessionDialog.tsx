@@ -280,10 +280,10 @@ export function CreateSessionDialog({
   return (
     <>
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[500px]">
+      <DialogContent className="max-h-[90vh] overflow-y-auto w-[95vw] max-w-[500px] p-4 sm:p-6">
         <DialogHeader>
           <DialogTitle>Nueva Sesión</DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="hidden sm:block">
             Programa una nueva sesión con un paciente.
           </DialogDescription>
         </DialogHeader>
@@ -432,7 +432,7 @@ export function CreateSessionDialog({
               )}
             />
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <FormField
                 control={form.control}
                 name="start_time"
@@ -484,7 +484,7 @@ export function CreateSessionDialog({
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <FormField
                 control={form.control}
                 name="session_type"
@@ -626,11 +626,11 @@ export function CreateSessionDialog({
               )}
             />
 
-            <div className="flex justify-end gap-3 pt-4">
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 sm:gap-3 pt-4">
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="w-full sm:w-auto">
                 Cancelar
               </Button>
-              <Button type="submit" disabled={createSession.isPending}>
+              <Button type="submit" disabled={createSession.isPending} className="w-full sm:w-auto">
                 {createSession.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Crear Sesión
               </Button>
