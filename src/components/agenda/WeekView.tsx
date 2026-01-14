@@ -23,6 +23,8 @@ interface WeekViewProps {
 
 const DEFAULT_HOURS = Array.from({ length: 13 }, (_, i) => i + 8);
 const QUARTER_HOURS = [0, 15, 30, 45];
+// Fixed pixel height for hour rows - must match the CSS height used in the grid
+const HOUR_ROW_HEIGHT = 64;
 
 interface SlotPosition {
   day: Date;
@@ -77,6 +79,7 @@ export function WeekView({ currentDate, sessions, onSessionClick, onSlotClick, o
     return sessionsByDay.get(dateKey) || [];
   };
 
+  // Use rem-based calculation so it scales with mobile font size
   const getSessionStyle = (session: SessionWithRelations) => {
     const [startH, startM] = (session.start_time || '08:00').split(':').map(Number);
     const [endH, endM] = (session.end_time || '09:00').split(':').map(Number);
@@ -86,12 +89,13 @@ export function WeekView({ currentDate, sessions, onSessionClick, onSlotClick, o
     const durationMinutes = endMinutes - startMinutes;
     
     const gridStartMinutes = gridStartHour * 60;
-    const topOffset = ((startMinutes - gridStartMinutes) / 60) * 64;
-    const height = (durationMinutes / 60) * 64;
+    // h-16 = 4rem, use rem units so it scales with the base font size
+    const topOffsetRem = ((startMinutes - gridStartMinutes) / 60) * 4;
+    const heightRem = (durationMinutes / 60) * 4;
     
     return {
-      top: `${topOffset}px`,
-      height: `${Math.max(height, 16)}px`,
+      top: `${topOffsetRem}rem`,
+      height: `${Math.max(heightRem, 1)}rem`,
     };
   };
 

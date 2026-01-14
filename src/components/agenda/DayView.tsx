@@ -60,6 +60,7 @@ export function DayView({ currentDate, sessions, onSessionClick, onSlotClick, on
     return sessions.filter((s) => s.session_date === dateKey);
   }, [sessions, dateKey]);
 
+  // Use rem-based calculation so it scales with mobile font size
   const getSessionStyle = (session: SessionWithRelations) => {
     const [startH, startM] = (session.start_time || '08:00').split(':').map(Number);
     const [endH, endM] = (session.end_time || '09:00').split(':').map(Number);
@@ -69,12 +70,13 @@ export function DayView({ currentDate, sessions, onSessionClick, onSlotClick, on
     const durationMinutes = endMinutes - startMinutes;
     
     const gridStartMinutes = gridStartHour * 60;
-    const topOffset = ((startMinutes - gridStartMinutes) / 60) * 80;
-    const height = (durationMinutes / 60) * 80;
+    // h-20 = 5rem, use rem units so it scales with the base font size
+    const topOffsetRem = ((startMinutes - gridStartMinutes) / 60) * 5;
+    const heightRem = (durationMinutes / 60) * 5;
     
     return {
-      top: `${topOffset}px`,
-      height: `${Math.max(height, 20)}px`,
+      top: `${topOffsetRem}rem`,
+      height: `${Math.max(heightRem, 1.25)}rem`,
     };
   };
 
@@ -85,8 +87,11 @@ export function DayView({ currentDate, sessions, onSessionClick, onSlotClick, on
     const gridRect = gridRef.current.getBoundingClientRect();
     const relativeY = clientY - gridRect.top + gridRef.current.scrollTop;
     
-    // Each hour is 80px, each 15min slot is 20px
-    const totalMinutes = (relativeY / 80) * 60;
+    // Get computed font size to calculate actual row height
+    const computedFontSize = parseFloat(getComputedStyle(document.documentElement).fontSize);
+    const hourRowHeight = 5 * computedFontSize; // h-20 = 5rem
+    
+    const totalMinutes = (relativeY / hourRowHeight) * 60;
     const hour = gridStartHour + Math.floor(totalMinutes / 60);
     const minute = Math.floor((totalMinutes % 60) / 15) * 15;
     
