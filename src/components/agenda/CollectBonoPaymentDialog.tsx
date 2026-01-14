@@ -186,8 +186,26 @@ export function CollectBonoPaymentDialog({
     };
     setPendingPaymentData(paymentData);
 
-    // If there's already an invoice, just process payment
+    // If there's already an invoice, check invoice status first
     if (invoiceId) {
+      // Check if invoice is still draft - if so, we need to respect invoice_on_payment_mode
+      const { data: existingInvoice } = await supabase
+        .from('invoices')
+        .select('status')
+        .eq('id', invoiceId)
+        .single();
+
+      const invoiceIsDraft = existingInvoice?.status === 'draft';
+      
+      // If invoice is draft and mode is 'ask', we need to ask the user
+      if (invoiceIsDraft && invoiceOnPaymentMode === 'ask') {
+        setStep('ask_invoice');
+        return;
+      }
+      
+      // If mode is 'disabled', don't issue the invoice
+      const shouldIssue = invoiceOnPaymentMode !== 'disabled';
+      
       setStep('processing');
       try {
         const result = await collectDebtPayment.mutateAsync({
@@ -197,11 +215,11 @@ export function CollectBonoPaymentDialog({
           reference: reference || undefined,
           notes: paymentData.notes,
           invoiceId,
-          issueInvoice: true,
+          issueInvoice: shouldIssue,
         });
 
         const newPaidAmount = paidAmount + amount;
-        if (newPaidAmount >= totalAmount && !result.invoiceIssued) {
+        if (shouldIssue && newPaidAmount >= totalAmount && !result.invoiceIssued) {
           setVerifactuPending(true);
         }
 
