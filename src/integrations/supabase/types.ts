@@ -2930,6 +2930,10 @@ export type Database = {
       }
       get_session_token: { Args: never; Returns: string }
       get_user_center_id: { Args: { _user_id: string }; Returns: string }
+      handle_rectificativa_payments: {
+        Args: { p_original_invoice_id: string }
+        Returns: Json
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
