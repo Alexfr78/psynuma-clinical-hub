@@ -255,6 +255,19 @@ export function CreateRectificativaDialog({
         // Don't throw - the rectificativa was created successfully
       }
 
+      // Handle payments linked to original invoice - unlink them for reassignment
+      const { data: paymentsResult, error: paymentsError } = await supabase
+        .rpc('handle_rectificativa_payments', { p_original_invoice_id: originalInvoice.id });
+
+      if (paymentsError) {
+        console.error('Error handling payments:', paymentsError);
+      } else if (paymentsResult && typeof paymentsResult === 'object' && 'action' in paymentsResult) {
+        const result = paymentsResult as { action: string; message: string };
+        if (result.action === 'payments_unlinked') {
+          toast.info(result.message, { duration: 6000 });
+        }
+      }
+
       // Get the billable_event_id from the original invoice's items
       const { data: originalItems } = await supabase
         .from('invoice_items')
