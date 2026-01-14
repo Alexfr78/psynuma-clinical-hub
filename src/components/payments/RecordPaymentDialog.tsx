@@ -1,10 +1,10 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { supabase } from '@/integrations/supabase/client';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format } from 'date-fns';
-import { CalendarIcon, CreditCard } from 'lucide-react';
+import { CalendarIcon, CreditCard, Check, ChevronsUpDown, Search } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -26,6 +26,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -77,7 +85,10 @@ export function RecordPaymentDialog({
   preselectedAmount,
   preselectedDescription,
 }: RecordPaymentDialogProps) {
-  const { data: patients } = usePatients();
+  const [patientSearch, setPatientSearch] = useState('');
+  const [patientPopoverOpen, setPatientPopoverOpen] = useState(false);
+  
+  const { data: patients } = usePatients({ search: patientSearch || undefined });
   const { data: invoices } = useInvoices({ status: 'issued' });
   const createPayment = useCreatePayment();
   const collectDebtPayment = useCollectDebtPayment();
@@ -137,6 +148,7 @@ export function RecordPaymentDialog({
   }, [open, preselectedDebtId, preselectedPatientId]);
 
   const watchPatientId = form.watch('patient_id');
+  const selectedPatient = patients?.find(p => p.id === watchPatientId);
   const patientInvoices = invoices?.filter(inv => inv.patient_id === watchPatientId) || [];
 
   const onSubmit = async (values: FormValues) => {
@@ -192,26 +204,69 @@ export function RecordPaymentDialog({
               control={form.control}
               name="patient_id"
               render={({ field }) => (
-                <FormItem>
+                <FormItem className="flex flex-col">
                   <FormLabel>Paciente</FormLabel>
-                  <Select 
-                    onValueChange={field.onChange} 
-                    value={field.value}
-                    disabled={isDebtPayment}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder={isDebtPayment ? "Cargando paciente..." : "Seleccionar paciente"} />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {patients?.map((patient) => (
-                        <SelectItem key={patient.id} value={patient.id}>
-                          {patient.first_name} {patient.last_name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Popover open={patientPopoverOpen} onOpenChange={setPatientPopoverOpen}>
+                    <PopoverTrigger asChild disabled={isDebtPayment}>
+                      <FormControl>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          aria-expanded={patientPopoverOpen}
+                          className={cn(
+                            "w-full justify-between font-normal",
+                            !field.value && "text-muted-foreground"
+                          )}
+                          disabled={isDebtPayment}
+                        >
+                          {selectedPatient
+                            ? `${selectedPatient.first_name} ${selectedPatient.last_name}`
+                            : isDebtPayment
+                            ? "Cargando paciente..."
+                            : "Buscar paciente..."}
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                      <Command shouldFilter={false}>
+                        <CommandInput
+                          placeholder="Buscar por nombre..."
+                          value={patientSearch}
+                          onValueChange={setPatientSearch}
+                        />
+                        <CommandList>
+                          <CommandEmpty>No se encontraron pacientes</CommandEmpty>
+                          <CommandGroup>
+                            {patients?.map((patient) => (
+                              <CommandItem
+                                key={patient.id}
+                                value={patient.id}
+                                onSelect={() => {
+                                  field.onChange(patient.id);
+                                  setPatientPopoverOpen(false);
+                                  setPatientSearch('');
+                                }}
+                              >
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    field.value === patient.id ? "opacity-100" : "opacity-0"
+                                  )}
+                                />
+                                <div className="flex flex-col">
+                                  <span>{patient.first_name} {patient.last_name}</span>
+                                  {patient.email && (
+                                    <span className="text-xs text-muted-foreground">{patient.email}</span>
+                                  )}
+                                </div>
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
                   <FormMessage />
                 </FormItem>
               )}
