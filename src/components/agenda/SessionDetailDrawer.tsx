@@ -1369,7 +1369,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
                   </Button>
                 )}
                 
-                {!paymentStatus?.isPaid && !localBonoId && (
+                {!paymentStatus?.isPaid && !localBonoId && !session.bono_id && (
                   <Button 
                     size="sm" 
                     variant="outline"
