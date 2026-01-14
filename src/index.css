@@ -113,9 +113,9 @@
     @apply border-border;
   }
   
-  /* Mobile-first: 10% larger base font size on mobile */
+  /* Mobile-first: 15% larger base font size on mobile */
   html {
-    font-size: 110%; /* 17.6px base instead of 16px */
+    font-size: 115%; /* ~18.4px base instead of 16px */
   }
   
   /* Reset to normal size on tablet and desktop */
