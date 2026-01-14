@@ -139,6 +139,7 @@ serve(async (req) => {
     const isBDI2 = template.code === 'BDI2';
     const isDCI = template.code === 'DCI';
     const isDES = template.code === 'DES';
+    const isSTAI = template.code === 'STAI';
 
     console.log(
       `Processing ${template.code} assessment with response range ${responseMin}-${responseMax} (items=${items.length}, scales=${Object.keys(scoring).length})`
@@ -338,6 +339,52 @@ serve(async (req) => {
         DES_D: factorScores['DES_D'],
         DES_I: factorScores['DES_I'],
         DES_T: factorScores['DES_T'],
+        flags,
+      });
+    }
+
+    // ===== STAI SCORING =====
+    // STAI uses sum of 20 items per scale (0-3 each), with some items reversed
+    // A_E (Estado): Items 1-20, reversed: 1,2,5,8,10,11,15,16,19,20
+    // A_R (Rasgo): Items 21-40, reversed: 21,26,27,30,33,36,39
+    if (isSTAI) {
+      const aeReversed = [1, 2, 5, 8, 10, 11, 15, 16, 19, 20];
+      const arReversed = [21, 26, 27, 30, 33, 36, 39];
+
+      let aeSum = 0;
+      let arSum = 0;
+
+      for (const item of items) {
+        const raw = (answers as any)[item.index];
+        const value = typeof raw === 'number' ? raw : parseInt(raw, 10);
+
+        if (!isNaN(value)) {
+          // A_E: Items 1-20
+          if (item.index >= 1 && item.index <= 20) {
+            const finalValue = aeReversed.includes(item.index) ? (3 - value) : value;
+            aeSum += finalValue;
+          }
+          // A_R: Items 21-40
+          else if (item.index >= 21 && item.index <= 40) {
+            const finalValue = arReversed.includes(item.index) ? (3 - value) : value;
+            arSum += finalValue;
+          }
+        }
+      }
+
+      factorScores['A_E'] = aeSum;
+      factorScores['A_R'] = arSum;
+
+      // Flags based on approximate percentile 75 cutoffs
+      if (aeSum > 40) flags['A_E_high'] = true;
+      else if (aeSum > 30) flags['A_E_moderate'] = true;
+      
+      if (arSum > 40) flags['A_R_high'] = true;
+      else if (arSum > 30) flags['A_R_moderate'] = true;
+
+      console.log('STAI scores:', {
+        A_E: factorScores['A_E'],
+        A_R: factorScores['A_R'],
         flags,
       });
     }

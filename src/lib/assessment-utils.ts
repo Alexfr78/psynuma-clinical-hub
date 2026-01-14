@@ -51,6 +51,14 @@ export function getBDI2Level(totalScore: number): { level: string; label: string
   return BDI2_CUTOFFS.find(c => totalScore >= c.min && totalScore <= c.max) || BDI2_CUTOFFS[0];
 }
 
+// ===== STAI SPECIFIC =====
+export const STAI_FACTOR_LABELS: Record<string, { label: string; description: string }> = {
+  A_E: { label: 'Ansiedad Estado', description: 'Estado emocional transitorio de tensión y activación (0-60)' },
+  A_R: { label: 'Ansiedad Rasgo', description: 'Propensión ansiosa estable como característica de personalidad (0-60)' },
+};
+
+export const STAI_FACTOR_ORDER = ['A_E', 'A_R'];
+
 // Mapeo de factores a labels completos - SELFCARE
 export const FACTOR_LABELS: Record<string, { label: string; description: string }> = {
   // SELFCARE factors
@@ -297,6 +305,9 @@ export function getFactorOrder(templateCode: string): string[] {
   }
   if (templateCode === 'DES') {
     return DES_FACTOR_ORDER;
+  }
+  if (templateCode === 'STAI') {
+    return STAI_FACTOR_ORDER;
   }
   return FACTOR_ORDER;
 }
