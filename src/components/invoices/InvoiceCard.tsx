@@ -56,50 +56,50 @@ export function InvoiceCard({
   const isInvalidated = (invoice as any).is_valid === false;
 
   return (
-    <Card className="transition-all hover:shadow-md">
+    <Card className="transition-all hover:shadow-md overflow-hidden">
       <CardContent className="p-3 sm:p-4">
         <div className="flex flex-col gap-3">
           {/* Top row: Icon, Info, and Actions */}
-          <div className="flex items-start gap-3">
+          <div className="flex items-start gap-2 sm:gap-3 min-w-0">
             <div className="rounded-lg bg-primary/10 p-2 shrink-0 hidden sm:flex">
               <FileText className="h-5 w-5 text-primary" />
             </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-                <span className={cn("font-semibold text-sm sm:text-base", isInvalidated && "line-through text-muted-foreground")}>{invoice.invoice_number}</span>
-                <Badge variant={status.variant} className="text-xs">{status.label}</Badge>
+            <div className="flex-1 min-w-0 overflow-hidden">
+              <div className="flex items-center gap-1 sm:gap-2 flex-wrap">
+                <span className={cn("font-semibold text-sm sm:text-base shrink-0", isInvalidated && "line-through text-muted-foreground")}>{invoice.invoice_number}</span>
+                <Badge variant={status.variant} className="text-xs shrink-0">{status.label}</Badge>
                 {isInvalidated && (
-                  <Badge variant="outline" className="text-xs border-amber-500 text-amber-600">Anulada</Badge>
+                  <Badge variant="outline" className="text-xs border-amber-500 text-amber-600 shrink-0 hidden sm:inline-flex">Anulada</Badge>
                 )}
                 {invoice.is_recapitulative && (
-                  <Badge variant="outline" className="text-xs hidden sm:inline-flex">Recap</Badge>
+                  <Badge variant="outline" className="text-xs hidden sm:inline-flex shrink-0">Recap</Badge>
                 )}
                 {isSealed && (
-                  <Badge variant="default" className="gap-1 bg-green-600 hover:bg-green-700 text-xs">
+                  <Badge variant="default" className="gap-1 bg-green-600 hover:bg-green-700 text-xs shrink-0">
                     <ShieldCheck className="h-3 w-3" />
                     <span className="hidden sm:inline">Verifactu</span>
                   </Badge>
                 )}
                 {needsVerifactuSign && (
-                  <Badge variant="outline" className="gap-1 border-orange-500 text-orange-600 text-xs">
+                  <Badge variant="outline" className="gap-1 border-orange-500 text-orange-600 text-xs shrink-0 hidden sm:inline-flex">
                     <ShieldCheck className="h-3 w-3" />
-                    <span className="hidden sm:inline">Sin firmar</span>
+                    Sin firmar
                   </Badge>
                 )}
                 {isPendingVerifactu && !maxRetriesReached && (
-                  <Badge variant="outline" className="gap-1 border-amber-500 text-amber-600 text-xs">
+                  <Badge variant="outline" className="gap-1 border-amber-500 text-amber-600 text-xs shrink-0 hidden sm:inline-flex">
                     <Clock className="h-3 w-3" />
-                    <span className="hidden sm:inline">Pendiente</span> ({invoice.verifactu_retry_count || 0}/5)
+                    Pendiente ({invoice.verifactu_retry_count || 0}/5)
                   </Badge>
                 )}
                 {isPendingVerifactu && maxRetriesReached && (
-                  <Badge variant="destructive" className="gap-1 text-xs">
+                  <Badge variant="destructive" className="gap-1 text-xs shrink-0">
                     <RefreshCw className="h-3 w-3" />
                     Error
                   </Badge>
                 )}
               </div>
-              <div className="flex items-center gap-1 text-xs sm:text-sm text-muted-foreground mt-1">
+              <div className="flex items-center gap-1 text-xs sm:text-sm text-muted-foreground mt-1 min-w-0">
                 <User className="h-3 w-3 shrink-0" />
                 <span className="truncate">{invoice.patients.first_name} {invoice.patients.last_name}</span>
               </div>
@@ -109,9 +109,9 @@ export function InvoiceCard({
             </div>
 
             {/* Amount and Actions - Right side */}
-            <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+            <div className="flex items-center gap-1 sm:gap-3 shrink-0 ml-auto">
               <div className="text-right">
-                <p className="text-lg sm:text-xl font-bold">{Number(invoice.total).toFixed(2)}€</p>
+                <p className="text-base sm:text-xl font-bold whitespace-nowrap">{Number(invoice.total).toFixed(2)}€</p>
                 <p className="text-xs text-muted-foreground hidden sm:block">
                   Base: {Number(invoice.subtotal).toFixed(2)}€
                 </p>
