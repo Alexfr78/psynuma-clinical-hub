@@ -40,6 +40,7 @@ export default function Invoices() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [invoiceToCancel, setInvoiceToCancel] = useState<{ id: string; number: string } | null>(null);
+  const [newInvoiceMenuOpen, setNewInvoiceMenuOpen] = useState(false);
   
   // Sort state
   const [sortBy, setSortBy] = useState<InvoiceSortField>('invoice_number');
@@ -246,13 +247,13 @@ export default function Invoices() {
   };
 
   return (
-    <div className="space-y-6 overflow-x-hidden">
+    <div className="space-y-6 w-full max-w-full overflow-x-hidden">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="font-display text-2xl sm:text-3xl font-bold">Facturas</h1>
           <p className="text-muted-foreground">Gestiona la facturación</p>
         </div>
-        <DropdownMenu>
+        <DropdownMenu open={newInvoiceMenuOpen} onOpenChange={setNewInvoiceMenuOpen}>
           <DropdownMenuTrigger asChild>
             <Button size="sm" className="w-full sm:w-auto">
               <Plus className="h-4 w-4 mr-2" />
@@ -260,17 +261,17 @@ export default function Invoices() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => setSimpleOpen(true)}>
+            <DropdownMenuItem onClick={() => { setNewInvoiceMenuOpen(false); setSimpleOpen(true); }}>
               Factura simple
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setRecapOpen(true)}>
+            <DropdownMenuItem onClick={() => { setNewInvoiceMenuOpen(false); setRecapOpen(true); }}>
               Factura recapitulativa
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
 
-      <div className="grid gap-3 sm:gap-4 grid-cols-2 sm:grid-cols-3">
+      <div className="grid gap-3 grid-cols-1 sm:grid-cols-3">
         <Card>
           <CardHeader className="pb-1 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
             <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">Facturado</CardTitle>
@@ -287,7 +288,7 @@ export default function Invoices() {
             <p className="text-lg sm:text-2xl font-bold text-green-600">{stats?.totalPaid.toFixed(0) || '0'}€</p>
           </CardContent>
         </Card>
-        <Card className="col-span-2 sm:col-span-1">
+        <Card>
           <CardHeader className="pb-1 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
             <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">Pendiente</CardTitle>
           </CardHeader>
