@@ -159,55 +159,55 @@ export default function Audit() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
         <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-primary/10 rounded-lg">
-                <Activity className="h-5 w-5 text-primary" />
+          <CardContent className="p-3 sm:pt-6 sm:px-6 sm:pb-6">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="p-1.5 sm:p-2 bg-primary/10 rounded-lg">
+                <Activity className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{stats.total}</p>
-                <p className="text-sm text-muted-foreground">Total Eventos</p>
+                <p className="text-lg sm:text-2xl font-bold">{stats.total}</p>
+                <p className="text-xs sm:text-sm text-muted-foreground">Total</p>
               </div>
             </div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-500/10 rounded-lg">
-                <Clock className="h-5 w-5 text-blue-500" />
+          <CardContent className="p-3 sm:pt-6 sm:px-6 sm:pb-6">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="p-1.5 sm:p-2 bg-blue-500/10 rounded-lg">
+                <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-blue-500" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{stats.today}</p>
-                <p className="text-sm text-muted-foreground">Hoy</p>
+                <p className="text-lg sm:text-2xl font-bold">{stats.today}</p>
+                <p className="text-xs sm:text-sm text-muted-foreground">Hoy</p>
               </div>
             </div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-green-500/10 rounded-lg">
-                <CheckCircle2 className="h-5 w-5 text-green-500" />
+          <CardContent className="p-3 sm:pt-6 sm:px-6 sm:pb-6">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="p-1.5 sm:p-2 bg-green-500/10 rounded-lg">
+                <CheckCircle2 className="h-4 w-4 sm:h-5 sm:w-5 text-green-500" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{stats.rfGenerated}</p>
-                <p className="text-sm text-muted-foreground">RF Generados</p>
+                <p className="text-lg sm:text-2xl font-bold">{stats.rfGenerated}</p>
+                <p className="text-xs sm:text-sm text-muted-foreground">RF</p>
               </div>
             </div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-destructive/10 rounded-lg">
-                <AlertTriangle className="h-5 w-5 text-destructive" />
+          <CardContent className="p-3 sm:pt-6 sm:px-6 sm:pb-6">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="p-1.5 sm:p-2 bg-destructive/10 rounded-lg">
+                <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5 text-destructive" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{stats.errors}</p>
-                <p className="text-sm text-muted-foreground">Errores</p>
+                <p className="text-lg sm:text-2xl font-bold">{stats.errors}</p>
+                <p className="text-xs sm:text-sm text-muted-foreground">Errores</p>
               </div>
             </div>
           </CardContent>
@@ -216,77 +216,77 @@ export default function Audit() {
 
       {/* Filters */}
       <Card>
-        <CardContent className="pt-6">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Buscar por factura, tipo de evento..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
+        <CardContent className="p-3 sm:pt-6 sm:px-6 sm:pb-6">
+          <div className="flex flex-col gap-3 sm:gap-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por factura..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-10"
+              />
             </div>
-            <Select value={eventType} onValueChange={setEventType}>
-              <SelectTrigger className="w-full md:w-[180px]">
-                <SelectValue placeholder="Tipo de evento" />
-              </SelectTrigger>
-              <SelectContent>
-                {EVENT_TYPES.map((type) => (
-                  <SelectItem key={type.value} value={type.value}>
-                    {type.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="w-full md:w-[140px] justify-start">
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {startDate ? format(startDate, "dd/MM/yyyy") : "Desde"}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={startDate}
-                  onSelect={setStartDate}
-                  locale={es}
-                  className="pointer-events-auto"
-                />
-              </PopoverContent>
-            </Popover>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="w-full md:w-[140px] justify-start">
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {endDate ? format(endDate, "dd/MM/yyyy") : "Hasta"}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={endDate}
-                  onSelect={setEndDate}
-                  locale={es}
-                  className="pointer-events-auto"
-                />
-              </PopoverContent>
-            </Popover>
-            <Button onClick={handleApplyFilters}>Aplicar</Button>
+            <div className="grid grid-cols-2 sm:flex sm:flex-row gap-2 sm:gap-4">
+              <Select value={eventType} onValueChange={setEventType}>
+                <SelectTrigger className="w-full sm:w-[160px]">
+                  <SelectValue placeholder="Tipo" />
+                </SelectTrigger>
+                <SelectContent>
+                  {EVENT_TYPES.map((type) => (
+                    <SelectItem key={type.value} value={type.value}>
+                      {type.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="w-full sm:w-[130px] justify-start text-xs sm:text-sm">
+                    <CalendarIcon className="mr-1 sm:mr-2 h-4 w-4" />
+                    {startDate ? format(startDate, "dd/MM/yy") : "Desde"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={startDate}
+                    onSelect={setStartDate}
+                    locale={es}
+                    className="pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="w-full sm:w-[130px] justify-start text-xs sm:text-sm">
+                    <CalendarIcon className="mr-1 sm:mr-2 h-4 w-4" />
+                    {endDate ? format(endDate, "dd/MM/yy") : "Hasta"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={endDate}
+                    onSelect={setEndDate}
+                    locale={es}
+                    className="pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
+              <Button onClick={handleApplyFilters} className="col-span-2 sm:col-span-1">Aplicar</Button>
+            </div>
           </div>
         </CardContent>
       </Card>
 
       {/* Events Table */}
       <Card>
-        <CardContent className="pt-6">
-          <div className="flex items-center gap-2 mb-4 p-3 bg-muted/50 rounded-lg">
-            <Info className="h-4 w-4 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">
-              Los registros son inmutables y no pueden ser eliminados (requisito VeriFactu Art. 8 RD 1007/2023)
+        <CardContent className="p-3 sm:pt-6 sm:px-6 sm:pb-6">
+          <div className="flex items-center gap-2 mb-4 p-2 sm:p-3 bg-muted/50 rounded-lg">
+            <Info className="h-4 w-4 text-muted-foreground shrink-0" />
+            <p className="text-xs sm:text-sm text-muted-foreground">
+              Registros inmutables (VeriFactu Art. 8 RD 1007/2023)
             </p>
           </div>
 
@@ -300,53 +300,89 @@ export default function Audit() {
               <p className="text-muted-foreground">No hay eventos de auditoría</p>
             </div>
           ) : (
-            <div className="rounded-md border overflow-x-auto">
-              <Table className="min-w-[600px]">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Fecha/Hora</TableHead>
-                    <TableHead>Tipo</TableHead>
-                    <TableHead>ID Factura</TableHead>
-                    <TableHead>Detalles</TableHead>
-                    <TableHead>IP</TableHead>
-                    <TableHead className="w-[60px]">Acciones</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {events.map((event) => {
-                    const badge = getEventBadge(event.event_type);
-                    return (
-                      <TableRow key={event.id}>
-                        <TableCell className="font-mono text-sm">
-                          {format(new Date(event.created_at), "dd/MM/yyyy HH:mm:ss")}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={badge.variant} className={badge.className}>
-                            {badge.label}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="font-mono text-sm">
-                          {truncateId(event.invoice_id)}
-                        </TableCell>
-                        <TableCell className="font-mono text-xs text-muted-foreground max-w-[200px] truncate">
-                          {truncateDetails(event)}
-                        </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">-</TableCell>
-                        <TableCell>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setSelectedEvent(event)}
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
+            <>
+              {/* Mobile view: Cards */}
+              <div className="space-y-3 md:hidden">
+                {events.map((event) => {
+                  const badge = getEventBadge(event.event_type);
+                  return (
+                    <div
+                      key={event.id}
+                      className="p-3 border rounded-lg space-y-2 cursor-pointer hover:bg-muted/50 transition-colors"
+                      onClick={() => setSelectedEvent(event)}
+                    >
+                      <div className="flex items-center justify-between">
+                        <Badge variant={badge.variant} className={cn("text-xs", badge.className)}>
+                          {badge.label}
+                        </Badge>
+                        <span className="text-xs text-muted-foreground font-mono">
+                          {format(new Date(event.created_at), "dd/MM HH:mm")}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">Factura:</span>
+                        <span className="font-mono">{truncateId(event.invoice_id)}</span>
+                      </div>
+                      {event.aeat_csv && (
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">CSV:</span>
+                          <span className="font-mono text-xs">{event.aeat_csv}</span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Desktop view: Table */}
+              <div className="hidden md:block rounded-md border overflow-x-auto">
+                <Table className="min-w-[600px]">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Fecha/Hora</TableHead>
+                      <TableHead>Tipo</TableHead>
+                      <TableHead>ID Factura</TableHead>
+                      <TableHead>Detalles</TableHead>
+                      <TableHead>IP</TableHead>
+                      <TableHead className="w-[60px]">Acciones</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {events.map((event) => {
+                      const badge = getEventBadge(event.event_type);
+                      return (
+                        <TableRow key={event.id}>
+                          <TableCell className="font-mono text-sm">
+                            {format(new Date(event.created_at), "dd/MM/yyyy HH:mm:ss")}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={badge.variant} className={badge.className}>
+                              {badge.label}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="font-mono text-sm">
+                            {truncateId(event.invoice_id)}
+                          </TableCell>
+                          <TableCell className="font-mono text-xs text-muted-foreground max-w-[200px] truncate">
+                            {truncateDetails(event)}
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">-</TableCell>
+                          <TableCell>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setSelectedEvent(event)}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
