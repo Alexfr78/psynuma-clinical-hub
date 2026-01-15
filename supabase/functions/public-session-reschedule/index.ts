@@ -85,8 +85,10 @@ Deno.serve(async (req) => {
       .eq("id", session.center_id)
       .single();
 
-    // Get location info if exists
+    // Get location info if exists, or infer from session modality
     let locationName = null;
+    let effectiveLocationId = session.location_id;
+    
     if (session.location_id) {
       const { data: location } = await supabase
         .from("center_locations")
@@ -94,6 +96,30 @@ Deno.serve(async (req) => {
         .eq("id", session.location_id)
         .single();
       locationName = location?.name;
+    } else if (session.session_modality) {
+      // Infer location from session modality when location_id is not set
+      const locationType = session.session_modality === 'zoom' || session.session_modality === 'google_meet' 
+        ? 'online' 
+        : session.session_modality === 'in_person' 
+          ? 'in_person' 
+          : null;
+      
+      if (locationType) {
+        const { data: inferredLocation } = await supabase
+          .from("center_locations")
+          .select("id, name")
+          .eq("center_id", session.center_id)
+          .eq("location_type", locationType)
+          .eq("is_active", true)
+          .limit(1)
+          .maybeSingle();
+        
+        if (inferredLocation) {
+          effectiveLocationId = inferredLocation.id;
+          locationName = inferredLocation.name;
+          console.log(`[RESCHEDULE] Inferred location ${inferredLocation.name} (${locationType}) for session modality ${session.session_modality}`);
+        }
+      }
     }
 
     // Check if session can be rescheduled (not in the past, not cancelled)
@@ -135,7 +161,7 @@ Deno.serve(async (req) => {
         const hasAvailability = await checkDayHasAvailability(
           supabase,
           session.professional_id,
-          session.location_id,
+          effectiveLocationId,
           dateStr,
           sessionDuration,
           session.id // Exclude current session when checking availability
@@ -163,7 +189,7 @@ Deno.serve(async (req) => {
       const slots = await getAvailability(
         supabase,
         session.professional_id,
-        session.location_id,
+        effectiveLocationId,
         session.center_id,
         date,
         session.id,
@@ -188,7 +214,7 @@ Deno.serve(async (req) => {
       const slots = await getAvailability(
         supabase,
         session.professional_id,
-        session.location_id,
+        effectiveLocationId,
         session.center_id,
         newDate,
         session.id,
