@@ -1708,6 +1708,7 @@ export type Database = {
       oauth_connections: {
         Row: {
           access_token: string | null
+          consecutive_sync_errors: number | null
           created_at: string | null
           expires_at: string | null
           google_calendar_id: string | null
@@ -1731,6 +1732,7 @@ export type Database = {
         }
         Insert: {
           access_token?: string | null
+          consecutive_sync_errors?: number | null
           created_at?: string | null
           expires_at?: string | null
           google_calendar_id?: string | null
@@ -1754,6 +1756,7 @@ export type Database = {
         }
         Update: {
           access_token?: string | null
+          consecutive_sync_errors?: number | null
           created_at?: string | null
           expires_at?: string | null
           google_calendar_id?: string | null

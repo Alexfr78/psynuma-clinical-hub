@@ -782,11 +782,46 @@ async function syncProfessional(
   console.log(`[SYNC:CONFIG] needs_reconnect: ${connection.needs_reconnect}`);
   console.log(`[SYNC:CONFIG] calendar_id: ${connection.google_calendar_id || 'NOT SET'}`);
 
-  // Check if needs reconnect
+  // Check if needs reconnect - but try auto-recovery first
   if (connection.needs_reconnect) {
-    console.error('[SYNC:ERROR] Connection needs reconnect');
-    result.errors.push('La conexión con Google necesita reconectarse');
-    return result;
+    console.log('[SYNC:RECOVERY] Connection marked needs_reconnect, attempting auto-recovery...');
+    
+    // First check if current token is still valid (might have been refreshed elsewhere)
+    const now = Date.now();
+    const expiresAt = connection.expires_at ? new Date(connection.expires_at).getTime() : 0;
+    
+    if (connection.access_token && expiresAt > now) {
+      // Token is still valid! Clear the needs_reconnect flag
+      console.log('[SYNC:RECOVERY] Token still valid, clearing needs_reconnect flag');
+      await supabase
+        .from('oauth_connections')
+        .update({ 
+          needs_reconnect: false, 
+          last_sync_status: 'auto_recovered',
+          consecutive_sync_errors: 0
+        })
+        .eq('professional_id', professionalId)
+        .eq('provider', 'google');
+      // Continue with sync using existing token
+    } else if (connection.refresh_token) {
+      // Try to refresh the token with retries
+      console.log('[SYNC:RECOVERY] Attempting token refresh with retries...');
+      const recoveredToken = await refreshGoogleTokenWithRetry(supabase, professionalId, connection.refresh_token);
+      
+      if (recoveredToken) {
+        console.log('[SYNC:RECOVERY] Auto-recovery successful! Token refreshed.');
+        // Token refresh already clears needs_reconnect and updates last_sync_status
+        // Continue with sync
+      } else {
+        console.error('[SYNC:ERROR] Auto-recovery failed, needs manual reconnect');
+        result.errors.push('La conexión con Google necesita reconectarse manualmente. Ve a Ajustes > Integraciones.');
+        return result;
+      }
+    } else {
+      console.error('[SYNC:ERROR] No refresh token available, manual reconnect required');
+      result.errors.push('La conexión con Google necesita reconectarse manualmente. Ve a Ajustes > Integraciones.');
+      return result;
+    }
   }
 
   // Get integrations settings
@@ -1018,16 +1053,53 @@ async function syncProfessional(
     }
   }
 
-  // Update sync state
-  await supabase
-    .from('oauth_connections')
-    .update({
-      sync_token: nextSyncToken ?? connection.sync_token,
-      last_sync_at: new Date().toISOString(),
-      last_sync_status: 'ok',
-    })
-    .eq('professional_id', professionalId)
-    .eq('provider', 'google');
+  // Update sync state based on results
+  const hasErrors = result.errors.length > 0;
+  
+  if (hasErrors) {
+    // Increment consecutive errors counter
+    const currentErrors = connection.consecutive_sync_errors || 0;
+    const newErrorCount = currentErrors + 1;
+    
+    console.log(`[SYNC:ERRORS] Sync had ${result.errors.length} errors. Consecutive errors: ${newErrorCount}`);
+    
+    if (newErrorCount >= 3) {
+      // Too many consecutive errors - clear sync_token to force full resync next time
+      console.log('[SYNC:RESET] Multiple consecutive errors, clearing sync_token for next full sync');
+      await supabase
+        .from('oauth_connections')
+        .update({
+          sync_token: null, // Force full sync next time
+          consecutive_sync_errors: 0, // Reset counter
+          last_sync_at: new Date().toISOString(),
+          last_sync_status: 'sync_errors_reset',
+        })
+        .eq('professional_id', professionalId)
+        .eq('provider', 'google');
+    } else {
+      await supabase
+        .from('oauth_connections')
+        .update({
+          consecutive_sync_errors: newErrorCount,
+          last_sync_at: new Date().toISOString(),
+          last_sync_status: 'sync_with_errors',
+        })
+        .eq('professional_id', professionalId)
+        .eq('provider', 'google');
+    }
+  } else {
+    // Success - update sync state and reset error counter
+    await supabase
+      .from('oauth_connections')
+      .update({
+        sync_token: nextSyncToken ?? connection.sync_token,
+        last_sync_at: new Date().toISOString(),
+        last_sync_status: 'ok',
+        consecutive_sync_errors: 0, // Reset on success
+      })
+      .eq('professional_id', professionalId)
+      .eq('provider', 'google');
+  }
 
   await supabase
     .from('professional_integrations')
