@@ -116,58 +116,58 @@ export default function Notifications() {
       </div>
 
       {/* Stats */}
-      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Total</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between pb-1 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
+            <CardTitle className="text-xs sm:text-sm font-medium">Total</CardTitle>
             <Bell className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.total}</div>
+          <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+            <div className="text-lg sm:text-2xl font-bold">{stats.total}</div>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Pendientes</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between pb-1 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
+            <CardTitle className="text-xs sm:text-sm font-medium">Pendientes</CardTitle>
             <Clock className="h-4 w-4 text-amber-500" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-amber-500">{stats.pending}</div>
+          <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+            <div className="text-lg sm:text-2xl font-bold text-amber-500">{stats.pending}</div>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Enviadas</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between pb-1 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
+            <CardTitle className="text-xs sm:text-sm font-medium">Enviadas</CardTitle>
             <CheckCircle className="h-4 w-4 text-green-500" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-500">{stats.sent}</div>
+          <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+            <div className="text-lg sm:text-2xl font-bold text-green-500">{stats.sent}</div>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Fallidas</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between pb-1 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
+            <CardTitle className="text-xs sm:text-sm font-medium">Fallidas</CardTitle>
             <XCircle className="h-4 w-4 text-destructive" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-destructive">{stats.failed}</div>
+          <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+            <div className="text-lg sm:text-2xl font-bold text-destructive">{stats.failed}</div>
           </CardContent>
         </Card>
       </div>
 
       {/* Filters */}
       <Card>
-        <CardHeader>
-          <CardTitle>Filtros</CardTitle>
+        <CardHeader className="px-3 sm:px-6 pt-3 sm:pt-6 pb-2 sm:pb-4">
+          <CardTitle className="text-sm sm:text-base">Filtros</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="flex flex-col sm:flex-row gap-4">
+        <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+          <div className="grid grid-cols-2 sm:flex sm:flex-row gap-2 sm:gap-4">
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full sm:w-[180px]">
+              <SelectTrigger className="w-full sm:w-[160px]">
                 <SelectValue placeholder="Estado" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todos los estados</SelectItem>
+                <SelectItem value="all">Todos</SelectItem>
                 <SelectItem value="pending">Pendientes</SelectItem>
                 <SelectItem value="sent">Enviadas</SelectItem>
                 <SelectItem value="failed">Fallidas</SelectItem>
@@ -175,11 +175,11 @@ export default function Notifications() {
             </Select>
 
             <Select value={typeFilter} onValueChange={setTypeFilter}>
-              <SelectTrigger className="w-full sm:w-[180px]">
+              <SelectTrigger className="w-full sm:w-[160px]">
                 <SelectValue placeholder="Tipo" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todos los tipos</SelectItem>
+                <SelectItem value="all">Todos</SelectItem>
                 <SelectItem value="email">
                   <span className="flex items-center gap-2">
                     <Mail className="h-4 w-4" /> Email
@@ -203,26 +203,30 @@ export default function Notifications() {
 
       {/* Notifications List */}
       <Tabs defaultValue="all" className="space-y-4">
-        <TabsList className="w-full overflow-x-auto flex-nowrap justify-start">
-          <TabsTrigger value="all" className="flex-shrink-0">Todas</TabsTrigger>
-          <TabsTrigger value="pending" className="flex items-center gap-1 flex-shrink-0">
-            <span className="hidden sm:inline">Pendientes</span>
-            <span className="sm:hidden">Pend.</span>
-            {stats.pending > 0 && (
-              <Badge variant="secondary" className="h-5 min-w-5 px-1 flex items-center justify-center text-xs">
-                {stats.pending}
-              </Badge>
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="sent" className="flex-shrink-0">
-            <span className="hidden sm:inline">Enviadas</span>
-            <span className="sm:hidden">Env.</span>
-          </TabsTrigger>
-          <TabsTrigger value="failed" className="flex-shrink-0">
-            <span className="hidden sm:inline">Fallidas</span>
-            <span className="sm:hidden">Fall.</span>
-          </TabsTrigger>
-        </TabsList>
+        <div className="relative">
+          <div className="absolute left-0 top-0 bottom-0 w-3 bg-gradient-to-r from-background to-transparent pointer-events-none z-10 sm:hidden" />
+          <div className="absolute right-0 top-0 bottom-0 w-3 bg-gradient-to-l from-background to-transparent pointer-events-none z-10 sm:hidden" />
+          <TabsList className="w-full sm:w-auto justify-start overflow-x-auto flex-nowrap gap-1 h-auto p-1">
+            <TabsTrigger value="all" className="flex-shrink-0 text-xs sm:text-sm px-3 py-2 min-h-[40px]">Todas</TabsTrigger>
+            <TabsTrigger value="pending" className="flex items-center gap-1 flex-shrink-0 text-xs sm:text-sm px-3 py-2 min-h-[40px]">
+              <span className="hidden sm:inline">Pendientes</span>
+              <span className="sm:hidden">Pend.</span>
+              {stats.pending > 0 && (
+                <Badge variant="secondary" className="h-5 min-w-5 px-1 flex items-center justify-center text-xs">
+                  {stats.pending}
+                </Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="sent" className="flex-shrink-0 text-xs sm:text-sm px-3 py-2 min-h-[40px]">
+              <span className="hidden sm:inline">Enviadas</span>
+              <span className="sm:hidden">Env.</span>
+            </TabsTrigger>
+            <TabsTrigger value="failed" className="flex-shrink-0 text-xs sm:text-sm px-3 py-2 min-h-[40px]">
+              <span className="hidden sm:inline">Fallidas</span>
+              <span className="sm:hidden">Fall.</span>
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         {isLoading ? (
           <div className="flex justify-center py-12">
@@ -239,7 +243,7 @@ export default function Notifications() {
                   </CardContent>
                 </Card>
               ) : (
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                <div className="grid gap-3 sm:gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
                   {notifications?.map((notification) => (
                     <NotificationCard
                       key={notification.id}
@@ -253,7 +257,7 @@ export default function Notifications() {
             </TabsContent>
 
             <TabsContent value="pending" className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-3 sm:gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
                 {notifications
                   ?.filter((n) => n.status === 'pending')
                   .map((notification) => (
@@ -268,7 +272,7 @@ export default function Notifications() {
             </TabsContent>
 
             <TabsContent value="sent" className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-3 sm:gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
                 {notifications
                   ?.filter((n) => n.status === 'sent')
                   .map((notification) => (
@@ -282,7 +286,7 @@ export default function Notifications() {
             </TabsContent>
 
             <TabsContent value="failed" className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-3 sm:gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
                 {notifications
                   ?.filter((n) => n.status === 'failed')
                   .map((notification) => (
