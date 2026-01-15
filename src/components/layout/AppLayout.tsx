@@ -51,7 +51,7 @@ export function AppLayout({ children }: AppLayoutProps) {
       <div className="flex min-h-screen w-full">
         <AppSidebar />
         <SidebarInset className="flex flex-col">
-          <header className="flex h-14 shrink-0 items-center gap-2 border-b bg-card px-4">
+          <header className="flex h-12 sm:h-14 shrink-0 items-center gap-2 border-b bg-card px-3 sm:px-4">
             <SidebarTrigger className="-ml-1" />
             <Separator orientation="vertical" className="mr-2 h-4" />
             <Breadcrumb>
@@ -61,12 +61,12 @@ export function AppLayout({ children }: AppLayoutProps) {
                 </BreadcrumbItem>
                 <BreadcrumbSeparator className="hidden lg:block" />
                 <BreadcrumbItem>
-                  <BreadcrumbPage>{currentTitle}</BreadcrumbPage>
+                  <BreadcrumbPage className="text-sm sm:text-base">{currentTitle}</BreadcrumbPage>
                 </BreadcrumbItem>
               </BreadcrumbList>
             </Breadcrumb>
           </header>
-          <main className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden p-4 lg:p-6">{children}</main>
+          <main className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden p-3 sm:p-4 lg:p-6">{children}</main>
         </SidebarInset>
       </div>
     </SidebarProvider>

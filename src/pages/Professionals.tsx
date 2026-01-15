@@ -31,23 +31,21 @@ export default function Professionals() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Profesionales</h1>
-          <p className="text-muted-foreground">
+          <h1 className="font-display text-2xl sm:text-3xl font-bold text-foreground">Profesionales</h1>
+          <p className="text-muted-foreground text-sm">
             Gestiona los profesionales del centro
           </p>
         </div>
       </div>
 
-      <div className="flex items-center gap-4">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Buscar por nombre, email o especialidad..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
-          />
-        </div>
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          placeholder="Buscar..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="pl-10 w-full sm:max-w-sm"
+        />
       </div>
 
       {isLoading ? (
@@ -65,7 +63,7 @@ export default function Professionals() {
           </p>
         </div>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           {filteredProfessionals.map((professional) => (
             <ProfessionalCard
               key={professional.id}

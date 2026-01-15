@@ -14,16 +14,19 @@ export default function Consents() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="font-display text-2xl font-bold md:text-3xl">
-            Plantillas de Consentimiento
+          <h1 className="font-display text-2xl sm:text-3xl font-bold">
+            <span className="hidden sm:inline">Plantillas de Consentimiento</span>
+            <span className="sm:hidden">Consentimientos</span>
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Gestiona las plantillas de consentimiento informado
+            <span className="hidden sm:inline">Gestiona las plantillas de consentimiento informado</span>
+            <span className="sm:hidden">Plantillas de consentimiento</span>
           </p>
         </div>
-        <Button onClick={() => setCreateDialogOpen(true)}>
+        <Button onClick={() => setCreateDialogOpen(true)} size="sm" className="w-full sm:w-auto sm:size-default">
           <Plus className="mr-2 h-4 w-4" />
-          Nueva plantilla
+          <span className="hidden sm:inline">Nueva plantilla</span>
+          <span className="sm:hidden">Nueva</span>
         </Button>
       </div>
 

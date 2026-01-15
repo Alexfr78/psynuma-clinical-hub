@@ -116,10 +116,20 @@ export default function Payments() {
       </div>
 
       <Tabs defaultValue="debts">
-        <TabsList>
-          <TabsTrigger value="debts">Deudas pendientes</TabsTrigger>
-          <TabsTrigger value="history">Historial de pagos</TabsTrigger>
-        </TabsList>
+        <div className="relative">
+          <div className="absolute left-0 top-0 bottom-0 w-3 bg-gradient-to-r from-background to-transparent pointer-events-none z-10 sm:hidden" />
+          <div className="absolute right-0 top-0 bottom-0 w-3 bg-gradient-to-l from-background to-transparent pointer-events-none z-10 sm:hidden" />
+          <TabsList className="w-full sm:w-auto justify-start overflow-x-auto flex-nowrap gap-1 h-auto p-1">
+            <TabsTrigger value="debts" className="flex-shrink-0 text-xs sm:text-sm px-3 py-2 min-h-[40px]">
+              <span className="hidden sm:inline">Deudas pendientes</span>
+              <span className="sm:hidden">Deudas</span>
+            </TabsTrigger>
+            <TabsTrigger value="history" className="flex-shrink-0 text-xs sm:text-sm px-3 py-2 min-h-[40px]">
+              <span className="hidden sm:inline">Historial de pagos</span>
+              <span className="sm:hidden">Historial</span>
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="debts" className="mt-4">
           {debtsLoading ? (
