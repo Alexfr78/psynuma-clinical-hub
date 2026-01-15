@@ -33,8 +33,8 @@ export default function Patients() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="font-display text-2xl font-bold text-foreground">Pacientes</h1>
-          <p className="text-muted-foreground">
+          <h1 className="font-display text-2xl sm:text-3xl font-bold text-foreground">Pacientes</h1>
+          <p className="text-muted-foreground text-sm">
             Gestiona la información de tus pacientes
           </p>
         </div>

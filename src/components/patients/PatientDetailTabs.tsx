@@ -59,18 +59,22 @@ export function PatientDetailTabs({ patient }: PatientDetailTabsProps) {
         </Select>
       </div>
 
-      {/* Desktop: Horizontal tabs */}
-      <TabsList className="hidden sm:flex mb-4 sm:mb-6 w-full justify-start flex-wrap h-auto gap-1">
-        {tabOptions.map((tab) => (
-          <TabsTrigger 
-            key={tab.value} 
-            value={tab.value} 
-            className="text-xs sm:text-sm px-3 py-2"
-          >
-            {tab.label}
-          </TabsTrigger>
-        ))}
-      </TabsList>
+      {/* Desktop: Horizontal tabs with scroll indicator */}
+      <div className="hidden sm:block relative mb-4 sm:mb-6">
+        <div className="absolute left-0 top-0 bottom-0 w-3 bg-gradient-to-r from-background to-transparent pointer-events-none z-10 md:hidden" />
+        <div className="absolute right-0 top-0 bottom-0 w-3 bg-gradient-to-l from-background to-transparent pointer-events-none z-10 md:hidden" />
+        <TabsList className="w-full justify-start overflow-x-auto flex-nowrap h-auto gap-1 p-1">
+          {tabOptions.map((tab) => (
+            <TabsTrigger 
+              key={tab.value} 
+              value={tab.value} 
+              className="flex-shrink-0 text-xs sm:text-sm px-3 py-2 min-h-[40px]"
+            >
+              {tab.label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </div>
 
       <TabsContent value="summary">
         <PatientSummary patient={patient} />

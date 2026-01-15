@@ -35,22 +35,24 @@ export default function Assessments() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <ClipboardCheck className="h-6 w-6" />
+          <h1 className="font-display text-2xl sm:text-3xl font-bold flex items-center gap-2">
+            <ClipboardCheck className="h-5 w-5 sm:h-6 sm:w-6" />
             Evaluaciones
           </h1>
-          <p className="text-muted-foreground">Gestiona las evaluaciones de tus pacientes</p>
+          <p className="text-muted-foreground text-sm">Gestiona las evaluaciones de tus pacientes</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setAddTemplateOpen(true)}>
-            <FileText className="h-4 w-4 mr-2" />
-            Añadir plantilla
+          <Button variant="outline" size="sm" className="sm:size-default" onClick={() => setAddTemplateOpen(true)}>
+            <FileText className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Añadir plantilla</span>
+            <span className="sm:hidden">Plantilla</span>
           </Button>
-          <Button onClick={() => setCreateOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Nueva evaluación
+          <Button size="sm" className="sm:size-default" onClick={() => setCreateOpen(true)}>
+            <Plus className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Nueva evaluación</span>
+            <span className="sm:hidden">Nueva</span>
           </Button>
         </div>
       </div>
