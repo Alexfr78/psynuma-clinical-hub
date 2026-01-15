@@ -38,12 +38,17 @@ export default function Bonos() {
           <h1 className="font-display text-2xl sm:text-3xl font-bold">Bonos</h1>
           <p className="text-muted-foreground">Gestiona los paquetes de sesiones</p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setTemplatesOpen(true)}>
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full sm:w-auto"
+            onClick={() => setTemplatesOpen(true)}
+          >
             <Settings className="h-4 w-4 mr-2" />
             Plantillas
           </Button>
-          <Button onClick={() => setCreateOpen(true)}>
+          <Button size="sm" className="w-full sm:w-auto" onClick={() => setCreateOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Nuevo bono
           </Button>

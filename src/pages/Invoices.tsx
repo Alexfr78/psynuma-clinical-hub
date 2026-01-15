@@ -254,7 +254,7 @@ export default function Invoices() {
         </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button>
+            <Button size="sm" className="w-full sm:w-auto">
               <Plus className="h-4 w-4 mr-2" />
               Nueva factura
             </Button>
@@ -270,7 +270,7 @@ export default function Invoices() {
         </DropdownMenu>
       </div>
 
-      <div className="grid gap-3 sm:gap-4 grid-cols-3">
+      <div className="grid gap-3 sm:gap-4 grid-cols-2 sm:grid-cols-3">
         <Card>
           <CardHeader className="pb-1 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
             <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">Facturado</CardTitle>
@@ -287,7 +287,7 @@ export default function Invoices() {
             <p className="text-lg sm:text-2xl font-bold text-green-600">{stats?.totalPaid.toFixed(0) || '0'}€</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="col-span-2 sm:col-span-1">
           <CardHeader className="pb-1 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
             <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">Pendiente</CardTitle>
           </CardHeader>
@@ -313,15 +313,16 @@ export default function Invoices() {
           </TabsList>
         </div>
 
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-4">
           <div className="text-sm text-muted-foreground">
             {invoices?.length || 0} facturas
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" className="w-full sm:w-auto justify-center sm:justify-start">
                 <ArrowUpDown className="h-4 w-4 mr-2" />
-                {getSortLabel()}
+                <span className="sm:hidden">{sortBy === 'invoice_number' ? 'Nº' : 'Fecha'} {sortDirection === 'desc' ? '↓' : '↑'}</span>
+                <span className="hidden sm:inline">{getSortLabel()}</span>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">

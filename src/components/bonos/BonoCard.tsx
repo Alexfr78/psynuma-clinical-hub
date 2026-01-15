@@ -65,11 +65,12 @@ export function BonoCard({ bono, onClick }: BonoCardProps) {
 
         {/* Contador de sesiones */}
         <div className="space-y-2">
-          <div className="flex items-center justify-between text-sm">
+          <div className="flex items-center justify-between gap-2 text-sm">
             <span className="text-muted-foreground">Sesiones</span>
-            <span className="font-medium tabular-nums">
+            <span className="font-medium tabular-nums text-right whitespace-nowrap">
               <span className="text-primary">{availableSessions}</span>
-              <span className="text-muted-foreground"> / {bono.total_sessions} disponibles</span>
+              <span className="text-muted-foreground"> / {bono.total_sessions}</span>
+              <span className="text-muted-foreground hidden sm:inline"> disponibles</span>
             </span>
           </div>
           <Progress value={progress} className="h-2" />
