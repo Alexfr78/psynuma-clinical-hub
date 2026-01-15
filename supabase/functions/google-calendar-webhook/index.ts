@@ -80,14 +80,13 @@ serve(async (req) => {
         return new Response('OK', { status: 200, headers: corsHeaders });
       }
 
-      // Check if needs reconnect - but attempt token refresh first
+      // Check if needs reconnect - sync-google-calendar will attempt auto-recovery
       if (oauthConn.needs_reconnect) {
-        console.warn('[WEBHOOK] Connection marked needs_reconnect, attempting token refresh...', { 
+        console.log('[WEBHOOK:RECOVERY] Connection marked needs_reconnect, invoking sync for auto-recovery...', { 
           professionalId: oauthConn.professional_id 
         });
         
-        // Try to invoke sync anyway - it will attempt token refresh with retries
-        // This gives us a chance to auto-recover from temporary token issues
+        // Invoke sync - it now has auto-recovery logic built in
         try {
           const syncResponse = await fetch(
             `${Deno.env.get('SUPABASE_URL')}/functions/v1/sync-google-calendar`,
@@ -106,15 +105,19 @@ serve(async (req) => {
           if (syncResponse.ok) {
             const syncResult = await syncResponse.json();
             if (!syncResult.errors?.length) {
-              console.log('[WEBHOOK] Auto-recovery succeeded after needs_reconnect');
+              console.log('[WEBHOOK:RECOVERY] Sync completed successfully - auto-recovery worked!');
             } else {
-              console.warn('[WEBHOOK] Sync had errors:', syncResult.errors);
+              console.warn('[WEBHOOK:RECOVERY] Sync had errors:', syncResult.errors);
             }
+          } else {
+            const errorText = await syncResponse.text();
+            console.error('[WEBHOOK:RECOVERY] Sync invocation failed:', errorText);
           }
         } catch (e) {
-          console.error('[WEBHOOK] Auto-recovery sync failed:', e);
+          console.error('[WEBHOOK:RECOVERY] Error invoking sync:', e);
         }
         
+        // Don't process this webhook further - let the sync handle everything
         return new Response('OK', { status: 200, headers: corsHeaders });
       }
 
