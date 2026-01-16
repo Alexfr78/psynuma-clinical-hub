@@ -704,19 +704,33 @@ async function renewChannelIfExpiring(
 
     console.log(`[SYNC:RENEW] Channel expiring in ${hoursUntilExpiry.toFixed(1)} hours, renewing...`);
 
-    // Get existing token from oauth_connections (source of truth for token)
+    // Get existing token and error counters from oauth_connections (source of truth)
     const { data: oauthConn } = await supabase
       .from('oauth_connections')
-      .select('watch_channel_token, watch_channel_id, watch_resource_id')
+      .select('watch_channel_token, watch_channel_id, watch_resource_id, consecutive_sync_errors')
       .eq('professional_id', professionalId)
       .eq('provider', 'google')
       .single();
 
     // Reuse existing token or generate new one if missing
     let channelToken = oauthConn?.watch_channel_token;
+    const tokenWasGenerated = !channelToken;
+    
     if (!channelToken) {
       channelToken = crypto.randomUUID() + '-' + crypto.randomUUID();
       console.log(`[SYNC:RENEW] No existing token found, generated new token for professional ${professionalId}`);
+      
+      // IMPROVEMENT #2: Persist new token BEFORE calling events.watch
+      // This ensures the token is stable even if the watch call fails
+      await supabase
+        .from('oauth_connections')
+        .update({ 
+          watch_channel_token: channelToken,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('professional_id', professionalId)
+        .eq('provider', 'google');
+      console.log(`[SYNC:RENEW] Pre-persisted new token for ${professionalId}`);
     } else {
       console.log(`[SYNC:RENEW] Reusing existing channel token for professional ${professionalId}`);
     }
@@ -783,15 +797,18 @@ async function renewChannelIfExpiring(
         })
         .eq('id', channel.id);
 
-      // Update oauth_connections with new channel info AND token
+      // Update oauth_connections with new channel info (token already persisted if generated)
       await supabase
         .from('oauth_connections')
         .update({
           watch_channel_id: watchData.id,
           watch_resource_id: watchData.resourceId,
           watch_expires_at: newExpiration,
-          watch_channel_token: channelToken, // Ensure token is stored
+          watch_channel_token: channelToken, // Confirm token is stored
           last_sync_status: 'watch_renewed',
+          last_sync_error_code: null,
+          last_sync_error_message: null,
+          consecutive_sync_errors: 0,
         })
         .eq('professional_id', professionalId)
         .eq('provider', 'google');
@@ -801,10 +818,40 @@ async function renewChannelIfExpiring(
       const errorText = await watchResponse.text();
       console.error(`[SYNC:RENEW] Failed to renew channel (status: ${watchResponse.status}):`, errorText);
       
-      // Update status to indicate renewal failure
+      // IMPROVEMENT #1: Parse error and update detailed error fields
+      let errorCode = 'watch_renewal_failed';
+      let errorMessage = errorText;
+      let needsReconnect = false;
+      
+      try {
+        const errorJson = JSON.parse(errorText);
+        errorMessage = errorJson.error?.message || errorText;
+        
+        if (errorMessage.includes('invalid_grant') || errorJson.error?.status === 'UNAUTHENTICATED') {
+          errorCode = 'token_revoked';
+          needsReconnect = true;
+        } else if (errorMessage.includes('invalid_client')) {
+          errorCode = 'oauth_credentials_invalid';
+          needsReconnect = true;
+        } else if (watchResponse.status === 401) {
+          errorCode = 'unauthorized';
+          needsReconnect = true;
+        }
+      } catch {
+        // Keep generic error if not JSON
+      }
+
+      const currentErrors = oauthConn?.consecutive_sync_errors || 0;
+      
       await supabase
         .from('oauth_connections')
-        .update({ last_sync_status: 'watch_renewal_failed' })
+        .update({ 
+          last_sync_status: 'watch_renewal_failed',
+          last_sync_error_code: errorCode,
+          last_sync_error_message: errorMessage.substring(0, 500), // Truncate if too long
+          consecutive_sync_errors: currentErrors + 1,
+          needs_reconnect: needsReconnect || undefined, // Only set if true
+        })
         .eq('professional_id', professionalId)
         .eq('provider', 'google');
     }
