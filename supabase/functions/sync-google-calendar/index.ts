@@ -77,10 +77,52 @@ async function getGoogleOAuthCredentials(supabase: any, professionalId: string):
   return null;
 }
 
+// Helper function to log integration errors to the database
+async function logIntegrationError(
+  supabase: any,
+  professionalId: string,
+  source: string,
+  step: string | null,
+  httpStatus: number | null,
+  errorCode: string | null,
+  message: string | null,
+  raw: any | null,
+  correlationId?: string
+): Promise<void> {
+  try {
+    // Sanitize raw to remove sensitive data
+    let sanitizedRaw = raw;
+    if (raw && typeof raw === 'object') {
+      const sensitiveKeys = ['access_token', 'refresh_token', 'client_secret', 'authorization_code', 'id_token', 'code', 'token', 'secret', 'password', 'key', 'apikey', 'api_key', 'bearer', 'credential', 'credentials'];
+      sanitizedRaw = { ...raw };
+      for (const key of sensitiveKeys) {
+        if (key in sanitizedRaw) {
+          sanitizedRaw[key] = '[REDACTED]';
+        }
+      }
+    }
+
+    await supabase.rpc('log_integration_error', {
+      p_professional_id: professionalId,
+      p_provider: 'google',
+      p_source: source,
+      p_step: step,
+      p_http_status: httpStatus,
+      p_error_code: errorCode,
+      p_message: message,
+      p_raw: sanitizedRaw ? JSON.stringify(sanitizedRaw) : null,
+      p_correlation_id: correlationId || null,
+    });
+  } catch (err) {
+    console.error('[SYNC:LOG_ERROR] Failed to log integration error:', err);
+  }
+}
+
 async function refreshGoogleToken(
   supabase: any,
   professionalId: string,
-  refreshToken: string
+  refreshToken: string,
+  correlationId?: string
 ): Promise<string | null> {
   const credentials = await getGoogleOAuthCredentials(supabase, professionalId);
 
@@ -88,9 +130,18 @@ async function refreshGoogleToken(
     console.error('[SYNC:TOKEN] Google OAuth credentials not configured');
     await supabase
       .from('oauth_connections')
-      .update({ needs_reconnect: true, last_sync_status: 'credentials_missing' })
+      .update({ 
+        needs_reconnect: true, 
+        last_sync_status: 'credentials_missing',
+        last_sync_error_code: 'credentials_missing',
+        last_sync_error_message: 'Google OAuth credentials not configured',
+        last_token_refresh_at: new Date().toISOString(),
+        last_token_refresh_result: 'fail',
+      })
       .eq('professional_id', professionalId)
       .eq('provider', 'google');
+    
+    await logIntegrationError(supabase, professionalId, 'sync-google-calendar', 'refresh_token', null, 'credentials_missing', 'Google OAuth credentials not configured', null, correlationId);
     return null;
   }
 
@@ -119,6 +170,10 @@ async function refreshGoogleToken(
           updated_at: new Date().toISOString(),
           needs_reconnect: false,
           last_sync_status: 'token_refreshed',
+          last_token_refresh_at: new Date().toISOString(),
+          last_token_refresh_result: 'ok',
+          last_sync_error_code: null,
+          last_sync_error_message: null,
         })
         .eq('professional_id', professionalId)
         .eq('provider', 'google');
@@ -129,6 +184,19 @@ async function refreshGoogleToken(
 
     console.error('[SYNC:TOKEN] Google token refresh failed:', data.error, data.error_description);
 
+    // Log error to integration_errors table
+    await logIntegrationError(
+      supabase,
+      professionalId,
+      'sync-google-calendar',
+      'refresh_token',
+      response.status,
+      data.error || 'token_refresh_failed',
+      data.error_description || 'Token refresh failed',
+      { http_status: response.status, error: data.error, error_description: data.error_description },
+      correlationId
+    );
+
     // Handle specific error cases - mark needs_reconnect
     if (data.error === 'invalid_grant' || data.error === 'invalid_client') {
       console.error('[SYNC:TOKEN] Auth error - marking needs_reconnect');
@@ -137,12 +205,29 @@ async function refreshGoogleToken(
         .update({
           needs_reconnect: true,
           last_sync_status: 'needs_reconnect',
+          last_sync_error_code: data.error,
+          last_sync_error_message: data.error_description || 'Authentication error',
+          last_token_refresh_at: new Date().toISOString(),
+          last_token_refresh_result: 'fail',
+        })
+        .eq('professional_id', professionalId)
+        .eq('provider', 'google');
+    } else {
+      await supabase
+        .from('oauth_connections')
+        .update({
+          last_sync_error_code: data.error,
+          last_sync_error_message: data.error_description || 'Token refresh failed',
+          last_token_refresh_at: new Date().toISOString(),
+          last_token_refresh_result: 'fail',
         })
         .eq('professional_id', professionalId)
         .eq('provider', 'google');
     }
-  } catch (error) {
-    console.error('[SYNC:TOKEN] Error refreshing Google token:', error);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    console.error('[SYNC:TOKEN] Error refreshing Google token:', message);
+    await logIntegrationError(supabase, professionalId, 'sync-google-calendar', 'refresh_token', null, 'exception', message, null, correlationId);
   }
   return null;
 }
@@ -152,11 +237,12 @@ async function refreshGoogleTokenWithRetry(
   supabase: any,
   professionalId: string,
   refreshToken: string,
-  maxRetries: number = 3
+  maxRetries: number = 3,
+  correlationId?: string
 ): Promise<string | null> {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     console.log(`[SYNC:TOKEN] Refresh attempt ${attempt}/${maxRetries}`);
-    const token = await refreshGoogleToken(supabase, professionalId, refreshToken);
+    const token = await refreshGoogleToken(supabase, professionalId, refreshToken, correlationId);
     if (token) return token;
     
     if (attempt < maxRetries) {
@@ -175,6 +261,8 @@ async function refreshGoogleTokenWithRetry(
     })
     .eq('professional_id', professionalId)
     .eq('provider', 'google');
+  
+  await logIntegrationError(supabase, professionalId, 'sync-google-calendar', 'refresh_token', null, 'all_retries_failed', `All ${maxRetries} token refresh attempts failed`, null, correlationId);
   
   return null;
 }

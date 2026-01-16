@@ -1321,6 +1321,59 @@ export type Database = {
           },
         ]
       }
+      integration_errors: {
+        Row: {
+          at: string
+          correlation_id: string | null
+          created_at: string
+          error_code: string | null
+          http_status: number | null
+          id: string
+          message: string | null
+          professional_id: string
+          provider: string
+          raw: Json | null
+          source: string
+          step: string | null
+        }
+        Insert: {
+          at?: string
+          correlation_id?: string | null
+          created_at?: string
+          error_code?: string | null
+          http_status?: number | null
+          id?: string
+          message?: string | null
+          professional_id: string
+          provider?: string
+          raw?: Json | null
+          source: string
+          step?: string | null
+        }
+        Update: {
+          at?: string
+          correlation_id?: string | null
+          created_at?: string
+          error_code?: string | null
+          http_status?: number | null
+          id?: string
+          message?: string | null
+          professional_id?: string
+          provider?: string
+          raw?: Json | null
+          source?: string
+          step?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "integration_errors_professional_id_fkey"
+            columns: ["professional_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invoice_items: {
         Row: {
           billable_event_id: string | null
@@ -1738,7 +1791,13 @@ export type Database = {
           google_calendar_id: string | null
           id: string
           last_sync_at: string | null
+          last_sync_error_code: string | null
+          last_sync_error_message: string | null
+          last_sync_error_raw: Json | null
           last_sync_status: string | null
+          last_token_refresh_at: string | null
+          last_token_refresh_result: string | null
+          last_webhook_received_at: string | null
           needs_reconnect: boolean | null
           professional_id: string
           provider: string
@@ -1748,6 +1807,7 @@ export type Database = {
           stripe_account_id: string | null
           stripe_account_status: string | null
           sync_token: string | null
+          sync_token_last_set_at: string | null
           updated_at: string | null
           watch_channel_id: string | null
           watch_channel_token: string | null
@@ -1762,7 +1822,13 @@ export type Database = {
           google_calendar_id?: string | null
           id?: string
           last_sync_at?: string | null
+          last_sync_error_code?: string | null
+          last_sync_error_message?: string | null
+          last_sync_error_raw?: Json | null
           last_sync_status?: string | null
+          last_token_refresh_at?: string | null
+          last_token_refresh_result?: string | null
+          last_webhook_received_at?: string | null
           needs_reconnect?: boolean | null
           professional_id: string
           provider: string
@@ -1772,6 +1838,7 @@ export type Database = {
           stripe_account_id?: string | null
           stripe_account_status?: string | null
           sync_token?: string | null
+          sync_token_last_set_at?: string | null
           updated_at?: string | null
           watch_channel_id?: string | null
           watch_channel_token?: string | null
@@ -1786,7 +1853,13 @@ export type Database = {
           google_calendar_id?: string | null
           id?: string
           last_sync_at?: string | null
+          last_sync_error_code?: string | null
+          last_sync_error_message?: string | null
+          last_sync_error_raw?: Json | null
           last_sync_status?: string | null
+          last_token_refresh_at?: string | null
+          last_token_refresh_result?: string | null
+          last_webhook_received_at?: string | null
           needs_reconnect?: boolean | null
           professional_id?: string
           provider?: string
@@ -1796,6 +1869,7 @@ export type Database = {
           stripe_account_id?: string | null
           stripe_account_status?: string | null
           sync_token?: string | null
+          sync_token_last_set_at?: string | null
           updated_at?: string | null
           watch_channel_id?: string | null
           watch_channel_token?: string | null
@@ -2978,6 +3052,20 @@ export type Database = {
       }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
       is_professional: { Args: { _user_id: string }; Returns: boolean }
+      log_integration_error: {
+        Args: {
+          p_correlation_id?: string
+          p_error_code?: string
+          p_http_status?: number
+          p_message?: string
+          p_professional_id: string
+          p_provider: string
+          p_raw?: Json
+          p_source: string
+          p_step?: string
+        }
+        Returns: string
+      }
       portal_list_locations: {
         Args: {
           p_center_slug: string
@@ -3010,6 +3098,7 @@ export type Database = {
         Args: { p_center_id: string; p_ordered_ids: string[] }
         Returns: Json
       }
+      sanitize_error_payload: { Args: { payload: Json }; Returns: Json }
       update_payment_and_recompute_debt_v2: {
         Args: {
           p_amount: number
