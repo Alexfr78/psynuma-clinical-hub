@@ -33,6 +33,8 @@ import PublicBookingManage from "./pages/PublicBookingManage";
 import Assessments from "./pages/Assessments";
 import AssessmentPublic from "./pages/AssessmentPublic";
 import AssessmentResults from "./pages/AssessmentResults";
+import PayDebt from "./pages/PayDebt";
+import PaymentSuccess from "./pages/PaymentSuccess";
 
 const queryClient = new QueryClient();
 
@@ -65,6 +67,8 @@ const App = () => (
             <Route path="/portal/:slug/dashboard" element={<PatientPortalDashboard />} />
             <Route path="/book/:centerSlug" element={<PublicBooking />} />
             <Route path="/book/:centerSlug/manage" element={<PublicBookingManage />} />
+            <Route path="/pagar/:token" element={<PayDebt />} />
+            <Route path="/pago-exitoso" element={<PaymentSuccess />} />
             
             {/* Protected Routes */}
             <Route path="/dashboard" element={

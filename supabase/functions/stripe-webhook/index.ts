@@ -29,29 +29,36 @@ interface InvoiceSeries {
   is_archived: boolean;
 }
 
-interface SessionData {
-  patient_id: string;
-  price: number;
-  center_id: string;
-  session_type: string;
-  session_date: string;
-}
-
-// Helper function to create invoice and send notification
-async function createAndSendInvoice(
+// Helper function to create invoice
+async function createInvoice(
   supabase: any,
-  sessionId: string,
-  sessionData: SessionData,
-  center: Center
-): Promise<string | null> {
-  console.log('Creating auto-invoice for session:', sessionId);
+  centerId: string,
+  patientId: string,
+  description: string,
+  amount: number,
+  linkedSessionId: string | null,
+  linkedBonoId: string | null
+): Promise<{ invoiceId: string | null; accessToken: string | null }> {
+  console.log('Creating invoice for:', { centerId, patientId, amount });
   
   try {
-    // 1. Get default simplified series
+    // Get center settings
+    const { data: center } = await supabase
+      .from('centers')
+      .select('id, invoice_on_payment_mode, invoice_send_channel, verifactu_auto_enabled, verifactu_certificate_base64, default_tax_rate')
+      .eq('id', centerId)
+      .single();
+
+    if (!center) {
+      console.error('Center not found');
+      return { invoiceId: null, accessToken: null };
+    }
+
+    // Get default simplified series
     const { data: seriesData, error: seriesError } = await supabase
       .from('invoice_series')
       .select('*')
-      .eq('center_id', center.id)
+      .eq('center_id', centerId)
       .eq('invoice_type', 'simplified')
       .eq('is_archived', false)
       .limit(1)
@@ -59,12 +66,12 @@ async function createAndSendInvoice(
 
     if (seriesError || !seriesData) {
       console.error('No invoice series found:', seriesError);
-      return null;
+      return { invoiceId: null, accessToken: null };
     }
 
     const series = seriesData as InvoiceSeries;
 
-    // 2. Generate invoice number
+    // Generate invoice number
     const year = new Date().getFullYear();
     const nextNumber = series.next_number || 1;
     const paddedNumber = nextNumber.toString().padStart(5, '0');
@@ -77,18 +84,18 @@ async function createAndSendInvoice(
       .replace('{NNNN}', nextNumber.toString().padStart(4, '0'))
       .replace('{NNN}', nextNumber.toString().padStart(3, '0'));
 
-    // 3. Calculate totals (session is exempt from VAT by default for healthcare)
+    // Calculate totals (healthcare exempt from VAT by default)
     const taxRate = center.default_tax_rate ?? 0;
-    const subtotal = sessionData.price;
+    const subtotal = amount;
     const taxAmount = subtotal * (taxRate / 100);
     const total = subtotal + taxAmount;
 
-    // 4. Create the invoice
+    // Create the invoice
     const { data: invoiceData, error: invoiceError } = await supabase
       .from('invoices')
       .insert({
-        center_id: center.id,
-        patient_id: sessionData.patient_id,
+        center_id: centerId,
+        patient_id: patientId,
         series_id: series.id,
         invoice_number: invoiceNumber,
         status: 'paid',
@@ -97,68 +104,46 @@ async function createAndSendInvoice(
         tax_rate: taxRate,
         tax_amount: taxAmount,
         total,
-        notes: 'Factura generada automáticamente por pago Stripe',
+        notes: 'Factura generada automáticamente por pago online',
       })
-      .select()
+      .select('id, access_token')
       .single();
 
     if (invoiceError || !invoiceData) {
       console.error('Error creating invoice:', invoiceError);
-      return null;
+      return { invoiceId: null, accessToken: null };
     }
 
-    const invoiceId = invoiceData.id as string;
-    console.log('Invoice created:', invoiceId);
+    console.log('Invoice created:', invoiceData.id);
 
-    // 5. Create invoice item
-    const description = `Sesión de ${sessionData.session_type || 'terapia'} - ${sessionData.session_date}`;
+    // Create invoice item
     await supabase
       .from('invoice_items')
       .insert({
-        invoice_id: invoiceId,
+        invoice_id: invoiceData.id,
         description,
         quantity: 1,
         unit_price: subtotal,
         tax_rate: taxRate,
         tax_amount: taxAmount,
         total,
-        session_id: sessionId,
+        session_id: linkedSessionId,
+        bono_id: linkedBonoId,
       });
 
-    // 6. Update series counter
+    // Update series counter
     await supabase
       .from('invoice_series')
       .update({ next_number: nextNumber + 1 })
       .eq('id', series.id);
 
-    // 7. Link debt to invoice
-    const { data: existingDebtData } = await supabase
-      .from('debts')
-      .select('id')
-      .eq('session_id', sessionId)
-      .maybeSingle();
-
-    if (existingDebtData) {
-      await supabase
-        .from('debts')
-        .update({ invoice_id: invoiceId })
-        .eq('id', existingDebtData.id);
-    }
-
-    // 8. Update payments to link to invoice
-    await supabase
-      .from('payments')
-      .update({ invoice_id: invoiceId })
-      .eq('session_id', sessionId)
-      .is('invoice_id', null);
-
-    // 9. Sign with Verifactu if enabled
+    // Sign with Verifactu if enabled
     if (center.verifactu_auto_enabled && center.verifactu_certificate_base64) {
       try {
         console.log('Signing invoice with Verifactu...');
         const { error: verifactuError } = await supabase.functions.invoke(
           'sign-invoice-verifactu',
-          { body: { invoice_id: invoiceId } }
+          { body: { invoice_id: invoiceData.id } }
         );
         
         if (verifactuError) {
@@ -166,27 +151,19 @@ async function createAndSendInvoice(
           await supabase
             .from('invoices')
             .update({ verifactu_pending: true, verifactu_retry_count: 1 })
-            .eq('id', invoiceId);
-        } else {
-          console.log('Verifactu signed successfully');
+            .eq('id', invoiceData.id);
         }
       } catch (error) {
         console.error('Verifactu error:', error);
-        await supabase
-          .from('invoices')
-          .update({ verifactu_pending: true, verifactu_retry_count: 1 })
-          .eq('id', invoiceId);
       }
     }
 
-    // 10. Send notification based on channel setting
+    // Send notification
     const sendChannel = center.invoice_send_channel || 'email';
-    
-    // Get patient info for notification
     const { data: patientData } = await supabase
       .from('patients')
       .select('email, phone')
-      .eq('id', sessionData.patient_id)
+      .eq('id', patientId)
       .single();
 
     if (patientData) {
@@ -194,24 +171,328 @@ async function createAndSendInvoice(
         console.log('Sending invoice notification via:', sendChannel);
         await supabase.functions.invoke('send-invoice-notification', {
           body: {
-            invoice_id: invoiceId,
-            patient_id: sessionData.patient_id,
+            invoice_id: invoiceData.id,
+            patient_id: patientId,
             patient_email: patientData.email,
             patient_phone: patientData.phone,
             channel: sendChannel,
           }
         });
-        console.log('Invoice notification sent');
       } catch (notifError) {
         console.error('Error sending invoice notification:', notifError);
-        // Don't fail the flow if notification fails
       }
     }
 
-    return invoiceId;
+    return { invoiceId: invoiceData.id, accessToken: invoiceData.access_token };
   } catch (error) {
-    console.error('Error in createAndSendInvoice:', error);
-    return null;
+    console.error('Error in createInvoice:', error);
+    return { invoiceId: null, accessToken: null };
+  }
+}
+
+// Handle debt payment
+async function handleDebtPayment(
+  supabase: any,
+  metadata: Record<string, string>,
+  paymentAmount: number,
+  stripeSessionId: string
+): Promise<void> {
+  const debtId = metadata.debt_id;
+  const patientId = metadata.patient_id;
+  const centerId = metadata.center_id;
+  const sessionId = metadata.session_id || null;
+
+  console.log('Processing debt payment:', { debtId, patientId, centerId, sessionId });
+
+  // Update debt to paid
+  await supabase
+    .from('debts')
+    .update({
+      status: 'paid',
+      paid_amount: paymentAmount,
+      stripe_payment_status: 'paid',
+    })
+    .eq('id', debtId);
+
+  // Create payment record
+  await supabase
+    .from('payments')
+    .insert({
+      patient_id: patientId,
+      center_id: centerId,
+      session_id: sessionId || null,
+      amount: paymentAmount,
+      payment_method: 'stripe',
+      payment_date: new Date().toISOString().split('T')[0],
+      reference: stripeSessionId,
+      notes: 'Pago online de deuda pendiente',
+    });
+
+  // Update session if exists
+  if (sessionId) {
+    await supabase
+      .from('sessions')
+      .update({
+        payment_status: 'paid',
+        stripe_payment_status: 'paid',
+      })
+      .eq('id', sessionId);
+  }
+
+  // Get session details for invoice description
+  let description = 'Pago de sesión de terapia';
+  if (sessionId) {
+    const { data: sessionData } = await supabase
+      .from('sessions')
+      .select('session_type, session_date')
+      .eq('id', sessionId)
+      .single();
+    
+    if (sessionData) {
+      const date = new Date(sessionData.session_date).toLocaleDateString('es-ES');
+      description = `Sesión de ${sessionData.session_type || 'terapia'} - ${date}`;
+    }
+  }
+
+  // Create invoice
+  const { invoiceId } = await createInvoice(
+    supabase,
+    centerId,
+    patientId,
+    description,
+    paymentAmount,
+    sessionId,
+    null
+  );
+
+  // Link invoice to debt
+  if (invoiceId) {
+    await supabase
+      .from('debts')
+      .update({ invoice_id: invoiceId })
+      .eq('id', debtId);
+  }
+
+  console.log('Debt payment processed successfully');
+}
+
+// Handle bono purchase
+async function handleBonoPurchase(
+  supabase: any,
+  metadata: Record<string, string>,
+  paymentAmount: number,
+  stripeSessionId: string
+): Promise<void> {
+  const debtId = metadata.debt_id;
+  const patientId = metadata.patient_id;
+  const centerId = metadata.center_id;
+  const sessionId = metadata.session_id || null;
+  const bonoName = metadata.bono_name;
+  const totalSessions = parseInt(metadata.bono_total_sessions);
+  const pricePerSession = parseFloat(metadata.bono_price_per_session);
+  const validityDays = parseInt(metadata.bono_validity_days || '365');
+
+  console.log('Processing bono purchase:', { debtId, patientId, bonoName, totalSessions });
+
+  // Calculate expiration date
+  const expiresAt = new Date();
+  expiresAt.setDate(expiresAt.getDate() + validityDays);
+
+  // Create the bono
+  const { data: bonoData, error: bonoError } = await supabase
+    .from('bonos')
+    .insert({
+      center_id: centerId,
+      patient_id: patientId,
+      name: bonoName,
+      total_sessions: totalSessions,
+      used_sessions: 0,
+      total_price: paymentAmount,
+      price_per_session: pricePerSession,
+      status: 'active',
+      expires_at: expiresAt.toISOString(),
+    })
+    .select()
+    .single();
+
+  if (bonoError || !bonoData) {
+    console.error('Error creating bono:', bonoError);
+    throw new Error('Failed to create bono');
+  }
+
+  console.log('Bono created:', bonoData.id);
+
+  // Create payment record for bono
+  await supabase
+    .from('payments')
+    .insert({
+      patient_id: patientId,
+      center_id: centerId,
+      bono_id: bonoData.id,
+      amount: paymentAmount,
+      payment_method: 'stripe',
+      payment_date: new Date().toISOString().split('T')[0],
+      reference: stripeSessionId,
+      notes: `Compra de bono: ${bonoName}`,
+    });
+
+  // If there's a session associated, apply bono to it
+  if (sessionId) {
+    console.log('Applying bono to session:', sessionId);
+    
+    // Use the RPC function to apply bono
+    const { error: applyError } = await supabase
+      .rpc('apply_bono_to_session', {
+        p_bono_id: bonoData.id,
+        p_session_id: sessionId,
+      });
+
+    if (applyError) {
+      console.error('Error applying bono to session:', applyError);
+      // Fallback: manually update
+      await supabase
+        .from('bono_items')
+        .insert({
+          bono_id: bonoData.id,
+          session_id: sessionId,
+          used_at: new Date().toISOString(),
+        });
+
+      await supabase
+        .from('bonos')
+        .update({ used_sessions: 1 })
+        .eq('id', bonoData.id);
+
+      await supabase
+        .from('sessions')
+        .update({
+          bono_id: bonoData.id,
+          payment_status: 'bono',
+        })
+        .eq('id', sessionId);
+    }
+
+    // Delete or mark the original debt as paid
+    await supabase
+      .from('debts')
+      .update({
+        status: 'paid',
+        paid_amount: 0, // Paid via bono, not money
+        notes: `Liquidada con bono ${bonoName}`,
+      })
+      .eq('id', debtId);
+  }
+
+  // Create invoice for bono purchase
+  const description = `${bonoName} - ${totalSessions} sesiones`;
+  await createInvoice(
+    supabase,
+    centerId,
+    patientId,
+    description,
+    paymentAmount,
+    null,
+    bonoData.id
+  );
+
+  console.log('Bono purchase processed successfully');
+}
+
+// Handle session checkout payment (existing flow)
+async function handleSessionCheckout(
+  supabase: any,
+  metadata: Record<string, string>,
+  paymentAmount: number,
+  stripeSessionId: string
+): Promise<void> {
+  const sessionId = metadata.session_id;
+  
+  if (!sessionId) {
+    console.log('No session_id in metadata, skipping');
+    return;
+  }
+
+  console.log('Processing session checkout:', sessionId);
+
+  // Update session payment status
+  await supabase
+    .from('sessions')
+    .update({
+      stripe_payment_status: 'paid',
+      status: 'confirmed',
+    })
+    .eq('id', sessionId);
+
+  // Get session details
+  const { data: sessionData } = await supabase
+    .from('sessions')
+    .select('patient_id, price, center_id, session_type, session_date')
+    .eq('id', sessionId)
+    .single();
+
+  if (!sessionData) {
+    console.error('Session not found');
+    return;
+  }
+
+  // Create payment record
+  await supabase
+    .from('payments')
+    .insert({
+      patient_id: sessionData.patient_id,
+      center_id: sessionData.center_id,
+      session_id: sessionId,
+      amount: sessionData.price,
+      payment_method: 'stripe',
+      payment_date: new Date().toISOString().split('T')[0],
+      reference: stripeSessionId,
+      notes: `Pago online - Stripe Checkout`,
+    });
+
+  // Update debt if exists
+  const { data: debtData } = await supabase
+    .from('debts')
+    .select('id')
+    .eq('session_id', sessionId)
+    .maybeSingle();
+
+  if (debtData) {
+    await supabase
+      .from('debts')
+      .update({
+        status: 'paid',
+        paid_amount: sessionData.price,
+      })
+      .eq('id', debtData.id);
+  }
+
+  // Check center settings for auto-invoicing
+  const { data: center } = await supabase
+    .from('centers')
+    .select('id, invoice_on_payment_mode, invoice_send_channel, verifactu_auto_enabled, verifactu_certificate_base64, default_tax_rate')
+    .eq('id', sessionData.center_id)
+    .single();
+
+  if (center && center.invoice_on_payment_mode === 'auto') {
+    const date = new Date(sessionData.session_date).toLocaleDateString('es-ES');
+    const description = `Sesión de ${sessionData.session_type || 'terapia'} - ${date}`;
+    
+    const { invoiceId } = await createInvoice(
+      supabase,
+      sessionData.center_id,
+      sessionData.patient_id,
+      description,
+      sessionData.price,
+      sessionId,
+      null
+    );
+
+    if (invoiceId && debtData) {
+      await supabase
+        .from('debts')
+        .update({ invoice_id: invoiceId })
+        .eq('id', debtData.id);
+    }
   }
 }
 
@@ -285,138 +566,57 @@ serve(async (req) => {
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session;
-        const sessionId = session.metadata?.session_id;
-        
-        if (!sessionId) {
-          console.log('No session_id in metadata, skipping');
-          break;
-        }
+        const metadata = session.metadata || {};
+        const paymentType = metadata.payment_type;
+        const amountTotal = (session.amount_total || 0) / 100; // Convert from cents
 
-        console.log('Processing completed checkout for session:', sessionId);
+        console.log('Checkout completed, payment_type:', paymentType);
 
-        // Update session payment status
-        const { error: updateError } = await supabase
-          .from('sessions')
-          .update({
-            stripe_payment_status: 'paid',
-            status: 'confirmed',
-          })
-          .eq('id', sessionId);
-
-        if (updateError) {
-          console.error('Error updating session:', updateError);
+        if (paymentType === 'debt_payment') {
+          await handleDebtPayment(supabase, metadata, amountTotal, session.id);
+        } else if (paymentType === 'bono_purchase') {
+          await handleBonoPurchase(supabase, metadata, amountTotal, session.id);
         } else {
-          console.log('Session updated to paid and confirmed');
-        }
-
-        // Get session details for payment record
-        const { data: sessionQueryData } = await supabase
-          .from('sessions')
-          .select('patient_id, price, center_id, session_type, session_date')
-          .eq('id', sessionId)
-          .single();
-
-        if (sessionQueryData) {
-          const sessionData = sessionQueryData as SessionData;
-          
-          // Create payment record
-          const { error: paymentError } = await supabase
-            .from('payments')
-            .insert({
-              patient_id: sessionData.patient_id,
-              center_id: sessionData.center_id,
-              session_id: sessionId,
-              amount: sessionData.price,
-              payment_method: 'stripe',
-              payment_date: new Date().toISOString().split('T')[0],
-              reference: session.payment_intent as string,
-              notes: `Pago online - Stripe Checkout ${session.id}`,
-            });
-
-          if (paymentError) {
-            console.error('Error creating payment record:', paymentError);
-          } else {
-            console.log('Payment record created');
-          }
-
-          // Update or create debt record as paid
-          const { data: existingDebtData } = await supabase
-            .from('debts')
-            .select('id')
-            .eq('session_id', sessionId)
-            .maybeSingle();
-
-          if (existingDebtData) {
-            await supabase
-              .from('debts')
-              .update({
-                status: 'paid',
-                paid_amount: sessionData.price,
-              })
-              .eq('id', existingDebtData.id);
-          }
-
-          // Check center's invoice automation settings
-          const { data: centerData } = await supabase
-            .from('centers')
-            .select('id, invoice_on_payment_mode, invoice_send_channel, verifactu_auto_enabled, verifactu_certificate_base64, default_tax_rate')
-            .eq('id', sessionData.center_id)
-            .single();
-
-          if (centerData) {
-            const center = centerData as Center;
-            const invoiceMode = center.invoice_on_payment_mode || 'disabled';
-            console.log('Invoice automation mode:', invoiceMode);
-
-            // If mode is 'auto', generate and send invoice automatically
-            if (invoiceMode === 'auto') {
-              const invoiceId = await createAndSendInvoice(
-                supabase,
-                sessionId,
-                sessionData,
-                center
-              );
-              
-              if (invoiceId) {
-                console.log('Auto-invoice created and sent:', invoiceId);
-              } else {
-                console.error('Failed to create auto-invoice');
-              }
-            } else {
-              console.log('Invoice automation not enabled (mode:', invoiceMode, ')');
-            }
-          }
+          // Default: session checkout (backward compatibility)
+          await handleSessionCheckout(supabase, metadata, amountTotal, session.id);
         }
         break;
       }
 
       case 'checkout.session.expired': {
         const session = event.data.object as Stripe.Checkout.Session;
-        const sessionId = session.metadata?.session_id;
+        const metadata = session.metadata || {};
+        const sessionId = metadata.session_id;
+        const debtId = metadata.debt_id;
         
         if (sessionId) {
           console.log('Checkout expired for session:', sessionId);
           await supabase
             .from('sessions')
-            .update({
-              stripe_payment_status: 'expired',
-            })
+            .update({ stripe_payment_status: 'expired' })
             .eq('id', sessionId);
+        }
+
+        if (debtId) {
+          console.log('Checkout expired for debt:', debtId);
+          await supabase
+            .from('debts')
+            .update({ stripe_payment_status: 'expired' })
+            .eq('id', debtId);
         }
         break;
       }
 
       case 'payment_intent.payment_failed': {
         const paymentIntent = event.data.object as Stripe.PaymentIntent;
-        const sessionId = paymentIntent.metadata?.session_id;
+        const metadata = paymentIntent.metadata || {};
+        const sessionId = metadata.session_id;
         
         if (sessionId) {
           console.log('Payment failed for session:', sessionId);
           await supabase
             .from('sessions')
-            .update({
-              stripe_payment_status: 'failed',
-            })
+            .update({ stripe_payment_status: 'failed' })
             .eq('id', sessionId);
         }
         break;
@@ -425,7 +625,6 @@ serve(async (req) => {
       case 'charge.refunded': {
         const charge = event.data.object as Stripe.Charge;
         console.log('Refund processed for charge:', charge.id);
-        // Could update payment/debt status to refunded
         break;
       }
 
