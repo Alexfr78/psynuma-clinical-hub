@@ -930,6 +930,9 @@ export type Database = {
           email_videocall_text: string | null
           id: string
           is_active: boolean | null
+          payment_option_bizum: string | null
+          payment_option_bono: string | null
+          payment_option_stripe: string | null
           sms_message: string | null
           template_type: string
           updated_at: string | null
@@ -947,6 +950,9 @@ export type Database = {
           email_videocall_text?: string | null
           id?: string
           is_active?: boolean | null
+          payment_option_bizum?: string | null
+          payment_option_bono?: string | null
+          payment_option_stripe?: string | null
           sms_message?: string | null
           template_type: string
           updated_at?: string | null
@@ -964,6 +970,9 @@ export type Database = {
           email_videocall_text?: string | null
           id?: string
           is_active?: boolean | null
+          payment_option_bizum?: string | null
+          payment_option_bono?: string | null
+          payment_option_stripe?: string | null
           sms_message?: string | null
           template_type?: string
           updated_at?: string | null
