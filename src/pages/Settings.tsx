@@ -47,6 +47,7 @@ import { PaymentSettingsSection } from '@/components/settings/PaymentSettingsSec
 import { EmailTemplateEditor } from '@/components/settings/communications/EmailTemplateEditor';
 import { WhatsAppTemplateEditor } from '@/components/settings/communications/WhatsAppTemplateEditor';
 import { SmsTemplateEditor } from '@/components/settings/communications/SmsTemplateEditor';
+import { PaymentReminderTemplateEditor } from '@/components/settings/communications/PaymentReminderTemplateEditor';
 import { SessionReminderSettingsSection } from '@/components/settings/SessionReminderSettingsSection';
 import { VerifactuConfigSection } from '@/components/settings/VerifactuConfigSection';
 import { ResponsibleDeclarationSection } from '@/components/settings/ResponsibleDeclarationSection';
@@ -93,6 +94,7 @@ type SettingsSection =
   | 'comunicaciones-whatsapp'
   | 'comunicaciones-sms'
   | 'comunicaciones-recordatorios'
+  | 'comunicaciones-recordatorios-pago'
   | 'comunicaciones-alertas-admin'
   | 'integraciones-resumen'
   | 'integraciones-credenciales'
@@ -143,6 +145,7 @@ const navItems: NavItem[] = [
   
   // Comunicaciones
   { id: 'comunicaciones-recordatorios', label: 'Recordatorios de cita', icon: Bell, parent: 'Comunicaciones' },
+  { id: 'comunicaciones-recordatorios-pago', label: 'Recordatorios de pago', icon: Wallet, parent: 'Comunicaciones' },
   { id: 'comunicaciones-alertas-admin', label: 'Alertas al profesional', icon: Bell, parent: 'Comunicaciones' },
   { id: 'comunicaciones-email', label: 'Plantillas de email', icon: Mail, parent: 'Comunicaciones' },
   { id: 'comunicaciones-whatsapp', label: 'Plantillas de WhatsApp', icon: MessageCircle, parent: 'Comunicaciones' },
@@ -353,6 +356,8 @@ export default function Settings() {
         return <SmsTemplateEditor />;
       case 'comunicaciones-recordatorios':
         return <SessionReminderSettingsSection />;
+      case 'comunicaciones-recordatorios-pago':
+        return <PaymentReminderTemplateEditor />;
       case 'comunicaciones-alertas-admin':
         return <AdminAlertsSettingsSection />;
       case 'integraciones-resumen':
