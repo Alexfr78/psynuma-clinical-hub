@@ -174,6 +174,7 @@ export function PaymentReminderTemplateEditor() {
           <Info className="h-4 w-4" />
           <AlertDescription>
             Estas plantillas se usan al enviar recordatorios de pago desde la sección de Cobros y Deudas.
+            Al enviar, puedes elegir qué opciones de pago incluir (Stripe, Bizum, Bono) y el mensaje se adaptará automáticamente.
           </AlertDescription>
         </Alert>
 
@@ -181,10 +182,30 @@ export function PaymentReminderTemplateEditor() {
         <div className="space-y-2">
           <Label className="text-sm font-medium">Variables disponibles</Label>
           <div className="flex flex-wrap gap-1.5">
-            {PAYMENT_REMINDER_VARIABLES.map((variable) => (
+            {PAYMENT_REMINDER_VARIABLES.filter(v => 
+              // Show general variables always
+              !['{link_pago_stripe}', '{bizum_numero}', '{link_comprar_bono}'].includes(v.key)
+            ).map((variable) => (
               <Badge
                 key={variable.key}
                 variant="secondary"
+                className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
+                onClick={() => handleVariableClick(variable.key)}
+              >
+                {variable.key}
+              </Badge>
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground mt-2">
+            <strong>Variables de opciones de pago</strong> (se incluyen/excluyen según las opciones seleccionadas al enviar):
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {PAYMENT_REMINDER_VARIABLES.filter(v => 
+              ['{link_pago_stripe}', '{bizum_numero}', '{link_comprar_bono}'].includes(v.key)
+            ).map((variable) => (
+              <Badge
+                key={variable.key}
+                variant="outline"
                 className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
                 onClick={() => handleVariableClick(variable.key)}
               >
