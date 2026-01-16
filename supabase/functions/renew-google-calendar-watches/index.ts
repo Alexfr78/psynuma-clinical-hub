@@ -249,6 +249,9 @@ serve(async (req) => {
   const cronSecret = Deno.env.get('CRON_SECRET');
   const providedSecret = req.headers.get('x-cron-secret');
   
+  // Debug logging (first 8 chars only for security)
+  console.log(`[CRON:RENEW:SECURITY] Expected prefix: ${cronSecret?.substring(0, 8)}..., Provided prefix: ${providedSecret?.substring(0, 8) || 'null'}...`);
+  
   if (!cronSecret) {
     console.error('[CRON:RENEW:SECURITY] CRON_SECRET not configured in environment');
     return new Response(
@@ -258,7 +261,7 @@ serve(async (req) => {
   }
   
   if (providedSecret !== cronSecret) {
-    console.warn('[CRON:RENEW:SECURITY] Unauthorized access attempt - invalid or missing x-cron-secret');
+    console.warn(`[CRON:RENEW:SECURITY] Unauthorized - secrets don't match (expected len: ${cronSecret.length}, provided len: ${providedSecret?.length || 0})`);
     return new Response(
       JSON.stringify({ error: 'Unauthorized' }),
       { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
