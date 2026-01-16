@@ -13,7 +13,7 @@ import { useProfessionalIntegrations } from "@/hooks/useProfessionalIntegrations
 import { useAuth } from "@/hooks/useAuth";
 import { useCenter } from "@/hooks/useCenter";
 import { useGoogleCalendarWatch } from "@/hooks/useGoogleCalendarWatch";
-import { Calendar, Video, ExternalLink, CheckCircle2, AlertCircle, Loader2, Settings2, Zap, RefreshCw, Activity, Clock, Database, Trash2 } from "lucide-react";
+import { Calendar, Video, ExternalLink, CheckCircle2, AlertCircle, Loader2, Settings2, Zap, RefreshCw, Activity, Clock, Database, Trash2, Download, Copy, FileJson, Bug } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
@@ -64,6 +64,10 @@ export function GoogleIntegrationSection() {
   
   // Force resync state
   const [isForceResyncing, setIsForceResyncing] = useState(false);
+  
+  // Diagnostics state
+  const [isLoadingDiagnostics, setIsLoadingDiagnostics] = useState(false);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
 
   const isConnected = isProviderConnected('google');
   const connection = getOAuthConnection('google');
@@ -430,6 +434,58 @@ export function GoogleIntegrationSection() {
     } finally {
       setIsCleaningUp(false);
       setShowCleanupConfirm(false);
+    }
+  };
+
+  const handleDownloadDiagnostics = async () => {
+    if (!profile?.id) return;
+    
+    setIsLoadingDiagnostics(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('get-google-sync-diagnostics', {
+        body: { limit: 100 },
+      });
+      
+      if (error) throw error;
+      
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const timestamp = format(new Date(), 'yyyyMMdd-HHmm');
+      a.href = url;
+      a.download = `google-sync-diagnostics-${timestamp}-${profile.id.substring(0, 8)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      toast.success('Diagnóstico descargado');
+    } catch (e) {
+      console.error('Error downloading diagnostics:', e);
+      toast.error('Error al descargar diagnóstico');
+    } finally {
+      setIsLoadingDiagnostics(false);
+    }
+  };
+
+  const handleCopyDiagnostics = async () => {
+    if (!profile?.id) return;
+    
+    setIsLoadingDiagnostics(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('get-google-sync-diagnostics', {
+        body: { limit: 50 },
+      });
+      
+      if (error) throw error;
+      
+      await navigator.clipboard.writeText(JSON.stringify(data, null, 2));
+      toast.success('Diagnóstico copiado al portapapeles');
+    } catch (e) {
+      console.error('Error copying diagnostics:', e);
+      toast.error('Error al copiar diagnóstico');
+    } finally {
+      setIsLoadingDiagnostics(false);
     }
   };
 
@@ -866,6 +922,64 @@ export function GoogleIntegrationSection() {
                             <RefreshCw className="h-3 w-3 mr-2" />
                             Actualizar estado
                           </Button>
+
+                          {/* Diagnostics Section */}
+                          <Separator className="my-3" />
+                          <Collapsible open={showDiagnostics} onOpenChange={setShowDiagnostics}>
+                            <CollapsibleTrigger asChild>
+                              <Button variant="ghost" size="sm" className="gap-2 w-full justify-start text-xs">
+                                <Bug className="h-3 w-3" />
+                                Diagnóstico avanzado
+                              </Button>
+                            </CollapsibleTrigger>
+                            <CollapsibleContent className="mt-2 space-y-3">
+                              {/* Quick status summary */}
+                              <div className="p-2 bg-muted/50 rounded text-xs space-y-1">
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">Estado conexión:</span>
+                                  <Badge variant="outline" className={healthData.needs_reconnect ? 'border-destructive text-destructive' : 'border-green-500 text-green-600'}>
+                                    {healthData.needs_reconnect ? 'needs_reconnect' : 'connected'}
+                                  </Badge>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">last_sync_status:</span>
+                                  <span className="font-mono">{healthData.last_sync_status || 'null'}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">Token expirado:</span>
+                                  <span className={healthData.expires_at && new Date(healthData.expires_at) < new Date() ? 'text-destructive' : 'text-green-600'}>
+                                    {healthData.expires_at ? (new Date(healthData.expires_at) < new Date() ? 'Sí' : 'No') : 'N/A'}
+                                  </span>
+                                </div>
+                              </div>
+                              
+                              <div className="flex gap-2">
+                                <Button 
+                                  variant="outline" 
+                                  size="sm" 
+                                  onClick={handleDownloadDiagnostics}
+                                  disabled={isLoadingDiagnostics}
+                                  className="flex-1 text-xs"
+                                >
+                                  {isLoadingDiagnostics ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Download className="h-3 w-3 mr-1" />}
+                                  Descargar JSON
+                                </Button>
+                                <Button 
+                                  variant="outline" 
+                                  size="sm" 
+                                  onClick={handleCopyDiagnostics}
+                                  disabled={isLoadingDiagnostics}
+                                  className="flex-1 text-xs"
+                                >
+                                  {isLoadingDiagnostics ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Copy className="h-3 w-3 mr-1" />}
+                                  Copiar
+                                </Button>
+                              </div>
+                              <p className="text-[10px] text-muted-foreground">
+                                El JSON incluye historial de errores y estado detallado para diagnóstico.
+                              </p>
+                            </CollapsibleContent>
+                          </Collapsible>
                         </div>
                       ) : (
                         <div className="text-sm text-muted-foreground text-center py-2">

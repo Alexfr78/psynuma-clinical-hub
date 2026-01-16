@@ -134,3 +134,6 @@ verify_jwt = false
 
 [functions.create-bono-checkout]
 verify_jwt = false
+
+[functions.get-google-sync-diagnostics]
+verify_jwt = true
