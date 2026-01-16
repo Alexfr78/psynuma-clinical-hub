@@ -78,10 +78,10 @@ serve(async (req) => {
       );
     }
 
-    // Get center info
+    // Get center info with public_domain
     const { data: center, error: centerError } = await supabase
       .from('centers')
-      .select('id, name')
+      .select('id, name, public_domain')
       .eq('id', debt.center_id)
       .single();
 
@@ -100,8 +100,10 @@ serve(async (req) => {
 
     const amountInCents = Math.round(Number(bonoTemplate.total_price) * 100);
 
-    // Generate URLs
-    const baseUrl = Deno.env.get('SUPABASE_URL')?.replace('.supabase.co', '.lovable.app') || '';
+    // Generate URLs using center's public domain
+    const baseUrl = center.public_domain 
+      ? `https://${center.public_domain}` 
+      : 'https://psycma.psicologosexual.com';
     const defaultSuccessUrl = `${baseUrl}/pago-exitoso?bono=1&debt_id=${debt_id}`;
     const defaultCancelUrl = `${baseUrl}/pagar/${debt.access_token}?bono=1`;
 

@@ -88,6 +88,10 @@ export interface Center {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   admin_alerts_events: any;
   admin_alerts_include_professional: boolean | null;
+  // Public domain for payment links
+  public_domain: string | null;
+  // Bizum phone
+  bizum_phone: string | null;
   created_at: string;
   updated_at: string;
 }
