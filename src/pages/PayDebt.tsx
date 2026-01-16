@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -22,6 +22,13 @@ export default function PayDebt() {
   const [selectedBono, setSelectedBono] = useState<string | null>(null);
   const [processingPayment, setProcessingPayment] = useState<'session' | 'bono' | null>(null);
   const [showBizum, setShowBizum] = useState(false);
+
+  // Preselect first bono when coming from bono link
+  useEffect(() => {
+    if (showBonoOption && bonoTemplates.length > 0 && !selectedBono) {
+      setSelectedBono(bonoTemplates[0].id);
+    }
+  }, [showBonoOption, bonoTemplates, selectedBono]);
 
   const pendingAmount = debt ? Number(debt.amount) - Number(debt.paid_amount || 0) : 0;
   const hasStripe = !!debt?.center.oauth_stripe_credentials;
@@ -233,19 +240,20 @@ export default function PayDebt() {
             <CardContent className="space-y-3">
               {bonoTemplates.map((template) => {
                 const savings = (template.price_per_session * template.total_sessions) - template.total_price;
-                const isSelected = selectedBono === template.id && processingPayment === 'bono';
+                const isProcessing = selectedBono === template.id && processingPayment === 'bono';
+                const isPreselected = showBonoOption && selectedBono === template.id && processingPayment !== 'bono';
                 
                 return (
                   <Button
                     key={template.id}
                     onClick={() => handlePayBono(template.id)}
                     disabled={processingPayment !== null}
-                    variant="outline"
-                    className="w-full justify-between h-auto py-4"
+                    variant={isPreselected ? "default" : "outline"}
+                    className={`w-full justify-between h-auto py-4 ${isPreselected ? 'ring-2 ring-primary ring-offset-2' : ''}`}
                     size="lg"
                   >
                     <div className="flex items-center">
-                      {isSelected ? (
+                      {isProcessing ? (
                         <Loader2 className="h-5 w-5 mr-3 animate-spin" />
                       ) : (
                         <Package className="h-5 w-5 mr-3" />
@@ -260,7 +268,7 @@ export default function PayDebt() {
                     <div className="text-right">
                       <div className="font-bold">{template.total_price.toFixed(0)}€</div>
                       {savings > 0 && (
-                        <Badge variant="secondary" className="text-xs">
+                        <Badge variant={isPreselected ? "outline" : "secondary"} className="text-xs">
                           Ahorras {savings.toFixed(0)}€
                         </Badge>
                       )}
