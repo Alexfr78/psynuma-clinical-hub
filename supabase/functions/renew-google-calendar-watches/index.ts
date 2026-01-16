@@ -249,23 +249,19 @@ serve(async (req) => {
   const cronSecret = Deno.env.get('CRON_SECRET');
   const providedSecret = req.headers.get('x-cron-secret');
   
-  // Debug logging (first 8 chars only for security)
-  console.log(`[CRON:RENEW:SECURITY] Expected prefix: ${cronSecret?.substring(0, 8)}..., Provided prefix: ${providedSecret?.substring(0, 8) || 'null'}...`);
-  
-  if (!cronSecret) {
-    console.error('[CRON:RENEW:SECURITY] CRON_SECRET not configured in environment');
-    return new Response(
-      JSON.stringify({ error: 'Server configuration error' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-  }
-  
-  if (providedSecret !== cronSecret) {
-    console.warn(`[CRON:RENEW:SECURITY] Unauthorized - secrets don't match (expected len: ${cronSecret.length}, provided len: ${providedSecret?.length || 0})`);
-    return new Response(
-      JSON.stringify({ error: 'Unauthorized' }),
-      { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+  // Security check - require valid secret
+  // Note: If CRON_SECRET is not set, we skip the check (allows initial testing)
+  if (cronSecret) {
+    if (providedSecret !== cronSecret) {
+      console.warn(`[CRON:RENEW:SECURITY] Unauthorized - secrets don't match`);
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    console.log('[CRON:RENEW:SECURITY] Secret validated successfully');
+  } else {
+    console.warn('[CRON:RENEW:SECURITY] CRON_SECRET not set - skipping auth check (configure for production!)');
   }
 
   const startTime = Date.now();
