@@ -112,11 +112,17 @@
   * {
     @apply border-border;
   }
+
+  html,
+  body,
+  #root {
+    overflow-x: hidden !important;
+    max-width: 100vw;
+  }
   
   /* Mobile-first: 15% larger base font size on mobile */
   html {
     font-size: 115%; /* ~18.4px base instead of 16px */
-    overflow-x: hidden;
   }
   
   /* Reset to normal size on tablet and desktop */
@@ -127,12 +133,8 @@
   }
   
   body {
-    @apply bg-background text-foreground font-sans antialiased overflow-x-hidden;
+    @apply bg-background text-foreground font-sans antialiased;
     font-feature-settings: "rlig" 1, "calt" 1;
-  }
-
-  #root {
-    overflow-x: hidden;
   }
   
   h1, h2, h3, h4, h5, h6 {

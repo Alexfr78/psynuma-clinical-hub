@@ -53,11 +53,14 @@ const financeNavItems = [
   { title: 'Notificaciones', url: '/notificaciones', icon: Bell },
 ];
 
-const adminNavItems = [
+// Items visible to admins only
+const adminOnlyNavItems = [
   { title: 'Profesionales', url: '/profesionales', icon: UserCog },
-  { title: 'Configuración', url: '/configuracion', icon: Settings },
   { title: 'Auditoría', url: '/auditoria', icon: ClipboardList },
 ];
+
+// Items visible to all users
+const settingsNavItem = { title: 'Configuración', url: '/configuracion', icon: Settings };
 
 export function AppSidebar() {
   const location = useLocation();
@@ -85,10 +88,8 @@ export function AppSidebar() {
 
   const handleNavigation = (url: string) => {
     navigate(url);
-    // Close sidebar on mobile after navigation
-    if (isMobile) {
-      setOpenMobile(false);
-    }
+    // Always close sidebar on navigation - on desktop this has no effect
+    setOpenMobile(false);
   };
 
   const NavItem = ({ item }: { item: typeof mainNavItems[0] }) => (
@@ -159,6 +160,19 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
+        {/* Configuración visible to all users */}
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-sidebar-foreground/50 text-xs uppercase tracking-wider">
+            Ajustes
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <NavItem item={settingsNavItem} />
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        {/* Admin-only section */}
         {isAdmin && (
           <SidebarGroup>
             <SidebarGroupLabel className="text-sidebar-foreground/50 text-xs uppercase tracking-wider">
@@ -166,7 +180,7 @@ export function AppSidebar() {
             </SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {adminNavItems.map((item) => (
+                {adminOnlyNavItems.map((item) => (
                   <NavItem key={item.url} item={item} />
                 ))}
               </SidebarMenu>
