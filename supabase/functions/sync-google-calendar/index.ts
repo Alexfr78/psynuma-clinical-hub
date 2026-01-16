@@ -873,20 +873,31 @@ async function syncProfessional(
   // Check if needs reconnect - but try auto-recovery first
   if (connection.needs_reconnect) {
     console.log('[SYNC:RECOVERY] Connection marked needs_reconnect, attempting auto-recovery...');
+    console.log(`[SYNC:RECOVERY] Last error code: ${connection.last_sync_error_code}`);
     
-    // First check if current token is still valid (might have been refreshed elsewhere)
+    // CRITICAL: Never auto-recover from invalid_client errors
+    // This means OAuth credentials (client_id/secret) are wrong - requires manual credential update
+    if (connection.last_sync_error_code === 'invalid_client') {
+      console.error('[SYNC:ERROR] invalid_client error - OAuth credentials need to be updated manually');
+      result.errors.push('Las credenciales OAuth del centro son inválidas. Actualiza el Client ID y Secret en Ajustes > Integraciones > Credenciales OAuth, luego reconecta.');
+      return result;
+    }
+    
+    // For other errors (invalid_grant, expired tokens), try auto-recovery
     const now = Date.now();
     const expiresAt = connection.expires_at ? new Date(connection.expires_at).getTime() : 0;
     
     if (connection.access_token && expiresAt > now) {
-      // Token is still valid! Clear the needs_reconnect flag
+      // Token is still valid! Clear the needs_reconnect flag (only for non-credential errors)
       console.log('[SYNC:RECOVERY] Token still valid, clearing needs_reconnect flag');
       await supabase
         .from('oauth_connections')
         .update({ 
           needs_reconnect: false, 
           last_sync_status: 'auto_recovered',
-          consecutive_sync_errors: 0
+          consecutive_sync_errors: 0,
+          last_sync_error_code: null,
+          last_sync_error_message: null
         })
         .eq('professional_id', professionalId)
         .eq('provider', 'google');

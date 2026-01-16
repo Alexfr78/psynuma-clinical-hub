@@ -81,7 +81,7 @@ export function GoogleIntegrationSection() {
       // Get connection data with sync status
       const { data: conn } = await supabase
         .from('oauth_connections')
-        .select('last_sync_at, last_sync_status, watch_channel_id, watch_resource_id, watch_expires_at, expires_at, needs_reconnect, sync_token')
+        .select('last_sync_at, last_sync_status, last_sync_error_code, watch_channel_id, watch_resource_id, watch_expires_at, expires_at, needs_reconnect, sync_token')
         .eq('professional_id', profile.id)
         .eq('provider', 'google')
         .single();
@@ -594,20 +594,45 @@ export function GoogleIntegrationSection() {
             {healthData?.needs_reconnect && (
               <Alert variant="destructive" className="border-destructive/50 bg-destructive/10">
                 <AlertCircle className="h-4 w-4" />
-                <AlertDescription className="flex items-center justify-between">
+                <AlertDescription className="flex flex-col gap-3">
                   <div>
-                    <p className="font-medium">La conexión con Google ha expirado</p>
-                    <p className="text-sm mt-1">Reconecta tu cuenta para continuar sincronizando citas automáticamente.</p>
+                    {healthData?.last_sync_error_code === 'invalid_client' ? (
+                      <>
+                        <p className="font-medium">⚠️ Credenciales OAuth inválidas</p>
+                        <p className="text-sm mt-1">
+                          El Client ID o Client Secret del centro no coinciden con Google Cloud Console. 
+                          Actualiza las credenciales en <strong>Credenciales OAuth propias</strong> (más abajo) y luego reconecta.
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="font-medium">La conexión con Google ha expirado</p>
+                        <p className="text-sm mt-1">Reconecta tu cuenta para continuar sincronizando citas automáticamente.</p>
+                      </>
+                    )}
                   </div>
-                  <Button 
-                    variant="destructive" 
-                    size="sm"
-                    onClick={handleConnect}
-                    className="ml-4 shrink-0"
-                  >
-                    <RefreshCw className="h-4 w-4 mr-2" />
-                    Reconectar ahora
-                  </Button>
+                  <div className="flex gap-2">
+                    {healthData?.last_sync_error_code === 'invalid_client' && (
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => {
+                          // Scroll to OAuth credentials section
+                          document.getElementById('oauth-credentials-section')?.scrollIntoView({ behavior: 'smooth' });
+                        }}
+                      >
+                        Ir a Credenciales OAuth
+                      </Button>
+                    )}
+                    <Button 
+                      variant="destructive" 
+                      size="sm"
+                      onClick={handleConnect}
+                    >
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Reconectar ahora
+                    </Button>
+                  </div>
                 </AlertDescription>
               </Alert>
             )}
