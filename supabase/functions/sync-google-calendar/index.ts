@@ -199,6 +199,16 @@ async function refreshGoogleToken(
     );
 
     // Handle specific error cases - mark needs_reconnect with appropriate status
+    // First get current consecutive_sync_errors to increment
+    const { data: currentConn } = await supabase
+      .from('oauth_connections')
+      .select('consecutive_sync_errors')
+      .eq('professional_id', professionalId)
+      .eq('provider', 'google')
+      .single();
+    
+    const currentErrors = currentConn?.consecutive_sync_errors || 0;
+    
     if (data.error === 'invalid_client') {
       // invalid_client = OAuth credentials (client_id/secret) from center are wrong
       console.error('[SYNC:TOKEN] invalid_client - OAuth center credentials are wrong');
@@ -211,6 +221,7 @@ async function refreshGoogleToken(
           last_sync_error_message: 'Client ID o Secret del centro inválidos. Actualiza las credenciales OAuth.',
           last_token_refresh_at: new Date().toISOString(),
           last_token_refresh_result: 'fail',
+          consecutive_sync_errors: currentErrors + 1,
         })
         .eq('professional_id', professionalId)
         .eq('provider', 'google');
@@ -226,11 +237,12 @@ async function refreshGoogleToken(
           last_sync_error_message: 'El acceso a Google fue revocado o expiró. Reautoriza la conexión.',
           last_token_refresh_at: new Date().toISOString(),
           last_token_refresh_result: 'fail',
+          consecutive_sync_errors: currentErrors + 1,
         })
         .eq('professional_id', professionalId)
         .eq('provider', 'google');
     } else {
-      // Other errors - don't set needs_reconnect, may be transient
+      // Other errors - don't set needs_reconnect, may be transient but still count as error
       await supabase
         .from('oauth_connections')
         .update({
@@ -238,6 +250,7 @@ async function refreshGoogleToken(
           last_sync_error_message: data.error_description || 'Token refresh failed',
           last_token_refresh_at: new Date().toISOString(),
           last_token_refresh_result: 'fail',
+          consecutive_sync_errors: currentErrors + 1,
         })
         .eq('professional_id', professionalId)
         .eq('provider', 'google');
