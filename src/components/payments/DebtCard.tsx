@@ -82,7 +82,7 @@ export function DebtCard({ debt, onRecordPayment, onDelete, onSendReminder }: De
           </div>
           
           {(debt.status === 'pending' || debt.status === 'partial') && (
-            <div className="flex flex-wrap gap-2 justify-end">
+            <div className="flex flex-wrap gap-2 justify-end pt-2 border-t mt-2">
               {onSendReminder && (
                 <Button 
                   variant="outline" 
