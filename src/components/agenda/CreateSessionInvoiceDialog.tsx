@@ -30,11 +30,17 @@ import { SessionWithRelations } from '@/hooks/useSessions';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 
+interface CreatedInvoice {
+  id: string;
+  invoice_number: string;
+  total: number;
+}
+
 interface CreateSessionInvoiceDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   session: SessionWithRelations;
-  onSuccess?: () => void;
+  onSuccess?: (invoice: CreatedInvoice) => void;
 }
 
 interface PatientFormData {
@@ -448,7 +454,11 @@ export function CreateSessionInvoiceDialog({
       }
 
       onOpenChange(false);
-      onSuccess?.();
+      onSuccess?.({
+        id: result.id,
+        invoice_number: result.invoice_number,
+        total: invoiceTotals.total,
+      });
     } catch (error) {
       // Error toast is handled in the hook
     }

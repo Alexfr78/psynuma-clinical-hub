@@ -21,12 +21,14 @@ Deno.serve(async (req) => {
 
     // Get all past sessions with pending payment that don't have a debt yet
     // Exclude cancelled, no_show, blocked sessions and sessions with price = 0
+    // Also exclude sessions that are linked to a bono (bono_id is not null)
     const { data: unpaidSessions, error: sessionsError } = await supabase
       .from('sessions')
-      .select('id, patient_id, center_id, session_date, price')
+      .select('id, patient_id, center_id, session_date, price, bono_id')
       .lt('session_date', new Date().toISOString().split('T')[0])
       .eq('payment_status', 'pending')
       .not('status', 'in', '("cancelled","no_show","blocked")')
+      .is('bono_id', null) // Exclude sessions linked to bonos
       .gt('price', 0);
 
     if (sessionsError) {
@@ -34,7 +36,7 @@ Deno.serve(async (req) => {
       throw sessionsError;
     }
 
-    console.log(`Found ${unpaidSessions?.length || 0} unpaid past sessions`);
+    console.log(`Found ${unpaidSessions?.length || 0} unpaid past sessions (excluding bono sessions)`);
 
     if (!unpaidSessions || unpaidSessions.length === 0) {
       return new Response(
@@ -47,8 +49,9 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Get existing debts for these sessions to avoid duplicates
     const sessionIds = unpaidSessions.map(s => s.id);
+
+    // Get existing debts for these sessions to avoid duplicates
     const { data: existingDebts, error: debtsError } = await supabase
       .from('debts')
       .select('session_id')
@@ -62,15 +65,33 @@ Deno.serve(async (req) => {
     const existingSessionIds = new Set(existingDebts?.map(d => d.session_id) || []);
     console.log(`Found ${existingSessionIds.size} sessions already have debts`);
 
-    // Filter sessions that don't have debts yet
-    const sessionsNeedingDebt = unpaidSessions.filter(s => !existingSessionIds.has(s.id));
+    // Check for sessions that already have invoices (via invoice_items)
+    const { data: invoicedItems, error: invoiceItemsError } = await supabase
+      .from('invoice_items')
+      .select('session_id')
+      .in('session_id', sessionIds)
+      .not('session_id', 'is', null);
+
+    if (invoiceItemsError) {
+      console.error('Error fetching invoiced sessions:', invoiceItemsError);
+      throw invoiceItemsError;
+    }
+
+    const invoicedSessionIds = new Set(invoicedItems?.map(i => i.session_id) || []);
+    console.log(`Found ${invoicedSessionIds.size} sessions already invoiced`);
+
+    // Filter sessions that don't have debts yet AND aren't already invoiced
+    const sessionsNeedingDebt = unpaidSessions.filter(s => 
+      !existingSessionIds.has(s.id) && 
+      !invoicedSessionIds.has(s.id)
+    );
     console.log(`Creating debts for ${sessionsNeedingDebt.length} sessions`);
 
     if (sessionsNeedingDebt.length === 0) {
       return new Response(
         JSON.stringify({ 
           success: true, 
-          message: 'All unpaid sessions already have debts',
+          message: 'All unpaid sessions already have debts or invoices',
           created: 0 
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

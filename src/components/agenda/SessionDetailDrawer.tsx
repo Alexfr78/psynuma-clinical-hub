@@ -92,6 +92,7 @@ import { useSessionInvoiceStatus } from '@/hooks/useInvoices';
 import { CollectSessionPaymentDialog } from './CollectSessionPaymentDialog';
 import { CollectBonoPaymentDialog } from './CollectBonoPaymentDialog';
 import { CreateSessionInvoiceDialog } from './CreateSessionInvoiceDialog';
+import { SendInvoiceDialog } from '@/components/invoices/SendInvoiceDialog';
 import { useSendWhatsAppNow, useSendSessionNotification } from '@/hooks/useSendSessionNotification';
 import { useCenter } from '@/hooks/useCenter';
 import { DEFAULT_TEMPLATES } from '@/hooks/useCommunicationTemplates';
@@ -184,6 +185,19 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [showBonoPaymentDialog, setShowBonoPaymentDialog] = useState(false);
   const [showInvoiceDialog, setShowInvoiceDialog] = useState(false);
+  const [showSendInvoiceDialog, setShowSendInvoiceDialog] = useState(false);
+  const [createdInvoiceForSend, setCreatedInvoiceForSend] = useState<{
+    id: string;
+    invoice_number: string;
+    total: number;
+    patients: {
+      id: string;
+      first_name: string;
+      last_name: string;
+      email?: string | null;
+      phone?: string | null;
+    };
+  } | null>(null);
   const [showConvertDialog, setShowConvertDialog] = useState(false);
   const [isGeneratingPaymentLink, setIsGeneratingPaymentLink] = useState(false);
   const [paymentLinkUrl, setPaymentLinkUrl] = useState<string | null>(null);
@@ -1855,12 +1869,38 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
         open={showInvoiceDialog}
         onOpenChange={setShowInvoiceDialog}
         session={session}
-        onSuccess={() => {
+        onSuccess={(invoice) => {
           refetchInvoiceStatus();
           setShowInvoiceDialog(false);
+          // Prepare invoice data for send dialog
+          if (session.patient) {
+            setCreatedInvoiceForSend({
+              id: invoice.id,
+              invoice_number: invoice.invoice_number,
+              total: invoice.total,
+              patients: {
+                id: session.patient.id,
+                first_name: session.patient.first_name,
+                last_name: session.patient.last_name,
+                email: session.patient.email,
+                phone: session.patient.phone,
+              },
+            });
+            setShowSendInvoiceDialog(true);
+          }
         }}
       />
     )}
+
+    {/* Send Invoice Dialog - after creating invoice from session */}
+    <SendInvoiceDialog
+      open={showSendInvoiceDialog}
+      onOpenChange={(open) => {
+        setShowSendInvoiceDialog(open);
+        if (!open) setCreatedInvoiceForSend(null);
+      }}
+      invoice={createdInvoiceForSend}
+    />
 
     {/* Convert Calendar Event Dialog - for Google Calendar blocks */}
     {(session as any).isGoogleEvent && (
