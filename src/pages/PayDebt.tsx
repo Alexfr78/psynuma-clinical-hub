@@ -288,7 +288,15 @@ export default function PayDebt() {
 
         {/* Footer */}
         <p className="text-center text-sm text-muted-foreground">
-          Pago seguro gestionado por {debt.center.name}
+          Pago seguro gestionado por{' '}
+          <a 
+            href="https://stripe.com" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="underline hover:text-foreground transition-colors"
+          >
+            Stripe
+          </a>
         </p>
       </div>
     </div>
