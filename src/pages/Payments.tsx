@@ -20,6 +20,7 @@ import { DebtCard } from '@/components/payments/DebtCard';
 import { PaymentHistoryTable } from '@/components/payments/PaymentHistoryTable';
 import { RecordPaymentDialog } from '@/components/payments/RecordPaymentDialog';
 import { EditPaymentDialog } from '@/components/payments/EditPaymentDialog';
+import { SendPaymentReminderDialog } from '@/components/payments/SendPaymentReminderDialog';
 
 export default function Payments() {
   const [paymentOpen, setPaymentOpen] = useState(false);
@@ -35,6 +36,8 @@ export default function Payments() {
   const [paymentToDelete, setPaymentToDelete] = useState<PaymentWithRelations | null>(null);
   const [deleteDebtDialogOpen, setDeleteDebtDialogOpen] = useState(false);
   const [debtToDelete, setDebtToDelete] = useState<DebtWithRelations | null>(null);
+  const [reminderDialogOpen, setReminderDialogOpen] = useState(false);
+  const [selectedDebtForReminder, setSelectedDebtForReminder] = useState<DebtWithRelations | null>(null);
 
   const { data: debts, isLoading: debtsLoading } = useDebts();
   const { data: payments, isLoading: paymentsLoading } = usePayments();
@@ -61,6 +64,11 @@ export default function Payments() {
   const handleDeleteDebt = (debt: DebtWithRelations) => {
     setDebtToDelete(debt);
     setDeleteDebtDialogOpen(true);
+  };
+
+  const handleSendReminder = (debt: DebtWithRelations) => {
+    setSelectedDebtForReminder(debt);
+    setReminderDialogOpen(true);
   };
 
   return (
@@ -150,6 +158,7 @@ export default function Payments() {
                   debt={debt}
                   onRecordPayment={handleRecordPayment}
                   onDelete={() => handleDeleteDebt(debt)}
+                  onSendReminder={handleSendReminder}
                 />
               ))}
             </div>
@@ -182,6 +191,12 @@ export default function Payments() {
         preselectedPatientId={selectedDebt?.patientId}
         preselectedAmount={selectedDebt?.amount}
         preselectedDescription={selectedDebt?.description}
+      />
+
+      <SendPaymentReminderDialog
+        open={reminderDialogOpen}
+        onOpenChange={setReminderDialogOpen}
+        debt={selectedDebtForReminder}
       />
 
       <EditPaymentDialog
