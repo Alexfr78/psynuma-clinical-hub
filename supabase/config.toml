@@ -137,3 +137,6 @@ verify_jwt = false
 
 [functions.get-google-sync-diagnostics]
 verify_jwt = true
+
+[functions.renew-google-calendar-watches]
+verify_jwt = false
