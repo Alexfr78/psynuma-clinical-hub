@@ -1,6 +1,6 @@
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { AlertCircle, User, FileText, Clock, Trash2 } from 'lucide-react';
+import { AlertCircle, User, FileText, Clock, Trash2, MessageCircle } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -15,6 +15,7 @@ interface DebtCardProps {
     description?: string;
   }) => void;
   onDelete?: (debtId: string) => void;
+  onSendReminder?: (debt: DebtWithRelations) => void;
 }
 
 const statusConfig = {
@@ -24,7 +25,7 @@ const statusConfig = {
   cancelled: { label: 'Cancelada', variant: 'secondary' as const },
 };
 
-export function DebtCard({ debt, onRecordPayment, onDelete }: DebtCardProps) {
+export function DebtCard({ debt, onRecordPayment, onDelete, onSendReminder }: DebtCardProps) {
   const status = statusConfig[debt.status] || statusConfig.pending;
   const remaining = Number(debt.amount) - Number(debt.paid_amount);
   const isOverdue = debt.due_date && new Date(debt.due_date) < new Date();
@@ -81,6 +82,16 @@ export function DebtCard({ debt, onRecordPayment, onDelete }: DebtCardProps) {
             
             {(debt.status === 'pending' || debt.status === 'partial') && (
               <div className="flex gap-2">
+                {onSendReminder && (
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => onSendReminder(debt)}
+                  >
+                    <MessageCircle className="h-4 w-4 mr-2" />
+                    Recordar
+                  </Button>
+                )}
                 <Button onClick={() => onRecordPayment?.({
                   debtId: debt.id,
                   patientId: debt.patient_id,

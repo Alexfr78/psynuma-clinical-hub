@@ -4,7 +4,7 @@ import { useCenter } from './useCenter';
 import { toast } from 'sonner';
 
 export type TemplateChannel = 'email' | 'whatsapp' | 'sms';
-export type TemplateType = 'notification' | 'reminder';
+export type TemplateType = 'notification' | 'reminder' | 'payment_reminder';
 
 export interface CommunicationTemplate {
   id: string;
@@ -57,6 +57,14 @@ export const DEFAULT_TEMPLATES: Record<TemplateChannel, Record<TemplateType, Par
       email_payment_text: 'Si tienes pagos pendientes, puedes realizarlos en: {link_sesion}',
       email_footer: 'Un saludo,\n{centro_nombre}',
     },
+    payment_reminder: {
+      email_subject: 'Recordatorio de pago pendiente - {centro_nombre}',
+      email_initial_text: 'Hola {nombre_paciente},\n\nTe recordamos que tienes un pago pendiente de {importe_pendiente}€ correspondiente a tu sesión del {fecha_sesion}.',
+      email_confirmation_text: '',
+      email_videocall_text: '',
+      email_payment_text: 'Puedes realizar el pago por:\n\n- Bizum al {bizum_numero}\n- Tarjeta: {link_pago_stripe}\n- O si prefieres, adquirir un bono: {link_comprar_bono}',
+      email_footer: 'Gracias por tu confianza,\n{centro_nombre}',
+    },
   },
   whatsapp: {
     notification: {
@@ -65,6 +73,9 @@ export const DEFAULT_TEMPLATES: Record<TemplateChannel, Record<TemplateType, Par
     reminder: {
       whatsapp_message: 'Hola {nombre_paciente}, te recordamos tu sesión con {profesional_nombre} mañana {fecha} a las {zona_horaria}. Confirma tu asistencia en: {link_confirmar}. Este es un mensaje automático.',
     },
+    payment_reminder: {
+      whatsapp_message: 'Hola {nombre_paciente}, te recordamos un pago pendiente de {importe_pendiente}€ de tu sesión del {fecha_sesion}.\n\n💳 Pagar por tarjeta: {link_pago_stripe}\n📱 Bizum al {bizum_numero}\n\n¿Prefieres un bono? {link_comprar_bono}\n\nGracias, {centro_nombre}',
+    },
   },
   sms: {
     notification: {
@@ -72,6 +83,9 @@ export const DEFAULT_TEMPLATES: Record<TemplateChannel, Record<TemplateType, Par
     },
     reminder: {
       sms_message: 'Recordatorio: Cita con {profesional_nombre} mañana {fecha} a las {zona_horaria}. Confirmar: {link_confirmar}',
+    },
+    payment_reminder: {
+      sms_message: 'Pago pendiente de {importe_pendiente}€. Paga en: {link_pago_stripe} o Bizum al {bizum_numero}. {centro_nombre}',
     },
   },
 };
@@ -89,6 +103,18 @@ export const TEMPLATE_VARIABLES = [
   { key: '{link_sesion}', label: 'Link de la sesión', example: 'https://...' },
   { key: '{link_confirmar}', label: 'Link para confirmar', example: 'https://...' },
   { key: '{link_videollamada}', label: 'Link de videollamada', example: 'https://meet.google.com/...' },
+];
+
+// Payment reminder specific variables
+export const PAYMENT_REMINDER_VARIABLES = [
+  { key: '{nombre_paciente}', label: 'Nombre del paciente', example: 'Juan' },
+  { key: '{centro_nombre}', label: 'Nombre del centro', example: 'Centro Psynuma' },
+  { key: '{importe_pendiente}', label: 'Importe pendiente', example: '75.00' },
+  { key: '{importe_total}', label: 'Importe total', example: '75.00' },
+  { key: '{fecha_sesion}', label: 'Fecha de la sesión', example: '15 de enero de 2025' },
+  { key: '{bizum_numero}', label: 'Número de Bizum', example: '609555514' },
+  { key: '{link_pago_stripe}', label: 'Link de pago con tarjeta', example: 'https://...' },
+  { key: '{link_comprar_bono}', label: 'Link para comprar bono', example: 'https://...' },
 ];
 
 export function useCommunicationTemplates() {

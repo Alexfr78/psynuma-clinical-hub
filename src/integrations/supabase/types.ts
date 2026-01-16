@@ -691,6 +691,7 @@ export type Database = {
           admin_alerts_include_professional: boolean | null
           agenda_show_weekends: boolean | null
           auto_invoicing_enabled: boolean | null
+          bizum_phone: string | null
           city: string | null
           consent_expiration_days: number | null
           country: string | null
@@ -764,6 +765,7 @@ export type Database = {
           admin_alerts_include_professional?: boolean | null
           agenda_show_weekends?: boolean | null
           auto_invoicing_enabled?: boolean | null
+          bizum_phone?: string | null
           city?: string | null
           consent_expiration_days?: number | null
           country?: string | null
@@ -837,6 +839,7 @@ export type Database = {
           admin_alerts_include_professional?: boolean | null
           agenda_show_weekends?: boolean | null
           auto_invoicing_enabled?: boolean | null
+          bizum_phone?: string | null
           city?: string | null
           consent_expiration_days?: number | null
           country?: string | null
@@ -1170,6 +1173,7 @@ export type Database = {
       }
       debts: {
         Row: {
+          access_token: string | null
           amount: number
           bono_id: string | null
           center_id: string
@@ -1182,9 +1186,12 @@ export type Database = {
           patient_id: string
           session_id: string | null
           status: Database["public"]["Enums"]["payment_status"] | null
+          stripe_checkout_session_id: string | null
+          stripe_payment_status: string | null
           updated_at: string
         }
         Insert: {
+          access_token?: string | null
           amount: number
           bono_id?: string | null
           center_id: string
@@ -1197,9 +1204,12 @@ export type Database = {
           patient_id: string
           session_id?: string | null
           status?: Database["public"]["Enums"]["payment_status"] | null
+          stripe_checkout_session_id?: string | null
+          stripe_payment_status?: string | null
           updated_at?: string
         }
         Update: {
+          access_token?: string | null
           amount?: number
           bono_id?: string | null
           center_id?: string
@@ -1212,6 +1222,8 @@ export type Database = {
           patient_id?: string
           session_id?: string | null
           status?: Database["public"]["Enums"]["payment_status"] | null
+          stripe_checkout_session_id?: string | null
+          stripe_payment_status?: string | null
           updated_at?: string
         }
         Relationships: [
