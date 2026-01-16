@@ -247,8 +247,8 @@ export default function Invoices() {
   };
 
   return (
-    <div className="space-y-6 w-full max-w-full overflow-x-hidden">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="space-y-6 w-full min-w-0 max-w-full overflow-hidden">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between min-w-0">
         <div>
           <h1 className="font-display text-2xl sm:text-3xl font-bold">Facturas</h1>
           <p className="text-muted-foreground">Gestiona la facturación</p>
@@ -298,18 +298,18 @@ export default function Invoices() {
         </Card>
       </div>
 
-      <Tabs value={statusFilter} onValueChange={setStatusFilter}>
-        <div className="relative">
+      <Tabs value={statusFilter} onValueChange={setStatusFilter} className="min-w-0 w-full overflow-hidden">
+        <div className="relative min-w-0 overflow-hidden">
           <div className="absolute left-0 top-0 bottom-0 w-3 bg-gradient-to-r from-background to-transparent pointer-events-none z-10 sm:hidden" />
           <div className="absolute right-0 top-0 bottom-0 w-3 bg-gradient-to-l from-background to-transparent pointer-events-none z-10 sm:hidden" />
-          <TabsList className="w-full justify-start overflow-x-auto flex-nowrap h-auto p-1 gap-1">
-            <TabsTrigger value="all" className="shrink-0 text-xs sm:text-sm px-3 py-2 min-h-[40px]">Todas</TabsTrigger>
-            <TabsTrigger value="draft" className="shrink-0 text-xs sm:text-sm px-3 py-2 min-h-[40px]">Borrador</TabsTrigger>
-            <TabsTrigger value="issued" className="shrink-0 text-xs sm:text-sm px-3 py-2 min-h-[40px]">Emitidas</TabsTrigger>
-            <TabsTrigger value="paid" className="shrink-0 text-xs sm:text-sm px-3 py-2 min-h-[40px]">Pagadas</TabsTrigger>
-            <TabsTrigger value="verifactu_pending" className="gap-1 shrink-0 text-xs sm:text-sm px-3 py-2 min-h-[40px]">
+          <TabsList className="w-full max-w-full justify-start overflow-x-auto flex-nowrap h-auto p-1 gap-1 scrollbar-hide">
+            <TabsTrigger value="all" className="shrink-0 text-xs sm:text-sm px-2 sm:px-3 py-2 min-h-[40px]">Todas</TabsTrigger>
+            <TabsTrigger value="draft" className="shrink-0 text-xs sm:text-sm px-2 sm:px-3 py-2 min-h-[40px]">Borrador</TabsTrigger>
+            <TabsTrigger value="issued" className="shrink-0 text-xs sm:text-sm px-2 sm:px-3 py-2 min-h-[40px]">Emitidas</TabsTrigger>
+            <TabsTrigger value="paid" className="shrink-0 text-xs sm:text-sm px-2 sm:px-3 py-2 min-h-[40px]">Pagadas</TabsTrigger>
+            <TabsTrigger value="verifactu_pending" className="gap-1 shrink-0 text-xs sm:text-sm px-2 sm:px-3 py-2 min-h-[40px]">
               <RefreshCw className="h-3 w-3" />
-              <span className="hidden sm:inline">Pend.</span> AEAT
+              AEAT
             </TabsTrigger>
           </TabsList>
         </div>
