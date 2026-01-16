@@ -91,7 +91,6 @@ serve(async (req) => {
     let stripeCheckoutUrl = '';
     if (include_stripe_link && center.oauth_stripe_credentials) {
       try {
-        // Create Stripe checkout session for debt payment
         const { data: checkoutData, error: checkoutError } = await supabase.functions.invoke(
           'create-debt-payment-checkout',
           { 
@@ -132,98 +131,103 @@ serve(async (req) => {
           })
         : 'N/A';
 
-    // Build message based on template and channel
-    let message = '';
-    let subject = '';
-
-    // Default templates
-    const defaults: Record<string, Record<string, string>> = {
+    // Default templates for fallback
+    const defaults = {
       email: {
         subject: `Recordatorio de pago pendiente - ${center.name}`,
         initial: `Hola ${debt.patients.first_name},\n\nTe recordamos que tienes un pago pendiente de ${pendingAmount.toFixed(2)}€ correspondiente a tu sesión del ${sessionDate}.`,
-        payment: '',
+        payment_intro: 'Puedes realizar el pago por las siguientes opciones:',
         footer: `Gracias por tu confianza,\n${center.name}`,
+        payment_option_stripe: '💳 Pagar con tarjeta: {link_pago_stripe}',
+        payment_option_bizum: '📱 Bizum al número {bizum_numero}',
+        payment_option_bono: '🎫 Adquirir un bono: {link_comprar_bono}',
       },
       whatsapp: {
-        message: `Hola ${debt.patients.first_name}, te recordamos un pago pendiente de ${pendingAmount.toFixed(2)}€ de tu sesión del ${sessionDate}.`,
+        message: `Hola ${debt.patients.first_name}, te recordamos un pago pendiente de ${pendingAmount.toFixed(2)}€ de tu sesión del ${sessionDate}.\n\nGracias, ${center.name}`,
+        payment_option_stripe: '💳 Pagar por tarjeta: {link_pago_stripe}',
+        payment_option_bizum: '📱 Bizum al {bizum_numero}',
+        payment_option_bono: '🎫 ¿Prefieres un bono? {link_comprar_bono}',
       },
       sms: {
         message: `Pago pendiente de ${pendingAmount.toFixed(2)}€. ${center.name}`,
+        payment_option_stripe: 'Pagar: {link_pago_stripe}',
+        payment_option_bizum: 'Bizum: {bizum_numero}',
+        payment_option_bono: 'Bono: {link_comprar_bono}',
       },
     };
 
-    // Build payment options text
-    const paymentOptions: string[] = [];
-    if (include_stripe_link && stripeCheckoutUrl) {
-      paymentOptions.push(`💳 Pagar por tarjeta: ${stripeCheckoutUrl}`);
-    }
-    if (include_bizum) {
-      paymentOptions.push(`📱 Bizum al ${bizumNumber}`);
-    }
-    if (include_bono_option && bonoPurchaseUrl) {
-      paymentOptions.push(`🎫 ¿Prefieres un bono? ${bonoPurchaseUrl}`);
-    }
-
-    if (channel === 'email') {
-      subject = template?.email_subject || defaults.email.subject;
-      subject = subject
-        .replace(/{centro_nombre}/g, center.name)
-        .replace(/{importe_pendiente}/g, pendingAmount.toFixed(2));
-
-      const initialText = (template?.email_initial_text || defaults.email.initial)
+    // Helper function to replace variables in a string
+    const replaceVariables = (text: string): string => {
+      return text
         .replace(/{nombre_paciente}/g, debt.patients.first_name)
+        .replace(/{centro_nombre}/g, center.name)
         .replace(/{importe_pendiente}/g, pendingAmount.toFixed(2))
         .replace(/{importe_total}/g, Number(debt.amount).toFixed(2))
         .replace(/{fecha_sesion}/g, sessionDate)
-        .replace(/{centro_nombre}/g, center.name);
-
-      let paymentText = template?.email_payment_text || defaults.email.payment;
-      if (paymentOptions.length > 0) {
-        paymentText = paymentOptions.join('\n');
-      }
-      paymentText = paymentText
         .replace(/{bizum_numero}/g, bizumNumber)
         .replace(/{link_pago_stripe}/g, stripeCheckoutUrl || '[No disponible]')
         .replace(/{link_comprar_bono}/g, bonoPurchaseUrl || '[No disponible]');
+    };
 
-      const footerText = (template?.email_footer || defaults.email.footer)
-        .replace(/{centro_nombre}/g, center.name);
-
-      message = [initialText, paymentText, footerText].filter(Boolean).join('\n\n');
-
-    } else if (channel === 'whatsapp') {
-      message = template?.whatsapp_message || defaults.whatsapp.message;
+    // Build payment options array from template or defaults
+    const getPaymentLines = (channelDefaults: typeof defaults.email | typeof defaults.whatsapp | typeof defaults.sms): string[] => {
+      const lines: string[] = [];
       
-      // Add payment options
-      if (paymentOptions.length > 0) {
-        message += '\n\n' + paymentOptions.join('\n');
-      }
-      message += `\n\nGracias, ${center.name}`;
-
-      message = message
-        .replace(/{nombre_paciente}/g, debt.patients.first_name)
-        .replace(/{importe_pendiente}/g, pendingAmount.toFixed(2))
-        .replace(/{importe_total}/g, Number(debt.amount).toFixed(2))
-        .replace(/{fecha_sesion}/g, sessionDate)
-        .replace(/{centro_nombre}/g, center.name)
-        .replace(/{bizum_numero}/g, bizumNumber)
-        .replace(/{link_pago_stripe}/g, stripeCheckoutUrl || '')
-        .replace(/{link_comprar_bono}/g, bonoPurchaseUrl || '');
-
-    } else {
-      message = template?.sms_message || defaults.sms.message;
       if (include_stripe_link && stripeCheckoutUrl) {
-        message += ` Paga: ${stripeCheckoutUrl}`;
+        const stripeText = template?.payment_option_stripe || channelDefaults.payment_option_stripe || '';
+        if (stripeText) lines.push(replaceVariables(stripeText));
       }
       if (include_bizum) {
-        message += ` Bizum: ${bizumNumber}`;
+        const bizumText = template?.payment_option_bizum || channelDefaults.payment_option_bizum || '';
+        if (bizumText) lines.push(replaceVariables(bizumText));
       }
-      message = message
-        .replace(/{nombre_paciente}/g, debt.patients.first_name)
-        .replace(/{importe_pendiente}/g, pendingAmount.toFixed(2))
-        .replace(/{centro_nombre}/g, center.name)
-        .replace(/{bizum_numero}/g, bizumNumber)
-        .replace(/{link_pago_stripe}/g, stripeCheckoutUrl || '');
+      if (include_bono_option && bonoPurchaseUrl) {
+        const bonoText = template?.payment_option_bono || channelDefaults.payment_option_bono || '';
+        if (bonoText) lines.push(replaceVariables(bonoText));
+      }
+      
+      return lines;
+    };
+
+    let message = '';
+    let subject = '';
+
+    if (channel === 'email') {
+      // Build email
+      subject = replaceVariables(template?.email_subject || defaults.email.subject);
+      
+      const initialText = replaceVariables(template?.email_initial_text || defaults.email.initial);
+      const paymentIntro = replaceVariables(template?.email_payment_text || defaults.email.payment_intro);
+      const footerText = replaceVariables(template?.email_footer || defaults.email.footer);
+      const paymentLines = getPaymentLines(defaults.email);
+      
+      const parts = [initialText];
+      if (paymentLines.length > 0) {
+        parts.push(paymentIntro + '\n' + paymentLines.join('\n'));
+      }
+      if (footerText) parts.push(footerText);
+      
+      message = parts.filter(Boolean).join('\n\n');
+
+    } else if (channel === 'whatsapp') {
+      // Build WhatsApp message
+      const baseMessage = replaceVariables(template?.whatsapp_message || defaults.whatsapp.message);
+      const paymentLines = getPaymentLines(defaults.whatsapp);
+      
+      message = baseMessage;
+      if (paymentLines.length > 0) {
+        message += '\n\n' + paymentLines.join('\n');
+      }
+
+    } else {
+      // Build SMS message
+      const baseMessage = replaceVariables(template?.sms_message || defaults.sms.message);
+      const paymentLines = getPaymentLines(defaults.sms);
+      
+      message = baseMessage;
+      if (paymentLines.length > 0) {
+        message += ' ' + paymentLines.join(' ');
+      }
     }
 
     // Determine recipient

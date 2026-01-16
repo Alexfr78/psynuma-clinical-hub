@@ -19,6 +19,9 @@ export interface CommunicationTemplate {
   email_footer: string | null;
   sms_message: string | null;
   whatsapp_message: string | null;
+  payment_option_stripe: string | null;
+  payment_option_bizum: string | null;
+  payment_option_bono: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -35,6 +38,9 @@ export interface UpsertTemplateData {
   email_footer?: string | null;
   sms_message?: string | null;
   whatsapp_message?: string | null;
+  payment_option_stripe?: string | null;
+  payment_option_bizum?: string | null;
+  payment_option_bono?: string | null;
   is_active?: boolean;
 }
 
@@ -62,8 +68,11 @@ export const DEFAULT_TEMPLATES: Record<TemplateChannel, Record<TemplateType, Par
       email_initial_text: 'Hola {nombre_paciente},\n\nTe recordamos que tienes un pago pendiente de {importe_pendiente}€ correspondiente a tu sesión del {fecha_sesion}.',
       email_confirmation_text: '',
       email_videocall_text: '',
-      email_payment_text: 'Puedes realizar el pago por:\n\n- Bizum al {bizum_numero}\n- Tarjeta: {link_pago_stripe}\n- O si prefieres, adquirir un bono: {link_comprar_bono}',
+      email_payment_text: 'Puedes realizar el pago por las siguientes opciones:',
       email_footer: 'Gracias por tu confianza,\n{centro_nombre}',
+      payment_option_stripe: '💳 Pagar con tarjeta: {link_pago_stripe}',
+      payment_option_bizum: '📱 Bizum al número {bizum_numero}',
+      payment_option_bono: '🎫 Adquirir un bono: {link_comprar_bono}',
     },
   },
   whatsapp: {
@@ -74,7 +83,10 @@ export const DEFAULT_TEMPLATES: Record<TemplateChannel, Record<TemplateType, Par
       whatsapp_message: 'Hola {nombre_paciente}, te recordamos tu sesión con {profesional_nombre} mañana {fecha} a las {zona_horaria}. Confirma tu asistencia en: {link_confirmar}. Este es un mensaje automático.',
     },
     payment_reminder: {
-      whatsapp_message: 'Hola {nombre_paciente}, te recordamos un pago pendiente de {importe_pendiente}€ de tu sesión del {fecha_sesion}.\n\n💳 Pagar por tarjeta: {link_pago_stripe}\n📱 Bizum al {bizum_numero}\n\n¿Prefieres un bono? {link_comprar_bono}\n\nGracias, {centro_nombre}',
+      whatsapp_message: 'Hola {nombre_paciente}, te recordamos un pago pendiente de {importe_pendiente}€ de tu sesión del {fecha_sesion}.\n\nGracias, {centro_nombre}',
+      payment_option_stripe: '💳 Pagar por tarjeta: {link_pago_stripe}',
+      payment_option_bizum: '📱 Bizum al {bizum_numero}',
+      payment_option_bono: '🎫 ¿Prefieres un bono? {link_comprar_bono}',
     },
   },
   sms: {
@@ -85,7 +97,10 @@ export const DEFAULT_TEMPLATES: Record<TemplateChannel, Record<TemplateType, Par
       sms_message: 'Recordatorio: Cita con {profesional_nombre} mañana {fecha} a las {zona_horaria}. Confirmar: {link_confirmar}',
     },
     payment_reminder: {
-      sms_message: 'Pago pendiente de {importe_pendiente}€. Paga en: {link_pago_stripe} o Bizum al {bizum_numero}. {centro_nombre}',
+      sms_message: 'Pago pendiente de {importe_pendiente}€. {centro_nombre}',
+      payment_option_stripe: 'Pagar: {link_pago_stripe}',
+      payment_option_bizum: 'Bizum: {bizum_numero}',
+      payment_option_bono: 'Bono: {link_comprar_bono}',
     },
   },
 };
@@ -183,6 +198,9 @@ export function useUpsertCommunicationTemplate() {
             email_footer: data.email_footer,
             sms_message: data.sms_message,
             whatsapp_message: data.whatsapp_message,
+            payment_option_stripe: data.payment_option_stripe,
+            payment_option_bizum: data.payment_option_bizum,
+            payment_option_bono: data.payment_option_bono,
             is_active: data.is_active ?? true,
           },
           {

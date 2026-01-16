@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Save, RotateCcw, Info, Wallet, Mail, MessageCircle, Smartphone } from 'lucide-react';
+import { Loader2, Save, RotateCcw, Info, Wallet, Mail, MessageCircle, Smartphone, CreditCard } from 'lucide-react';
 import { useCenter } from '@/hooks/useCenter';
 import { 
   useCommunicationTemplate, 
@@ -31,6 +31,11 @@ export function PaymentReminderTemplateEditor() {
   
   // SMS field
   const [smsMessage, setSmsMessage] = useState('');
+
+  // Payment option fields - per channel
+  const [paymentOptionStripe, setPaymentOptionStripe] = useState('');
+  const [paymentOptionBizum, setPaymentOptionBizum] = useState('');
+  const [paymentOptionBono, setPaymentOptionBono] = useState('');
   
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -62,6 +67,16 @@ export function PaymentReminderTemplateEditor() {
     setSmsMessage(smsTemplate?.sms_message ?? defaults.sms_message ?? '');
   }, [smsTemplate]);
 
+  // Load payment options based on active tab
+  useEffect(() => {
+    const template = activeTab === 'email' ? emailTemplate : activeTab === 'whatsapp' ? whatsappTemplate : smsTemplate;
+    const defaults = DEFAULT_TEMPLATES[activeTab].payment_reminder;
+    
+    setPaymentOptionStripe((template as any)?.payment_option_stripe ?? defaults.payment_option_stripe ?? '');
+    setPaymentOptionBizum((template as any)?.payment_option_bizum ?? defaults.payment_option_bizum ?? '');
+    setPaymentOptionBono((template as any)?.payment_option_bono ?? defaults.payment_option_bono ?? '');
+  }, [activeTab, emailTemplate, whatsappTemplate, smsTemplate]);
+
   const handleVariableClick = (variable: string) => {
     const textarea = textareaRef.current;
     if (!textarea) return;
@@ -79,9 +94,9 @@ export function PaymentReminderTemplateEditor() {
       currentValue = smsMessage;
       setValue = setSmsMessage;
     } else {
-      // For email, default to payment text
-      currentValue = emailPaymentText;
-      setValue = setEmailPaymentText;
+      // For email, default to initial text
+      currentValue = emailInitialText;
+      setValue = setEmailInitialText;
     }
     
     const newValue = currentValue.slice(0, start) + variable + currentValue.slice(end);
@@ -103,18 +118,27 @@ export function PaymentReminderTemplateEditor() {
         email_initial_text: emailInitialText,
         email_payment_text: emailPaymentText,
         email_footer: emailFooter,
+        payment_option_stripe: paymentOptionStripe,
+        payment_option_bizum: paymentOptionBizum,
+        payment_option_bono: paymentOptionBono,
       });
     } else if (activeTab === 'whatsapp') {
       upsertMutation.mutate({
         channel: 'whatsapp',
         template_type: 'payment_reminder',
         whatsapp_message: whatsappMessage,
+        payment_option_stripe: paymentOptionStripe,
+        payment_option_bizum: paymentOptionBizum,
+        payment_option_bono: paymentOptionBono,
       });
     } else {
       upsertMutation.mutate({
         channel: 'sms',
         template_type: 'payment_reminder',
         sms_message: smsMessage,
+        payment_option_stripe: paymentOptionStripe,
+        payment_option_bizum: paymentOptionBizum,
+        payment_option_bono: paymentOptionBono,
       });
     }
   };
@@ -131,6 +155,10 @@ export function PaymentReminderTemplateEditor() {
     } else {
       setSmsMessage(defaults.sms_message ?? '');
     }
+    // Reset payment options for current tab
+    setPaymentOptionStripe(defaults.payment_option_stripe ?? '');
+    setPaymentOptionBizum(defaults.payment_option_bizum ?? '');
+    setPaymentOptionBono(defaults.payment_option_bono ?? '');
   };
 
   const highlightVariables = (text: string) => {
@@ -158,6 +186,11 @@ export function PaymentReminderTemplateEditor() {
     );
   }
 
+  // Separate general variables from payment-specific ones
+  const generalVariables = PAYMENT_REMINDER_VARIABLES.filter(v => 
+    !['{link_pago_stripe}', '{bizum_numero}', '{link_comprar_bono}'].includes(v.key)
+  );
+
   return (
     <Card>
       <CardHeader>
@@ -166,46 +199,27 @@ export function PaymentReminderTemplateEditor() {
           <CardTitle>Plantillas de Recordatorio de Pago</CardTitle>
         </div>
         <CardDescription>
-          Configura los mensajes que se enviarán a los pacientes como recordatorio de pagos pendientes
+          Configura los mensajes que se enviarán a los pacientes como recordatorio de pagos pendientes.
+          Cada opción de pago tiene su propio texto editable.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         <Alert>
           <Info className="h-4 w-4" />
           <AlertDescription>
-            Estas plantillas se usan al enviar recordatorios de pago desde la sección de Cobros y Deudas.
-            Al enviar, puedes elegir qué opciones de pago incluir (Stripe, Bizum, Bono) y el mensaje se adaptará automáticamente.
+            El mensaje base se enviará siempre. Los textos de las opciones de pago (Stripe, Bizum, Bono) 
+            se añadirán automáticamente según lo que selecciones al enviar el recordatorio.
           </AlertDescription>
         </Alert>
 
-        {/* Variables badges */}
+        {/* Variables badges - only general ones */}
         <div className="space-y-2">
-          <Label className="text-sm font-medium">Variables disponibles</Label>
+          <Label className="text-sm font-medium">Variables disponibles para el mensaje base</Label>
           <div className="flex flex-wrap gap-1.5">
-            {PAYMENT_REMINDER_VARIABLES.filter(v => 
-              // Show general variables always
-              !['{link_pago_stripe}', '{bizum_numero}', '{link_comprar_bono}'].includes(v.key)
-            ).map((variable) => (
+            {generalVariables.map((variable) => (
               <Badge
                 key={variable.key}
                 variant="secondary"
-                className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
-                onClick={() => handleVariableClick(variable.key)}
-              >
-                {variable.key}
-              </Badge>
-            ))}
-          </div>
-          <p className="text-xs text-muted-foreground mt-2">
-            <strong>Variables de opciones de pago</strong> (se incluyen/excluyen según las opciones seleccionadas al enviar):
-          </p>
-          <div className="flex flex-wrap gap-1.5">
-            {PAYMENT_REMINDER_VARIABLES.filter(v => 
-              ['{link_pago_stripe}', '{bizum_numero}', '{link_comprar_bono}'].includes(v.key)
-            ).map((variable) => (
-              <Badge
-                key={variable.key}
-                variant="outline"
                 className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
                 onClick={() => handleVariableClick(variable.key)}
               >
@@ -235,17 +249,17 @@ export function PaymentReminderTemplateEditor() {
           </TabsList>
 
           {/* WhatsApp Tab */}
-          <TabsContent value="whatsapp" className="space-y-4 mt-6">
+          <TabsContent value="whatsapp" className="space-y-6 mt-6">
             <div className="grid gap-6 lg:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="whatsapp_message">Mensaje</Label>
+                <Label htmlFor="whatsapp_message">Mensaje base</Label>
                 <Textarea
                   id="whatsapp_message"
                   ref={textareaRef}
                   value={whatsappMessage}
                   onChange={(e) => setWhatsappMessage(e.target.value)}
                   placeholder="Escribe el mensaje de WhatsApp..."
-                  rows={10}
+                  rows={6}
                 />
                 <p className="text-xs text-muted-foreground">
                   {whatsappMessage.length} caracteres
@@ -255,7 +269,7 @@ export function PaymentReminderTemplateEditor() {
               {/* Preview */}
               <div className="space-y-2">
                 <Label>Vista previa</Label>
-                <div className="rounded-lg bg-[#e5ddd5] dark:bg-[#0b141a] p-4 min-h-[250px]">
+                <div className="rounded-lg bg-[#e5ddd5] dark:bg-[#0b141a] p-4 min-h-[200px]">
                   <div className="max-w-[85%] ml-auto">
                     <div className="bg-[#dcf8c6] dark:bg-[#005c4b] rounded-lg p-3 shadow-sm relative">
                       <div className="absolute -right-2 top-0 w-0 h-0 border-l-8 border-l-[#dcf8c6] dark:border-l-[#005c4b] border-t-8 border-t-transparent border-b-8 border-b-transparent" />
@@ -269,10 +283,71 @@ export function PaymentReminderTemplateEditor() {
                 </div>
               </div>
             </div>
+
+            {/* Payment options - WhatsApp */}
+            <div className="space-y-4 pt-4 border-t">
+              <div className="flex items-center gap-2">
+                <CreditCard className="h-4 w-4 text-muted-foreground" />
+                <Label className="text-base font-medium">Opciones de pago</Label>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Estos textos se añadirán al mensaje cuando selecciones incluir cada opción al enviar.
+              </p>
+              
+              <div className="grid gap-4">
+                <div className="space-y-2 p-3 border rounded-lg">
+                  <Label htmlFor="wa_stripe" className="flex items-center gap-2">
+                    <CreditCard className="h-4 w-4 text-blue-600" />
+                    Enlace de pago (Stripe)
+                  </Label>
+                  <Input
+                    id="wa_stripe"
+                    value={paymentOptionStripe}
+                    onChange={(e) => setPaymentOptionStripe(e.target.value)}
+                    placeholder="💳 Pagar por tarjeta: {link_pago_stripe}"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Usa <code className="bg-muted px-1 rounded">{'{link_pago_stripe}'}</code> para insertar el enlace
+                  </p>
+                </div>
+
+                <div className="space-y-2 p-3 border rounded-lg">
+                  <Label htmlFor="wa_bizum" className="flex items-center gap-2">
+                    <Smartphone className="h-4 w-4 text-green-600" />
+                    Bizum
+                  </Label>
+                  <Input
+                    id="wa_bizum"
+                    value={paymentOptionBizum}
+                    onChange={(e) => setPaymentOptionBizum(e.target.value)}
+                    placeholder="📱 Bizum al {bizum_numero}"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Usa <code className="bg-muted px-1 rounded">{'{bizum_numero}'}</code> para insertar el número
+                  </p>
+                </div>
+
+                <div className="space-y-2 p-3 border rounded-lg">
+                  <Label htmlFor="wa_bono" className="flex items-center gap-2">
+                    <Wallet className="h-4 w-4 text-purple-600" />
+                    Bono
+                  </Label>
+                  <Input
+                    id="wa_bono"
+                    value={paymentOptionBono}
+                    onChange={(e) => setPaymentOptionBono(e.target.value)}
+                    placeholder="🎫 ¿Prefieres un bono? {link_comprar_bono}"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Usa <code className="bg-muted px-1 rounded">{'{link_comprar_bono}'}</code> para insertar el enlace
+                  </p>
+                </div>
+              </div>
+            </div>
           </TabsContent>
 
           {/* Email Tab */}
-          <TabsContent value="email" className="space-y-4 mt-6">
+          <TabsContent value="email" className="space-y-6 mt-6">
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email_subject">Asunto</Label>
@@ -285,26 +360,28 @@ export function PaymentReminderTemplateEditor() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="email_initial">Texto inicial</Label>
+                <Label htmlFor="email_initial">Mensaje base</Label>
                 <Textarea
                   id="email_initial"
+                  ref={textareaRef}
                   value={emailInitialText}
                   onChange={(e) => setEmailInitialText(e.target.value)}
                   placeholder="Saludo y contexto del recordatorio..."
-                  rows={3}
+                  rows={4}
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="email_payment">Texto de opciones de pago</Label>
-                <Textarea
+                <Label htmlFor="email_payment">Texto antes de opciones de pago</Label>
+                <Input
                   id="email_payment"
-                  ref={textareaRef}
                   value={emailPaymentText}
                   onChange={(e) => setEmailPaymentText(e.target.value)}
-                  placeholder="Información sobre cómo realizar el pago..."
-                  rows={4}
+                  placeholder="Puedes realizar el pago por:"
                 />
+                <p className="text-xs text-muted-foreground">
+                  Este texto aparece antes de listar las opciones de pago seleccionadas
+                </p>
               </div>
 
               <div className="space-y-2">
@@ -318,23 +395,124 @@ export function PaymentReminderTemplateEditor() {
                 />
               </div>
             </div>
+
+            {/* Payment options - Email */}
+            <div className="space-y-4 pt-4 border-t">
+              <div className="flex items-center gap-2">
+                <CreditCard className="h-4 w-4 text-muted-foreground" />
+                <Label className="text-base font-medium">Opciones de pago</Label>
+              </div>
+              
+              <div className="grid gap-4">
+                <div className="space-y-2 p-3 border rounded-lg">
+                  <Label htmlFor="email_stripe" className="flex items-center gap-2">
+                    <CreditCard className="h-4 w-4 text-blue-600" />
+                    Enlace de pago (Stripe)
+                  </Label>
+                  <Input
+                    id="email_stripe"
+                    value={paymentOptionStripe}
+                    onChange={(e) => setPaymentOptionStripe(e.target.value)}
+                    placeholder="💳 Pagar con tarjeta: {link_pago_stripe}"
+                  />
+                </div>
+
+                <div className="space-y-2 p-3 border rounded-lg">
+                  <Label htmlFor="email_bizum" className="flex items-center gap-2">
+                    <Smartphone className="h-4 w-4 text-green-600" />
+                    Bizum
+                  </Label>
+                  <Input
+                    id="email_bizum"
+                    value={paymentOptionBizum}
+                    onChange={(e) => setPaymentOptionBizum(e.target.value)}
+                    placeholder="📱 Bizum al número {bizum_numero}"
+                  />
+                </div>
+
+                <div className="space-y-2 p-3 border rounded-lg">
+                  <Label htmlFor="email_bono" className="flex items-center gap-2">
+                    <Wallet className="h-4 w-4 text-purple-600" />
+                    Bono
+                  </Label>
+                  <Input
+                    id="email_bono"
+                    value={paymentOptionBono}
+                    onChange={(e) => setPaymentOptionBono(e.target.value)}
+                    placeholder="🎫 Adquirir un bono: {link_comprar_bono}"
+                  />
+                </div>
+              </div>
+            </div>
           </TabsContent>
 
           {/* SMS Tab */}
-          <TabsContent value="sms" className="space-y-4 mt-6">
+          <TabsContent value="sms" className="space-y-6 mt-6">
             <div className="space-y-2">
-              <Label htmlFor="sms_message">Mensaje SMS</Label>
+              <Label htmlFor="sms_message">Mensaje base SMS</Label>
               <Textarea
                 id="sms_message"
                 ref={textareaRef}
                 value={smsMessage}
                 onChange={(e) => setSmsMessage(e.target.value)}
                 placeholder="Escribe el mensaje SMS..."
-                rows={4}
+                rows={3}
               />
               <p className="text-xs text-muted-foreground">
                 {smsMessage.length} caracteres (160 por SMS)
               </p>
+            </div>
+
+            {/* Payment options - SMS */}
+            <div className="space-y-4 pt-4 border-t">
+              <div className="flex items-center gap-2">
+                <CreditCard className="h-4 w-4 text-muted-foreground" />
+                <Label className="text-base font-medium">Opciones de pago</Label>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Mantén estos textos cortos para no exceder el límite de caracteres SMS.
+              </p>
+              
+              <div className="grid gap-4">
+                <div className="space-y-2 p-3 border rounded-lg">
+                  <Label htmlFor="sms_stripe" className="flex items-center gap-2">
+                    <CreditCard className="h-4 w-4 text-blue-600" />
+                    Enlace de pago (Stripe)
+                  </Label>
+                  <Input
+                    id="sms_stripe"
+                    value={paymentOptionStripe}
+                    onChange={(e) => setPaymentOptionStripe(e.target.value)}
+                    placeholder="Pagar: {link_pago_stripe}"
+                  />
+                </div>
+
+                <div className="space-y-2 p-3 border rounded-lg">
+                  <Label htmlFor="sms_bizum" className="flex items-center gap-2">
+                    <Smartphone className="h-4 w-4 text-green-600" />
+                    Bizum
+                  </Label>
+                  <Input
+                    id="sms_bizum"
+                    value={paymentOptionBizum}
+                    onChange={(e) => setPaymentOptionBizum(e.target.value)}
+                    placeholder="Bizum: {bizum_numero}"
+                  />
+                </div>
+
+                <div className="space-y-2 p-3 border rounded-lg">
+                  <Label htmlFor="sms_bono" className="flex items-center gap-2">
+                    <Wallet className="h-4 w-4 text-purple-600" />
+                    Bono
+                  </Label>
+                  <Input
+                    id="sms_bono"
+                    value={paymentOptionBono}
+                    onChange={(e) => setPaymentOptionBono(e.target.value)}
+                    placeholder="Bono: {link_comprar_bono}"
+                  />
+                </div>
+              </div>
             </div>
           </TabsContent>
         </Tabs>
