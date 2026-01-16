@@ -171,9 +171,10 @@ async function refreshGoogleToken(
           needs_reconnect: false,
           last_sync_status: 'token_refreshed',
           last_token_refresh_at: new Date().toISOString(),
-          last_token_refresh_result: 'ok',
+          last_token_refresh_result: 'success',
           last_sync_error_code: null,
           last_sync_error_message: null,
+          consecutive_sync_errors: 0,
         })
         .eq('professional_id', professionalId)
         .eq('provider', 'google');
@@ -197,22 +198,39 @@ async function refreshGoogleToken(
       correlationId
     );
 
-    // Handle specific error cases - mark needs_reconnect
-    if (data.error === 'invalid_grant' || data.error === 'invalid_client') {
-      console.error('[SYNC:TOKEN] Auth error - marking needs_reconnect');
+    // Handle specific error cases - mark needs_reconnect with appropriate status
+    if (data.error === 'invalid_client') {
+      // invalid_client = OAuth credentials (client_id/secret) from center are wrong
+      console.error('[SYNC:TOKEN] invalid_client - OAuth center credentials are wrong');
       await supabase
         .from('oauth_connections')
         .update({
           needs_reconnect: true,
-          last_sync_status: 'needs_reconnect',
-          last_sync_error_code: data.error,
-          last_sync_error_message: data.error_description || 'Authentication error',
+          last_sync_status: 'oauth_credentials_invalid',
+          last_sync_error_code: 'invalid_client',
+          last_sync_error_message: 'Client ID o Secret del centro inválidos. Actualiza las credenciales OAuth.',
+          last_token_refresh_at: new Date().toISOString(),
+          last_token_refresh_result: 'fail',
+        })
+        .eq('professional_id', professionalId)
+        .eq('provider', 'google');
+    } else if (data.error === 'invalid_grant') {
+      // invalid_grant = user's refresh token was revoked or expired
+      console.error('[SYNC:TOKEN] invalid_grant - user token revoked/expired');
+      await supabase
+        .from('oauth_connections')
+        .update({
+          needs_reconnect: true,
+          last_sync_status: 'token_revoked',
+          last_sync_error_code: 'invalid_grant',
+          last_sync_error_message: 'El acceso a Google fue revocado o expiró. Reautoriza la conexión.',
           last_token_refresh_at: new Date().toISOString(),
           last_token_refresh_result: 'fail',
         })
         .eq('professional_id', professionalId)
         .eq('provider', 'google');
     } else {
+      // Other errors - don't set needs_reconnect, may be transient
       await supabase
         .from('oauth_connections')
         .update({
