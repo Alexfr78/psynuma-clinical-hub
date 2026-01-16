@@ -68,38 +68,40 @@ export function SendPaymentReminderDialog({
     const defaults = DEFAULT_TEMPLATES[channel].payment_reminder;
     const currentTemplate = channel === 'email' ? emailTemplate : channel === 'whatsapp' ? whatsappTemplate : smsTemplate;
     
-    // Get base message
+    // Get base message from template or defaults
     let baseMessage = '';
     if (channel === 'email') {
-      baseMessage = currentTemplate?.email_initial_text || defaults.email_initial_text || '';
+      baseMessage = currentTemplate?.email_initial_text ?? defaults.email_initial_text ?? '';
     } else if (channel === 'whatsapp') {
-      baseMessage = currentTemplate?.whatsapp_message || defaults.whatsapp_message || '';
+      baseMessage = currentTemplate?.whatsapp_message ?? defaults.whatsapp_message ?? '';
     } else {
-      baseMessage = currentTemplate?.sms_message || defaults.sms_message || '';
+      baseMessage = currentTemplate?.sms_message ?? defaults.sms_message ?? '';
     }
 
-    // Build payment options array
+    // Get payment option texts from template or defaults
+    const stripeOptionText = currentTemplate?.payment_option_stripe ?? defaults.payment_option_stripe ?? '';
+    const bizumOptionText = currentTemplate?.payment_option_bizum ?? defaults.payment_option_bizum ?? '';
+    const bonoOptionText = currentTemplate?.payment_option_bono ?? defaults.payment_option_bono ?? '';
+
+    // Build payment options array based on selections
     const paymentLines: string[] = [];
     
-    if (includeStripeLink) {
-      const stripeText = (currentTemplate as any)?.payment_option_stripe || defaults.payment_option_stripe || '';
-      if (stripeText) paymentLines.push(stripeText);
+    if (includeStripeLink && stripeOptionText) {
+      paymentLines.push(stripeOptionText);
     }
-    if (includeBizum) {
-      const bizumText = (currentTemplate as any)?.payment_option_bizum || defaults.payment_option_bizum || '';
-      if (bizumText) paymentLines.push(bizumText);
+    if (includeBizum && bizumOptionText) {
+      paymentLines.push(bizumOptionText);
     }
-    if (includeBonoOption) {
-      const bonoText = (currentTemplate as any)?.payment_option_bono || defaults.payment_option_bono || '';
-      if (bonoText) paymentLines.push(bonoText);
+    if (includeBonoOption && bonoOptionText) {
+      paymentLines.push(bonoOptionText);
     }
 
     // Construct full message
     let fullMessage = baseMessage;
     
     if (channel === 'email') {
-      const paymentIntro = currentTemplate?.email_payment_text || defaults.email_payment_text || '';
-      const footer = currentTemplate?.email_footer || defaults.email_footer || '';
+      const paymentIntro = currentTemplate?.email_payment_text ?? defaults.email_payment_text ?? '';
+      const footer = currentTemplate?.email_footer ?? defaults.email_footer ?? '';
       
       const parts = [baseMessage];
       if (paymentLines.length > 0) {
@@ -119,13 +121,15 @@ export function SendPaymentReminderDialog({
       ? format(new Date(debt.due_date), "d 'de' MMMM 'de' yyyy", { locale: es })
       : 'N/A';
     
+    const bizumPhone = center.bizum_phone || '609555514';
+    
     const preview = fullMessage
       .replace(/{nombre_paciente}/g, debt.patients.first_name)
       .replace(/{centro_nombre}/g, center.name || 'Centro')
       .replace(/{importe_pendiente}/g, pendingAmount.toFixed(2))
       .replace(/{importe_total}/g, Number(debt.amount).toFixed(2))
       .replace(/{fecha_sesion}/g, sessionDate)
-      .replace(/{bizum_numero}/g, (center as any).bizum_phone || '609555514')
+      .replace(/{bizum_numero}/g, bizumPhone)
       .replace(/{link_pago_stripe}/g, '[Link de pago]')
       .replace(/{link_comprar_bono}/g, '[Link de bono]');
 
