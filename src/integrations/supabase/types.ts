@@ -731,6 +731,7 @@ export type Database = {
           postal_code: string | null
           province: string | null
           public_booking_enabled: boolean | null
+          public_domain: string | null
           reschedule_max_days: number | null
           reschedule_require_confirmation: boolean | null
           reschedule_slot_duration: number | null
@@ -805,6 +806,7 @@ export type Database = {
           postal_code?: string | null
           province?: string | null
           public_booking_enabled?: boolean | null
+          public_domain?: string | null
           reschedule_max_days?: number | null
           reschedule_require_confirmation?: boolean | null
           reschedule_slot_duration?: number | null
@@ -879,6 +881,7 @@ export type Database = {
           postal_code?: string | null
           province?: string | null
           public_booking_enabled?: boolean | null
+          public_domain?: string | null
           reschedule_max_days?: number | null
           reschedule_require_confirmation?: boolean | null
           reschedule_slot_duration?: number | null

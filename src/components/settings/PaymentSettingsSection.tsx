@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Save, Loader2, CreditCard, Bell, Clock } from 'lucide-react';
+import { Save, Loader2, CreditCard, Bell, Clock, Globe } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -43,6 +43,7 @@ export function PaymentSettingsSection() {
   const [reminderHoursAfter, setReminderHoursAfter] = useState(24);
   const [reminderMaxCount, setReminderMaxCount] = useState(3);
   const [reminderIntervalHours, setReminderIntervalHours] = useState(48);
+  const [publicDomain, setPublicDomain] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -53,6 +54,7 @@ export function PaymentSettingsSection() {
       setReminderHoursAfter(center.payment_reminder_hours_after || 24);
       setReminderMaxCount(center.payment_reminder_max_count || 3);
       setReminderIntervalHours(center.payment_reminder_interval_hours || 48);
+      setPublicDomain(center.public_domain || '');
     }
   }, [center]);
 
@@ -66,6 +68,7 @@ export function PaymentSettingsSection() {
         payment_reminder_hours_after: reminderHoursAfter,
         payment_reminder_max_count: reminderMaxCount,
         payment_reminder_interval_hours: reminderIntervalHours,
+        public_domain: publicDomain || null,
       });
       toast({
         title: 'Configuración guardada',
@@ -83,6 +86,35 @@ export function PaymentSettingsSection() {
 
   return (
     <div className="space-y-6">
+      {/* Public Domain Configuration */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Globe className="h-5 w-5" />
+            Dominio Público
+          </CardTitle>
+          <CardDescription>
+            Configura el dominio que se usará en los enlaces de pago enviados a pacientes
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="public-domain">Dominio para enlaces de pago</Label>
+            <Input
+              id="public-domain"
+              type="text"
+              value={publicDomain}
+              onChange={(e) => setPublicDomain(e.target.value)}
+              placeholder="psycma.psicologosexual.com"
+            />
+            <p className="text-sm text-muted-foreground">
+              Este dominio se usará en los enlaces de WhatsApp, Email y SMS para pago.
+              Debe coincidir con el dominio donde está publicada la aplicación.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">

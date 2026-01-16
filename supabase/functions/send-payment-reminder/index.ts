@@ -54,10 +54,10 @@ serve(async (req) => {
       );
     }
 
-    // Get center info
+    // Get center info with public_domain
     const { data: center, error: centerError } = await supabase
       .from('centers')
-      .select('id, name, bizum_phone, oauth_stripe_credentials')
+      .select('id, name, bizum_phone, oauth_stripe_credentials, public_domain')
       .eq('id', debt.center_id)
       .single();
 
@@ -82,6 +82,11 @@ serve(async (req) => {
     const pendingAmount = Number(debt.amount) - Number(debt.paid_amount);
     const bizumNumber = center.bizum_phone || '609555514';
     
+    // Use center's public domain for URLs
+    const baseUrl = center.public_domain 
+      ? `https://${center.public_domain}` 
+      : 'https://psycma.psicologosexual.com';
+    
     // Generate Stripe checkout link if needed
     let stripeCheckoutUrl = '';
     if (include_stripe_link && center.oauth_stripe_credentials) {
@@ -92,8 +97,8 @@ serve(async (req) => {
           { 
             body: { 
               debt_id: debt.id,
-              success_url: `${Deno.env.get('SUPABASE_URL')?.replace('.supabase.co', '.lovable.app')}/pago-exitoso?debt_id=${debt.id}`,
-              cancel_url: `${Deno.env.get('SUPABASE_URL')?.replace('.supabase.co', '.lovable.app')}/pagar/${debt.access_token}`,
+              success_url: `${baseUrl}/pago-exitoso?debt_id=${debt.id}`,
+              cancel_url: `${baseUrl}/pagar/${debt.access_token}`,
             }
           }
         );
@@ -109,7 +114,7 @@ serve(async (req) => {
     // Generate bono purchase link if needed
     let bonoPurchaseUrl = '';
     if (include_bono_option) {
-      bonoPurchaseUrl = `${Deno.env.get('SUPABASE_URL')?.replace('.supabase.co', '.lovable.app')}/pagar/${debt.access_token}?bono=1`;
+      bonoPurchaseUrl = `${baseUrl}/pagar/${debt.access_token}?bono=1`;
     }
 
     // Format session date
