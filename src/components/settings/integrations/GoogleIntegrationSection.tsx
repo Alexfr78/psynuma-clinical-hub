@@ -598,10 +598,17 @@ export function GoogleIntegrationSection() {
                   <div>
                     {healthData?.last_sync_error_code === 'invalid_client' ? (
                       <>
-                        <p className="font-medium">⚠️ Credenciales OAuth inválidas</p>
+                        <p className="font-medium">⚠️ Credenciales OAuth del centro inválidas</p>
                         <p className="text-sm mt-1">
-                          El Client ID o Client Secret del centro no coinciden con Google Cloud Console. 
+                          El Client ID o Client Secret no coinciden con Google Cloud Console. 
                           Actualiza las credenciales en <strong>Credenciales OAuth propias</strong> (más abajo) y luego reconecta.
+                        </p>
+                      </>
+                    ) : healthData?.last_sync_error_code === 'invalid_grant' ? (
+                      <>
+                        <p className="font-medium">🔑 Acceso a Google revocado</p>
+                        <p className="text-sm mt-1">
+                          El acceso fue revocado desde Google o expiró. Reconecta tu cuenta para continuar.
                         </p>
                       </>
                     ) : (
