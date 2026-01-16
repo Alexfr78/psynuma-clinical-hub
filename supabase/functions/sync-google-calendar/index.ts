@@ -681,6 +681,7 @@ async function renewChannelIfExpiring(
   accessToken: string
 ): Promise<void> {
   try {
+    // Get channel info from google_calendar_channels
     const { data: channel } = await supabase
       .from('google_calendar_channels')
       .select('*')
@@ -688,21 +689,69 @@ async function renewChannelIfExpiring(
       .eq('calendar_id', calendarId)
       .single();
 
-    if (!channel) return;
+    if (!channel) {
+      console.log('[SYNC:RENEW] No channel found for renewal');
+      return;
+    }
 
     const expiration = new Date(channel.expiration);
     const hoursUntilExpiry = (expiration.getTime() - Date.now()) / (1000 * 60 * 60);
 
     if (hoursUntilExpiry > 24) {
-      console.log(`[SYNC] Channel still valid for ${hoursUntilExpiry.toFixed(1)} hours`);
+      console.log(`[SYNC:RENEW] Channel still valid for ${hoursUntilExpiry.toFixed(1)} hours, skipping renewal`);
       return;
     }
 
-    console.log(`[SYNC] Channel expiring in ${hoursUntilExpiry.toFixed(1)} hours, renewing...`);
+    console.log(`[SYNC:RENEW] Channel expiring in ${hoursUntilExpiry.toFixed(1)} hours, renewing...`);
+
+    // Get existing token from oauth_connections (source of truth for token)
+    const { data: oauthConn } = await supabase
+      .from('oauth_connections')
+      .select('watch_channel_token, watch_channel_id, watch_resource_id')
+      .eq('professional_id', professionalId)
+      .eq('provider', 'google')
+      .single();
+
+    // Reuse existing token or generate new one if missing
+    let channelToken = oauthConn?.watch_channel_token;
+    if (!channelToken) {
+      channelToken = crypto.randomUUID() + '-' + crypto.randomUUID();
+      console.log(`[SYNC:RENEW] No existing token found, generated new token for professional ${professionalId}`);
+    } else {
+      console.log(`[SYNC:RENEW] Reusing existing channel token for professional ${professionalId}`);
+    }
+
+    // Stop existing channel first to avoid duplicates
+    if (oauthConn?.watch_channel_id && oauthConn?.watch_resource_id) {
+      console.log(`[SYNC:RENEW] Stopping existing channel ${oauthConn.watch_channel_id} before renewal`);
+      try {
+        const stopResponse = await fetch('https://www.googleapis.com/calendar/v3/channels/stop', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            id: oauthConn.watch_channel_id,
+            resourceId: oauthConn.watch_resource_id,
+          }),
+        });
+        if (stopResponse.ok || stopResponse.status === 404 || stopResponse.status === 410) {
+          console.log(`[SYNC:RENEW] Previous channel stopped (status: ${stopResponse.status})`);
+        } else {
+          console.warn(`[SYNC:RENEW] Could not stop previous channel (status: ${stopResponse.status}), proceeding anyway`);
+        }
+      } catch (e) {
+        console.warn('[SYNC:RENEW] Error stopping previous channel:', e);
+      }
+    }
 
     const webhookUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/google-calendar-webhook`;
     const newChannelId = crypto.randomUUID();
 
+    console.log(`[SYNC:RENEW] Creating new watch channel ${newChannelId} for calendar ${calendarId} with token`);
+
+    // CRITICAL FIX: Include token in the watch request for webhook verification
     const watchResponse = await fetch(
       `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/watch`,
       {
@@ -715,6 +764,7 @@ async function renewChannelIfExpiring(
           id: newChannelId,
           type: 'web_hook',
           address: webhookUrl,
+          token: channelToken, // CRITICAL: Include token for webhook verification
         }),
       }
     );
@@ -723,6 +773,7 @@ async function renewChannelIfExpiring(
       const watchData = await watchResponse.json();
       const newExpiration = new Date(parseInt(watchData.expiration)).toISOString();
 
+      // Update google_calendar_channels table
       await supabase
         .from('google_calendar_channels')
         .update({
@@ -732,23 +783,33 @@ async function renewChannelIfExpiring(
         })
         .eq('id', channel.id);
 
-      // Also update oauth_connections
+      // Update oauth_connections with new channel info AND token
       await supabase
         .from('oauth_connections')
         .update({
           watch_channel_id: watchData.id,
           watch_resource_id: watchData.resourceId,
           watch_expires_at: newExpiration,
+          watch_channel_token: channelToken, // Ensure token is stored
+          last_sync_status: 'watch_renewed',
         })
         .eq('professional_id', professionalId)
         .eq('provider', 'google');
 
-      console.log(`[SYNC] Channel renewed, new expiration: ${newExpiration}`);
+      console.log(`[SYNC:RENEW] Channel renewed successfully! New channel: ${watchData.id}, expires: ${newExpiration}`);
     } else {
-      console.error('[SYNC] Failed to renew channel:', await watchResponse.text());
+      const errorText = await watchResponse.text();
+      console.error(`[SYNC:RENEW] Failed to renew channel (status: ${watchResponse.status}):`, errorText);
+      
+      // Update status to indicate renewal failure
+      await supabase
+        .from('oauth_connections')
+        .update({ last_sync_status: 'watch_renewal_failed' })
+        .eq('professional_id', professionalId)
+        .eq('provider', 'google');
     }
   } catch (error) {
-    console.error('[SYNC] Error renewing channel:', error);
+    console.error('[SYNC:RENEW] Error renewing channel:', error);
   }
 }
 
