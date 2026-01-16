@@ -133,18 +133,26 @@ async function getValidAccessToken(
   return null;
 }
 
-// Check if event is a Psycma-created event
-function isPsycmaEvent(event: any): boolean {
+// Check if event is a Psycma-created event and extract session ID if present
+function getPsycmaSessionId(event: any): string | null {
   // Primary check: extendedProperties
   if (event.extendedProperties?.private?.psycma_session_id) {
-    return true;
+    return event.extendedProperties.private.psycma_session_id;
   }
-  // Fallback check: description token
+  // Fallback check: description token [PSYCMA_SESSION_ID:xxx]
   if (event.description) {
     const match = event.description.match(/\[PSYCMA_SESSION_ID:([^\]]+)\]/);
-    if (match) return true;
+    if (match) return match[1];
+    // Also check [PSYCMA:xxx] format
+    const match2 = event.description.match(/\[PSYCMA:([^\]]+)\]/);
+    if (match2) return match2[1];
   }
-  return false;
+  return null;
+}
+
+function isPsycmaEvent(event: any): boolean {
+  return getPsycmaSessionId(event) !== null || 
+         event.extendedProperties?.private?.psycma_created === 'true';
 }
 
 // Sleep utility for backoff
@@ -191,6 +199,30 @@ async function deleteEventWithRetry(
   return { success: false, status: 429 };
 }
 
+interface GoogleEvent {
+  id: string;
+  summary?: string;
+  start?: { dateTime?: string; date?: string };
+  end?: { dateTime?: string; date?: string };
+  extendedProperties?: {
+    private?: {
+      psycma_session_id?: string;
+      psycma_created?: string;
+    };
+  };
+  description?: string;
+  status?: string;
+  created?: string;
+}
+
+interface DuplicateGroup {
+  key: string;
+  sessionId: string | null;
+  events: GoogleEvent[];
+  keep: GoogleEvent | null;
+  toDelete: GoogleEvent[];
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -202,35 +234,27 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Get user from JWT
-    const authHeader = req.headers.get('authorization');
-    if (!authHeader) {
+    const body = await req.json();
+    const { 
+      professional_id, 
+      dry_run = true,  // Default to dry run for safety
+      mode = 'duplicates' // 'duplicates' = only remove duplicates, 'all' = remove all psycma events
+    } = body;
+
+    if (!professional_id) {
       return new Response(
-        JSON.stringify({ error: 'No authorization header' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: 'professional_id is required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid token' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // In this project, professional_id === auth.user.id
-    const professionalId = user.id;
-
-    console.log(`[CLEANUP:START] Cleaning up Psycma events from Google Calendar for professional ${professionalId}`);
+    console.log(`[CLEANUP:START] Professional ${professional_id}, mode=${mode}, dry_run=${dry_run}`);
 
     // Get OAuth connection
     const { data: connection, error: connError } = await supabase
       .from('oauth_connections')
       .select('*')
-      .eq('professional_id', professionalId)
+      .eq('professional_id', professional_id)
       .eq('provider', 'google')
       .single();
 
@@ -260,7 +284,7 @@ serve(async (req) => {
     const { data: integrations } = await supabase
       .from('professional_integrations')
       .select('google_sync_days_past, google_sync_days_future')
-      .eq('professional_id', professionalId)
+      .eq('professional_id', professional_id)
       .single();
 
     const daysPast = integrations?.google_sync_days_past ?? 30;
@@ -271,7 +295,6 @@ serve(async (req) => {
     const timeMax = new Date(now.getTime() + daysFuture * 24 * 60 * 60 * 1000).toISOString();
 
     console.log(`[CLEANUP] Range: ${daysPast} days past to ${daysFuture} days future`);
-    console.log(`[CLEANUP] TimeMin: ${timeMin}, TimeMax: ${timeMax}`);
 
     // Get valid access token
     const accessToken = await getValidAccessToken(supabase, connection);
@@ -282,8 +305,18 @@ serve(async (req) => {
       );
     }
 
+    // Get all sessions with google_calendar_event_id to know which events to keep
+    const { data: sessions } = await supabase
+      .from('sessions')
+      .select('id, google_calendar_event_id')
+      .eq('professional_id', professional_id)
+      .not('google_calendar_event_id', 'is', null);
+
+    const linkedEventIds = new Set((sessions || []).map((s: any) => s.google_calendar_event_id));
+    console.log(`[CLEANUP] Found ${linkedEventIds.size} events currently linked to sessions in DB`);
+
     // Fetch all events in range with pagination
-    let allEvents: any[] = [];
+    let allEvents: GoogleEvent[] = [];
     let pageToken: string | undefined;
 
     do {
@@ -292,7 +325,7 @@ serve(async (req) => {
         timeMax,
         maxResults: '2500',
         singleEvents: 'true',
-        fields: 'items(id,description,extendedProperties),nextPageToken',
+        orderBy: 'startTime',
       });
       if (pageToken) params.set('pageToken', pageToken);
 
@@ -321,21 +354,117 @@ serve(async (req) => {
 
     console.log(`[CLEANUP] Total events fetched: ${allEvents.length}`);
 
-    // Filter only Psycma events
-    const psycmaEvents = allEvents.filter(isPsycmaEvent);
+    // Filter only Psycma events (skip cancelled)
+    const psycmaEvents = allEvents.filter(e => e.status !== 'cancelled' && isPsycmaEvent(e));
     console.log(`[CLEANUP] Psycma events found: ${psycmaEvents.length}`);
 
-    // Delete each Psycma event
+    let eventsToDelete: GoogleEvent[] = [];
+    let duplicateGroups: DuplicateGroup[] = [];
+
+    if (mode === 'all') {
+      // Delete ALL psycma events (original behavior)
+      eventsToDelete = psycmaEvents;
+    } else {
+      // Mode 'duplicates': Only delete duplicate events, keeping the one linked to session
+
+      // Group events by start time + summary (normalized)
+      const eventGroups = new Map<string, GoogleEvent[]>();
+
+      for (const event of psycmaEvents) {
+        const startDateTime = event.start?.dateTime || event.start?.date || '';
+        const summary = (event.summary || '').toLowerCase().trim();
+        const key = `${startDateTime}|${summary}`;
+        
+        if (!eventGroups.has(key)) {
+          eventGroups.set(key, []);
+        }
+        eventGroups.get(key)!.push(event);
+      }
+
+      // Find groups with duplicates
+      for (const [key, events] of eventGroups) {
+        if (events.length > 1) {
+          // Determine which event to keep (priority: linked to session > oldest created)
+          const sorted = events.sort((a, b) => {
+            // First priority: event linked to a session in DB
+            const aLinked = linkedEventIds.has(a.id);
+            const bLinked = linkedEventIds.has(b.id);
+            if (aLinked && !bLinked) return -1;
+            if (!aLinked && bLinked) return 1;
+            
+            // Second priority: oldest created (first one created is likely the "correct" one)
+            const aCreated = a.created ? new Date(a.created).getTime() : 0;
+            const bCreated = b.created ? new Date(b.created).getTime() : 0;
+            return aCreated - bCreated;
+          });
+
+          const keep = sorted[0];
+          const toDelete = sorted.slice(1);
+
+          // Get session ID from the event we're keeping
+          const sessionId = getPsycmaSessionId(keep);
+
+          duplicateGroups.push({
+            key,
+            sessionId,
+            events,
+            keep,
+            toDelete,
+          });
+
+          eventsToDelete.push(...toDelete);
+        }
+      }
+
+      console.log(`[CLEANUP] Found ${duplicateGroups.length} duplicate groups`);
+    }
+
+    console.log(`[CLEANUP] Events to delete: ${eventsToDelete.length}`);
+
+    // If dry_run, just return analysis
+    if (dry_run) {
+      const result: any = {
+        success: true,
+        dry_run: true,
+        mode,
+        analysis: {
+          total_events_in_calendar: allEvents.length,
+          psycma_events: psycmaEvents.length,
+          linked_to_sessions: linkedEventIds.size,
+          events_to_delete: eventsToDelete.length,
+          events_to_keep: psycmaEvents.length - eventsToDelete.length,
+        },
+        range: { days_past: daysPast, days_future: daysFuture },
+      };
+
+      if (mode === 'duplicates') {
+        result.duplicate_groups = duplicateGroups.length;
+        result.duplicates = duplicateGroups.map(g => ({
+          key: g.key,
+          session_id: g.sessionId,
+          total_count: g.events.length,
+          keep: g.keep ? { id: g.keep.id, summary: g.keep.summary, linked: linkedEventIds.has(g.keep.id) } : null,
+          delete: g.toDelete.map(e => ({ id: e.id, summary: e.summary })),
+        }));
+      }
+
+      return new Response(
+        JSON.stringify(result),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Actually delete events
     let deleted = 0;
     let failed = 0;
     const errors: string[] = [];
 
-    for (const event of psycmaEvents) {
+    for (const event of eventsToDelete) {
       const result = await deleteEventWithRetry(accessToken, calendarId, event.id);
       
       if (result.success) {
         deleted++;
-        console.log(`[CLEANUP] Deleted event ${event.id} (status: ${result.status})`);
+        console.log(`[CLEANUP] Deleted event ${event.id} (${event.summary})`);
       } else {
         failed++;
         errors.push(`Event ${event.id}: status ${result.status}`);
@@ -343,25 +472,21 @@ serve(async (req) => {
       }
 
       // Small delay between deletes to avoid rate limiting
-      if (psycmaEvents.indexOf(event) < psycmaEvents.length - 1) {
-        await sleep(100);
-      }
+      await sleep(100);
     }
 
-    console.log(`[CLEANUP:SUCCESS] Deleted ${deleted}/${psycmaEvents.length} events, ${failed} failed`);
+    console.log(`[CLEANUP:COMPLETE] Deleted ${deleted}/${eventsToDelete.length} events`);
 
     return new Response(
       JSON.stringify({
         success: true,
-        total_found: allEvents.length,
-        psycma_found: psycmaEvents.length,
+        dry_run: false,
+        mode,
         deleted,
         failed,
+        total_duplicates: eventsToDelete.length,
         errors: errors.length > 0 ? errors : undefined,
-        range: {
-          days_past: daysPast,
-          days_future: daysFuture,
-        },
+        range: { days_past: daysPast, days_future: daysFuture },
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
