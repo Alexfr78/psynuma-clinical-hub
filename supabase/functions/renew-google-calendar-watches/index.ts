@@ -36,55 +36,107 @@ async function decryptAES256GCM(encryptedData: string, encryptionKey: string): P
 }
 
 // ===================== OAUTH HELPERS =====================
+function last4(value: string | null | undefined): string | null {
+  if (!value) return null;
+  return value.length <= 4 ? value : value.slice(-4);
+}
+
+type GoogleOAuthCreds = {
+  clientId: string;
+  clientSecret: string;
+  source: 'center' | 'env';
+  centerId: string | null;
+  decryptFailed: boolean;
+  oauth_client_id_last4: string | null;
+  env_client_id_last4: string | null;
+};
+
 async function getGoogleOAuthCredentials(
-  supabase: any, 
+  supabase: any,
   professionalId: string
-): Promise<{ clientId: string; clientSecret: string; source: string } | null> {
+): Promise<GoogleOAuthCreds | null> {
+  const envClientId = Deno.env.get('GOOGLE_CLIENT_ID');
+  const envClientSecret = Deno.env.get('GOOGLE_CLIENT_SECRET');
+  const envClientIdLast4 = last4(envClientId);
+
+  let centerId: string | null = null;
+  let centerClientIdLast4: string | null = null;
+  let decryptFailed = false;
+
   const { data: profile } = await supabase
     .from('profiles')
     .select('center_id')
     .eq('id', professionalId)
     .single();
 
-  if (profile?.center_id) {
+  centerId = profile?.center_id ?? null;
+
+  if (centerId) {
     const { data: center } = await supabase
       .from('centers')
       .select('oauth_google_client_id, oauth_google_credentials')
-      .eq('id', profile.center_id)
+      .eq('id', centerId)
       .single();
+
+    centerClientIdLast4 = last4(center?.oauth_google_client_id);
 
     if (center?.oauth_google_client_id && center?.oauth_google_credentials) {
       const encryptionKey = Deno.env.get('CERTIFICATE_ENCRYPTION_KEY');
-      
+
       if (!encryptionKey) {
-        console.warn(`[CRON:RENEW:CREDS] No CERTIFICATE_ENCRYPTION_KEY in env, falling back to env vars for ${professionalId} (center: ${profile.center_id})`);
+        console.warn(
+          `[CRON:RENEW:CREDS] No CERTIFICATE_ENCRYPTION_KEY in env (center: ${centerId}), falling back to env vars for ${professionalId}`
+        );
       } else {
         try {
           const clientSecret = await decryptAES256GCM(center.oauth_google_credentials, encryptionKey);
-          console.log(`[CRON:RENEW:CREDS] Using center credentials for ${professionalId} (center: ${profile.center_id})`);
-          return { clientId: center.oauth_google_client_id, clientSecret, source: 'center' };
+          console.log(
+            `[CRON:RENEW:CREDS] Using center credentials ${JSON.stringify({ using_center_credentials: true, center_id: centerId, oauth_client_id_last4: centerClientIdLast4, env_client_id_last4: envClientIdLast4 })}`
+          );
+          return {
+            clientId: center.oauth_google_client_id,
+            clientSecret,
+            source: 'center',
+            centerId,
+            decryptFailed: false,
+            oauth_client_id_last4: centerClientIdLast4,
+            env_client_id_last4: envClientIdLast4,
+          };
         } catch (error) {
-          // Log decrypt failure reason without sensitive data
+          decryptFailed = true;
           const errorMsg = error instanceof Error ? error.message : 'unknown';
-          console.error(`[CRON:RENEW:CREDS] Decrypt failed for center ${profile.center_id}: ${errorMsg}, falling back to env vars`);
+          console.error(
+            `[CRON:RENEW:CREDS] Decrypt failed ${JSON.stringify({ decrypt_failed: true, center_id: centerId, oauth_client_id_last4: centerClientIdLast4, env_client_id_last4: envClientIdLast4, error: errorMsg })}`
+          );
         }
       }
     } else {
-      console.log(`[CRON:RENEW:CREDS] Center ${profile.center_id} has no OAuth credentials configured, using env vars`);
+      console.log(
+        `[CRON:RENEW:CREDS] Center has no OAuth creds ${JSON.stringify({ center_id: centerId, oauth_client_id_last4: centerClientIdLast4, env_client_id_last4: envClientIdLast4 })}`
+      );
     }
   } else {
-    console.log(`[CRON:RENEW:CREDS] No center found for professional ${professionalId}, using env vars`);
+    console.log(`[CRON:RENEW:CREDS] No center for professional ${professionalId}, using env vars`);
   }
 
-  const clientId = Deno.env.get('GOOGLE_CLIENT_ID');
-  const clientSecret = Deno.env.get('GOOGLE_CLIENT_SECRET');
-  
-  if (clientId && clientSecret) {
-    console.log(`[CRON:RENEW:CREDS] Using env var credentials for ${professionalId}`);
-    return { clientId, clientSecret, source: 'env' };
+  if (envClientId && envClientSecret) {
+    console.log(
+      `[CRON:RENEW:CREDS] Using env credentials ${JSON.stringify({ using_center_credentials: false, center_id: centerId, decrypt_failed: decryptFailed, oauth_client_id_last4: centerClientIdLast4, env_client_id_last4: envClientIdLast4 })}`
+    );
+    return {
+      clientId: envClientId,
+      clientSecret: envClientSecret,
+      source: 'env',
+      centerId,
+      decryptFailed,
+      oauth_client_id_last4: centerClientIdLast4,
+      env_client_id_last4: envClientIdLast4,
+    };
   }
 
-  console.error(`[CRON:RENEW:CREDS] No OAuth credentials available for ${professionalId}`);
+  console.error(
+    `[CRON:RENEW:CREDS] No OAuth credentials available ${JSON.stringify({ professional_id: professionalId, center_id: centerId, oauth_client_id_last4: centerClientIdLast4, env_client_id_last4: envClientIdLast4, decrypt_failed: decryptFailed })}`
+  );
   return null;
 }
 
@@ -100,6 +152,16 @@ async function refreshGoogleToken(
   }
 
   try {
+    console.log(
+      `[CRON:RENEW:TOKEN] Calling oauth2/token ${JSON.stringify({
+        using_center_credentials: credentials.source === 'center',
+        center_id: credentials.centerId,
+        oauth_client_id_last4: credentials.oauth_client_id_last4,
+        env_client_id_last4: credentials.env_client_id_last4,
+        decrypt_failed: credentials.decryptFailed,
+      })}`
+    );
+
     const response = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
