@@ -264,7 +264,7 @@ export function CreateBonoDialog({ open, onOpenChange, preselectedPatientId, onS
                         <SelectValue placeholder="Seleccionar paciente" />
                       </SelectTrigger>
                     </FormControl>
-                    <SelectContent>
+                    <SelectContent className="z-[200]" position="popper" sideOffset={4}>
                       {patients?.map((patient) => (
                         <SelectItem key={patient.id} value={patient.id}>
                           {patient.first_name} {patient.last_name}
@@ -283,7 +283,7 @@ export function CreateBonoDialog({ open, onOpenChange, preselectedPatientId, onS
                 <SelectTrigger>
                   <SelectValue placeholder="Seleccionar plantilla o personalizar" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="z-[200]" position="popper" sideOffset={4}>
                   {templates?.map((template) => (
                     <SelectItem key={template.id} value={template.id}>
                       {template.name} - {template.total_sessions} sesiones ({Number(template.total_price).toFixed(2)}€)
@@ -382,7 +382,7 @@ export function CreateBonoDialog({ open, onOpenChange, preselectedPatientId, onS
                         </Button>
                       </FormControl>
                     </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
+                    <PopoverContent className="w-auto p-0 z-[200]" align="start" onOpenAutoFocus={(e) => e.preventDefault()}>
                       <Calendar
                         mode="single"
                         selected={field.value}
@@ -452,7 +452,7 @@ export function CreateBonoDialog({ open, onOpenChange, preselectedPatientId, onS
                               <SelectValue placeholder="Seleccionar" />
                             </SelectTrigger>
                           </FormControl>
-                          <SelectContent>
+                          <SelectContent className="z-[200]" position="popper" sideOffset={4}>
                             <SelectItem value="cash">Efectivo</SelectItem>
                             <SelectItem value="card">Tarjeta</SelectItem>
                             <SelectItem value="transfer">Transferencia</SelectItem>
