@@ -161,19 +161,50 @@ serve(async (req) => {
       );
     }
 
-    // Validate values are within template range
+    // SECURITY: Validate values are within template range using Number() for strict parsing
+    // parseInt() is insecure: parseInt('10.5') returns 10, parseInt('10abc') returns 10
     for (const [key, value] of Object.entries(answers)) {
-      const numValue = typeof value === 'number' ? value : parseInt(value as string, 10);
-      if (isNaN(numValue) || numValue < responseMin || numValue > responseMax) {
-        console.error(`Invalid value for item ${key}:`, value);
+      // SECURITY: Only allow numeric keys (item indices)
+      const keyNum = Number(key);
+      if (!Number.isInteger(keyNum) || keyNum < 0) {
+        console.error(`Invalid item key (non-integer):`, key);
         return new Response(
           JSON.stringify({
             success: false,
-            error: `Valor inválido para el ítem ${key}. Debe ser entre ${responseMin} y ${responseMax}.`,
+            error: `Clave de ítem inválida: ${key}. Solo se permiten índices numéricos.`,
           }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
         );
       }
+
+      // SECURITY: Use Number() for strict validation - rejects trailing chars and decimals
+      const numValue = typeof value === 'number' ? value : Number(value);
+      
+      // Check for NaN, non-integers, or out-of-range values
+      if (!Number.isInteger(numValue) || numValue < responseMin || numValue > responseMax) {
+        console.error(`Invalid value for item ${key}:`, value, `(parsed: ${numValue})`);
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: `Valor inválido para el ítem ${key}. Debe ser un número entero entre ${responseMin} y ${responseMax}.`,
+          }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
+    }
+
+    // SECURITY: Validate that only expected items are present (no extra fields)
+    const answeredKeys = Object.keys(answers).map(k => Number(k));
+    const unexpectedItems = answeredKeys.filter(k => !expectedItems.includes(k));
+    if (unexpectedItems.length > 0) {
+      console.error('Unexpected items in answers:', unexpectedItems);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: `Se encontraron ítems inesperados: ${unexpectedItems.join(', ')}`,
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
     }
 
     // Calculate factor scores

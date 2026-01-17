@@ -204,15 +204,59 @@ async function handleDebtPayment(
 
   console.log('Processing debt payment:', { debtId, patientId, centerId, sessionId });
 
+  // SECURITY: Re-validate entities from database - don't trust metadata alone
+  const { data: debt, error: debtError } = await supabase
+    .from('debts')
+    .select('id, patient_id, center_id, session_id, amount, status, stripe_checkout_session_id')
+    .eq('id', debtId)
+    .single();
+
+  if (debtError || !debt) {
+    console.error('Debt not found:', debtId);
+    throw new Error('Debt not found');
+  }
+
+  // SECURITY: Verify debt belongs to the claimed patient and center
+  if (debt.patient_id !== patientId) {
+    console.error('Patient mismatch:', { debtPatient: debt.patient_id, metadataPatient: patientId });
+    throw new Error('Patient mismatch - potential fraud attempt');
+  }
+
+  if (debt.center_id !== centerId) {
+    console.error('Center mismatch:', { debtCenter: debt.center_id, metadataCenter: centerId });
+    throw new Error('Center mismatch - potential fraud attempt');
+  }
+
+  // SECURITY: Verify payment amount matches expected debt amount (with small tolerance for rounding)
+  const expectedAmount = debt.amount;
+  const amountDifference = Math.abs(paymentAmount - expectedAmount);
+  if (amountDifference > 0.01) { // Allow 1 cent tolerance for rounding
+    console.error('Amount mismatch:', { expected: expectedAmount, received: paymentAmount });
+    throw new Error('Payment amount does not match debt amount');
+  }
+
+  // SECURITY: Check if already paid (idempotency)
+  if (debt.status === 'paid') {
+    console.log('Debt already paid, skipping duplicate webhook:', debtId);
+    return;
+  }
+
   // Update debt to paid
-  await supabase
+  const { error: updateError } = await supabase
     .from('debts')
     .update({
       status: 'paid',
       paid_amount: paymentAmount,
       stripe_payment_status: 'paid',
+      stripe_checkout_session_id: stripeSessionId,
     })
-    .eq('id', debtId);
+    .eq('id', debtId)
+    .eq('status', 'pending'); // Only update if still pending (prevent race condition)
+
+  if (updateError) {
+    console.error('Error updating debt:', updateError);
+    throw new Error('Failed to update debt');
+  }
 
   // Create payment record
   await supabase
@@ -288,11 +332,54 @@ async function handleBonoPurchase(
   const centerId = metadata.center_id;
   const sessionId = metadata.session_id || null;
   const bonoName = metadata.bono_name;
-  const totalSessions = parseInt(metadata.bono_total_sessions);
-  const pricePerSession = parseFloat(metadata.bono_price_per_session);
-  const validityDays = parseInt(metadata.bono_validity_days || '365');
+  
+  // SECURITY: Use Number() for stricter parsing (parseInt allows trailing chars)
+  const totalSessions = Number(metadata.bono_total_sessions);
+  const pricePerSession = Number(metadata.bono_price_per_session);
+  const validityDays = Number(metadata.bono_validity_days || '365');
+
+  // SECURITY: Validate parsed numbers
+  if (!Number.isInteger(totalSessions) || totalSessions < 1 || totalSessions > 100) {
+    console.error('Invalid totalSessions:', metadata.bono_total_sessions);
+    throw new Error('Invalid bono configuration - totalSessions out of range');
+  }
+
+  if (!Number.isFinite(pricePerSession) || pricePerSession < 0 || pricePerSession > 10000) {
+    console.error('Invalid pricePerSession:', metadata.bono_price_per_session);
+    throw new Error('Invalid bono configuration - pricePerSession out of range');
+  }
+
+  if (!Number.isInteger(validityDays) || validityDays < 1 || validityDays > 3650) {
+    console.error('Invalid validityDays:', metadata.bono_validity_days);
+    throw new Error('Invalid bono configuration - validityDays out of range');
+  }
 
   console.log('Processing bono purchase:', { debtId, patientId, bonoName, totalSessions });
+
+  // SECURITY: Verify patient and center exist
+  const { data: patient, error: patientError } = await supabase
+    .from('patients')
+    .select('id, center_id')
+    .eq('id', patientId)
+    .single();
+
+  if (patientError || !patient) {
+    console.error('Patient not found:', patientId);
+    throw new Error('Patient not found');
+  }
+
+  if (patient.center_id !== centerId) {
+    console.error('Patient center mismatch:', { patientCenter: patient.center_id, metadataCenter: centerId });
+    throw new Error('Center mismatch - potential fraud attempt');
+  }
+
+  // SECURITY: Verify expected price matches payment
+  const expectedTotal = totalSessions * pricePerSession;
+  const amountDifference = Math.abs(paymentAmount - expectedTotal);
+  if (amountDifference > 0.01) {
+    console.error('Bono amount mismatch:', { expected: expectedTotal, received: paymentAmount });
+    throw new Error('Payment amount does not match bono price');
+  }
 
   // Calculate expiration date
   const expiresAt = new Date();
