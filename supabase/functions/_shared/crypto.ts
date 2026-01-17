@@ -21,36 +21,36 @@ export async function encryptSecret(secret: string): Promise<string> {
   
   const encryptionKey = getEncryptionKey();
   
-  if (encryptionKey) {
-    const encoder = new TextEncoder();
-    const keyData = encoder.encode(encryptionKey.padEnd(32, '0').slice(0, 32));
-    const key = await crypto.subtle.importKey(
-      'raw',
-      keyData,
-      { name: 'AES-GCM' },
-      false,
-      ['encrypt']
-    );
-    
-    const iv = crypto.getRandomValues(new Uint8Array(12));
-    const dataToEncrypt = encoder.encode(secret);
-    const encrypted = await crypto.subtle.encrypt(
-      { name: 'AES-GCM', iv },
-      key,
-      dataToEncrypt
-    );
-    
-    // Combine IV + encrypted data
-    const combined = new Uint8Array(iv.length + encrypted.byteLength);
-    combined.set(iv, 0);
-    combined.set(new Uint8Array(encrypted), iv.length);
-    
-    return btoa(String.fromCharCode(...combined));
-  } else {
-    // Fallback - base64 encode (not secure, but works for development)
-    console.warn('[crypto] No encryption key configured, using base64 encoding');
-    return btoa(secret);
+  // SECURITY: Require encryption key - fail if not configured
+  if (!encryptionKey) {
+    console.error('[crypto] CRITICAL: CERTIFICATE_ENCRYPTION_KEY not configured!');
+    throw new Error('Encryption key not configured - cannot encrypt secrets securely');
   }
+
+  const encoder = new TextEncoder();
+  const keyData = encoder.encode(encryptionKey.padEnd(32, '0').slice(0, 32));
+  const key = await crypto.subtle.importKey(
+    'raw',
+    keyData,
+    { name: 'AES-GCM' },
+    false,
+    ['encrypt']
+  );
+  
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const dataToEncrypt = encoder.encode(secret);
+  const encrypted = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv },
+    key,
+    dataToEncrypt
+  );
+  
+  // Combine IV + encrypted data
+  const combined = new Uint8Array(iv.length + encrypted.byteLength);
+  combined.set(iv, 0);
+  combined.set(new Uint8Array(encrypted), iv.length);
+  
+  return btoa(String.fromCharCode(...combined));
 }
 
 /**
@@ -62,43 +62,57 @@ export async function decryptSecret(encryptedSecret: string): Promise<string> {
   
   const encryptionKey = getEncryptionKey();
   
-  if (encryptionKey) {
+  // SECURITY: Require encryption key for proper decryption
+  if (!encryptionKey) {
+    console.warn('[crypto] CERTIFICATE_ENCRYPTION_KEY not configured - attempting legacy decode');
+    // Try base64 decode for legacy tokens, but log warning
     try {
-      const encoder = new TextEncoder();
-      const keyData = encoder.encode(encryptionKey.padEnd(32, '0').slice(0, 32));
-      const key = await crypto.subtle.importKey(
-        'raw',
-        keyData,
-        { name: 'AES-GCM' },
-        false,
-        ['decrypt']
-      );
-      
-      // Decode base64
-      const combined = Uint8Array.from(atob(encryptedSecret), c => c.charCodeAt(0));
-      
-      // Extract IV (first 12 bytes) and ciphertext
-      const iv = combined.slice(0, 12);
-      const ciphertext = combined.slice(12);
-      
-      const decrypted = await crypto.subtle.decrypt(
-        { name: 'AES-GCM', iv },
-        key,
-        ciphertext
-      );
-      
-      return new TextDecoder().decode(decrypted);
-    } catch (error) {
-      console.error('[crypto] Decryption failed, token may be in plaintext:', error);
-      // Try to return as-is in case it's a legacy plaintext token
-      return encryptedSecret;
-    }
-  } else {
-    // No encryption key - try base64 decode
-    try {
-      return atob(encryptedSecret);
+      const decoded = atob(encryptedSecret);
+      console.warn('[crypto] Successfully decoded as base64 - this token should be re-encrypted');
+      return decoded;
     } catch {
       // Not base64 encoded, return as-is (legacy plaintext)
+      console.warn('[crypto] Returning plaintext token - should be encrypted');
+      return encryptedSecret;
+    }
+  }
+
+  try {
+    const encoder = new TextEncoder();
+    const keyData = encoder.encode(encryptionKey.padEnd(32, '0').slice(0, 32));
+    const key = await crypto.subtle.importKey(
+      'raw',
+      keyData,
+      { name: 'AES-GCM' },
+      false,
+      ['decrypt']
+    );
+    
+    // Decode base64
+    const combined = Uint8Array.from(atob(encryptedSecret), c => c.charCodeAt(0));
+    
+    // Extract IV (first 12 bytes) and ciphertext
+    const iv = combined.slice(0, 12);
+    const ciphertext = combined.slice(12);
+    
+    const decrypted = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv },
+      key,
+      ciphertext
+    );
+    
+    return new TextDecoder().decode(decrypted);
+  } catch (error) {
+    console.error('[crypto] Decryption failed:', error);
+    // SECURITY: Don't return encrypted data as plaintext - this could expose encrypted secrets
+    // Try legacy base64 decode as fallback for migration purposes
+    try {
+      const decoded = atob(encryptedSecret);
+      console.warn('[crypto] Fallback: decoded as base64 legacy token');
+      return decoded;
+    } catch {
+      // Last resort: might be plaintext from before encryption was implemented
+      console.warn('[crypto] Fallback: returning as plaintext legacy token');
       return encryptedSecret;
     }
   }
