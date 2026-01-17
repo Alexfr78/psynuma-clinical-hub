@@ -707,18 +707,24 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
           await removeBonoFromSession.mutateAsync(session.id);
         }
         // Apply new bono using transactional RPC
+        // The RPC now sets price=0 and deletes/updates the session debt
         await applyBonoToSession.mutateAsync({
           bonoId: newBonoId,
           sessionId: session.id,
         });
+        
+        // Update local price to 0 since session is now covered by bono
+        setLocalPrice(0);
+        
         toast({ 
           title: 'Bono asignado',
-          description: 'Se ha descontado una sesión del bono.',
+          description: 'Se ha descontado una sesión del bono y el coste de la sesión se ha marcado como cubierto.',
         });
       }
       
-      // Refresh bonos list
+      // Refresh bonos list and payment status
       refetchBonos();
+      refetchPaymentStatus();
     } catch (error: any) {
       // Revert local state on error
       setLocalBonoId(session.bono_id || null);
