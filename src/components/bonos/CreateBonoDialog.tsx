@@ -3,13 +3,20 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { addDays, format } from 'date-fns';
-import { CalendarIcon, Package, Plus } from 'lucide-react';
+import { CalendarIcon, Package, Plus, X } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+} from '@/components/ui/drawer';
 import {
   Form,
   FormControl,
@@ -32,6 +39,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { usePatients } from '@/hooks/usePatients';
 import { useBonoTemplates, useCreateBono } from '@/hooks/useBonos';
 import { useAuth } from '@/hooks/useAuth';
@@ -240,247 +248,272 @@ export function CreateBonoDialog({ open, onOpenChange, preselectedPatientId, onS
     }
   };
 
+  const isMobile = useIsMobile();
+
+  const formContent = (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <FormField
+          control={form.control}
+          name="patient_id"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Paciente</FormLabel>
+              <Select onValueChange={field.onChange} value={field.value}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccionar paciente" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent className="z-[200]" position="popper" sideOffset={4}>
+                  {patients?.map((patient) => (
+                    <SelectItem key={patient.id} value={patient.id}>
+                      {patient.first_name} {patient.last_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormItem>
+          <FormLabel>Plantilla</FormLabel>
+          <Select onValueChange={handleTemplateSelect}>
+            <SelectTrigger>
+              <SelectValue placeholder="Seleccionar plantilla o personalizar" />
+            </SelectTrigger>
+            <SelectContent className="z-[200]" position="popper" sideOffset={4}>
+              {templates?.map((template) => (
+                <SelectItem key={template.id} value={template.id}>
+                  {template.name} - {template.total_sessions} sesiones ({Number(template.total_price).toFixed(2)}€)
+                </SelectItem>
+              ))}
+              <SelectItem value="custom">
+                <span className="flex items-center gap-2">
+                  <Plus className="h-4 w-4" />
+                  Personalizado
+                </span>
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </FormItem>
+
+        <FormField
+          control={form.control}
+          name="name"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Nombre del bono</FormLabel>
+              <FormControl>
+                <Input {...field} placeholder="Ej: Bono 10 sesiones" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <div className="grid grid-cols-3 gap-4">
+          <FormField
+            control={form.control}
+            name="total_sessions"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Sesiones</FormLabel>
+                <FormControl>
+                  <Input type="number" min={1} {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="price_per_session"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>€/sesión</FormLabel>
+                <FormControl>
+                  <Input type="number" step="0.01" min={0} {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="total_price"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Total €</FormLabel>
+                <FormControl>
+                  <Input type="number" step="0.01" min={0} {...field} readOnly={!isCustom} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        <FormField
+          control={form.control}
+          name="expires_at"
+          render={({ field }) => (
+            <FormItem className="flex flex-col">
+              <FormLabel>Fecha de expiración (opcional)</FormLabel>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <FormControl>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full pl-3 text-left font-normal",
+                        !field.value && "text-muted-foreground",
+                      )}
+                    >
+                      {field.value ? (
+                        format(field.value, "d 'de' MMMM yyyy")
+                      ) : (
+                        <span>Sin fecha de expiración</span>
+                      )}
+                      <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                    </Button>
+                  </FormControl>
+                </PopoverTrigger>
+                <PopoverContent
+                  className="w-auto p-0 z-[200]"
+                  align="start"
+                  onOpenAutoFocus={(e) => e.preventDefault()}
+                >
+                  <Calendar
+                    mode="single"
+                    selected={field.value}
+                    onSelect={field.onChange}
+                    disabled={(date) => date < new Date()}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <Separator className="my-4" />
+
+        {/* Payment section */}
+        <div className="space-y-4">
+          <FormField
+            control={form.control}
+            name="pay_now"
+            render={({ field }) => (
+              <FormItem className="flex items-center gap-3 space-y-0">
+                <FormControl>
+                  <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                </FormControl>
+                <FormLabel className="font-normal cursor-pointer">Registrar pago ahora</FormLabel>
+              </FormItem>
+            )}
+          />
+
+          {watchPayNow && (
+            <div className="grid grid-cols-2 gap-4 pl-6 border-l-2 border-muted">
+              <FormField
+                control={form.control}
+                name="payment_amount"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Importe pagado (€)</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        {...field}
+                        placeholder={String(watchTotalPrice || 0)}
+                        value={field.value ?? ''}
+                        onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="payment_method"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Método de pago</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Seleccionar" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent className="z-[200]" position="popper" sideOffset={4}>
+                        <SelectItem value="cash">Efectivo</SelectItem>
+                        <SelectItem value="card">Tarjeta</SelectItem>
+                        <SelectItem value="transfer">Transferencia</SelectItem>
+                        <SelectItem value="bizum">Bizum</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </FormItem>
+                )}
+              />
+            </div>
+          )}
+        </div>
+
+        <div className="flex justify-end gap-2 pt-4">
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            Cancelar
+          </Button>
+          <Button type="submit" disabled={isSubmitting || createBono.isPending}>
+            {isSubmitting ? 'Creando...' : 'Crear bono'}
+          </Button>
+        </div>
+      </form>
+    </Form>
+  );
+
+  if (isMobile) {
+    return (
+      <Drawer open={open} onOpenChange={onOpenChange}>
+        <DrawerContent className="h-[95vh] max-h-[95vh] overflow-hidden">
+          <DrawerHeader className="px-4 pt-4 pb-2 border-b">
+            <div className="flex items-center justify-between gap-3">
+              <DrawerTitle className="flex items-center gap-2">
+                <Package className="h-5 w-5" />
+                Crear nuevo bono
+              </DrawerTitle>
+              <DrawerClose asChild>
+                <Button type="button" variant="ghost" size="icon" aria-label="Cerrar">
+                  <X className="h-4 w-4" />
+                </Button>
+              </DrawerClose>
+            </div>
+          </DrawerHeader>
+
+          <div className="flex-1 overflow-y-auto px-4 pb-6">
+            {formContent}
+          </div>
+        </DrawerContent>
+      </Drawer>
+    );
+  }
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange} modal={false}>
-      <DialogContent
-        className="sm:max-w-[500px]"
-        onInteractOutside={(e) => e.preventDefault()}
-        onPointerDownOutside={(e) => e.preventDefault()}
-        onFocusOutside={(e) => e.preventDefault()}
-      >
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Package className="h-5 w-5" />
             Crear nuevo bono
           </DialogTitle>
         </DialogHeader>
-
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="patient_id"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Paciente</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Seleccionar paciente" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent className="z-[200]" position="popper" sideOffset={4}>
-                      {patients?.map((patient) => (
-                        <SelectItem key={patient.id} value={patient.id}>
-                          {patient.first_name} {patient.last_name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormItem>
-              <FormLabel>Plantilla</FormLabel>
-              <Select onValueChange={handleTemplateSelect}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleccionar plantilla o personalizar" />
-                </SelectTrigger>
-                <SelectContent className="z-[200]" position="popper" sideOffset={4}>
-                  {templates?.map((template) => (
-                    <SelectItem key={template.id} value={template.id}>
-                      {template.name} - {template.total_sessions} sesiones ({Number(template.total_price).toFixed(2)}€)
-                    </SelectItem>
-                  ))}
-                  <SelectItem value="custom">
-                    <span className="flex items-center gap-2">
-                      <Plus className="h-4 w-4" />
-                      Personalizado
-                    </span>
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </FormItem>
-
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Nombre del bono</FormLabel>
-                  <FormControl>
-                    <Input {...field} placeholder="Ej: Bono 10 sesiones" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <div className="grid grid-cols-3 gap-4">
-              <FormField
-                control={form.control}
-                name="total_sessions"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Sesiones</FormLabel>
-                    <FormControl>
-                      <Input type="number" min={1} {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="price_per_session"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>€/sesión</FormLabel>
-                    <FormControl>
-                      <Input type="number" step="0.01" min={0} {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="total_price"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Total €</FormLabel>
-                    <FormControl>
-                      <Input type="number" step="0.01" min={0} {...field} readOnly={!isCustom} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <FormField
-              control={form.control}
-              name="expires_at"
-              render={({ field }) => (
-                <FormItem className="flex flex-col">
-                  <FormLabel>Fecha de expiración (opcional)</FormLabel>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <FormControl>
-                        <Button
-                          variant="outline"
-                          className={cn(
-                            "w-full pl-3 text-left font-normal",
-                            !field.value && "text-muted-foreground"
-                          )}
-                        >
-                          {field.value ? (
-                            format(field.value, "d 'de' MMMM yyyy")
-                          ) : (
-                            <span>Sin fecha de expiración</span>
-                          )}
-                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                        </Button>
-                      </FormControl>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0 z-[200]" align="start" onOpenAutoFocus={(e) => e.preventDefault()}>
-                      <Calendar
-                        mode="single"
-                        selected={field.value}
-                        onSelect={field.onChange}
-                        disabled={(date) => date < new Date()}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <Separator className="my-4" />
-
-            {/* Payment section */}
-            <div className="space-y-4">
-              <FormField
-                control={form.control}
-                name="pay_now"
-                render={({ field }) => (
-                  <FormItem className="flex items-center gap-3 space-y-0">
-                    <FormControl>
-                      <Checkbox
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                    <FormLabel className="font-normal cursor-pointer">
-                      Registrar pago ahora
-                    </FormLabel>
-                  </FormItem>
-                )}
-              />
-
-              {watchPayNow && (
-                <div className="grid grid-cols-2 gap-4 pl-6 border-l-2 border-muted">
-                  <FormField
-                    control={form.control}
-                    name="payment_amount"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Importe pagado (€)</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            {...field}
-                            placeholder={String(watchTotalPrice || 0)}
-                            value={field.value ?? ''}
-                            onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
-                          />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="payment_method"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Método de pago</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Seleccionar" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent className="z-[200]" position="popper" sideOffset={4}>
-                            <SelectItem value="cash">Efectivo</SelectItem>
-                            <SelectItem value="card">Tarjeta</SelectItem>
-                            <SelectItem value="transfer">Transferencia</SelectItem>
-                            <SelectItem value="bizum">Bizum</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </FormItem>
-                    )}
-                  />
-                </div>
-              )}
-            </div>
-
-            <div className="flex justify-end gap-2 pt-4">
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                Cancelar
-              </Button>
-              <Button type="submit" disabled={isSubmitting || createBono.isPending}>
-                {isSubmitting ? 'Creando...' : 'Crear bono'}
-              </Button>
-            </div>
-          </form>
-        </Form>
+        {formContent}
       </DialogContent>
     </Dialog>
   );
