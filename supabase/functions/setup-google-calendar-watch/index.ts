@@ -1,34 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { decryptSecret } from "../_shared/crypto.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
-
-// AES-256-GCM decryption for OAuth credentials
-async function decryptAES256GCM(encryptedData: string, encryptionKey: string): Promise<string> {
-  const rawKey = new TextEncoder().encode(encryptionKey.padEnd(32, '0').slice(0, 32));
-  const encryptedBytes = Uint8Array.from(atob(encryptedData), c => c.charCodeAt(0));
-  
-  const iv = encryptedBytes.slice(0, 12);
-  const authTag = encryptedBytes.slice(12, 28);
-  const ciphertext = encryptedBytes.slice(28);
-  
-  const ciphertextWithTag = new Uint8Array(ciphertext.length + authTag.length);
-  ciphertextWithTag.set(ciphertext);
-  ciphertextWithTag.set(authTag, ciphertext.length);
-  
-  const key = await crypto.subtle.importKey(
-    'raw', rawKey, { name: 'AES-GCM' }, false, ['decrypt']
-  );
-  
-  const decrypted = await crypto.subtle.decrypt(
-    { name: 'AES-GCM', iv }, key, ciphertextWithTag
-  );
-  
-  return new TextDecoder().decode(decrypted);
-}
 
 async function getGoogleOAuthCredentials(
   supabase: any,
@@ -74,23 +51,20 @@ async function getGoogleOAuthCredentials(
 
     if (center?.oauth_google_client_id && center?.oauth_google_credentials) {
       try {
-        const encryptionKey = Deno.env.get('CERTIFICATE_ENCRYPTION_KEY');
-        if (encryptionKey) {
-          const clientSecret = await decryptAES256GCM(center.oauth_google_credentials, encryptionKey);
-          console.log(
-            `[WATCH:CREDS] Using center credentials ${JSON.stringify({ using_center_credentials: true, center_id: centerId, oauth_client_id_last4: centerClientIdLast4, env_client_id_last4: envClientIdLast4 })}`
-          );
-          return {
-            clientId: center.oauth_google_client_id,
-            clientSecret,
-            source: 'center',
-            centerId,
-            decryptFailed: false,
-            oauth_client_id_last4: centerClientIdLast4,
-            env_client_id_last4: envClientIdLast4,
-          };
-        }
-        console.warn(`[WATCH:CREDS] No CERTIFICATE_ENCRYPTION_KEY in env, falling back to env vars`);
+        // Use shared decryptSecret - it handles the encryption key internally
+        const clientSecret = await decryptSecret(center.oauth_google_credentials);
+        console.log(
+          `[WATCH:CREDS] Using center credentials ${JSON.stringify({ using_center_credentials: true, center_id: centerId, oauth_client_id_last4: centerClientIdLast4, env_client_id_last4: envClientIdLast4 })}`
+        );
+        return {
+          clientId: center.oauth_google_client_id,
+          clientSecret,
+          source: 'center',
+          centerId,
+          decryptFailed: false,
+          oauth_client_id_last4: centerClientIdLast4,
+          env_client_id_last4: envClientIdLast4,
+        };
       } catch (error) {
         decryptFailed = true;
         const msg = error instanceof Error ? error.message : 'unknown';

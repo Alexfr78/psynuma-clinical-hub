@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { decryptSecret } from "../_shared/crypto.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -10,30 +11,6 @@ const corsHeaders = {
 const RENEWAL_MARGIN_HOURS = 48; // Renew channels expiring within this many hours
 const BATCH_SIZE = 50; // Max connections to process per execution
 const DELAY_BETWEEN_RENEWALS_MS = 200; // Delay between each renewal to avoid rate limits
-
-// ===================== CRYPTO HELPERS =====================
-async function decryptAES256GCM(encryptedData: string, encryptionKey: string): Promise<string> {
-  const rawKey = new TextEncoder().encode(encryptionKey.padEnd(32, '0').slice(0, 32));
-  const encryptedBytes = Uint8Array.from(atob(encryptedData), c => c.charCodeAt(0));
-  
-  const iv = encryptedBytes.slice(0, 12);
-  const authTag = encryptedBytes.slice(12, 28);
-  const ciphertext = encryptedBytes.slice(28);
-  
-  const ciphertextWithTag = new Uint8Array(ciphertext.length + authTag.length);
-  ciphertextWithTag.set(ciphertext);
-  ciphertextWithTag.set(authTag, ciphertext.length);
-  
-  const key = await crypto.subtle.importKey(
-    'raw', rawKey, { name: 'AES-GCM' }, false, ['decrypt']
-  );
-  
-  const decrypted = await crypto.subtle.decrypt(
-    { name: 'AES-GCM', iv }, key, ciphertextWithTag
-  );
-  
-  return new TextDecoder().decode(decrypted);
-}
 
 // ===================== OAUTH HELPERS =====================
 function last4(value: string | null | undefined): string | null {
@@ -81,34 +58,27 @@ async function getGoogleOAuthCredentials(
     centerClientIdLast4 = last4(center?.oauth_google_client_id);
 
     if (center?.oauth_google_client_id && center?.oauth_google_credentials) {
-      const encryptionKey = Deno.env.get('CERTIFICATE_ENCRYPTION_KEY');
-
-      if (!encryptionKey) {
-        console.warn(
-          `[CRON:RENEW:CREDS] No CERTIFICATE_ENCRYPTION_KEY in env (center: ${centerId}), falling back to env vars for ${professionalId}`
+      try {
+        // Use shared decryptSecret - it handles the encryption key internally
+        const clientSecret = await decryptSecret(center.oauth_google_credentials);
+        console.log(
+          `[CRON:RENEW:CREDS] Using center credentials ${JSON.stringify({ using_center_credentials: true, center_id: centerId, oauth_client_id_last4: centerClientIdLast4, env_client_id_last4: envClientIdLast4 })}`
         );
-      } else {
-        try {
-          const clientSecret = await decryptAES256GCM(center.oauth_google_credentials, encryptionKey);
-          console.log(
-            `[CRON:RENEW:CREDS] Using center credentials ${JSON.stringify({ using_center_credentials: true, center_id: centerId, oauth_client_id_last4: centerClientIdLast4, env_client_id_last4: envClientIdLast4 })}`
-          );
-          return {
-            clientId: center.oauth_google_client_id,
-            clientSecret,
-            source: 'center',
-            centerId,
-            decryptFailed: false,
-            oauth_client_id_last4: centerClientIdLast4,
-            env_client_id_last4: envClientIdLast4,
-          };
-        } catch (error) {
-          decryptFailed = true;
-          const errorMsg = error instanceof Error ? error.message : 'unknown';
-          console.error(
-            `[CRON:RENEW:CREDS] Decrypt failed ${JSON.stringify({ decrypt_failed: true, center_id: centerId, oauth_client_id_last4: centerClientIdLast4, env_client_id_last4: envClientIdLast4, error: errorMsg })}`
-          );
-        }
+        return {
+          clientId: center.oauth_google_client_id,
+          clientSecret,
+          source: 'center',
+          centerId,
+          decryptFailed: false,
+          oauth_client_id_last4: centerClientIdLast4,
+          env_client_id_last4: envClientIdLast4,
+        };
+      } catch (error) {
+        decryptFailed = true;
+        const errorMsg = error instanceof Error ? error.message : 'unknown';
+        console.error(
+          `[CRON:RENEW:CREDS] Decrypt failed ${JSON.stringify({ decrypt_failed: true, center_id: centerId, oauth_client_id_last4: centerClientIdLast4, env_client_id_last4: envClientIdLast4, error: errorMsg })}`
+        );
       }
     } else {
       console.log(
