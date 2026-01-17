@@ -62,19 +62,10 @@ export async function decryptSecret(encryptedSecret: string): Promise<string> {
   
   const encryptionKey = getEncryptionKey();
   
-  // SECURITY: Require encryption key for proper decryption
+  // SECURITY: Require encryption key - fail if not configured
   if (!encryptionKey) {
-    console.warn('[crypto] CERTIFICATE_ENCRYPTION_KEY not configured - attempting legacy decode');
-    // Try base64 decode for legacy tokens, but log warning
-    try {
-      const decoded = atob(encryptedSecret);
-      console.warn('[crypto] Successfully decoded as base64 - this token should be re-encrypted');
-      return decoded;
-    } catch {
-      // Not base64 encoded, return as-is (legacy plaintext)
-      console.warn('[crypto] Returning plaintext token - should be encrypted');
-      return encryptedSecret;
-    }
+    console.error('[crypto] CRITICAL: CERTIFICATE_ENCRYPTION_KEY not configured!');
+    throw new Error('Encryption key not configured - cannot decrypt secrets securely');
   }
 
   try {
@@ -104,17 +95,8 @@ export async function decryptSecret(encryptedSecret: string): Promise<string> {
     return new TextDecoder().decode(decrypted);
   } catch (error) {
     console.error('[crypto] Decryption failed:', error);
-    // SECURITY: Don't return encrypted data as plaintext - this could expose encrypted secrets
-    // Try legacy base64 decode as fallback for migration purposes
-    try {
-      const decoded = atob(encryptedSecret);
-      console.warn('[crypto] Fallback: decoded as base64 legacy token');
-      return decoded;
-    } catch {
-      // Last resort: might be plaintext from before encryption was implemented
-      console.warn('[crypto] Fallback: returning as plaintext legacy token');
-      return encryptedSecret;
-    }
+    // SECURITY: Throw error instead of returning potentially sensitive data
+    throw new Error('Decryption failed - secret may be corrupted or improperly encrypted');
   }
 }
 
