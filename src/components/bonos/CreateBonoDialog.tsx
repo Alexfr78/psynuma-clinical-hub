@@ -48,6 +48,7 @@ import { useCreateSignedInvoice } from '@/hooks/useCreateSignedInvoice';
 import { useIssueInvoice } from '@/hooks/useIssueInvoice';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { SendInvoiceDialog } from '@/components/invoices/SendInvoiceDialog';
 
 const formSchema = z.object({
   patient_id: z.string().min(1, 'Selecciona un paciente'),
@@ -82,6 +83,19 @@ export function CreateBonoDialog({ open, onOpenChange, preselectedPatientId, onS
   const { center } = useCenter();
   const [isCustom, setIsCustom] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showSendInvoiceDialog, setShowSendInvoiceDialog] = useState(false);
+  const [createdInvoiceForSend, setCreatedInvoiceForSend] = useState<{
+    id: string;
+    invoice_number: string;
+    total: number;
+    patients: {
+      id: string;
+      first_name: string;
+      last_name: string;
+      email?: string | null;
+      phone?: string | null;
+    };
+  } | null>(null);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -226,9 +240,36 @@ export function CreateBonoDialog({ open, onOpenChange, preselectedPatientId, onS
           await supabase.rpc('recompute_debt_by_invoice', { p_debt_id: debtData.id });
 
           // Issue the invoice (draft → issued + Verifactu)
-          await issueInvoice.mutateAsync(invoiceId);
+          const issueResult = await issueInvoice.mutateAsync(invoiceId);
+
+          // If fully paid, update invoice status to 'paid'
+          if (paidAmount >= values.total_price) {
+            await supabase
+              .from('invoices')
+              .update({ status: 'paid' })
+              .eq('id', invoiceId);
+          }
 
           toast.success('Bono creado, factura emitida y pago registrado');
+
+          // Get patient details for send dialog
+          const patient = patients?.find(p => p.id === values.patient_id);
+          if (patient && issueResult.invoiceNumber) {
+            setCreatedInvoiceForSend({
+              id: invoiceId,
+              invoice_number: issueResult.invoiceNumber,
+              total: values.total_price,
+              patients: {
+                id: patient.id,
+                first_name: patient.first_name,
+                last_name: patient.last_name,
+                email: patient.email,
+                phone: patient.phone,
+              },
+            });
+            // Show send dialog after a short delay
+            setTimeout(() => setShowSendInvoiceDialog(true), 100);
+          }
         } else {
           toast.success('Bono creado con factura borrador');
         }
@@ -505,16 +546,24 @@ export function CreateBonoDialog({ open, onOpenChange, preselectedPatientId, onS
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Package className="h-5 w-5" />
-            Crear nuevo bono
-          </DialogTitle>
-        </DialogHeader>
-        {formContent}
-      </DialogContent>
-    </Dialog>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Package className="h-5 w-5" />
+              Crear nuevo bono
+            </DialogTitle>
+          </DialogHeader>
+          {formContent}
+        </DialogContent>
+      </Dialog>
+
+      <SendInvoiceDialog
+        open={showSendInvoiceDialog}
+        onOpenChange={setShowSendInvoiceDialog}
+        invoice={createdInvoiceForSend}
+      />
+    </>
   );
 }

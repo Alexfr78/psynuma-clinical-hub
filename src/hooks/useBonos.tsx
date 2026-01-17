@@ -333,6 +333,9 @@ export function useApplyBonoToSession() {
       queryClient.invalidateQueries({ queryKey: ['patient-active-bonos'] });
       queryClient.invalidateQueries({ queryKey: ['sessions'] });
       queryClient.invalidateQueries({ queryKey: ['bono-sessions'] });
+      queryClient.invalidateQueries({ queryKey: ['debts'] });
+      queryClient.invalidateQueries({ queryKey: ['session-payment-status'] });
+      queryClient.invalidateQueries({ queryKey: ['debt-stats'] });
     },
     onError: (error) => {
       toast.error('Error al asignar bono: ' + error.message);
