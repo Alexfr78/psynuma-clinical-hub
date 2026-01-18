@@ -171,19 +171,59 @@ export function useDeleteSession() {
     mutationFn: async (id: string) => {
       // First, remove bono from session (returns used session to bono)
       await supabase.rpc('remove_bono_from_session', { p_session_id: id });
-      
-      // Then delete the session
-      const { error } = await supabase
-        .from('sessions')
-        .delete()
-        .eq('id', id);
 
+      // If there's a debt linked to the session, remove it (or detach it if it has invoice/payments)
+      const { data: debts, error: debtsError } = await supabase
+        .from('debts')
+        .select('id, invoice_id, paid_amount, notes')
+        .eq('session_id', id);
+
+      if (debtsError) throw debtsError;
+
+      const deletableDebtIds = (debts ?? [])
+        .filter((d) => !d.invoice_id && (Number(d.paid_amount) || 0) === 0)
+        .map((d) => d.id);
+
+      if (deletableDebtIds.length > 0) {
+        const { error: deleteDebtError } = await supabase
+          .from('debts')
+          .delete()
+          .in('id', deletableDebtIds);
+        if (deleteDebtError) throw deleteDebtError;
+      }
+
+      const debtsToDetach = (debts ?? []).filter(
+        (d) => d.invoice_id || (Number(d.paid_amount) || 0) > 0
+      );
+
+      if (debtsToDetach.length > 0) {
+        // Keep financial history, but detach from the deleted session
+        const updates = debtsToDetach.map((d) =>
+          supabase
+            .from('debts')
+            .update({
+              session_id: null,
+              notes: `${d.notes ? `${d.notes} | ` : ''}Sesión eliminada`,
+            })
+            .eq('id', d.id)
+        );
+
+        const results = await Promise.all(updates);
+        const firstError = results.find((r) => r.error)?.error;
+        if (firstError) throw firstError;
+      }
+
+      // Then delete the session
+      const { error } = await supabase.from('sessions').delete().eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sessions'] });
       queryClient.invalidateQueries({ queryKey: ['bonos'] });
       queryClient.invalidateQueries({ queryKey: ['patient-active-bonos'] });
+      queryClient.invalidateQueries({ queryKey: ['debts'] });
+      queryClient.invalidateQueries({ queryKey: ['debt-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['billable-events'] });
     },
   });
 }
