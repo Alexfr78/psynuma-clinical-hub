@@ -3280,6 +3280,90 @@ export type Database = {
         }
         Relationships: []
       }
+      oauth_connections_safe: {
+        Row: {
+          consecutive_sync_errors: number | null
+          created_at: string | null
+          expires_at: string | null
+          google_calendar_id: string | null
+          id: string | null
+          last_sync_at: string | null
+          last_sync_error_code: string | null
+          last_sync_error_message: string | null
+          last_sync_status: string | null
+          needs_reconnect: boolean | null
+          professional_id: string | null
+          provider: string | null
+          provider_account_id: string | null
+          scope: string | null
+          stripe_account_id: string | null
+          stripe_account_status: string | null
+          updated_at: string | null
+          watch_channel_id: string | null
+          watch_expires_at: string | null
+          watch_resource_id: string | null
+        }
+        Insert: {
+          consecutive_sync_errors?: number | null
+          created_at?: string | null
+          expires_at?: string | null
+          google_calendar_id?: string | null
+          id?: string | null
+          last_sync_at?: string | null
+          last_sync_error_code?: string | null
+          last_sync_error_message?: string | null
+          last_sync_status?: string | null
+          needs_reconnect?: boolean | null
+          professional_id?: string | null
+          provider?: string | null
+          provider_account_id?: string | null
+          scope?: string | null
+          stripe_account_id?: string | null
+          stripe_account_status?: string | null
+          updated_at?: string | null
+          watch_channel_id?: string | null
+          watch_expires_at?: string | null
+          watch_resource_id?: string | null
+        }
+        Update: {
+          consecutive_sync_errors?: number | null
+          created_at?: string | null
+          expires_at?: string | null
+          google_calendar_id?: string | null
+          id?: string | null
+          last_sync_at?: string | null
+          last_sync_error_code?: string | null
+          last_sync_error_message?: string | null
+          last_sync_status?: string | null
+          needs_reconnect?: boolean | null
+          professional_id?: string | null
+          provider?: string | null
+          provider_account_id?: string | null
+          scope?: string | null
+          stripe_account_id?: string | null
+          stripe_account_status?: string | null
+          updated_at?: string | null
+          watch_channel_id?: string | null
+          watch_expires_at?: string | null
+          watch_resource_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "oauth_connections_professional_id_fkey"
+            columns: ["professional_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "oauth_connections_professional_id_fkey"
+            columns: ["professional_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       patients_public: {
         Row: {
           center_id: string | null

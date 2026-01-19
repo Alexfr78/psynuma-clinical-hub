@@ -33,12 +33,14 @@ export interface ProfessionalIntegration {
   updated_at: string;
 }
 
+// OAuthConnection interface - uses oauth_connections_safe view
+// IMPORTANT: This view intentionally excludes sensitive fields (access_token, refresh_token)
+// Those fields are only accessible server-side via edge functions
 export interface OAuthConnection {
   id: string;
   professional_id: string;
   provider: 'google' | 'zoom' | 'stripe';
-  access_token: string | null;
-  refresh_token: string | null;
+  // Note: access_token and refresh_token are NOT available in this view for security
   expires_at: string | null;
   scope: string | null;
   provider_account_id: string | null;
@@ -49,6 +51,12 @@ export interface OAuthConnection {
   watch_resource_id: string | null;
   created_at: string;
   updated_at: string;
+  last_sync_at: string | null;
+  last_sync_status: string | null;
+  needs_reconnect: boolean | null;
+  consecutive_sync_errors: number | null;
+  last_sync_error_code: string | null;
+  last_sync_error_message: string | null;
 }
 
 export function useProfessionalIntegrations() {
@@ -75,13 +83,15 @@ export function useProfessionalIntegrations() {
   });
 
   // Fetch OAuth connections for current professional
+  // Uses oauth_connections_safe view which excludes sensitive tokens
   const { data: oauthConnections, isLoading: isLoadingOAuth } = useQuery({
     queryKey: ['oauth-connections', professionalId],
     queryFn: async () => {
       if (!professionalId) return [];
       
+      // Use the safe view that excludes access_token and refresh_token
       const { data, error } = await supabase
-        .from('oauth_connections')
+        .from('oauth_connections_safe')
         .select('*')
         .eq('professional_id', professionalId);
 
@@ -143,8 +153,10 @@ export function useProfessionalIntegrations() {
       return connection.stripe_account_status === 'active';
     }
     
-    // For others, check if we have an access token
-    return !!connection.access_token;
+    // For others, check if connection exists and has valid data
+    // Note: access_token is not exposed in safe view, so we check for provider_account_id
+    // or scope (which indicates tokens were obtained) or expires_at being set
+    return !!connection.expires_at || !!connection.scope;
   };
 
   // Disconnect OAuth provider
@@ -153,10 +165,11 @@ export function useProfessionalIntegrations() {
       if (!professionalId) throw new Error('No professional ID');
 
       if (provider === 'google') {
-        // Get connection with tokens BEFORE any cleanup
+        // Get connection metadata BEFORE any cleanup
+        // Note: tokens are not accessible from client-side - edge function handles token revocation
         const { data: connection } = await supabase
-          .from('oauth_connections')
-          .select('refresh_token, access_token, watch_channel_id, watch_resource_id, google_calendar_id')
+          .from('oauth_connections_safe')
+          .select('watch_channel_id, watch_resource_id, google_calendar_id')
           .eq('professional_id', professionalId)
           .eq('provider', 'google')
           .single();
@@ -177,21 +190,9 @@ export function useProfessionalIntegrations() {
             }
           }
 
-          // 2. Revoke the refresh token at Google (best-effort)
-          const tokenToRevoke = connection.refresh_token || connection.access_token;
-          if (tokenToRevoke) {
-            console.log('[DISCONNECT] Revoking token at Google...');
-            try {
-              const revokeResponse = await fetch('https://oauth2.googleapis.com/revoke', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: new URLSearchParams({ token: tokenToRevoke }),
-              });
-              console.log('[DISCONNECT] Revoke response status:', revokeResponse.status);
-            } catch (e) {
-              console.warn('[DISCONNECT] Error revoking token:', e);
-            }
-          }
+          // 2. Token revocation is now handled server-side
+          // The edge function stop-google-channel revokes tokens before clearing them
+          console.log('[DISCONNECT] Token revocation handled by edge function');
 
           // 3. Delete calendar_events
           const { error: calendarError } = await supabase
