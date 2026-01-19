@@ -1021,7 +1021,7 @@ export function QuickCreateSessionDialog({
                     </SelectContent>
                   </Select>
                   {/* Google Meet warning if not configured */}
-                  {field.value === 'google_meet' && (!integrations?.google_meet_enabled || !oauthConnections?.some(c => c.provider === 'google' && c.access_token)) && (
+                  {field.value === 'google_meet' && (!integrations?.google_meet_enabled || !oauthConnections?.some(c => c.provider === 'google' && c.expires_at)) && (
                     <Alert variant="destructive" className="mt-2 py-2">
                       <AlertCircle className="h-4 w-4" />
                       <AlertDescription className="text-xs">
@@ -1033,7 +1033,7 @@ export function QuickCreateSessionDialog({
                     </Alert>
                   )}
                   {/* Zoom warning if not configured */}
-                  {field.value === 'zoom' && (!integrations?.zoom_enabled || !oauthConnections?.some(c => c.provider === 'zoom' && c.access_token)) && (
+                  {field.value === 'zoom' && (!integrations?.zoom_enabled || !oauthConnections?.some(c => c.provider === 'zoom' && c.expires_at)) && (
                     <Alert variant="destructive" className="mt-2 py-2">
                       <AlertCircle className="h-4 w-4" />
                       <AlertDescription className="text-xs">

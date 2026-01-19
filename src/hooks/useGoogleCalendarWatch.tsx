@@ -63,8 +63,9 @@ export function useGoogleCalendarWatch() {
     if (!profile?.id) return;
 
     try {
+      // Use the safe view that excludes tokens
       const { data: conn } = await supabase
-        .from('oauth_connections')
+        .from('oauth_connections_safe')
         .select('watch_channel_id, watch_expires_at')
         .eq('professional_id', profile.id)
         .eq('provider', 'google')
@@ -95,10 +96,10 @@ export function useGoogleCalendarWatch() {
     }
 
     try {
-      // Get watch_expires_at from oauth_connections
+      // Get watch_expires_at from oauth_connections_safe (tokens not needed, edge function handles them)
       const { data: conn } = await supabase
-        .from('oauth_connections')
-        .select('watch_expires_at, access_token, refresh_token, google_calendar_id')
+        .from('oauth_connections_safe')
+        .select('watch_expires_at, google_calendar_id, expires_at')
         .eq('professional_id', profile.id)
         .eq('provider', 'google')
         .maybeSingle();

@@ -78,10 +78,10 @@ export function GoogleIntegrationSection() {
     queryFn: async () => {
       if (!profile?.id) return null;
       
-      // Get connection data with sync status
+      // Get connection data with sync status (using safe view that excludes tokens)
       const { data: conn } = await supabase
-        .from('oauth_connections')
-        .select('last_sync_at, last_sync_status, last_sync_error_code, watch_channel_id, watch_resource_id, watch_expires_at, expires_at, needs_reconnect, sync_token')
+        .from('oauth_connections_safe')
+        .select('last_sync_at, last_sync_status, last_sync_error_code, watch_channel_id, watch_resource_id, watch_expires_at, expires_at, needs_reconnect')
         .eq('professional_id', profile.id)
         .eq('provider', 'google')
         .single();
@@ -167,7 +167,8 @@ export function GoogleIntegrationSection() {
 
   // Auto-renew watch channel if expiring soon (< 24h)
   useEffect(() => {
-    if (isConnected && profile?.id && connection?.refresh_token) {
+    // Check if connected (using expires_at since tokens are not exposed in safe view)
+    if (isConnected && profile?.id && connection?.expires_at) {
       renewWatchIfExpiring().then(result => {
         if (result.renewed) {
           console.log('[WATCH] Channel renewed automatically');
@@ -179,7 +180,7 @@ export function GoogleIntegrationSection() {
         }
       });
     }
-  }, [isConnected, profile?.id, connection?.refresh_token, renewWatchIfExpiring, refetchHealth]);
+  }, [isConnected, profile?.id, connection?.expires_at, renewWatchIfExpiring, refetchHealth]);
 
   useEffect(() => {
     if (integrations) {
@@ -673,8 +674,8 @@ export function GoogleIntegrationSection() {
               </Button>
             </div>
 
-            {/* Cleanup Button - Solo visible si hay refresh_token */}
-            {connection?.refresh_token && (
+            {/* Cleanup Button - Visible when connected */}
+            {isConnected && (
               <div className="p-3 border rounded-lg bg-muted/30 space-y-3">
                 <div className="flex items-center justify-between">
                   <div>
@@ -915,11 +916,11 @@ export function GoogleIntegrationSection() {
                             </Alert>
                           )}
 
-                          {/* Sync Token */}
+                          {/* Sync Status Indicator */}
                           <div className="flex items-center justify-between">
-                            <span className="text-sm text-muted-foreground">Sync incremental</span>
+                            <span className="text-sm text-muted-foreground">Estado de sincronización</span>
                             <span className="text-xs text-muted-foreground">
-                              {healthData.sync_token ? '✓ Activo' : 'No disponible (full sync)'}
+                              {healthData.last_sync_at ? '✓ Sincronización activa' : 'Pendiente de sincronización'}
                             </span>
                           </div>
 
