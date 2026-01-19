@@ -1,39 +1,61 @@
-import { AlertTriangle, Brain, Heart, Activity, TrendingUp, TrendingDown } from 'lucide-react';
+import { AlertTriangle, Brain, Heart, Activity, TrendingUp, TrendingDown, FileText, Scale } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { 
-  getSTAILevel, 
-  getSTAIPercentile,
-  getSTAITemplateData,
-} from '@/data/stai-template';
+  STAI_BAREMOS,
+  getSTAIPercentileOfficial,
+  getAgeGroup,
+  generateMethodologicalNote,
+  type AgeGroup,
+  type Gender,
+} from '@/data/stai-baremos';
+import { getSTAITemplateData } from '@/data/stai-template';
 
 interface STAIResultsViewProps {
   aeScore: number;
   arScore: number;
   patientGender?: string;
+  patientAge?: number;
+  isUniversityStudent?: boolean;
+  administrationDate?: Date;
 }
 
 export function STAIResultsView({
   aeScore,
   arScore,
   patientGender,
+  patientAge,
+  isUniversityStudent,
+  administrationDate = new Date(),
 }: STAIResultsViewProps) {
-  const gender = patientGender === 'male' ? 'male' : 'female';
+  const gender: Gender = patientGender === 'male' ? 'male' : 'female';
+  const ageGroup: AgeGroup = patientAge ? getAgeGroup(patientAge, isUniversityStudent) : 'adult';
   
-  const aeLevel = getSTAILevel(aeScore, 'A_E');
-  const arLevel = getSTAILevel(arScore, 'A_R');
-  
-  const aePercentile = getSTAIPercentile(aeScore, 'A_E', gender);
-  const arPercentile = getSTAIPercentile(arScore, 'A_R', gender);
+  // Obtener percentiles y decatipos oficiales
+  const aeData = getSTAIPercentileOfficial(aeScore, 'A_E', gender, ageGroup);
+  const arData = getSTAIPercentileOfficial(arScore, 'A_R', gender, ageGroup);
   
   const templateData = getSTAITemplateData();
+  const normative = STAI_BAREMOS[ageGroup].normative;
+  
+  // Determinar nivel según percentil
+  const getLevel = (percentile: number): { label: string; color: string; description: string } => {
+    if (percentile <= 25) return { label: 'Bajo', color: 'green', description: 'Por debajo del percentil 25' };
+    if (percentile <= 50) return { label: 'Normal-Bajo', color: 'blue', description: 'Entre percentil 25-50' };
+    if (percentile <= 75) return { label: 'Normal-Alto', color: 'blue', description: 'Entre percentil 50-75' };
+    if (percentile <= 90) return { label: 'Elevado', color: 'orange', description: 'Entre percentil 75-90' };
+    return { label: 'Muy Elevado', color: 'red', description: 'Por encima del percentil 90' };
+  };
+  
+  const aeLevel = getLevel(aeData.percentile);
+  const arLevel = getLevel(arData.percentile);
   
   // Determine profile interpretation key
   const getProfileKey = (): string => {
-    const aeHigh = aeScore > 30;
-    const arHigh = arScore > 30;
+    const aeHigh = aeData.percentile > 75;
+    const arHigh = arData.percentile > 75;
     
     if (aeHigh && arHigh) return 'A_E_high_A_R_high';
     if (aeHigh && !arHigh) return 'A_E_high_A_R_low';
@@ -92,24 +114,65 @@ export function STAIResultsView({
   const aeColors = getColorClasses(aeLevel.color);
   const arColors = getColorClasses(arLevel.color);
   
-  const isHighAnxiety = aeScore > 40 || arScore > 40;
+  const isHighAnxiety = aeData.percentile > 90 || arData.percentile > 90;
+  
+  const ageGroupLabels: Record<AgeGroup, string> = {
+    adolescent: 'Adolescentes',
+    university: 'Universitarios',
+    adult: 'Adultos',
+  };
   
   return (
     <div className="space-y-6">
+      {/* Nota metodológica pericial */}
+      <Card className="border-2 border-primary/20 bg-primary/5">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Scale className="h-5 w-5" />
+            Información Metodológica (Uso Pericial)
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div>
+              <span className="text-muted-foreground">Baremo:</span>
+              <p className="font-medium">{ageGroupLabels[ageGroup]} - {gender === 'male' ? 'Varones' : 'Mujeres'}</p>
+            </div>
+            <div>
+              <span className="text-muted-foreground">N (A/E):</span>
+              <p className="font-medium">{normative.n[gender].A_E}</p>
+            </div>
+            <div>
+              <span className="text-muted-foreground">N (A/R):</span>
+              <p className="font-medium">{normative.n[gender].A_R}</p>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Edición:</span>
+              <p className="font-medium">TEA 9ª ed. (2015)</p>
+            </div>
+          </div>
+          <Alert className="mt-2">
+            <FileText className="h-4 w-4" />
+            <AlertDescription className="text-xs">
+              Puntuaciones transformadas según Tabla 10 del manual oficial (pág. 38). 
+              Los resultados no constituyen diagnóstico y deben integrarse con entrevista clínica.
+            </AlertDescription>
+          </Alert>
+        </CardContent>
+      </Card>
+      
       {/* Alert for high anxiety */}
       {isHighAnxiety && (
         <Alert variant="destructive" className="border-2">
           <AlertTriangle className="h-5 w-5" />
-          <AlertTitle className="text-lg font-bold">Niveles Elevados de Ansiedad</AlertTitle>
+          <AlertTitle className="text-lg font-bold">Niveles Clínicamente Significativos</AlertTitle>
           <AlertDescription className="text-sm mt-2">
             <p className="font-medium mb-2">
-              Se detectan niveles significativamente elevados de ansiedad que requieren atención clínica.
+              Se detectan puntuaciones por encima del percentil 90 que requieren atención clínica.
             </p>
             <ul className="list-disc pl-5 space-y-1">
-              {aeScore > 40 && <li>Ansiedad Estado muy elevada: estado de activación actual significativo</li>}
-              {arScore > 40 && <li>Ansiedad Rasgo muy elevada: predisposición ansiosa marcada</li>}
-              <li>Considerar intervención terapéutica estructurada</li>
-              <li>Valorar derivación psiquiátrica si procede</li>
+              {aeData.percentile > 90 && <li>Ansiedad Estado: P{aeData.percentile} (muy elevada)</li>}
+              {arData.percentile > 90 && <li>Ansiedad Rasgo: P{arData.percentile} (muy elevada)</li>}
             </ul>
           </AlertDescription>
         </Alert>
@@ -146,12 +209,20 @@ export function STAIResultsView({
               </div>
             </div>
             
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Percentil</span>
-              <Badge variant="outline" className="font-mono">P{aePercentile}</Badge>
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Percentil</span>
+                <Badge variant="outline" className="font-mono font-bold">P{aeData.percentile}</Badge>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Decatipo</span>
+                <Badge variant="outline" className="font-mono font-bold">D{aeData.decatipo}</Badge>
+              </div>
             </div>
             
-            <p className="text-xs text-muted-foreground">{aeLevel.description}</p>
+            <div className="text-xs text-muted-foreground border-t pt-2">
+              <p>Media normativa: {normative.mean[gender].A_E.toFixed(2)} (DT: {normative.sd[gender].A_E.toFixed(2)})</p>
+            </div>
           </CardContent>
         </Card>
         
@@ -184,12 +255,20 @@ export function STAIResultsView({
               </div>
             </div>
             
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Percentil</span>
-              <Badge variant="outline" className="font-mono">P{arPercentile}</Badge>
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Percentil</span>
+                <Badge variant="outline" className="font-mono font-bold">P{arData.percentile}</Badge>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Decatipo</span>
+                <Badge variant="outline" className="font-mono font-bold">D{arData.decatipo}</Badge>
+              </div>
             </div>
             
-            <p className="text-xs text-muted-foreground">{arLevel.description}</p>
+            <div className="text-xs text-muted-foreground border-t pt-2">
+              <p>Media normativa: {normative.mean[gender].A_R.toFixed(2)} (DT: {normative.sd[gender].A_R.toFixed(2)})</p>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -216,7 +295,7 @@ export function STAIResultsView({
                   ) : aeScore < arScore ? (
                     <TrendingDown className="h-4 w-4 text-blue-500" />
                   ) : null}
-                  <Badge variant="outline">{aeScore}</Badge>
+                  <Badge variant="outline">{aeScore} (P{aeData.percentile})</Badge>
                 </div>
               </div>
               <Progress value={(aeScore / 60) * 100} className="h-2" />
@@ -231,7 +310,7 @@ export function STAIResultsView({
                   ) : arScore < aeScore ? (
                     <TrendingDown className="h-4 w-4 text-blue-500" />
                   ) : null}
-                  <Badge variant="outline">{arScore}</Badge>
+                  <Badge variant="outline">{arScore} (P{arData.percentile})</Badge>
                 </div>
               </div>
               <Progress value={(arScore / 60) * 100} className="h-2" />
@@ -260,7 +339,7 @@ export function STAIResultsView({
       {/* Clinical Interpretation */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Interpretación Clínica del Perfil</CardTitle>
+          <CardTitle className="text-lg">Orientación Clínica del Perfil</CardTitle>
           <CardDescription>
             Análisis basado en la combinación de puntuaciones Estado-Rasgo
           </CardDescription>
@@ -272,37 +351,47 @@ export function STAIResultsView({
           </div>
           
           <div className="space-y-2">
-            <h4 className="font-semibold text-sm">Recomendaciones de Intervención:</h4>
+            <h4 className="font-semibold text-sm">Orientaciones de Intervención:</h4>
             <p className="text-sm text-muted-foreground">{profileInterpretation?.intervention}</p>
           </div>
           
-          {/* Reference ranges */}
+          {/* Reference ranges - percentile based */}
           <div className="pt-4 border-t">
-            <h4 className="font-semibold text-sm mb-3">Rangos de Referencia:</h4>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-center text-xs">
+            <h4 className="font-semibold text-sm mb-3">Rangos de Referencia (Percentiles):</h4>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-center text-xs">
               <div className="p-2 rounded bg-green-100 dark:bg-green-900/30">
-                <div className="font-semibold">0-19</div>
-                <div className="text-muted-foreground">Baja</div>
+                <div className="font-semibold">P1-25</div>
+                <div className="text-muted-foreground">Bajo</div>
               </div>
               <div className="p-2 rounded bg-blue-100 dark:bg-blue-900/30">
-                <div className="font-semibold">20-30</div>
-                <div className="text-muted-foreground">Normal</div>
+                <div className="font-semibold">P26-50</div>
+                <div className="text-muted-foreground">Normal-Bajo</div>
+              </div>
+              <div className="p-2 rounded bg-blue-100 dark:bg-blue-900/30">
+                <div className="font-semibold">P51-75</div>
+                <div className="text-muted-foreground">Normal-Alto</div>
               </div>
               <div className="p-2 rounded bg-orange-100 dark:bg-orange-900/30">
-                <div className="font-semibold">31-40</div>
-                <div className="text-muted-foreground">Moderada</div>
+                <div className="font-semibold">P76-90</div>
+                <div className="text-muted-foreground">Elevado</div>
               </div>
               <div className="p-2 rounded bg-red-100 dark:bg-red-900/30">
-                <div className="font-semibold">41-60</div>
-                <div className="text-muted-foreground">Alta</div>
+                <div className="font-semibold">P91-99</div>
+                <div className="text-muted-foreground">Muy Elevado</div>
               </div>
             </div>
           </div>
           
-          <p className="text-xs text-muted-foreground italic pt-2 border-t">
-            Los baremos utilizados corresponden a la adaptación española del STAI (TEA Ediciones).
-            Esta interpretación es orientativa y no sustituye el juicio clínico profesional.
-          </p>
+          <Alert className="border-amber-500/50 bg-amber-50 dark:bg-amber-900/20">
+            <AlertTriangle className="h-4 w-4 text-amber-600" />
+            <AlertDescription className="text-xs text-amber-800 dark:text-amber-200">
+              <strong>ADVERTENCIA PERICIAL:</strong> Esta interpretación es orientativa y no sustituye 
+              el juicio clínico profesional. Los resultados del STAI reflejan el autoinforme del 
+              evaluado y deben integrarse con entrevista clínica, observación conductual y otros 
+              instrumentos de evaluación. No se deben extraer conclusiones diagnósticas exclusivamente 
+              de estas puntuaciones.
+            </AlertDescription>
+          </Alert>
         </CardContent>
       </Card>
     </div>
