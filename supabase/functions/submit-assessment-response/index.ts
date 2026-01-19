@@ -421,7 +421,12 @@ serve(async (req) => {
     }
 
     // For other tests, we use mean scores
+    // Skip for tests that already calculated their scores above (BDI2, DCI, DES, STAI)
     for (const [factorCode, factorValue] of Object.entries(scoring)) {
+      // CRITICAL: Skip if this factor was already calculated by a test-specific block
+      if (isBDI2 || isDCI || isDES || isSTAI) {
+        continue;
+      }
       const factorItems = (factorValue as any)?.items;
       if (!Array.isArray(factorItems) || factorItems.length === 0) {
         // Skip scales without a proper item list (common in templates like MMPI2RF)
