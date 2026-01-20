@@ -18,8 +18,8 @@ export interface SyncResult {
   error?: string;
 }
 
-export function useGoogleCalendarUpdate() {
-  const { integrations, isProviderConnected } = useProfessionalIntegrations();
+export function useGoogleCalendarUpdate(overrideProfessionalId?: string) {
+  const { integrations, isProviderConnected } = useProfessionalIntegrations(overrideProfessionalId);
 
   const isGoogleCalendarConnected = Boolean(
     integrations?.google_calendar_enabled && isProviderConnected('google')

@@ -168,9 +168,9 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
   const sendWhatsAppNow = useSendWhatsAppNow();
   const sendEmailNotification = useSendSessionNotification();
   const isMobile = useIsMobile();
-  const { syncToGoogle, syncMoveToGoogle } = useGoogleCalendarUpdate();
+  const { syncToGoogle, syncMoveToGoogle } = useGoogleCalendarUpdate(session?.professional_id);
   const deleteCalendarEvent = useDeleteCalendarEvent();
-  const { integrations, isProviderConnected } = useProfessionalIntegrations();
+  const { integrations, isProviderConnected } = useProfessionalIntegrations(session?.professional_id);
   const [isUpdating, setIsUpdating] = useState(false);
   const [isChangingModality, setIsChangingModality] = useState(false);
   const [editingPrice, setEditingPrice] = useState(false);
