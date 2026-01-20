@@ -156,7 +156,6 @@ export function QuickCreateSessionDialog({
   const deductBonoSession = useDeductBonoSession();
   const scheduleReminder = useScheduleSessionReminder();
   const sendNotification = useSendSessionNotification();
-  const { integrations, oauthConnections } = useProfessionalIntegrations();
   const { center } = useCenter();
   const { data: patients } = usePatients();
   const { data: professionals } = useProfessionals();
@@ -211,6 +210,11 @@ export function QuickCreateSessionDialog({
   const watchBonoId = form.watch('bono_id');
   const watchSessionType = form.watch('session_type');
   const watchStartTime = form.watch('start_time');
+  const watchProfessionalId = form.watch('professional_id');
+  
+  // Use integrations for the selected professional (not necessarily the authenticated user)
+  const { integrations, oauthConnections } = useProfessionalIntegrations(watchProfessionalId || undefined);
+  
   const { data: patientBonos, refetch: refetchBonos } = usePatientActiveBonos(watchPatientId || undefined);
 
   // Helper function to calculate end time based on start time and duration

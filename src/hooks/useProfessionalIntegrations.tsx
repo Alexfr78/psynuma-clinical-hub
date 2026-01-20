@@ -59,10 +59,11 @@ export interface OAuthConnection {
   last_sync_error_message: string | null;
 }
 
-export function useProfessionalIntegrations() {
+export function useProfessionalIntegrations(overrideProfessionalId?: string) {
   const { profile } = useAuth();
   const queryClient = useQueryClient();
-  const professionalId = profile?.id;
+  // Use override if provided, otherwise fall back to authenticated user's ID
+  const professionalId = overrideProfessionalId || profile?.id;
 
   // Fetch integrations for current professional
   const { data: integrations, isLoading: isLoadingIntegrations } = useQuery({
