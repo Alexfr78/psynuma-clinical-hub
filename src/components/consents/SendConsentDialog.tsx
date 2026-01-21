@@ -25,19 +25,14 @@ export function SendConsentDialog({
 
   const consentUrl = `${window.location.origin}/consentimiento/${consent.access_token}`;
   const patientName = consent.patient
-    ? `${consent.patient.first_name} ${consent.patient.last_name}`
-    : 'el paciente';
+    ? `${consent.patient.first_name}`
+    : '';
 
-  const message = `Hola ${patientName},
-
-Por favor, firma el consentimiento informado accediendo al siguiente enlace:
+  const message = `Buenos días${patientName ? ` ${patientName}` : ''}, tal y como te comenté, te adjunto el acuerdo de consentimiento para la protección de datos. Al final de lectura verás que hay tres campos, es necesario que al menos a los dos primeros me des consentimiento.
 
 ${consentUrl}
 
-Este enlace es personal e intransferible.
-
-Saludos,
-${consent.professional?.first_name || 'Tu profesional'}`;
+Si tienes cualquier consulta, no dudes en avisarme.`;
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(consentUrl);
