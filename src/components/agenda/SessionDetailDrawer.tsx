@@ -11,7 +11,6 @@ import {
   ChevronDown,
   ChevronRight,
   Mail,
-  MessageSquare,
   Phone,
   FileText,
   Link as LinkIcon,
@@ -30,6 +29,7 @@ import {
   CheckCircle2,
   Send,
   RefreshCw,
+  FileSignature,
 } from 'lucide-react';
 import {
   Sheet,
@@ -100,7 +100,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { createStripeCheckout } from '@/hooks/useSessionIntegrations';
 import { useGoogleCalendarUpdate } from '@/hooks/useGoogleCalendarUpdate';
 import { PatientSelector } from './PatientSelector';
-import { usePatient } from '@/hooks/usePatients';
+import { usePatient, Patient } from '@/hooks/usePatients';
 import { supabase } from '@/integrations/supabase/client';
 import { useProfessionalIntegrations } from '@/hooks/useProfessionalIntegrations';
 import { ConvertCalendarEventDialog } from './ConvertCalendarEventDialog';
@@ -111,6 +111,11 @@ import { useUpdateRecurringSession, useCancelRecurringSession } from '@/hooks/us
 import { EditScope } from '@/types/recurring';
 import { checkSessionConflicts, ConflictResult } from '@/lib/conflicts';
 import { ConflictsDialog } from './ConflictsDialog';
+import { useConsents, Consent } from '@/hooks/useConsents';
+import { useConsentTemplates } from '@/hooks/useConsentTemplates';
+import { CreateConsentDialog } from '@/components/consents/CreateConsentDialog';
+import { SendConsentDialog } from '@/components/consents/SendConsentDialog';
+import { ConsentCard } from '@/components/consents/ConsentCard';
 
 interface SessionDetailDrawerProps {
   session: SessionWithRelations | null;
@@ -217,6 +222,10 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
   const [detectedConflicts, setDetectedConflicts] = useState<ConflictResult[]>([]);
   const [isCheckingConflicts, setIsCheckingConflicts] = useState(false);
   
+  // Consent dialogs state
+  const [showCreateConsentDialog, setShowCreateConsentDialog] = useState(false);
+  const [sendConsentDialogData, setSendConsentDialogData] = useState<Consent | null>(null);
+  
   // Local state for immediate UI update
   const [localBonoId, setLocalBonoId] = useState<string | null>(null);
   const [localPrice, setLocalPrice] = useState<number>(0);
@@ -226,6 +235,8 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
   const { data: paymentStatus, refetch: refetchPaymentStatus } = useSessionPaymentStatus(session?.id);
   const { data: invoiceStatus, refetch: refetchInvoiceStatus } = useSessionInvoiceStatus(session?.id);
   const { data: bonoPaymentStatus, refetch: refetchBonoPaymentStatus } = useBonoPaymentStatus(localBonoId);
+  const { consents, isLoading: consentsLoading } = useConsents(session?.patient_id);
+  const { templates: consentTemplates } = useConsentTemplates();
   
   // For blocked sessions with newly assigned patient
   const { data: newPatientData } = usePatient(localPatientId || undefined);
@@ -836,13 +847,13 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
           <Tooltip>
             <TooltipTrigger asChild>
               <TabsTrigger
-                value="sms"
+                value="consentimientos"
                 className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-3 sm:px-4 py-3 shrink-0"
               >
-                {isMobile ? <MessageSquare className="h-4 w-4" /> : 'SMS enviados'}
+                {isMobile ? <FileSignature className="h-4 w-4" /> : 'Consentimientos'}
               </TabsTrigger>
             </TooltipTrigger>
-            {isMobile && <TooltipContent>SMS enviados</TooltipContent>}
+            {isMobile && <TooltipContent>Consentimientos</TooltipContent>}
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -1476,7 +1487,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
                       checked={session.send_reminder_whatsapp || false} 
                       onCheckedChange={(checked) => handleFieldSave('send_reminder_whatsapp', !!checked)}
                     />
-                    <MessageSquare className="h-4 w-4 text-green-600" />
+                    <Phone className="h-4 w-4 text-green-600" />
                     WhatsApp
                   </label>
                   <label className="flex items-center gap-2 text-sm cursor-pointer">
@@ -1806,11 +1817,55 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
             </div>
           </TabsContent>
 
-          <TabsContent value="sms" className="mt-0 px-6 py-4">
-            <div className="text-center py-8 text-muted-foreground">
-              <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-50" />
-              <p className="text-sm">No hay SMS enviados</p>
-            </div>
+          <TabsContent value="consentimientos" className="mt-0 px-6 py-4">
+            {!session.patient ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <FileSignature className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <p className="text-sm">Asigna un paciente para gestionar consentimientos</p>
+              </div>
+            ) : consentsLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {/* Create consent button */}
+                <div className="flex justify-between items-center">
+                  <p className="text-sm font-medium">Consentimientos del paciente</p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setShowCreateConsentDialog(true)}
+                    disabled={consentTemplates.filter(t => t.is_active).length === 0}
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Nuevo
+                  </Button>
+                </div>
+
+                {consentTemplates.filter(t => t.is_active).length === 0 && (
+                  <div className="text-center py-4 text-muted-foreground text-sm">
+                    <p>No hay plantillas de consentimiento configuradas.</p>
+                    <p className="text-xs mt-1">Configúralas en Ajustes → Plantillas de consentimiento</p>
+                  </div>
+                )}
+
+                {/* List of consents */}
+                {consents.length === 0 ? (
+                  <div className="text-center py-6 text-muted-foreground">
+                    <FileSignature className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">Sin consentimientos</p>
+                    <p className="text-xs mt-1">Crea un consentimiento para enviar al paciente</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {consents.map((consent) => (
+                      <ConsentCard key={consent.id} consent={consent} />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="otras" className="mt-0 px-6 py-4">
@@ -1969,6 +2024,44 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
           refetchBonoPaymentStatus();
           refetchPaymentStatus();
         }}
+      />
+    )}
+
+    {/* Create Consent Dialog */}
+    {session.patient && (
+      <CreateConsentDialog
+        open={showCreateConsentDialog}
+        onOpenChange={setShowCreateConsentDialog}
+        patient={session.patient as Patient}
+        onSuccess={async (consentId) => {
+          // Fetch the newly created consent to open send dialog
+          const { data } = await supabase
+            .from('consents')
+            .select(`
+              *,
+              template:consent_templates(name),
+              patient:patients(first_name, last_name),
+              professional:profiles(first_name, last_name)
+            `)
+            .eq('id', consentId)
+            .single();
+          
+          if (data) {
+            setSendConsentDialogData(data as Consent);
+          }
+          
+          // Invalidate to refresh the list
+          queryClient.invalidateQueries({ queryKey: ['consents'] });
+        }}
+      />
+    )}
+
+    {/* Send Consent Dialog */}
+    {sendConsentDialogData && (
+      <SendConsentDialog
+        consent={sendConsentDialogData}
+        open={!!sendConsentDialogData}
+        onOpenChange={(open) => !open && setSendConsentDialogData(null)}
       />
     )}
     </>
