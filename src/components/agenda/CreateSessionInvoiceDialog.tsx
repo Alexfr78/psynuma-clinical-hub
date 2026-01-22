@@ -8,6 +8,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+} from '@/components/ui/drawer';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -101,6 +109,7 @@ export function CreateSessionInvoiceDialog({
   session,
   onSuccess,
 }: CreateSessionInvoiceDialogProps) {
+  const isMobile = useIsMobile();
   const { center } = useCenter();
   const { ordinarySeries } = useInvoiceSeries();
   const createInvoice = useCreateInvoiceWithSeries();
@@ -468,6 +477,463 @@ export function CreateSessionInvoiceDialog({
 
   const patientName = `${patientData.first_name} ${patientData.last_name}`;
 
+  const formContent = (
+    <div className="space-y-4">
+      {/* Invoice Type Toggle */}
+      <RadioGroup
+        value={invoiceType}
+        onValueChange={(v) => setInvoiceType(v as 'complete' | 'simplified')}
+        className="flex gap-4"
+      >
+        <div className="flex items-center space-x-2">
+          <RadioGroupItem value="complete" id="complete" />
+          <Label htmlFor="complete" className="cursor-pointer">Completa</Label>
+        </div>
+        <div className="flex items-center space-x-2">
+          <RadioGroupItem value="simplified" id="simplified" />
+          <Label htmlFor="simplified" className="cursor-pointer">Simplificada</Label>
+        </div>
+      </RadioGroup>
+
+      <Separator />
+
+      {/* Receptor & Emisor Section */}
+      <div className="grid md:grid-cols-2 gap-6">
+        {/* Receptor (Patient) */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h4 className="font-medium flex items-center gap-2">
+              <User className="h-4 w-4" />
+              Receptor
+            </h4>
+            {!editingPatient && invoiceType === 'complete' && missingFields.length > 0 && (
+              <Button 
+                variant="link" 
+                size="sm" 
+                className="h-auto p-0 text-xs"
+                onClick={() => setEditingPatient(true)}
+              >
+                Editar información
+              </Button>
+            )}
+          </div>
+          
+          {editingPatient ? (
+            <div className="space-y-3 p-3 rounded-lg border bg-muted/30">
+              <div className="space-y-2">
+                <Label className={cn(missingFields.includes('tax_id') && 'text-destructive')}>
+                  NIF/CIF {invoiceType === 'complete' && '*'}
+                </Label>
+                <Input
+                  value={patientFormData.tax_id}
+                  onChange={(e) => setPatientFormData(prev => ({ ...prev, tax_id: e.target.value }))}
+                  placeholder="Ej: 12345678A"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className={cn(missingFields.includes('address') && 'text-destructive')}>
+                  Dirección {invoiceType === 'complete' && '*'}
+                </Label>
+                <Input
+                  value={patientFormData.address}
+                  onChange={(e) => setPatientFormData(prev => ({ ...prev, address: e.target.value }))}
+                  placeholder="Calle y número"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-2">
+                  <Label className={cn(missingFields.includes('city') && 'text-destructive')}>
+                    Ciudad {invoiceType === 'complete' && '*'}
+                  </Label>
+                  <Input
+                    value={patientFormData.city}
+                    onChange={(e) => setPatientFormData(prev => ({ ...prev, city: e.target.value }))}
+                    placeholder="Ciudad"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className={cn(missingFields.includes('postal_code') && 'text-destructive')}>
+                    C.P. {invoiceType === 'complete' && '*'}
+                  </Label>
+                  <Input
+                    value={patientFormData.postal_code}
+                    onChange={(e) => setPatientFormData(prev => ({ ...prev, postal_code: e.target.value }))}
+                    placeholder="Código postal"
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setEditingPatient(false);
+                    // Reset to original values
+                    setPatientFormData({
+                      tax_id: patientData?.tax_id || '',
+                      address: patientData?.address || '',
+                      city: patientData?.city || '',
+                      postal_code: patientData?.postal_code || '',
+                    });
+                  }}
+                >
+                  <X className="h-4 w-4 mr-1" />
+                  Cancelar
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={handleSavePatientData}
+                  disabled={savingPatient}
+                >
+                  {savingPatient ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                  ) : (
+                    <Check className="h-4 w-4 mr-1" />
+                  )}
+                  Guardar
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="text-sm space-y-1">
+              <p className="font-medium">{patientName}</p>
+              <p className={cn(!patientData?.tax_id && invoiceType === 'complete' && 'text-destructive')}>
+                NIF: {patientData?.tax_id || 'Sin especificar'}
+              </p>
+              <p className={cn(
+                (!patientData?.address || !patientData?.city || !patientData?.postal_code) && 
+                invoiceType === 'complete' && 'text-destructive'
+              )}>
+                {patientData?.address && patientData?.city 
+                  ? `${patientData.address}, ${patientData.city} ${patientData.postal_code || ''}`
+                  : 'Dirección sin especificar'
+                }
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Emisor (Center) */}
+        <div className="space-y-3">
+          <h4 className="font-medium flex items-center gap-2">
+            <Building2 className="h-4 w-4" />
+            Emisor
+          </h4>
+          <div className="text-sm space-y-1">
+            <p className="font-medium">{center?.name}</p>
+            <p>NIF: {center?.tax_id || 'Sin especificar'}</p>
+            {center?.address && (
+              <p className="text-muted-foreground">{center.address}</p>
+            )}
+            {(center?.city || center?.postal_code) && (
+              <p className="text-muted-foreground">
+                {center.city}{center.postal_code ? `, ${center.postal_code}` : ''}
+              </p>
+            )}
+            {center?.country && (
+              <p className="text-muted-foreground">{center.country}</p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <Separator />
+
+      {/* Billing Series */}
+      <div className="space-y-3">
+        <h4 className="font-medium">Serie de facturación</h4>
+        
+        {center?.verifactu_certificate_base64 && (
+          <Alert variant={center?.verifactu_environment === 'test' ? 'default' : 'default'} className={cn(
+            'border py-2',
+            center?.verifactu_environment === 'test' 
+              ? 'bg-amber-50 border-amber-200 text-amber-800'
+              : 'bg-green-50 border-green-200 text-green-800'
+          )}>
+            <AlertDescription className="flex items-center gap-2 text-sm">
+              {center?.verifactu_environment === 'test' ? (
+                <>
+                  <FlaskConical className="h-4 w-4 flex-shrink-0" />
+                  <span><strong>Modo pruebas:</strong> La factura se firmará pero NO se enviará a AEAT producción.</span>
+                </>
+              ) : (
+                <>
+                  <ShieldCheck className="h-4 w-4 flex-shrink-0" />
+                  <span><strong>Verifactu activo:</strong> La factura se firmará y enviará a la AEAT.</span>
+                </>
+              )}
+            </AlertDescription>
+          </Alert>
+        )}
+        
+        <Select value={selectedSeriesId} onValueChange={setSelectedSeriesId}>
+          <SelectTrigger>
+            <SelectValue placeholder="Seleccionar serie" />
+          </SelectTrigger>
+          <SelectContent className="z-[200]" position="popper" sideOffset={4}>
+            {availableSeries.map((series) => (
+              <SelectItem key={series.id} value={series.id}>
+                {series.name} {series.is_default && '(por defecto)'}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <Separator />
+
+      {/* Invoice Items */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h4 className="font-medium">Ítems</h4>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleAddItem}
+          >
+            <Plus className="h-4 w-4 mr-1" />
+            Añadir ítem
+          </Button>
+        </div>
+        
+        <div className="space-y-3">
+          {items.map((item) => (
+            <div key={item.id} className="border rounded-lg p-3 space-y-3 bg-muted/20">
+              {editingItemId === item.id ? (
+                // Editing mode
+                <div className="space-y-3">
+                  <div className="space-y-2">
+                    <Label>Descripción</Label>
+                    <Input
+                      value={editItemData.description}
+                      onChange={(e) => setEditItemData(prev => ({ ...prev, description: e.target.value }))}
+                      placeholder="Descripción del servicio"
+                    />
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-2">
+                      <Label>Cantidad</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        value={editItemData.quantity}
+                        onChange={(e) => {
+                          const qty = parseInt(e.target.value) || 1;
+                          setEditItemData(prev => ({ ...prev, quantity: qty }));
+                        }}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Precio unitario (€)</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min={0}
+                        value={editItemData.unitPrice}
+                        onChange={(e) => {
+                          const price = parseFloat(e.target.value) || 0;
+                          setEditItemData(prev => ({ ...prev, unitPrice: price }));
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-2">
+                      <Label>IVA</Label>
+                      <Select
+                        value={String(editItemData.taxRate)}
+                        onValueChange={(v) => {
+                          const rate = parseInt(v);
+                          setEditItemData(prev => ({ ...prev, taxRate: rate }));
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="z-[200]" position="popper" sideOffset={4}>
+                          {TAX_OPTIONS.map(opt => (
+                            <SelectItem key={opt.value} value={String(opt.value)}>{opt.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>IRPF</Label>
+                      <Select
+                        value={String(editItemData.retentionRate)}
+                        onValueChange={(v) => {
+                          const rate = parseInt(v);
+                          setEditItemData(prev => ({ ...prev, retentionRate: rate }));
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="z-[200]" position="popper" sideOffset={4}>
+                          {RETENTION_OPTIONS.map(opt => (
+                            <SelectItem key={opt.value} value={String(opt.value)}>{opt.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end gap-2 pt-2 border-t">
+                    <Button size="sm" variant="ghost" onClick={() => setEditingItemId(null)}>
+                      <X className="h-4 w-4 mr-1" />
+                      Cancelar
+                    </Button>
+                    <Button size="sm" onClick={() => handleUpdateItem(item.id)}>
+                      <Check className="h-4 w-4 mr-1" />
+                      Guardar
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                // Display mode
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm">{item.description}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {item.quantity} x {item.unitPrice.toFixed(2)}€ = {item.subtotal.toFixed(2)}€
+                      {item.taxRate > 0 && ` + ${item.taxAmount.toFixed(2)}€ IVA (${item.taxRate}%)`}
+                      {item.retentionRate > 0 && ` - ${item.retentionAmount.toFixed(2)}€ IRPF (${item.retentionRate}%)`}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="text-sm font-medium mr-2">{item.total.toFixed(2)}€</span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={() => handleStartEditItem(item)}
+                    >
+                      <Pencil className="h-3 w-3" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-destructive"
+                      onClick={() => handleDeleteItem(item.id)}
+                      disabled={items.length === 1}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <Separator />
+
+      {/* Totals */}
+      <div className="bg-muted/30 rounded-lg p-4 space-y-2">
+        <div className="flex justify-between text-sm">
+          <span>Base imponible:</span>
+          <span>{invoiceTotals.subtotal.toFixed(2)}€</span>
+        </div>
+        {invoiceTotals.taxAmount > 0 && (
+          <div className="flex justify-between text-sm">
+            <span>IVA:</span>
+            <span>+{invoiceTotals.taxAmount.toFixed(2)}€</span>
+          </div>
+        )}
+        {invoiceTotals.retentionAmount > 0 && (
+          <div className="flex justify-between text-sm">
+            <span>Retención IRPF:</span>
+            <span>-{invoiceTotals.retentionAmount.toFixed(2)}€</span>
+          </div>
+        )}
+        <Separator />
+        <div className="flex justify-between font-medium text-lg">
+          <span>Total:</span>
+          <span>{invoiceTotals.total.toFixed(2)}€</span>
+        </div>
+      </div>
+
+      {/* Missing Fields Warning */}
+      {invoiceType === 'complete' && missingFields.length > 0 && !editingPatient && (
+        <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription className="flex items-center justify-between">
+            <span>Faltan datos fiscales del paciente para factura completa.</span>
+            <Button 
+              variant="link" 
+              size="sm" 
+              className="h-auto p-0 text-destructive"
+              onClick={() => setEditingPatient(true)}
+            >
+              Completar datos →
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Actions */}
+      <div className="flex justify-end gap-2 pt-2">
+        <Button variant="outline" onClick={() => onOpenChange(false)}>
+          Cancelar
+        </Button>
+        <Button 
+          onClick={handleCreateInvoice}
+          disabled={!canCreateInvoice || !selectedSeriesId || createInvoice.isPending || isSigningVerifactu}
+        >
+          {createInvoice.isPending ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Creando...
+            </>
+          ) : isSigningVerifactu ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Firmando con Verifactu...
+            </>
+          ) : (
+            <>
+              {center?.verifactu_certificate_base64 && (
+                center?.verifactu_environment === 'test' 
+                  ? <FlaskConical className="mr-2 h-4 w-4" /> 
+                  : <ShieldCheck className="mr-2 h-4 w-4" />
+              )}
+              Emitir factura
+            </>
+          )}
+        </Button>
+      </div>
+    </div>
+  );
+
+  if (isMobile) {
+    return (
+      <Drawer open={open} onOpenChange={onOpenChange}>
+        <DrawerContent className="h-[95vh] max-h-[95vh] overflow-hidden">
+          <DrawerHeader className="px-4 pt-4 pb-2 border-b">
+            <div className="flex items-center justify-between gap-3">
+              <DrawerTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                Crear factura
+              </DrawerTitle>
+              <DrawerClose asChild>
+                <Button type="button" variant="ghost" size="icon" aria-label="Cerrar">
+                  <X className="h-4 w-4" />
+                </Button>
+              </DrawerClose>
+            </div>
+          </DrawerHeader>
+
+          <div className="flex-1 overflow-y-auto px-4 pb-6">
+            {formContent}
+          </div>
+        </DrawerContent>
+      </Drawer>
+    );
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
@@ -477,581 +943,7 @@ export function CreateSessionInvoiceDialog({
             Crear factura
           </DialogTitle>
         </DialogHeader>
-
-        {/* Invoice Type Toggle */}
-        <RadioGroup
-          value={invoiceType}
-          onValueChange={(v) => setInvoiceType(v as 'complete' | 'simplified')}
-          className="flex gap-4"
-        >
-          <div className="flex items-center space-x-2">
-            <RadioGroupItem value="complete" id="complete" />
-            <Label htmlFor="complete" className="cursor-pointer">Completa</Label>
-          </div>
-          <div className="flex items-center space-x-2">
-            <RadioGroupItem value="simplified" id="simplified" />
-            <Label htmlFor="simplified" className="cursor-pointer">Simplificada</Label>
-          </div>
-        </RadioGroup>
-
-        <Separator />
-
-        {/* Receptor & Emisor Section */}
-        <div className="grid md:grid-cols-2 gap-6">
-          {/* Receptor (Patient) */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h4 className="font-medium flex items-center gap-2">
-                <User className="h-4 w-4" />
-                Receptor
-              </h4>
-              {!editingPatient && invoiceType === 'complete' && missingFields.length > 0 && (
-                <Button 
-                  variant="link" 
-                  size="sm" 
-                  className="h-auto p-0 text-xs"
-                  onClick={() => setEditingPatient(true)}
-                >
-                  Editar información
-                </Button>
-              )}
-            </div>
-            
-            {editingPatient ? (
-              <div className="space-y-3 p-3 rounded-lg border bg-muted/30">
-                <div className="space-y-2">
-                  <Label className={cn(missingFields.includes('tax_id') && 'text-destructive')}>
-                    NIF/CIF {invoiceType === 'complete' && '*'}
-                  </Label>
-                  <Input
-                    value={patientFormData.tax_id}
-                    onChange={(e) => setPatientFormData(prev => ({ ...prev, tax_id: e.target.value }))}
-                    placeholder="Ej: 12345678A"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label className={cn(missingFields.includes('address') && 'text-destructive')}>
-                    Dirección {invoiceType === 'complete' && '*'}
-                  </Label>
-                  <Input
-                    value={patientFormData.address}
-                    onChange={(e) => setPatientFormData(prev => ({ ...prev, address: e.target.value }))}
-                    placeholder="Calle y número"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="space-y-2">
-                    <Label className={cn(missingFields.includes('city') && 'text-destructive')}>
-                      Ciudad {invoiceType === 'complete' && '*'}
-                    </Label>
-                    <Input
-                      value={patientFormData.city}
-                      onChange={(e) => setPatientFormData(prev => ({ ...prev, city: e.target.value }))}
-                      placeholder="Ciudad"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className={cn(missingFields.includes('postal_code') && 'text-destructive')}>
-                      C.P. {invoiceType === 'complete' && '*'}
-                    </Label>
-                    <Input
-                      value={patientFormData.postal_code}
-                      onChange={(e) => setPatientFormData(prev => ({ ...prev, postal_code: e.target.value }))}
-                      placeholder="C.P."
-                    />
-                  </div>
-                </div>
-                <div className="flex gap-2 pt-2">
-                  <Button size="sm" onClick={handleSavePatientData} disabled={savingPatient}>
-                    {savingPatient ? 'Guardando...' : 'Guardar'}
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => setEditingPatient(false)}>
-                    Cancelar
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-1.5 text-sm">
-                <p className="font-medium">{patientName}</p>
-                <div className={cn(
-                  "flex items-center gap-1",
-                  invoiceType === 'complete' && !patientFormData.tax_id && "text-destructive"
-                )}>
-                  {invoiceType === 'complete' && !patientFormData.tax_id && (
-                    <AlertTriangle className="h-3 w-3" />
-                  )}
-                  <span>NIF: {patientFormData.tax_id || 'Sin especificar'}</span>
-                </div>
-                {patientData.email && <p className="text-muted-foreground">{patientData.email}</p>}
-                <div className={cn(
-                  "flex items-center gap-1",
-                  invoiceType === 'complete' && (!patientFormData.address || !patientFormData.city || !patientFormData.postal_code) && "text-destructive"
-                )}>
-                  {invoiceType === 'complete' && (!patientFormData.address || !patientFormData.city || !patientFormData.postal_code) && (
-                    <AlertTriangle className="h-3 w-3" />
-                  )}
-                  <span>
-                    {patientFormData.address 
-                      ? `${patientFormData.address}, ${patientFormData.city} ${patientFormData.postal_code}`
-                      : 'Dirección sin especificar'
-                    }
-                  </span>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Emisor (Center) */}
-          <div className="space-y-3">
-            <h4 className="font-medium flex items-center gap-2">
-              <Building2 className="h-4 w-4" />
-              Emisor
-            </h4>
-            <div className="space-y-1.5 text-sm">
-              <p className="font-medium">{center?.name}</p>
-              <p>NIF: {center?.tax_id || 'Sin especificar'}</p>
-              {center?.address && (
-                <p className="text-muted-foreground">
-                  {center.address}
-                  {center.address_details && `, ${center.address_details}`}
-                </p>
-              )}
-              {(center?.city || center?.postal_code) && (
-                <p className="text-muted-foreground">
-                  {center.city}{center.postal_code && `, ${center.postal_code}`}
-                </p>
-              )}
-              {center?.country && (
-                <p className="text-muted-foreground">{center.country}</p>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <Separator />
-
-        {/* Series Selection */}
-        <div className="space-y-3">
-          <h4 className="font-medium">Serie de facturación</h4>
-          {center?.verifactu_certificate_base64 ? (
-            center?.verifactu_environment === 'test' ? (
-              <Alert className="border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950">
-                <FlaskConical className="h-4 w-4 text-amber-600" />
-                <AlertDescription className="text-amber-800 dark:text-amber-200">
-                  <strong>Modo pruebas:</strong> La factura se firmará pero NO se enviará a AEAT producción.
-                </AlertDescription>
-              </Alert>
-            ) : (
-              <Alert className="border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950">
-                <ShieldCheck className="h-4 w-4 text-green-600" />
-                <AlertDescription className="text-green-800 dark:text-green-200">
-                  La factura se emitirá y registrará automáticamente en AEAT con Verifactu.
-                </AlertDescription>
-              </Alert>
-            )
-          ) : (
-            <p className="text-xs text-muted-foreground">
-              La factura se emitirá con el siguiente número de la serie seleccionada.
-            </p>
-          )}
-          {availableSeries.length > 0 ? (
-            <Select value={selectedSeriesId} onValueChange={setSelectedSeriesId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Selecciona una serie" />
-              </SelectTrigger>
-              <SelectContent>
-                {availableSeries.map((series) => (
-                  <SelectItem key={series.id} value={series.id}>
-                    <span className="flex items-center gap-2">
-                      {series.name}
-                      {series.is_default && (
-                        <span className="text-xs text-muted-foreground">(por defecto)</span>
-                      )}
-                    </span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          ) : (
-            <Alert>
-              <AlertTriangle className="h-4 w-4" />
-              <AlertDescription>
-                No hay series de facturación disponibles para el tipo seleccionado.
-                Crea una en Configuración → Facturación.
-              </AlertDescription>
-            </Alert>
-          )}
-        </div>
-
-        <Separator />
-
-        {/* Invoice Items */}
-        <div className="space-y-3">
-          <h4 className="font-medium">Ítems</h4>
-          
-          {/* Table Header */}
-          <div className="grid grid-cols-12 gap-2 text-xs text-muted-foreground px-2 font-medium">
-            <div className="col-span-4">Concepto</div>
-            <div className="col-span-1 text-right">Precio</div>
-            <div className="col-span-1 text-center">Cant.</div>
-            <div className="col-span-2 text-center">IVA</div>
-            <div className="col-span-2 text-center">Retención</div>
-            <div className="col-span-1 text-right">Total</div>
-            <div className="col-span-1"></div>
-          </div>
-
-          {/* Items List */}
-          <div className="space-y-2">
-            {items.map(item => (
-              editingItemId === item.id ? (
-                // Edit Mode - Expanded
-                <div key={item.id} className="p-3 rounded-lg border bg-muted/30 space-y-3">
-                  <div className="space-y-2">
-                    <Label className="text-xs">Concepto</Label>
-                    <Input
-                      value={editItemData.description}
-                      onChange={(e) => setEditItemData(prev => ({ ...prev, description: e.target.value }))}
-                      placeholder="Concepto"
-                      className="h-8 text-sm"
-                    />
-                  </div>
-                  
-                  <div className="grid grid-cols-4 gap-3">
-                    <div className="space-y-2">
-                      <Label className="text-xs">Precio</Label>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={editItemData.unitPrice}
-                        onChange={(e) => setEditItemData(prev => ({ ...prev, unitPrice: parseFloat(e.target.value) || 0 }))}
-                        className="h-8 text-sm"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-xs">Cantidad</Label>
-                      <Input
-                        type="number"
-                        min="1"
-                        value={editItemData.quantity}
-                        onChange={(e) => setEditItemData(prev => ({ ...prev, quantity: parseInt(e.target.value) || 1 }))}
-                        className="h-8 text-sm"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-xs">Tipo IVA</Label>
-                      <Select
-                        value={String(editItemData.taxRate)}
-                        onValueChange={(v) => setEditItemData(prev => ({ ...prev, taxRate: Number(v) }))}
-                      >
-                        <SelectTrigger className="h-8 text-sm">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {TAX_OPTIONS.map((opt) => (
-                            <SelectItem key={opt.value} value={String(opt.value)}>
-                              {opt.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-xs">Retención</Label>
-                      <Select
-                        value={String(editItemData.retentionRate)}
-                        onValueChange={(v) => setEditItemData(prev => ({ ...prev, retentionRate: Number(v) }))}
-                      >
-                        <SelectTrigger className="h-8 text-sm">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {RETENTION_OPTIONS.map((opt) => (
-                            <SelectItem key={opt.value} value={String(opt.value)}>
-                              {opt.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  {/* Line totals preview */}
-                  <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t">
-                    <div className="flex gap-4">
-                      <span>Subtotal: {(editItemData.unitPrice * editItemData.quantity).toFixed(2)}€</span>
-                      <span>IVA: {((editItemData.unitPrice * editItemData.quantity) * (editItemData.taxRate / 100)).toFixed(2)}€</span>
-                      <span>Ret: -{((editItemData.unitPrice * editItemData.quantity) * (editItemData.retentionRate / 100)).toFixed(2)}€</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-foreground">
-                        Total: {calculateLineItem(editItemData.unitPrice, editItemData.quantity, editItemData.taxRate, editItemData.retentionRate).total.toFixed(2)}€
-                      </span>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 text-primary"
-                        onClick={() => handleUpdateItem(item.id)}
-                      >
-                        <Check className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7"
-                        onClick={() => setEditingItemId(null)}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                // View Mode
-                <div key={item.id} className="grid grid-cols-12 gap-2 items-center p-2 rounded-lg border bg-muted/30 group">
-                  <div className="col-span-4 text-sm truncate" title={item.description}>
-                    {item.description}
-                  </div>
-                  <div className="col-span-1 text-sm text-right">
-                    {item.unitPrice.toFixed(2)}€
-                  </div>
-                  <div className="col-span-1 text-sm text-center">
-                    {item.quantity}
-                  </div>
-                  <div className="col-span-2 text-xs text-center">
-                    {getTaxLabel(item.taxRate)}
-                  </div>
-                  <div className="col-span-2 text-xs text-center">
-                    {getRetentionLabel(item.retentionRate)}
-                  </div>
-                  <div className="col-span-1 text-sm text-right font-medium">
-                    {item.total.toFixed(2)}€
-                  </div>
-                  <div className="col-span-1 flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7"
-                      onClick={() => handleStartEditItem(item)}
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 text-destructive"
-                      onClick={() => handleDeleteItem(item.id)}
-                      disabled={items.length <= 1}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                </div>
-              )
-            ))}
-
-            {/* Add New Item Form */}
-            {addingItem && (
-              <div className="p-3 rounded-lg border border-dashed bg-muted/20 space-y-3">
-                <div className="space-y-2">
-                  <Label className="text-xs">Concepto</Label>
-                  <Input
-                    value={newItem.description}
-                    onChange={(e) => setNewItem(prev => ({ ...prev, description: e.target.value }))}
-                    placeholder="Concepto"
-                    className="h-8 text-sm"
-                    autoFocus
-                  />
-                </div>
-                
-                <div className="grid grid-cols-4 gap-3">
-                  <div className="space-y-2">
-                    <Label className="text-xs">Precio</Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={newItem.unitPrice}
-                      onChange={(e) => setNewItem(prev => ({ ...prev, unitPrice: parseFloat(e.target.value) || 0 }))}
-                      placeholder="0.00"
-                      className="h-8 text-sm"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-xs">Cantidad</Label>
-                    <Input
-                      type="number"
-                      min="1"
-                      value={newItem.quantity}
-                      onChange={(e) => setNewItem(prev => ({ ...prev, quantity: parseInt(e.target.value) || 1 }))}
-                      className="h-8 text-sm"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-xs">Tipo IVA</Label>
-                    <Select
-                      value={String(newItem.taxRate)}
-                      onValueChange={(v) => setNewItem(prev => ({ ...prev, taxRate: Number(v) }))}
-                    >
-                      <SelectTrigger className="h-8 text-sm">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {TAX_OPTIONS.map((opt) => (
-                          <SelectItem key={opt.value} value={String(opt.value)}>
-                            {opt.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-xs">Retención</Label>
-                    <Select
-                      value={String(newItem.retentionRate)}
-                      onValueChange={(v) => setNewItem(prev => ({ ...prev, retentionRate: Number(v) }))}
-                    >
-                      <SelectTrigger className="h-8 text-sm">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {RETENTION_OPTIONS.map((opt) => (
-                          <SelectItem key={opt.value} value={String(opt.value)}>
-                            {opt.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                {/* Line totals preview */}
-                <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t">
-                  <div className="flex gap-4">
-                    <span>Subtotal: {(newItem.unitPrice * newItem.quantity).toFixed(2)}€</span>
-                    <span>IVA: {((newItem.unitPrice * newItem.quantity) * (newItem.taxRate / 100)).toFixed(2)}€</span>
-                    <span>Ret: -{((newItem.unitPrice * newItem.quantity) * (newItem.retentionRate / 100)).toFixed(2)}€</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium text-foreground">
-                      Total: {calculateLineItem(newItem.unitPrice, newItem.quantity, newItem.taxRate, newItem.retentionRate).total.toFixed(2)}€
-                    </span>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 text-primary"
-                      onClick={handleAddItem}
-                    >
-                      <Check className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7"
-                      onClick={() => {
-                        setAddingItem(false);
-                        setNewItem({
-                          description: '',
-                          unitPrice: 0,
-                          quantity: 1,
-                          taxRate: defaultTaxRate,
-                          retentionRate: defaultRetentionRate,
-                        });
-                      }}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Add Item Button */}
-          {!addingItem && (
-            <Button
-              variant="link"
-              size="sm"
-              className="h-auto p-0 text-primary"
-              onClick={() => setAddingItem(true)}
-            >
-              <Plus className="h-4 w-4 mr-1" />
-              Añadir ítem
-            </Button>
-          )}
-          
-          {/* Totals */}
-          <div className="space-y-1 pt-4 border-t">
-            <div className="flex justify-between text-sm">
-              <span>Base imponible</span>
-              <span>{invoiceTotals.subtotal.toFixed(2)}€</span>
-            </div>
-            <div className="flex justify-between text-sm text-muted-foreground">
-              <span>IVA</span>
-              <span>{invoiceTotals.taxAmount.toFixed(2)}€</span>
-            </div>
-            {invoiceTotals.retentionAmount > 0 && (
-              <div className="flex justify-between text-sm text-muted-foreground">
-                <span>Retención IRPF</span>
-                <span>-{invoiceTotals.retentionAmount.toFixed(2)}€</span>
-              </div>
-            )}
-            <Separator className="my-2" />
-            <div className="flex justify-between font-semibold">
-              <span>Total</span>
-              <span>{invoiceTotals.total.toFixed(2)}€</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Missing Data Warning */}
-        {invoiceType === 'complete' && missingFields.length > 0 && !editingPatient && (
-          <Alert variant="destructive">
-            <AlertTriangle className="h-4 w-4" />
-            <AlertDescription>
-              Para crear una factura completa se requieren los datos fiscales del paciente.
-              <Button 
-                variant="link" 
-                className="h-auto p-0 ml-1 text-destructive"
-                onClick={() => setEditingPatient(true)}
-              >
-                Completar datos →
-              </Button>
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {/* Actions */}
-        <div className="flex justify-end gap-2 pt-2">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancelar
-          </Button>
-          <Button 
-            onClick={handleCreateInvoice}
-            disabled={!canCreateInvoice || !selectedSeriesId || createInvoice.isPending || isSigningVerifactu}
-          >
-            {createInvoice.isPending ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Creando...
-              </>
-            ) : isSigningVerifactu ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Firmando con Verifactu...
-              </>
-            ) : (
-              <>
-                {center?.verifactu_certificate_base64 && (
-                  center?.verifactu_environment === 'test' 
-                    ? <FlaskConical className="mr-2 h-4 w-4" /> 
-                    : <ShieldCheck className="mr-2 h-4 w-4" />
-                )}
-                Emitir factura
-              </>
-            )}
-          </Button>
-        </div>
+        {formContent}
       </DialogContent>
     </Dialog>
   );
