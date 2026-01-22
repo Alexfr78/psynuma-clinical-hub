@@ -45,13 +45,19 @@ export function SendInvoiceDialog({ open, onOpenChange, invoice }: SendInvoiceDi
     (channel === 'both' && (hasEmail || hasPhone));
 
   const handleSend = async () => {
-    await sendInvoice.mutateAsync({
+    const result = await sendInvoice.mutateAsync({
       invoiceId: invoice.id,
       patientId: patient.id,
       patientEmail: patient.email,
       patientPhone: patient.phone,
       channel,
     });
+    
+    // If WhatsApp web mode, open the link before closing dialog
+    if (result?.whatsappSendMethod === 'web' && result?.whatsappLink) {
+      window.open(result.whatsappLink, '_blank');
+    }
+    
     onOpenChange(false);
   };
 
