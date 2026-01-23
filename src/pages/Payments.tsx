@@ -21,6 +21,7 @@ import { PaymentHistoryTable } from '@/components/payments/PaymentHistoryTable';
 import { RecordPaymentDialog } from '@/components/payments/RecordPaymentDialog';
 import { EditPaymentDialog } from '@/components/payments/EditPaymentDialog';
 import { SendPaymentReminderDialog } from '@/components/payments/SendPaymentReminderDialog';
+import { LinkPaymentToInvoiceDialog } from '@/components/payments/LinkPaymentToInvoiceDialog';
 
 export default function Payments() {
   const [paymentOpen, setPaymentOpen] = useState(false);
@@ -38,6 +39,8 @@ export default function Payments() {
   const [debtToDelete, setDebtToDelete] = useState<DebtWithRelations | null>(null);
   const [reminderDialogOpen, setReminderDialogOpen] = useState(false);
   const [selectedDebtForReminder, setSelectedDebtForReminder] = useState<DebtWithRelations | null>(null);
+  const [linkDialogOpen, setLinkDialogOpen] = useState(false);
+  const [paymentToLink, setPaymentToLink] = useState<PaymentWithRelations | null>(null);
 
   const { data: debts, isLoading: debtsLoading } = useDebts();
   const { data: payments, isLoading: paymentsLoading } = usePayments();
@@ -179,6 +182,10 @@ export default function Payments() {
                 setPaymentToDelete(payment);
                 setDeleteDialogOpen(true);
               }}
+              onLinkToInvoice={(payment) => {
+                setPaymentToLink(payment);
+                setLinkDialogOpen(true);
+              }}
             />
           )}
         </TabsContent>
@@ -203,6 +210,12 @@ export default function Payments() {
         open={editPaymentOpen}
         onOpenChange={setEditPaymentOpen}
         payment={selectedPayment}
+      />
+
+      <LinkPaymentToInvoiceDialog
+        open={linkDialogOpen}
+        onOpenChange={setLinkDialogOpen}
+        payment={paymentToLink}
       />
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
