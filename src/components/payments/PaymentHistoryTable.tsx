@@ -1,6 +1,6 @@
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { CreditCard, Banknote, ArrowRightLeft, Smartphone, Pencil, Trash2, Lock, CalendarDays } from 'lucide-react';
+import { CreditCard, Banknote, ArrowRightLeft, Smartphone, Pencil, Trash2, Lock, CalendarDays, Link2 } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -23,6 +23,7 @@ interface PaymentHistoryTableProps {
   payments: PaymentWithRelations[];
   onEdit?: (payment: PaymentWithRelations) => void;
   onDelete?: (payment: PaymentWithRelations) => void;
+  onLinkToInvoice?: (payment: PaymentWithRelations) => void;
 }
 
 const methodConfig: Record<string, { label: string; icon: React.ReactNode }> = {
@@ -32,7 +33,7 @@ const methodConfig: Record<string, { label: string; icon: React.ReactNode }> = {
   bizum: { label: 'Bizum', icon: <Smartphone className="h-4 w-4" /> },
 };
 
-export function PaymentHistoryTable({ payments, onEdit, onDelete }: PaymentHistoryTableProps) {
+export function PaymentHistoryTable({ payments, onEdit, onDelete, onLinkToInvoice }: PaymentHistoryTableProps) {
   if (payments.length === 0) {
     return (
       <div className="text-center py-8 text-muted-foreground">
@@ -82,6 +83,17 @@ export function PaymentHistoryTable({ payments, onEdit, onDelete }: PaymentHisto
 
               {canEdit ? (
                 <div className="flex items-center gap-2 pt-2 border-t">
+                  {!hasInvoice && onLinkToInvoice && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1"
+                      onClick={() => onLinkToInvoice(payment)}
+                    >
+                      <Link2 className="h-4 w-4 mr-2" />
+                      Vincular
+                    </Button>
+                  )}
                   <Button
                     variant="outline"
                     size="sm"
@@ -162,6 +174,21 @@ export function PaymentHistoryTable({ payments, onEdit, onDelete }: PaymentHisto
                   <TableCell>
                     {canEdit ? (
                       <div className="flex items-center gap-1">
+                        {!hasInvoice && onLinkToInvoice && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => onLinkToInvoice(payment)}
+                              >
+                                <Link2 className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Vincular a factura</TooltipContent>
+                          </Tooltip>
+                        )}
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <Button
