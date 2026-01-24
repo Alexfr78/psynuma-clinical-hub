@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { FileText, User, Download, MoreVertical, ShieldCheck, Search, FileX, FilePlus2, RefreshCw, Clock, Mail } from 'lucide-react';
+import { FileText, User, Download, MoreVertical, ShieldCheck, Search, FileX, FilePlus2, RefreshCw, Clock, Mail, Link2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -26,6 +26,7 @@ interface InvoiceCardProps {
   onCreateRectificativa?: () => void;
   onRetryVerifactu?: () => void;
   onSendInvoice?: () => void;
+  onLinkPayments?: () => void;
 }
 
 const statusConfig = {
@@ -45,7 +46,8 @@ export function InvoiceCard({
   onCancelVerifactu,
   onCreateRectificativa,
   onRetryVerifactu,
-  onSendInvoice
+  onSendInvoice,
+  onLinkPayments
 }: InvoiceCardProps) {
   const status = statusConfig[invoice.status] || statusConfig.draft;
   const isSealed = !!invoice.verifactu_registration_id; // Use registration_id as it confirms AEAT acceptance
@@ -179,9 +181,15 @@ export function InvoiceCard({
                     )}
 
                     {invoice.status === 'issued' && (
-                      <DropdownMenuItem onClick={() => { setMenuOpen(false); onStatusChange?.('paid'); }}>
-                        Marcar como pagada
-                      </DropdownMenuItem>
+                      <>
+                        <DropdownMenuItem onClick={() => { setMenuOpen(false); onLinkPayments?.(); }}>
+                          <Link2 className="h-4 w-4 mr-2" />
+                          Vincular cobros
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => { setMenuOpen(false); onStatusChange?.('paid'); }}>
+                          Marcar como pagada
+                        </DropdownMenuItem>
+                      </>
                     )}
 
                     {/* Verifactu actions for sealed invoices */}

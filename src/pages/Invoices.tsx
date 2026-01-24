@@ -29,6 +29,7 @@ import { CreateSimpleInvoiceDialog } from '@/components/invoices/CreateSimpleInv
 import { CreateRecapInvoiceDialog } from '@/components/invoices/CreateRecapInvoiceDialog';
 import { CreateRectificativaDialog } from '@/components/invoices/CreateRectificativaDialog';
 import { SendInvoiceDialog } from '@/components/invoices/SendInvoiceDialog';
+import { LinkPaymentsToInvoiceDialog } from '@/components/invoices/LinkPaymentsToInvoiceDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -53,8 +54,12 @@ export default function Invoices() {
   // Send invoice dialog state
   const [sendDialogOpen, setSendDialogOpen] = useState(false);
   const [selectedInvoiceForSend, setSelectedInvoiceForSend] = useState<InvoiceWithPatient | null>(null);
+  
+  // Link payments dialog state
+  const [linkPaymentsDialogOpen, setLinkPaymentsDialogOpen] = useState(false);
+  const [selectedInvoiceForLinkPayments, setSelectedInvoiceForLinkPayments] = useState<InvoiceWithPatient | null>(null);
 
-  const { data: invoices, isLoading, refetch } = useInvoices({ 
+  const { data: invoices, isLoading, refetch } = useInvoices({
     status: statusFilter === 'all' ? undefined : statusFilter,
     sortBy,
     sortDirection,
@@ -219,6 +224,11 @@ export default function Invoices() {
     setSendDialogOpen(true);
   };
 
+  const handleLinkPayments = (invoice: InvoiceWithPatient) => {
+    setSelectedInvoiceForLinkPayments(invoice);
+    setLinkPaymentsDialogOpen(true);
+  };
+
   const handleRetryVerifactu = async (invoiceId: string) => {
     try {
       toast.info('Reintentando registro en AEAT...');
@@ -367,6 +377,7 @@ export default function Invoices() {
                   onCreateRectificativa={() => handleCreateRectificativa(invoice)}
                   onRetryVerifactu={() => handleRetryVerifactu(invoice.id)}
                   onSendInvoice={() => handleSendInvoice(invoice)}
+                  onLinkPayments={() => handleLinkPayments(invoice)}
                 />
               ))}
             </div>
@@ -392,6 +403,12 @@ export default function Invoices() {
         open={sendDialogOpen} 
         onOpenChange={setSendDialogOpen}
         invoice={selectedInvoiceForSend}
+      />
+      
+      <LinkPaymentsToInvoiceDialog
+        open={linkPaymentsDialogOpen}
+        onOpenChange={setLinkPaymentsDialogOpen}
+        invoice={selectedInvoiceForLinkPayments}
       />
 
       {detailDialogOpen && selectedInvoiceId && (
