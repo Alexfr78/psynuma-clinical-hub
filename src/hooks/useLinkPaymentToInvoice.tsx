@@ -25,6 +25,27 @@ export function useLinkPaymentToInvoice() {
 
       if (updateError) throw updateError;
 
+      // Get invoice total to compare
+      const { data: invoice, error: invoiceError } = await supabase
+        .from('invoices')
+        .select('total')
+        .eq('id', invoiceId)
+        .single();
+
+      if (invoiceError) throw invoiceError;
+
+      // Get total payments linked to this invoice
+      const { data: paymentsSum, error: paymentsSumError } = await supabase
+        .from('payments')
+        .select('amount')
+        .eq('invoice_id', invoiceId);
+
+      if (paymentsSumError) throw paymentsSumError;
+
+      const totalPaid = paymentsSum?.reduce((sum, p) => sum + Number(p.amount), 0) || 0;
+      const invoiceTotal = Number(invoice.total);
+      const isFullyPaid = totalPaid >= invoiceTotal;
+
       // Find the debt associated with this invoice and update it
       const { data: debt, error: debtError } = await supabase
         .from('debts')
@@ -35,26 +56,24 @@ export function useLinkPaymentToInvoice() {
       if (debtError) throw debtError;
 
       if (debt) {
-        // Calculate new paid amount
-        const newPaidAmount = Number(debt.paid_amount || 0) + amount;
-        const newStatus = newPaidAmount >= Number(debt.amount) ? 'paid' : 'partial';
+        // Update debt with new total paid
+        const newStatus = totalPaid >= Number(debt.amount) ? 'paid' : (totalPaid > 0 ? 'partial' : 'pending');
 
-        // Update debt
         await supabase
           .from('debts')
           .update({
-            paid_amount: newPaidAmount,
+            paid_amount: totalPaid,
             status: newStatus,
           })
           .eq('id', debt.id);
+      }
 
-        // Update invoice status if fully paid
-        if (newStatus === 'paid') {
-          await supabase
-            .from('invoices')
-            .update({ status: 'paid' })
-            .eq('id', invoiceId);
-        }
+      // Always update invoice status based on total payments
+      if (isFullyPaid) {
+        await supabase
+          .from('invoices')
+          .update({ status: 'paid' })
+          .eq('id', invoiceId);
       }
 
       return { paymentId, invoiceId };
