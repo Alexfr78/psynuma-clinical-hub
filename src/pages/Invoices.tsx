@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { FileText, Plus, RefreshCw, ArrowUpDown, Hash, Calendar } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { FileText, Plus, RefreshCw, ArrowUpDown, Hash, Calendar, Search } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -59,11 +60,29 @@ export default function Invoices() {
   const [linkPaymentsDialogOpen, setLinkPaymentsDialogOpen] = useState(false);
   const [selectedInvoiceForLinkPayments, setSelectedInvoiceForLinkPayments] = useState<InvoiceWithPatient | null>(null);
 
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('');
+
   const { data: invoices, isLoading, refetch } = useInvoices({
     status: statusFilter === 'all' ? undefined : statusFilter,
     sortBy,
     sortDirection,
   });
+
+  // Filter invoices by patient name
+  const filteredInvoices = useMemo(() => {
+    if (!invoices) return [];
+    if (!searchQuery.trim()) return invoices;
+    
+    const query = searchQuery.toLowerCase().trim();
+    return invoices.filter(invoice => {
+      const firstName = invoice.patients?.first_name?.toLowerCase() || '';
+      const lastName = invoice.patients?.last_name?.toLowerCase() || '';
+      const patientName = `${firstName} ${lastName}`.trim();
+      const invoiceNumber = invoice.invoice_number?.toLowerCase() || '';
+      return patientName.includes(query) || invoiceNumber.includes(query);
+    });
+  }, [invoices, searchQuery]);
   const { data: stats } = useInvoiceStats();
   const updateStatus = useUpdateInvoiceStatus();
   
@@ -324,31 +343,42 @@ export default function Invoices() {
           </TabsList>
         </div>
 
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-4">
-          <div className="text-sm text-muted-foreground">
-            {invoices?.length || 0} facturas
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
+          <div className="relative flex-1 max-w-xs">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar por nombre o nº..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9"
+            />
           </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="w-full sm:w-auto justify-center sm:justify-start">
-                <ArrowUpDown className="h-4 w-4 mr-2" />
-                <span className="sm:hidden">{sortBy === 'invoice_number' ? 'Nº' : 'Fecha'} {sortDirection === 'desc' ? '↓' : '↑'}</span>
-                <span className="hidden sm:inline">{getSortLabel()}</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>Ordenar por</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => handleSort('invoice_number')}>
-                <Hash className="h-4 w-4 mr-2" />
-                Número {sortBy === 'invoice_number' && (sortDirection === 'desc' ? '↓' : '↑')}
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleSort('issue_date')}>
-                <Calendar className="h-4 w-4 mr-2" />
-                Fecha {sortBy === 'issue_date' && (sortDirection === 'desc' ? '↓' : '↑')}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <div className="flex items-center gap-2">
+            <div className="text-sm text-muted-foreground whitespace-nowrap">
+              {filteredInvoices.length} facturas
+            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="justify-center sm:justify-start">
+                  <ArrowUpDown className="h-4 w-4 mr-2" />
+                  <span className="sm:hidden">{sortBy === 'invoice_number' ? 'Nº' : 'Fecha'} {sortDirection === 'desc' ? '↓' : '↑'}</span>
+                  <span className="hidden sm:inline">{getSortLabel()}</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Ordenar por</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => handleSort('invoice_number')}>
+                  <Hash className="h-4 w-4 mr-2" />
+                  Número {sortBy === 'invoice_number' && (sortDirection === 'desc' ? '↓' : '↑')}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleSort('issue_date')}>
+                  <Calendar className="h-4 w-4 mr-2" />
+                  Fecha {sortBy === 'issue_date' && (sortDirection === 'desc' ? '↓' : '↑')}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
 
         <TabsContent value={statusFilter} className="mt-0">
@@ -356,15 +386,17 @@ export default function Invoices() {
             <div className="space-y-4">
               {[1, 2, 3].map(i => <Skeleton key={i} className="h-24" />)}
             </div>
-          ) : !invoices || invoices.length === 0 ? (
+          ) : filteredInvoices.length === 0 ? (
             <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12">
               <FileText className="h-12 w-12 text-muted-foreground" />
               <h3 className="mt-4 font-semibold">Sin facturas</h3>
-              <p className="text-sm text-muted-foreground">No hay facturas en esta categoría</p>
+              <p className="text-sm text-muted-foreground">
+                {searchQuery.trim() ? 'No se encontraron facturas con ese criterio' : 'No hay facturas en esta categoría'}
+              </p>
             </div>
           ) : (
             <div className="space-y-4">
-              {invoices.map(invoice => (
+              {filteredInvoices.map(invoice => (
                 <InvoiceCard
                   key={invoice.id}
                   invoice={invoice}
