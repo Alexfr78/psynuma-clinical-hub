@@ -55,9 +55,10 @@ export default function AssessmentResults() {
       if (printWindow) {
         printWindow.document.write(data.html);
         printWindow.document.close();
-        printWindow.onload = () => {
+        // Wait for images and styles to render before printing
+        setTimeout(() => {
           printWindow.print();
-        };
+        }, 800);
       }
       
       toast.success('PDF generado correctamente');

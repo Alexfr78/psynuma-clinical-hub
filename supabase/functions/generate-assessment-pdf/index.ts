@@ -705,8 +705,12 @@ function generateAssessmentHTML(params: GenerateHTMLParams): string {
     .footer .confidential { color: #dc2626; font-weight: 500; margin-bottom: 6px; }
     
     @media print { 
-      body { padding: 15px; } 
-      .section { page-break-inside: avoid; }
+      body { padding: 15px; -webkit-print-color-adjust: exact; print-color-adjust: exact; } 
+      .section { page-break-inside: auto; }
+      .interpretation-card, .info-box, .global-index { page-break-inside: avoid; }
+      .answers-section { page-break-before: always; }
+      .ai-interpretation { page-break-inside: auto; }
+      .ai-section { page-break-inside: avoid; }
     }
   </style>
 </head>
