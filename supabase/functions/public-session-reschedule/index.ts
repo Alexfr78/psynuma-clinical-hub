@@ -237,7 +237,9 @@ Deno.serve(async (req) => {
       const newStatus = requireConfirmation ? "pending_approval" : "scheduled";
 
       // Update the session
-      const { error: updateError } = await supabase
+      console.log(`[RESCHEDULE] Attempting to update session ${session.id} from ${session.session_date} ${session.start_time} to ${newDate} ${newStartTime}`);
+      
+      const { data: updatedSession, error: updateError } = await supabase
         .from("sessions")
         .update({
           session_date: newDate,
@@ -245,15 +247,19 @@ Deno.serve(async (req) => {
           end_time: newEndTime,
           status: newStatus,
         })
-        .eq("id", session.id);
+        .eq("id", session.id)
+        .select("id, session_date, start_time, status")
+        .single();
 
       if (updateError) {
-        console.error("Error updating session:", updateError);
+        console.error("[RESCHEDULE] Error updating session:", updateError);
         return new Response(
           JSON.stringify({ error: "Failed to reschedule session" }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
+
+      console.log(`[RESCHEDULE] Session updated successfully:`, updatedSession);
 
       // Send admin alert about the reschedule using the helper
       try {
