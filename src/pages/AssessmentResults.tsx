@@ -338,18 +338,31 @@ export default function AssessmentResults() {
                     .sort((a, b) => a.index - b.index)
                     .map(item => {
                       const answer = answers[item.index.toString()];
+                      const aiAnalysis = response?.metadata?.aiAnalysis as any;
+                      const itemAnalysis = aiAnalysis?.itemAnalysis?.[item.index.toString()];
+                      const example = itemAnalysis?.example;
+                      const hasExample = answer !== undefined && answer > 0 && example;
+                      
                       return (
                         <div 
                           key={item.index} 
-                          className="flex justify-between items-start py-2 border-b last:border-b-0 gap-4"
+                          className="py-2 border-b last:border-b-0"
                         >
-                          <span className="text-sm flex-1">
-                            <span className="font-medium mr-2">{item.index}.</span>
-                            {item.text}
-                          </span>
-                          <Badge variant="outline" className="shrink-0 font-mono">
-                            {answer !== undefined ? `${answer}%` : '—'}
-                          </Badge>
+                          <div className="flex justify-between items-start gap-4">
+                            <span className="text-sm flex-1">
+                              <span className="font-medium mr-2">{item.index}.</span>
+                              {item.text}
+                            </span>
+                            <Badge variant="outline" className="shrink-0 font-mono">
+                              {answer !== undefined ? `${answer}%` : '—'}
+                            </Badge>
+                          </div>
+                          {hasExample && (
+                            <div className="mt-2 ml-6 p-2 bg-muted/50 rounded-md border-l-2 border-primary/30">
+                              <p className="text-xs text-muted-foreground mb-1">Ejemplo proporcionado:</p>
+                              <p className="text-sm italic">"{example}"</p>
+                            </div>
+                          )}
                         </div>
                       );
                     })}
