@@ -1,11 +1,13 @@
 import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { SignatureCanvas, SignatureCanvasRef } from './SignatureCanvas';
 import { PublicConsent, usePublicConsent } from '@/hooks/usePublicConsent';
-import { Loader2, CheckCircle2, ArrowRight, Download } from 'lucide-react';
+import { Loader2, CheckCircle2, ArrowRight, Download, AlertCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { sanitizeHtml } from '@/lib/sanitize';
 
@@ -19,19 +21,11 @@ const CHECKBOX_MARKER = '<!--VERIFICATION_CHECKBOXES-->';
 
 // Function to replace the placeholder along with its containing HTML structure
 function replaceVerificationPlaceholder(html: string): string {
-  // Pattern to match: <div><span...>{campos_verificacion}</span></div> or similar nested structures
-  // We match the entire containing div/span block that has the placeholder
-  // IMPORTANT: Using non-global regex to avoid lastIndex issues with test() + replace()
   const patterns = [
-    // Match <div><span...>{campos_verificacion}</span></div>
     /<div[^>]*>\s*<span[^>]*>\s*\{campos_verificacion\}\s*<\/span>\s*<\/div>/i,
-    // Match <span...>{campos_verificacion}</span> (without outer div)
     /<span[^>]*>\s*\{campos_verificacion\}\s*<\/span>/i,
-    // Match <div...>{campos_verificacion}</div>
     /<div[^>]*>\s*\{campos_verificacion\}\s*<\/div>/i,
-    // Match <p...>{campos_verificacion}</p>
     /<p[^>]*>\s*\{campos_verificacion\}\s*<\/p>/i,
-    // Match just the placeholder
     /\{campos_verificacion\}/i,
   ];
   
@@ -39,45 +33,40 @@ function replaceVerificationPlaceholder(html: string): string {
   for (const pattern of patterns) {
     if (pattern.test(result)) {
       result = result.replace(pattern, CHECKBOX_MARKER);
-      break; // Only replace once
+      break;
     }
   }
   return result;
 }
 
+// Type for verification responses: 'authorized' | 'not_authorized' | undefined
+type VerificationResponse = 'authorized' | 'not_authorized' | undefined;
+
 // Component to render document with inline verification checkboxes
 interface DocumentWithVerificationsProps {
   content: string;
   verificationCheckboxes: string[];
-  acceptedVerifications: Record<number, boolean>;
-  setAcceptedVerifications: React.Dispatch<React.SetStateAction<Record<number, boolean>>>;
+  verificationResponses: Record<number, VerificationResponse>;
+  setVerificationResponses: React.Dispatch<React.SetStateAction<Record<number, VerificationResponse>>>;
   hasPlaceholder: boolean;
   prefix: string;
+  readOnly?: boolean;
 }
 
 function DocumentWithVerifications({
   content,
   verificationCheckboxes,
-  acceptedVerifications,
-  setAcceptedVerifications,
+  verificationResponses,
+  setVerificationResponses,
   hasPlaceholder,
   prefix,
+  readOnly = false,
 }: DocumentWithVerificationsProps) {
-  // Replace the placeholder (with any surrounding tags) with a clean marker
   const processedContent = replaceVerificationPlaceholder(content);
   const cleanContent = processedContent.replace(CHECKBOX_MARKER, '');
   
-  // DEBUG logs - will be available in console
-  console.log('[Verification Debug] hasPlaceholder prop:', hasPlaceholder);
-  console.log('[Verification Debug] verificationCheckboxes:', verificationCheckboxes);
-  console.log('[Verification Debug] content includes placeholder:', content.includes('{campos_verificacion}'));
-  console.log('[Verification Debug] processedContent includes marker:', processedContent.includes(CHECKBOX_MARKER));
-  console.log('[Verification Debug] content snippet around placeholder:', 
-    content.substring(content.indexOf('AUTORIZACIÓN'), content.indexOf('Derechos') + 50));
-  
-  // If no verification checkboxes, just render the content without the placeholder
+  // If no verification checkboxes, just render the content
   if (verificationCheckboxes.length === 0) {
-    console.log('[Verification Debug] No checkboxes configured, rendering plain content');
     return (
       <div
         className="prose prose-sm max-w-none dark:prose-invert"
@@ -86,84 +75,86 @@ function DocumentWithVerifications({
     );
   }
 
-  // If placeholder exists, split by the clean marker and insert checkboxes at that position
-  if (hasPlaceholder && processedContent.includes(CHECKBOX_MARKER)) {
-    console.log('[Verification Debug] Rendering checkboxes at placeholder position');
-    const parts = processedContent.split(CHECKBOX_MARKER);
+  const VerificationFields = (
+    <div className="my-4 space-y-4 rounded-lg border-2 border-primary/30 bg-muted/30 p-4 not-prose">
+      {verificationCheckboxes.map((checkbox, index) => (
+        <div key={index} className="space-y-2">
+          <p className="text-sm font-medium">{checkbox}</p>
+          <RadioGroup
+            value={verificationResponses[index] || ''}
+            onValueChange={(value) => {
+              if (!readOnly) {
+                setVerificationResponses(prev => ({
+                  ...prev,
+                  [index]: value as VerificationResponse
+                }));
+              }
+            }}
+            disabled={readOnly}
+            className="flex gap-6"
+          >
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="authorized" id={`${prefix}-auth-${index}`} />
+              <Label 
+                htmlFor={`${prefix}-auth-${index}`} 
+                className="text-sm font-medium text-green-700 dark:text-green-400 cursor-pointer"
+              >
+                ✓ Autorizo
+              </Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="not_authorized" id={`${prefix}-notauth-${index}`} />
+              <Label 
+                htmlFor={`${prefix}-notauth-${index}`} 
+                className="text-sm font-medium text-red-700 dark:text-red-400 cursor-pointer"
+              >
+                ✗ No autorizo
+              </Label>
+            </div>
+          </RadioGroup>
+        </div>
+      ))}
+    </div>
+  );
 
+  // If placeholder exists, insert at that position
+  if (hasPlaceholder && processedContent.includes(CHECKBOX_MARKER)) {
+    const parts = processedContent.split(CHECKBOX_MARKER);
     return (
       <div className="prose prose-sm max-w-none dark:prose-invert">
         <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(parts[0]) }} />
-        
-        {/* Inline checkboxes at placeholder position */}
-        <div className="my-4 space-y-3 rounded-md border bg-muted/30 p-4 not-prose">
-          {verificationCheckboxes.map((checkbox, index) => (
-            <div key={index} className="flex items-start gap-3">
-              <Checkbox
-                id={`${prefix}-verification-${index}`}
-                checked={acceptedVerifications[index] || false}
-                onCheckedChange={(checked) => 
-                  setAcceptedVerifications(prev => ({ ...prev, [index]: checked === true }))
-                }
-              />
-              <label 
-                htmlFor={`${prefix}-verification-${index}`} 
-                className="text-sm leading-tight cursor-pointer"
-              >
-                {checkbox}
-              </label>
-            </div>
-          ))}
-        </div>
-        
+        {VerificationFields}
         {parts[1] && <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(parts[1]) }} />}
       </div>
     );
   }
 
-  // No placeholder - render content then checkboxes at the end
+  // No placeholder - render content then verification fields
   return (
     <div className="prose prose-sm max-w-none dark:prose-invert">
       <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(cleanContent) }} />
-      
-      {/* Checkboxes after content */}
-      <div className="my-4 space-y-3 rounded-md border bg-muted/30 p-4 not-prose">
-        {verificationCheckboxes.map((checkbox, index) => (
-          <div key={index} className="flex items-start gap-3">
-            <Checkbox
-              id={`${prefix}-verification-${index}`}
-              checked={acceptedVerifications[index] || false}
-              onCheckedChange={(checked) => 
-                setAcceptedVerifications(prev => ({ ...prev, [index]: checked === true }))
-              }
-            />
-            <label 
-              htmlFor={`${prefix}-verification-${index}`} 
-              className="text-sm leading-tight cursor-pointer"
-            >
-              {checkbox}
-            </label>
-          </div>
-        ))}
-      </div>
+      {VerificationFields}
     </div>
   );
 }
 
 export function MultiSignatureFlow({ consent, token }: MultiSignatureFlowProps) {
-  const { addSignature, markAsSigned } = usePublicConsent(token);
+  const { addSignature, markAsSigned, saveVerificationResponses } = usePublicConsent(token);
   const signatureRef = useRef<SignatureCanvasRef>(null);
 
   const [currentStep, setCurrentStep] = useState<'document' | 'guardian' | 'patient' | 'complete'>('document');
   const [hasSignature, setHasSignature] = useState(false);
   const [acceptedGdpr, setAcceptedGdpr] = useState(false);
-  const [acceptedVerifications, setAcceptedVerifications] = useState<Record<number, boolean>>({});
+  const [verificationResponses, setVerificationResponses] = useState<Record<number, VerificationResponse>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  
   const verificationCheckboxes = consent.template?.verification_checkboxes || [];
-  const allVerificationsAccepted = verificationCheckboxes.length === 0 || 
-    verificationCheckboxes.every((_, index) => acceptedVerifications[index]);
+  
+  // Check if all verification fields are answered (not just true, but answered)
+  const allVerificationsAnswered = verificationCheckboxes.length === 0 || 
+    verificationCheckboxes.every((_, index) => verificationResponses[index] !== undefined);
 
   // Check if placeholder exists in content
   const hasPlaceholderInContent = consent.content_snapshot.includes(VERIFICATION_PLACEHOLDER);
@@ -171,13 +162,6 @@ export function MultiSignatureFlow({ consent, token }: MultiSignatureFlowProps) 
   const needsGuardian = consent.requires_guardian;
   const guardianSigned = consent.signatures?.some((s) => s.signer_role === 'guardian');
   const patientSigned = consent.signatures?.some((s) => s.signer_role === 'patient');
-
-  // Determine initial step based on existing signatures
-  const getInitialStep = () => {
-    if (patientSigned) return 'complete';
-    if (needsGuardian && !guardianSigned) return 'guardian';
-    return 'patient';
-  };
 
   // Calculate progress
   const getProgress = () => {
@@ -187,7 +171,29 @@ export function MultiSignatureFlow({ consent, token }: MultiSignatureFlowProps) 
     return 100;
   };
 
-  const handleProceedToSign = () => {
+  const handleProceedToSign = async () => {
+    // First save the verification responses
+    if (verificationCheckboxes.length > 0) {
+      setIsSubmitting(true);
+      try {
+        // Convert to boolean format for storage
+        const responsesToSave: Record<string, boolean> = {};
+        Object.entries(verificationResponses).forEach(([key, value]) => {
+          responsesToSave[key] = value === 'authorized';
+        });
+        
+        await saveVerificationResponses.mutateAsync({
+          consentId: consent.id,
+          responses: responsesToSave,
+        });
+      } catch (error) {
+        console.error('Error saving verification responses:', error);
+        setIsSubmitting(false);
+        return;
+      }
+      setIsSubmitting(false);
+    }
+    
     if (needsGuardian && !guardianSigned) {
       setCurrentStep('guardian');
     } else {
@@ -219,7 +225,6 @@ export function MultiSignatureFlow({ consent, token }: MultiSignatureFlowProps) 
       signatureRef.current.clear();
       setHasSignature(false);
       setAcceptedGdpr(false);
-      setAcceptedVerifications({});
 
       if (role === 'guardian') {
         setCurrentStep('patient');
@@ -311,16 +316,37 @@ export function MultiSignatureFlow({ consent, token }: MultiSignatureFlowProps) 
             <DocumentWithVerifications 
               content={consent.content_snapshot}
               verificationCheckboxes={verificationCheckboxes}
-              acceptedVerifications={acceptedVerifications}
-              setAcceptedVerifications={setAcceptedVerifications}
+              verificationResponses={verificationResponses}
+              setVerificationResponses={setVerificationResponses}
               hasPlaceholder={hasPlaceholderInContent}
               prefix="document"
             />
           </Card>
+          
+          {/* Warning if not all answered */}
+          {verificationCheckboxes.length > 0 && !allVerificationsAnswered && (
+            <div className="flex items-center gap-2 rounded-md border border-amber-500/50 bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-400">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              <span>Debes indicar si autorizas o no cada uno de los campos de autorización antes de continuar.</span>
+            </div>
+          )}
+          
           <div className="flex justify-end">
-            <Button onClick={handleProceedToSign}>
-              Proceder a firmar
-              <ArrowRight className="ml-2 h-4 w-4" />
+            <Button 
+              onClick={handleProceedToSign}
+              disabled={!allVerificationsAnswered || isSubmitting}
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Guardando...
+                </>
+              ) : (
+                <>
+                  Proceder a firmar
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </>
+              )}
             </Button>
           </div>
         </>
@@ -337,26 +363,6 @@ export function MultiSignatureFlow({ consent, token }: MultiSignatureFlowProps) 
           </div>
 
           <SignatureCanvas ref={signatureRef} onSignatureChange={setHasSignature} />
-
-          {/* Verification Checkboxes - only show here if NOT in document */}
-          {!hasPlaceholderInContent && verificationCheckboxes.length > 0 && (
-            <div className="space-y-3">
-              {verificationCheckboxes.map((checkbox, index) => (
-                <div key={index} className="flex items-start gap-3">
-                  <Checkbox
-                    id={`verification-guardian-${index}`}
-                    checked={acceptedVerifications[index] || false}
-                    onCheckedChange={(checked) => 
-                      setAcceptedVerifications(prev => ({ ...prev, [index]: checked === true }))
-                    }
-                  />
-                  <label htmlFor={`verification-guardian-${index}`} className="text-sm leading-tight">
-                    {checkbox}
-                  </label>
-                </div>
-              ))}
-            </div>
-          )}
 
           <div className="flex items-start gap-3">
             <Checkbox
@@ -399,26 +405,6 @@ export function MultiSignatureFlow({ consent, token }: MultiSignatureFlowProps) 
           </div>
 
           <SignatureCanvas ref={signatureRef} onSignatureChange={setHasSignature} />
-
-          {/* Verification Checkboxes - only show here if NOT in document */}
-          {!hasPlaceholderInContent && verificationCheckboxes.length > 0 && (
-            <div className="space-y-3">
-              {verificationCheckboxes.map((checkbox, index) => (
-                <div key={index} className="flex items-start gap-3">
-                  <Checkbox
-                    id={`verification-patient-${index}`}
-                    checked={acceptedVerifications[index] || false}
-                    onCheckedChange={(checked) => 
-                      setAcceptedVerifications(prev => ({ ...prev, [index]: checked === true }))
-                    }
-                  />
-                  <label htmlFor={`verification-patient-${index}`} className="text-sm leading-tight">
-                    {checkbox}
-                  </label>
-                </div>
-              ))}
-            </div>
-          )}
 
           <div className="flex items-start gap-3">
             <Checkbox

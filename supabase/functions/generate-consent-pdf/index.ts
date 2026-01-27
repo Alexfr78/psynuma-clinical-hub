@@ -12,6 +12,7 @@ interface ConsentData {
   content_snapshot: string;
   center_id: string;
   signed_at: string | null;
+  verification_responses: Record<string, boolean> | null;
   patient: {
     first_name: string;
     last_name: string;
@@ -22,6 +23,7 @@ interface ConsentData {
   };
   template: {
     name: string;
+    verification_checkboxes: string[] | null;
   };
   center: {
     name: string;
@@ -84,6 +86,45 @@ function sanitizeForPdf(text: string): string {
     .replace(/Ñ/g, 'N')
     .replace(/ü/g, 'u')
     .replace(/Ü/g, 'U');
+}
+
+// Replace verification placeholder with actual responses
+function replaceVerificationPlaceholder(
+  html: string,
+  verificationCheckboxes: string[] | null,
+  verificationResponses: Record<string, boolean> | null
+): string {
+  if (!verificationCheckboxes || verificationCheckboxes.length === 0) {
+    // Just remove the placeholder
+    return html.replace(/\{campos_verificacion\}/gi, '');
+  }
+
+  // Build text representation for verification responses
+  const responsesText = verificationCheckboxes.map((checkbox, index) => {
+    const response = verificationResponses?.[index.toString()];
+    const isAuthorized = response === true;
+    const icon = isAuthorized ? '[X] AUTORIZO' : '[ ] NO AUTORIZO';
+    return `${checkbox}\n   ${icon}`;
+  }).join('\n\n');
+
+  // Replace placeholder patterns
+  const patterns = [
+    /<div[^>]*>\s*<span[^>]*>\s*\{campos_verificacion\}\s*<\/span>\s*<\/div>/gi,
+    /<span[^>]*>\s*\{campos_verificacion\}\s*<\/span>/gi,
+    /<div[^>]*>\s*\{campos_verificacion\}\s*<\/div>/gi,
+    /<p[^>]*>\s*\{campos_verificacion\}\s*<\/p>/gi,
+    /\{campos_verificacion\}/gi,
+  ];
+
+  let result = html;
+  for (const pattern of patterns) {
+    if (pattern.test(result)) {
+      result = result.replace(pattern, `<p>${responsesText}</p>`);
+      break;
+    }
+  }
+
+  return result;
 }
 
 // Strip HTML tags and decode entities for plain text
@@ -232,9 +273,10 @@ serve(async (req) => {
         content_snapshot,
         center_id,
         signed_at,
+        verification_responses,
         patient:patients(first_name, last_name),
         professional:profiles(first_name, last_name),
-        template:consent_templates(name),
+        template:consent_templates(name, verification_checkboxes),
         center:centers(name, address, city, postal_code, invoice_logo_url)
       `)
       .eq('id', consent_id)
@@ -429,8 +471,13 @@ serve(async (req) => {
 
     currentY -= boxHeight + 30;
 
-    // Document content
-    const plainText = htmlToPlainText(typedConsent.content_snapshot || '');
+    // Document content - replace verification placeholder with actual responses
+    const contentWithVerifications = replaceVerificationPlaceholder(
+      typedConsent.content_snapshot || '',
+      typedConsent.template?.verification_checkboxes || null,
+      typedConsent.verification_responses || null
+    );
+    const plainText = htmlToPlainText(contentWithVerifications);
     const result = drawTextWithPageBreaks(
       pdfDoc,
       pages,
