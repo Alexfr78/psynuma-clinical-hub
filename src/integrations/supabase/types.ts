@@ -1213,6 +1213,7 @@ export type Database = {
           status: Database["public"]["Enums"]["consent_status"] | null
           template_id: string
           updated_at: string | null
+          verification_responses: Json | null
         }
         Insert: {
           access_token?: string
@@ -1231,6 +1232,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["consent_status"] | null
           template_id: string
           updated_at?: string | null
+          verification_responses?: Json | null
         }
         Update: {
           access_token?: string
@@ -1249,6 +1251,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["consent_status"] | null
           template_id?: string
           updated_at?: string | null
+          verification_responses?: Json | null
         }
         Relationships: [
           {

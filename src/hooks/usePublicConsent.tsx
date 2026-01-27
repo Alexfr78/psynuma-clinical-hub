@@ -11,6 +11,7 @@ export interface PublicConsent {
   requires_guardian: boolean;
   expires_at: string;
   signed_at: string | null;
+  verification_responses: Record<string, boolean> | null;
   patient: {
     first_name: string;
     last_name: string;
@@ -52,6 +53,7 @@ export function usePublicConsent(token: string | undefined) {
           requires_guardian,
           expires_at,
           signed_at,
+          verification_responses,
           patient:patients(first_name, last_name, guardian_name, guardian_relationship),
           professional:profiles(first_name, last_name),
           template:consent_templates(name, verification_checkboxes),
@@ -110,6 +112,38 @@ export function usePublicConsent(token: string | undefined) {
     },
   });
 
+  const saveVerificationResponses = useMutation({
+    mutationFn: async ({
+      consentId,
+      responses,
+    }: {
+      consentId: string;
+      responses: Record<string, boolean>;
+    }) => {
+      if (!token) throw new Error('No token');
+      
+      const { data, error } = await supabase
+        .from('consents')
+        .update({
+          verification_responses: responses,
+        })
+        .eq('id', consentId)
+        .setHeader('x-consent-token', token)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['public-consent', token] });
+    },
+    onError: (error) => {
+      toast.error('Error al guardar las autorizaciones');
+      console.error(error);
+    },
+  });
+
   const markAsSigned = useMutation({
     mutationFn: async (consentId: string) => {
       if (!token) throw new Error('No token');
@@ -156,6 +190,7 @@ export function usePublicConsent(token: string | undefined) {
     error,
     isExpired,
     addSignature,
+    saveVerificationResponses,
     markAsSigned,
   };
 }
