@@ -233,11 +233,17 @@ export function ConsentDetailDialog({
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {signatures.map((sig) => (
+                  {signatures.map((sig) => {
+                    // Handle "undefined undefined" from legacy signatures
+                    const displayName = sig.signer_name === 'undefined undefined' 
+                      ? `${consent.patient?.first_name || ''} ${consent.patient?.last_name || ''}`.trim() || 'Paciente'
+                      : sig.signer_name;
+                    
+                    return (
                     <Card key={sig.id} className="p-3">
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="font-medium">{sig.signer_name}</p>
+                          <p className="font-medium">{displayName}</p>
                           <p className="text-xs text-muted-foreground">
                             {sig.signer_role === 'guardian' ? 'Tutor' : 'Paciente'} •{' '}
                             {format(new Date(sig.signed_at), "d MMM yyyy, HH:mm", { locale: es })}
@@ -257,7 +263,8 @@ export function ConsentDetailDialog({
                         </p>
                       )}
                     </Card>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
