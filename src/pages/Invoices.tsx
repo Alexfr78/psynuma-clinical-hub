@@ -286,8 +286,8 @@ export default function Invoices() {
           <h1 className="font-display text-2xl sm:text-3xl font-bold">Facturas</h1>
           <p className="text-muted-foreground">Gestiona la facturación</p>
         </div>
-        <div className="flex gap-2 w-full sm:w-auto">
-          <Button variant="outline" size="sm" onClick={() => setExportDialogOpen(true)} className="flex-1 sm:flex-none">
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <Button variant="outline" size="sm" onClick={() => setExportDialogOpen(true)}>
             <Download className="h-4 w-4 mr-2" />
             Exportar
           </Button>
