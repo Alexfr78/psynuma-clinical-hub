@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { FileText, Plus, RefreshCw, ArrowUpDown, Hash, Calendar, Search } from 'lucide-react';
+import { FileText, Plus, RefreshCw, ArrowUpDown, Hash, Calendar, Search, Download } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -31,6 +31,7 @@ import { CreateRecapInvoiceDialog } from '@/components/invoices/CreateRecapInvoi
 import { CreateRectificativaDialog } from '@/components/invoices/CreateRectificativaDialog';
 import { SendInvoiceDialog } from '@/components/invoices/SendInvoiceDialog';
 import { LinkPaymentsToInvoiceDialog } from '@/components/invoices/LinkPaymentsToInvoiceDialog';
+import { ExportInvoicesDialog } from '@/components/invoices/ExportInvoicesDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -62,6 +63,9 @@ export default function Invoices() {
 
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
+  
+  // Export dialog state
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
 
   const { data: invoices, isLoading, refetch } = useInvoices({
     status: statusFilter === 'all' ? undefined : statusFilter,
@@ -282,22 +286,28 @@ export default function Invoices() {
           <h1 className="font-display text-2xl sm:text-3xl font-bold">Facturas</h1>
           <p className="text-muted-foreground">Gestiona la facturación</p>
         </div>
-        <DropdownMenu open={newInvoiceMenuOpen} onOpenChange={setNewInvoiceMenuOpen}>
-          <DropdownMenuTrigger asChild>
-            <Button size="sm" className="w-full sm:w-auto">
-              <Plus className="h-4 w-4 mr-2" />
-              Nueva factura
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => { setNewInvoiceMenuOpen(false); setSimpleOpen(true); }}>
-              Factura simple
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => { setNewInvoiceMenuOpen(false); setRecapOpen(true); }}>
-              Factura recapitulativa
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <div className="flex gap-2 w-full sm:w-auto">
+          <Button variant="outline" size="sm" onClick={() => setExportDialogOpen(true)} className="flex-1 sm:flex-none">
+            <Download className="h-4 w-4 mr-2" />
+            Exportar
+          </Button>
+          <DropdownMenu open={newInvoiceMenuOpen} onOpenChange={setNewInvoiceMenuOpen}>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" className="flex-1 sm:flex-none">
+                <Plus className="h-4 w-4 mr-2" />
+                Nueva factura
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => { setNewInvoiceMenuOpen(false); setSimpleOpen(true); }}>
+                Factura simple
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => { setNewInvoiceMenuOpen(false); setRecapOpen(true); }}>
+                Factura recapitulativa
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
 
       <div className="grid gap-3 grid-cols-1 sm:grid-cols-3">
@@ -471,6 +481,11 @@ export default function Invoices() {
           </AlertDialogContent>
         </AlertDialog>
       )}
+      
+      <ExportInvoicesDialog 
+        open={exportDialogOpen} 
+        onOpenChange={setExportDialogOpen} 
+      />
     </div>
   );
 }
