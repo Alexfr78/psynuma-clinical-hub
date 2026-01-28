@@ -209,9 +209,15 @@ export function MultiSignatureFlow({ consent, token }: MultiSignatureFlowProps) 
       const signatureData = signatureRef.current.getSignatureData();
       if (!signatureData) return;
 
-      const signerName = role === 'guardian'
-        ? consent.patient?.guardian_name || 'Tutor'
-        : `${consent.patient?.first_name} ${consent.patient?.last_name}`;
+      // Build signer name with proper fallbacks to avoid "undefined undefined"
+      let signerName: string;
+      if (role === 'guardian') {
+        signerName = consent.patient?.guardian_name?.trim() || 'Tutor/Responsable legal';
+      } else {
+        const firstName = consent.patient?.first_name?.trim() || '';
+        const lastName = consent.patient?.last_name?.trim() || '';
+        signerName = [firstName, lastName].filter(Boolean).join(' ') || 'Paciente';
+      }
 
       await addSignature.mutateAsync({
         consentId: consent.id,
