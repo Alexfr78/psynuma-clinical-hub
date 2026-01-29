@@ -7,6 +7,13 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+interface InvoiceSeries {
+  id: string;
+  name: string;
+  invoice_type: 'simplified' | 'complete' | null;
+  series_type: 'ordinary' | 'rectifying' | null;
+}
+
 interface InvoiceData {
   id: string;
   invoice_number: string;
@@ -26,6 +33,7 @@ interface InvoiceData {
   is_recapitulative: boolean | null;
   rectified_invoice_id: string | null;
   rectification_type: string | null;
+  series_id: string | null;
   patients: {
     first_name: string;
     last_name: string;
@@ -57,6 +65,41 @@ interface InvoiceItem {
   retention_rate: number | null;
   retention_amount: number | null;
   total: number;
+}
+
+/**
+ * Unified invoice document type label logic
+ * Must match the frontend implementation in src/lib/invoiceDocumentType.ts
+ */
+function getInvoiceDocumentTypeLabel(
+  invoice: { is_recapitulative?: boolean | null; rectified_invoice_id?: string | null; rectification_type?: string | null },
+  series: InvoiceSeries | null
+): string {
+  const isSimplified = series?.invoice_type === 'simplified';
+  const isRectifying = !!invoice.rectified_invoice_id || series?.series_type === 'rectifying';
+  const isSubstitution = invoice.rectification_type === 'substitution';
+  const isRecapitulativa = !!invoice.is_recapitulative;
+
+  if (isRectifying) {
+    const rectTypeLabel = isSubstitution ? '(Sustitutiva)' : '(Por diferencias)';
+    if (isSimplified) {
+      return `FACTURA RECTIFICATIVA SIMPLIFICADA ${rectTypeLabel}`;
+    }
+    return `FACTURA RECTIFICATIVA ${rectTypeLabel}`;
+  }
+  
+  if (isRecapitulativa) {
+    if (isSimplified) {
+      return 'FACTURA RECAPITULATIVA SIMPLIFICADA';
+    }
+    return 'FACTURA RECAPITULATIVA';
+  }
+  
+  if (isSimplified) {
+    return 'FACTURA SIMPLIFICADA';
+  }
+  
+  return 'FACTURA';
 }
 
 // Fetch any image URL and convert to base64 data URL
@@ -116,7 +159,7 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Fetch invoice data
+    // Fetch invoice data with series join
     const { data: invoice, error: invoiceError } = await supabase
       .from("invoices")
       .select(`
@@ -133,6 +176,20 @@ serve(async (req) => {
         JSON.stringify({ error: "Invoice not found" }),
         { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
+    }
+
+    // Fetch series data if series_id exists
+    let series: InvoiceSeries | null = null;
+    if (invoice.series_id) {
+      const { data: seriesData } = await supabase
+        .from("invoice_series")
+        .select("id, name, invoice_type, series_type")
+        .eq("id", invoice.series_id)
+        .single();
+      
+      if (seriesData) {
+        series = seriesData as InvoiceSeries;
+      }
     }
 
     // Fetch invoice items with tax/retention details
@@ -173,8 +230,8 @@ serve(async (req) => {
       logoBase64 = await fetchImageAsBase64(invoiceData.centers.invoice_logo_url) || '';
     }
 
-    // Generate HTML for PDF
-    const html = generateInvoiceHTML(invoiceData, invoiceItems, rectifiedInvoice, qrBase64, logoBase64);
+    // Generate HTML for PDF with unified label logic
+    const html = generateInvoiceHTML(invoiceData, invoiceItems, rectifiedInvoice, qrBase64, logoBase64, series);
 
     return new Response(
       JSON.stringify({
@@ -200,7 +257,14 @@ serve(async (req) => {
   }
 });
 
-function generateInvoiceHTML(invoice: InvoiceData, items: InvoiceItem[], rectifiedInvoice: any, qrBase64: string, logoBase64: string): string {
+function generateInvoiceHTML(
+  invoice: InvoiceData, 
+  items: InvoiceItem[], 
+  rectifiedInvoice: any, 
+  qrBase64: string, 
+  logoBase64: string,
+  series: InvoiceSeries | null
+): string {
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
     return date.toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' });
@@ -210,15 +274,8 @@ function generateInvoiceHTML(invoice: InvoiceData, items: InvoiceItem[], rectifi
     return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(amount);
   };
 
-  // Determine invoice type label
-  let invoiceTypeLabel = 'FACTURA';
-  if (invoice.is_recapitulative) {
-    invoiceTypeLabel = 'FACTURA RECAPITULATIVA';
-  } else if (invoice.rectified_invoice_id) {
-    invoiceTypeLabel = invoice.rectification_type === 'substitution' 
-      ? 'FACTURA RECTIFICATIVA (Sustitución)' 
-      : 'FACTURA RECTIFICATIVA (Por diferencias)';
-  }
+  // Use unified invoice document type label
+  const invoiceTypeLabel = getInvoiceDocumentTypeLabel(invoice, series);
 
   // Generate QR section if verifactu is configured and QR base64 is available
   const qrSection = invoice.verifactu_qr && qrBase64 ? `

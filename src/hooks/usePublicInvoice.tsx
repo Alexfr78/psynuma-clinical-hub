@@ -15,6 +15,13 @@ interface InvoiceItem {
   total: number;
 }
 
+interface InvoiceSeries {
+  id: string;
+  name: string;
+  invoice_type: 'simplified' | 'complete';
+  series_type: 'ordinary' | 'rectifying';
+}
+
 interface PublicInvoice {
   id: string;
   invoice_number: string;
@@ -32,6 +39,10 @@ interface PublicInvoice {
   is_recapitulative: boolean | null;
   verifactu_qr: string | null;
   access_token: string;
+  // Rectification fields
+  series_id: string | null;
+  rectified_invoice_id: string | null;
+  rectification_type: 'differences' | 'substitution' | null;
   patient: {
     first_name: string;
     last_name: string;
@@ -54,6 +65,7 @@ interface PublicInvoice {
     invoice_logo_url: string | null;
     invoice_footer: string | null;
   };
+  series: InvoiceSeries | null;
   items: InvoiceItem[];
 }
 
@@ -63,7 +75,7 @@ export function usePublicInvoice(token: string | undefined) {
     queryFn: async (): Promise<PublicInvoice | null> => {
       if (!token) return null;
 
-      // Fetch invoice by access_token
+      // Fetch invoice by access_token with series join
       const { data: invoice, error: invoiceError } = await supabase
         .from('invoices')
         .select(`
@@ -83,6 +95,9 @@ export function usePublicInvoice(token: string | undefined) {
           is_recapitulative,
           verifactu_qr,
           access_token,
+          series_id,
+          rectified_invoice_id,
+          rectification_type,
           patient_id,
           center_id
         `)
@@ -119,8 +134,24 @@ export function usePublicInvoice(token: string | undefined) {
         .setHeader('x-invoice-token', token)
         .order('created_at', { ascending: true });
 
+      // Fetch series data if series_id exists
+      let series: InvoiceSeries | null = null;
+      if (invoice.series_id) {
+        const { data: seriesData } = await supabase
+          .from('invoice_series')
+          .select('id, name, invoice_type, series_type')
+          .eq('id', invoice.series_id)
+          .setHeader('x-invoice-token', token)
+          .single();
+        
+        if (seriesData) {
+          series = seriesData as InvoiceSeries;
+        }
+      }
+
       return {
         ...invoice,
+        rectification_type: invoice.rectification_type as 'differences' | 'substitution' | null,
         patient: patient || {
           first_name: '',
           last_name: '',
@@ -143,6 +174,7 @@ export function usePublicInvoice(token: string | undefined) {
           invoice_logo_url: null,
           invoice_footer: null,
         },
+        series,
         items: items || [],
       };
     },
