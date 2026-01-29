@@ -4,16 +4,51 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Printer, Download, FileText, AlertCircle } from 'lucide-react';
+import { Printer, Download, FileText, AlertCircle, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { getInvoiceDocumentType } from '@/lib/invoiceDocumentType';
+import { supabase } from '@/integrations/supabase/client';
+import { useState } from 'react';
+import { toast } from 'sonner';
 
 export default function InvoiceView() {
   const { token } = useParams<{ token: string }>();
   const { data: invoice, isLoading, error } = usePublicInvoice(token);
+  const [downloading, setDownloading] = useState(false);
 
   const handlePrint = () => {
     window.print();
+  };
+
+  const handleDownloadPDF = async () => {
+    if (!invoice) return;
+    
+    setDownloading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-invoice-pdf', {
+        body: { invoice_id: invoice.id }
+      });
+
+      if (error) throw error;
+
+      // Open HTML in new window and print
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.write(data.html);
+        printWindow.document.close();
+        
+        // Wait for images to load before printing
+        setTimeout(() => {
+          printWindow.print();
+        }, 500);
+      }
+    } catch (err) {
+      console.error('Error generating PDF:', err);
+      toast.error('Error al generar el PDF');
+    } finally {
+      setDownloading(false);
+    }
   };
 
   if (isLoading) {
@@ -42,6 +77,9 @@ export default function InvoiceView() {
       </div>
     );
   }
+
+  // Calculate invoice document type using unified utility
+  const documentType = getInvoiceDocumentType(invoice, invoice.series);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('es-ES', {
@@ -78,8 +116,12 @@ export default function InvoiceView() {
               <Printer className="h-4 w-4 mr-2" />
               Imprimir
             </Button>
-            <Button size="sm" onClick={handlePrint}>
-              <Download className="h-4 w-4 mr-2" />
+            <Button size="sm" onClick={handleDownloadPDF} disabled={downloading}>
+              {downloading ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4 mr-2" />
+              )}
               Descargar PDF
             </Button>
           </div>
@@ -120,8 +162,8 @@ export default function InvoiceView() {
               </div>
 
               <div className="text-right space-y-2">
-                <div className="flex items-center justify-end gap-2">
-                  <h1 className="text-2xl font-bold">FACTURA</h1>
+                <div className="flex items-center justify-end gap-2 flex-wrap">
+                  <h1 className="text-2xl font-bold">{documentType.label}</h1>
                   <Badge variant={status.variant} className="print:hidden">
                     {status.label}
                   </Badge>
@@ -142,9 +184,20 @@ export default function InvoiceView() {
                 {!invoice.is_valid && (
                   <Badge variant="destructive">ANULADA</Badge>
                 )}
-                {invoice.is_recapitulative && (
-                  <Badge variant="outline">Recapitulativa</Badge>
-                )}
+                {/* Show type badges for additional context */}
+                <div className="flex flex-wrap gap-1 justify-end">
+                  {documentType.flags.isSimplified && (
+                    <Badge variant="outline" className="text-xs">Simplificada</Badge>
+                  )}
+                  {documentType.flags.isRectifying && (
+                    <Badge variant="outline" className="text-xs">
+                      {documentType.flags.isSubstitution ? 'Sustitutiva' : 'Por diferencias'}
+                    </Badge>
+                  )}
+                  {documentType.flags.isRecapitulativa && (
+                    <Badge variant="outline" className="text-xs">Recapitulativa</Badge>
+                  )}
+                </div>
               </div>
             </div>
 
