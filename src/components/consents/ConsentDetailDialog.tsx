@@ -61,8 +61,9 @@ function renderContentWithVerifications(
   
   // Build HTML for verification responses
   const responsesHtml = verificationCheckboxes.map((checkbox, index) => {
-    const response = verificationResponses?.[index.toString()];
-    const isAuthorized = response === true;
+    const rawValue = verificationResponses?.[index.toString()];
+    // Handle both boolean and string values from database
+    const isAuthorized = rawValue === true || String(rawValue) === 'true';
     const icon = isAuthorized ? '✓' : '✗';
     const color = isAuthorized ? 'color: #16a34a' : 'color: #dc2626';
     const text = isAuthorized ? 'Autorizo' : 'No autorizo';
@@ -193,7 +194,9 @@ export function ConsentDetailDialog({
               <p className="font-medium">Autorizaciones</p>
               <div className="space-y-2">
                 {verificationCheckboxes.map((checkbox: string, index: number) => {
-                  const isAuthorized = verificationResponses?.[index.toString()] === true;
+                  // Handle both boolean and string values from database
+                  const rawValue = verificationResponses?.[index.toString()];
+                  const isAuthorized = rawValue === true || String(rawValue) === 'true';
                   return (
                     <div 
                       key={index} 
@@ -223,7 +226,18 @@ export function ConsentDetailDialog({
             </div>
           )}
 
-          {/* Signatures */}
+          {/* Document Content - BEFORE Signatures per user requirement */}
+          <div className="space-y-2">
+            <p className="font-medium">Contenido del documento</p>
+            <Card className="max-h-[300px] overflow-auto p-4">
+              <div
+                className="prose prose-sm max-w-none dark:prose-invert"
+                dangerouslySetInnerHTML={{ __html: sanitizeHtml(renderedContent) }}
+              />
+            </Card>
+          </div>
+
+          {/* Signatures - AFTER Document Content */}
           {consent.status === 'signed' && (
             <div className="space-y-3">
               <p className="font-medium">Firmas</p>
@@ -269,17 +283,6 @@ export function ConsentDetailDialog({
               )}
             </div>
           )}
-
-          {/* Document Content */}
-          <div className="space-y-2">
-            <p className="font-medium">Contenido del documento</p>
-            <Card className="max-h-[300px] overflow-auto p-4">
-              <div
-                className="prose prose-sm max-w-none dark:prose-invert"
-                dangerouslySetInnerHTML={{ __html: sanitizeHtml(renderedContent) }}
-              />
-            </Card>
-          </div>
 
           {/* Actions */}
           <div className="flex justify-end gap-3 pt-4">
