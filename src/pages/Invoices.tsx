@@ -46,7 +46,7 @@ export default function Invoices() {
   const [newInvoiceMenuOpen, setNewInvoiceMenuOpen] = useState(false);
   
   // Sort state
-  const [sortBy, setSortBy] = useState<InvoiceSortField>('invoice_number');
+  const [sortBy, setSortBy] = useState<InvoiceSortField>('issue_date');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   
   // Detail dialog state
@@ -73,7 +73,7 @@ export default function Invoices() {
     sortDirection,
   });
 
-  // Filter invoices by patient name
+  // Filter invoices by patient name, invoice number, or date
   const filteredInvoices = useMemo(() => {
     if (!invoices) return [];
     if (!searchQuery.trim()) return invoices;
@@ -84,7 +84,14 @@ export default function Invoices() {
       const lastName = invoice.patients?.last_name?.toLowerCase() || '';
       const patientName = `${firstName} ${lastName}`.trim();
       const invoiceNumber = invoice.invoice_number?.toLowerCase() || '';
-      return patientName.includes(query) || invoiceNumber.includes(query);
+      // Format date for search (e.g., "15/01/2026", "15-01-2026", "2026-01-15")
+      const issueDate = invoice.issue_date || '';
+      const formattedDate = issueDate ? new Date(issueDate).toLocaleDateString('es-ES') : '';
+      
+      return patientName.includes(query) || 
+             invoiceNumber.includes(query) ||
+             issueDate.includes(query) ||
+             formattedDate.includes(query);
     });
   }, [invoices, searchQuery]);
   const { data: stats } = useInvoiceStats();
@@ -357,7 +364,7 @@ export default function Invoices() {
           <div className="relative flex-1 max-w-xs">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Buscar por nombre o nº..."
+              placeholder="Buscar nº, cliente, fecha..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9"

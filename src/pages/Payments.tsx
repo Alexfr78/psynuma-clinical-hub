@@ -1,6 +1,7 @@
-import { useState } from 'react';
-import { CreditCard, Plus, AlertTriangle } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { CreditCard, Plus, AlertTriangle, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -22,6 +23,7 @@ import { RecordPaymentDialog } from '@/components/payments/RecordPaymentDialog';
 import { EditPaymentDialog } from '@/components/payments/EditPaymentDialog';
 import { SendPaymentReminderDialog } from '@/components/payments/SendPaymentReminderDialog';
 import { LinkPaymentToInvoiceDialog } from '@/components/payments/LinkPaymentToInvoiceDialog';
+import { format } from 'date-fns';
 
 export default function Payments() {
   const [paymentOpen, setPaymentOpen] = useState(false);
@@ -41,6 +43,9 @@ export default function Payments() {
   const [selectedDebtForReminder, setSelectedDebtForReminder] = useState<DebtWithRelations | null>(null);
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
   const [paymentToLink, setPaymentToLink] = useState<PaymentWithRelations | null>(null);
+  
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('');
 
   const { data: debts, isLoading: debtsLoading } = useDebts();
   const { data: payments, isLoading: paymentsLoading } = usePayments();
@@ -48,6 +53,46 @@ export default function Payments() {
   const { data: paymentStats } = usePaymentStats();
   const deletePayment = useDeletePayment();
   const deleteDebt = useDeleteDebt();
+  
+  // Filter debts by patient name or invoice number
+  const filteredDebts = useMemo(() => {
+    if (!debts) return [];
+    if (!searchQuery.trim()) return debts;
+    
+    const query = searchQuery.toLowerCase().trim();
+    return debts.filter(debt => {
+      const firstName = debt.patients?.first_name?.toLowerCase() || '';
+      const lastName = debt.patients?.last_name?.toLowerCase() || '';
+      const patientName = `${firstName} ${lastName}`.trim();
+      const invoiceNumber = debt.invoices?.invoice_number?.toLowerCase() || '';
+      const createdDate = debt.created_at ? format(new Date(debt.created_at), 'dd/MM/yyyy') : '';
+      
+      return patientName.includes(query) || 
+             invoiceNumber.includes(query) ||
+             createdDate.includes(query);
+    });
+  }, [debts, searchQuery]);
+  
+  // Filter payments by patient name, reference, or date
+  const filteredPayments = useMemo(() => {
+    if (!payments) return [];
+    if (!searchQuery.trim()) return payments;
+    
+    const query = searchQuery.toLowerCase().trim();
+    return payments.filter(payment => {
+      const firstName = payment.patients?.first_name?.toLowerCase() || '';
+      const lastName = payment.patients?.last_name?.toLowerCase() || '';
+      const patientName = `${firstName} ${lastName}`.trim();
+      const reference = payment.reference?.toLowerCase() || '';
+      const invoiceNumber = payment.invoices?.invoice_number?.toLowerCase() || '';
+      const paymentDate = payment.payment_date ? format(new Date(payment.payment_date), 'dd/MM/yyyy') : '';
+      
+      return patientName.includes(query) || 
+             reference.includes(query) ||
+             invoiceNumber.includes(query) ||
+             paymentDate.includes(query);
+    });
+  }, [payments, searchQuery]);
 
   const handleRecordPayment = (debtInfo: {
     debtId: string;
@@ -142,20 +187,35 @@ export default function Payments() {
           </TabsList>
         </div>
 
-        <TabsContent value="debts" className="mt-4">
+        {/* Search bar */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between my-4">
+          <div className="relative flex-1 max-w-xs">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar cliente, nº factura, fecha..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+        </div>
+
+        <TabsContent value="debts" className="mt-0">
           {debtsLoading ? (
             <div className="space-y-4">
               {[1, 2, 3].map(i => <Skeleton key={i} className="h-24" />)}
             </div>
-          ) : !debts || debts.length === 0 ? (
+          ) : filteredDebts.length === 0 ? (
             <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12">
               <CreditCard className="h-12 w-12 text-muted-foreground" />
               <h3 className="mt-4 font-semibold">Sin deudas pendientes</h3>
-              <p className="text-sm text-muted-foreground">Todos los pagos están al día</p>
+              <p className="text-sm text-muted-foreground">
+                {searchQuery.trim() ? 'No se encontraron deudas con ese criterio' : 'Todos los pagos están al día'}
+              </p>
             </div>
           ) : (
             <div className="space-y-4">
-              {debts.map(debt => (
+              {filteredDebts.map(debt => (
                 <DebtCard
                   key={debt.id}
                   debt={debt}
@@ -168,12 +228,12 @@ export default function Payments() {
           )}
         </TabsContent>
 
-        <TabsContent value="history" className="mt-4">
+        <TabsContent value="history" className="mt-0">
           {paymentsLoading ? (
             <Skeleton className="h-64" />
           ) : (
             <PaymentHistoryTable 
-              payments={payments || []} 
+              payments={filteredPayments} 
               onEdit={(payment) => {
                 setSelectedPayment(payment);
                 setEditPaymentOpen(true);
