@@ -128,6 +128,26 @@ export function usePatientActiveBonos(patientId: string | undefined) {
   });
 }
 
+// Fetch a specific bono by ID (even if exhausted) - used to display currently assigned bono
+export function useBono(bonoId: string | null | undefined) {
+  return useQuery({
+    queryKey: ['bono', bonoId],
+    queryFn: async () => {
+      if (!bonoId) return null;
+      
+      const { data, error } = await supabase
+        .from('bonos')
+        .select('*')
+        .eq('id', bonoId)
+        .maybeSingle();
+
+      if (error) throw error;
+      return data as Bono | null;
+    },
+    enabled: !!bonoId,
+  });
+}
+
 // Fetch sessions linked to a bono
 export function useBonoSessions(bonoId: string | undefined) {
   return useQuery({

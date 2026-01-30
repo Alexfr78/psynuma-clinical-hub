@@ -84,7 +84,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { useLocations } from '@/hooks/useLocations';
-import { usePatientActiveBonos, useApplyBonoToSession, useRemoveBonoFromSession, useUpdateBono } from '@/hooks/useBonos';
+import { usePatientActiveBonos, useBono, useApplyBonoToSession, useRemoveBonoFromSession, useUpdateBono } from '@/hooks/useBonos';
 import { CreateBonoDialog } from '@/components/bonos/CreateBonoDialog';
 import { useSessionPaymentStatus } from '@/hooks/useSessionPayment';
 import { useBonoPaymentStatus } from '@/hooks/useBonoPaymentStatus';
@@ -232,6 +232,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
   const [localPatientId, setLocalPatientId] = useState<string | null>(null);
 
   const { data: patientBonos, refetch: refetchBonos } = usePatientActiveBonos(session?.patient_id);
+  const { data: currentBono } = useBono(session?.bono_id); // Fetch currently assigned bono even if exhausted
   const { data: paymentStatus, refetch: refetchPaymentStatus } = useSessionPaymentStatus(session?.id);
   const { data: invoiceStatus, refetch: refetchInvoiceStatus } = useSessionInvoiceStatus(session?.id);
   const { data: bonoPaymentStatus, refetch: refetchBonoPaymentStatus } = useBonoPaymentStatus(localBonoId);
@@ -1065,10 +1066,32 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
                     disabled={applyBonoToSession.isPending || removeBonoFromSession.isPending}
                   >
                     <SelectTrigger className="flex-1 h-8">
-                      <SelectValue placeholder="Sin bono" />
+                      <SelectValue placeholder="Sin bono">
+                        {localBonoId && currentBono ? (
+                          <span className="flex items-center gap-2">
+                            {currentBono.name}
+                            <Badge variant="secondary" className="ml-1 text-xs">
+                              {(currentBono.total_sessions || 0) - (currentBono.used_sessions || 0)} restantes
+                            </Badge>
+                          </span>
+                        ) : (
+                          'Sin bono'
+                        )}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__none__">Sin bono</SelectItem>
+                      {/* Show currently assigned bono if not in active list (e.g., exhausted) */}
+                      {currentBono && localBonoId && !patientBonos?.some(b => b.id === localBonoId) && (
+                        <SelectItem key={currentBono.id} value={currentBono.id}>
+                          <span className="flex items-center gap-2">
+                            {currentBono.name}
+                            <Badge variant="outline" className="ml-2 text-xs">
+                              {currentBono.status === 'exhausted' ? 'Agotado' : currentBono.status}
+                            </Badge>
+                          </span>
+                        </SelectItem>
+                      )}
                       {patientBonos?.map((bono) => (
                         <SelectItem key={bono.id} value={bono.id}>
                           <span className="flex items-center gap-2">
