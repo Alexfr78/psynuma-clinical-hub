@@ -1259,24 +1259,52 @@ async function syncProfessional(
         }
       } else if (googleEvent) {
         // Event exists - check if Google has newer changes (two-way sync)
+        // CRITICAL FIX: Compare timestamps to determine which source has more recent data
         if (integrations?.google_calendar_sync_mode === 'two_way' && googleEvent.start?.dateTime) {
           const parsedStart = parseGoogleDateTimeToMadrid(googleEvent.start.dateTime);
           const parsedEnd = parseGoogleDateTimeToMadrid(googleEvent.end.dateTime);
 
-          if (session.session_date !== parsedStart.date ||
+          const hasDifferences = session.session_date !== parsedStart.date ||
               session.start_time !== parsedStart.time ||
-              session.end_time !== parsedEnd.time) {
-            console.log(`[SYNC] Session ${session.id} differs from Google event - updating Psycma`);
-            await supabase
-              .from('sessions')
-              .update({
-                session_date: parsedStart.date,
-                start_time: parsedStart.time,
-                end_time: parsedEnd.time,
-              })
-              .eq('id', session.id);
-            result.updated++;
-            continue;
+              session.end_time !== parsedEnd.time;
+
+          if (hasDifferences) {
+            // Compare update timestamps to determine which is more recent
+            const psycmaUpdatedAt = session.updated_at ? new Date(session.updated_at).getTime() : 0;
+            const googleUpdatedAt = googleEvent.updated ? new Date(googleEvent.updated).getTime() : 0;
+            
+            // Add a small buffer (5 seconds) to handle near-simultaneous updates
+            // This prevents race conditions where both updates happen close together
+            const bufferMs = 5000;
+            
+            console.log(`[SYNC:COMPARE] Session ${session.id}:`);
+            console.log(`  Psycma updated_at: ${session.updated_at} (${psycmaUpdatedAt})`);
+            console.log(`  Google updated: ${googleEvent.updated} (${googleUpdatedAt})`);
+            console.log(`  Difference: ${Math.abs(psycmaUpdatedAt - googleUpdatedAt)}ms`);
+            
+            if (googleUpdatedAt > psycmaUpdatedAt + bufferMs) {
+              // Google is definitively newer - update Psycma from Google
+              console.log(`[SYNC] Session ${session.id} - Google is newer, updating Psycma`);
+              await supabase
+                .from('sessions')
+                .update({
+                  session_date: parsedStart.date,
+                  start_time: parsedStart.time,
+                  end_time: parsedEnd.time,
+                })
+                .eq('id', session.id);
+              result.updated++;
+              continue;
+            } else if (psycmaUpdatedAt > googleUpdatedAt + bufferMs) {
+              // Psycma is definitively newer - will update Google below
+              console.log(`[SYNC] Session ${session.id} - Psycma is newer, updating Google`);
+              // Fall through to updateGoogleCalendarEvent below
+            } else {
+              // Updates are too close in time - prefer Psycma as source of truth
+              // This prevents sync loops and ensures manual edits in Psycma take precedence
+              console.log(`[SYNC] Session ${session.id} - Near-simultaneous update, Psycma takes precedence`);
+              // Fall through to updateGoogleCalendarEvent below
+            }
           }
         }
         
