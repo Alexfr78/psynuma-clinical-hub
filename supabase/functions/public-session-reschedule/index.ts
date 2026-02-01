@@ -36,7 +36,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Get the session by access_token
+    // Get the session by access_token - include google_calendar_event_id for sync
     const { data: session, error: sessionError } = await supabase
       .from("sessions")
       .select(`
@@ -51,7 +51,8 @@ Deno.serve(async (req) => {
         patient_id,
         session_type,
         session_modality,
-        cancellation_policy
+        cancellation_policy,
+        google_calendar_event_id
       `)
       .eq("access_token", token)
       .maybeSingle();
@@ -261,6 +262,55 @@ Deno.serve(async (req) => {
 
       console.log(`[RESCHEDULE] Session updated successfully:`, updatedSession);
 
+      // Sync the changes to Google Calendar if session has a Google event
+      if (session.google_calendar_event_id) {
+        try {
+          console.log(`[RESCHEDULE] Syncing reschedule to Google Calendar event ${session.google_calendar_event_id}`);
+          const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+          const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+          
+          const googleSyncResponse = await fetch(`${supabaseUrl}/functions/v1/update-google-calendar-event`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${supabaseKey}`,
+            },
+            body: JSON.stringify({
+              professional_id: session.professional_id,
+              event_id: session.google_calendar_event_id,
+              psycma_session_id: session.id,
+              session_date: newDate,
+              start_time: newStartTime,
+              end_time: newEndTime,
+              title: `${session.session_type || 'Sesión'} - ${patientName}`,
+              create_if_not_exists: true, // Create if somehow deleted from Google
+            }),
+          });
+          
+          const googleSyncResult = await googleSyncResponse.json();
+          
+          if (googleSyncResult.success) {
+            console.log(`[RESCHEDULE] Google Calendar synced successfully:`, googleSyncResult);
+            
+            // If event was recreated with new ID, update session
+            if (googleSyncResult.event_id && googleSyncResult.event_id !== session.google_calendar_event_id) {
+              await supabase
+                .from("sessions")
+                .update({ google_calendar_event_id: googleSyncResult.event_id })
+                .eq("id", session.id);
+              console.log(`[RESCHEDULE] Updated session with new Google event ID: ${googleSyncResult.event_id}`);
+            }
+          } else {
+            console.error(`[RESCHEDULE] Google Calendar sync failed:`, googleSyncResult);
+          }
+        } catch (googleError) {
+          console.error("[RESCHEDULE] Error syncing to Google Calendar:", googleError);
+          // Don't fail the reschedule if Google sync fails
+        }
+      } else {
+        console.log(`[RESCHEDULE] Session ${session.id} has no Google Calendar event, skipping sync`);
+      }
+
       // Send admin alert about the reschedule using the helper
       try {
         const alertMessage = buildAlertMessage({
@@ -350,6 +400,39 @@ Deno.serve(async (req) => {
           JSON.stringify({ error: "Failed to cancel session" }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
+      }
+
+      // Sync the cancellation to Google Calendar if session has a Google event
+      if (session.google_calendar_event_id) {
+        try {
+          console.log(`[CANCEL] Syncing cancellation to Google Calendar event ${session.google_calendar_event_id}`);
+          const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+          const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+          
+          const googleSyncResponse = await fetch(`${supabaseUrl}/functions/v1/update-google-calendar-event`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${supabaseKey}`,
+            },
+            body: JSON.stringify({
+              professional_id: session.professional_id,
+              event_id: session.google_calendar_event_id,
+              status: "cancelled",
+            }),
+          });
+          
+          const googleSyncResult = await googleSyncResponse.json();
+          
+          if (googleSyncResult.success) {
+            console.log(`[CANCEL] Google Calendar event deleted successfully`);
+          } else {
+            console.error(`[CANCEL] Google Calendar sync failed:`, googleSyncResult);
+          }
+        } catch (googleError) {
+          console.error("[CANCEL] Error syncing cancellation to Google Calendar:", googleError);
+          // Don't fail the cancellation if Google sync fails
+        }
       }
 
       // Send admin alert about the cancellation
