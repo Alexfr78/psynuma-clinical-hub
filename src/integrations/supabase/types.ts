@@ -1471,6 +1471,48 @@ export type Database = {
           },
         ]
       }
+      google_sync_debounce: {
+        Row: {
+          calendar_id: string | null
+          last_sync_trigger_at: string | null
+          last_webhook_at: string
+          pending: boolean
+          professional_id: string
+          updated_at: string
+        }
+        Insert: {
+          calendar_id?: string | null
+          last_sync_trigger_at?: string | null
+          last_webhook_at?: string
+          pending?: boolean
+          professional_id: string
+          updated_at?: string
+        }
+        Update: {
+          calendar_id?: string | null
+          last_sync_trigger_at?: string | null
+          last_webhook_at?: string
+          pending?: boolean
+          professional_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "google_sync_debounce_professional_id_fkey"
+            columns: ["professional_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "google_sync_debounce_professional_id_fkey"
+            columns: ["professional_id"]
+            isOneToOne: true
+            referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       integration_errors: {
         Row: {
           at: string
@@ -3661,6 +3703,14 @@ export type Database = {
       }
       get_session_token: { Args: never; Returns: string }
       get_user_center_id: { Args: { _user_id: string }; Returns: string }
+      handle_google_webhook_debounce: {
+        Args: {
+          p_calendar_id: string
+          p_debounce_seconds?: number
+          p_professional_id: string
+        }
+        Returns: boolean
+      }
       handle_rectificativa_payments: {
         Args: { p_original_invoice_id: string }
         Returns: Json
@@ -3720,6 +3770,10 @@ export type Database = {
         }[]
       }
       recompute_debt_by_invoice: { Args: { p_debt_id: string }; Returns: Json }
+      release_google_sync_lock: {
+        Args: { p_professional_id: string }
+        Returns: undefined
+      }
       remove_bono_from_session: {
         Args: { p_session_id: string }
         Returns: Json
@@ -3729,6 +3783,10 @@ export type Database = {
         Returns: Json
       }
       sanitize_error_payload: { Args: { payload: Json }; Returns: Json }
+      try_acquire_google_sync_lock: {
+        Args: { p_professional_id: string }
+        Returns: boolean
+      }
       update_payment_and_recompute_debt_v2: {
         Args: {
           p_amount: number
@@ -3741,6 +3799,7 @@ export type Database = {
         Returns: Json
       }
       user_can_create_center: { Args: { _user_id: string }; Returns: boolean }
+      uuid_to_lock_id: { Args: { p_uuid: string }; Returns: number }
       verify_assessment_token: {
         Args: { assessment_uuid: string }
         Returns: boolean
