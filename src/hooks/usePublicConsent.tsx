@@ -85,23 +85,23 @@ export function usePublicConsent(token: string | undefined) {
     }) => {
       if (!token) throw new Error('No token');
       
-      const { data, error } = await supabase
-        .from('consent_signatures')
-        .insert({
+      // Use edge function to capture real IP address
+      const { data, error } = await supabase.functions.invoke('submit-consent-signature', {
+        body: {
           consent_id: consentId,
           signer_name: signerName,
           signer_role: signerRole,
           signature_order: signatureOrder,
           signature_data: signatureData,
-          ip_address: null,
-          user_agent: navigator.userAgent,
-        })
-        .setHeader('x-consent-token', token)
-        .select()
-        .single();
+        },
+        headers: {
+          'x-consent-token': token,
+        },
+      });
       
       if (error) throw error;
-      return data;
+      if (data?.error) throw new Error(data.error);
+      return data.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['public-consent', token] });
