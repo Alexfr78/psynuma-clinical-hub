@@ -640,8 +640,8 @@ function generateAssessmentHTML(params: GenerateHTMLParams): string {
     .info-box h4 { font-size: 9px; text-transform: uppercase; color: #666; margin-bottom: 4px; letter-spacing: 0.5px; }
     .info-box p { font-size: 11px; margin-bottom: 2px; }
     
-    .section { margin-bottom: 25px; page-break-inside: avoid; }
-    .section h3 { font-size: 13px; color: #1e293b; margin-bottom: 12px; padding-bottom: 6px; border-bottom: 1px solid #e2e8f0; }
+    .section { margin-bottom: 25px; }
+    .section h3 { font-size: 13px; color: #1e293b; margin-bottom: 12px; padding-bottom: 6px; border-bottom: 1px solid #e2e8f0; page-break-after: avoid; }
     
     table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
     th { background: #f1f5f9; padding: 8px 6px; text-align: left; font-size: 9px; text-transform: uppercase; color: #64748b; border-bottom: 2px solid #e2e8f0; }
@@ -707,10 +707,15 @@ function generateAssessmentHTML(params: GenerateHTMLParams): string {
     @media print { 
       body { padding: 15px; -webkit-print-color-adjust: exact; print-color-adjust: exact; } 
       .section { page-break-inside: auto; }
-      .interpretation-card, .info-box, .global-index { page-break-inside: avoid; }
+      .section h3 { page-break-after: avoid; }
+      .interpretation-card { page-break-inside: auto; }
+      .info-box, .global-index { page-break-inside: avoid; }
       .answers-section { page-break-before: always; }
       .ai-interpretation { page-break-inside: auto; }
-      .ai-section { page-break-inside: avoid; }
+      .ai-section { page-break-inside: auto; margin-bottom: 8px; }
+      table { page-break-inside: auto; }
+      tr { page-break-inside: avoid; }
+      thead { display: table-header-group; }
     }
   </style>
 </head>

@@ -55,10 +55,19 @@ export function AssessmentCard({ assessment, onView, onSend, onRevoke, onDelete 
       if (printWindow) {
         printWindow.document.write(data.html);
         printWindow.document.close();
-        // Wait for images and styles to render before printing
+        // Wait for content to fully render before printing
+        // Use longer delay and also wait for document ready state
+        printWindow.onload = () => {
+          setTimeout(() => {
+            printWindow.print();
+          }, 1500);
+        };
+        // Fallback if onload doesn't fire
         setTimeout(() => {
-          printWindow.print();
-        }, 800);
+          if (printWindow.document.readyState === 'complete') {
+            printWindow.print();
+          }
+        }, 2000);
       }
       
       toast.success('PDF generado correctamente');
