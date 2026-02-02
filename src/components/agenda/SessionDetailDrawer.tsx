@@ -30,6 +30,7 @@ import {
   Send,
   RefreshCw,
   FileSignature,
+  ClipboardCheck,
 } from 'lucide-react';
 import {
   Sheet,
@@ -116,6 +117,7 @@ import { useConsentTemplates } from '@/hooks/useConsentTemplates';
 import { CreateConsentDialog } from '@/components/consents/CreateConsentDialog';
 import { SendConsentDialog } from '@/components/consents/SendConsentDialog';
 import { ConsentCard } from '@/components/consents/ConsentCard';
+import { PatientAssessments } from '@/components/patients/tabs/PatientAssessments';
 
 interface SessionDetailDrawerProps {
   session: SessionWithRelations | null;
@@ -837,13 +839,13 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
           <Tooltip>
             <TooltipTrigger asChild>
               <TabsTrigger
-                value="historial"
+                value="evaluaciones"
                 className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-3 sm:px-4 py-3 shrink-0"
               >
-                {isMobile ? <Clock className="h-4 w-4" /> : 'Historial'}
+                {isMobile ? <ClipboardCheck className="h-4 w-4" /> : 'Evaluaciones'}
               </TabsTrigger>
             </TooltipTrigger>
-            {isMobile && <TooltipContent>Historial</TooltipContent>}
+            {isMobile && <TooltipContent>Evaluaciones</TooltipContent>}
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -1833,11 +1835,15 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
             </div>
           </TabsContent>
 
-          <TabsContent value="historial" className="mt-0 px-6 py-4">
-            <div className="text-center py-8 text-muted-foreground">
-              <Clock className="h-8 w-8 mx-auto mb-2 opacity-50" />
-              <p className="text-sm">No hay cambios registrados</p>
-            </div>
+          <TabsContent value="evaluaciones" className="mt-0 px-6 py-4">
+            {!session.patient ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <ClipboardCheck className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <p className="text-sm">Asigna un paciente para ver sus evaluaciones</p>
+              </div>
+            ) : (
+              <PatientAssessments patientId={session.patient.id} />
+            )}
           </TabsContent>
 
           <TabsContent value="consentimientos" className="mt-0 px-6 py-4">
