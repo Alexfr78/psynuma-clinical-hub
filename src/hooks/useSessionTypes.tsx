@@ -23,6 +23,8 @@ export interface SessionType {
   exemption_code: ExemptionCode | null;
   non_subject_code: NonSubjectCode | null;
   vat_regime_key: string | null;
+  // First consultation flag for closed agenda mode
+  is_first_consultation: boolean | null;
 }
 
 export interface SessionTypeInsert {
@@ -39,6 +41,7 @@ export interface SessionTypeInsert {
   exemption_code?: ExemptionCode | null;
   non_subject_code?: NonSubjectCode | null;
   vat_regime_key?: string;
+  is_first_consultation?: boolean;
 }
 
 export interface SessionTypeUpdate {
@@ -57,6 +60,7 @@ export interface SessionTypeUpdate {
   exemption_code?: ExemptionCode | null;
   non_subject_code?: NonSubjectCode | null;
   vat_regime_key?: string;
+  is_first_consultation?: boolean;
 }
 
 export function useSessionTypes() {

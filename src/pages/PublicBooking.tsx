@@ -13,6 +13,7 @@ import { format, addDays, isBefore, startOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Loader2, MapPin, Video, Clock, User, CheckCircle, ArrowLeft, ArrowRight, Copy } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ClosedAgendaScreen } from '@/components/booking/ClosedAgendaScreen';
 
 type Step = 'service' | 'location' | 'professional' | 'datetime' | 'patient' | 'confirmation';
 
@@ -24,7 +25,8 @@ export default function PublicBooking() {
   const {
     config, services, locations, professionals, allowProfessionalSelection,
     loading, error, disabled, fetchConfig, fetchServices, fetchLocations,
-    fetchProfessionals, getAvailability, getMonthAvailability, createBooking
+    fetchProfessionals, getAvailability, getMonthAvailability, createBooking,
+    submitIntakeRequest
   } = usePublicBooking(centerSlug || '');
 
   const [step, setStep] = useState<Step>('service');
@@ -159,6 +161,21 @@ export default function PublicBooking() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  // Show closed agenda screen if agenda is closed
+  if (config?.agendaClosed) {
+    return (
+      <div className={cn("min-h-screen bg-background", isEmbed ? "p-4" : "py-8 px-4")}>
+        <ClosedAgendaScreen
+          centerName={config.name}
+          centerLogo={config.logoUrl}
+          portalSlug={centerSlug || ''}
+          onSubmitIntake={submitIntakeRequest}
+          loading={loading}
+        />
       </div>
     );
   }

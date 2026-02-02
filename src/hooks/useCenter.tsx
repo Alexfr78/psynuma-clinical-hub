@@ -67,6 +67,8 @@ export interface Center {
   portal_default_professional_id: string | null;
   // Public booking
   public_booking_enabled: boolean | null;
+  // Agenda closed mode
+  portal_agenda_closed: boolean | null;
   // Invoice automation settings
   invoice_on_payment_mode: string | null;
   invoice_send_channel: string | null;
