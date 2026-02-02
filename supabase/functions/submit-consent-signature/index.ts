@@ -25,11 +25,17 @@ Deno.serve(async (req) => {
     }
 
     // Get client IP from headers (Cloudflare/proxy headers first, then fallback)
+    const cfConnectingIp = req.headers.get("cf-connecting-ip");
+    const xRealIp = req.headers.get("x-real-ip");
+    const xForwardedFor = req.headers.get("x-forwarded-for");
+    
     const clientIp = 
-      req.headers.get("cf-connecting-ip") ||
-      req.headers.get("x-real-ip") ||
-      req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+      cfConnectingIp ||
+      xRealIp ||
+      xForwardedFor?.split(",")[0]?.trim() ||
       null;
+
+    console.log("IP Detection:", { cfConnectingIp, xRealIp, xForwardedFor, resolvedIp: clientIp });
 
     const userAgent = req.headers.get("user-agent") || null;
 
