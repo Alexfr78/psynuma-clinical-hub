@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, X, Loader2, Save, AlertCircle, Info, ChevronUp, ChevronDown } from 'lucide-react';
+import { Plus, X, Loader2, Save, AlertCircle, Info, ChevronUp, ChevronDown, UserPlus } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   useSessionTypes,
   useCreateSessionType,
@@ -78,7 +79,7 @@ export function SessionTypesSection() {
     }
   }, [sessionTypes, isInitialized]);
 
-  const handleChange = (index: number, field: keyof EditableSessionType, value: string | number | null) => {
+  const handleChange = (index: number, field: keyof EditableSessionType, value: string | number | boolean | null) => {
     setEditableTypes(prev => {
       const updated = [...prev];
       updated[index] = { ...updated[index], [field]: value };
@@ -147,6 +148,7 @@ export function SessionTypesSection() {
         exemption_code: 'E1',
         non_subject_code: null,
         vat_regime_key: '01',
+        is_first_consultation: false,
       },
     ]);
     setExpandedFiscal(newId);
@@ -212,7 +214,8 @@ export function SessionTypesSection() {
             original.tax_treatment !== item.tax_treatment ||
             Number(original.vat_rate || 0) !== Number(item.vat_rate || 0) ||
             original.exemption_code !== item.exemption_code ||
-            original.non_subject_code !== item.non_subject_code;
+            original.non_subject_code !== item.non_subject_code ||
+            Boolean(original.is_first_consultation) !== Boolean(item.is_first_consultation);
 
           if (hasChanged) {
             promises.push(
@@ -228,6 +231,7 @@ export function SessionTypesSection() {
                 exemption_code: item.exemption_code as ExemptionCode,
                 non_subject_code: item.non_subject_code as NonSubjectCode,
                 vat_regime_key: item.vat_regime_key || '01',
+                is_first_consultation: item.is_first_consultation ?? false,
               })
             );
           }
@@ -552,6 +556,22 @@ export function SessionTypesSection() {
                             </Select>
                           </div>
                         )}
+                      </div>
+
+                      {/* First consultation toggle */}
+                      <div className="flex items-center gap-2 pt-2 border-t">
+                        <Checkbox
+                          id={`first-consultation-${itemId}`}
+                          checked={item.is_first_consultation ?? false}
+                          onCheckedChange={(checked) => handleChange(index, 'is_first_consultation', !!checked)}
+                        />
+                        <Label htmlFor={`first-consultation-${itemId}`} className="text-sm flex items-center gap-2 cursor-pointer">
+                          <UserPlus className="h-4 w-4 text-muted-foreground" />
+                          Es primera consulta
+                        </Label>
+                        <span className="text-xs text-muted-foreground ml-2">
+                          (No se mostrará en reservas públicas si la agenda está cerrada)
+                        </span>
                       </div>
                     </div>
                   </CollapsibleContent>

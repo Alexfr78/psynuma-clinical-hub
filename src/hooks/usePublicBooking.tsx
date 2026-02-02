@@ -11,6 +11,7 @@ interface CenterConfig {
   defaultProfessionalId: string | null;
   slotDuration: number;
   maxDaysAhead: number;
+  agendaClosed: boolean;
 }
 
 interface Service {
@@ -19,6 +20,7 @@ interface Service {
   duration_minutes: number;
   default_price: number | null;
   color: string | null;
+  is_first_consultation: boolean | null;
 }
 
 interface Location {
@@ -59,6 +61,17 @@ interface BookingDetails {
   booking: any;
   centerName: string;
   centerSlug: string;
+}
+
+interface IntakeRequestData {
+  requestType: 'waitlist' | 'referral';
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string;
+  modality?: 'online' | 'presencial';
+  city?: string;
+  notes?: string;
 }
 
 export function usePublicBooking(centerSlug: string) {
@@ -242,9 +255,32 @@ export function usePublicBooking(centerSlug: string) {
       setError(err.message);
       return false;
     } finally {
-      setLoading(false);
+    setLoading(false);
     }
   }, []);
+
+  const submitIntakeRequest = useCallback(async (data: IntakeRequestData): Promise<boolean> => {
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await invoke('submit-intake-request', {
+        firstName: data.firstName,
+        lastName: data.lastName,
+        email: data.email,
+        phone: data.phone,
+        requestType: data.requestType,
+        modality: data.modality,
+        city: data.city,
+        notes: data.notes,
+      });
+      return result?.success ?? false;
+    } catch (err: any) {
+      setError(err.message);
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  }, [invoke]);
 
   return {
     config,
@@ -264,6 +300,7 @@ export function usePublicBooking(centerSlug: string) {
     createBooking,
     getBooking,
     cancelBooking,
-    rescheduleBooking
+    rescheduleBooking,
+    submitIntakeRequest
   };
 }

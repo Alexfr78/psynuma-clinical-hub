@@ -249,7 +249,7 @@ serve(async (req) => {
           id, name, logo_url,
           public_booking_enabled, portal_require_approval,
           portal_allow_professional_selection, portal_default_professional_id,
-          reschedule_slot_duration, reschedule_max_days
+          reschedule_slot_duration, reschedule_max_days, portal_agenda_closed
         `)
         .eq("portal_slug", centerSlug)
         .single();
@@ -278,7 +278,8 @@ serve(async (req) => {
           allowProfessionalSelection: center.portal_allow_professional_selection,
           defaultProfessionalId: center.portal_default_professional_id,
           slotDuration: center.reschedule_slot_duration || 30,
-          maxDaysAhead: center.reschedule_max_days ?? 90
+          maxDaysAhead: center.reschedule_max_days ?? 90,
+          agendaClosed: center.portal_agenda_closed ?? false
         }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
@@ -309,7 +310,7 @@ serve(async (req) => {
 
       const { data: services, error } = await supabase
         .from("session_types")
-        .select("id, name, duration_minutes, default_price, color")
+        .select("id, name, duration_minutes, default_price, color, is_first_consultation")
         .eq("center_id", center.id)
         .eq("is_active", true)
         .eq("is_public", true)
@@ -1654,6 +1655,109 @@ serve(async (req) => {
 
       return new Response(
         JSON.stringify({ success: true, message: "Cita reprogramada correctamente" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // ===== SUBMIT-INTAKE-REQUEST =====
+    if (action === "submit-intake-request") {
+      const { firstName, lastName, email, phone, requestType, modality, city, notes } = params;
+
+      if (!centerSlug) {
+        return new Response(
+          JSON.stringify({ error: "centerSlug es requerido" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      if (!firstName || !lastName || !email || !requestType) {
+        return new Response(
+          JSON.stringify({ error: "Faltan campos obligatorios" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      if (!["waitlist", "referral"].includes(requestType)) {
+        return new Response(
+          JSON.stringify({ error: "Tipo de solicitud no válido" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Get center ID from slug
+      const { data: center, error: centerError } = await supabase
+        .from("centers")
+        .select("id, public_booking_enabled, portal_agenda_closed")
+        .eq("portal_slug", centerSlug)
+        .single();
+
+      if (centerError || !center) {
+        return new Response(
+          JSON.stringify({ error: "Centro no encontrado" }),
+          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      if (!center.public_booking_enabled) {
+        return new Response(
+          JSON.stringify({ error: "Reservas públicas no habilitadas", disabled: true }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Insert the intake request
+      const { data: intakeRequest, error: insertError } = await supabase
+        .from("portal_intake_requests")
+        .insert({
+          center_id: center.id,
+          request_type: requestType,
+          first_name: firstName,
+          last_name: lastName,
+          email: email,
+          phone: phone || null,
+          modality: modality || null,
+          city: city || null,
+          notes: notes || null,
+          status: "pending"
+        })
+        .select()
+        .single();
+
+      if (insertError) {
+        console.error("[submit-intake-request] Error inserting:", insertError);
+        return new Response(
+          JSON.stringify({ error: "Error al guardar la solicitud" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      console.log(`[submit-intake-request] success requestId=${intakeRequest.id} type=${requestType}`);
+
+      // Send admin alert
+      const alertMessage = buildAlertMessage({
+        eventType: requestType === 'waitlist' ? 'Nueva solicitud de lista de espera' : 'Nueva solicitud de derivación',
+        patientName: `${firstName} ${lastName}`,
+        patientEmail: email,
+        ...(modality && { notes: `Modalidad: ${modality}${city ? `, Ciudad: ${city}` : ''}` }),
+      });
+
+      await sendAdminAlert({
+        supabase,
+        centerId: center.id,
+        eventKey: 'booking_request',
+        subject: requestType === 'waitlist' 
+          ? `Nueva solicitud de lista de espera — ${firstName} ${lastName}`
+          : `Nueva solicitud de derivación — ${firstName} ${lastName}`,
+        message: alertMessage,
+      });
+
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          message: requestType === 'waitlist' 
+            ? "Te hemos añadido a la lista de espera" 
+            : "Hemos recibido tu solicitud de derivación"
+        }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }

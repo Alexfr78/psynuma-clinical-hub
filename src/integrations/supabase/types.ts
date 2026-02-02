@@ -807,6 +807,7 @@ export type Database = {
           payment_reminder_interval_hours: number | null
           payment_reminder_max_count: number | null
           phone: string | null
+          portal_agenda_closed: boolean | null
           portal_allow_professional_selection: boolean | null
           portal_default_professional_id: string | null
           portal_enabled: boolean | null
@@ -882,6 +883,7 @@ export type Database = {
           payment_reminder_interval_hours?: number | null
           payment_reminder_max_count?: number | null
           phone?: string | null
+          portal_agenda_closed?: boolean | null
           portal_allow_professional_selection?: boolean | null
           portal_default_professional_id?: string | null
           portal_enabled?: boolean | null
@@ -957,6 +959,7 @@ export type Database = {
           payment_reminder_interval_hours?: number | null
           payment_reminder_max_count?: number | null
           phone?: string | null
+          portal_agenda_closed?: boolean | null
           portal_allow_professional_selection?: boolean | null
           portal_default_professional_id?: string | null
           portal_enabled?: boolean | null
@@ -2456,6 +2459,76 @@ export type Database = {
           },
         ]
       }
+      portal_intake_requests: {
+        Row: {
+          center_id: string
+          city: string | null
+          created_at: string
+          email: string
+          first_name: string
+          id: string
+          last_name: string
+          modality: string | null
+          notes: string | null
+          phone: string | null
+          request_type: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          center_id: string
+          city?: string | null
+          created_at?: string
+          email: string
+          first_name: string
+          id?: string
+          last_name: string
+          modality?: string | null
+          notes?: string | null
+          phone?: string | null
+          request_type: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          center_id?: string
+          city?: string | null
+          created_at?: string
+          email?: string
+          first_name?: string
+          id?: string
+          last_name?: string
+          modality?: string | null
+          notes?: string | null
+          phone?: string | null
+          request_type?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portal_intake_requests_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portal_intake_requests_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portal_intake_requests_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "portal_centers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       professional_integrations: {
         Row: {
           created_at: string | null
@@ -2778,6 +2851,7 @@ export type Database = {
           exemption_code: string | null
           id: string
           is_active: boolean | null
+          is_first_consultation: boolean | null
           is_public: boolean | null
           name: string
           non_subject_code: string | null
@@ -2797,6 +2871,7 @@ export type Database = {
           exemption_code?: string | null
           id?: string
           is_active?: boolean | null
+          is_first_consultation?: boolean | null
           is_public?: boolean | null
           name: string
           non_subject_code?: string | null
@@ -2816,6 +2891,7 @@ export type Database = {
           exemption_code?: string | null
           id?: string
           is_active?: boolean | null
+          is_first_consultation?: boolean | null
           is_public?: boolean | null
           name?: string
           non_subject_code?: string | null

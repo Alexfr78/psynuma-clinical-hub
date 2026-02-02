@@ -19,6 +19,7 @@ export function PortalSettingsSection() {
   
   const [portalEnabled, setPortalEnabled] = useState(false);
   const [publicBookingEnabled, setPublicBookingEnabled] = useState(false);
+  const [portalAgendaClosed, setPortalAgendaClosed] = useState(false);
   const [portalSlug, setPortalSlug] = useState('');
   const [requireApproval, setRequireApproval] = useState(true);
   const [allowProfessionalSelection, setAllowProfessionalSelection] = useState(false);
@@ -33,6 +34,7 @@ export function PortalSettingsSection() {
     if (center) {
       setPortalEnabled(center.portal_enabled ?? false);
       setPublicBookingEnabled(center.public_booking_enabled ?? false);
+      setPortalAgendaClosed(center.portal_agenda_closed ?? false);
       setPortalSlug(center.portal_slug ?? '');
       setRequireApproval(center.portal_require_approval ?? true);
       setAllowProfessionalSelection(center.portal_allow_professional_selection ?? false);
@@ -64,6 +66,7 @@ export function PortalSettingsSection() {
     updateCenter.mutate({
       portal_enabled: portalEnabled,
       public_booking_enabled: publicBookingEnabled,
+      portal_agenda_closed: portalAgendaClosed,
       portal_slug: portalSlug.trim() || null,
       portal_require_approval: requireApproval,
       portal_allow_professional_selection: allowProfessionalSelection,
@@ -133,6 +136,19 @@ export function PortalSettingsSection() {
           </div>
           <Switch checked={publicBookingEnabled} onCheckedChange={setPublicBookingEnabled} />
         </div>
+
+        {/* Agenda Closed Mode */}
+        {publicBookingEnabled && (
+          <div className="flex items-center justify-between rounded-lg border p-4 ml-4 border-dashed">
+            <div className="space-y-0.5">
+              <Label className="text-base">Agenda cerrada (bloquear primeras consultas)</Label>
+              <p className="text-sm text-muted-foreground">
+                Bloquea las reservas públicas y muestra opciones para lista de espera o derivación a otro profesional
+              </p>
+            </div>
+            <Switch checked={portalAgendaClosed} onCheckedChange={setPortalAgendaClosed} />
+          </div>
+        )}
 
         {/* Portal URL */}
         <div className="space-y-2">
