@@ -137,11 +137,18 @@ export function PortalSettingsSection() {
           <Switch checked={publicBookingEnabled} onCheckedChange={setPublicBookingEnabled} />
         </div>
 
-        {/* Agenda Closed Mode */}
+        {/* Agenda Closed Mode - Always visible when public booking is enabled */}
         {publicBookingEnabled && (
-          <div className="flex items-center justify-between rounded-lg border p-4 ml-4 border-dashed">
+          <div className={`flex items-center justify-between rounded-lg border p-4 ${portalAgendaClosed ? 'border-destructive bg-destructive/5' : 'border-dashed'}`}>
             <div className="space-y-0.5">
-              <Label className="text-base">Agenda cerrada (bloquear primeras consultas)</Label>
+              <Label className="text-base flex items-center gap-2">
+                🚫 Agenda cerrada (bloquear primeras consultas)
+                {portalAgendaClosed && (
+                  <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-destructive text-destructive-foreground">
+                    ACTIVO
+                  </span>
+                )}
+              </Label>
               <p className="text-sm text-muted-foreground">
                 Bloquea las reservas públicas y muestra opciones para lista de espera o derivación a otro profesional
               </p>

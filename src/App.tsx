@@ -66,7 +66,9 @@ const App = () => (
             <Route path="/portal/:slug" element={<PatientPortal />} />
             <Route path="/portal/:slug/dashboard" element={<PatientPortalDashboard />} />
             <Route path="/book/:centerSlug" element={<PublicBooking />} />
+            <Route path="/reservas/:centerSlug" element={<PublicBooking />} />
             <Route path="/book/:centerSlug/manage" element={<PublicBookingManage />} />
+            <Route path="/reservas/:centerSlug/manage" element={<PublicBookingManage />} />
             <Route path="/pagar/:token" element={<PayDebt />} />
             <Route path="/pago-exitoso" element={<PaymentSuccess />} />
             

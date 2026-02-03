@@ -268,6 +268,9 @@ serve(async (req) => {
         );
       }
 
+      // Debug logging for portal_agenda_closed
+      console.log(`[public-booking:get-config] centerSlug=${centerSlug} portal_agenda_closed=${center.portal_agenda_closed} (type: ${typeof center.portal_agenda_closed})`);
+
       return new Response(
         JSON.stringify({
           centerId: center.id,
