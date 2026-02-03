@@ -591,27 +591,57 @@ export function CreateBonoDialog({ open, onOpenChange, preselectedPatientId, onS
 
   if (isMobile) {
     return (
-      <Drawer open={open} onOpenChange={onOpenChange}>
-        <DrawerContent className="h-[95vh] max-h-[95vh] overflow-hidden">
-          <DrawerHeader className="px-4 pt-4 pb-2 border-b">
-            <div className="flex items-center justify-between gap-3">
-              <DrawerTitle className="flex items-center gap-2">
-                <Package className="h-5 w-5" />
-                Crear nuevo bono
-              </DrawerTitle>
-              <DrawerClose asChild>
-                <Button type="button" variant="ghost" size="icon" aria-label="Cerrar">
-                  <X className="h-4 w-4" />
-                </Button>
-              </DrawerClose>
-            </div>
-          </DrawerHeader>
+      <>
+        <Drawer open={open} onOpenChange={onOpenChange}>
+          <DrawerContent className="h-[95vh] max-h-[95vh] overflow-hidden">
+            <DrawerHeader className="px-4 pt-4 pb-2 border-b">
+              <div className="flex items-center justify-between gap-3">
+                <DrawerTitle className="flex items-center gap-2">
+                  <Package className="h-5 w-5" />
+                  Crear nuevo bono
+                </DrawerTitle>
+                <DrawerClose asChild>
+                  <Button type="button" variant="ghost" size="icon" aria-label="Cerrar">
+                    <X className="h-4 w-4" />
+                  </Button>
+                </DrawerClose>
+              </div>
+            </DrawerHeader>
 
-          <div className="flex-1 overflow-y-auto px-4 pb-6">
-            {formContent}
-          </div>
-        </DrawerContent>
-      </Drawer>
+            <div className="flex-1 overflow-y-auto px-4 pb-6">
+              {formContent}
+            </div>
+          </DrawerContent>
+        </Drawer>
+
+        <SendInvoiceDialog
+          open={showSendInvoiceDialog}
+          onOpenChange={setShowSendInvoiceDialog}
+          invoice={createdInvoiceForSend}
+        />
+
+        <AlertDialog open={showInvoiceConfirmation} onOpenChange={setShowInvoiceConfirmation}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                ¿Generar factura?
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                ¿Deseas generar una factura para este bono al registrar el cobro?
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => handleInvoiceConfirmation(false)}>
+                No, solo cobrar
+              </AlertDialogCancel>
+              <AlertDialogAction onClick={() => handleInvoiceConfirmation(true)}>
+                Sí, generar factura
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </>
     );
   }
 
