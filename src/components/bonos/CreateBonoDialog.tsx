@@ -3,13 +3,25 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { addDays, format } from 'date-fns';
-import { CalendarIcon, Package, Plus, X } from 'lucide-react';
+import { CalendarIcon, Package, Plus, X, FileText } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import {
   Drawer,
   DrawerClose,
@@ -84,6 +96,8 @@ export function CreateBonoDialog({ open, onOpenChange, preselectedPatientId, onS
   const [isCustom, setIsCustom] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSendInvoiceDialog, setShowSendInvoiceDialog] = useState(false);
+  const [showInvoiceConfirmation, setShowInvoiceConfirmation] = useState(false);
+  const [pendingSubmitValues, setPendingSubmitValues] = useState<FormValues | null>(null);
   const [createdInvoiceForSend, setCreatedInvoiceForSend] = useState<{
     id: string;
     invoice_number: string;
@@ -152,7 +166,8 @@ export function CreateBonoDialog({ open, onOpenChange, preselectedPatientId, onS
     }
   };
 
-  const onSubmit = async (values: FormValues) => {
+  // Main logic for creating bono (optionally with invoice)
+  const executeBonoCreation = async (values: FormValues, shouldCreateInvoice: boolean) => {
     const centerId = profile?.center_id;
     if (!centerId) {
       toast.error('Error: No hay centro configurado. Por favor, recarga la página.');
@@ -173,7 +188,6 @@ export function CreateBonoDialog({ open, onOpenChange, preselectedPatientId, onS
 
       if (result?.id && values.total_price > 0) {
         // 2. FIRST: Create debt linked to bono (this MUST succeed before invoice)
-        // This ensures even if invoice creation fails, the bono has a debt
         const { data: debtData, error: debtError } = await supabase
           .from('debts')
           .insert({
@@ -193,118 +207,111 @@ export function CreateBonoDialog({ open, onOpenChange, preselectedPatientId, onS
           throw new Error('No se pudo crear la deuda del bono');
         }
 
-        // 3. Create DRAFT invoice and link to debt
+        // 3. Create DRAFT invoice and link to debt (only if shouldCreateInvoice)
         let invoiceId: string | null = null;
-        try {
-          const invoiceResult = await createSignedInvoice.mutateAsync({
-            patientId: values.patient_id,
-            invoiceType: 'simplified',
-            bonoId: result.id,
-            statusOverride: 'draft',
-            items: [{
-              description: `Bono: ${values.name} (${values.total_sessions} sesiones)`,
-              quantity: 1,
-              unit_price: values.total_price,
-              tax_rate: 0,
-              tax_amount: 0,
-              total: values.total_price,
-              bono_id: result.id,
-            }],
-            notes: `Bono: ${values.name} (Exento de IVA)`,
-            sendNotification: false,
-          });
+        if (shouldCreateInvoice) {
+          try {
+            const invoiceResult = await createSignedInvoice.mutateAsync({
+              patientId: values.patient_id,
+              invoiceType: 'simplified',
+              bonoId: result.id,
+              statusOverride: 'draft',
+              items: [{
+                description: `Bono: ${values.name} (${values.total_sessions} sesiones)`,
+                quantity: 1,
+                unit_price: values.total_price,
+                tax_rate: 0,
+                tax_amount: 0,
+                total: values.total_price,
+                bono_id: result.id,
+              }],
+              notes: `Bono: ${values.name} (Exento de IVA)`,
+              sendNotification: false,
+            });
 
-          invoiceId = invoiceResult?.invoiceId || null;
+            invoiceId = invoiceResult?.invoiceId || null;
 
-          // Link invoice to debt
-          if (invoiceId) {
-            await supabase
-              .from('debts')
-              .update({ invoice_id: invoiceId })
-              .eq('id', debtData.id);
+            // Link invoice to debt
+            if (invoiceId) {
+              await supabase
+                .from('debts')
+                .update({ invoice_id: invoiceId })
+                .eq('id', debtData.id);
+            }
+          } catch (invoiceError) {
+            console.error('Error creating invoice:', invoiceError);
+            toast.warning('Bono creado pero hubo un error al crear la factura. Puedes crearla manualmente.');
           }
-        } catch (invoiceError) {
-          console.error('Error creating invoice:', invoiceError);
-          // Invoice failed but bono and debt exist - show warning
-          toast.warning('Bono creado pero hubo un error al crear la factura. Puedes crearla manualmente.');
         }
 
-        // 4. If paying now, record payment and issue invoice
+        // 4. If paying now, record payment and optionally issue invoice
         const paidAmount = values.pay_now ? (values.payment_amount || values.total_price) : 0;
         
-        if (values.pay_now && paidAmount > 0 && invoiceId) {
-          // Record payment against the invoice
+        if (values.pay_now && paidAmount > 0) {
+          // Record payment (linked to invoice if exists)
           const { error: paymentError } = await supabase.from('payments').insert({
             patient_id: values.patient_id,
             amount: paidAmount,
             payment_method: values.payment_method || 'cash',
             payment_date: new Date().toISOString(),
             center_id: centerId,
-            invoice_id: invoiceId,
+            invoice_id: invoiceId || null,
           });
 
           if (paymentError) {
             console.error('Error creating payment:', paymentError);
             toast.warning('Bono creado pero hubo un error al registrar el pago');
           } else {
-            // Recompute debt via RPC
-            await supabase.rpc('recompute_debt_by_invoice', { p_debt_id: debtData.id });
+            if (invoiceId) {
+              // Recompute debt via RPC
+              await supabase.rpc('recompute_debt_by_invoice', { p_debt_id: debtData.id });
 
-            // Issue the invoice (draft → issued + Verifactu)
-            try {
-              const issueResult = await issueInvoice.mutateAsync(invoiceId);
+              // Issue the invoice (draft → issued + Verifactu)
+              try {
+                const issueResult = await issueInvoice.mutateAsync(invoiceId);
 
-              // If fully paid, update invoice status to 'paid'
-              if (paidAmount >= values.total_price) {
-                await supabase
-                  .from('invoices')
-                  .update({ status: 'paid' })
-                  .eq('id', invoiceId);
+                // If fully paid, update invoice status to 'paid'
+                if (paidAmount >= values.total_price) {
+                  await supabase
+                    .from('invoices')
+                    .update({ status: 'paid' })
+                    .eq('id', invoiceId);
+                }
+
+                toast.success('Bono creado, factura emitida y pago registrado');
+
+                // Get patient details for send dialog
+                const patient = patients?.find(p => p.id === values.patient_id);
+                if (patient && issueResult.invoiceNumber) {
+                  setCreatedInvoiceForSend({
+                    id: invoiceId,
+                    invoice_number: issueResult.invoiceNumber,
+                    total: values.total_price,
+                    patients: {
+                      id: patient.id,
+                      first_name: patient.first_name,
+                      last_name: patient.last_name,
+                      email: patient.email,
+                      phone: patient.phone,
+                    },
+                  });
+                  setTimeout(() => setShowSendInvoiceDialog(true), 100);
+                }
+              } catch (issueError) {
+                console.error('Error issuing invoice:', issueError);
+                toast.warning('Bono y pago registrados, pero la factura quedó en borrador');
               }
-
-              toast.success('Bono creado, factura emitida y pago registrado');
-
-              // Get patient details for send dialog
-              const patient = patients?.find(p => p.id === values.patient_id);
-              if (patient && issueResult.invoiceNumber) {
-                setCreatedInvoiceForSend({
-                  id: invoiceId,
-                  invoice_number: issueResult.invoiceNumber,
-                  total: values.total_price,
-                  patients: {
-                    id: patient.id,
-                    first_name: patient.first_name,
-                    last_name: patient.last_name,
-                    email: patient.email,
-                    phone: patient.phone,
-                  },
-                });
-                setTimeout(() => setShowSendInvoiceDialog(true), 100);
-              }
-            } catch (issueError) {
-              console.error('Error issuing invoice:', issueError);
-              toast.warning('Bono y pago registrados, pero la factura quedó en borrador');
+            } else {
+              // No invoice - update debt manually
+              await supabase
+                .from('debts')
+                .update({ 
+                  paid_amount: paidAmount,
+                  status: paidAmount >= values.total_price ? 'paid' : 'partial'
+                })
+                .eq('id', debtData.id);
+              toast.success('Bono creado y pago registrado (sin factura)');
             }
-          }
-        } else if (values.pay_now && paidAmount > 0 && !invoiceId) {
-          // Pay without invoice - just update debt
-          const { error: paymentError } = await supabase.from('payments').insert({
-            patient_id: values.patient_id,
-            amount: paidAmount,
-            payment_method: values.payment_method || 'cash',
-            payment_date: new Date().toISOString(),
-            center_id: centerId,
-          });
-
-          if (!paymentError) {
-            await supabase
-              .from('debts')
-              .update({ 
-                paid_amount: paidAmount,
-                status: paidAmount >= values.total_price ? 'paid' : 'partial'
-              })
-              .eq('id', debtData.id);
-            toast.success('Bono creado y pago registrado (sin factura)');
           }
         } else {
           toast.success(invoiceId ? 'Bono creado con factura borrador' : 'Bono creado');
@@ -325,6 +332,30 @@ export function CreateBonoDialog({ open, onOpenChange, preselectedPatientId, onS
       toast.error(error instanceof Error ? error.message : 'Error al crear el bono');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const onSubmit = async (values: FormValues) => {
+    // Check center's invoice_on_payment_mode setting
+    const invoiceMode = center?.invoice_on_payment_mode || 'auto';
+    
+    // If paying now and mode is 'ask', show confirmation dialog
+    if (values.pay_now && invoiceMode === 'ask') {
+      setPendingSubmitValues(values);
+      setShowInvoiceConfirmation(true);
+      return;
+    }
+    
+    // Otherwise, proceed with auto behavior (create invoice)
+    const shouldCreateInvoice = invoiceMode !== 'manual'; // auto or undefined = create invoice
+    await executeBonoCreation(values, shouldCreateInvoice);
+  };
+
+  const handleInvoiceConfirmation = async (createInvoice: boolean) => {
+    setShowInvoiceConfirmation(false);
+    if (pendingSubmitValues) {
+      await executeBonoCreation(pendingSubmitValues, createInvoice);
+      setPendingSubmitValues(null);
     }
   };
 
@@ -603,6 +634,29 @@ export function CreateBonoDialog({ open, onOpenChange, preselectedPatientId, onS
         onOpenChange={setShowSendInvoiceDialog}
         invoice={createdInvoiceForSend}
       />
+
+      {/* Invoice confirmation dialog when mode is 'ask' */}
+      <AlertDialog open={showInvoiceConfirmation} onOpenChange={setShowInvoiceConfirmation}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              ¿Generar factura?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              ¿Deseas generar una factura para este bono al registrar el cobro?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => handleInvoiceConfirmation(false)}>
+              No, solo cobrar
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={() => handleInvoiceConfirmation(true)}>
+              Sí, generar factura
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
