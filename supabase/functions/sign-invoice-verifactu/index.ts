@@ -415,7 +415,10 @@ async function calculateInvoiceHash(invoice: any, center: any, previousHash: str
   const tipoFactura = determineInvoiceType(invoice);
   
   const cuotaTotal = (Number(invoice.tax_amount) || 0).toFixed(2);
-  const importeTotal = Number(invoice.total).toFixed(2);
+  // IMPORTANT: ImporteTotal for Verifactu = Base + IVA (NOT subtracting IRPF retention)
+  // Error 2005 occurs if we send the accounting total (with retention subtracted)
+  // AEAT validates: ImporteTotal = BaseImponible + CuotaRepercutida
+  const importeTotal = (Number(invoice.subtotal || 0) + Number(invoice.tax_amount || 0)).toFixed(2);
   // For first invoice, Huella should be empty (not the hash itself)
   const huellaAnterior = (previousHash || '').trim();
   
@@ -634,7 +637,7 @@ ${destinatariosXML}          <sum1:Desglose>
 ${desgloseXML}
           </sum1:Desglose>
           <sum1:CuotaTotal>${Number(invoice.tax_amount || 0).toFixed(2)}</sum1:CuotaTotal>
-          <sum1:ImporteTotal>${Number(invoice.total).toFixed(2)}</sum1:ImporteTotal>
+          <sum1:ImporteTotal>${(Number(invoice.subtotal || 0) + Number(invoice.tax_amount || 0)).toFixed(2)}</sum1:ImporteTotal>
           <sum1:Encadenamiento>
             ${encadenamientoXML}
           </sum1:Encadenamiento>
@@ -1187,7 +1190,9 @@ serve(async (req) => {
 
     // Generate QR URL (nifEmisor already defined above)
     const fechaExpedicion = formatDateVerifactu(invoice.issue_date);
-    const qrUrl = generateQRUrl(nifEmisor, invoice.invoice_number, fechaExpedicion, Number(invoice.total), environment);
+    // Use fiscal total (subtotal + IVA) for QR, not accounting total (with retention)
+    const fiscalTotal = Number(invoice.subtotal || 0) + Number(invoice.tax_amount || 0);
+    const qrUrl = generateQRUrl(nifEmisor, invoice.invoice_number, fechaExpedicion, fiscalTotal, environment);
 
     // Extract CSV from response
     const csv = aeatResult.response ? extractCSV(aeatResult.response) : null;
