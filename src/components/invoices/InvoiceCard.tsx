@@ -192,7 +192,7 @@ export function InvoiceCard({
                       </>
                     )}
 
-                    {/* Verifactu actions for sealed invoices */}
+                    {/* Verifactu query for sealed invoices */}
                     {isSealed && (
                       <>
                         <DropdownMenuSeparator />
@@ -200,6 +200,13 @@ export function InvoiceCard({
                           <Search className="h-4 w-4 mr-2" />
                           Consultar RF en AEAT
                         </DropdownMenuItem>
+                      </>
+                    )}
+
+                    {/* Rectificativa option for issued/paid valid invoices */}
+                    {(invoice.status === 'issued' || invoice.status === 'paid') && !isInvalidated && (
+                      <>
+                        {!isSealed && <DropdownMenuSeparator />}
                         <DropdownMenuItem onClick={() => { setMenuOpen(false); onCreateRectificativa?.(); }}>
                           <FilePlus2 className="h-4 w-4 mr-2" />
                           Crear Rectificativa
