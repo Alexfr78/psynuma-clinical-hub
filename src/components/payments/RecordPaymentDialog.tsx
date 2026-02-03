@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format } from 'date-fns';
-import { CalendarIcon, CreditCard, Check, ChevronsUpDown, Search } from 'lucide-react';
+import { CalendarIcon, CreditCard, Check, ChevronsUpDown, AlertTriangle } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -39,13 +39,16 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import { usePatients } from '@/hooks/usePatients';
 import { useCreatePayment } from '@/hooks/usePayments';
 import { useInvoices } from '@/hooks/useInvoices';
 import { useCollectDebtPayment } from '@/hooks/useCollectDebtPayment';
+import { useCreateSignedInvoice } from '@/hooks/useCreateSignedInvoice';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { FileText } from 'lucide-react';
+import { toast } from 'sonner';
 
 const formSchema = z.object({
   patient_id: z.string().min(1, 'Selecciona un paciente'),
@@ -55,6 +58,7 @@ const formSchema = z.object({
   payment_method: z.string().min(1, 'Selecciona un método de pago'),
   reference: z.string().optional(),
   notes: z.string().optional(),
+  generate_invoice: z.boolean().default(true),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -87,11 +91,17 @@ export function RecordPaymentDialog({
 }: RecordPaymentDialogProps) {
   const [patientSearch, setPatientSearch] = useState('');
   const [patientPopoverOpen, setPatientPopoverOpen] = useState(false);
+  const [debtInfo, setDebtInfo] = useState<{
+    hasInvoice: boolean;
+    bonoId: string | null;
+    bonoName: string | null;
+  } | null>(null);
   
   const { data: patients } = usePatients({ search: patientSearch || undefined });
   const { data: invoices } = useInvoices({ status: 'issued' });
   const createPayment = useCreatePayment();
   const collectDebtPayment = useCollectDebtPayment();
+  const createSignedInvoice = useCreateSignedInvoice();
   
   const isDebtPayment = !!preselectedDebtId;
 
@@ -105,6 +115,7 @@ export function RecordPaymentDialog({
       payment_method: 'cash',
       reference: '',
       notes: '',
+      generate_invoice: true,
     },
   });
 
@@ -119,28 +130,47 @@ export function RecordPaymentDialog({
         payment_method: 'cash',
         reference: '',
         notes: '',
+        generate_invoice: true,
       });
+      setDebtInfo(null);
     }
   }, [open, preselectedPatientId, preselectedInvoiceId, preselectedAmount]);
 
-  // Fallback: if preselectedDebtId is present but preselectedPatientId was missing, fetch patient_id
+  // Fetch debt details including invoice status
   useEffect(() => {
-    if (!open || !preselectedDebtId || preselectedPatientId) return;
+    if (!open || !preselectedDebtId) {
+      setDebtInfo(null);
+      return;
+    }
 
     let cancelled = false;
 
-    const fillFromDebt = async () => {
+    const fetchDebtDetails = async () => {
       const { data, error } = await supabase
         .from("debts")
-        .select("patient_id")
+        .select(`
+          patient_id,
+          invoice_id,
+          bono_id,
+          bonos (id, name, total_sessions, total_price)
+        `)
         .eq("id", preselectedDebtId)
         .single();
 
-      if (cancelled || error || !data?.patient_id) return;
-      form.setValue("patient_id", data.patient_id, { shouldValidate: true });
+      if (cancelled || error || !data) return;
+      
+      if (!preselectedPatientId) {
+        form.setValue("patient_id", data.patient_id, { shouldValidate: true });
+      }
+      
+      setDebtInfo({
+        hasInvoice: !!data.invoice_id,
+        bonoId: data.bono_id,
+        bonoName: (data.bonos as any)?.name || null,
+      });
     };
 
-    fillFromDebt();
+    fetchDebtDetails();
 
     return () => {
       cancelled = true;
@@ -148,18 +178,62 @@ export function RecordPaymentDialog({
   }, [open, preselectedDebtId, preselectedPatientId]);
 
   const watchPatientId = form.watch('patient_id');
+  const watchGenerateInvoice = form.watch('generate_invoice');
   const selectedPatient = patients?.find(p => p.id === watchPatientId);
   const patientInvoices = invoices?.filter(inv => inv.patient_id === watchPatientId) || [];
 
+  // Show invoice option for debts without invoice
+  const showInvoiceOption = isDebtPayment && debtInfo && !debtInfo.hasInvoice;
+
   const onSubmit = async (values: FormValues) => {
     if (preselectedDebtId) {
-      // Collect debt: creates invoice + payment + updates debt
+      // Check if we need to create an invoice first
+      let invoiceIdToUse: string | undefined = undefined;
+      
+      if (showInvoiceOption && values.generate_invoice && debtInfo?.bonoId) {
+        try {
+          // Create invoice for the bono
+          const invoiceResult = await createSignedInvoice.mutateAsync({
+            patientId: values.patient_id,
+            invoiceType: 'simplified',
+            bonoId: debtInfo.bonoId,
+            statusOverride: 'draft',
+            items: [{
+              description: `Bono: ${debtInfo.bonoName || 'Bono de sesiones'}`,
+              quantity: 1,
+              unit_price: preselectedAmount || values.amount,
+              tax_rate: 0,
+              tax_amount: 0,
+              total: preselectedAmount || values.amount,
+              bono_id: debtInfo.bonoId,
+            }],
+            notes: `Bono: ${debtInfo.bonoName || 'Bono de sesiones'} (Exento de IVA)`,
+            sendNotification: false,
+          });
+          
+          invoiceIdToUse = invoiceResult?.invoiceId;
+          
+          if (invoiceIdToUse) {
+            // Link invoice to debt
+            await supabase
+              .from('debts')
+              .update({ invoice_id: invoiceIdToUse })
+              .eq('id', preselectedDebtId);
+          }
+        } catch (error) {
+          console.error('Error creating invoice:', error);
+          toast.warning('No se pudo crear la factura, pero se registrará el pago');
+        }
+      }
+      
+      // Collect debt payment
       await collectDebtPayment.mutateAsync({
         debtId: preselectedDebtId,
         amount: values.amount,
         paymentMethod: values.payment_method,
         reference: values.reference || null,
         notes: values.notes || null,
+        invoiceId: invoiceIdToUse,
       });
     } else {
       // Simple payment (no invoice generation)
@@ -177,7 +251,7 @@ export function RecordPaymentDialog({
     onOpenChange(false);
   };
   
-  const isPending = createPayment.isPending || collectDebtPayment.isPending;
+  const isPending = createPayment.isPending || collectDebtPayment.isPending || createSignedInvoice.isPending;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -298,6 +372,37 @@ export function RecordPaymentDialog({
                   </FormItem>
                 )}
               />
+            )}
+
+            {/* Show invoice generation option for debts without invoice */}
+            {showInvoiceOption && (
+              <Alert variant="default" className="bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800">
+                <AlertTriangle className="h-4 w-4 text-amber-600" />
+                <AlertDescription className="text-amber-800 dark:text-amber-200">
+                  <div className="space-y-2">
+                    <p className="text-sm">
+                      Esta deuda{debtInfo?.bonoName ? ` (${debtInfo.bonoName})` : ''} no tiene factura asociada.
+                    </p>
+                    <FormField
+                      control={form.control}
+                      name="generate_invoice"
+                      render={({ field }) => (
+                        <FormItem className="flex items-center gap-2 space-y-0">
+                          <FormControl>
+                            <Checkbox 
+                              checked={field.value} 
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                          <FormLabel className="font-normal cursor-pointer text-amber-800 dark:text-amber-200">
+                            Generar factura al registrar el pago
+                          </FormLabel>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                </AlertDescription>
+              </Alert>
             )}
 
             <div className="grid grid-cols-2 gap-4">
