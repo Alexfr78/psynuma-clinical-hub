@@ -174,6 +174,23 @@ function escapeXML(str: string): string {
     .replace(/'/g, '&apos;');
 }
 
+// Normalize NIF for AEAT - remove country prefix (ES) from Spanish NIFs
+// Error 1100 "Valor o tipo incorrecto del campo: NIF" occurs when NIF has ES prefix
+function normalizeNifForAEAT(nif: string | null | undefined): string {
+  if (!nif) return '';
+  
+  // Remove all non-alphanumeric characters first
+  let normalized = nif.replace(/[^A-Z0-9]/gi, '').toUpperCase();
+  
+  // Remove ES prefix if present (Spanish VAT numbers often include country code)
+  if (normalized.startsWith('ES') && normalized.length > 2) {
+    normalized = normalized.substring(2);
+    console.log(`NIF normalized: removed ES prefix from ${nif} -> ${normalized}`);
+  }
+  
+  return normalized;
+}
+
 // Sanitize NumSerieFactura field - must be A-Z, 0-9, hyphen only, no spaces/invisible chars
 // Error 1100 occurs when this field has invalid characters
 function sanitizeNumSerieFactura(input: unknown): string {
@@ -387,7 +404,7 @@ function buildDesgloseFromItems(invoiceItems: any[], invoice: any): string {
 
 // Calculate hash for chaining (Huella) - AEAT format: campo=valor&campo=valor...
 async function calculateInvoiceHash(invoice: any, center: any, previousHash: string | null, timestamp: string): Promise<string> {
-  const nifEmisor = (center.tax_id?.replace(/[^A-Z0-9]/gi, '') || '').trim();
+  const nifEmisor = normalizeNifForAEAT(center.tax_id);
   // Sanitize NumSerieFactura to prevent error 1100
   const numSerie = sanitizeNumSerieFactura(invoice.invoice_number);
   console.log("NumSerieFactura raw:", JSON.stringify(invoice.invoice_number));
@@ -432,13 +449,15 @@ function buildRegistroAltaXML(
   invoiceHash: string,
   rectifiedInvoice: { id: string; invoice_number: string; issue_date: string } | null
 ): string {
-  const nifEmisor = center.tax_id?.replace(/[^A-Z0-9]/gi, '') || '';
+  // Normalize NIFs: remove ES prefix for Spanish VAT numbers (AEAT requirement)
+  const nifEmisor = normalizeNifForAEAT(center.tax_id);
   const nombreEmisor = center.name || '';
   const fechaExpedicion = formatDateVerifactu(invoice.issue_date);
   // Sanitize NumSerieFactura to prevent error 1100
   const numSerieFactura = sanitizeNumSerieFactura(invoice.invoice_number);
   
-  const patientTaxId = patient?.tax_id?.replace(/[^A-Z0-9]/gi, '') || '';
+  // Use normalizeNifForAEAT to handle ES prefix (Error 1100 fix)
+  const patientTaxId = normalizeNifForAEAT(patient?.tax_id);
   const patientName = patient ? `${patient.first_name} ${patient.last_name}`.trim() : 'Cliente';
   
   // Build DescripcionOperacion - ALWAYS required, never empty
@@ -504,7 +523,7 @@ function buildRegistroAltaXML(
   // NombreSistemaInformatico: nombre comercial del producto, max 30 chars, sin caracteres especiales
   const softwareSistemaInfo = sanitizeNombreSistemaInformatico(center.verifactu_sistema_informatico || 'PSYCMA');
   const softwareVersion = center.verifactu_software_version || '1.0.0';
-  const softwareNif = (center.verifactu_software_nif || nifEmisor).replace(/[^A-Z0-9]/gi, '');
+  const softwareNif = normalizeNifForAEAT(center.verifactu_software_nif || nifEmisor);
   // NumeroInstalacion: identifies the installation, can be incremented to start a new chain
   const numeroInstalacion = String(center.verifactu_numero_instalacion || 1);
 
@@ -1041,7 +1060,7 @@ serve(async (req) => {
     }
 
     // Get chain identity parameters for this installation
-    const nifEmisor = center.tax_id?.replace(/[^A-Z0-9]/gi, '') || '';
+    const nifEmisor = normalizeNifForAEAT(center.tax_id);
     const idSistemaInformatico = '01'; // Fixed in our system
     const numeroInstalacion = center.verifactu_numero_instalacion || 1;
     
