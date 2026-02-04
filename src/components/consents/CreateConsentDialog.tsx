@@ -132,13 +132,13 @@ export function CreateConsentDialog({
 
         <div className="mb-4 rounded-lg bg-muted p-3">
           <p className="text-sm">
-            <span className="font-medium">Paciente:</span> {patient.first_name} {patient.last_name}
+            <span className="font-medium">Contacto:</span> {patient.first_name} {patient.last_name}
           </p>
           {requiresGuardian && (
             <div className="mt-2 flex items-center gap-2">
               <Badge variant="outline" className="gap-1">
                 <Users className="h-3 w-3" />
-                Paciente menor
+                Contacto menor
               </Badge>
               <span className="text-xs text-muted-foreground">
                 Requiere firma del tutor: {patient.guardian_name || 'No configurado'}
@@ -151,8 +151,8 @@ export function CreateConsentDialog({
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
-              Este paciente es menor pero no tiene un tutor configurado. 
-              Por favor, actualiza los datos del paciente antes de crear el consentimiento.
+              Este contacto es menor pero no tiene un tutor configurado. 
+              Por favor, actualiza los datos del contacto antes de crear el consentimiento.
             </AlertDescription>
           </Alert>
         )}

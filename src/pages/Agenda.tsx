@@ -354,7 +354,7 @@ export default function Agenda() {
         <div>
           <h1 className="font-display text-2xl font-bold text-foreground">Agenda</h1>
           <p className="text-muted-foreground">
-            Gestiona las sesiones y citas de tus pacientes
+            Gestiona las sesiones y citas de tus contactos
           </p>
         </div>
         

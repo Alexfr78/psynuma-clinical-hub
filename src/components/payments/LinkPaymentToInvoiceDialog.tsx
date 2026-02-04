@@ -79,7 +79,7 @@ export function LinkPaymentToInvoiceDialog({
         <div className="space-y-4 py-4">
           <div className="p-3 bg-muted rounded-lg">
             <p className="text-sm font-medium">
-              Paciente: {payment.patients.first_name} {payment.patients.last_name}
+              Contacto: {payment.patients.first_name} {payment.patients.last_name}
             </p>
             <p className="text-sm text-muted-foreground mt-1">
               Importe: {Number(payment.amount).toFixed(2)}€
@@ -91,7 +91,7 @@ export function LinkPaymentToInvoiceDialog({
             {patientInvoices.length === 0 ? (
               <div className="text-sm text-muted-foreground p-3 border rounded-lg">
                 <FileText className="h-4 w-4 inline mr-2" />
-                No hay facturas emitidas para este paciente
+                No hay facturas emitidas para este contacto
               </div>
             ) : (
               <Select

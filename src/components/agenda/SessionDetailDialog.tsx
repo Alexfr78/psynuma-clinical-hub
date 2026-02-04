@@ -57,7 +57,7 @@ export function SessionDetailDialog({ session, open, onOpenChange }: SessionDeta
   const status = statusConfig[session.status as keyof typeof statusConfig] || statusConfig.scheduled;
   const patientName = session.patient 
     ? `${session.patient.first_name} ${session.patient.last_name}` 
-    : 'Sin paciente';
+    : 'Sin contacto';
 
   const handleStatusChange = async (newStatus: string) => {
     setIsUpdating(true);

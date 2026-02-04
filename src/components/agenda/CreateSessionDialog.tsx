@@ -61,7 +61,7 @@ const PAYMENT_MODE_OPTIONS = [
 ];
 
 const sessionSchema = z.object({
-  patient_id: z.string().uuid('Selecciona un paciente'),
+  patient_id: z.string().uuid('Selecciona un contacto'),
   professional_id: z.string().uuid('Selecciona un profesional'),
   session_date: z.date({ required_error: 'Selecciona una fecha' }),
   start_time: z.string().min(1, 'Selecciona hora de inicio'),
@@ -284,7 +284,7 @@ export function CreateSessionDialog({
         <DialogHeader>
           <DialogTitle>Nueva Sesión</DialogTitle>
           <DialogDescription className="hidden sm:block">
-            Programa una nueva sesión con un paciente.
+            Programa una nueva sesión con un contacto.
           </DialogDescription>
         </DialogHeader>
 
@@ -295,11 +295,11 @@ export function CreateSessionDialog({
               name="patient_id"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Paciente *</FormLabel>
+                  <FormLabel>Contacto *</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Seleccionar paciente" />
+                        <SelectValue placeholder="Seleccionar contacto" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>

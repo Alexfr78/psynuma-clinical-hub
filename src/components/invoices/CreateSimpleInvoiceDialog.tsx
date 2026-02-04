@@ -330,7 +330,7 @@ export function CreateSimpleInvoiceDialog({ open, onOpenChange, preselectedPatie
         id: patientData.id,
         ...patientFormData,
       });
-      toast.success('Datos del paciente actualizados');
+      toast.success('Datos del contacto actualizados');
       setEditingPatient(false);
     } catch (error) {
       toast.error('Error al guardar los datos');
@@ -489,10 +489,10 @@ export function CreateSimpleInvoiceDialog({ open, onOpenChange, preselectedPatie
           </div>
 
           <div className="space-y-2">
-            <Label>Paciente</Label>
+            <Label>Contacto</Label>
             <Select value={selectedPatientId} onValueChange={setSelectedPatientId}>
               <SelectTrigger>
-                <SelectValue placeholder="Seleccionar paciente" />
+                <SelectValue placeholder="Seleccionar contacto" />
               </SelectTrigger>
               <SelectContent>
                 {patients?.map((patient) => (

@@ -59,7 +59,7 @@ export function WhatsAppSettingsSection() {
       <CardHeader>
         <CardTitle>Configuración de WhatsApp</CardTitle>
         <CardDescription>
-          Elige cómo quieres enviar los mensajes de WhatsApp a tus pacientes
+          Elige cómo quieres enviar los mensajes de WhatsApp a tus contactos
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">

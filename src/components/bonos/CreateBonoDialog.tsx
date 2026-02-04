@@ -63,7 +63,7 @@ import { toast } from 'sonner';
 import { SendInvoiceDialog } from '@/components/invoices/SendInvoiceDialog';
 
 const formSchema = z.object({
-  patient_id: z.string().min(1, 'Selecciona un paciente'),
+  patient_id: z.string().min(1, 'Selecciona un contacto'),
   template_id: z.string().optional(),
   name: z.string().min(1, 'El nombre es obligatorio'),
   total_sessions: z.coerce.number().min(1, 'Mínimo 1 sesión'),
@@ -369,11 +369,11 @@ export function CreateBonoDialog({ open, onOpenChange, preselectedPatientId, onS
           name="patient_id"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Paciente</FormLabel>
+              <FormLabel>Contacto</FormLabel>
               <Select onValueChange={field.onChange} value={field.value}>
                 <FormControl>
                   <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar paciente" />
+                    <SelectValue placeholder="Seleccionar contacto" />
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent className="z-[200]" position="popper" sideOffset={4}>

@@ -110,7 +110,7 @@ export function EditPaymentDialog({ open, onOpenChange, payment }: EditPaymentDi
 
         <div className="mb-4 p-3 bg-muted rounded-lg">
           <p className="text-sm font-medium">
-            Paciente: {payment.patients.first_name} {payment.patients.last_name}
+            Contacto: {payment.patients.first_name} {payment.patients.last_name}
           </p>
           {payment.invoices && (
             <p className="text-xs text-muted-foreground mt-1">

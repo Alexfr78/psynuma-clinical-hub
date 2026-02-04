@@ -262,7 +262,7 @@ export function CollectBonoPaymentDialog({
           <span className="font-semibold">{bonoName}</span>
         </div>
         <div className="text-sm text-muted-foreground">
-          Paciente: {patientName}
+          Contacto: {patientName}
         </div>
       </div>
 

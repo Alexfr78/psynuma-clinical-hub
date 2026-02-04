@@ -133,7 +133,7 @@ export function ConsentDetailDialog({
           {/* Metadata */}
           <div className="grid gap-4 text-sm sm:grid-cols-2">
             <div>
-              <p className="font-medium text-muted-foreground">Paciente</p>
+              <p className="font-medium text-muted-foreground">Contacto</p>
               <p>
                 {consent.patient?.first_name} {consent.patient?.last_name}
               </p>

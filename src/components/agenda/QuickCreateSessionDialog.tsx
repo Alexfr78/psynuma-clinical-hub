@@ -70,7 +70,7 @@ import { checkSessionConflicts, ConflictResult, SessionToCheck } from '@/lib/con
 import { ConflictsDialog } from './ConflictsDialog';
 
 const quickSessionSchema = z.object({
-  patient_id: z.string().uuid('Selecciona un paciente'),
+  patient_id: z.string().uuid('Selecciona un contacto'),
   professional_id: z.string().uuid('Selecciona un profesional'),
   session_date: z.date({ required_error: 'Selecciona una fecha' }),
   start_time: z.string().min(1, 'Hora de inicio requerida'),

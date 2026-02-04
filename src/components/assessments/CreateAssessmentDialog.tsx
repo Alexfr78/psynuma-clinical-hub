@@ -67,7 +67,7 @@ export function CreateAssessmentDialog({ open, onOpenChange, preselectedPatientI
 
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label>Paciente</Label>
+            <Label>Contacto</Label>
             <Popover open={patientPopoverOpen} onOpenChange={setPatientPopoverOpen}>
               <PopoverTrigger asChild>
                 <Button
@@ -80,7 +80,7 @@ export function CreateAssessmentDialog({ open, onOpenChange, preselectedPatientI
                   {selectedPatient ? (
                     <span>{selectedPatient.first_name} {selectedPatient.last_name}</span>
                   ) : (
-                    <span className="text-muted-foreground">Buscar paciente...</span>
+                    <span className="text-muted-foreground">Buscar contacto...</span>
                   )}
                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
@@ -93,7 +93,7 @@ export function CreateAssessmentDialog({ open, onOpenChange, preselectedPatientI
                     onValueChange={setSearchValue}
                   />
                   <CommandList>
-                    <CommandEmpty>No se encontraron pacientes.</CommandEmpty>
+                    <CommandEmpty>No se encontraron contactos.</CommandEmpty>
                     <CommandGroup>
                       {patients.map((patient) => (
                         <CommandItem

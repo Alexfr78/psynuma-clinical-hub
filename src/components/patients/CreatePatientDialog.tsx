@@ -114,7 +114,7 @@ export function CreatePatientDialog() {
       });
 
       toast({
-        title: 'Paciente creado',
+        title: 'Contacto creado',
         description: `${values.first_name} ${values.last_name} ha sido registrado correctamente.`,
       });
 
@@ -123,7 +123,7 @@ export function CreatePatientDialog() {
     } catch (error) {
       toast({
         title: 'Error',
-        description: 'No se pudo crear el paciente. Por favor, inténtalo de nuevo.',
+        description: 'No se pudo crear el contacto. Por favor, inténtalo de nuevo.',
         variant: 'destructive',
       });
     }
@@ -134,14 +134,14 @@ export function CreatePatientDialog() {
       <DialogTrigger asChild>
         <Button>
           <Plus className="mr-2 h-4 w-4" />
-          Nuevo Paciente
+          Nuevo Contacto
         </Button>
       </DialogTrigger>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[600px]">
         <DialogHeader>
-          <DialogTitle>Nuevo Paciente</DialogTitle>
+          <DialogTitle>Nuevo Contacto</DialogTitle>
           <DialogDescription>
-            Introduce los datos del paciente. Los campos marcados con * son obligatorios.
+            Introduce los datos del contacto. Los campos marcados con * son obligatorios.
           </DialogDescription>
         </DialogHeader>
 
@@ -316,9 +316,9 @@ export function CreatePatientDialog() {
                 render={({ field }) => (
                   <FormItem className="flex items-center justify-between rounded-lg border p-4">
                     <div className="space-y-0.5">
-                      <FormLabel className="text-base">Paciente menor de edad</FormLabel>
+                      <FormLabel className="text-base">Contacto menor de edad</FormLabel>
                       <p className="text-sm text-muted-foreground">
-                        Activa esta opción si el paciente es menor y requiere tutor
+                        Activa esta opción si el contacto es menor y requiere tutor
                       </p>
                     </div>
                     <FormControl>

@@ -52,7 +52,7 @@ export function PatientConsents({ patientId, patient }: PatientConsentsProps) {
           </div>
           <h3 className="mt-4 font-semibold">Sin consentimientos</h3>
           <p className="mt-2 text-sm text-muted-foreground">
-            Este paciente no tiene consentimientos registrados
+            Este contacto no tiene consentimientos registrados
           </p>
           <Button className="mt-4" onClick={() => setCreateDialogOpen(true)}>
             <Plus className="mr-2 h-4 w-4" />
