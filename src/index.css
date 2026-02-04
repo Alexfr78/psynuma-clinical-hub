@@ -120,9 +120,9 @@
     max-width: 100vw;
   }
   
-  /* Mobile-first: 15% larger base font size on mobile */
+  /* Mobile-first: 20% larger base font size on mobile */
   html {
-    font-size: 115%; /* ~18.4px base instead of 16px */
+    font-size: 120%; /* ~19.2px base instead of 16px */
   }
   
   /* Reset to normal size on tablet and desktop */
