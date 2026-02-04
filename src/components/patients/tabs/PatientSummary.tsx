@@ -18,6 +18,8 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Patient } from '@/hooks/usePatients';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { PatientStatusBadge } from '../PatientStatusBadge';
+import { PatientStatusToggle } from '../PatientStatusToggle';
 
 interface PatientSummaryProps {
   patient: Patient & {
@@ -28,17 +30,12 @@ interface PatientSummaryProps {
       email: string;
       specialty: string | null;
     } | null;
+    status_source?: string | null;
+    status_reason?: string | null;
   };
 }
 
-const statusConfig = {
-  active: { label: 'Activo', variant: 'default' as const, color: 'bg-success' },
-  inactive: { label: 'Inactivo', variant: 'secondary' as const, color: 'bg-muted' },
-  discharged: { label: 'Alta', variant: 'outline' as const, color: 'bg-info' },
-};
-
 export function PatientSummary({ patient }: PatientSummaryProps) {
-  const status = statusConfig[patient.status as keyof typeof statusConfig] || statusConfig.active;
   const initials = `${patient.first_name?.[0] || ''}${patient.last_name?.[0] || ''}`.toUpperCase();
 
   // Fetch patient stats
@@ -105,18 +102,30 @@ export function PatientSummary({ patient }: PatientSummaryProps) {
             </Avatar>
 
             <div className="flex-1 min-w-0 text-center sm:text-left">
-              <div className="flex flex-col items-center gap-2 sm:flex-row sm:flex-wrap">
-                <h2 className="font-display text-xl sm:text-2xl font-bold break-words">
-                  {patient.first_name} {patient.last_name}
-                </h2>
-                <div className="flex gap-2 flex-wrap justify-center sm:justify-start">
-                  <Badge variant={status.variant}>{status.label}</Badge>
-                  {patient.is_minor && (
-                    <Badge variant="outline" className="border-warning text-warning">
-                      Menor
-                    </Badge>
-                  )}
+              <div className="flex flex-col items-center gap-2 sm:flex-row sm:flex-wrap sm:justify-between">
+                <div className="flex flex-col items-center gap-2 sm:flex-row sm:items-center">
+                  <h2 className="font-display text-xl sm:text-2xl font-bold break-words">
+                    {patient.first_name} {patient.last_name}
+                  </h2>
+                  <div className="flex gap-2 flex-wrap justify-center sm:justify-start">
+                    <PatientStatusBadge 
+                      status={patient.status || 'active'} 
+                      statusSource={patient.status_source}
+                      statusReason={patient.status_reason}
+                      showReason
+                    />
+                    {patient.is_minor && (
+                      <Badge variant="outline" className="border-warning text-warning">
+                        Menor
+                      </Badge>
+                    )}
+                  </div>
                 </div>
+                <PatientStatusToggle 
+                  patientId={patient.id}
+                  currentStatus={patient.status || 'active'}
+                  statusSource={patient.status_source}
+                />
               </div>
 
               <div className="mt-3 sm:mt-4 grid gap-2 sm:gap-3 sm:grid-cols-2 lg:grid-cols-3">

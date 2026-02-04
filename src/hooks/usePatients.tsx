@@ -27,7 +27,9 @@ export function usePatients(filters?: PatientFilters) {
             id, first_name, last_name, email
           )
         `)
-        .order('created_at', { ascending: false });
+        // Order by status priority: active first, then inactive, then discharged
+        .order('status', { ascending: true })
+        .order('updated_at', { ascending: false });
 
       if (filters?.search) {
         query = query.or(`first_name.ilike.%${filters.search}%,last_name.ilike.%${filters.search}%,email.ilike.%${filters.search}%`);
@@ -68,7 +70,13 @@ export function usePatient(patientId: string | undefined) {
         .maybeSingle();
 
       if (error) throw error;
-      return data;
+      
+      // Return with status fields explicitly typed
+      return data as (typeof data) & {
+        status_source?: string | null;
+        status_reason?: string | null;
+        status_updated_at?: string | null;
+      };
     },
     enabled: !!patientId,
   });
