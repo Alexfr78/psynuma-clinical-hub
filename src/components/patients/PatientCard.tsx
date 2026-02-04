@@ -3,9 +3,9 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { User, Mail, Phone, Calendar, ChevronRight } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Patient } from '@/hooks/usePatients';
+import { PatientStatusBadge } from './PatientStatusBadge';
 
 interface PatientCardProps {
   patient: Patient & {
@@ -15,18 +15,13 @@ interface PatientCardProps {
       last_name: string | null;
       email: string;
     } | null;
+    status_source?: string | null;
+    status_reason?: string | null;
   };
 }
 
-const statusConfig = {
-  active: { label: 'Activo', variant: 'default' as const },
-  inactive: { label: 'Inactivo', variant: 'secondary' as const },
-  discharged: { label: 'Alta', variant: 'outline' as const },
-};
-
 export function PatientCard({ patient }: PatientCardProps) {
   const navigate = useNavigate();
-  const status = statusConfig[patient.status as keyof typeof statusConfig] || statusConfig.active;
 
   const initials = `${patient.first_name?.[0] || ''}${patient.last_name?.[0] || ''}`.toUpperCase();
 
@@ -62,9 +57,11 @@ export function PatientCard({ patient }: PatientCardProps) {
               <h3 className="font-semibold text-foreground text-sm sm:text-base truncate">
                 {patient.first_name} {patient.last_name}
               </h3>
-              <Badge variant={status.variant} className="shrink-0 text-xs">
-                {status.label}
-              </Badge>
+              <PatientStatusBadge 
+                status={patient.status || 'active'} 
+                statusSource={patient.status_source}
+                className="shrink-0"
+              />
             </div>
 
             <div className="mt-1.5 sm:mt-2 space-y-0.5 sm:space-y-1">

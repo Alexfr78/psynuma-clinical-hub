@@ -2271,6 +2271,9 @@ export type Database = {
           phone: string | null
           postal_code: string | null
           status: Database["public"]["Enums"]["patient_status"] | null
+          status_reason: string | null
+          status_source: string | null
+          status_updated_at: string | null
           tax_id: string | null
           updated_at: string
         }
@@ -2297,6 +2300,9 @@ export type Database = {
           phone?: string | null
           postal_code?: string | null
           status?: Database["public"]["Enums"]["patient_status"] | null
+          status_reason?: string | null
+          status_source?: string | null
+          status_updated_at?: string | null
           tax_id?: string | null
           updated_at?: string
         }
@@ -2323,6 +2329,9 @@ export type Database = {
           phone?: string | null
           postal_code?: string | null
           status?: Database["public"]["Enums"]["patient_status"] | null
+          status_reason?: string | null
+          status_source?: string | null
+          status_updated_at?: string | null
           tax_id?: string | null
           updated_at?: string
         }
@@ -3670,6 +3679,7 @@ export type Database = {
         }
         Returns: string
       }
+      compute_patient_status: { Args: { p_patient_id: string }; Returns: Json }
       convert_calendar_event_to_session: {
         Args: {
           p_bono_id?: string
@@ -3845,6 +3855,10 @@ export type Database = {
           specialty: string
         }[]
       }
+      recompute_all_patient_statuses: {
+        Args: { p_center_id?: string }
+        Returns: Json
+      }
       recompute_debt_by_invoice: { Args: { p_debt_id: string }; Returns: Json }
       release_google_sync_lock: {
         Args: { p_professional_id: string }
@@ -3854,11 +3868,16 @@ export type Database = {
         Args: { p_session_id: string }
         Returns: Json
       }
+      remove_patient_discharged: {
+        Args: { p_patient_id: string }
+        Returns: Json
+      }
       reorder_session_types: {
         Args: { p_center_id: string; p_ordered_ids: string[] }
         Returns: Json
       }
       sanitize_error_payload: { Args: { payload: Json }; Returns: Json }
+      set_patient_discharged: { Args: { p_patient_id: string }; Returns: Json }
       try_acquire_google_sync_lock: {
         Args: { p_professional_id: string }
         Returns: boolean
