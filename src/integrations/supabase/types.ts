@@ -3329,14 +3329,12 @@ export type Database = {
           country: string | null
           default_tax_name: string | null
           default_tax_rate: number | null
-          email: string | null
           id: string | null
           include_tax_in_price: boolean | null
           invoice_footer: string | null
           invoice_logo_url: string | null
           logo_url: string | null
           name: string | null
-          phone: string | null
           portal_allow_professional_selection: boolean | null
           portal_enabled: boolean | null
           portal_require_approval: boolean | null
@@ -3358,14 +3356,12 @@ export type Database = {
           country?: string | null
           default_tax_name?: string | null
           default_tax_rate?: number | null
-          email?: string | null
           id?: string | null
           include_tax_in_price?: boolean | null
           invoice_footer?: string | null
           invoice_logo_url?: string | null
           logo_url?: string | null
           name?: string | null
-          phone?: string | null
           portal_allow_professional_selection?: boolean | null
           portal_enabled?: boolean | null
           portal_require_approval?: boolean | null
@@ -3387,14 +3383,12 @@ export type Database = {
           country?: string | null
           default_tax_name?: string | null
           default_tax_rate?: number | null
-          email?: string | null
           id?: string | null
           include_tax_in_price?: boolean | null
           invoice_footer?: string | null
           invoice_logo_url?: string | null
           logo_url?: string | null
           name?: string | null
-          phone?: string | null
           portal_allow_professional_selection?: boolean | null
           portal_enabled?: boolean | null
           portal_require_approval?: boolean | null

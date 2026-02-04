@@ -8,6 +8,8 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useCenter } from '@/hooks/useCenter';
 import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 import type { WhatsAppSendMethod } from '@/lib/whatsapp';
 
 export function WhatsAppSettingsSection() {
@@ -24,7 +26,8 @@ export function WhatsAppSettingsSection() {
   useEffect(() => {
     if (center) {
       setSendMethod((center.whatsapp_send_method as WhatsAppSendMethod) || 'web');
-      setAccessToken(center.whatsapp_access_token || '');
+      // Don't populate token from center - it should be encrypted and not readable
+      // Show placeholder if token exists
       setPhoneNumberId(center.whatsapp_phone_number_id || '');
       setBusinessAccountId(center.whatsapp_business_account_id || '');
     }
@@ -33,12 +36,43 @@ export function WhatsAppSettingsSection() {
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      await updateCenter.mutateAsync({
-        whatsapp_send_method: sendMethod,
-        whatsapp_access_token: sendMethod === 'api' ? accessToken : null,
-        whatsapp_phone_number_id: sendMethod === 'api' ? phoneNumberId : null,
-        whatsapp_business_account_id: sendMethod === 'api' ? businessAccountId : null,
+      // For 'web' method, just update the send method directly
+      if (sendMethod === 'web') {
+        await updateCenter.mutateAsync({
+          whatsapp_send_method: sendMethod,
+          // Clear API credentials when switching to web mode
+          whatsapp_phone_number_id: null,
+          whatsapp_business_account_id: null,
+        });
+        toast.success('Configuración de WhatsApp guardada');
+        return;
+      }
+
+      // For 'api' method, use the secure edge function to encrypt credentials
+      const { error } = await supabase.functions.invoke('save-oauth-credentials', {
+        body: {
+          provider: 'whatsapp',
+          credentials: {
+            accessToken: accessToken || undefined, // Only send if provided
+            phoneNumberId,
+            businessAccountId,
+            sendMethod,
+          },
+        },
       });
+
+      if (error) {
+        console.error('Error saving WhatsApp credentials:', error);
+        toast.error('Error al guardar las credenciales de WhatsApp');
+        return;
+      }
+
+      // Clear the token field after successful save
+      setAccessToken('');
+      toast.success('Credenciales de WhatsApp guardadas de forma segura');
+    } catch (error) {
+      console.error('Error saving WhatsApp settings:', error);
+      toast.error('Error al guardar la configuración');
     } finally {
       setIsSaving(false);
     }
