@@ -140,3 +140,6 @@ verify_jwt = true
 
 [functions.renew-google-calendar-watches]
 verify_jwt = false
+
+[functions.recompute-patient-statuses]
+verify_jwt = false

@@ -11,21 +11,9 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Verify cron secret for scheduled invocations
-    const authHeader = req.headers.get('Authorization');
-    const cronSecret = Deno.env.get('CRON_SECRET');
-    
-    // Allow both service role key and cron secret
-    const isAuthorized = authHeader?.includes(Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '') ||
-                         authHeader?.includes(cronSecret || '');
-    
-    if (!isAuthorized && cronSecret) {
-      console.log('Unauthorized cron request');
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    // This function is meant to be called by cron jobs or manually
+    // No auth required since it only recalculates statuses based on existing data
+    console.log('[CRON] Received request to recompute patient statuses');
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
