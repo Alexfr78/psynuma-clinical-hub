@@ -23,12 +23,12 @@ export default function PatientDetail() {
         <div className="rounded-full bg-destructive/10 p-4">
           <AlertCircle className="h-8 w-8 text-destructive" />
         </div>
-        <h2 className="mt-4 font-display text-xl font-semibold">Paciente no encontrado</h2>
+        <h2 className="mt-4 font-display text-xl font-semibold">Contacto no encontrado</h2>
         <p className="mt-2 text-muted-foreground">
-          No se pudo cargar la información del paciente.
+          No se pudo cargar la información del contacto.
         </p>
         <Button className="mt-4" onClick={() => navigate('/pacientes')}>
-          Volver a pacientes
+          Volver a contactos
         </Button>
       </div>
     );
@@ -39,7 +39,7 @@ export default function PatientDetail() {
       {/* Back Button */}
       <Button variant="ghost" size="sm" onClick={() => navigate('/pacientes')} className="text-xs sm:text-sm">
         <ArrowLeft className="mr-1.5 sm:mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4" />
-        <span className="hidden sm:inline">Volver a pacientes</span>
+        <span className="hidden sm:inline">Volver a contactos</span>
         <span className="sm:hidden">Volver</span>
       </Button>
 

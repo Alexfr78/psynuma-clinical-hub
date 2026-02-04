@@ -108,7 +108,7 @@ export function LinkPaymentsToInvoiceDialog({
         <div className="space-y-4 py-4">
           <div className="p-3 bg-muted rounded-lg">
             <p className="text-sm font-medium">
-              Paciente: {invoice.patients.first_name} {invoice.patients.last_name}
+              Contacto: {invoice.patients.first_name} {invoice.patients.last_name}
             </p>
             <p className="text-sm text-muted-foreground mt-1">
               Total factura: {Number(invoice.total).toFixed(2)}€

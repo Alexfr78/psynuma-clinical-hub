@@ -32,7 +32,7 @@ export function NotificationCard({ notification, onSend, onDelete }: Notificatio
 
   const patientName = notification.patients
     ? `${notification.patients.first_name} ${notification.patients.last_name}`
-    : 'Paciente desconocido';
+    : 'Contacto desconocido';
 
   // Check if this is a WhatsApp notification that requires manual sending
   const isWhatsAppManualSend = notification.type === 'whatsapp' && notification.status === 'pending';

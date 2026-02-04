@@ -371,7 +371,7 @@ export function CreateRectificativaDialog({
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <div className="rounded-lg bg-muted/50 p-3 text-sm">
-                <p><strong>Paciente:</strong> {originalInvoice.patients.first_name} {originalInvoice.patients.last_name}</p>
+                <p><strong>Contacto:</strong> {originalInvoice.patients.first_name} {originalInvoice.patients.last_name}</p>
                 <p><strong>Factura original:</strong> {originalInvoice.invoice_number}</p>
                 <p><strong>Importe original:</strong> {Number(originalInvoice.total).toFixed(2)}€</p>
               </div>

@@ -20,9 +20,9 @@ export default function Patients() {
         <div className="rounded-full bg-destructive/10 p-4">
           <Users className="h-8 w-8 text-destructive" />
         </div>
-        <h2 className="mt-4 font-display text-xl font-semibold">Error al cargar pacientes</h2>
+         <h2 className="mt-4 font-display text-xl font-semibold">Error al cargar contactos</h2>
         <p className="mt-2 text-muted-foreground">
-          No se pudieron cargar los pacientes. Por favor, inténtalo de nuevo.
+          No se pudieron cargar los contactos. Por favor, inténtalo de nuevo.
         </p>
       </div>
     );
@@ -33,9 +33,9 @@ export default function Patients() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="font-display text-2xl sm:text-3xl font-bold text-foreground">Pacientes</h1>
+          <h1 className="font-display text-2xl sm:text-3xl font-bold text-foreground">Contactos</h1>
           <p className="text-muted-foreground text-sm">
-            Gestiona la información de tus pacientes
+            Gestiona la información de tus contactos
           </p>
         </div>
         <CreatePatientDialog />
@@ -60,11 +60,11 @@ export default function Patients() {
           <div className="rounded-full bg-muted p-4">
             <Users className="h-8 w-8 text-muted-foreground" />
           </div>
-          <h2 className="mt-4 font-display text-xl font-semibold">No hay pacientes</h2>
+          <h2 className="mt-4 font-display text-xl font-semibold">No hay contactos</h2>
           <p className="mt-2 max-w-sm text-muted-foreground">
             {filters.search || filters.status !== 'all' || filters.professionalId !== 'all'
-              ? 'No se encontraron pacientes con los filtros seleccionados.'
-              : 'Comienza añadiendo tu primer paciente para gestionar sus sesiones y datos clínicos.'}
+              ? 'No se encontraron contactos con los filtros seleccionados.'
+              : 'Comienza añadiendo tu primer contacto para gestionar sus sesiones y datos clínicos.'}
           </p>
         </div>
       )}
@@ -72,7 +72,7 @@ export default function Patients() {
       {/* Patient Count */}
       {patients && patients.length > 0 && (
         <div className="text-center text-sm text-muted-foreground">
-          Mostrando {patients.length} paciente{patients.length !== 1 ? 's' : ''}
+          Mostrando {patients.length} contacto{patients.length !== 1 ? 's' : ''}
         </div>
       )}
     </div>

@@ -62,7 +62,7 @@ export function SessionCard({
     }
     return session.patient 
       ? `${session.patient.first_name} ${session.patient.last_name}` 
-      : 'Sin paciente';
+      : 'Sin contacto';
   };
   
   const displayName = getDisplayName();

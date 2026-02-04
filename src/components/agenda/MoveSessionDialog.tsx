@@ -71,7 +71,7 @@ export function MoveSessionDialog({ session, open, onOpenChange, onMove }: MoveS
 
   const patientName = session.patient 
     ? `${session.patient.first_name} ${session.patient.last_name}` 
-    : 'Sin paciente';
+    : 'Sin contacto';
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

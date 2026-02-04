@@ -50,7 +50,7 @@ export function PatientBonos({ patientId }: PatientBonosProps) {
         <Ticket className="h-12 w-12 text-muted-foreground" />
         <h3 className="mt-4 font-display text-lg font-semibold">Sin bonos</h3>
         <p className="mt-2 max-w-sm text-sm text-muted-foreground">
-          Este paciente no tiene bonos de sesiones asignados.
+          Este contacto no tiene bonos de sesiones asignados.
         </p>
       </div>
     );

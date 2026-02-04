@@ -51,7 +51,7 @@ export function PatientInvoices({ patientId }: PatientInvoicesProps) {
         <FileText className="h-12 w-12 text-muted-foreground" />
         <h3 className="mt-4 font-display text-lg font-semibold">Sin facturas</h3>
         <p className="mt-2 max-w-sm text-sm text-muted-foreground">
-          Este paciente aún no tiene facturas emitidas.
+          Este contacto aún no tiene facturas emitidas.
         </p>
       </div>
     );

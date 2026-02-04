@@ -91,9 +91,9 @@ export default function Dashboard() {
 
   const statCards = [
     {
-      title: 'Pacientes Activos',
+      title: 'Contactos Activos',
       value: stats?.activePatients || 0,
-      description: 'Total de pacientes',
+      description: 'Total de contactos',
       icon: Users,
       href: '/pacientes',
     },

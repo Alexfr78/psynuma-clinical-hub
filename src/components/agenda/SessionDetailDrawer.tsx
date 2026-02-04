@@ -271,7 +271,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
   const displayPatient = localPatientId && newPatientData ? newPatientData : session.patient;
   const patientName = displayPatient
     ? `${displayPatient.first_name} ${displayPatient.last_name}`
-    : 'Sin paciente';
+    : 'Sin contacto';
 
   // Handle recurring scope confirmation
   const handleRecurringScopeConfirm = async (scope: EditScope) => {

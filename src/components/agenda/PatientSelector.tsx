@@ -39,7 +39,7 @@ export function PatientSelector({ onSelect, disabled }: PatientSelectorProps) {
         >
           <div className="flex items-center gap-2 text-muted-foreground">
             <User className="h-4 w-4" />
-            <span>Buscar paciente...</span>
+            <span>Buscar contacto...</span>
           </div>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
@@ -53,7 +53,7 @@ export function PatientSelector({ onSelect, disabled }: PatientSelectorProps) {
           />
           <CommandList>
             <CommandEmpty>
-              {isLoading ? 'Buscando...' : 'No se encontraron pacientes.'}
+              {isLoading ? 'Buscando...' : 'No se encontraron contactos.'}
             </CommandEmpty>
             <CommandGroup>
               {patients?.map((patient) => (

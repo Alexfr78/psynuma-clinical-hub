@@ -40,7 +40,7 @@ import { useState, useEffect } from 'react';
 const mainNavItems = [
   { title: 'Dashboard', url: '/dashboard', icon: LayoutDashboard },
   { title: 'Agenda', url: '/agenda', icon: Calendar },
-  { title: 'Pacientes', url: '/pacientes', icon: Users },
+  { title: 'Contactos', url: '/pacientes', icon: Users },
   { title: 'Sesiones', url: '/sesiones', icon: FileText },
   { title: 'Consentimientos', url: '/consentimientos', icon: FileSignature },
   { title: 'Evaluaciones', url: '/evaluaciones', icon: ClipboardCheck }, // PAI y otras evaluaciones

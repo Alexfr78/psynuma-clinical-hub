@@ -84,7 +84,7 @@ export function SessionReminderSettingsSection() {
           Recordatorios de Cita
         </CardTitle>
         <CardDescription>
-          Configura cuándo y cómo enviar recordatorios automáticos a los pacientes
+          Configura cuándo y cómo enviar recordatorios automáticos a los contactos
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">

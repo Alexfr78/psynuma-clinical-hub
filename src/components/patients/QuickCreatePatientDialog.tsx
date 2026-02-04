@@ -109,7 +109,7 @@ export function QuickCreatePatientDialog({
       const newPatient = await createPatient.mutateAsync(patientData);
 
       toast({
-        title: 'Paciente creado',
+        title: 'Contacto creado',
         description: `${first_name} ${last_name} se ha añadido correctamente.`,
       });
 
@@ -118,7 +118,7 @@ export function QuickCreatePatientDialog({
     } catch (error) {
       toast({
         title: 'Error',
-        description: 'No se pudo crear el paciente.',
+        description: 'No se pudo crear el contacto.',
         variant: 'destructive',
       });
     }
@@ -133,7 +133,7 @@ export function QuickCreatePatientDialog({
       <DialogContent className="sm:max-w-[400px] p-0">
         <DialogHeader className="px-6 pt-6 pb-4">
           <DialogTitle className="text-xl font-semibold">
-            Nueva ficha de paciente
+            Nueva ficha de contacto
           </DialogTitle>
         </DialogHeader>
 
@@ -176,14 +176,14 @@ export function QuickCreatePatientDialog({
               )}
             />
 
-            {/* Patient Name */}
+            {/* Contact Name */}
             <FormField
               control={form.control}
               name="full_name"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel className="text-sm font-medium">
-                    Nombre del paciente
+                    Nombre del contacto
                   </FormLabel>
                   <FormControl>
                     <Input
@@ -271,7 +271,7 @@ export function QuickCreatePatientDialog({
                 Cancelar
               </Button>
               <Button type="submit" disabled={createPatient.isPending}>
-                Crear paciente
+                Crear contacto
               </Button>
             </div>
           </form>

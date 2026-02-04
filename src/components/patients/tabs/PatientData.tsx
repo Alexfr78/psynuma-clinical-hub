@@ -117,7 +117,7 @@ export function PatientData({ patient }: PatientDataProps) {
 
       toast({
         title: 'Datos actualizados',
-        description: 'Los datos del paciente se han actualizado correctamente.',
+        description: 'Los datos del contacto se han actualizado correctamente.',
       });
 
       setIsEditing(false);
@@ -134,7 +134,7 @@ export function PatientData({ patient }: PatientDataProps) {
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <h3 className="font-display text-base sm:text-lg font-semibold">Información del paciente</h3>
+          <h3 className="font-display text-base sm:text-lg font-semibold">Información del contacto</h3>
           <div className="flex gap-2">
             {isEditing ? (
               <>
@@ -351,9 +351,9 @@ export function PatientData({ patient }: PatientDataProps) {
               render={({ field }) => (
                 <FormItem className="flex items-center justify-between rounded-lg border p-4">
                   <div className="space-y-0.5">
-                    <FormLabel className="text-base">Paciente menor de edad</FormLabel>
+                    <FormLabel className="text-base">Contacto menor de edad</FormLabel>
                     <p className="text-sm text-muted-foreground">
-                      Indica si el paciente es menor y requiere tutor
+                      Indica si el contacto es menor y requiere tutor
                     </p>
                   </div>
                   <FormControl>
