@@ -32,6 +32,7 @@ import PublicBooking from "./pages/PublicBooking";
 import PublicBookingManage from "./pages/PublicBookingManage";
 import Assessments from "./pages/Assessments";
 import AssessmentPublic from "./pages/AssessmentPublic";
+import EMOPublic from "./pages/EMOPublic";
 import AssessmentResults from "./pages/AssessmentResults";
 import PayDebt from "./pages/PayDebt";
 import PaymentSuccess from "./pages/PaymentSuccess";
