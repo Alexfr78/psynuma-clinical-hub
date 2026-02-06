@@ -18,6 +18,7 @@ import { BDI2ResultsView } from '@/components/assessments/BDI2ResultsView';
 import { DCIResultsView } from '@/components/assessments/DCIResultsView';
 import { DESResultsView } from '@/components/assessments/DESResultsView';
 import { STAIResultsView } from '@/components/assessments/STAIResultsView';
+import { EMOResultsView } from '@/components/assessments/EMOResultsView';
 import { MMPI2RFInterpretation } from '@/hooks/useMMPI2RFInterpretation';
 import { usePAIInterpretation, PAIInterpretation } from '@/hooks/usePAIInterpretation';
 import {
@@ -116,6 +117,7 @@ export default function AssessmentResults() {
   const isDCI = templateCode === 'DCI';
   const isDES = templateCode === 'DES';
   const isSTAI = templateCode === 'STAI';
+  const isEMO = templateCode === 'EMO';
   const flagThreshold = template.flag_threshold;
   const chartFullMark = template.chart_full_mark;
   
@@ -456,6 +458,14 @@ export default function AssessmentResults() {
             </AccordionItem>
           </Accordion>
         </>
+      ) : isEMO && hasResults ? (
+        /* EMO: Use specialized view for Emotional Regulation Interview */
+        <EMOResultsView
+          assessmentId={assessmentId!}
+          factorScores={factorScores}
+          answers={answers}
+          aiInterpretation={response?.metadata?.emoInterpretation as any}
+        />
       ) : !hasResults ? (
         <Card>
           <CardContent className="py-12 text-center">

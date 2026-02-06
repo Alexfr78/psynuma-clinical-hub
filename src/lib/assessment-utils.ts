@@ -59,6 +59,24 @@ export const STAI_FACTOR_LABELS: Record<string, { label: string; description: st
 
 export const STAI_FACTOR_ORDER = ['A_E', 'A_R'];
 
+// ===== EMO SPECIFIC =====
+export const EMO_FACTOR_LABELS: Record<string, { label: string; description: string }> = {
+  problematic_emotions_count: { label: 'Emociones Problemáticas', description: 'Número de emociones identificadas como difíciles' },
+  tendencies_count: { label: 'Tendencias Disfuncionales', description: 'Número de patrones de regulación problemáticos' },
+  hipoactivacion: { label: 'Hipoactivación', description: 'Evitación y supresión emocional' },
+  hiperactivacion: { label: 'Hiperactivación', description: 'Intensidad y desbordamiento emocional' },
+  disregulacion: { label: 'Disregulación', description: 'Dificultad para identificar y gestionar emociones' },
+  autocritica: { label: 'Autocrítica', description: 'Juicio negativo sobre las propias emociones' },
+  rumiacion: { label: 'Rumiación', description: 'Pensamiento repetitivo sobre emociones' },
+  control: { label: 'Control Excesivo', description: 'Necesidad de controlar las emociones' },
+  positive_moments_count: { label: 'Momentos Regulatorios', description: 'Experiencias positivas de regulación compartida' },
+};
+
+export const EMO_FACTOR_ORDER = [
+  'hipoactivacion', 'hiperactivacion', 'disregulacion', 
+  'autocritica', 'rumiacion', 'control'
+];
+
 // Mapeo de factores a labels completos - SELFCARE
 export const FACTOR_LABELS: Record<string, { label: string; description: string }> = {
   // SELFCARE factors
@@ -308,6 +326,9 @@ export function getFactorOrder(templateCode: string): string[] {
   }
   if (templateCode === 'STAI') {
     return STAI_FACTOR_ORDER;
+  }
+  if (templateCode === 'EMO') {
+    return EMO_FACTOR_ORDER;
   }
   return FACTOR_ORDER;
 }

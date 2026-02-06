@@ -140,6 +140,7 @@ serve(async (req) => {
     const isDCI = template.code === 'DCI';
     const isDES = template.code === 'DES';
     const isSTAI = template.code === 'STAI';
+    const isEMO = template.code === 'EMO';
 
     console.log(
       `Processing ${template.code} assessment with response range ${responseMin}-${responseMax} (items=${items.length}, scales=${Object.keys(scoring).length})`
@@ -420,11 +421,102 @@ serve(async (req) => {
       });
     }
 
+    // ===== EMO SCORING =====
+    // EMO uses qualitative data with category-based tendency counting
+    if (isEMO) {
+      // Tendency category mappings
+      const tendencyCategoryMap: Record<string, string> = {
+        'Evito sentir algunas cosas': 'hipoactivacion',
+        'Tiendo a suprimir o anular determinadas emociones': 'hipoactivacion',
+        'Quisiera sentir más de lo que siento': 'hipoactivacion',
+        'Soy poco emocional, o eso me dicen': 'hipoactivacion',
+        'Me siento como anestesiado a nivel emocional': 'hipoactivacion',
+        'Algunas de mis emociones suelen desbordarse': 'hiperactivacion',
+        'Tiendo a contagiarme de las emociones de los demás': 'hiperactivacion',
+        'Mis emociones están siempre a flor de piel': 'hiperactivacion',
+        'Mis emociones son demasiado intensas': 'hiperactivacion',
+        'A veces me vienen emociones que no me parecen mías': 'disregulacion',
+        'Puede cambiar de un momento a otro lo que siento': 'disregulacion',
+        'En general no sé muy bien lo que siento': 'disregulacion',
+        'Me enfado conmigo mismo por sentir determinadas emociones': 'autocritica',
+        'A veces me avergüenzo de lo que puedo llegar a sentir': 'autocritica',
+        'Siento cosas que no debería de sentir': 'autocritica',
+        'Le doy vueltas y vueltas a cómo me siento': 'rumiacion',
+        'Trato de controlar mis emociones todo lo que puedo': 'control',
+      };
+
+      // Count tendencies by category
+      const categoryCounts: Record<string, number> = {
+        hipoactivacion: 0,
+        hiperactivacion: 0,
+        disregulacion: 0,
+        autocritica: 0,
+        rumiacion: 0,
+        control: 0,
+      };
+
+      // Get tendencies from answers (items 4 and 5 are checkbox lists)
+      const tendencies1 = (answers as any)['4'] || [];
+      const tendencies2 = (answers as any)['5'] || [];
+      const allTendencies = [...(Array.isArray(tendencies1) ? tendencies1 : []), ...(Array.isArray(tendencies2) ? tendencies2 : [])];
+
+      for (const tendency of allTendencies) {
+        const category = tendencyCategoryMap[tendency];
+        if (category && categoryCounts[category] !== undefined) {
+          categoryCounts[category]++;
+        }
+      }
+
+      // Set factor scores
+      for (const [category, count] of Object.entries(categoryCounts)) {
+        factorScores[category] = count;
+      }
+
+      // Count problematic emotions (item 3)
+      const problematicEmotions = (answers as any)['3'] || [];
+      factorScores['problematic_emotions_count'] = Array.isArray(problematicEmotions) ? problematicEmotions.length : 0;
+
+      // Count total tendencies
+      factorScores['tendencies_count'] = allTendencies.length;
+
+      // Count positive moments (item 18)
+      const positiveMoments = (answers as any)['18'] || [];
+      const validMoments = Array.isArray(positiveMoments) 
+        ? positiveMoments.filter((m: string) => m && m.trim()).length 
+        : 0;
+      factorScores['positive_moments_count'] = validMoments;
+
+      // Set flags based on patterns
+      if (allTendencies.length >= 10) {
+        flags['high_dysregulation'] = true;
+      }
+      if (categoryCounts.hipoactivacion >= 3) {
+        flags['pattern_hypoactivation'] = true;
+      }
+      if (categoryCounts.hiperactivacion >= 3) {
+        flags['pattern_hyperactivation'] = true;
+      }
+      if (categoryCounts.hipoactivacion >= 2 && categoryCounts.hiperactivacion >= 2) {
+        flags['pattern_mixed'] = true;
+      }
+      if (validMoments === 0) {
+        flags['no_positive_moments'] = true;
+      }
+
+      console.log('EMO scores:', {
+        categories: categoryCounts,
+        problematic_emotions: factorScores['problematic_emotions_count'],
+        tendencies_total: factorScores['tendencies_count'],
+        positive_moments: factorScores['positive_moments_count'],
+        flags,
+      });
+    }
+
     // For other tests, we use mean scores
-    // Skip for tests that already calculated their scores above (BDI2, DCI, DES, STAI)
+    // Skip for tests that already calculated their scores above (BDI2, DCI, DES, STAI, EMO)
     for (const [factorCode, factorValue] of Object.entries(scoring)) {
       // CRITICAL: Skip if this factor was already calculated by a test-specific block
-      if (isBDI2 || isDCI || isDES || isSTAI) {
+      if (isBDI2 || isDCI || isDES || isSTAI || isEMO) {
         continue;
       }
       const factorItems = (factorValue as any)?.items;
