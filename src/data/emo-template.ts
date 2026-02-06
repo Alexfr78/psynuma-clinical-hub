@@ -1,499 +1,726 @@
-// EMO - Entrevista sobre la Historia de la Regulación Emocional
-// Desarrollada por Anabel González - Versión Digital Autoadministrada
+// EMO - Entrevista de Regulación Emocional
+// Versión digital autoadministrada basada en la EMO original de Anabel González
 
 // === TIPOS ===
-export type EMOItemType = 
+export type EMOQuestionType = 
   | 'textarea' 
+  | 'yes_no'
   | 'checkbox_group' 
-  | 'text_field' 
-  | 'emotion_matrix' 
-  | 'adjectives_table';
+  | 'text_field'
+  | 'emotion_matrix'
+  | 'adjectives_repeater'
+  | 'coregulation_repeater';
 
-export interface EMOItem {
+export interface EMOQuestion {
   id: string;
   section: 1 | 2 | 3;
-  type: EMOItemType;
+  type: EMOQuestionType;
   label: string;
   description?: string;
   options?: string[];
   required?: boolean;
-  isFigureItem?: boolean;
+  conditionalOn?: { questionId: string; value: string | string[] };
+  isFigureField?: boolean;
+  maxItems?: number;
 }
 
-// === SECCIÓN 1: REGULACIÓN EMOCIONAL GENERAL ===
+// === SECCIÓN 1: REGULACIÓN EMOCIONAL ACTUAL ===
 
-// 1.2 Emociones problemáticas (checkbox)
 export const PROBLEMATIC_EMOTIONS = [
   'Aburrimiento', 'Admiración', 'Apatía', 'Asco', 'Calma', 'Cansancio',
   'Cariño', 'Celos', 'Disfrute', 'Enfado', 'Euforia', 'Envidia',
   'Gratitud', 'Incertidumbre', 'Miedo', 'Optimismo', 'Paciencia',
   'Rechazo', 'Satisfacción', 'Seguridad', 'Soledad', 'Tristeza',
-  'Vergüenza', 'Dolor'
+  'Vergüenza', 'Dolor', 'Otro'
 ];
 
-// 1.3 Patrones de regulación (checkbox)
-export const REGULATORY_PATTERNS = [
-  { id: 'P1', text: 'Evito sentir algunas emociones', category: 'supresion' },
-  { id: 'P2', text: 'Suelo suprimir emociones', category: 'supresion' },
-  { id: 'P3', text: 'Mis emociones se desbordan', category: 'hiperactivacion' },
-  { id: 'P4', text: 'Intento controlarlas constantemente', category: 'control' },
-  { id: 'P5', text: 'A veces siento emociones que no parecen mías', category: 'desconexion' },
-  { id: 'P6', text: 'Me gustaría sentir más de lo que siento', category: 'hipoactivacion' },
-  { id: 'P7', text: 'Me contagio de emociones ajenas', category: 'contagio' },
-  { id: 'P8', text: 'Emociones muy intensas', category: 'hiperactivacion' },
-  { id: 'P9', text: 'Soy poco emocional', category: 'hipoactivacion' },
-  { id: 'P10', text: 'Me enfado conmigo por sentir', category: 'autocritica' },
-  { id: 'P11', text: 'Me avergüenzo de lo que siento', category: 'verguenza' },
-  { id: 'P12', text: 'Cambios emocionales bruscos', category: 'desregulacion' },
-  { id: 'P13', text: 'No sé bien qué siento', category: 'confusion' },
-  { id: 'P14', text: 'Me siento anestesiado emocionalmente', category: 'hipoactivacion' },
-  { id: 'P15', text: 'Le doy muchas vueltas a mis emociones', category: 'rumiacion' },
+export const REGULATION_PATTERNS_1 = [
+  'Evito sentir algunas cosas',
+  'Tiendo a suprimir o anular determinadas emociones',
+  'Algunas de mis emociones suelen desbordarse',
+  'Trato de controlar mis emociones todo lo que puedo',
+  'A veces me vienen emociones que no me parecen mías',
+  'Quisiera sentir más de lo que siento',
+  'Tiendo a contagiarme de las emociones de los demás',
+  'Mis emociones están siempre a flor de piel',
+  'Mis emociones son demasiado intensas',
+  'Soy poco emocional, o eso me dicen',
+  'Me enfado conmigo mismo por sentir determinadas emociones',
 ];
 
-// === SECCIÓN 2: FIGURAS REGULADORAS ===
+export const REGULATION_PATTERNS_2 = [
+  'A veces me avergüenzo de lo que puedo llegar a sentir',
+  'Puede cambiar de un momento a otro lo que siento',
+  'En general no sé muy bien lo que siento',
+  'Siento cosas que no debería sentir',
+  'Me siento como anestesiado a nivel emocional',
+  'Le doy vueltas y vueltas a cómo me siento',
+  'Otro'
+];
 
-// Sentimientos vividos con figuras
-export const FIGURE_FEELINGS = {
-  positive: [
-    'Entendido/a', 'Aceptado/a', 'Valorado/a', 'Protegido/a', 
-    'Apoyado/a', 'Seguro/a', 'Especial'
-  ],
-  negative: [
-    'Rechazado/a', 'Invisible', 'Avergonzado/a', 'Humillado/a',
-    'Inseguro/a', 'Traicionado/a', 'Culpable', 'Inútil', 'Ridículo/a'
-  ],
-};
+// === SECCIÓN 2: FIGURAS REGULADORAS (HISTORIA) ===
+// Preguntas sobre contexto de crianza
 
-export const ALL_FIGURE_FEELINGS = [...FIGURE_FEELINGS.positive, ...FIGURE_FEELINGS.negative];
+// === SECCIÓN 3: EVALUACIÓN POR FIGURA ===
 
-// Emociones para la matriz de tolerancia
-export const TOLERANCE_EMOTIONS = [
+export const FIGURE_FEELINGS = [
+  'Entendido', 'Rechazado', 'Aceptado', 'Atemorizado', 'Valorado', 
+  'Inseguro', 'Invisible', 'Avergonzado', 'Especial', 'Humillado',
+  'Importante', 'Traicionado', 'Inútil', 'Ridículo', 'Protegido',
+  'Apoyado', 'Culpable', 'Seguro', 'Otro'
+];
+
+export const FIGURE_FEELINGS_POSITIVE = [
+  'Entendido', 'Aceptado', 'Valorado', 'Especial', 'Importante', 
+  'Protegido', 'Apoyado', 'Seguro'
+];
+
+export const FIGURE_FEELINGS_NEGATIVE = [
+  'Rechazado', 'Atemorizado', 'Inseguro', 'Invisible', 'Avergonzado',
+  'Humillado', 'Traicionado', 'Inútil', 'Ridículo', 'Culpable'
+];
+
+export const EMOTION_MATRIX_EMOTIONS = [
   'Alegría', 'Tristeza', 'Rabia', 'Miedo', 'Vergüenza', 'Asco', 'Preocupación'
 ];
 
-// Opciones de tolerancia por emoción
-export const TOLERANCE_OPTIONS = [
-  'La mostraba frecuentemente',
-  'Rara vez la mostraba',
-  'Aceptaba que yo la sintiera',
-  'Le molestaba que yo la sintiera'
+export const EMOTION_MATRIX_COLUMNS = [
+  'Era frecuente verla así',
+  'Era raro verla así',
+  'Aceptaba que yo estuviera así',
+  'No le gustaba verme así'
 ];
 
-// Respuestas típicas de la figura
-export const TYPICAL_RESPONSES = [
-  'Me decía que no me pusiera así',
-  'Lo minimizaba',
+export const FIGURE_REACTIONS = [
+  'Me decía "no tienes que ponerte así"',
+  'Me decía que no pasaba nada',
   'Se enfadaba',
-  'Me avergonzaba',
-  'Se entristecía en exceso',
-  'Se agobiaba',
-  'Me ignoraba',
-  'No se daba cuenta',
-  'Me hacía sentir culpable'
+  'Me avergonzaba por sentirme así',
+  'Se disgustaba / se ponía triste si yo me sentía así',
+  'Se preocupaba en exceso / se agobiaba',
+  'Dejaba de hablarme o me ignoraba',
+  'Ni se enteraba de cómo me sentía',
+  'Me hacía sentir culpable por sentirme así',
+  'Otro'
 ];
 
-// === CATEGORÍAS PARA SCORING ===
-export const PATTERN_CATEGORIES = {
-  supresion: {
-    label: 'Supresión emocional',
-    description: 'Tendencia a evitar o suprimir emociones',
-    patterns: ['P1', 'P2'],
-  },
-  hiperactivacion: {
-    label: 'Hiperactivación emocional',
-    description: 'Emociones intensas y desbordantes',
-    patterns: ['P3', 'P8'],
-  },
-  hipoactivacion: {
-    label: 'Hipoactivación/Anestesia',
-    description: 'Desconexión o baja emocionalidad',
-    patterns: ['P6', 'P9', 'P14'],
-  },
-  desconexion: {
-    label: 'Desconexión',
-    description: 'Emociones que parecen ajenas',
-    patterns: ['P5'],
-  },
-  contagio: {
-    label: 'Contagio emocional',
-    description: 'Absorción de emociones de otros',
-    patterns: ['P7'],
-  },
-  control: {
-    label: 'Control excesivo',
-    description: 'Necesidad de controlar las emociones',
-    patterns: ['P4'],
-  },
-  autocritica: {
-    label: 'Autocrítica',
-    description: 'Enfado consigo mismo por sentir',
-    patterns: ['P10'],
-  },
-  verguenza: {
-    label: 'Vergüenza emocional',
-    description: 'Vergüenza por las propias emociones',
-    patterns: ['P11'],
-  },
-  desregulacion: {
-    label: 'Cambios bruscos',
-    description: 'Variabilidad emocional impredecible',
-    patterns: ['P12'],
-  },
-  confusion: {
-    label: 'Confusión emocional',
-    description: 'Dificultad para identificar emociones',
-    patterns: ['P13'],
-  },
-  rumiacion: {
-    label: 'Rumiación',
-    description: 'Pensamiento repetitivo sobre emociones',
-    patterns: ['P15'],
-  },
-};
+// === ESTRUCTURA DE PREGUNTAS ===
 
-// Perfiles de regulación predominante
-export const REGULATION_PROFILES = {
-  supresion: 'Supresión emocional',
-  hiperactivacion: 'Hiperactivación emocional',
-  desconexion: 'Desconexión/Anestesia',
-  confusion: 'Confusión emocional',
-  contagio: 'Contagio emocional',
-};
-
-// Riesgos relacionales tempranos
-export const RELATIONAL_RISKS = {
-  baja_coregulacion: 'Baja co-regulación',
-  rechazo_emocional: 'Rechazo emocional',
-  verguenza_aprendida: 'Vergüenza emocional aprendida',
-  invalidacion: 'Invalidación afectiva',
-  hipervigilancia: 'Hipervigilancia emocional',
-};
-
-// Estilos de apego orientativos
-export const ATTACHMENT_STYLES = {
-  secure: 'Seguro',
-  anxious: 'Ansioso',
-  avoidant: 'Evitativo',
-  disorganized: 'Desorganizado',
-};
-
-// === ESTRUCTURA DE ITEMS ===
-
-// Items de la Sección 1
-export const SECTION_1_ITEMS: EMOItem[] = [
+export const SECTION_1_QUESTIONS: EMOQuestion[] = [
   {
-    id: 's1_description',
+    id: 'emo_reg_general',
     section: 1,
     type: 'textarea',
-    label: '¿Cómo definirías en general tu forma de gestionar tus emociones?',
-    description: 'Describe cómo sueles manejar lo que sientes en tu día a día.',
+    label: '¿Cómo describirías, en general, tu modo de regular tus emociones?',
     required: true,
   },
   {
-    id: 's1_difficult_emotions',
+    id: 'emo_dificultad_sentir',
+    section: 1,
+    type: 'yes_no',
+    label: '¿Te cuesta sentir tus emociones como lo hacen otras personas?',
+  },
+  {
+    id: 'emo_dificultad_sentir_explicacion',
+    section: 1,
+    type: 'textarea',
+    label: 'Explícalo brevemente: ¿qué notas diferente en ti?',
+    conditionalOn: { questionId: 'emo_dificultad_sentir', value: 'si' },
+  },
+  {
+    id: 'emo_emociones_problematicas',
     section: 1,
     type: 'checkbox_group',
-    label: 'Selecciona las emociones que te resultan difíciles de manejar',
-    description: 'Marca todas las que apliquen a ti.',
+    label: '¿Con qué emociones o sentimientos tienes más problemas (notarlos, tolerarlos, regularlos o cuando los expresan otras personas)?',
+    description: 'Marca las que te resulten más difíciles.',
     options: PROBLEMATIC_EMOTIONS,
   },
   {
-    id: 's1_patterns',
+    id: 'emo_emociones_problematicas_otro',
+    section: 1,
+    type: 'text_field',
+    label: 'Indica cuál es "Otro".',
+    conditionalOn: { questionId: 'emo_emociones_problematicas', value: ['Otro'] },
+  },
+  {
+    id: 'emo_emociones_problematicas_por_que',
+    section: 1,
+    type: 'textarea',
+    label: 'Si marcaste alguna emoción como difícil, explica brevemente por qué o qué te pasa con ellas.',
+  },
+  {
+    id: 'emo_patrones_1',
     section: 1,
     type: 'checkbox_group',
-    label: 'Indica cuáles de las siguientes afirmaciones se aplican a ti',
-    options: REGULATORY_PATTERNS.map(p => p.text),
+    label: '¿Alguna de estas tendencias es frecuente en ti?',
+    description: 'Marca todas las que encajen.',
+    options: REGULATION_PATTERNS_1,
   },
   {
-    id: 's1_since_when',
+    id: 'emo_patrones_2',
     section: 1,
-    type: 'text_field',
-    label: '¿Te ocurre desde siempre o empezó en una etapa concreta?',
-    description: 'Intenta situar temporalmente el origen de estos patrones.',
+    type: 'checkbox_group',
+    label: 'Marca también si alguna de estas afirmaciones te describe.',
+    options: REGULATION_PATTERNS_2,
   },
   {
-    id: 's1_worsening_periods',
+    id: 'emo_patrones_otro_texto',
     section: 1,
-    type: 'text_field',
-    label: '¿Hubo periodos donde empeoró?',
-    description: 'Describe si hubo momentos vitales donde las dificultades aumentaron.',
+    type: 'textarea',
+    label: 'Describe ese "Otro".',
+    conditionalOn: { questionId: 'emo_patrones_2', value: ['Otro'] },
+  },
+  {
+    id: 'emo_desde_cuando',
+    section: 1,
+    type: 'textarea',
+    label: '¿Esto te pasa desde que recuerdas, o empezó en alguna etapa de tu vida?',
+    description: 'Describe brevemente cómo eran las cosas entonces.',
+  },
+  {
+    id: 'emo_empeoro',
+    section: 1,
+    type: 'yes_no',
+    label: '¿Empeoró en alguna etapa?',
+  },
+  {
+    id: 'emo_empeoro_cuando',
+    section: 1,
+    type: 'textarea',
+    label: '¿Cuándo fue y cómo era tu vida en aquellos momentos?',
+    conditionalOn: { questionId: 'emo_empeoro', value: 'si' },
   },
 ];
 
-// Items de la Sección 2 (template para cada figura)
-export const FIGURE_TEMPLATE_ITEMS: EMOItem[] = [
+export const SECTION_2_QUESTIONS: EMOQuestion[] = [
   {
-    id: 'fig_name',
+    id: 'emo_quienes_crianza',
     section: 2,
-    type: 'text_field',
-    label: 'Nombre o rol',
-    description: 'Ej: madre, padre, abuela, cuidador principal, pareja...',
+    type: 'textarea',
+    label: '¿Cuáles fueron las personas con las que te criaste?',
     required: true,
-    isFigureItem: true,
   },
   {
-    id: 'fig_current_relation',
+    id: 'emo_cambio_convivencia',
     section: 2,
-    type: 'text_field',
-    label: 'Relación actual con esta persona',
-    isFigureItem: true,
+    type: 'yes_no',
+    label: '¿Viviste siempre con ellos o cambió en alguna época la gente con la que viviste?',
   },
   {
-    id: 'fig_first_memory',
+    id: 'emo_cambio_convivencia_detalle',
     section: 2,
     type: 'textarea',
-    label: 'Describe el primer recuerdo que tengas con esta persona',
-    isFigureItem: true,
+    label: 'Describe brevemente esos cambios.',
+    conditionalOn: { questionId: 'emo_cambio_convivencia', value: 'si' },
   },
   {
-    id: 'fig_adjectives',
+    id: 'emo_figuras_fuera_familia',
     section: 2,
-    type: 'adjectives_table',
-    label: 'Describe a esta persona con 5 adjetivos y un ejemplo para cada uno',
-    isFigureItem: true,
+    type: 'yes_no',
+    label: '¿Hubo figuras importantes en este sentido aparte de tu familia?',
   },
   {
-    id: 'fig_reaction_distress',
-    section: 2,
-    type: 'textarea',
-    label: '¿Cómo reaccionaba cuando te sentías mal?',
-    isFigureItem: true,
-  },
-  {
-    id: 'fig_reaction_success_failure',
+    id: 'emo_figuras_fuera_familia_detalle',
     section: 2,
     type: 'textarea',
-    label: '¿Cómo reaccionaba ante tus éxitos? ¿Y ante tus fracasos?',
-    isFigureItem: true,
+    label: '¿Quiénes? (por ejemplo profesor/a, amigo/a, pareja adolescente…)',
+    conditionalOn: { questionId: 'emo_figuras_fuera_familia', value: 'si' },
   },
   {
-    id: 'fig_feelings',
+    id: 'emo_cuidadores_contratados',
     section: 2,
-    type: 'checkbox_group',
-    label: 'Sentimientos que esta persona generaba en ti',
-    options: ALL_FIGURE_FEELINGS,
-    isFigureItem: true,
+    type: 'yes_no',
+    label: '¿Estuviste a cargo de niñeras o cuidadores contratados en alguna etapa?',
   },
   {
-    id: 'fig_significant_emotion',
-    section: 2,
-    type: 'text_field',
-    label: '¿Cuál fue la emoción más significativa que viviste con esta figura?',
-    description: 'Describe brevemente un ejemplo.',
-    isFigureItem: true,
-  },
-  {
-    id: 'fig_emotion_tolerance',
-    section: 2,
-    type: 'emotion_matrix',
-    label: 'Tolerancia emocional de esta figura',
-    description: 'Indica cómo manejaba cada emoción.',
-    isFigureItem: true,
-  },
-  {
-    id: 'fig_worst_tolerated',
-    section: 2,
-    type: 'text_field',
-    label: '¿Qué emoción tuya llevaba peor ver o manejar?',
-    description: 'Describe un ejemplo si es posible.',
-    isFigureItem: true,
-  },
-  {
-    id: 'fig_typical_responses',
-    section: 2,
-    type: 'checkbox_group',
-    label: 'Respuestas típicas de esta figura cuando mostrabas emociones',
-    options: TYPICAL_RESPONSES,
-    isFigureItem: true,
-  },
-  {
-    id: 'fig_physical_support',
+    id: 'emo_cuidadores_tiempo',
     section: 2,
     type: 'textarea',
-    label: '¿Recibías apoyo físico de esta persona cuando estabas mal?',
-    description: 'Abrazos, contacto físico, cuidados...',
-    isFigureItem: true,
+    label: 'Si es así, ¿cuánto tiempo pasabas con ellos?',
+    conditionalOn: { questionId: 'emo_cuidadores_contratados', value: 'si' },
   },
   {
-    id: 'fig_emotional_support',
+    id: 'emo_internado',
+    section: 2,
+    type: 'yes_no',
+    label: '¿Estuviste alguna etapa de tu vida en algún internado o institución?',
+  },
+  {
+    id: 'emo_internado_detalle',
     section: 2,
     type: 'textarea',
-    label: '¿Recibías apoyo emocional cuando estabas mal?',
-    description: 'Describe un ejemplo si es posible.',
-    isFigureItem: true,
+    label: 'Describe brevemente.',
+    conditionalOn: { questionId: 'emo_internado', value: 'si' },
+  },
+  {
+    id: 'emo_adopcion',
+    section: 2,
+    type: 'yes_no',
+    label: '¿Fuiste adoptado/a o viviste con alguna familia de acogida?',
+  },
+  {
+    id: 'emo_adopcion_detalle',
+    section: 2,
+    type: 'textarea',
+    label: 'Describe brevemente.',
+    conditionalOn: { questionId: 'emo_adopcion', value: 'si' },
+  },
+  {
+    id: 'emo_figuras_positivas',
+    section: 2,
+    type: 'textarea',
+    label: 'De las personas anteriores, ¿cuáles tuvieron influencia más positiva?',
+  },
+  {
+    id: 'emo_figuras_negativas',
+    section: 2,
+    type: 'textarea',
+    label: '¿Cuáles tuvieron influencia más negativa?',
+  },
+  {
+    id: 'emo_figuras_ausentes',
+    section: 2,
+    type: 'textarea',
+    label: '¿Qué figuras deberían haber estado ahí emocionalmente, pero no estuvieron?',
+  },
+  {
+    id: 'emo_momentos_coregulacion',
+    section: 2,
+    type: 'coregulation_repeater',
+    label: 'Escribe hasta 10 momentos en los que sintieras que alguien te ayudó con algún estado emocional (personas o animales).',
+    maxItems: 10,
   },
 ];
 
-// === LABELS PARA VISUALIZACIÓN ===
-export const EMO_FACTOR_LABELS: Record<string, { label: string; description: string }> = {
-  problematic_emotions_count: { label: 'Emociones Problemáticas', description: 'Número de emociones identificadas como difíciles' },
-  patterns_count: { label: 'Patrones Disfuncionales', description: 'Número de patrones de regulación problemáticos' },
-  supresion: { label: 'Supresión', description: 'Evitación y supresión emocional' },
-  hiperactivacion: { label: 'Hiperactivación', description: 'Intensidad y desbordamiento emocional' },
-  hipoactivacion: { label: 'Hipoactivación', description: 'Anestesia o baja emocionalidad' },
-  desconexion: { label: 'Desconexión', description: 'Emociones que parecen ajenas' },
-  contagio: { label: 'Contagio', description: 'Absorción de emociones de otros' },
-  control: { label: 'Control', description: 'Necesidad de controlar las emociones' },
-  autocritica: { label: 'Autocrítica', description: 'Enfado consigo mismo por sentir' },
-  verguenza: { label: 'Vergüenza', description: 'Vergüenza por las propias emociones' },
-  desregulacion: { label: 'Cambios bruscos', description: 'Variabilidad emocional' },
-  confusion: { label: 'Confusión', description: 'Dificultad para identificar emociones' },
-  rumiacion: { label: 'Rumiación', description: 'Pensamiento repetitivo' },
-  positive_feelings_count: { label: 'Sentimientos Positivos', description: 'Experiencias positivas con figuras' },
-  negative_feelings_count: { label: 'Sentimientos Negativos', description: 'Experiencias negativas con figuras' },
-  typical_responses_count: { label: 'Respuestas Desadaptativas', description: 'Conductas parentales disfuncionales' },
+export const FIGURE_FIELDS: EMOQuestion[] = [
+  {
+    id: 'figure_name',
+    section: 3,
+    type: 'text_field',
+    label: 'Nombre o identificación de la figura',
+    required: true,
+    isFigureField: true,
+  },
+  {
+    id: 'figure_relation',
+    section: 3,
+    type: 'text_field',
+    label: 'Relación contigo (madre, padre, abuela, cuidador, etc.)',
+    required: true,
+    isFigureField: true,
+  },
+  {
+    id: 'figure_first_memory',
+    section: 3,
+    type: 'textarea',
+    label: 'Describe el primer recuerdo que tienes con esta persona.',
+    isFigureField: true,
+  },
+  {
+    id: 'figure_face_expression',
+    section: 3,
+    type: 'textarea',
+    label: '¿Cuál era la expresión típica de su cara?',
+    isFigureField: true,
+  },
+  {
+    id: 'figure_still_in_life',
+    section: 3,
+    type: 'yes_no',
+    label: '¿Esta persona forma parte de tu vida actualmente?',
+    isFigureField: true,
+  },
+  {
+    id: 'figure_current_relationship',
+    section: 3,
+    type: 'textarea',
+    label: 'Si sigues teniendo relación, ¿cómo es esa relación ahora?',
+    conditionalOn: { questionId: 'figure_still_in_life', value: 'si' },
+    isFigureField: true,
+  },
+  {
+    id: 'figure_loss_reaction',
+    section: 3,
+    type: 'textarea',
+    label: 'Si no forma parte de tu vida: ¿por qué? ¿cómo reaccionaste ante esa pérdida y cómo reaccionó el entorno?',
+    conditionalOn: { questionId: 'figure_still_in_life', value: 'no' },
+    isFigureField: true,
+  },
+  {
+    id: 'figure_adjectives',
+    section: 3,
+    type: 'adjectives_repeater',
+    label: 'Escribe 5 adjetivos que describan tu relación con esta persona en tu infancia/adolescencia y un ejemplo de cada uno.',
+    maxItems: 5,
+    isFigureField: true,
+  },
+  {
+    id: 'figure_when_bad',
+    section: 3,
+    type: 'textarea',
+    label: '¿Cómo reaccionaba esta persona cuando tú te sentías mal o tenías un problema? Describe la secuencia.',
+    isFigureField: true,
+  },
+  {
+    id: 'figure_success_failure',
+    section: 3,
+    type: 'textarea',
+    label: '¿Cómo reaccionaba ante tus éxitos o fracasos? (buenas notas, errores, corrección, etc.)',
+    isFigureField: true,
+  },
+  {
+    id: 'figure_help_important',
+    section: 3,
+    type: 'textarea',
+    label: '¿Te ayudó en situaciones importantes en infancia/adolescencia? ¿Cómo?',
+    isFigureField: true,
+  },
+  {
+    id: 'figure_feelings_words',
+    section: 3,
+    type: 'checkbox_group',
+    label: 'Marca las palabras que describan cómo te hizo sentir esta persona (aunque fuera ocasionalmente).',
+    options: FIGURE_FEELINGS,
+    isFigureField: true,
+  },
+  {
+    id: 'figure_feelings_words_otro',
+    section: 3,
+    type: 'text_field',
+    label: 'Describe "Otro".',
+    conditionalOn: { questionId: 'figure_feelings_words', value: ['Otro'] },
+    isFigureField: true,
+  },
+  {
+    id: 'figure_most_important_word',
+    section: 3,
+    type: 'textarea',
+    label: 'De las anteriores, ¿cuál es la palabra más importante en la relación con esta persona? Describe un ejemplo.',
+    isFigureField: true,
+  },
+  {
+    id: 'figure_emotion_matrix',
+    section: 3,
+    type: 'emotion_matrix',
+    label: 'Para cada emoción, marca lo que encaje.',
+    isFigureField: true,
+  },
+  {
+    id: 'figure_worst_emotion_self',
+    section: 3,
+    type: 'textarea',
+    label: '¿Cuál era la emoción que esta persona llevaba peor sentir (en sí misma)? Pon un ejemplo.',
+    isFigureField: true,
+  },
+  {
+    id: 'figure_worst_emotion_you',
+    section: 3,
+    type: 'textarea',
+    label: '¿Cuál era la que llevaba peor que sintieras tú? Describe brevemente.',
+    isFigureField: true,
+  },
+  {
+    id: 'figure_reactions_to_your_emotion',
+    section: 3,
+    type: 'checkbox_group',
+    label: 'Cuando tú sentías esa emoción que llevaba peor, ¿qué hacía? (marca todas las que ocurrieran)',
+    options: FIGURE_REACTIONS,
+    isFigureField: true,
+  },
+  {
+    id: 'figure_reactions_otro',
+    section: 3,
+    type: 'text_field',
+    label: 'Describe "Otro".',
+    conditionalOn: { questionId: 'figure_reactions_to_your_emotion', value: ['Otro'] },
+    isFigureField: true,
+  },
+  {
+    id: 'figure_help_physical',
+    section: 3,
+    type: 'yes_no',
+    label: '¿Te ayudaba a sentirte mejor cuando estabas físicamente mal?',
+    isFigureField: true,
+  },
+  {
+    id: 'figure_help_physical_how',
+    section: 3,
+    type: 'textarea',
+    label: '¿De qué modo?',
+    conditionalOn: { questionId: 'figure_help_physical', value: 'si' },
+    isFigureField: true,
+  },
+  {
+    id: 'figure_help_emotional',
+    section: 3,
+    type: 'textarea',
+    label: '¿Te ayudaba a sentirte mejor cuando estabas emocionalmente mal? Describe una situación.',
+    isFigureField: true,
+  },
+  {
+    id: 'figure_more_comments',
+    section: 3,
+    type: 'textarea',
+    label: '¿Hay algo más sobre esta persona que creas importante comentar?',
+    isFigureField: true,
+  },
+];
+
+// === INDICADORES AUTOMÁTICOS ===
+
+export const REGULATION_INDICATORS = {
+  supresion_evitacion: {
+    label: 'Supresión/Evitación',
+    patterns: [
+      'Evito sentir algunas cosas',
+      'Tiendo a suprimir o anular determinadas emociones',
+      'Me siento como anestesiado a nivel emocional',
+    ],
+  },
+  hiperactivacion_desborde: {
+    label: 'Hiperactivación/Desborde',
+    patterns: [
+      'Algunas de mis emociones suelen desbordarse',
+      'Mis emociones están siempre a flor de piel',
+      'Mis emociones son demasiado intensas',
+    ],
+  },
+  confusion_emocional: {
+    label: 'Confusión emocional',
+    patterns: [
+      'En general no sé muy bien lo que siento',
+    ],
+  },
+  rumiacion_emocional: {
+    label: 'Rumiación emocional',
+    patterns: [
+      'Le doy vueltas y vueltas a cómo me siento',
+    ],
+  },
+  contagio_emocional: {
+    label: 'Contagio emocional',
+    patterns: [
+      'Tiendo a contagiarme de las emociones de los demás',
+    ],
+  },
+  verguenza_autocritica: {
+    label: 'Vergüenza/Auto-crítica emocional',
+    patterns: [
+      'A veces me avergüenzo de lo que puedo llegar a sentir',
+      'Me enfado conmigo mismo por sentir determinadas emociones',
+    ],
+  },
 };
 
-export const EMO_FACTOR_ORDER = [
-  'supresion', 'hiperactivacion', 'hipoactivacion', 
-  'desconexion', 'confusion', 'rumiacion', 'control'
-];
+export const RELATIONAL_INDICATORS = {
+  invalidacion: {
+    label: 'Invalidación',
+    reactions: [
+      'Me decía "no tienes que ponerte así"',
+      'Me decía que no pasaba nada',
+      'Dejaba de hablarme o me ignoraba',
+    ],
+  },
+  verguenza_inducida: {
+    label: 'Vergüenza inducida',
+    reactions: [
+      'Me avergonzaba por sentirme así',
+    ],
+  },
+  culpa_inducida: {
+    label: 'Culpa inducida',
+    reactions: [
+      'Me hacía sentir culpable por sentirme así',
+    ],
+  },
+  rechazo_ausencia: {
+    label: 'Rechazo/Ausencia',
+    feelings: ['Rechazado', 'Invisible'],
+    reactions: ['Dejaba de hablarme o me ignoraba', 'Ni se enteraba de cómo me sentía'],
+  },
+};
 
-// === FUNCIÓN PARA GENERAR DATOS DE PLANTILLA ===
+// === TIPOS PARA RESPUESTAS ===
+
+export interface EMOCoregulationMoment {
+  who: string;
+  emotion: string;
+  whatHelped: string;
+}
+
+export interface EMOAdjective {
+  adjective: string;
+  example: string;
+}
+
+export interface EMOFigureData {
+  id: string;
+  figure_name: string;
+  figure_relation: string;
+  figure_first_memory?: string;
+  figure_face_expression?: string;
+  figure_still_in_life?: 'si' | 'no';
+  figure_current_relationship?: string;
+  figure_loss_reaction?: string;
+  figure_adjectives?: EMOAdjective[];
+  figure_when_bad?: string;
+  figure_success_failure?: string;
+  figure_help_important?: string;
+  figure_feelings_words?: string[];
+  figure_feelings_words_otro?: string;
+  figure_most_important_word?: string;
+  figure_emotion_matrix?: Record<string, string[]>;
+  figure_worst_emotion_self?: string;
+  figure_worst_emotion_you?: string;
+  figure_reactions_to_your_emotion?: string[];
+  figure_reactions_otro?: string;
+  figure_help_physical?: 'si' | 'no';
+  figure_help_physical_how?: string;
+  figure_help_emotional?: string;
+  figure_more_comments?: string;
+}
+
+export interface EMOAnswers {
+  // Section 1
+  emo_reg_general?: string;
+  emo_dificultad_sentir?: 'si' | 'no';
+  emo_dificultad_sentir_explicacion?: string;
+  emo_emociones_problematicas?: string[];
+  emo_emociones_problematicas_otro?: string;
+  emo_emociones_problematicas_por_que?: string;
+  emo_patrones_1?: string[];
+  emo_patrones_2?: string[];
+  emo_patrones_otro_texto?: string;
+  emo_desde_cuando?: string;
+  emo_empeoro?: 'si' | 'no';
+  emo_empeoro_cuando?: string;
+  // Section 2
+  emo_quienes_crianza?: string;
+  emo_cambio_convivencia?: 'si' | 'no';
+  emo_cambio_convivencia_detalle?: string;
+  emo_figuras_fuera_familia?: 'si' | 'no';
+  emo_figuras_fuera_familia_detalle?: string;
+  emo_cuidadores_contratados?: 'si' | 'no';
+  emo_cuidadores_tiempo?: string;
+  emo_internado?: 'si' | 'no';
+  emo_internado_detalle?: string;
+  emo_adopcion?: 'si' | 'no';
+  emo_adopcion_detalle?: string;
+  emo_figuras_positivas?: string;
+  emo_figuras_negativas?: string;
+  emo_figuras_ausentes?: string;
+  emo_momentos_coregulacion?: EMOCoregulationMoment[];
+  // Section 3 - Dynamic figures
+  figures?: EMOFigureData[];
+}
+
+export interface EMOIndicators {
+  regulation: {
+    id: string;
+    label: string;
+    detected: boolean;
+    matchedPatterns: string[];
+  }[];
+  relational: {
+    figureId: string;
+    figureName: string;
+    indicators: {
+      id: string;
+      label: string;
+      detected: boolean;
+    }[];
+    positiveCount: number;
+    negativeCount: number;
+  }[];
+}
+
+// === FUNCIONES DE CÁLCULO ===
+
+export function calculateEMOIndicators(answers: EMOAnswers): EMOIndicators {
+  const allPatterns = [
+    ...(answers.emo_patrones_1 || []),
+    ...(answers.emo_patrones_2 || []),
+  ];
+
+  // Regulation indicators
+  const regulation = Object.entries(REGULATION_INDICATORS).map(([id, config]) => {
+    const matchedPatterns = config.patterns.filter(p => allPatterns.includes(p));
+    return {
+      id,
+      label: config.label,
+      detected: matchedPatterns.length > 0,
+      matchedPatterns,
+    };
+  });
+
+  // Relational indicators per figure
+  const relational = (answers.figures || []).map(figure => {
+    const feelings = figure.figure_feelings_words || [];
+    const reactions = figure.figure_reactions_to_your_emotion || [];
+
+    const indicators = Object.entries(RELATIONAL_INDICATORS).map(([id, config]) => {
+      let detected = false;
+      
+      if ('reactions' in config) {
+        detected = config.reactions.some(r => reactions.includes(r));
+      }
+      if ('feelings' in config && !detected) {
+        detected = config.feelings.some(f => feelings.includes(f));
+      }
+      
+      return {
+        id,
+        label: config.label,
+        detected,
+      };
+    });
+
+    const positiveCount = feelings.filter(f => FIGURE_FEELINGS_POSITIVE.includes(f)).length;
+    const negativeCount = feelings.filter(f => FIGURE_FEELINGS_NEGATIVE.includes(f)).length;
+
+    return {
+      figureId: figure.id,
+      figureName: figure.figure_name || figure.figure_relation || 'Sin nombre',
+      indicators,
+      positiveCount,
+      negativeCount,
+    };
+  });
+
+  return { regulation, relational };
+}
+
+// === TEMPLATE DATA ===
+
 export function getEMOTemplateData() {
   return {
     code: 'EMO',
-    name: 'EMO - Entrevista de Gestión Emocional',
-    description: 'Entrevista digital autoadministrada para evaluar patrones de regulación emocional, historia de figuras reguladoras y calidad de las relaciones de apego temprano. Basada en el trabajo de Anabel González.',
-    version: 2,
+    name: 'EMO – Entrevista de Regulación Emocional',
+    description: 'Entrevista semi-estructurada digital autoadministrada para explorar la historia de regulación emocional. Basada en la EMO original de Anabel González.',
+    version: 3,
     items: [
-      ...SECTION_1_ITEMS,
-      ...FIGURE_TEMPLATE_ITEMS,
+      ...SECTION_1_QUESTIONS,
+      ...SECTION_2_QUESTIONS,
+      ...FIGURE_FIELDS,
     ],
     scoring: {
-      section1: { items: SECTION_1_ITEMS.map(i => i.id), label: 'Regulación emocional actual' },
-      figures: { items: FIGURE_TEMPLATE_ITEMS.map(i => i.id), label: 'Evaluación de figuras' },
+      section1: { items: SECTION_1_QUESTIONS.map(q => q.id), label: 'Regulación emocional actual' },
+      section2: { items: SECTION_2_QUESTIONS.map(q => q.id), label: 'Historia de figuras reguladoras' },
+      section3: { items: FIGURE_FIELDS.map(q => q.id), label: 'Evaluación por figura' },
     },
-    instructions: `Esta es la Entrevista de Gestión Emocional (EMO), una evaluación sobre tu historia de regulación emocional.
+    instructions: `Esta entrevista semi-estructurada explora tu historia de regulación emocional. No hay respuestas correctas o incorrectas. Responde con la mayor honestidad posible, describiendo tu experiencia tal como la recuerdas.
 
-No hay respuestas correctas o incorrectas. Responde con la mayor honestidad posible, describiendo tu experiencia tal como la recuerdas.
+Tómate el tiempo que necesites para reflexionar. Tus respuestas se guardan automáticamente.
 
-La entrevista tiene dos partes:
+La entrevista tiene tres partes:
 1. Tu regulación emocional actual
-2. Las figuras que fueron importantes en tu desarrollo emocional (podrás añadir tantas como necesites)
-
-Tus respuestas se guardan automáticamente. Puedes pausar y continuar cuando quieras.
-
-Tómate el tiempo que necesites para reflexionar sobre cada pregunta.`,
+2. Las figuras que fueron importantes en tu crianza
+3. Evaluación detallada de cada figura relevante (podrás añadir tantas como necesites)`,
     interpretations: null,
     response_min: 0,
     response_max: 100,
     flag_threshold: 0,
     chart_full_mark: 5,
     is_active: true,
-  };
-}
-
-// === TIPOS PARA RESPUESTAS ===
-export interface EMOFigureData {
-  id: string;
-  name: string;
-  current_relation?: string;
-  first_memory?: string;
-  adjectives?: { adjective: string; example: string }[];
-  reaction_distress?: string;
-  reaction_success_failure?: string;
-  feelings?: string[];
-  significant_emotion?: string;
-  emotion_tolerance?: Record<string, string[]>;
-  worst_tolerated?: string;
-  typical_responses?: string[];
-  physical_support?: string;
-  emotional_support?: string;
-}
-
-export interface EMOAnswers {
-  // Section 1
-  s1_description?: string;
-  s1_difficult_emotions?: string[];
-  s1_patterns?: string[];
-  s1_since_when?: string;
-  s1_worsening_periods?: string;
-  // Section 2 - Dynamic figures
-  figures?: EMOFigureData[];
-}
-
-export interface EMOScores {
-  problematic_emotions_count: number;
-  patterns_count: number;
-  supresion: number;
-  hiperactivacion: number;
-  hipoactivacion: number;
-  desconexion: number;
-  contagio: number;
-  control: number;
-  autocritica: number;
-  verguenza: number;
-  desregulacion: number;
-  confusion: number;
-  rumiacion: number;
-  figures_count: number;
-  positive_feelings_total: number;
-  negative_feelings_total: number;
-  typical_responses_total: number;
-}
-
-// === FUNCIÓN PARA CALCULAR SCORES ===
-export function calculateEMOScores(answers: EMOAnswers): EMOScores {
-  const patternMap: Record<string, string> = {};
-  REGULATORY_PATTERNS.forEach(p => {
-    patternMap[p.text] = p.category;
-  });
-
-  const selectedPatterns = answers.s1_patterns || [];
-  
-  // Count by category
-  const categoryCounts: Record<string, number> = {
-    supresion: 0,
-    hiperactivacion: 0,
-    hipoactivacion: 0,
-    desconexion: 0,
-    contagio: 0,
-    control: 0,
-    autocritica: 0,
-    verguenza: 0,
-    desregulacion: 0,
-    confusion: 0,
-    rumiacion: 0,
-  };
-
-  selectedPatterns.forEach(pattern => {
-    const category = patternMap[pattern];
-    if (category && categoryCounts[category] !== undefined) {
-      categoryCounts[category]++;
-    }
-  });
-
-  // Figure-level aggregations
-  const figures = answers.figures || [];
-  let positiveFeelings = 0;
-  let negativeFeelings = 0;
-  let typicalResponses = 0;
-
-  figures.forEach(fig => {
-    const feelings = fig.feelings || [];
-    positiveFeelings += feelings.filter(f => FIGURE_FEELINGS.positive.includes(f)).length;
-    negativeFeelings += feelings.filter(f => FIGURE_FEELINGS.negative.includes(f)).length;
-    typicalResponses += (fig.typical_responses || []).length;
-  });
-
-  return {
-    problematic_emotions_count: (answers.s1_difficult_emotions || []).length,
-    patterns_count: selectedPatterns.length,
-    supresion: categoryCounts.supresion,
-    hiperactivacion: categoryCounts.hiperactivacion,
-    hipoactivacion: categoryCounts.hipoactivacion,
-    desconexion: categoryCounts.desconexion,
-    contagio: categoryCounts.contagio,
-    control: categoryCounts.control,
-    autocritica: categoryCounts.autocritica,
-    verguenza: categoryCounts.verguenza,
-    desregulacion: categoryCounts.desregulacion,
-    confusion: categoryCounts.confusion,
-    rumiacion: categoryCounts.rumiacion,
-    figures_count: figures.length,
-    positive_feelings_total: positiveFeelings,
-    negative_feelings_total: negativeFeelings,
-    typical_responses_total: typicalResponses,
   };
 }
