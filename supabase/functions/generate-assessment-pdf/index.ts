@@ -464,6 +464,17 @@ function generateAssessmentHTML(params: GenerateHTMLParams): string {
     const levelColor = isClinical ? '#dc2626' : isElevated ? '#d97706' : '#16a34a';
     const levelLabel = isClinical ? 'Clínico (≥30)' : isElevated ? 'Elevado (≥20)' : 'Normal (<20)';
 
+    // Check for elevated subscales even when total is normal
+    const elevatedSubscales: { label: string; score: number; key: string }[] = [];
+    if (amnesiaScore >= 20) elevatedSubscales.push({ label: 'Amnesia Disociativa', score: amnesiaScore, key: 'DES_A' });
+    if (absorptionScore >= 20) elevatedSubscales.push({ label: 'Absorción/Imaginación', score: absorptionScore, key: 'DES_I' });
+    if (depersonScore >= 20) elevatedSubscales.push({ label: 'Despersonalización/Desrealización', score: depersonScore, key: 'DES_D' });
+    const hasElevatedSubscales = !isClinical && !isElevated && elevatedSubscales.length > 0;
+
+    // Get examples from metadata
+    const examples = metadata?.examples as Record<string, string> | undefined;
+    const desScoring = template.scoring as Record<string, { items: number[]; label: string; description?: string }> | undefined;
+
     desHTML = `
       <div class="section">
         <h3>Resultado DES - Escala de Experiencias Disociativas</h3>
@@ -471,6 +482,12 @@ function generateAssessmentHTML(params: GenerateHTMLParams): string {
           <div style="background: #fef2f2; border: 2px solid #dc2626; border-radius: 8px; padding: 12px; margin-bottom: 16px;">
             <p style="color: #dc2626; font-weight: bold; margin-bottom: 6px;">⚠️ TAXÓN DISOCIATIVO POSITIVO</p>
             <p style="font-size: 10px; color: #7f1d1d;">DES-T ≥ 20 sugiere experiencias disociativas de tipo patológico. Se recomienda evaluación clínica más exhaustiva.</p>
+          </div>
+        ` : ''}
+        ${hasElevatedSubscales ? `
+          <div style="background: #fffbeb; border: 2px solid #d97706; border-radius: 8px; padding: 12px; margin-bottom: 16px;">
+            <p style="color: #d97706; font-weight: bold; margin-bottom: 6px;">⚠️ ATENCIÓN: SUBESCALAS ELEVADAS</p>
+            <p style="font-size: 10px; color: #92400e;">Aunque la puntuación total está en rango normal, se detectan valores elevados (≥20%) en: ${elevatedSubscales.map(s => `${s.label} (${s.score.toFixed(1)}%)`).join(', ')}. Se recomienda exploración clínica específica de estas áreas.</p>
           </div>
         ` : ''}
         <div class="global-indices" style="grid-template-columns: 1fr 1fr;">
@@ -488,12 +505,29 @@ function generateAssessmentHTML(params: GenerateHTMLParams): string {
         <div style="margin-top: 16px;">
           <h4 style="font-size: 12px; margin-bottom: 8px;">Subescalas</h4>
           <table style="width: 100%; font-size: 11px;">
-            <tr><td>Amnesia Disociativa (DES-A)</td><td style="text-align: right; font-weight: bold;">${amnesiaScore.toFixed(1)}%</td></tr>
-            <tr><td>Despersonalización/Desrealización (DES-D)</td><td style="text-align: right; font-weight: bold;">${depersonScore.toFixed(1)}%</td></tr>
-            <tr><td>Absorción/Imaginación (DES-I)</td><td style="text-align: right; font-weight: bold;">${absorptionScore.toFixed(1)}%</td></tr>
+            <tr style="${amnesiaScore >= 20 ? 'background: #fef2f2;' : ''}">
+              <td>Amnesia Disociativa (DES-A)</td>
+              <td style="text-align: right; font-weight: bold; ${amnesiaScore >= 20 ? 'color: #dc2626;' : ''}">${amnesiaScore.toFixed(1)}%</td>
+              <td style="text-align: right; font-size: 9px; color: #666;">${amnesiaScore >= 20 ? 'Elevado' : 'Normal'}</td>
+            </tr>
+            <tr style="${depersonScore >= 20 ? 'background: #fef2f2;' : ''}">
+              <td>Despersonalización/Desrealización (DES-D)</td>
+              <td style="text-align: right; font-weight: bold; ${depersonScore >= 20 ? 'color: #dc2626;' : ''}">${depersonScore.toFixed(1)}%</td>
+              <td style="text-align: right; font-size: 9px; color: #666;">${depersonScore >= 20 ? 'Elevado' : 'Normal'}</td>
+            </tr>
+            <tr style="${absorptionScore >= 20 ? 'background: #fef2f2;' : ''}">
+              <td>Absorción/Imaginación (DES-I)</td>
+              <td style="text-align: right; font-weight: bold; ${absorptionScore >= 20 ? 'color: #dc2626;' : ''}">${absorptionScore.toFixed(1)}%</td>
+              <td style="text-align: right; font-size: 9px; color: #666;">${absorptionScore >= 20 ? 'Elevado' : 'Normal'}</td>
+            </tr>
           </table>
         </div>
-        <p class="note" style="margin-top: 12px;">Puntos de corte: ≥30 Clínico, ≥20 Elevado. DES-T ≥20 indica taxón disociativo (Carlson & Putnam, 1993; Waller et al., 1996).</p>
+        
+        ${generateDESInterpretationHTML(totalScore, isClinical, isElevated, isTaxonPositive, hasElevatedSubscales, elevatedSubscales)}
+        
+        ${examples && Object.keys(examples).length > 0 ? generateDESExamplesHTML(examples, desScoring, answers, templateItems) : ''}
+        
+        <p class="note" style="margin-top: 12px;">Puntos de corte: ≥30 Clínico, ≥20 Elevado. DES-T ≥20 indica taxón disociativo. Subescalas ≥20% requieren atención clínica (Carlson & Putnam, 1993; Waller et al., 1996).</p>
       </div>
     `;
   }
@@ -952,6 +986,160 @@ function generateMMPI2RFInterpretationHTML(interpretation: any): string {
           </div>
         ` : ''}
       </div>
+    </div>
+  `;
+}
+
+function generateDESInterpretationHTML(
+  totalScore: number,
+  isClinical: boolean,
+  isElevated: boolean,
+  isTaxonPositive: boolean,
+  hasElevatedSubscales: boolean,
+  elevatedSubscales: { label: string; score: number; key: string }[]
+): string {
+  let interpretation = '';
+  let recommendations: string[] = [];
+
+  if (isClinical) {
+    interpretation = `La puntuación total (${totalScore.toFixed(1)}%) se encuentra en rango clínico (≥30%), lo que indica una alta frecuencia de experiencias disociativas. Este resultado es consistente con la presencia de un trastorno disociativo y requiere evaluación clínica exhaustiva.`;
+    recommendations = [
+      'Evaluación diagnóstica completa para trastornos disociativos según DSM-5',
+      'Exploración de historia de trauma y experiencias adversas',
+      'Valoración de comorbilidad (TEPT, trastornos de personalidad, depresión)',
+      'Considerar evaluación estructurada adicional (SCID-D, MID)',
+      'Establecer plan de tratamiento especializado en disociación'
+    ];
+  } else if (isElevated) {
+    interpretation = `La puntuación total (${totalScore.toFixed(1)}%) se encuentra elevada (20-29%), sugiriendo una frecuencia significativa de experiencias disociativas que requiere atención clínica, aunque no alcanza el umbral para trastorno disociativo probable.`;
+    recommendations = [
+      'Exploración clínica de las experiencias disociativas reportadas',
+      'Evaluación de posibles factores desencadenantes o mantenedores',
+      'Considerar screening de trauma si no se ha realizado',
+      'Monitorización de la evolución de los síntomas'
+    ];
+  } else if (isTaxonPositive) {
+    interpretation = `Aunque la puntuación total está en rango normal, el Taxón Disociativo (DES-T) es positivo, lo que sugiere la presencia de experiencias disociativas de tipo patológico (despersonalización, amnesia, alteraciones de identidad) que merecen atención clínica específica.`;
+    recommendations = [
+      'Explorar específicamente los ítems del taxón disociativo',
+      'Evaluación de experiencias de despersonalización/desrealización',
+      'Considerar evaluación de trauma complejo',
+      'Valorar intervención focalizada en regulación disociativa'
+    ];
+  } else if (hasElevatedSubscales) {
+    const subscaleNames = elevatedSubscales.map(s => s.label).join(' y ');
+    interpretation = `La puntuación total está en rango normal, pero se detectan valores elevados en ${subscaleNames}. Esto sugiere patrones específicos de disociación que, aunque no alcanzan significación clínica global, pueden ser relevantes en el contexto del caso.`;
+    recommendations = [
+      `Exploración específica de experiencias relacionadas con ${subscaleNames.toLowerCase()}`,
+      'Evaluar impacto funcional de estas experiencias',
+      'Considerar en el contexto de la historia clínica del paciente'
+    ];
+  } else {
+    interpretation = `La puntuación total (${totalScore.toFixed(1)}%) se encuentra en rango normal (<20%), indicando que las experiencias disociativas reportadas son típicas de la población general y no sugieren patología disociativa.`;
+    recommendations = [];
+  }
+
+  return `
+    <div style="margin-top: 16px; padding: 12px; background: #f8fafc; border-radius: 8px;">
+      <h4 style="font-size: 11px; margin-bottom: 8px; color: #1e293b;">Interpretación Clínica</h4>
+      <p style="font-size: 10px; color: #475569; margin-bottom: 8px;">${interpretation}</p>
+      ${recommendations.length > 0 ? `
+        <div style="margin-top: 8px;">
+          <p style="font-size: 10px; font-weight: 600; color: #1e293b; margin-bottom: 4px;">Recomendaciones:</p>
+          <ul style="margin-left: 16px; font-size: 10px; color: #475569;">
+            ${recommendations.map(r => `<li style="margin-bottom: 2px;">${r}</li>`).join('')}
+          </ul>
+        </div>
+      ` : ''}
+    </div>
+  `;
+}
+
+function generateDESExamplesHTML(
+  examples: Record<string, string>,
+  scoring: Record<string, { items: number[]; label: string; description?: string }> | undefined,
+  answers: Record<string, any>,
+  templateItems: any[]
+): string {
+  if (!examples || Object.keys(examples).length === 0) return '';
+
+  // Group examples by subscale
+  const subscaleExamples: Record<string, { items: { index: number; text: string; answer: number; example: string }[]; label: string }> = {};
+  
+  // Initialize subscales
+  if (scoring) {
+    Object.entries(scoring).forEach(([key, value]) => {
+      if (key !== 'DES_T') { // Skip taxon as it overlaps with other subscales
+        subscaleExamples[key] = { items: [], label: value.label };
+      }
+    });
+  }
+
+  // Assign examples to subscales
+  Object.entries(examples).forEach(([itemIndex, example]) => {
+    if (!example || example.trim() === '') return;
+    
+    const idx = parseInt(itemIndex);
+    const item = templateItems.find((i: any) => i.index === idx);
+    const answer = answers[itemIndex] ?? 0;
+    
+    if (answer === 0) return; // Skip items with 0% answer
+    
+    // Find which subscale this item belongs to
+    let assignedSubscale = 'other';
+    if (scoring) {
+      for (const [key, value] of Object.entries(scoring)) {
+        if (key !== 'DES_T' && value.items.includes(idx)) {
+          assignedSubscale = key;
+          break;
+        }
+      }
+    }
+    
+    if (!subscaleExamples[assignedSubscale]) {
+      subscaleExamples[assignedSubscale] = { items: [], label: 'Otros' };
+    }
+    
+    subscaleExamples[assignedSubscale].items.push({
+      index: idx,
+      text: item?.text || `Ítem ${idx}`,
+      answer,
+      example: example.trim()
+    });
+  });
+
+  // Filter out empty subscales and sort items by answer (highest first)
+  const filledSubscales = Object.entries(subscaleExamples)
+    .filter(([_, data]) => data.items.length > 0)
+    .map(([key, data]) => ({
+      key,
+      label: data.label,
+      items: data.items.sort((a, b) => b.answer - a.answer)
+    }));
+
+  if (filledSubscales.length === 0) return '';
+
+  return `
+    <div class="section" style="page-break-before: always;">
+      <h3>Respuestas Cualitativas del Paciente</h3>
+      <p style="font-size: 10px; color: #64748b; margin-bottom: 12px;">Ejemplos proporcionados por el paciente para experiencias con puntuación > 0%. Estos datos son relevantes para la interpretación clínica.</p>
+      ${filledSubscales.map(subscale => `
+        <div style="margin-bottom: 16px;">
+          <h4 style="font-size: 11px; color: #6366f1; margin-bottom: 8px; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px;">${subscale.label}</h4>
+          ${subscale.items.map(item => `
+            <div style="margin-bottom: 12px; padding: 10px; background: #f8fafc; border-radius: 6px; border-left: 3px solid ${item.answer >= 50 ? '#dc2626' : item.answer >= 30 ? '#d97706' : '#6366f1'};">
+              <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px;">
+                <span style="font-size: 9px; color: #64748b; flex: 1;">Ítem ${item.index}</span>
+                <span style="font-size: 10px; font-weight: 600; color: ${item.answer >= 50 ? '#dc2626' : item.answer >= 30 ? '#d97706' : '#6366f1'};">${item.answer}%</span>
+              </div>
+              <p style="font-size: 9px; color: #475569; margin-bottom: 6px; font-style: italic;">"${item.text.length > 150 ? item.text.substring(0, 150) + '...' : item.text}"</p>
+              <div style="background: white; padding: 8px; border-radius: 4px; border: 1px solid #e2e8f0;">
+                <p style="font-size: 10px; color: #1e293b;"><strong>Ejemplo del paciente:</strong> "${item.example}"</p>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `).join('')}
     </div>
   `;
 }
