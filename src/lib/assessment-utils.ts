@@ -327,6 +327,9 @@ export function getFactorOrder(templateCode: string): string[] {
   if (templateCode === 'STAI') {
     return STAI_FACTOR_ORDER;
   }
+  if (templateCode === 'EMO') {
+    return EMO_FACTOR_ORDER;
+  }
   return FACTOR_ORDER;
 }
 

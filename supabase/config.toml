@@ -143,3 +143,6 @@ verify_jwt = false
 
 [functions.recompute-patient-statuses]
 verify_jwt = false
+
+[functions.interpret-emo-results]
+verify_jwt = true

@@ -59,6 +59,14 @@ const PREDEFINED_TEMPLATES = [
     time: '10-15 min',
     getData: getSTAITemplateData,
   },
+  {
+    id: 'EMO',
+    name: 'EMO - Entrevista de Regulación Emocional',
+    description: 'Entrevista semi-estructurada para evaluar patrones de regulación emocional, historia de figuras reguladoras y calidad del apego temprano. Desarrollada por Anabel González.',
+    items: 35,
+    time: '45-60 min',
+    getData: getEMOTemplateData,
+  },
 ];
 
 export function AddTemplateDialog({ open, onOpenChange }: AddTemplateDialogProps) {
