@@ -18,6 +18,7 @@ import { BDI2ResultsView } from '@/components/assessments/BDI2ResultsView';
 import { DCIResultsView } from '@/components/assessments/DCIResultsView';
 import { DESResultsView } from '@/components/assessments/DESResultsView';
 import { STAIResultsView } from '@/components/assessments/STAIResultsView';
+import { EMOResultsView } from '@/components/assessments/EMOResultsView';
 import { MMPI2RFInterpretation } from '@/hooks/useMMPI2RFInterpretation';
 import { usePAIInterpretation, PAIInterpretation } from '@/hooks/usePAIInterpretation';
 import {
