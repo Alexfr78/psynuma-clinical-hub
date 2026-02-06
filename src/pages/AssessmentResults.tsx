@@ -334,6 +334,7 @@ export default function AssessmentResults() {
             taxonScore={factorScores['DES_T'] ?? 0}
             flags={response?.flags}
             aiAnalysis={response?.metadata?.aiAnalysis as any}
+            patientExamples={response?.metadata?.examples as Record<string, string> | undefined}
           />
           {/* Detailed answers accordion */}
           <Accordion type="single" collapsible>
