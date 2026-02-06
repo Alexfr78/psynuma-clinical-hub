@@ -62,6 +62,7 @@ const App = () => (
             <Route path="/cita/:token" element={<SessionManagement />} />
             <Route path="/consentimiento/:token" element={<ConsentSignature />} />
             <Route path="/evaluacion/:token" element={<AssessmentPublic />} />
+            <Route path="/emo/:token" element={<EMOPublic />} />
             <Route path="/factura/:token" element={<InvoiceView />} />
             <Route path="/instalar" element={<Install />} />
             <Route path="/portal/:slug" element={<PatientPortal />} />
