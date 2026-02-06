@@ -458,6 +458,14 @@ export default function AssessmentResults() {
             </AccordionItem>
           </Accordion>
         </>
+      ) : isEMO && hasResults ? (
+        /* EMO: Use specialized view for Emotional Regulation Interview */
+        <EMOResultsView
+          assessmentId={assessmentId!}
+          factorScores={factorScores}
+          answers={answers}
+          aiInterpretation={response?.metadata?.emoInterpretation as any}
+        />
       ) : !hasResults ? (
         <Card>
           <CardContent className="py-12 text-center">
