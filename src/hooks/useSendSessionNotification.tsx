@@ -3,8 +3,62 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { useCenter } from './useCenter';
 import { generateWhatsAppUniversalLink } from '@/lib/whatsapp';
-import { useCommunicationTemplate, DEFAULT_TEMPLATES, TEMPLATE_VARIABLES } from './useCommunicationTemplates';
+import { DEFAULT_TEMPLATES } from './useCommunicationTemplates';
 import { toast } from 'sonner';
+
+// Check for duplicate notifications to prevent spam
+async function checkDuplicateNotification(
+  centerId: string,
+  sessionId: string,
+  type: 'whatsapp' | 'email' | 'sms',
+  templateType: string
+): Promise<boolean> {
+  // Check if a similar notification was sent in the last hour
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+  
+  const { data, error } = await supabase
+    .from('notifications')
+    .select('id')
+    .eq('center_id', centerId)
+    .eq('session_id', sessionId)
+    .eq('type', type)
+    .in('status', ['sent', 'pending'])
+    .gte('created_at', oneHourAgo)
+    .limit(1);
+  
+  if (error) {
+    console.error('[Notification] Error checking duplicates:', error);
+    return false; // Allow sending on error
+  }
+  
+  return (data?.length || 0) > 0;
+}
+
+// Check rate limit for center (max N notifications per minute)
+async function checkRateLimit(centerId: string, maxPerMinute: number = 10): Promise<{
+  allowed: boolean;
+  shouldQueue: boolean;
+}> {
+  const oneMinuteAgo = new Date(Date.now() - 60 * 1000).toISOString();
+  
+  const { count, error } = await supabase
+    .from('notifications')
+    .select('*', { count: 'exact', head: true })
+    .eq('center_id', centerId)
+    .gte('created_at', oneMinuteAgo);
+  
+  if (error) {
+    console.error('[Notification] Error checking rate limit:', error);
+    return { allowed: true, shouldQueue: false }; // Allow on error
+  }
+  
+  const currentCount = count || 0;
+  if (currentCount >= maxPerMinute) {
+    return { allowed: false, shouldQueue: true };
+  }
+  
+  return { allowed: true, shouldQueue: false };
+}
 
 interface SendNotificationParams {
   patientId: string;
