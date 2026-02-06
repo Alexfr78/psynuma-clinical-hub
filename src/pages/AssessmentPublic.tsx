@@ -10,6 +10,7 @@ import { BDI2ItemRenderer } from '@/components/assessments/BDI2ItemRenderer';
 import { AssessmentProgress } from '@/components/assessments/AssessmentProgress';
 import { PercentageSlider } from '@/components/assessments/PercentageSlider';
 import { ExampleInput } from '@/components/assessments/ExampleInput';
+import EMOPublic from '@/pages/EMOPublic';
 
 export default function AssessmentPublic() {
   const { token } = useParams<{ token: string }>();
@@ -90,6 +91,12 @@ export default function AssessmentPublic() {
   const template = Array.isArray(assessment.template)
     ? (assessment.template as any)[0]
     : (assessment.template as any);
+
+  // If this is an EMO assessment, render the specialized EMO interface
+  if (template?.code === 'EMO') {
+    return <EMOPublic />;
+  }
+
   const items = template?.items || [];
   const answeredCount = Object.keys(answers).length;
   const isComplete = answeredCount === items.length;
