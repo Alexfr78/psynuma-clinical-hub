@@ -229,22 +229,38 @@ export function useSendSessionNotification() {
             results.push({ channel: 'whatsapp', success: true });
           } else if (whatsappMethod === 'api') {
             // Use Meta API via edge function
-            // If rate limited, queue for later
-            const notificationStatus = rateLimit.shouldQueue ? 'queued' : 'pending';
+            // If rate limited, schedule for later
             const scheduledFor = rateLimit.shouldQueue 
               ? new Date(Date.now() + 60 * 1000).toISOString() // 1 minute later
-              : undefined;
+              : null;
             
-            const notification = await supabase.from('notifications').insert({
+            const notificationData: {
+              center_id: string;
+              patient_id: string;
+              session_id: string;
+              type: 'whatsapp';
+              recipient: string;
+              message: string;
+              status: 'pending';
+              scheduled_for?: string;
+            } = {
               center_id: profile.center_id,
               patient_id: params.patientId,
               session_id: params.sessionId,
               type: 'whatsapp',
               recipient: params.patientPhone,
               message,
-              status: notificationStatus,
-              ...(scheduledFor && { scheduled_for: scheduledFor }),
-            }).select().single();
+              status: 'pending',
+            };
+            
+            if (scheduledFor) {
+              notificationData.scheduled_for = scheduledFor;
+            }
+            
+            const notification = await supabase.from('notifications')
+              .insert(notificationData)
+              .select()
+              .single();
 
             if (notification.data && !rateLimit.shouldQueue) {
               const { error } = await supabase.functions.invoke('send-notification', {
