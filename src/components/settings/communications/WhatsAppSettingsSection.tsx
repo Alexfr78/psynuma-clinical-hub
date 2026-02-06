@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Loader2, Save, Globe, Zap, ExternalLink, Eye, EyeOff, CheckCircle } from 'lucide-react';
+import { Loader2, Save, Globe, Zap, ExternalLink, Eye, EyeOff, CheckCircle, Send, MessageCircle } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,6 +11,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import type { WhatsAppSendMethod } from '@/lib/whatsapp';
+import { WhatsAppLinkDialog } from '@/components/agenda/WhatsAppLinkDialog';
 
 export function WhatsAppSettingsSection() {
   const { center, updateCenter, isLoading } = useCenter();
