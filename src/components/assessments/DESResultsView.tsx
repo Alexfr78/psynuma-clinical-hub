@@ -1,6 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { AlertTriangle, CheckCircle2, Activity, Brain, Sparkles, MessageSquareText, Lightbulb } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Activity, Brain, Sparkles, MessageSquareText, Lightbulb, Quote } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
@@ -30,6 +30,7 @@ interface DESResultsViewProps {
   taxonScore: number;
   flags?: Record<string, boolean> | null;
   aiAnalysis?: AIAnalysis | null;
+  patientExamples?: Record<string, string> | null;
 }
 
 const DES_CUTOFFS = {
@@ -38,6 +39,9 @@ const DES_CUTOFFS = {
   taxon: 20,
 };
 
+// Subscale thresholds for elevated interpretation
+const SUBSCALE_ELEVATED_THRESHOLD = 20;
+
 const CATEGORY_ORDER = ['amnesia', 'depersonalization', 'absorption', 'taxon', 'other'];
 const CATEGORY_LABELS: Record<string, string> = {
   amnesia: 'Amnesia Disociativa',
@@ -45,6 +49,16 @@ const CATEGORY_LABELS: Record<string, string> = {
   absorption: 'Absorción/Imaginación',
   taxon: 'Síntomas Disociativos Patológicos',
   other: 'Otras Experiencias',
+};
+
+// Map item indices to categories
+const DES_ITEM_CATEGORIES: Record<number, string> = {
+  1: 'absorption', 2: 'absorption', 3: 'amnesia', 4: 'amnesia', 5: 'amnesia',
+  6: 'amnesia', 7: 'depersonalization', 8: 'amnesia', 9: 'amnesia', 10: 'amnesia',
+  11: 'depersonalization', 12: 'depersonalization', 13: 'depersonalization',
+  14: 'absorption', 15: 'absorption', 16: 'depersonalization', 17: 'absorption',
+  18: 'absorption', 19: 'other', 20: 'absorption', 21: 'other', 22: 'taxon',
+  23: 'other', 24: 'other', 25: 'amnesia', 26: 'amnesia', 27: 'taxon', 28: 'depersonalization',
 };
 
 function getLevel(score: number) {
@@ -63,39 +77,6 @@ function getRelevanceBadge(relevance: string) {
       return <Badge variant="outline" className="text-xs">Baja</Badge>;
   }
 }
-
-export function DESResultsView({
-  totalScore,
-  amnesiaScore,
-  depersonScore,
-  absorptionScore,
-  taxonScore,
-  flags,
-  aiAnalysis,
-}: DESResultsViewProps) {
-  const level = getLevel(totalScore);
-  const isClinical = flags?.clinical || totalScore >= DES_CUTOFFS.clinical;
-  const isElevated = flags?.elevated || (totalScore >= DES_CUTOFFS.elevated && totalScore < DES_CUTOFFS.clinical);
-  const isTaxonPositive = flags?.taxon_positive || taxonScore >= DES_CUTOFFS.taxon;
-
-  const subscales = [
-    { code: 'DES_A', label: 'Amnesia Disociativa', score: amnesiaScore, description: 'Pérdida de memoria y lagunas temporales' },
-    { code: 'DES_D', label: 'Despersonalización/Desrealización', score: depersonScore, description: 'Sensación de irrealidad' },
-    { code: 'DES_I', label: 'Absorción/Imaginación', score: absorptionScore, description: 'Absorción en experiencias internas' },
-    { code: 'DES_T', label: 'Taxón Disociativo', score: taxonScore, description: 'Indicador de disociación patológica' },
-  ];
-
-  // Group AI analysis by category
-  const analysisByCategory: Record<string, ItemAnalysis[]> = {};
-  if (aiAnalysis?.itemAnalysis) {
-    Object.entries(aiAnalysis.itemAnalysis).forEach(([index, analysis]) => {
-      const category = analysis.category || 'other';
-      if (!analysisByCategory[category]) {
-        analysisByCategory[category] = [];
-      }
-      analysisByCategory[category].push({ ...analysis, index } as any);
-    });
-  }
 
   const hasAIAnalysis = aiAnalysis && Object.keys(aiAnalysis.itemAnalysis || {}).length > 0;
 
