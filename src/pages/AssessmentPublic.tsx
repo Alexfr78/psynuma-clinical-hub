@@ -91,6 +91,12 @@ export default function AssessmentPublic() {
   const template = Array.isArray(assessment.template)
     ? (assessment.template as any)[0]
     : (assessment.template as any);
+
+  // If this is an EMO assessment, render the specialized EMO interface
+  if (template?.code === 'EMO') {
+    return <EMOPublic />;
+  }
+
   const items = template?.items || [];
   const answeredCount = Object.keys(answers).length;
   const isComplete = answeredCount === items.length;
