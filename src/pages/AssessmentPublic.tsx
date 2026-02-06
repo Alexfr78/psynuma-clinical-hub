@@ -10,6 +10,7 @@ import { BDI2ItemRenderer } from '@/components/assessments/BDI2ItemRenderer';
 import { AssessmentProgress } from '@/components/assessments/AssessmentProgress';
 import { PercentageSlider } from '@/components/assessments/PercentageSlider';
 import { ExampleInput } from '@/components/assessments/ExampleInput';
+import EMOPublic from '@/pages/EMOPublic';
 
 export default function AssessmentPublic() {
   const { token } = useParams<{ token: string }>();
