@@ -32,6 +32,7 @@ import PublicBooking from "./pages/PublicBooking";
 import PublicBookingManage from "./pages/PublicBookingManage";
 import Assessments from "./pages/Assessments";
 import AssessmentPublic from "./pages/AssessmentPublic";
+import EMOPublic from "./pages/EMOPublic";
 import AssessmentResults from "./pages/AssessmentResults";
 import PayDebt from "./pages/PayDebt";
 import PaymentSuccess from "./pages/PaymentSuccess";
@@ -61,6 +62,7 @@ const App = () => (
             <Route path="/cita/:token" element={<SessionManagement />} />
             <Route path="/consentimiento/:token" element={<ConsentSignature />} />
             <Route path="/evaluacion/:token" element={<AssessmentPublic />} />
+            <Route path="/emo/:token" element={<EMOPublic />} />
             <Route path="/factura/:token" element={<InvoiceView />} />
             <Route path="/instalar" element={<Install />} />
             <Route path="/portal/:slug" element={<PatientPortal />} />
