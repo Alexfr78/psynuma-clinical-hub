@@ -464,6 +464,17 @@ function generateAssessmentHTML(params: GenerateHTMLParams): string {
     const levelColor = isClinical ? '#dc2626' : isElevated ? '#d97706' : '#16a34a';
     const levelLabel = isClinical ? 'Clínico (≥30)' : isElevated ? 'Elevado (≥20)' : 'Normal (<20)';
 
+    // Check for elevated subscales even when total is normal
+    const elevatedSubscales: { label: string; score: number; key: string }[] = [];
+    if (amnesiaScore >= 20) elevatedSubscales.push({ label: 'Amnesia Disociativa', score: amnesiaScore, key: 'DES_A' });
+    if (absorptionScore >= 20) elevatedSubscales.push({ label: 'Absorción/Imaginación', score: absorptionScore, key: 'DES_I' });
+    if (depersonScore >= 20) elevatedSubscales.push({ label: 'Despersonalización/Desrealización', score: depersonScore, key: 'DES_D' });
+    const hasElevatedSubscales = !isClinical && !isElevated && elevatedSubscales.length > 0;
+
+    // Get examples from metadata
+    const examples = metadata?.examples as Record<string, string> | undefined;
+    const desScoring = template.scoring as Record<string, { items: number[]; label: string; description?: string }> | undefined;
+
     desHTML = `
       <div class="section">
         <h3>Resultado DES - Escala de Experiencias Disociativas</h3>
@@ -471,6 +482,12 @@ function generateAssessmentHTML(params: GenerateHTMLParams): string {
           <div style="background: #fef2f2; border: 2px solid #dc2626; border-radius: 8px; padding: 12px; margin-bottom: 16px;">
             <p style="color: #dc2626; font-weight: bold; margin-bottom: 6px;">⚠️ TAXÓN DISOCIATIVO POSITIVO</p>
             <p style="font-size: 10px; color: #7f1d1d;">DES-T ≥ 20 sugiere experiencias disociativas de tipo patológico. Se recomienda evaluación clínica más exhaustiva.</p>
+          </div>
+        ` : ''}
+        ${hasElevatedSubscales ? `
+          <div style="background: #fffbeb; border: 2px solid #d97706; border-radius: 8px; padding: 12px; margin-bottom: 16px;">
+            <p style="color: #d97706; font-weight: bold; margin-bottom: 6px;">⚠️ ATENCIÓN: SUBESCALAS ELEVADAS</p>
+            <p style="font-size: 10px; color: #92400e;">Aunque la puntuación total está en rango normal, se detectan valores elevados (≥20%) en: ${elevatedSubscales.map(s => `${s.label} (${s.score.toFixed(1)}%)`).join(', ')}. Se recomienda exploración clínica específica de estas áreas.</p>
           </div>
         ` : ''}
         <div class="global-indices" style="grid-template-columns: 1fr 1fr;">
@@ -488,12 +505,29 @@ function generateAssessmentHTML(params: GenerateHTMLParams): string {
         <div style="margin-top: 16px;">
           <h4 style="font-size: 12px; margin-bottom: 8px;">Subescalas</h4>
           <table style="width: 100%; font-size: 11px;">
-            <tr><td>Amnesia Disociativa (DES-A)</td><td style="text-align: right; font-weight: bold;">${amnesiaScore.toFixed(1)}%</td></tr>
-            <tr><td>Despersonalización/Desrealización (DES-D)</td><td style="text-align: right; font-weight: bold;">${depersonScore.toFixed(1)}%</td></tr>
-            <tr><td>Absorción/Imaginación (DES-I)</td><td style="text-align: right; font-weight: bold;">${absorptionScore.toFixed(1)}%</td></tr>
+            <tr style="${amnesiaScore >= 20 ? 'background: #fef2f2;' : ''}">
+              <td>Amnesia Disociativa (DES-A)</td>
+              <td style="text-align: right; font-weight: bold; ${amnesiaScore >= 20 ? 'color: #dc2626;' : ''}">${amnesiaScore.toFixed(1)}%</td>
+              <td style="text-align: right; font-size: 9px; color: #666;">${amnesiaScore >= 20 ? 'Elevado' : 'Normal'}</td>
+            </tr>
+            <tr style="${depersonScore >= 20 ? 'background: #fef2f2;' : ''}">
+              <td>Despersonalización/Desrealización (DES-D)</td>
+              <td style="text-align: right; font-weight: bold; ${depersonScore >= 20 ? 'color: #dc2626;' : ''}">${depersonScore.toFixed(1)}%</td>
+              <td style="text-align: right; font-size: 9px; color: #666;">${depersonScore >= 20 ? 'Elevado' : 'Normal'}</td>
+            </tr>
+            <tr style="${absorptionScore >= 20 ? 'background: #fef2f2;' : ''}">
+              <td>Absorción/Imaginación (DES-I)</td>
+              <td style="text-align: right; font-weight: bold; ${absorptionScore >= 20 ? 'color: #dc2626;' : ''}">${absorptionScore.toFixed(1)}%</td>
+              <td style="text-align: right; font-size: 9px; color: #666;">${absorptionScore >= 20 ? 'Elevado' : 'Normal'}</td>
+            </tr>
           </table>
         </div>
-        <p class="note" style="margin-top: 12px;">Puntos de corte: ≥30 Clínico, ≥20 Elevado. DES-T ≥20 indica taxón disociativo (Carlson & Putnam, 1993; Waller et al., 1996).</p>
+        
+        ${generateDESInterpretationHTML(totalScore, isClinical, isElevated, isTaxonPositive, hasElevatedSubscales, elevatedSubscales)}
+        
+        ${examples && Object.keys(examples).length > 0 ? generateDESExamplesHTML(examples, desScoring, answers, templateItems) : ''}
+        
+        <p class="note" style="margin-top: 12px;">Puntos de corte: ≥30 Clínico, ≥20 Elevado. DES-T ≥20 indica taxón disociativo. Subescalas ≥20% requieren atención clínica (Carlson & Putnam, 1993; Waller et al., 1996).</p>
       </div>
     `;
   }
