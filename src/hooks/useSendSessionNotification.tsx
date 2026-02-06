@@ -3,8 +3,62 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { useCenter } from './useCenter';
 import { generateWhatsAppUniversalLink } from '@/lib/whatsapp';
-import { useCommunicationTemplate, DEFAULT_TEMPLATES, TEMPLATE_VARIABLES } from './useCommunicationTemplates';
+import { DEFAULT_TEMPLATES } from './useCommunicationTemplates';
 import { toast } from 'sonner';
+
+// Check for duplicate notifications to prevent spam
+async function checkDuplicateNotification(
+  centerId: string,
+  sessionId: string,
+  type: 'whatsapp' | 'email' | 'sms',
+  templateType: string
+): Promise<boolean> {
+  // Check if a similar notification was sent in the last hour
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+  
+  const { data, error } = await supabase
+    .from('notifications')
+    .select('id')
+    .eq('center_id', centerId)
+    .eq('session_id', sessionId)
+    .eq('type', type)
+    .in('status', ['sent', 'pending'])
+    .gte('created_at', oneHourAgo)
+    .limit(1);
+  
+  if (error) {
+    console.error('[Notification] Error checking duplicates:', error);
+    return false; // Allow sending on error
+  }
+  
+  return (data?.length || 0) > 0;
+}
+
+// Check rate limit for center (max N notifications per minute)
+async function checkRateLimit(centerId: string, maxPerMinute: number = 10): Promise<{
+  allowed: boolean;
+  shouldQueue: boolean;
+}> {
+  const oneMinuteAgo = new Date(Date.now() - 60 * 1000).toISOString();
+  
+  const { count, error } = await supabase
+    .from('notifications')
+    .select('*', { count: 'exact', head: true })
+    .eq('center_id', centerId)
+    .gte('created_at', oneMinuteAgo);
+  
+  if (error) {
+    console.error('[Notification] Error checking rate limit:', error);
+    return { allowed: true, shouldQueue: false }; // Allow on error
+  }
+  
+  const currentCount = count || 0;
+  if (currentCount >= maxPerMinute) {
+    return { allowed: false, shouldQueue: true };
+  }
+  
+  return { allowed: true, shouldQueue: false };
+}
 
 interface SendNotificationParams {
   patientId: string;
@@ -126,55 +180,97 @@ export function useSendSessionNotification() {
       if (params.channels.whatsapp && params.patientPhone) {
         const whatsappMethod = center.whatsapp_send_method || 'web';
         
-        // Get template message
-        const { data: templateData } = await supabase
-          .from('communication_templates')
-          .select('whatsapp_message')
-          .eq('center_id', profile.center_id)
-          .eq('channel', 'whatsapp')
-          .eq('template_type', params.type)
-          .maybeSingle();
+        // Check for duplicate notifications (anti-spam)
+        const isDuplicate = await checkDuplicateNotification(
+          profile.center_id,
+          params.sessionId,
+          'whatsapp',
+          params.type
+        );
+        
+        if (isDuplicate) {
+          console.log('[Notification] Duplicate WhatsApp notification detected, skipping');
+          results.push({ channel: 'whatsapp', success: false });
+        } else {
+          // Check rate limit
+          const rateLimit = await checkRateLimit(profile.center_id);
+          
+          // Get template message
+          const { data: templateData } = await supabase
+            .from('communication_templates')
+            .select('whatsapp_message')
+            .eq('center_id', profile.center_id)
+            .eq('channel', 'whatsapp')
+            .eq('template_type', params.type)
+            .maybeSingle();
 
-        const defaultTemplate = DEFAULT_TEMPLATES.whatsapp[params.type].whatsapp_message || '';
-        const messageTemplate = templateData?.whatsapp_message || defaultTemplate;
-        const message = replaceTemplateVariables(messageTemplate, templateVars);
+          const defaultTemplate = DEFAULT_TEMPLATES.whatsapp[params.type].whatsapp_message || '';
+          const messageTemplate = templateData?.whatsapp_message || defaultTemplate;
+          const message = replaceTemplateVariables(messageTemplate, templateVars);
 
-        if (whatsappMethod === 'web') {
-          // Save notification as pending (manual)
-          await supabase.from('notifications').insert({
-            center_id: profile.center_id,
-            patient_id: params.patientId,
-            session_id: params.sessionId,
-            type: 'whatsapp',
-            recipient: params.patientPhone,
-            message,
-            status: 'pending',
-          });
-
-          whatsappData = {
-            phone: params.patientPhone,
-            message,
-            patientName: params.patientName,
-          };
-
-          results.push({ channel: 'whatsapp', success: true });
-        } else if (whatsappMethod === 'api') {
-          // Use Meta API via edge function
-          const notification = await supabase.from('notifications').insert({
-            center_id: profile.center_id,
-            patient_id: params.patientId,
-            session_id: params.sessionId,
-            type: 'whatsapp',
-            recipient: params.patientPhone,
-            message,
-            status: 'pending',
-          }).select().single();
-
-          if (notification.data) {
-            const { error } = await supabase.functions.invoke('send-notification', {
-              body: { notificationId: notification.data.id },
+          if (whatsappMethod === 'web') {
+            // Save notification as pending (manual)
+            await supabase.from('notifications').insert({
+              center_id: profile.center_id,
+              patient_id: params.patientId,
+              session_id: params.sessionId,
+              type: 'whatsapp',
+              recipient: params.patientPhone,
+              message,
+              status: 'pending',
             });
-            results.push({ channel: 'whatsapp', success: !error });
+
+            whatsappData = {
+              phone: params.patientPhone,
+              message,
+              patientName: params.patientName,
+            };
+
+            results.push({ channel: 'whatsapp', success: true });
+          } else if (whatsappMethod === 'api') {
+            // Use Meta API via edge function
+            // If rate limited, schedule for later
+            const scheduledFor = rateLimit.shouldQueue 
+              ? new Date(Date.now() + 60 * 1000).toISOString() // 1 minute later
+              : null;
+            
+            const notificationData: {
+              center_id: string;
+              patient_id: string;
+              session_id: string;
+              type: 'whatsapp';
+              recipient: string;
+              message: string;
+              status: 'pending';
+              scheduled_for?: string;
+            } = {
+              center_id: profile.center_id,
+              patient_id: params.patientId,
+              session_id: params.sessionId,
+              type: 'whatsapp',
+              recipient: params.patientPhone,
+              message,
+              status: 'pending',
+            };
+            
+            if (scheduledFor) {
+              notificationData.scheduled_for = scheduledFor;
+            }
+            
+            const notification = await supabase.from('notifications')
+              .insert(notificationData)
+              .select()
+              .single();
+
+            if (notification.data && !rateLimit.shouldQueue) {
+              const { error } = await supabase.functions.invoke('send-notification', {
+                body: { notificationId: notification.data.id },
+              });
+              results.push({ channel: 'whatsapp', success: !error });
+            } else if (rateLimit.shouldQueue) {
+              console.log('[Notification] Rate limited, queued for later');
+              results.push({ channel: 'whatsapp', success: true }); // Queued successfully
+            }
           }
         }
       }

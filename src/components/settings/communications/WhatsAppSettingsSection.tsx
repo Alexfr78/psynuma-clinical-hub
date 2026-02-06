@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Loader2, Save, Globe, Zap, ExternalLink, Eye, EyeOff, CheckCircle } from 'lucide-react';
+import { Loader2, Save, Globe, Zap, ExternalLink, Eye, EyeOff, CheckCircle, Send, MessageCircle } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,10 +11,11 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import type { WhatsAppSendMethod } from '@/lib/whatsapp';
+import { WhatsAppLinkDialog } from '@/components/agenda/WhatsAppLinkDialog';
 
 export function WhatsAppSettingsSection() {
   const { center, updateCenter, isLoading } = useCenter();
-  const { isAdmin } = useAuth();
+  const { isAdmin, profile } = useAuth();
   
   const [sendMethod, setSendMethod] = useState<WhatsAppSendMethod>('web');
   const [accessToken, setAccessToken] = useState('');
@@ -22,6 +23,10 @@ export function WhatsAppSettingsSection() {
   const [businessAccountId, setBusinessAccountId] = useState('');
   const [showToken, setShowToken] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isTesting, setIsTesting] = useState(false);
+  const [testPhone, setTestPhone] = useState('');
+  const [showTestDialog, setShowTestDialog] = useState(false);
+  const [testMessage, setTestMessage] = useState('');
 
   useEffect(() => {
     if (center) {
@@ -75,6 +80,67 @@ export function WhatsAppSettingsSection() {
       toast.error('Error al guardar la configuración');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleTestWhatsApp = async () => {
+    if (!testPhone.trim()) {
+      toast.error('Introduce un número de teléfono para la prueba');
+      return;
+    }
+
+    const message = `🧪 Mensaje de prueba desde ${center?.name || 'Psycma'}.\n\nSi recibes este mensaje, la configuración de WhatsApp está funcionando correctamente.\n\nFecha: ${new Date().toLocaleString('es-ES')}`;
+
+    if (sendMethod === 'web') {
+      // For web method, show the dialog
+      setTestMessage(message);
+      setShowTestDialog(true);
+    } else {
+      // For API method, send via edge function
+      setIsTesting(true);
+      try {
+        // Create a test notification
+        const { data: notification, error: insertError } = await supabase
+          .from('notifications')
+          .insert({
+            center_id: profile?.center_id,
+            type: 'whatsapp',
+            recipient: testPhone,
+            message,
+            status: 'pending',
+          })
+          .select()
+          .single();
+
+        if (insertError) {
+          throw insertError;
+        }
+
+        // Send via edge function
+        const { data, error } = await supabase.functions.invoke('send-notification', {
+          body: { notificationId: notification.id },
+        });
+
+        if (error) {
+          throw error;
+        }
+
+        if (data?.ok) {
+          toast.success('Mensaje de prueba enviado', {
+            description: 'Verifica que el mensaje llegó al teléfono indicado.',
+          });
+        } else {
+          const errorMsg = data?.results?.[0]?.error || 'Error desconocido';
+          toast.error('Error al enviar', {
+            description: errorMsg,
+          });
+        }
+      } catch (error) {
+        console.error('Error testing WhatsApp:', error);
+        toast.error('Error al enviar mensaje de prueba');
+      } finally {
+        setIsTesting(false);
+      }
     }
   };
 
@@ -283,6 +349,43 @@ export function WhatsAppSettingsSection() {
           </div>
         </div>
 
+        {/* Test Section */}
+        <div className="space-y-3 rounded-lg border p-4">
+          <h4 className="font-medium flex items-center gap-2">
+            <MessageCircle className="h-4 w-4" />
+            Probar configuración
+          </h4>
+          <p className="text-sm text-muted-foreground">
+            Envía un mensaje de prueba para verificar que la configuración funciona correctamente.
+          </p>
+          <div className="flex gap-2">
+            <Input
+              placeholder="Número de teléfono (ej: 612345678)"
+              value={testPhone}
+              onChange={(e) => setTestPhone(e.target.value)}
+              className="flex-1"
+            />
+            <Button 
+              onClick={handleTestWhatsApp} 
+              disabled={isTesting || !testPhone.trim()}
+              variant="secondary"
+            >
+              {isTesting ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Send className="mr-2 h-4 w-4" />
+              )}
+              Enviar prueba
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {sendMethod === 'web' 
+              ? 'Se abrirá WhatsApp para que envíes el mensaje manualmente.'
+              : 'El mensaje se enviará automáticamente usando la API de Meta.'
+            }
+          </p>
+        </div>
+
         {isAdmin && (
           <div className="flex justify-end">
             <Button onClick={handleSave} disabled={isSaving}>
@@ -296,6 +399,15 @@ export function WhatsAppSettingsSection() {
           </div>
         )}
       </CardContent>
+
+      {/* WhatsApp Test Dialog (for web method) */}
+      <WhatsAppLinkDialog
+        open={showTestDialog}
+        onOpenChange={setShowTestDialog}
+        phone={testPhone}
+        message={testMessage}
+        patientName="Prueba"
+      />
     </Card>
   );
 }
