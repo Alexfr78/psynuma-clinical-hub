@@ -140,6 +140,7 @@ serve(async (req) => {
     const isDCI = template.code === 'DCI';
     const isDES = template.code === 'DES';
     const isSTAI = template.code === 'STAI';
+    const isEMO = template.code === 'EMO';
 
     console.log(
       `Processing ${template.code} assessment with response range ${responseMin}-${responseMax} (items=${items.length}, scales=${Object.keys(scoring).length})`
