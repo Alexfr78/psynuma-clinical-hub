@@ -118,6 +118,7 @@ import { CreateConsentDialog } from '@/components/consents/CreateConsentDialog';
 import { SendConsentDialog } from '@/components/consents/SendConsentDialog';
 import { ConsentCard } from '@/components/consents/ConsentCard';
 import { PatientAssessments } from '@/components/patients/tabs/PatientAssessments';
+import { PatientSessionHistory } from './PatientSessionHistory';
 
 interface SessionDetailDrawerProps {
   session: SessionWithRelations | null;
@@ -1898,10 +1899,25 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
           </TabsContent>
 
           <TabsContent value="otras" className="mt-0 px-6 py-4">
-            <div className="text-center py-8 text-muted-foreground">
-              <Calendar className="h-8 w-8 mx-auto mb-2 opacity-50" />
-              <p className="text-sm">No hay otras sesiones</p>
-            </div>
+            {session.patient_id ? (
+              <PatientSessionHistory
+                patientId={session.patient_id}
+                currentSessionId={session.id}
+                onSessionClick={(sessionId) => {
+                  // Close drawer and navigate to the new session
+                  onOpenChange(false);
+                  // Use a small delay to allow drawer to close, then trigger session selection
+                  setTimeout(() => {
+                    window.dispatchEvent(new CustomEvent('select-session', { detail: { sessionId } }));
+                  }, 100);
+                }}
+              />
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <Calendar className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <p className="text-sm">Sin paciente asignado</p>
+              </div>
+            )}
           </TabsContent>
     </Tabs>
   );
