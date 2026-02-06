@@ -42,8 +42,8 @@ const mainNavItems = [
   { title: 'Agenda', url: '/agenda', icon: Calendar },
   { title: 'Contactos', url: '/pacientes', icon: Users },
   { title: 'Sesiones', url: '/sesiones', icon: FileText },
-  { title: 'Consentimientos', url: '/consentimientos', icon: FileSignature },
-  { title: 'Evaluaciones', url: '/evaluaciones', icon: ClipboardCheck }, // PAI y otras evaluaciones
+  { title: 'Consents.', url: '/consentimientos', icon: FileSignature },
+  { title: 'Evaluaciones', url: '/evaluaciones', icon: ClipboardCheck },
 ];
 
 const financeNavItems = [
@@ -103,11 +103,15 @@ export function AppSidebar() {
           onClick={(e) => {
             e.preventDefault();
             handleNavigation(item.url);
+            // Close mobile sidebar after navigation
+            if (isMobile) {
+              setOpenMobile(false);
+            }
           }}
           className="flex items-center gap-3"
         >
-          <item.icon className="h-4 w-4" />
-          <span>{item.title}</span>
+          <item.icon className="h-4 w-4 shrink-0" />
+          <span className="truncate">{item.title}</span>
         </a>
       </SidebarMenuButton>
     </SidebarMenuItem>
