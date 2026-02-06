@@ -15,7 +15,7 @@ import { WhatsAppLinkDialog } from '@/components/agenda/WhatsAppLinkDialog';
 
 export function WhatsAppSettingsSection() {
   const { center, updateCenter, isLoading } = useCenter();
-  const { isAdmin } = useAuth();
+  const { isAdmin, profile } = useAuth();
   
   const [sendMethod, setSendMethod] = useState<WhatsAppSendMethod>('web');
   const [accessToken, setAccessToken] = useState('');
@@ -23,6 +23,10 @@ export function WhatsAppSettingsSection() {
   const [businessAccountId, setBusinessAccountId] = useState('');
   const [showToken, setShowToken] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isTesting, setIsTesting] = useState(false);
+  const [testPhone, setTestPhone] = useState('');
+  const [showTestDialog, setShowTestDialog] = useState(false);
+  const [testMessage, setTestMessage] = useState('');
 
   useEffect(() => {
     if (center) {
