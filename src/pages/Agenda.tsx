@@ -179,6 +179,57 @@ export default function Agenda() {
     }
   }, [sessions, selectedSession]);
 
+  // Handle session selection from history (via custom event)
+  useEffect(() => {
+    const handleSelectSession = async (event: CustomEvent<{ sessionId: string }>) => {
+      const { sessionId } = event.detail;
+      
+      // First check if session is in current sessions list
+      const sessionInList = sessions?.find(s => s.id === sessionId);
+      if (sessionInList) {
+        setSelectedSession(sessionInList);
+        return;
+      }
+      
+      // Otherwise fetch the session directly
+      try {
+        const { data, error } = await supabase
+          .from('sessions')
+          .select(`
+            *,
+            patient:patients!sessions_patient_id_fkey(
+              id, first_name, last_name, email, phone
+            ),
+            professional:profiles!sessions_professional_id_fkey(
+              id, first_name, last_name
+            )
+          `)
+          .eq('id', sessionId)
+          .single();
+        
+        if (error) throw error;
+        if (data) {
+          // Navigate to the session's date if needed
+          const sessionDate = new Date(data.session_date + 'T00:00:00');
+          setCurrentDate(sessionDate);
+          setSelectedSession(data as SessionWithRelations);
+        }
+      } catch (error) {
+        console.error('Error fetching session:', error);
+        toast({
+          title: 'Error',
+          description: 'No se pudo cargar la sesión',
+          variant: 'destructive',
+        });
+      }
+    };
+
+    window.addEventListener('select-session', handleSelectSession as EventListener);
+    return () => {
+      window.removeEventListener('select-session', handleSelectSession as EventListener);
+    };
+  }, [sessions, toast]);
+
   const handleSlotClick = (date: Date, startTime: string, endTime: string) => {
     setInitialDate(date);
     setInitialStartTime(startTime);
