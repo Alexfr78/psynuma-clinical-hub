@@ -349,6 +349,43 @@ export function WhatsAppSettingsSection() {
           </div>
         </div>
 
+        {/* Test Section */}
+        <div className="space-y-3 rounded-lg border p-4">
+          <h4 className="font-medium flex items-center gap-2">
+            <MessageCircle className="h-4 w-4" />
+            Probar configuración
+          </h4>
+          <p className="text-sm text-muted-foreground">
+            Envía un mensaje de prueba para verificar que la configuración funciona correctamente.
+          </p>
+          <div className="flex gap-2">
+            <Input
+              placeholder="Número de teléfono (ej: 612345678)"
+              value={testPhone}
+              onChange={(e) => setTestPhone(e.target.value)}
+              className="flex-1"
+            />
+            <Button 
+              onClick={handleTestWhatsApp} 
+              disabled={isTesting || !testPhone.trim()}
+              variant="secondary"
+            >
+              {isTesting ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Send className="mr-2 h-4 w-4" />
+              )}
+              Enviar prueba
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {sendMethod === 'web' 
+              ? 'Se abrirá WhatsApp para que envíes el mensaje manualmente.'
+              : 'El mensaje se enviará automáticamente usando la API de Meta.'
+            }
+          </p>
+        </div>
+
         {isAdmin && (
           <div className="flex justify-end">
             <Button onClick={handleSave} disabled={isSaving}>
@@ -362,6 +399,15 @@ export function WhatsAppSettingsSection() {
           </div>
         )}
       </CardContent>
+
+      {/* WhatsApp Test Dialog (for web method) */}
+      <WhatsAppLinkDialog
+        open={showTestDialog}
+        onOpenChange={setShowTestDialog}
+        phone={testPhone}
+        message={testMessage}
+        patientName="Prueba"
+      />
     </Card>
   );
 }
