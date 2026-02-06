@@ -10,6 +10,7 @@ import { getBDI2TemplateData } from '@/data/bdi2-template';
 import { getDCITemplateData } from '@/data/dci-template';
 import { getDESTemplateData } from '@/data/des-template';
 import { getSTAITemplateData } from '@/data/stai-template';
+import { getEMOTemplateData } from '@/data/emo-template';
 import { toast } from 'sonner';
 
 interface AddTemplateDialogProps {
