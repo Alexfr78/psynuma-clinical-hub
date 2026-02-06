@@ -83,6 +83,67 @@ export function WhatsAppSettingsSection() {
     }
   };
 
+  const handleTestWhatsApp = async () => {
+    if (!testPhone.trim()) {
+      toast.error('Introduce un número de teléfono para la prueba');
+      return;
+    }
+
+    const message = `🧪 Mensaje de prueba desde ${center?.name || 'Psycma'}.\n\nSi recibes este mensaje, la configuración de WhatsApp está funcionando correctamente.\n\nFecha: ${new Date().toLocaleString('es-ES')}`;
+
+    if (sendMethod === 'web') {
+      // For web method, show the dialog
+      setTestMessage(message);
+      setShowTestDialog(true);
+    } else {
+      // For API method, send via edge function
+      setIsTesting(true);
+      try {
+        // Create a test notification
+        const { data: notification, error: insertError } = await supabase
+          .from('notifications')
+          .insert({
+            center_id: profile?.center_id,
+            type: 'whatsapp',
+            recipient: testPhone,
+            message,
+            status: 'pending',
+          })
+          .select()
+          .single();
+
+        if (insertError) {
+          throw insertError;
+        }
+
+        // Send via edge function
+        const { data, error } = await supabase.functions.invoke('send-notification', {
+          body: { notificationId: notification.id },
+        });
+
+        if (error) {
+          throw error;
+        }
+
+        if (data?.ok) {
+          toast.success('Mensaje de prueba enviado', {
+            description: 'Verifica que el mensaje llegó al teléfono indicado.',
+          });
+        } else {
+          const errorMsg = data?.results?.[0]?.error || 'Error desconocido';
+          toast.error('Error al enviar', {
+            description: errorMsg,
+          });
+        }
+      } catch (error) {
+        console.error('Error testing WhatsApp:', error);
+        toast.error('Error al enviar mensaje de prueba');
+      } finally {
+        setIsTesting(false);
+      }
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
