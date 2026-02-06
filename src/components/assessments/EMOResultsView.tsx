@@ -9,15 +9,16 @@ import {
   Brain, Heart, Users, AlertTriangle, Sparkles, Loader2, 
   TrendingUp, TrendingDown, Activity, MessageSquare 
 } from 'lucide-react';
-import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer } from 'recharts';
 import { 
-  PATTERN_CATEGORIES, 
-  PROBLEMATIC_EMOTIONS, 
-  FIGURE_FEELINGS, 
-  TYPICAL_RESPONSES,
-  EMO_FACTOR_LABELS,
-  EMO_FACTOR_ORDER,
+  REGULATION_INDICATORS,
+  RELATIONAL_INDICATORS,
+  FIGURE_FEELINGS_POSITIVE,
+  FIGURE_FEELINGS_NEGATIVE,
+  PROBLEMATIC_EMOTIONS,
+  calculateEMOIndicators,
   type EMOFigureData,
+  type EMOAnswers,
+  type EMOIndicators,
 } from '@/data/emo-template';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -50,40 +51,66 @@ export function EMOResultsView({
   const [isGenerating, setIsGenerating] = useState(false);
   const [interpretation, setInterpretation] = useState<EMOInterpretation | undefined>(aiInterpretation);
 
-  // Preparar datos para el gráfico radar de patrones
-  const radarData = EMO_FACTOR_ORDER.map(key => ({
-    factor: EMO_FACTOR_LABELS[key]?.label || key,
-    value: factorScores[key] || 0,
-    fullMark: PATTERN_CATEGORIES[key as keyof typeof PATTERN_CATEGORIES]?.patterns?.length || 3,
-  }));
+  // Prepare answers in the new format
+  const emoAnswers: EMOAnswers = {
+    emo_reg_general: answers['emo_reg_general'] || answers['s1_description'] || answers['1'],
+    emo_dificultad_sentir: answers['emo_dificultad_sentir'],
+    emo_dificultad_sentir_explicacion: answers['emo_dificultad_sentir_explicacion'],
+    emo_emociones_problematicas: answers['emo_emociones_problematicas'] || answers['s1_difficult_emotions'] || answers['3'] || [],
+    emo_emociones_problematicas_otro: answers['emo_emociones_problematicas_otro'],
+    emo_emociones_problematicas_por_que: answers['emo_emociones_problematicas_por_que'],
+    emo_patrones_1: answers['emo_patrones_1'] || [],
+    emo_patrones_2: answers['emo_patrones_2'] || [],
+    emo_desde_cuando: answers['emo_desde_cuando'] || answers['s1_since_when'] || answers['6'],
+    emo_empeoro: answers['emo_empeoro'],
+    emo_empeoro_cuando: answers['emo_empeoro_cuando'] || answers['s1_worsening_periods'] || answers['7'],
+    emo_quienes_crianza: answers['emo_quienes_crianza'],
+    emo_cambio_convivencia: answers['emo_cambio_convivencia'],
+    emo_figuras_positivas: answers['emo_figuras_positivas'],
+    emo_figuras_negativas: answers['emo_figuras_negativas'],
+    emo_figuras_ausentes: answers['emo_figuras_ausentes'],
+    emo_momentos_coregulacion: answers['emo_momentos_coregulacion'] || [],
+    figures: figures.length > 0 ? figures : (answers['figures'] || []),
+  };
 
-  // Emociones problemáticas seleccionadas
-  const problematicEmotions = answers['s1_difficult_emotions'] as string[] || answers['3'] as string[] || [];
-  const emotionsCount = problematicEmotions.length;
+  // Calculate indicators
+  const indicators = calculateEMOIndicators(emoAnswers);
 
-  // Patrones seleccionados
-  const selectedPatterns = answers['s1_patterns'] as string[] || [];
-  // Also check legacy format
+  // Legacy pattern support
+  const legacyPatterns = answers['s1_patterns'] as string[] || [];
   const tendencies1 = answers['4'] as string[] || [];
   const tendencies2 = answers['5'] as string[] || [];
-  const allPatterns = selectedPatterns.length > 0 ? selectedPatterns : [...tendencies1, ...tendencies2];
-  const patternsCount = allPatterns.length;
+  const allPatterns = [
+    ...(emoAnswers.emo_patrones_1 || []),
+    ...(emoAnswers.emo_patrones_2 || []),
+    ...legacyPatterns,
+    ...tendencies1,
+    ...tendencies2,
+  ];
+  const uniquePatterns = [...new Set(allPatterns)];
 
-  // Determinar patrón predominante
-  const supresionScore = (factorScores['supresion'] || 0) + (factorScores['hipoactivacion'] || 0);
-  const hiperScore = (factorScores['hiperactivacion'] || 0) + (factorScores['contagio'] || 0);
+  // Problematic emotions
+  const problematicEmotions = emoAnswers.emo_emociones_problematicas || [];
+  const emotionsCount = problematicEmotions.length;
+
+  // Figures data
+  const figuresData = emoAnswers.figures || [];
+
+  // Detected regulation indicators
+  const detectedRegulation = indicators.regulation.filter(r => r.detected);
+
+  // Determine predominant pattern
+  const hasHipo = detectedRegulation.some(r => r.id === 'supresion_evitacion');
+  const hasHiper = detectedRegulation.some(r => r.id === 'hiperactivacion_desborde');
   const getPatternLabel = () => {
-    if (supresionScore > hiperScore + 1) return { label: 'Hipoactivación', color: 'text-blue-600' };
-    if (hiperScore > supresionScore + 1) return { label: 'Hiperactivación', color: 'text-orange-600' };
-    if (supresionScore >= 2 && hiperScore >= 2) return { label: 'Mixto', color: 'text-purple-600' };
-    return { label: 'Adaptativo', color: 'text-green-600' };
+    if (hasHipo && hasHiper) return { label: 'Mixto', color: 'text-purple-600' };
+    if (hasHipo) return { label: 'Hipoactivación', color: 'text-blue-600' };
+    if (hasHiper) return { label: 'Hiperactivación', color: 'text-orange-600' };
+    return { label: 'No definido', color: 'text-muted-foreground' };
   };
   const pattern = getPatternLabel();
 
-  // Figuras - support both new format and legacy
-  const figuresData = figures.length > 0 ? figures : (answers['figures'] as EMOFigureData[] || []);
-
-  // Generar interpretación con IA
+  // Generate AI interpretation
   const handleGenerateInterpretation = async () => {
     setIsGenerating(true);
     try {
@@ -91,8 +118,9 @@ export function EMOResultsView({
         body: { 
           assessmentId,
           factorScores,
-          answers,
+          answers: emoAnswers,
           figures: figuresData,
+          indicators,
         },
       });
 
@@ -111,7 +139,7 @@ export function EMOResultsView({
 
   return (
     <div className="space-y-6">
-      {/* Resumen principal */}
+      {/* Summary cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card>
           <CardContent className="pt-4 pb-4">
@@ -128,10 +156,10 @@ export function EMOResultsView({
           <CardContent className="pt-4 pb-4">
             <div className="flex items-center gap-2 text-muted-foreground text-sm mb-1">
               <Activity className="h-4 w-4" />
-              Patrones
+              Indicadores
             </div>
-            <p className="text-2xl font-bold">{patternsCount}</p>
-            <p className="text-xs text-muted-foreground">de 15 posibles</p>
+            <p className="text-2xl font-bold">{detectedRegulation.length}</p>
+            <p className="text-xs text-muted-foreground">patrones detectados</p>
           </CardContent>
         </Card>
 
@@ -156,76 +184,84 @@ export function EMOResultsView({
         </Card>
       </div>
 
-      {/* Alertas críticas */}
-      {patternsCount >= 10 && (
+      {/* Critical alerts */}
+      {detectedRegulation.length >= 4 && (
         <Alert variant="destructive">
           <AlertTriangle className="h-4 w-4" />
           <AlertTitle>Patrón de disregulación significativo</AlertTitle>
           <AlertDescription>
-            Se han identificado {patternsCount} patrones disfuncionales, lo que sugiere dificultades importantes en la regulación emocional.
+            Se han identificado múltiples indicadores de dificultades en la regulación emocional.
           </AlertDescription>
         </Alert>
       )}
 
-      <Tabs defaultValue="patterns" className="w-full">
+      <Tabs defaultValue="indicators" className="w-full">
         <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="patterns">Patrones</TabsTrigger>
+          <TabsTrigger value="indicators">Indicadores</TabsTrigger>
           <TabsTrigger value="emotions">Emociones</TabsTrigger>
           <TabsTrigger value="figures">Figuras</TabsTrigger>
           <TabsTrigger value="responses">Respuestas</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="patterns" className="space-y-4">
-          {/* Gráfico radar de categorías de patrones */}
+        <TabsContent value="indicators" className="space-y-4">
+          {/* Regulation indicators */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Perfil de Regulación Emocional</CardTitle>
+              <CardTitle className="text-lg">Indicadores de Regulación</CardTitle>
               <CardDescription>
-                Distribución de patrones por categoría (basado en la ventana de tolerancia)
+                Patrones de regulación emocional detectados en las respuestas
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <RadarChart data={radarData}>
-                    <PolarGrid />
-                    <PolarAngleAxis dataKey="factor" tick={{ fontSize: 11 }} />
-                    <PolarRadiusAxis angle={30} domain={[0, 'dataMax']} />
-                    <Radar
-                      name="Puntuación"
-                      dataKey="value"
-                      stroke="hsl(var(--primary))"
-                      fill="hsl(var(--primary))"
-                      fillOpacity={0.5}
-                    />
-                  </RadarChart>
-                </ResponsiveContainer>
-              </div>
+            <CardContent className="space-y-4">
+              {indicators.regulation.map(indicator => (
+                <div 
+                  key={indicator.id} 
+                  className={`p-3 rounded-lg border ${indicator.detected ? 'bg-amber-50 border-amber-200' : 'bg-muted/30'}`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className={`font-medium ${indicator.detected ? 'text-amber-800' : 'text-muted-foreground'}`}>
+                      {indicator.label}
+                    </span>
+                    {indicator.detected && (
+                      <Badge variant="outline" className="bg-amber-100 text-amber-800 border-amber-300">
+                        Detectado
+                      </Badge>
+                    )}
+                  </div>
+                  {indicator.detected && indicator.matchedPatterns.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {indicator.matchedPatterns.map((p, i) => (
+                        <Badge key={i} variant="secondary" className="text-xs">
+                          {p}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
             </CardContent>
           </Card>
 
-          {/* Patrones seleccionados */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Patrones Identificados</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-wrap gap-2">
-                {allPatterns.map((p, i) => (
-                  <Badge key={i} variant="secondary" className="text-xs">
-                    {p}
-                  </Badge>
-                ))}
-                {allPatterns.length === 0 && (
-                  <p className="text-muted-foreground text-sm">No se seleccionaron patrones</p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+          {/* All selected patterns */}
+          {uniquePatterns.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Todas las afirmaciones seleccionadas</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-wrap gap-2">
+                  {uniquePatterns.map((p, i) => (
+                    <Badge key={i} variant="secondary" className="text-xs">
+                      {p}
+                    </Badge>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         <TabsContent value="emotions" className="space-y-4">
-          {/* Emociones problemáticas */}
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">Emociones Problemáticas</CardTitle>
@@ -246,88 +282,132 @@ export function EMOResultsView({
               </div>
             </CardContent>
           </Card>
+
+          {emoAnswers.emo_emociones_problematicas_por_que && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Explicación del paciente</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground bg-muted/50 p-3 rounded">
+                  {emoAnswers.emo_emociones_problematicas_por_que}
+                </p>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         <TabsContent value="figures" className="space-y-4">
           {figuresData.length > 0 ? (
-            figuresData.map((figure, index) => (
-              <Card key={figure.id || index}>
-                <CardHeader>
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <Users className="h-5 w-5" />
-                    {figure.name || `Figura ${index + 1}`}
-                  </CardTitle>
-                  <CardDescription>{figure.current_relation}</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {/* Balance de sentimientos */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm font-medium text-green-700 mb-2 flex items-center gap-1">
-                        <TrendingUp className="h-4 w-4" />
-                        Sentimientos positivos
-                      </p>
-                      <div className="flex flex-wrap gap-1">
-                        {(figure.feelings || [])
-                          .filter(f => FIGURE_FEELINGS.positive.includes(f))
-                          .map((f, i) => (
-                            <Badge key={i} variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
-                              {f}
+            figuresData.map((figure, index) => {
+              const figureIndicators = indicators.relational.find(r => r.figureId === figure.id);
+              const detectedRelational = figureIndicators?.indicators.filter(i => i.detected) || [];
+              
+              return (
+                <Card key={figure.id || index}>
+                  <CardHeader>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <Users className="h-5 w-5" />
+                      {figure.figure_name || `Figura ${index + 1}`}
+                    </CardTitle>
+                    <CardDescription>{figure.figure_relation}</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {/* Relational indicators */}
+                    {detectedRelational.length > 0 && (
+                      <div>
+                        <p className="text-sm font-medium text-amber-700 mb-2 flex items-center gap-1">
+                          <AlertTriangle className="h-4 w-4" />
+                          Indicadores relacionales
+                        </p>
+                        <div className="flex flex-wrap gap-1">
+                          {detectedRelational.map((ind, i) => (
+                            <Badge key={i} variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-200">
+                              {ind.label}
                             </Badge>
                           ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Feelings balance */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-sm font-medium text-green-700 mb-2 flex items-center gap-1">
+                          <TrendingUp className="h-4 w-4" />
+                          Sentimientos positivos ({figureIndicators?.positiveCount || 0})
+                        </p>
+                        <div className="flex flex-wrap gap-1">
+                          {(figure.figure_feelings_words || [])
+                            .filter(f => FIGURE_FEELINGS_POSITIVE.includes(f))
+                            .map((f, i) => (
+                              <Badge key={i} variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
+                                {f}
+                              </Badge>
+                            ))}
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-red-700 mb-2 flex items-center gap-1">
+                          <TrendingDown className="h-4 w-4" />
+                          Sentimientos negativos ({figureIndicators?.negativeCount || 0})
+                        </p>
+                        <div className="flex flex-wrap gap-1">
+                          {(figure.figure_feelings_words || [])
+                            .filter(f => FIGURE_FEELINGS_NEGATIVE.includes(f))
+                            .map((f, i) => (
+                              <Badge key={i} variant="outline" className="text-xs bg-red-50 text-red-700 border-red-200">
+                                {f}
+                              </Badge>
+                            ))}
+                        </div>
                       </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-medium text-red-700 mb-2 flex items-center gap-1">
-                        <TrendingDown className="h-4 w-4" />
-                        Sentimientos negativos
-                      </p>
-                      <div className="flex flex-wrap gap-1">
-                        {(figure.feelings || [])
-                          .filter(f => FIGURE_FEELINGS.negative.includes(f))
-                          .map((f, i) => (
-                            <Badge key={i} variant="outline" className="text-xs bg-red-50 text-red-700 border-red-200">
-                              {f}
+
+                    {/* Reactions */}
+                    {figure.figure_reactions_to_your_emotion && figure.figure_reactions_to_your_emotion.length > 0 && (
+                      <div>
+                        <p className="text-sm font-medium mb-2">Reacciones típicas de la figura</p>
+                        <div className="flex flex-wrap gap-1">
+                          {figure.figure_reactions_to_your_emotion.map((r, i) => (
+                            <Badge key={i} variant="secondary" className="text-xs">
+                              {r}
                             </Badge>
                           ))}
+                        </div>
                       </div>
-                    </div>
-                  </div>
+                    )}
 
-                  {/* Respuestas típicas */}
-                  {figure.typical_responses && figure.typical_responses.length > 0 && (
-                    <div>
-                      <p className="text-sm font-medium text-amber-700 mb-2 flex items-center gap-1">
-                        <AlertTriangle className="h-4 w-4" />
-                        Respuestas desadaptativas ({figure.typical_responses.length})
-                      </p>
-                      <div className="flex flex-wrap gap-1">
-                        {figure.typical_responses.map((r, i) => (
-                          <Badge key={i} variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-200">
-                            {r}
-                          </Badge>
-                        ))}
+                    {/* Adjectives */}
+                    {figure.figure_adjectives && figure.figure_adjectives.some(a => a.adjective) && (
+                      <div>
+                        <p className="text-sm font-medium mb-2">Adjetivos descriptivos</p>
+                        <div className="space-y-1">
+                          {figure.figure_adjectives
+                            .filter(adj => adj.adjective)
+                            .map((adj, i) => (
+                              <div key={i} className="text-sm text-muted-foreground">
+                                <span className="font-medium">{adj.adjective}</span>
+                                {adj.example && <span>: "{adj.example}"</span>}
+                              </div>
+                            ))}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
 
-                  {/* Adjetivos */}
-                  {figure.adjectives && figure.adjectives.length > 0 && (
-                    <div>
-                      <p className="text-sm font-medium mb-2">Adjetivos descriptivos</p>
-                      <div className="space-y-1">
-                        {figure.adjectives.map((adj, i) => (
-                          <div key={i} className="text-sm text-muted-foreground">
-                            <span className="font-medium">{adj.adjective}</span>
-                            {adj.example && <span>: "{adj.example}"</span>}
-                          </div>
-                        ))}
+                    {/* Most important word */}
+                    {figure.figure_most_important_word && (
+                      <div>
+                        <p className="text-sm font-medium mb-1">Palabra más significativa</p>
+                        <p className="text-sm text-muted-foreground bg-muted/50 p-2 rounded">
+                          {figure.figure_most_important_word}
+                        </p>
                       </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            ))
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })
           ) : (
             <Card>
               <CardContent className="py-8 text-center text-muted-foreground">
@@ -340,7 +420,7 @@ export function EMOResultsView({
 
         <TabsContent value="responses" className="space-y-4">
           <Accordion type="multiple" className="w-full">
-            {/* Sección 1: Regulación actual */}
+            {/* Section 1: Current regulation */}
             <AccordionItem value="section1">
               <AccordionTrigger>
                 <span className="flex items-center gap-2">
@@ -352,62 +432,123 @@ export function EMOResultsView({
                 <div className="border-b pb-3">
                   <p className="text-sm font-medium mb-1">¿Cómo describes tu forma de gestionar emociones?</p>
                   <p className="text-sm text-muted-foreground bg-muted/50 p-2 rounded">
-                    {answers['s1_description'] || answers['1'] || <em>Sin respuesta</em>}
+                    {emoAnswers.emo_reg_general || <em>Sin respuesta</em>}
                   </p>
                 </div>
+                {emoAnswers.emo_dificultad_sentir && (
+                  <div className="border-b pb-3">
+                    <p className="text-sm font-medium mb-1">¿Te cuesta sentir emociones como otras personas?</p>
+                    <p className="text-sm text-muted-foreground bg-muted/50 p-2 rounded">
+                      {emoAnswers.emo_dificultad_sentir === 'si' ? 'Sí' : 'No'}
+                      {emoAnswers.emo_dificultad_sentir_explicacion && ` - ${emoAnswers.emo_dificultad_sentir_explicacion}`}
+                    </p>
+                  </div>
+                )}
                 <div className="border-b pb-3">
-                  <p className="text-sm font-medium mb-1">¿Desde cuándo recuerdas estas dificultades?</p>
+                  <p className="text-sm font-medium mb-1">¿Desde cuándo?</p>
                   <p className="text-sm text-muted-foreground bg-muted/50 p-2 rounded">
-                    {answers['s1_since_when'] || answers['6'] || <em>Sin respuesta</em>}
+                    {emoAnswers.emo_desde_cuando || <em>Sin respuesta</em>}
                   </p>
                 </div>
-                <div className="pb-3">
-                  <p className="text-sm font-medium mb-1">¿Ha habido periodos de empeoramiento?</p>
-                  <p className="text-sm text-muted-foreground bg-muted/50 p-2 rounded">
-                    {answers['s1_worsening_periods'] || answers['7'] || <em>Sin respuesta</em>}
-                  </p>
-                </div>
+                {emoAnswers.emo_empeoro === 'si' && emoAnswers.emo_empeoro_cuando && (
+                  <div className="pb-3">
+                    <p className="text-sm font-medium mb-1">¿Cuándo empeoró?</p>
+                    <p className="text-sm text-muted-foreground bg-muted/50 p-2 rounded">
+                      {emoAnswers.emo_empeoro_cuando}
+                    </p>
+                  </div>
+                )}
               </AccordionContent>
             </AccordionItem>
 
-            {/* Sección 2: Por cada figura */}
+            {/* Section 2: Upbringing history */}
+            <AccordionItem value="section2">
+              <AccordionTrigger>
+                <span className="flex items-center gap-2">
+                  <Users className="h-4 w-4" />
+                  Sección 2: Historia de Crianza
+                </span>
+              </AccordionTrigger>
+              <AccordionContent className="space-y-4 pt-4">
+                {emoAnswers.emo_quienes_crianza && (
+                  <div className="border-b pb-3">
+                    <p className="text-sm font-medium mb-1">Personas con las que te criaste</p>
+                    <p className="text-sm text-muted-foreground bg-muted/50 p-2 rounded">
+                      {emoAnswers.emo_quienes_crianza}
+                    </p>
+                  </div>
+                )}
+                {emoAnswers.emo_figuras_positivas && (
+                  <div className="border-b pb-3">
+                    <p className="text-sm font-medium mb-1">Figuras con influencia positiva</p>
+                    <p className="text-sm text-muted-foreground bg-muted/50 p-2 rounded">
+                      {emoAnswers.emo_figuras_positivas}
+                    </p>
+                  </div>
+                )}
+                {emoAnswers.emo_figuras_negativas && (
+                  <div className="border-b pb-3">
+                    <p className="text-sm font-medium mb-1">Figuras con influencia negativa</p>
+                    <p className="text-sm text-muted-foreground bg-muted/50 p-2 rounded">
+                      {emoAnswers.emo_figuras_negativas}
+                    </p>
+                  </div>
+                )}
+                {emoAnswers.emo_figuras_ausentes && (
+                  <div className="pb-3">
+                    <p className="text-sm font-medium mb-1">Figuras que deberían haber estado</p>
+                    <p className="text-sm text-muted-foreground bg-muted/50 p-2 rounded">
+                      {emoAnswers.emo_figuras_ausentes}
+                    </p>
+                  </div>
+                )}
+              </AccordionContent>
+            </AccordionItem>
+
+            {/* Section 3: Per-figure responses */}
             {figuresData.map((figure, index) => (
               <AccordionItem key={figure.id || index} value={`figure-${index}`}>
                 <AccordionTrigger>
                   <span className="flex items-center gap-2">
                     <Users className="h-4 w-4" />
-                    {figure.name || `Figura ${index + 1}`}
+                    {figure.figure_name || `Figura ${index + 1}`}
                   </span>
                 </AccordionTrigger>
                 <AccordionContent className="space-y-4 pt-4">
-                  {figure.first_memory && (
+                  {figure.figure_first_memory && (
                     <div className="border-b pb-3">
                       <p className="text-sm font-medium mb-1">Primer recuerdo</p>
-                      <p className="text-sm text-muted-foreground bg-muted/50 p-2 rounded">{figure.first_memory}</p>
+                      <p className="text-sm text-muted-foreground bg-muted/50 p-2 rounded">{figure.figure_first_memory}</p>
                     </div>
                   )}
-                  {figure.reaction_distress && (
+                  {figure.figure_when_bad && (
                     <div className="border-b pb-3">
                       <p className="text-sm font-medium mb-1">Reacción cuando te sentías mal</p>
-                      <p className="text-sm text-muted-foreground bg-muted/50 p-2 rounded">{figure.reaction_distress}</p>
+                      <p className="text-sm text-muted-foreground bg-muted/50 p-2 rounded">{figure.figure_when_bad}</p>
                     </div>
                   )}
-                  {figure.reaction_success_failure && (
+                  {figure.figure_success_failure && (
                     <div className="border-b pb-3">
                       <p className="text-sm font-medium mb-1">Reacción ante éxitos/fracasos</p>
-                      <p className="text-sm text-muted-foreground bg-muted/50 p-2 rounded">{figure.reaction_success_failure}</p>
+                      <p className="text-sm text-muted-foreground bg-muted/50 p-2 rounded">{figure.figure_success_failure}</p>
                     </div>
                   )}
-                  {figure.physical_support && (
+                  {figure.figure_help_emotional && (
                     <div className="border-b pb-3">
-                      <p className="text-sm font-medium mb-1">Apoyo físico</p>
-                      <p className="text-sm text-muted-foreground bg-muted/50 p-2 rounded">{figure.physical_support}</p>
+                      <p className="text-sm font-medium mb-1">Apoyo emocional</p>
+                      <p className="text-sm text-muted-foreground bg-muted/50 p-2 rounded">{figure.figure_help_emotional}</p>
                     </div>
                   )}
-                  {figure.emotional_support && (
+                  {figure.figure_worst_emotion_you && (
+                    <div className="border-b pb-3">
+                      <p className="text-sm font-medium mb-1">Emoción que llevaba peor que sintieras</p>
+                      <p className="text-sm text-muted-foreground bg-muted/50 p-2 rounded">{figure.figure_worst_emotion_you}</p>
+                    </div>
+                  )}
+                  {figure.figure_more_comments && (
                     <div className="pb-3">
-                      <p className="text-sm font-medium mb-1">Apoyo emocional</p>
-                      <p className="text-sm text-muted-foreground bg-muted/50 p-2 rounded">{figure.emotional_support}</p>
+                      <p className="text-sm font-medium mb-1">Comentarios adicionales</p>
+                      <p className="text-sm text-muted-foreground bg-muted/50 p-2 rounded">{figure.figure_more_comments}</p>
                     </div>
                   )}
                 </AccordionContent>
@@ -417,74 +558,79 @@ export function EMOResultsView({
         </TabsContent>
       </Tabs>
 
-      {/* Panel de interpretación con IA */}
-      <Card className="border-primary/20">
+      {/* AI Interpretation */}
+      <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-primary" />
-            Análisis Clínico con IA
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Sparkles className="h-5 w-5" />
+            Interpretación Clínica (IA)
           </CardTitle>
           <CardDescription>
-            Interpretación automatizada basada en los patrones detectados
+            Análisis automático basado en los indicadores detectados
           </CardDescription>
         </CardHeader>
         <CardContent>
           {interpretation ? (
             <div className="space-y-4">
               <div>
-                <h4 className="font-medium mb-1">Perfil de Regulación Emocional</h4>
+                <h4 className="font-medium mb-1">Perfil de regulación</h4>
                 <p className="text-sm text-muted-foreground">{interpretation.perfil_regulacion}</p>
               </div>
-              
               <div>
-                <h4 className="font-medium mb-1">Calidad del Apego Temprano</h4>
+                <h4 className="font-medium mb-1">Calidad de apego</h4>
                 <p className="text-sm text-muted-foreground">{interpretation.calidad_apego}</p>
               </div>
-
+              {interpretation.recursos_regulacion && interpretation.recursos_regulacion.length > 0 && (
+                <div>
+                  <h4 className="font-medium mb-1">Recursos de regulación</h4>
+                  <div className="flex flex-wrap gap-1">
+                    {interpretation.recursos_regulacion.map((r, i) => (
+                      <Badge key={i} variant="outline" className="text-xs bg-green-50 text-green-700">
+                        {r}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {interpretation.areas_intervencion && interpretation.areas_intervencion.length > 0 && (
+                <div>
+                  <h4 className="font-medium mb-1">Áreas de intervención</h4>
+                  <div className="flex flex-wrap gap-1">
+                    {interpretation.areas_intervencion.map((a, i) => (
+                      <Badge key={i} variant="outline" className="text-xs bg-amber-50 text-amber-700">
+                        {a}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div>
-                <h4 className="font-medium mb-1">Recursos de Regulación</h4>
-                <ul className="text-sm text-muted-foreground list-disc list-inside">
-                  {interpretation.recursos_regulacion.map((r, i) => (
-                    <li key={i}>{r}</li>
-                  ))}
-                </ul>
-              </div>
-
-              <div>
-                <h4 className="font-medium mb-1">Áreas de Intervención Prioritarias</h4>
-                <ul className="text-sm text-muted-foreground list-disc list-inside">
-                  {interpretation.areas_intervencion.map((a, i) => (
-                    <li key={i}>{a}</li>
-                  ))}
-                </ul>
-              </div>
-
-              <div>
-                <h4 className="font-medium mb-1">Hipótesis sobre Origen</h4>
+                <h4 className="font-medium mb-1">Hipótesis de origen</h4>
                 <p className="text-sm text-muted-foreground">{interpretation.hipotesis_origen}</p>
               </div>
-
-              <div className="bg-muted/50 p-4 rounded-lg">
-                <h4 className="font-medium mb-2">Resumen Clínico</h4>
-                <p className="text-sm">{interpretation.resumen_clinico}</p>
+              <div>
+                <h4 className="font-medium mb-1">Resumen clínico</h4>
+                <p className="text-sm text-muted-foreground bg-muted/50 p-3 rounded">
+                  {interpretation.resumen_clinico}
+                </p>
               </div>
             </div>
           ) : (
-            <div className="text-center py-6">
-              <MessageSquare className="h-10 w-10 mx-auto mb-3 text-muted-foreground opacity-50" />
-              <p className="text-muted-foreground mb-4">
-                Genera un análisis clínico automatizado basado en las respuestas del paciente
+            <div className="text-center py-4">
+              <MessageSquare className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+              <p className="text-sm text-muted-foreground mb-4">
+                No se ha generado interpretación todavía
               </p>
               <Button onClick={handleGenerateInterpretation} disabled={isGenerating}>
                 {isGenerating ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Generando análisis...
+                    Generando...
                   </>
                 ) : (
                   <>
                     <Sparkles className="h-4 w-4 mr-2" />
-                    Generar Interpretación
+                    Generar interpretación
                   </>
                 )}
               </Button>
