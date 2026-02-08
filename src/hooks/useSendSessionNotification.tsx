@@ -93,6 +93,13 @@ export interface WhatsAppDialogData {
   phone: string;
   message: string;
   patientName: string;
+  manualLink?: string;
+}
+
+export interface NotificationMutationResult {
+  results: { channel: string; success: boolean }[];
+  whatsappData?: WhatsAppDialogData;
+  whatsappAutoSent?: boolean;
 }
 
 export function useSendSessionNotification() {
@@ -101,16 +108,14 @@ export function useSendSessionNotification() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (params: SendNotificationParams & { sessionAccessToken?: string }): Promise<{ 
-      results: { channel: string; success: boolean }[];
-      whatsappData?: WhatsAppDialogData;
-    }> => {
+    mutationFn: async (params: SendNotificationParams & { sessionAccessToken?: string }): Promise<NotificationMutationResult> => {
       if (!profile?.center_id || !center) {
         throw new Error('No center configured');
       }
 
       const results: { channel: string; success: boolean }[] = [];
       let whatsappData: WhatsAppDialogData | undefined;
+      let whatsappAutoSent = false;
 
       // Get session access token if not provided
       let accessToken = params.sessionAccessToken;
@@ -178,8 +183,6 @@ export function useSendSessionNotification() {
 
       // Handle WhatsApp
       if (params.channels.whatsapp && params.patientPhone) {
-        const whatsappMethod = center.whatsapp_send_method || 'web';
-        
         // Check for duplicate notifications (anti-spam)
         const isDuplicate = await checkDuplicateNotification(
           profile.center_id,
@@ -192,9 +195,6 @@ export function useSendSessionNotification() {
           console.log('[Notification] Duplicate WhatsApp notification detected, skipping');
           results.push({ channel: 'whatsapp', success: false });
         } else {
-          // Check rate limit
-          const rateLimit = await checkRateLimit(profile.center_id);
-          
           // Get template message
           const { data: templateData } = await supabase
             .from('communication_templates')
@@ -208,68 +208,127 @@ export function useSendSessionNotification() {
           const messageTemplate = templateData?.whatsapp_message || defaultTemplate;
           const message = replaceTemplateVariables(messageTemplate, templateVars);
 
-          if (whatsappMethod === 'web') {
-            // Save notification as pending (manual)
-            await supabase.from('notifications').insert({
-              center_id: profile.center_id,
-              patient_id: params.patientId,
-              session_id: params.sessionId,
-              type: 'whatsapp',
-              recipient: params.patientPhone,
-              message,
-              status: 'pending',
-            });
-
-            whatsappData = {
-              phone: params.patientPhone,
-              message,
-              patientName: params.patientName,
-            };
-
-            results.push({ channel: 'whatsapp', success: true });
-          } else if (whatsappMethod === 'api') {
-            // Use Meta API via edge function
-            // If rate limited, schedule for later
-            const scheduledFor = rateLimit.shouldQueue 
-              ? new Date(Date.now() + 60 * 1000).toISOString() // 1 minute later
-              : null;
+          // Check WasenderAPI availability first (Priority 1)
+          if (center.wasender_enabled && !center.wasender_emergency_stop) {
+            // Check if session is connected
+            const { data: wasenderSession } = await supabase
+              .from('whatsapp_sessions')
+              .select('status')
+              .eq('center_id', profile.center_id)
+              .maybeSingle();
             
-            const notificationData: {
-              center_id: string;
-              patient_id: string;
-              session_id: string;
-              type: 'whatsapp';
-              recipient: string;
-              message: string;
-              status: 'pending';
-              scheduled_for?: string;
-            } = {
-              center_id: profile.center_id,
-              patient_id: params.patientId,
-              session_id: params.sessionId,
-              type: 'whatsapp',
-              recipient: params.patientPhone,
-              message,
-              status: 'pending',
-            };
-            
-            if (scheduledFor) {
-              notificationData.scheduled_for = scheduledFor;
-            }
-            
-            const notification = await supabase.from('notifications')
-              .insert(notificationData)
-              .select()
-              .single();
-
-            if (notification.data && !rateLimit.shouldQueue) {
-              const { error } = await supabase.functions.invoke('send-notification', {
-                body: { notificationId: notification.data.id },
+            if (wasenderSession?.status === 'connected') {
+              console.log('[Notification] Sending via WasenderAPI (auto)');
+              
+              // Send via WasenderAPI
+              const { data, error } = await supabase.functions.invoke('wasender-send-message', {
+                body: {
+                  phone: params.patientPhone,
+                  message,
+                  patient_id: params.patientId,
+                  session_id: params.sessionId,
+                  message_type: params.type,
+                },
               });
-              results.push({ channel: 'whatsapp', success: !error });
-            } else if (rateLimit.shouldQueue) {
-              console.log('[Notification] Rate limited, queued for later');
-              results.push({ channel: 'whatsapp', success: true }); // Queued successfully
+              
+              if (!error && data?.success) {
+                whatsappAutoSent = true;
+                results.push({ channel: 'whatsapp', success: true });
+              } else {
+                console.warn('[Notification] WasenderAPI failed, falling back to manual');
+                // Fall back to manual link
+                whatsappData = {
+                  phone: params.patientPhone,
+                  message,
+                  patientName: params.patientName,
+                  manualLink: generateWhatsAppUniversalLink(params.patientPhone, message),
+                };
+                results.push({ channel: 'whatsapp', success: true });
+              }
+            } else {
+              console.log('[Notification] WasenderAPI not connected, falling back');
+              // WasenderAPI enabled but not connected - fallback to next method
+              whatsappData = {
+                phone: params.patientPhone,
+                message,
+                patientName: params.patientName,
+                manualLink: generateWhatsAppUniversalLink(params.patientPhone, message),
+              };
+              results.push({ channel: 'whatsapp', success: true });
+            }
+          } else {
+            // Check Meta API (Priority 2)
+            const whatsappMethod = center.whatsapp_send_method || 'web';
+            
+            if (whatsappMethod === 'api') {
+              // Check rate limit
+              const rateLimit = await checkRateLimit(profile.center_id);
+              
+              // If rate limited, schedule for later
+              const scheduledFor = rateLimit.shouldQueue 
+                ? new Date(Date.now() + 60 * 1000).toISOString() // 1 minute later
+                : null;
+              
+              const notificationData: {
+                center_id: string;
+                patient_id: string;
+                session_id: string;
+                type: 'whatsapp';
+                recipient: string;
+                message: string;
+                status: 'pending';
+                scheduled_for?: string;
+              } = {
+                center_id: profile.center_id,
+                patient_id: params.patientId,
+                session_id: params.sessionId,
+                type: 'whatsapp',
+                recipient: params.patientPhone,
+                message,
+                status: 'pending',
+              };
+              
+              if (scheduledFor) {
+                notificationData.scheduled_for = scheduledFor;
+              }
+              
+              const notification = await supabase.from('notifications')
+                .insert(notificationData)
+                .select()
+                .single();
+
+              if (notification.data && !rateLimit.shouldQueue) {
+                const { error } = await supabase.functions.invoke('send-notification', {
+                  body: { notificationId: notification.data.id },
+                });
+                whatsappAutoSent = !error;
+                results.push({ channel: 'whatsapp', success: !error });
+              } else if (rateLimit.shouldQueue) {
+                console.log('[Notification] Rate limited, queued for later');
+                whatsappAutoSent = true; // Queued counts as auto
+                results.push({ channel: 'whatsapp', success: true });
+              }
+            } else {
+              // Manual mode (Priority 3 - Fallback)
+              // Save notification as pending (manual)
+              await supabase.from('notifications').insert({
+                center_id: profile.center_id,
+                patient_id: params.patientId,
+                session_id: params.sessionId,
+                type: 'whatsapp',
+                recipient: params.patientPhone,
+                message,
+                status: 'pending',
+              });
+
+              whatsappData = {
+                phone: params.patientPhone,
+                message,
+                patientName: params.patientName,
+                manualLink: generateWhatsAppUniversalLink(params.patientPhone, message),
+              };
+
+              results.push({ channel: 'whatsapp', success: true });
             }
           }
         }
@@ -366,13 +425,18 @@ export function useSendSessionNotification() {
         results.push({ channel: 'sms', success: true });
       }
 
-      return { results, whatsappData };
+      return { results, whatsappData, whatsappAutoSent };
     },
-    onSuccess: ({ results, whatsappData }) => {
+    onSuccess: ({ results, whatsappData, whatsappAutoSent }) => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      queryClient.invalidateQueries({ queryKey: ['whatsapp-messages'] });
       
-      // Don't show toast for WhatsApp web - the dialog will handle it
-      if (!whatsappData && results.some(r => r.success)) {
+      // Show appropriate toast based on what happened
+      if (whatsappAutoSent) {
+        toast.success('WhatsApp enviado automáticamente', {
+          description: 'El mensaje se envió correctamente.',
+        });
+      } else if (!whatsappData && results.some(r => r.success)) {
         toast.success('Notificación procesada', {
           description: 'La notificación se ha registrado correctamente.',
         });

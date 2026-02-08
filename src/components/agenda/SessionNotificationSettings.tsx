@@ -1,9 +1,7 @@
-import { Mail, MessageSquare, Phone, Settings2 } from 'lucide-react';
+import { Mail, MessageSquare, Phone, Settings2, Zap, Link2 } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Label } from '@/components/ui/label';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { useCenter } from '@/hooks/useCenter';
+import { useWhatsAppDelivery } from '@/hooks/useWhatsAppDelivery';
 
 interface NotificationSettingsProps {
   // Immediate notifications (send now)
@@ -44,16 +42,16 @@ export function SessionNotificationSettings({
   onRequestConfirmationChange,
   compact = false,
 }: NotificationSettingsProps) {
-  const { center } = useCenter();
-  const whatsappMethod = center?.whatsapp_send_method || 'web';
+  const { deliveryMethod, methodLabel, statusInfo, isAutomatic } = useWhatsAppDelivery();
 
   if (compact) {
     return (
       <div className="space-y-4 rounded-lg border p-4">
         <div className="flex items-center justify-between">
           <span className="text-sm font-medium">Comunicaciones</span>
-          <Badge variant="outline" className="text-xs">
-            WhatsApp: {whatsappMethod === 'web' ? 'Manual' : 'Auto'}
+          <Badge variant={statusInfo.variant} className="text-xs flex items-center gap-1">
+            {isAutomatic ? <Zap className="h-3 w-3" /> : <Link2 className="h-3 w-3" />}
+            {statusInfo.label}
           </Badge>
         </div>
         
@@ -142,8 +140,9 @@ export function SessionNotificationSettings({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <span className="text-sm font-medium">Comunicaciones</span>
-        <Badge variant="outline" className="text-xs">
-          WhatsApp: {whatsappMethod === 'web' ? 'Envío manual' : 'Envío automático'}
+        <Badge variant={statusInfo.variant} className="text-xs flex items-center gap-1">
+          {isAutomatic ? <Zap className="h-3 w-3" /> : <Link2 className="h-3 w-3" />}
+          {methodLabel}
         </Badge>
       </div>
 
