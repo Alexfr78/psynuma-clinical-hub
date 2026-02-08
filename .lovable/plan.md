@@ -1,200 +1,163 @@
 
-# Plan: Implementar EMO - Entrevista de Regulación Emocional
+# Plan: Sistema Unificado de Envío de Mensajes con Priorización WasenderAPI
 
-## Resumen
+## Resumen del Problema
 
-Se implementara la plantilla del EMO (Entrevista sobre la Historia de la Regulacion Emocional) desarrollada por Anabel Gonzalez. Este instrumento evalua patrones de regulacion emocional, historia de figuras reguladoras y calidad de las relaciones de apego temprano. Es una entrevista semi-estructurada con formato mixto: preguntas abiertas cualitativas, listas de verificacion y tablas de evaluacion.
+Actualmente el sistema tiene dos vías de WhatsApp separadas:
+1. **Meta Business API** (`whatsapp_send_method: 'api'`) - En la configuración antigua
+2. **WasenderAPI** (`wasender_enabled: true`) - Sistema nuevo con QR
 
-## Estructura del EMO
+Cuando creas una sesión y marcas "notificar por WhatsApp", el sistema muestra un diálogo con opciones manuales (enlaces web) en lugar de enviar automáticamente por WasenderAPI. El usuario tiene que elegir entre varias opciones confusas.
 
-La entrevista se organiza en tres secciones principales:
+## Flujo Propuesto
 
-### Seccion 1: Regulacion Emocional Actual
-- Descripcion general del modo de regular emociones (abierta)
-- Dificultad para sentir emociones (abierta)
-- Seleccion de emociones problematicas: Aburrimiento, Admiracion, Apatia, Asco, Calma, Cansancio, Carino, Celos, Disfrute, Esfuerzo, Euforia, Gratitud, Paciencia, Incertidumbre, Miedo, Optimismo, Rechazo, Satisfaccion, Enfado, Envidia, Soledad, Tristeza, Verguenza, Dolor, Seguridad
-- Checklist de tendencias regulatorias (11 opciones):
-  - Evito sentir algunas cosas
-  - Tiendo a suprimir o anular determinadas emociones
-  - Algunas de mis emociones suelen desbordarse
-  - Trato de controlar mis emociones todo lo que puedo
-  - A veces me vienen emociones que no me parecen mias
-  - Quisiera sentir mas de lo que siento
-  - Tiendo a contagiarme de las emociones de los demas
-  - Mis emociones estan siempre a flor de piel
-  - Mis emociones son demasiado intensas
-  - Soy poco emocional, o eso me dicen
-  - Me enfado conmigo mismo por sentir determinadas emociones
-- Tendencias adicionales (6 opciones):
-  - A veces me averguenzo de lo que puedo llegar a sentir
-  - Puede cambiar de un momento a otro lo que siento
-  - En general no se muy bien lo que siento
-  - Siento cosas que no deberia de sentir
-  - Me siento como anestesiado a nivel emocional
-  - Le doy vueltas y vueltas a como me siento
-- Origen temporal (abierta)
-- Empeoramiento (abierta)
+```text
+┌─────────────────────────────────────────────────────────────────┐
+│                    CREAR SESIÓN                                 │
+│    [x] Notificar por WhatsApp  [x] Notificar por Email          │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                 ¿WasenderAPI conectado?                         │
+│     (wasender_enabled=true Y session.status='connected')        │
+└─────────────────────────────────────────────────────────────────┘
+         │                                      │
+        SÍ                                     NO
+         │                                      │
+         ▼                                      ▼
+┌─────────────────────┐              ┌─────────────────────────────┐
+│  ENVÍO AUTOMÁTICO   │              │    FALLBACK: Enlace manual  │
+│  via WasenderAPI    │              │    (Abrir WhatsApp/Web)      │
+│  Sin diálogo extra  │              │    Mostrar diálogo simple    │
+│  Toast: "Enviado"   │              └─────────────────────────────┘
+└─────────────────────┘
+```
 
-### Seccion 2: Figuras Reguladoras
-- Personas con las que se crio (abierta)
-- Cambios en convivencia (abierta)
-- Figuras importantes fuera de familia (abierta)
-- Cuidadores contratados (abierta)
-- Internados o instituciones (abierta)
-- Adopcion o acogida (abierta)
-- Figuras relevantes adicionales (abierta)
-- Figuras con influencia positiva (abierta)
-- Figuras con influencia negativa (abierta)
-- Figuras ausentes emocionalmente (abierta)
-- 10 momentos de regulacion compartida (lista abierta)
+## Cambios Técnicos
 
-### Seccion 3: Evaluacion por Figura (repetible)
-- Datos de la figura (nombre, relacion)
-- Primer recuerdo con esa persona (abierta)
-- Expresion tipica de su cara (abierta)
-- Relacion actual (abierta)
-- Reaccion ante perdida (abierta)
-- 5 adjetivos con ejemplos (tabla)
-- Reaccion ante malestar del paciente (abierta)
-- Reaccion ante exitos/fracasos (abierta)
-- Ayuda en situaciones importantes (abierta)
-- Sentimientos generados: Entendido, Rechazado, Aceptado, Atemorizado, Valorado, Inseguro, Invisible, Avergonzado, Especial, Humillado, Importante, Traicionado, Inutil, Ridiculo, Protegido, Apoyado, Culpable, Seguro
-- Tabla emociones x frecuencia/aceptacion
-- Emocion que la figura llevaba peor (abierta)
-- Emocion que llevaba peor ver en el paciente (abierta)
-- Reacciones desadaptativas (checklist)
-- Ayuda fisica (abierta)
-- Ayuda emocional con ejemplo (abierta)
-- Comentarios adicionales (abierta)
+### 1. Nuevo Hook: `useWhatsAppDelivery`
+Crear un hook centralizado que determine el mejor método de envío:
 
-## Propuesta de Scoring y Analisis
+- **Prioridad 1**: WasenderAPI si está habilitado Y conectado
+- **Prioridad 2**: Meta API si está configurado (`whatsapp_send_method: 'api'`)
+- **Prioridad 3**: Enlaces manuales (web/universal) como fallback
 
-Dado que el EMO es mayoritariamente cualitativo, la estrategia de scoring se basara en:
+El hook expone:
+- `deliveryMethod`: `'wasender' | 'meta_api' | 'manual'`
+- `isAutomatic`: `true` si puede enviar sin intervención del usuario
+- `isConnected`: estado de conexión de WasenderAPI
+- `sendViaWasender()`: función para enviar directamente
+- `getManualLink()`: genera enlace wa.me para fallback
 
-### Indicadores Cuantitativos
-1. **Numero de emociones problematicas** (de 25 posibles)
-2. **Numero de tendencias disfuncionales** (de 17 posibles)
-3. **Patron de tendencias** agrupado en categorias:
-   - **Hipoactivacion**: Evito sentir, Suprimo emociones, Anestesiado, Poco emocional
-   - **Hiperactivacion**: Desbordamiento, A flor de piel, Demasiado intensas, Contagio emocional
-   - **Disregulacion**: Emociones que no parecen mias, Cambios de un momento a otro, No se lo que siento
-   - **Autocritica**: Me enfado conmigo, Me averguenzo, Siento cosas que no deberia
-   - **Rumiacion**: Le doy vueltas y vueltas
-   - **Control excesivo**: Trato de controlar todo lo que puedo
-4. **Numero de momentos regulatorios positivos** identificados (de 10)
-5. **Sentimientos negativos por figura** (conteo de sentimientos como Rechazado, Humillado, Traicionado, etc.)
-6. **Sentimientos positivos por figura** (conteo de Entendido, Aceptado, Valorado, etc.)
-7. **Reacciones parentales desadaptativas** (conteo de las 10 opciones)
+### 2. Modificar `useSendSessionNotification`
+Actualizar el hook existente para:
 
-### Analisis Cualitativo con IA
-Se implementara un analisis asistido por IA (Lovable AI) que generara:
-1. **Perfil de regulacion emocional**: identificando el patron predominante (hipoactivacion, hiperactivacion, mixto)
-2. **Calidad del apego temprano**: basado en las respuestas sobre figuras reguladoras
-3. **Recursos de regulacion**: identificando fortalezas y momentos de regulacion positiva
-4. **Areas de intervencion prioritarias**: recomendaciones clinicas basadas en los patrones detectados
-5. **Hipotesis sobre origen**: conexion entre historia relacional y patron actual
+1. Primero verificar si WasenderAPI está habilitado Y conectado
+2. Si lo está → enviar directamente via `wasender-send-message` edge function
+3. Si no → verificar Meta API (`whatsapp_send_method: 'api'`)
+4. Si ninguno → devolver datos para diálogo manual
 
-## Archivos a Crear/Modificar
+### 3. Simplificar `WhatsAppLinkDialog`
+Cambiar el diálogo a un formato más simple:
 
-### 1. Plantilla de datos
-**Archivo:** `src/data/emo-template.ts`
+- **Si el envío fue automático**: No mostrar diálogo (solo toast de confirmación)
+- **Si requiere acción manual**: Mostrar diálogo simplificado con:
+  - Un botón principal "Enviar por WhatsApp"
+  - Vista previa del mensaje
+  - Opción de copiar enlace
 
-Contendra:
-- Definicion de tipos TypeScript para EMO
-- Lista de emociones problematicas
-- Lista de tendencias regulatorias con agrupacion por categoria
-- Lista de sentimientos generados por figuras
-- Lista de reacciones parentales desadaptativas
-- Estructura de items de la entrevista
-- Configuracion de scoring
-- Funcion `getEMOTemplateData()` para insercion en BD
+### 4. Actualizar UI en `SessionNotificationSettings`
+Mostrar el método activo de forma clara:
 
-### 2. Componente de visualizacion de resultados
-**Archivo:** `src/components/assessments/EMOResultsView.tsx`
+- Badge que indique: "WasenderAPI (Auto)" vs "Enlace manual"
+- Si WasenderAPI está habilitado pero desconectado → mostrar advertencia
 
-Mostrara:
-- Resumen de patrones de regulacion detectados
-- Grafico radar con las 6 categorias de tendencias
-- Listado de emociones problematicas seleccionadas
-- Momentos de regulacion positiva identificados
-- Resumen por cada figura evaluada:
-  - Balance sentimientos positivos/negativos
-  - Reacciones desadaptativas identificadas
-- Panel de analisis con IA (si se ha generado)
-- Respuestas abiertas organizadas por seccion
+### 5. Modificar `QuickCreateSessionDialog` y `CreateSessionDialog`
+Actualizar la lógica post-creación:
 
-### 3. Actualizacion del dialogo de plantillas
-**Archivo:** `src/components/assessments/AddTemplateDialog.tsx`
+1. Si el envío fue automático → solo mostrar toast de éxito
+2. Si requiere intervención manual → mostrar el diálogo simplificado
 
-Agregar EMO a la lista de plantillas predefinidas disponibles.
+## Archivos a Modificar
 
-### 4. Actualizacion de utilidades de evaluacion
-**Archivo:** `src/lib/assessment-utils.ts`
+| Archivo | Cambio |
+|---------|--------|
+| `src/hooks/useWhatsAppDelivery.tsx` | **NUEVO** - Hook centralizado para determinar método de envío |
+| `src/hooks/useSendSessionNotification.tsx` | Integrar lógica de priorización WasenderAPI |
+| `src/components/agenda/WhatsAppLinkDialog.tsx` | Simplificar a diálogo de fallback únicamente |
+| `src/components/agenda/QuickCreateSessionDialog.tsx` | Usar nueva lógica, omitir diálogo si envío automático |
+| `src/components/agenda/CreateSessionDialog.tsx` | Mismo cambio que QuickCreateSessionDialog |
+| `src/components/agenda/SessionNotificationSettings.tsx` | Mostrar método activo con badge más claro |
 
-Agregar:
-- Constantes y labels para factores EMO
-- Orden de factores para visualizacion
-- Funciones de utilidad especificas
+## Detalles de Implementación
 
-### 5. Actualizacion de logica de scoring en backend
-**Archivo:** `supabase/functions/submit-assessment-response/index.ts`
+### Hook `useWhatsAppDelivery`
+```typescript
+export function useWhatsAppDelivery() {
+  const { center } = useCenter();
+  const { session, isConnected } = useWasender();
+  
+  // Determinar método de envío
+  const deliveryMethod = useMemo(() => {
+    // Prioridad 1: WasenderAPI
+    if (center?.wasender_enabled && isConnected) {
+      return 'wasender';
+    }
+    // Prioridad 2: Meta API
+    if (center?.whatsapp_send_method === 'api') {
+      return 'meta_api';
+    }
+    // Fallback: Enlaces manuales
+    return 'manual';
+  }, [center, isConnected]);
+  
+  return {
+    deliveryMethod,
+    isAutomatic: deliveryMethod !== 'manual',
+    isWasenderAvailable: center?.wasender_enabled && isConnected,
+    // ...
+  };
+}
+```
 
-Agregar bloque de scoring especifico para EMO:
-- Conteo de emociones problematicas
-- Conteo y categorizacion de tendencias
-- Generacion de factor_scores con indicadores cuantitativos
-- Flags para patrones criticos
+### Flujo en `useSendSessionNotification`
+```typescript
+// En handleWhatsApp:
+if (center?.wasender_enabled) {
+  // Verificar estado de conexión
+  const { data: wasenderSession } = await supabase
+    .from('whatsapp_sessions')
+    .select('status')
+    .eq('center_id', centerId)
+    .single();
+    
+  if (wasenderSession?.status === 'connected') {
+    // Enviar via WasenderAPI
+    await supabase.functions.invoke('wasender-send-message', {
+      body: { phone, message, patient_id, session_id }
+    });
+    return { autoSent: true };
+  }
+}
 
-### 6. Actualizacion de generacion de PDF
-**Archivo:** `supabase/functions/generate-assessment-pdf/index.ts`
+// Fallback a lógica actual (web/api)
+```
 
-Agregar seccion especifica para EMO que incluya:
-- Perfil de regulacion emocional
-- Respuestas cualitativas organizadas
-- Tablas de figuras reguladoras
-- Interpretacion clinica
+## Experiencia de Usuario Final
 
-### 7. Edge Function para analisis con IA
-**Archivo:** `supabase/functions/interpret-emo-results/index.ts` (nuevo)
+1. **Usuario crea sesión** → marca "Notificar por WhatsApp"
+2. **Si WasenderAPI conectado**:
+   - Mensaje se envía automáticamente
+   - Toast: "✓ Notificación de WhatsApp enviada"
+   - No aparece ningún diálogo adicional
+3. **Si WasenderAPI no disponible**:
+   - Aparece diálogo simple: "¿Enviar WhatsApp a [Paciente]?"
+   - Botón único: "Abrir WhatsApp"
+   - Se abre WhatsApp Web/App con mensaje prellenado
 
-Utilizara Lovable AI para generar:
-- Interpretacion clinica del perfil
-- Hipotesis sobre origen de patrones
-- Recomendaciones de intervencion
+## Validación
 
-### 8. Actualizacion de pagina de resultados
-**Archivo:** `src/pages/AssessmentResults.tsx`
-
-Agregar condicional para renderizar `EMOResultsView` cuando el template sea EMO.
-
-## Justificacion del Modelo de Analisis
-
-### Por que este enfoque mixto cuanti-cualitativo
-
-1. **Respeta la naturaleza del instrumento**: El EMO fue disenado como entrevista semi-estructurada, no como cuestionario psicometrico. Forzar un scoring puramente cuantitativo distorsionaria su proposito clinico.
-
-2. **Indicadores cuantitativos utiles**:
-   - Permiten comparaciones entre evaluaciones del mismo paciente
-   - Facilitan la deteccion rapida de patrones criticos
-   - Proporcionan metricas objetivas para seguimiento
-
-3. **Categorizacion teoricamente fundamentada**: La agrupacion de tendencias en Hipoactivacion/Hiperactivacion/Disregulacion sigue los modelos de ventana de tolerancia de Ogden y la teoria polivagal de Porges.
-
-4. **IA como asistente, no como sustituto**: El analisis con IA genera hipotesis e interpretaciones que el clinico debe validar, no sustituye el juicio profesional.
-
-### Limitaciones a considerar
-
-- No existen baremos poblacionales para el EMO
-- Los puntos de corte seran orientativos, no normativos
-- El analisis cualitativo requiere revision clinica obligatoria
-
-## Dependencias Tecnicas
-
-- Lovable AI (ya disponible) para analisis cualitativo
-- Componentes existentes de graficos (Recharts)
-- Sistema de templates existente
-- Edge Functions existentes como modelo
-
-## Tiempo Estimado de Implementacion
-
-La implementacion completa requerira la creacion de 2 archivos nuevos y la modificacion de 6 archivos existentes.
+- Si el paciente no tiene teléfono → mostrar advertencia y omitir WhatsApp
+- Si WasenderAPI está habilitado pero desconectado → usar fallback manual con aviso
+- Respetar `wasender_emergency_stop` para bloquear envíos automáticos
