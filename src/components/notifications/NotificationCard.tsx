@@ -1,9 +1,10 @@
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Mail, MessageSquare, Phone, Clock, CheckCircle, XCircle, Send, Smartphone, Trash2 } from 'lucide-react';
+import { Mail, MessageSquare, Phone, Clock, CheckCircle, XCircle, Send, Smartphone, Trash2, Zap } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { useWhatsAppDelivery } from '@/hooks/useWhatsAppDelivery';
 import type { NotificationWithRelations } from '@/hooks/useNotifications';
 
 interface NotificationCardProps {
@@ -25,6 +26,8 @@ const statusConfig = {
 };
 
 export function NotificationCard({ notification, onSend, onDelete }: NotificationCardProps) {
+  const { deliveryMethod, isAutomatic } = useWhatsAppDelivery();
+  
   const typeInfo = typeConfig[notification.type];
   const statusInfo = statusConfig[notification.status || 'pending'];
   const TypeIcon = typeInfo.icon;
@@ -34,8 +37,9 @@ export function NotificationCard({ notification, onSend, onDelete }: Notificatio
     ? `${notification.patients.first_name} ${notification.patients.last_name}`
     : 'Contacto desconocido';
 
-  // Check if this is a WhatsApp notification that requires manual sending
-  const isWhatsAppManualSend = notification.type === 'whatsapp' && notification.status === 'pending';
+  // Only show method badge for pending WhatsApp notifications
+  const isWhatsAppPending = notification.type === 'whatsapp' && notification.status === 'pending';
+  const showMethodBadge = isWhatsAppPending;
 
   return (
     <Card className="h-full flex flex-col">
@@ -51,10 +55,19 @@ export function NotificationCard({ notification, onSend, onDelete }: Notificatio
             </div>
           </div>
           <div className="flex items-center gap-1 flex-shrink-0">
-            {isWhatsAppManualSend && (
-              <Badge variant="outline" className="text-[10px] px-1.5 py-0.5 flex items-center gap-1 text-amber-600 border-amber-300">
-                <Smartphone className="h-3 w-3" />
-                <span className="hidden lg:inline">Manual</span>
+            {showMethodBadge && (
+              <Badge 
+                variant="outline" 
+                className={`text-[10px] px-1.5 py-0.5 flex items-center gap-1 ${
+                  isAutomatic 
+                    ? 'text-emerald-600 border-emerald-300' 
+                    : 'text-amber-600 border-amber-300'
+                }`}
+              >
+                {isAutomatic ? <Zap className="h-3 w-3" /> : <Smartphone className="h-3 w-3" />}
+                <span className="hidden lg:inline">
+                  {isAutomatic ? 'Auto' : 'Manual'}
+                </span>
               </Badge>
             )}
             <Badge variant={statusInfo.variant} className="text-[10px] px-1.5 py-0.5 flex items-center gap-1">
@@ -91,7 +104,7 @@ export function NotificationCard({ notification, onSend, onDelete }: Notificatio
           {notification.status === 'pending' && onSend && (
             <Button size="sm" variant="outline" onClick={() => onSend(notification.id)} className="h-7 text-xs px-2">
               <Send className="h-3 w-3 mr-1" />
-              {isWhatsAppManualSend ? 'WhatsApp' : 'Enviar'}
+              {notification.type === 'whatsapp' && !isAutomatic ? 'WhatsApp' : 'Enviar'}
             </Button>
           )}
         </div>
