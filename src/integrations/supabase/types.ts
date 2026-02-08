@@ -837,6 +837,13 @@ export type Database = {
           verifactu_software_name: string | null
           verifactu_software_nif: string | null
           verifactu_software_version: string | null
+          wasender_auto_reminders: boolean | null
+          wasender_confirm_booking: boolean | null
+          wasender_emergency_stop: boolean | null
+          wasender_enabled: boolean | null
+          wasender_notify_cancellation: boolean | null
+          wasender_reminder_24h: boolean | null
+          wasender_reminder_2h: boolean | null
           whatsapp_access_token: string | null
           whatsapp_business_account_id: string | null
           whatsapp_phone_number_id: string | null
@@ -913,6 +920,13 @@ export type Database = {
           verifactu_software_name?: string | null
           verifactu_software_nif?: string | null
           verifactu_software_version?: string | null
+          wasender_auto_reminders?: boolean | null
+          wasender_confirm_booking?: boolean | null
+          wasender_emergency_stop?: boolean | null
+          wasender_enabled?: boolean | null
+          wasender_notify_cancellation?: boolean | null
+          wasender_reminder_24h?: boolean | null
+          wasender_reminder_2h?: boolean | null
           whatsapp_access_token?: string | null
           whatsapp_business_account_id?: string | null
           whatsapp_phone_number_id?: string | null
@@ -989,6 +1003,13 @@ export type Database = {
           verifactu_software_name?: string | null
           verifactu_software_nif?: string | null
           verifactu_software_version?: string | null
+          wasender_auto_reminders?: boolean | null
+          wasender_confirm_booking?: boolean | null
+          wasender_emergency_stop?: boolean | null
+          wasender_enabled?: boolean | null
+          wasender_notify_cancellation?: boolean | null
+          wasender_reminder_24h?: boolean | null
+          wasender_reminder_2h?: boolean | null
           whatsapp_access_token?: string | null
           whatsapp_business_account_id?: string | null
           whatsapp_phone_number_id?: string | null
@@ -3314,6 +3335,284 @@ export type Database = {
             columns: ["invoice_id"]
             isOneToOne: false
             referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_messages: {
+        Row: {
+          caption: string | null
+          center_id: string
+          content: string | null
+          created_at: string
+          delivered_at: string | null
+          direction: string
+          error_message: string | null
+          id: string
+          media_url: string | null
+          metadata: Json | null
+          phone: string
+          read_at: string | null
+          retry_count: number | null
+          sent_at: string | null
+          session_id: string | null
+          status: string
+          template_name: string | null
+          template_variables: Json | null
+          type: string
+          updated_at: string
+          wasender_message_id: string | null
+        }
+        Insert: {
+          caption?: string | null
+          center_id: string
+          content?: string | null
+          created_at?: string
+          delivered_at?: string | null
+          direction?: string
+          error_message?: string | null
+          id?: string
+          media_url?: string | null
+          metadata?: Json | null
+          phone: string
+          read_at?: string | null
+          retry_count?: number | null
+          sent_at?: string | null
+          session_id?: string | null
+          status?: string
+          template_name?: string | null
+          template_variables?: Json | null
+          type?: string
+          updated_at?: string
+          wasender_message_id?: string | null
+        }
+        Update: {
+          caption?: string | null
+          center_id?: string
+          content?: string | null
+          created_at?: string
+          delivered_at?: string | null
+          direction?: string
+          error_message?: string | null
+          id?: string
+          media_url?: string | null
+          metadata?: Json | null
+          phone?: string
+          read_at?: string | null
+          retry_count?: number | null
+          sent_at?: string | null
+          session_id?: string | null
+          status?: string
+          template_name?: string | null
+          template_variables?: Json | null
+          type?: string
+          updated_at?: string
+          wasender_message_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_messages_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_messages_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_messages_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "portal_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_messages_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_queue: {
+        Row: {
+          attempts: number | null
+          center_id: string
+          created_at: string
+          error_message: string | null
+          id: string
+          max_attempts: number | null
+          message_id: string | null
+          next_retry_at: string | null
+          priority: number | null
+          processed_at: string | null
+          processing_started_at: string | null
+          scheduled_at: string
+          session_id: string | null
+          status: string
+        }
+        Insert: {
+          attempts?: number | null
+          center_id: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          max_attempts?: number | null
+          message_id?: string | null
+          next_retry_at?: string | null
+          priority?: number | null
+          processed_at?: string | null
+          processing_started_at?: string | null
+          scheduled_at?: string
+          session_id?: string | null
+          status?: string
+        }
+        Update: {
+          attempts?: number | null
+          center_id?: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          max_attempts?: number | null
+          message_id?: string | null
+          next_retry_at?: string | null
+          priority?: number | null
+          processed_at?: string | null
+          processing_started_at?: string | null
+          scheduled_at?: string
+          session_id?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_queue_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_queue_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_queue_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "portal_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_queue_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_queue_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_sessions: {
+        Row: {
+          center_id: string
+          created_at: string
+          id: string
+          is_active: boolean | null
+          last_connected_at: string | null
+          last_error: string | null
+          name: string
+          phone_number: string | null
+          professional_id: string
+          qr_code: string | null
+          qr_expires_at: string | null
+          status: string
+          updated_at: string
+          wasender_session_id: string | null
+          webhook_secret: string | null
+        }
+        Insert: {
+          center_id: string
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          last_connected_at?: string | null
+          last_error?: string | null
+          name?: string
+          phone_number?: string | null
+          professional_id: string
+          qr_code?: string | null
+          qr_expires_at?: string | null
+          status?: string
+          updated_at?: string
+          wasender_session_id?: string | null
+          webhook_secret?: string | null
+        }
+        Update: {
+          center_id?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          last_connected_at?: string | null
+          last_error?: string | null
+          name?: string
+          phone_number?: string | null
+          professional_id?: string
+          qr_code?: string | null
+          qr_expires_at?: string | null
+          status?: string
+          updated_at?: string
+          wasender_session_id?: string | null
+          webhook_secret?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_sessions_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_sessions_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_sessions_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "portal_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_sessions_professional_id_fkey"
+            columns: ["professional_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_sessions_professional_id_fkey"
+            columns: ["professional_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
             referencedColumns: ["id"]
           },
         ]
