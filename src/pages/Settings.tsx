@@ -56,7 +56,7 @@ import { PortalSettingsSection } from '@/components/settings/PortalSettingsSecti
 import { ConsentSettingsSection } from '@/components/settings/ConsentSettingsSection';
 import { IntegrationsOverview } from '@/components/settings/integrations/IntegrationsOverview';
 import { WhatsAppIntegrationSection } from '@/components/settings/integrations/WhatsAppIntegrationSection';
-import { WasenderIntegrationSection } from '@/components/settings/integrations/WasenderIntegrationSection';
+// WasenderIntegrationSection is now integrated into WhatsAppIntegrationSection
 import { ZoomIntegrationSection } from '@/components/settings/integrations/ZoomIntegrationSection';
 import { GoogleIntegrationSection } from '@/components/settings/integrations/GoogleIntegrationSection';
 import { StripeIntegrationSection } from '@/components/settings/integrations/StripeIntegrationSection';
@@ -101,7 +101,7 @@ type SettingsSection =
   | 'integraciones-credenciales'
   | 'integraciones-email'
   | 'integraciones-whatsapp'
-  | 'integraciones-wasender'
+  
   | 'integraciones-zoom'
   | 'integraciones-google'
   | 'integraciones-stripe';
@@ -156,8 +156,7 @@ const navItems: NavItem[] = [
   // Conexiones Externas
   { id: 'integraciones-resumen', label: 'Estado de conexiones', icon: Plug, parent: 'Conexiones Externas' },
   { id: 'integraciones-email', label: 'Email (Resend)', icon: Mail, parent: 'Conexiones Externas' },
-  { id: 'integraciones-whatsapp', label: 'WhatsApp Business', icon: MessageCircle, parent: 'Conexiones Externas' },
-  { id: 'integraciones-wasender', label: 'WasenderAPI', icon: MessageCircle, parent: 'Conexiones Externas' },
+  { id: 'integraciones-whatsapp', label: 'WhatsApp', icon: MessageCircle, parent: 'Conexiones Externas' },
   { id: 'integraciones-google', label: 'Google Calendar y Meet', icon: Calendar, parent: 'Conexiones Externas' },
   { id: 'integraciones-zoom', label: 'Zoom', icon: Video, parent: 'Conexiones Externas' },
   { id: 'integraciones-stripe', label: 'Stripe - Cobros online', icon: CreditCard, parent: 'Conexiones Externas' },
@@ -371,8 +370,6 @@ export default function Settings() {
         return <OAuthCredentialsSection />;
       case 'integraciones-whatsapp':
         return <WhatsAppIntegrationSection />;
-      case 'integraciones-wasender':
-        return <WasenderIntegrationSection />;
       case 'integraciones-zoom':
         return <ZoomIntegrationSection />;
       case 'integraciones-google':

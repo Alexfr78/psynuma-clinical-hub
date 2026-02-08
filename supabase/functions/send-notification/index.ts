@@ -19,6 +19,8 @@ interface CenterWhatsAppConfig {
   whatsapp_send_method: string | null;
   whatsapp_access_token: string | null;
   whatsapp_phone_number_id: string | null;
+  wasender_enabled: boolean | null;
+  wasender_emergency_stop: boolean | null;
 }
 
 interface ResendEmailResult {
@@ -166,6 +168,51 @@ function generateWhatsAppWebLink(phone: string, message: string): string {
   }
   const encodedMessage = encodeURIComponent(message);
   return `https://wa.me/${cleanPhone}?text=${encodedMessage}`;
+}
+
+// Send WhatsApp via WasenderAPI
+async function sendWhatsAppViaWasender(
+  supabase: ReturnType<typeof createClient>,
+  centerId: string,
+  phone: string,
+  message: string,
+  patientId?: string,
+  sessionId?: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    console.log(`[send-notification] Sending WhatsApp via WasenderAPI to ${phone}`);
+    
+    // Call the wasender-send-message edge function
+    const { data, error } = await supabase.functions.invoke('wasender-send-message', {
+      body: {
+        phone,
+        message,
+        patient_id: patientId,
+        session_id: sessionId,
+        message_type: 'notification',
+      },
+    });
+
+    if (error) {
+      console.error('[send-notification] WasenderAPI invoke error:', error);
+      return { success: false, error: error.message };
+    }
+
+    if (!data?.success) {
+      const errorMsg = data?.error || 'Unknown WasenderAPI error';
+      console.error('[send-notification] WasenderAPI failed:', errorMsg);
+      return { success: false, error: errorMsg };
+    }
+
+    console.log('[send-notification] WhatsApp sent successfully via WasenderAPI');
+    return { success: true };
+  } catch (error) {
+    console.error('[send-notification] WasenderAPI exception:', error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    };
+  }
 }
 
 // Send WhatsApp via Meta API
@@ -317,9 +364,10 @@ serve(async (req) => {
             break;
 
           case "whatsapp": {
+            // Fetch center config including WasenderAPI settings
             const { data: centerData, error: centerError } = await supabase
               .from("centers")
-              .select("whatsapp_send_method, whatsapp_access_token, whatsapp_phone_number_id")
+              .select("whatsapp_send_method, whatsapp_access_token, whatsapp_phone_number_id, wasender_enabled, wasender_emergency_stop")
               .eq("id", notification.center_id)
               .single();
 
@@ -330,10 +378,49 @@ serve(async (req) => {
             }
 
             const centerConfig = centerData as CenterWhatsAppConfig;
+            
+            // Check WasenderAPI connection status
+            let wasenderConnected = false;
+            if (centerConfig?.wasender_enabled && !centerConfig?.wasender_emergency_stop) {
+              const { data: wasenderSession } = await supabase
+                .from("whatsapp_sessions")
+                .select("status")
+                .eq("center_id", notification.center_id)
+                .maybeSingle();
+              
+              wasenderConnected = wasenderSession?.status === 'connected';
+            }
+
+            console.log(`[send-notification] WhatsApp delivery check:`, {
+              wasender_enabled: centerConfig?.wasender_enabled,
+              wasender_emergency_stop: centerConfig?.wasender_emergency_stop,
+              wasender_connected: wasenderConnected,
+              whatsapp_send_method: centerConfig?.whatsapp_send_method,
+            });
+
+            // PRIORITY 1: WasenderAPI (if enabled AND connected AND not emergency stopped)
+            if (centerConfig?.wasender_enabled && wasenderConnected && !centerConfig?.wasender_emergency_stop) {
+              console.log('[send-notification] Using WasenderAPI (Priority 1)');
+              const wasenderResult = await sendWhatsAppViaWasender(
+                supabase,
+                notification.center_id,
+                notification.recipient,
+                notification.message,
+                notification.patient_id,
+                notification.session_id
+              );
+              
+              if (wasenderResult.success) {
+                success = true;
+                break;
+              }
+              
+              // WasenderAPI failed - fallback to Meta API or web
+              console.warn('[send-notification] WasenderAPI failed, trying fallback:', wasenderResult.error);
+            }
+
+            // PRIORITY 2: Meta API (if configured)
             const sendMethod = centerConfig?.whatsapp_send_method || 'web';
-
-            console.log(`[send-notification] WhatsApp send method: ${sendMethod}`);
-
             if (sendMethod === 'api') {
               const encryptedToken = centerConfig?.whatsapp_access_token;
               const phoneNumberId = centerConfig?.whatsapp_phone_number_id;
@@ -357,6 +444,7 @@ serve(async (req) => {
               success = apiResult.success;
               errorMessage = apiResult.error || null;
             } else {
+              // PRIORITY 3: Manual web link
               whatsappWebLink = generateWhatsAppWebLink(
                 notification.recipient,
                 notification.message
