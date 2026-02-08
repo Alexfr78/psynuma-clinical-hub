@@ -37,16 +37,19 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const wasenderApiKey = Deno.env.get("WASENDER_API_KEY");
-    const wasenderToken = Deno.env.get("WASENDER_PERSONAL_ACCESS_TOKEN");
 
-    if (!wasenderApiKey || !wasenderToken) {
-      return new Response(JSON.stringify({ 
-        error: "WasenderAPI credentials not configured",
-        code: "CREDENTIALS_MISSING"
-      }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    // Wasender send-message endpoint authenticates with the API key
+    if (!wasenderApiKey) {
+      return new Response(
+        JSON.stringify({
+          error: "WasenderAPI API key not configured",
+          code: "CREDENTIALS_MISSING",
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
     }
 
     const supabase = createClient(supabaseUrl, supabaseKey);
@@ -105,15 +108,24 @@ serve(async (req) => {
       });
     }
 
-    // Format phone number (remove + and spaces)
-    const formattedPhone = phone.replace(/[\s+\-()]/g, "");
+    // Normalize phone. Wasender expects either a WhatsApp JID or an E.164 number.
+    // Keep a leading '+' if provided; otherwise, prefix '+' to pure digit numbers.
+    const trimmedPhone = phone.trim();
+    const isJid = trimmedPhone.includes("@");
+
+    const normalized = trimmedPhone.replace(/[\s\-()]/g, "");
+    const to = isJid
+      ? normalized
+      : normalized.startsWith("+")
+        ? normalized
+        : `+${normalized}`;
 
     // Create message record first
     const { data: messageRecord, error: insertError } = await supabase
       .from("whatsapp_messages")
       .insert({
         center_id: profile.center_id,
-        phone: formattedPhone,
+        phone: to,
         content: message,
         type,
         message_type: message_type || "manual",
@@ -149,28 +161,27 @@ serve(async (req) => {
     // For immediate sending (bypassing queue for single messages)
     try {
       // Build message body based on type - WasenderAPI uses /api/send-message endpoint
-      // Phone should be in E.164 format without the + sign
       let messageBody: Record<string, unknown>;
-      
+
       if (type === "image" && image_url) {
         messageBody = {
           sessionId: session.wasender_session_id,
-          to: formattedPhone,
+          to,
           mediaUrl: image_url,
           caption: caption || message,
         };
       } else {
         messageBody = {
           sessionId: session.wasender_session_id,
-          to: formattedPhone,
+          to,
           text: message,
         };
       }
 
-      console.log("Sending message via WasenderAPI:", { 
+      console.log("Sending message via WasenderAPI:", {
         endpoint: `${WASENDER_API_URL}/send-message`,
-        to: formattedPhone,
-        sessionId: session.wasender_session_id 
+        to,
+        sessionId: session.wasender_session_id,
       });
 
       // Send via WasenderAPI - correct endpoint is /api/send-message
@@ -179,7 +190,7 @@ serve(async (req) => {
         {
           method: "POST",
           headers: {
-            "Authorization": `Bearer ${wasenderToken}`,
+            "Authorization": `Bearer ${wasenderApiKey}`,
             "Content-Type": "application/json",
           },
           body: JSON.stringify(messageBody),
