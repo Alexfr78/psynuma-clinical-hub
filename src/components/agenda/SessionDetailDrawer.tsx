@@ -94,10 +94,12 @@ import { CollectSessionPaymentDialog } from './CollectSessionPaymentDialog';
 import { CollectBonoPaymentDialog } from './CollectBonoPaymentDialog';
 import { CreateSessionInvoiceDialog } from './CreateSessionInvoiceDialog';
 import { SendInvoiceDialog } from '@/components/invoices/SendInvoiceDialog';
-import { useSendWhatsAppNow, useSendSessionNotification } from '@/hooks/useSendSessionNotification';
+import { useSendSessionNotification } from '@/hooks/useSendSessionNotification';
+import { useWhatsAppDelivery } from '@/hooks/useWhatsAppDelivery';
 import { useCenter } from '@/hooks/useCenter';
 import { DEFAULT_TEMPLATES } from '@/hooks/useCommunicationTemplates';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { openWhatsAppSmart } from '@/lib/whatsapp';
 import { createStripeCheckout } from '@/hooks/useSessionIntegrations';
 import { useGoogleCalendarUpdate } from '@/hooks/useGoogleCalendarUpdate';
 import { PatientSelector } from './PatientSelector';
@@ -173,12 +175,13 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
   const updateBono = useUpdateBono();
   const { data: locations } = useLocations();
   const { center } = useCenter();
-  const sendWhatsAppNow = useSendWhatsAppNow();
+  const whatsappDelivery = useWhatsAppDelivery();
   const sendEmailNotification = useSendSessionNotification();
   const isMobile = useIsMobile();
   const { syncToGoogle, syncMoveToGoogle } = useGoogleCalendarUpdate(session?.professional_id);
   const deleteCalendarEvent = useDeleteCalendarEvent();
   const { integrations, isProviderConnected } = useProfessionalIntegrations(session?.professional_id);
+  const [isSendingWhatsAppNow, setIsSendingWhatsAppNow] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [isChangingModality, setIsChangingModality] = useState(false);
   const [editingPrice, setEditingPrice] = useState(false);
@@ -1499,8 +1502,8 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h4 className="font-medium text-sm text-muted-foreground">Comunicaciones</h4>
-                <Badge variant="outline" className="text-xs">
-                  WhatsApp: {center?.whatsapp_send_method === 'api' ? 'Auto' : 'Manual'}
+                <Badge variant={whatsappDelivery.statusInfo.variant} className="text-xs">
+                  WhatsApp: {whatsappDelivery.statusInfo.label}
                 </Badge>
               </div>
 
@@ -1544,25 +1547,30 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
                     variant="outline" 
                     size="sm" 
                     className="text-green-600 border-green-200 hover:bg-green-50"
-                    disabled={!session.patient?.phone || sendWhatsAppNow.isPending}
-                    onClick={() => {
-                      if (!session.patient?.phone) return;
-                      const patientName = session.patient?.first_name || '';
+                    disabled={!session.patient?.phone || isSendingWhatsAppNow}
+                    onClick={async () => {
+                      if (!session.patient?.phone || !center?.id) return;
+
+                      const patientFirstName = session.patient?.first_name || '';
+                      const patientLastName = session.patient?.last_name || '';
+                      const patientFullName = `${patientFirstName} ${patientLastName}`.trim() || patientFirstName;
+
                       const professionalName = session.professional 
                         ? `${session.professional.first_name} ${session.professional.last_name}` 
                         : '';
+
                       const sessionDate = format(new Date(session.session_date), "d 'de' MMMM", { locale: es });
                       const sessionTime = session.start_time?.slice(0, 5) || '';
-                      
+
                       // Build appointment link using access_token
                       const appointmentLink = session.access_token 
                         ? `${window.location.origin}/cita/${session.access_token}`
                         : window.location.href;
-                      
+
                       // Build message from template
                       let message = DEFAULT_TEMPLATES.whatsapp.notification.whatsapp_message || '';
                       message = message
-                        .replace('{nombre_paciente}', patientName)
+                        .replace('{nombre_paciente}', patientFirstName)
                         .replace('{profesional_nombre}', professionalName)
                         .replace('{fecha}', sessionDate)
                         .replace('{zona_horaria}', sessionTime)
@@ -1570,15 +1578,39 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
                         .replace('{link_sesion}', appointmentLink)
                         .replace('{link_confirmar}', appointmentLink);
 
-                      sendWhatsAppNow.mutate({
-                        phone: session.patient.phone,
-                        message,
-                        patientId: session.patient.id,
-                        sessionId: session.id,
-                      });
+                      setIsSendingWhatsAppNow(true);
+                      try {
+                        const { result, manualLink } = await whatsappDelivery.sendWhatsApp({
+                          phone: session.patient.phone,
+                          message,
+                          patientId: session.patient.id,
+                          patientName: patientFullName,
+                          sessionId: session.id,
+                          centerId: center.id,
+                          messageType: 'notification',
+                        });
+
+                        // Manual fallback: open WhatsApp using configured-friendly behavior
+                        if (!result.autoSent && manualLink) {
+                          await openWhatsAppSmart(
+                            session.patient.phone,
+                            message,
+                            !isMobile ? 'web' : undefined
+                          );
+                        }
+                      } catch (e) {
+                        console.error('Error sending WhatsApp now:', e);
+                        toast({
+                          title: 'Error',
+                          description: 'No se pudo enviar el WhatsApp.',
+                          variant: 'destructive',
+                        });
+                      } finally {
+                        setIsSendingWhatsAppNow(false);
+                      }
                     }}
                   >
-                    {sendWhatsAppNow.isPending ? (
+                    {isSendingWhatsAppNow ? (
                       <Loader2 className="h-4 w-4 mr-1 animate-spin" />
                     ) : (
                       <Send className="h-4 w-4 mr-1" />
