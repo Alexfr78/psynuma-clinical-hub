@@ -94,29 +94,39 @@ serve(async (req) => {
     // Get QR code if session needs connection
     let qrCode = null;
     let sessionStatus = "disconnected";
-    let wasenderSessionId = null;
-    let phoneNumber = null;
+    let wasenderSessionId: string | number | null = null;
+    let phoneNumber: string | null = null;
+    let sessionName: string | null = null;
 
     // Handle the response format - wasenderapi returns data directly or in a data wrapper
     const sessions = sessionData.data || sessionData;
-    
+
     if (Array.isArray(sessions) && sessions.length > 0) {
       const session = sessions[0];
-      wasenderSessionId = session.id;
+      wasenderSessionId = session.id ?? null;
       sessionStatus = session.status || "disconnected";
       phoneNumber = session.phone_number || null;
-      console.log(`Found existing session: ${wasenderSessionId}, status: ${sessionStatus}, phone: ${phoneNumber}`);
+      sessionName = session.name || null;
+      console.log(
+        `Found existing session: ${wasenderSessionId}, status: ${sessionStatus}, phone: ${phoneNumber}`,
+      );
 
-      if (sessionStatus === "need_scan" || sessionStatus === "disconnected" || sessionStatus === "STOPPED") {
+      if (
+        sessionStatus === "need_scan" || sessionStatus === "disconnected" ||
+        sessionStatus === "STOPPED"
+      ) {
         // Request QR code
         console.log("Requesting QR code...");
-        const qrResponse = await fetch(`${WASENDER_API_URL}/whatsapp-sessions/${wasenderSessionId}/qrcode`, {
-          method: "GET",
-          headers: {
-            "Authorization": `Bearer ${wasenderToken}`,
-            "Accept": "application/json",
+        const qrResponse = await fetch(
+          `${WASENDER_API_URL}/whatsapp-sessions/${wasenderSessionId}/qrcode`,
+          {
+            method: "GET",
+            headers: {
+              "Authorization": `Bearer ${wasenderToken}`,
+              "Accept": "application/json",
+            },
           },
-        });
+        );
 
         if (qrResponse.ok) {
           const qrData = await qrResponse.json();
@@ -130,6 +140,9 @@ serve(async (req) => {
     } else {
       // Create a new session if none exists
       console.log("No existing sessions, creating new one...");
+      const newSessionName = `psycma-${profile.center_id.substring(0, 8)}`;
+      sessionName = newSessionName;
+
       const createResponse = await fetch(`${WASENDER_API_URL}/whatsapp-sessions`, {
         method: "POST",
         headers: {
@@ -137,25 +150,28 @@ serve(async (req) => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          name: `psycma-${profile.center_id.substring(0, 8)}`,
+          name: newSessionName,
         }),
       });
 
       if (createResponse.ok) {
         const createData = await createResponse.json();
-        wasenderSessionId = createData.data?.id || createData.id;
+        wasenderSessionId = createData.data?.id || createData.id || null;
         sessionStatus = "need_scan";
         console.log("Created new session:", wasenderSessionId);
 
         // Get QR for new session
         if (wasenderSessionId) {
-          const qrResponse = await fetch(`${WASENDER_API_URL}/whatsapp-sessions/${wasenderSessionId}/qrcode`, {
-            method: "GET",
-            headers: {
-              "Authorization": `Bearer ${wasenderToken}`,
-              "Accept": "application/json",
+          const qrResponse = await fetch(
+            `${WASENDER_API_URL}/whatsapp-sessions/${wasenderSessionId}/qrcode`,
+            {
+              method: "GET",
+              headers: {
+                "Authorization": `Bearer ${wasenderToken}`,
+                "Accept": "application/json",
+              },
             },
-          });
+          );
 
           if (qrResponse.ok) {
             const qrData = await qrResponse.json();
@@ -171,7 +187,9 @@ serve(async (req) => {
     // Upsert session in database
     const upsertData: Record<string, unknown> = {
       center_id: profile.center_id,
-      wasender_session_id: String(wasenderSessionId),
+      professional_id: user.id,
+      wasender_session_id: wasenderSessionId ? String(wasenderSessionId) : null,
+      name: sessionName,
       status: sessionStatus,
       qr_code: qrCode,
       phone_number: phoneNumber,
