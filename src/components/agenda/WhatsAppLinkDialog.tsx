@@ -53,10 +53,12 @@ export function WhatsAppLinkDialog({
   const handleSmartOpen = useCallback(async () => {
     setIsOpening(true);
     try {
-      const result = await openWhatsAppSmart(phone, message);
+      // On desktop we prefer WhatsApp Web to avoid opening the native desktop app.
+      const preferredMethod = !isMobile ? 'web' : undefined;
+      const result = await openWhatsAppSmart(phone, message, preferredMethod);
       if (result.fallback) {
         toast.info('App no detectada', {
-          description: 'Abriendo enlace universal de WhatsApp.',
+          description: 'Abriendo enlace de WhatsApp.',
         });
       }
       setTimeout(() => onOpenChange(false), 500);
@@ -66,7 +68,7 @@ export function WhatsAppLinkDialog({
     } finally {
       setIsOpening(false);
     }
-  }, [phone, message, onOpenChange]);
+  }, [phone, message, onOpenChange, isMobile]);
 
   const handleCopyMessage = useCallback(async () => {
     try {
@@ -144,7 +146,7 @@ export function WhatsAppLinkDialog({
   if (isMobile) {
     return (
       <Drawer open={open} onOpenChange={onOpenChange}>
-        <DrawerContent className="px-4 pb-6">
+        <DrawerContent className="px-4 pb-8 max-h-[90vh] overflow-y-auto">
           <DrawerHeader className="text-left">
             <DrawerTitle className="flex items-center gap-2">
               <MessageCircle className="h-5 w-5 text-primary" />

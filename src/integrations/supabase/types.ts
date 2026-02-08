@@ -3455,7 +3455,7 @@ export type Database = {
             foreignKeyName: "whatsapp_messages_session_id_fkey"
             columns: ["session_id"]
             isOneToOne: false
-            referencedRelation: "whatsapp_sessions"
+            referencedRelation: "sessions"
             referencedColumns: ["id"]
           },
         ]
