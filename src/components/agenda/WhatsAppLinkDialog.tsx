@@ -1,21 +1,27 @@
 import { useState, useCallback } from 'react';
-import { MessageCircle, Loader2, Copy, Check, ExternalLink } from 'lucide-react';
+import { MessageCircle, Loader2, Copy, Check, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle,
+} from '@/components/ui/drawer';
 import { toast } from 'sonner';
 import { 
   generateWhatsAppWebLink, 
   openWhatsAppSmart,
-  isMobileDevice 
 } from '@/lib/whatsapp';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface WhatsAppLinkDialogProps {
   open: boolean;
@@ -34,9 +40,7 @@ export function WhatsAppLinkDialog({
 }: WhatsAppLinkDialogProps) {
   const [isOpening, setIsOpening] = useState(false);
   const [copied, setCopied] = useState(false);
-
-  const webLink = generateWhatsAppWebLink(phone, message);
-  const isMobile = isMobileDevice();
+  const isMobile = useIsMobile();
 
   const handleSmartOpen = useCallback(async () => {
     setIsOpening(true);
@@ -67,6 +71,70 @@ export function WhatsAppLinkDialog({
     }
   }, [message]);
 
+  const dialogContent = (
+    <div className="space-y-4">
+      {/* Message preview */}
+      <div className="rounded-lg border bg-muted/50 p-3">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs font-medium text-muted-foreground">Vista previa del mensaje</span>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 px-2"
+            onClick={handleCopyMessage}
+          >
+            {copied ? (
+              <Check className="h-3.5 w-3.5 text-primary" />
+            ) : (
+              <Copy className="h-3.5 w-3.5" />
+            )}
+          </Button>
+        </div>
+        <ScrollArea className="max-h-32">
+          <p className="text-sm whitespace-pre-wrap">{message}</p>
+        </ScrollArea>
+      </div>
+
+      {/* Send button */}
+      <Button 
+        onClick={handleSmartOpen}
+        disabled={isOpening}
+        className="w-full h-11"
+      >
+        {isOpening ? (
+          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+        ) : (
+          <Send className="h-4 w-4 mr-2" />
+        )}
+        {isOpening ? 'Abriendo...' : 'Enviar WhatsApp'}
+      </Button>
+
+      {/* Phone number */}
+      <p className="text-xs text-muted-foreground text-center">
+        Tel: {phone}
+      </p>
+    </div>
+  );
+
+  if (isMobile) {
+    return (
+      <Drawer open={open} onOpenChange={onOpenChange}>
+        <DrawerContent className="px-4 pb-6">
+          <DrawerHeader className="text-left">
+            <DrawerTitle className="flex items-center gap-2">
+              <MessageCircle className="h-5 w-5 text-primary" />
+              Enviar WhatsApp a {patientName}
+            </DrawerTitle>
+            <DrawerDescription>
+              Abre WhatsApp para enviar el mensaje manualmente.
+            </DrawerDescription>
+          </DrawerHeader>
+          {dialogContent}
+        </DrawerContent>
+      </Drawer>
+    );
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[420px]">
@@ -79,52 +147,7 @@ export function WhatsAppLinkDialog({
             Abre WhatsApp para enviar el mensaje manualmente.
           </DialogDescription>
         </DialogHeader>
-
-        {/* Message preview */}
-        <div className="rounded-lg border bg-muted/50 p-3">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-medium text-muted-foreground">Vista previa del mensaje</span>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 px-2"
-              onClick={handleCopyMessage}
-            >
-              {copied ? (
-                <Check className="h-3.5 w-3.5 text-primary" />
-              ) : (
-                <Copy className="h-3.5 w-3.5" />
-              )}
-            </Button>
-          </div>
-          <ScrollArea className="max-h-32">
-            <p className="text-sm whitespace-pre-wrap">{message}</p>
-          </ScrollArea>
-        </div>
-
-        <div className="space-y-2 pt-2">
-          <Button 
-            onClick={handleSmartOpen}
-            disabled={isOpening}
-            className="w-full h-11"
-          >
-            {isOpening ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : (
-              <ExternalLink className="h-4 w-4 mr-2" />
-            )}
-            {isOpening ? 'Abriendo...' : 'Abrir WhatsApp'}
-          </Button>
-        </div>
-
-        <DialogFooter className="sm:justify-between">
-          <span className="text-xs text-muted-foreground hidden sm:block">
-            Tel: {phone}
-          </span>
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>
-            Cerrar
-          </Button>
-        </DialogFooter>
+        {dialogContent}
       </DialogContent>
     </Dialog>
   );
