@@ -3583,21 +3583,21 @@ export type Database = {
           {
             foreignKeyName: "whatsapp_sessions_center_id_fkey"
             columns: ["center_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "centers"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "whatsapp_sessions_center_id_fkey"
             columns: ["center_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "centers_public"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "whatsapp_sessions_center_id_fkey"
             columns: ["center_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "portal_centers"
             referencedColumns: ["id"]
           },
