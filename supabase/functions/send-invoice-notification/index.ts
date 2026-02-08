@@ -15,6 +15,48 @@ interface RequestBody {
   channel: 'email' | 'whatsapp' | 'both';
 }
 
+// Send WhatsApp via WasenderAPI
+async function sendWhatsAppViaWasender(
+  supabase: ReturnType<typeof createClient>,
+  centerId: string,
+  phone: string,
+  message: string,
+  patientId?: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    console.log(`[send-invoice-notification] Sending WhatsApp via WasenderAPI to ${phone}`);
+    
+    const { data, error } = await supabase.functions.invoke('wasender-send-message', {
+      body: {
+        phone,
+        message,
+        patient_id: patientId,
+        message_type: 'invoice',
+      },
+    });
+
+    if (error) {
+      console.error('[send-invoice-notification] WasenderAPI invoke error:', error);
+      return { success: false, error: error.message };
+    }
+
+    if (!data?.success) {
+      const errorMsg = data?.error || 'Unknown WasenderAPI error';
+      console.error('[send-invoice-notification] WasenderAPI failed:', errorMsg);
+      return { success: false, error: errorMsg };
+    }
+
+    console.log('[send-invoice-notification] WhatsApp sent successfully via WasenderAPI');
+    return { success: true };
+  } catch (error) {
+    console.error('[send-invoice-notification] WasenderAPI exception:', error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    };
+  }
+}
+
 // Send WhatsApp via Meta API
 async function sendWhatsAppViaMetaAPI(
   phone: string,
@@ -100,7 +142,7 @@ Deno.serve(async (req) => {
 
     console.log('Sending invoice notification:', { invoiceId, channel });
 
-    // Fetch invoice with center and patient data
+    // Fetch invoice with center and patient data (including WasenderAPI settings)
     const { data: invoice, error: invoiceError } = await supabase
       .from('invoices')
       .select(`
@@ -111,7 +153,9 @@ Deno.serve(async (req) => {
           custom_domain,
           whatsapp_send_method,
           whatsapp_access_token,
-          whatsapp_phone_number_id
+          whatsapp_phone_number_id,
+          wasender_enabled,
+          wasender_emergency_stop
         )
       `)
       .eq('id', invoiceId)
@@ -138,13 +182,6 @@ Deno.serve(async (req) => {
     let whatsappSent = false;
     let whatsappLink = null;
     let whatsappSendMethod = 'web'; // default
-
-    // Get WhatsApp configuration from center
-    if (center) {
-      whatsappSendMethod = center.whatsapp_send_method || 'web';
-    }
-
-    console.log(`WhatsApp send method: ${whatsappSendMethod}`);
 
     // Send email if requested and email available
     if ((channel === 'email' || channel === 'both') && email) {
@@ -270,9 +307,61 @@ Deno.serve(async (req) => {
         cleanPhone = '34' + cleanPhone;
       }
 
-      if (whatsappSendMethod === 'api' && center?.whatsapp_access_token && center?.whatsapp_phone_number_id) {
-        // Send via Meta API
-        console.log('Sending WhatsApp via Meta API');
+      // Check WasenderAPI connection status
+      let wasenderConnected = false;
+      if (center?.wasender_enabled && !center?.wasender_emergency_stop) {
+        const { data: wasenderSession } = await supabase
+          .from("whatsapp_sessions")
+          .select("status")
+          .eq("center_id", invoice.center_id)
+          .maybeSingle();
+        
+        wasenderConnected = wasenderSession?.status === 'connected';
+      }
+
+      console.log(`[send-invoice-notification] WhatsApp delivery check:`, {
+        wasender_enabled: center?.wasender_enabled,
+        wasender_emergency_stop: center?.wasender_emergency_stop,
+        wasender_connected: wasenderConnected,
+        whatsapp_send_method: center?.whatsapp_send_method,
+      });
+
+      // PRIORITY 1: WasenderAPI (if enabled AND connected AND not emergency stopped)
+      if (center?.wasender_enabled && wasenderConnected && !center?.wasender_emergency_stop) {
+        console.log('[send-invoice-notification] Using WasenderAPI (Priority 1)');
+        whatsappSendMethod = 'wasender';
+        
+        const wasenderResult = await sendWhatsAppViaWasender(
+          supabase,
+          invoice.center_id,
+          phone,
+          message,
+          patientId
+        );
+
+        if (wasenderResult.success) {
+          whatsappSent = true;
+
+          // Log notification
+          await supabase.from('notifications').insert({
+            center_id: invoice.center_id,
+            patient_id: patientId,
+            type: 'whatsapp',
+            recipient: phone,
+            message: message,
+            status: 'sent',
+            sent_at: new Date().toISOString(),
+          });
+        } else {
+          console.warn('[send-invoice-notification] WasenderAPI failed, trying fallback:', wasenderResult.error);
+        }
+      }
+
+      // PRIORITY 2: Meta API (if configured and WasenderAPI didn't succeed)
+      if (!whatsappSent && center?.whatsapp_send_method === 'api' && center?.whatsapp_access_token && center?.whatsapp_phone_number_id) {
+        console.log('[send-invoice-notification] Using Meta API (Priority 2)');
+        whatsappSendMethod = 'api';
+        
         // Decrypt the access token
         const decryptedToken = await decryptSecret(center.whatsapp_access_token);
         const apiResult = await sendWhatsAppViaMetaAPI(
@@ -299,9 +388,12 @@ Deno.serve(async (req) => {
         if (!apiResult.success) {
           console.error('WhatsApp API failed:', apiResult.error);
         }
-      } else {
-        // Web mode - generate link for manual sending
-        console.log('WhatsApp Web mode - generating link');
+      }
+
+      // PRIORITY 3: Web mode - generate link for manual sending
+      if (!whatsappSent) {
+        console.log('[send-invoice-notification] Using WhatsApp Web (Priority 3)');
+        whatsappSendMethod = 'web';
         whatsappLink = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
         whatsappSent = true; // Link was generated successfully
 
