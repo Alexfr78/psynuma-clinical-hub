@@ -94,6 +94,14 @@ export interface Center {
   public_domain: string | null;
   // Bizum phone
   bizum_phone: string | null;
+  // WasenderAPI settings
+  wasender_enabled: boolean | null;
+  wasender_reminder_24h: boolean | null;
+  wasender_reminder_2h: boolean | null;
+  wasender_confirm_booking: boolean | null;
+  wasender_notify_cancellation: boolean | null;
+  wasender_emergency_stop: boolean | null;
+  wasender_auto_reminders: boolean | null;
   created_at: string;
   updated_at: string;
 }

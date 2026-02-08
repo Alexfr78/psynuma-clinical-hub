@@ -1,6 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useProfessionalIntegrations } from "@/hooks/useProfessionalIntegrations";
+import { useCenter } from "@/hooks/useCenter";
 import { MessageSquare, Video, Calendar, CreditCard, Mail, CheckCircle2, XCircle } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -45,6 +46,7 @@ function IntegrationStatus({ icon, name, description, enabled, connected }: Inte
 
 export function IntegrationsOverview() {
   const { integrations, isLoading, isProviderConnected } = useProfessionalIntegrations();
+  const { center } = useCenter();
 
   if (isLoading) {
     return (
@@ -54,7 +56,7 @@ export function IntegrationsOverview() {
           <Skeleton className="h-4 w-72" />
         </CardHeader>
         <CardContent className="space-y-3">
-          {[1, 2, 3, 4, 5].map(i => (
+          {[1, 2, 3, 4, 5, 6].map(i => (
             <Skeleton key={i} className="h-20 w-full" />
           ))}
         </CardContent>
@@ -84,6 +86,13 @@ export function IntegrationsOverview() {
           name="WhatsApp Business"
           description="Envío de notificaciones y recordatorios"
           enabled={integrations?.whatsapp_enabled ?? false}
+        />
+        
+        <IntegrationStatus
+          icon={<MessageSquare className="h-5 w-5" />}
+          name="WasenderAPI"
+          description="Automatización WhatsApp con tu número"
+          enabled={center?.wasender_enabled ?? false}
         />
         
         <IntegrationStatus
