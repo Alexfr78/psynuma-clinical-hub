@@ -264,8 +264,8 @@ export function CreateSessionDialog({
       form.reset();
       onOpenChange(false);
 
-      // Show WhatsApp dialog after closing the main dialog
-      if (notificationResult?.whatsappData) {
+      // Show WhatsApp dialog after closing the main dialog ONLY if not auto-sent
+      if (notificationResult?.whatsappData && !notificationResult?.whatsappAutoSent) {
         setWhatsappDialogData(notificationResult.whatsappData);
       }
     } catch (error) {
