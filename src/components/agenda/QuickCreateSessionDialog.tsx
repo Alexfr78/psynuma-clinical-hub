@@ -274,29 +274,25 @@ export function QuickCreateSessionDialog({
       let selectedSessionTypeId = '';
       let finalEndTime = initialEndTime || '10:00';
       
+      // First try to match the dragged duration to a session type
+      const matchingType = sessionTypes?.find(t => t.duration_minutes === selectedDuration);
+      const firstType = sessionTypes?.[0];
+      
       if (selectedDuration <= 15) {
-        // Simple click: use first session type
-        const firstType = sessionTypes?.[0];
+        // Simple click: use first session type and calculate end time from it
         selectedSessionTypeId = firstType?.id || '';
         if (firstType && initialStartTime) {
           finalEndTime = calculateEndTime(initialStartTime, firstType.duration_minutes);
         }
-      } else if (selectedDuration <= 60) {
-        // Short drag: find session type matching duration
-        const matchingType = sessionTypes?.find(t => t.duration_minutes === selectedDuration);
-        if (matchingType) {
-          selectedSessionTypeId = matchingType.id;
-          if (initialStartTime) {
-            finalEndTime = calculateEndTime(initialStartTime, matchingType.duration_minutes);
-          }
-        } else {
-          // No match: leave empty, keep dragged end time
-          selectedSessionTypeId = '';
-          finalEndTime = initialEndTime || '10:00';
+      } else if (matchingType) {
+        // Dragged duration matches a session type exactly
+        selectedSessionTypeId = matchingType.id;
+        if (initialStartTime) {
+          finalEndTime = calculateEndTime(initialStartTime, matchingType.duration_minutes);
         }
       } else {
-        // Long drag (>60 min): leave empty, keep dragged end time
-        selectedSessionTypeId = '';
+        // No exact match: use first session type but keep dragged end time
+        selectedSessionTypeId = firstType?.id || '';
         finalEndTime = initialEndTime || '10:00';
       }
         
