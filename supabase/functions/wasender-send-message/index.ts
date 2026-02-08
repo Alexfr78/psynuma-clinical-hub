@@ -147,27 +147,35 @@ serve(async (req) => {
     }
 
     // For immediate sending (bypassing queue for single messages)
-    // Check if queue is empty or this is a priority message
     try {
-      // Build message body based on type
+      // Build message body based on type - WasenderAPI uses /api/send-message endpoint
+      // Phone should be in E.164 format without the + sign
       let messageBody: Record<string, unknown>;
       
       if (type === "image" && image_url) {
         messageBody = {
+          sessionId: session.wasender_session_id,
           to: formattedPhone,
-          media_url: image_url,
+          mediaUrl: image_url,
           caption: caption || message,
         };
       } else {
         messageBody = {
+          sessionId: session.wasender_session_id,
           to: formattedPhone,
           text: message,
         };
       }
 
-      // Send via WasenderAPI - use the correct endpoint
+      console.log("Sending message via WasenderAPI:", { 
+        endpoint: `${WASENDER_API_URL}/send-message`,
+        to: formattedPhone,
+        sessionId: session.wasender_session_id 
+      });
+
+      // Send via WasenderAPI - correct endpoint is /api/send-message
       const sendResponse = await fetch(
-        `${WASENDER_API_URL}/whatsapp-sessions/${session.wasender_session_id}/messages/text`,
+        `${WASENDER_API_URL}/send-message`,
         {
           method: "POST",
           headers: {
@@ -177,6 +185,14 @@ serve(async (req) => {
           body: JSON.stringify(messageBody),
         }
       );
+
+      // Check if response is JSON before parsing
+      const contentType = sendResponse.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        const textResponse = await sendResponse.text();
+        console.error("WasenderAPI returned non-JSON response:", textResponse.substring(0, 500));
+        throw new Error(`WasenderAPI error: ${sendResponse.status} - Invalid response format`);
+      }
 
       const sendResult = await sendResponse.json();
       console.log("WasenderAPI send result:", sendResult);
