@@ -95,6 +95,7 @@ serve(async (req) => {
     let qrCode = null;
     let sessionStatus = "disconnected";
     let wasenderSessionId = null;
+    let phoneNumber = null;
 
     // Handle the response format - wasenderapi returns data directly or in a data wrapper
     const sessions = sessionData.data || sessionData;
@@ -103,7 +104,8 @@ serve(async (req) => {
       const session = sessions[0];
       wasenderSessionId = session.id;
       sessionStatus = session.status || "disconnected";
-      console.log(`Found existing session: ${wasenderSessionId}, status: ${sessionStatus}`);
+      phoneNumber = session.phone_number || null;
+      console.log(`Found existing session: ${wasenderSessionId}, status: ${sessionStatus}, phone: ${phoneNumber}`);
 
       if (sessionStatus === "need_scan" || sessionStatus === "disconnected" || sessionStatus === "STOPPED") {
         // Request QR code
@@ -167,27 +169,40 @@ serve(async (req) => {
     }
 
     // Upsert session in database
-    const { error: upsertError } = await supabase
+    const upsertData: Record<string, unknown> = {
+      center_id: profile.center_id,
+      wasender_session_id: String(wasenderSessionId),
+      status: sessionStatus,
+      qr_code: qrCode,
+      phone_number: phoneNumber,
+      updated_at: new Date().toISOString(),
+    };
+    
+    if (sessionStatus === "connected") {
+      upsertData.last_connected_at = new Date().toISOString();
+    }
+
+    const { data: upsertedData, error: upsertError } = await supabase
       .from("whatsapp_sessions")
-      .upsert({
-        center_id: profile.center_id,
-        wasender_session_id: wasenderSessionId,
-        status: sessionStatus,
-        qr_code: qrCode,
-        updated_at: new Date().toISOString(),
-        ...(sessionStatus === "connected" ? { last_connected_at: new Date().toISOString() } : {}),
-      }, {
+      .upsert(upsertData, {
         onConflict: "center_id",
-      });
+      })
+      .select()
+      .single();
 
     if (upsertError) {
       console.error("Error upserting session:", upsertError);
+      // Return the data from WasenderAPI even if DB save fails
+    } else {
+      console.log("Session saved to database:", upsertedData?.id);
     }
 
     return new Response(JSON.stringify({
+      success: true,
       status: sessionStatus,
       qr_code: qrCode,
       session_id: wasenderSessionId,
+      phone_number: phoneNumber,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
