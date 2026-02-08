@@ -90,11 +90,17 @@ export function useWasender() {
       return data;
     },
     onSuccess: (data) => {
+      // Invalidate and refetch session immediately
       queryClient.invalidateQueries({ queryKey: ['whatsapp-session', centerId] });
-      if (data?.qr_code) {
+      
+      if (data?.status === 'connected') {
+        toast.success(`WhatsApp conectado${data.phone_number ? ` (${data.phone_number})` : ''}`);
+      } else if (data?.qr_code) {
         toast.info('Escanea el código QR con tu WhatsApp');
-      } else if (data?.status === 'connected') {
-        toast.success('WhatsApp ya está conectado');
+      } else if (data?.status === 'need_scan') {
+        toast.info('Esperando escaneo del código QR');
+      } else {
+        toast.info('Conexión iniciada');
       }
     },
     onError: (error: Error) => {
