@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { MessageCircle, Loader2, Copy, Check, Send } from 'lucide-react';
+import { MessageCircle, Loader2, Copy, Check, Send, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -15,13 +15,16 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from '@/components/ui/drawer';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { toast } from 'sonner';
 import { 
-  generateWhatsAppWebLink, 
   openWhatsAppSmart,
 } from '@/lib/whatsapp';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useCenter } from '@/hooks/useCenter';
+import { useWasender } from '@/hooks/useWasender';
+import { Link } from 'react-router-dom';
 
 interface WhatsAppLinkDialogProps {
   open: boolean;
@@ -41,6 +44,11 @@ export function WhatsAppLinkDialog({
   const [isOpening, setIsOpening] = useState(false);
   const [copied, setCopied] = useState(false);
   const isMobile = useIsMobile();
+  const { center } = useCenter();
+  const { isConnected: wasenderConnected } = useWasender();
+
+  // Check if WasenderAPI is enabled but not connected (show hint)
+  const showWasenderHint = center?.wasender_enabled && !wasenderConnected;
 
   const handleSmartOpen = useCallback(async () => {
     setIsOpening(true);
@@ -73,6 +81,23 @@ export function WhatsAppLinkDialog({
 
   const dialogContent = (
     <div className="space-y-4">
+      {/* Hint when WasenderAPI is enabled but not connected */}
+      {showWasenderHint && (
+        <Alert variant="default" className="bg-muted/50">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription className="text-xs">
+            Conecta WasenderAPI para envíos automáticos.{' '}
+            <Link 
+              to="/settings" 
+              className="text-primary underline font-medium"
+              onClick={() => onOpenChange(false)}
+            >
+              Ir a Configuración
+            </Link>
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Message preview */}
       <div className="rounded-lg border bg-muted/50 p-3">
         <div className="flex items-center justify-between mb-2">
@@ -126,7 +151,7 @@ export function WhatsAppLinkDialog({
               Enviar WhatsApp a {patientName}
             </DrawerTitle>
             <DrawerDescription>
-              Abre WhatsApp para enviar el mensaje manualmente.
+              Se abrirá WhatsApp para enviar el mensaje.
             </DrawerDescription>
           </DrawerHeader>
           {dialogContent}
@@ -144,7 +169,7 @@ export function WhatsAppLinkDialog({
             Enviar WhatsApp a {patientName}
           </DialogTitle>
           <DialogDescription>
-            Abre WhatsApp para enviar el mensaje manualmente.
+            Se abrirá WhatsApp para enviar el mensaje.
           </DialogDescription>
         </DialogHeader>
         {dialogContent}
