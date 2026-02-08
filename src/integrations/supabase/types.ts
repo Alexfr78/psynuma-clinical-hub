@@ -3352,6 +3352,7 @@ export type Database = {
           media_url: string | null
           message_type: string | null
           metadata: Json | null
+          patient_id: string | null
           phone: string
           read_at: string | null
           retry_count: number | null
@@ -3376,6 +3377,7 @@ export type Database = {
           media_url?: string | null
           message_type?: string | null
           metadata?: Json | null
+          patient_id?: string | null
           phone: string
           read_at?: string | null
           retry_count?: number | null
@@ -3400,6 +3402,7 @@ export type Database = {
           media_url?: string | null
           message_type?: string | null
           metadata?: Json | null
+          patient_id?: string | null
           phone?: string
           read_at?: string | null
           retry_count?: number | null
@@ -3432,6 +3435,20 @@ export type Database = {
             columns: ["center_id"]
             isOneToOne: false
             referencedRelation: "portal_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_messages_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_messages_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients_public"
             referencedColumns: ["id"]
           },
           {
