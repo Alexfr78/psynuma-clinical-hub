@@ -6,7 +6,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const WASENDER_API_URL = "https://api.wasenderapi.com/api/v1";
+const WASENDER_API_URL = "https://www.wasenderapi.com/api";
 
 interface SendMessagePayload {
   phone: string;
@@ -165,9 +165,9 @@ serve(async (req) => {
         };
       }
 
-      // Send via WasenderAPI
+      // Send via WasenderAPI - use the correct endpoint
       const sendResponse = await fetch(
-        `${WASENDER_API_URL}/sessions/${session.wasender_session_id}/send-message`,
+        `${WASENDER_API_URL}/whatsapp-sessions/${session.wasender_session_id}/messages/text`,
         {
           method: "POST",
           headers: {
