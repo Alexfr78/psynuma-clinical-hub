@@ -26,7 +26,7 @@ export default function PublicBooking() {
     config, services, locations, professionals, allowProfessionalSelection,
     loading, error, disabled, fetchConfig, fetchServices, fetchLocations,
     fetchProfessionals, getAvailability, getMonthAvailability, createBooking,
-    submitIntakeRequest
+    submitIntakeRequest, listReferralFilters, getReferralRecommendations
   } = usePublicBooking(centerSlug || '');
 
   const [step, setStep] = useState<Step>('service');
@@ -174,6 +174,8 @@ export default function PublicBooking() {
           centerLogo={config.logoUrl}
           portalSlug={centerSlug || ''}
           onSubmitIntake={submitIntakeRequest}
+          onLoadFilters={listReferralFilters}
+          onGetRecommendations={getReferralRecommendations}
           loading={loading}
         />
       </div>

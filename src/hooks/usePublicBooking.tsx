@@ -82,6 +82,34 @@ interface IntakeRequestData {
   recommendedPartnerIds?: string[];
 }
 
+interface ReferralSpecialty {
+  id: string;
+  name: string;
+}
+
+interface ReferralFilters {
+  specialties: ReferralSpecialty[];
+  provinces: string[];
+  cities: string[];
+}
+
+interface ReferralPartner {
+  id: string;
+  name: string;
+  surname: string | null;
+  publicName: string;
+  description: string | null;
+  website: string | null;
+  phone: string | null;
+  email: string | null;
+  modalities: string[];
+  provinces: string[] | null;
+  cities: string[] | null;
+  specialties: string[] | null;
+}
+
+export type { IntakeRequestData, ReferralFilters, ReferralPartner, ReferralSpecialty };
+
 export function usePublicBooking(centerSlug: string) {
   const [config, setConfig] = useState<CenterConfig | null>(null);
   const [services, setServices] = useState<Service[]>([]);
@@ -298,6 +326,35 @@ export function usePublicBooking(centerSlug: string) {
     }
   }, [invoke]);
 
+  const listReferralFilters = useCallback(async (): Promise<ReferralFilters> => {
+    try {
+      const data = await invoke('list-referral-filters');
+      return {
+        specialties: data.specialties || [],
+        provinces: data.provinces || [],
+        cities: data.cities || []
+      };
+    } catch (err: any) {
+      console.error('[listReferralFilters] Error:', err);
+      return { specialties: [], provinces: [], cities: [] };
+    }
+  }, [invoke]);
+
+  const getReferralRecommendations = useCallback(async (
+    modality: string,
+    specialty: string,
+    province?: string,
+    city?: string
+  ): Promise<ReferralPartner[]> => {
+    try {
+      const data = await invoke('get-referral-recommendations', { modality, specialty, province, city });
+      return data.partners || [];
+    } catch (err: any) {
+      console.error('[getReferralRecommendations] Error:', err);
+      return [];
+    }
+  }, [invoke]);
+
   return {
     config,
     services,
@@ -317,6 +374,8 @@ export function usePublicBooking(centerSlug: string) {
     getBooking,
     cancelBooking,
     rescheduleBooking,
-    submitIntakeRequest
+    submitIntakeRequest,
+    listReferralFilters,
+    getReferralRecommendations
   };
 }
