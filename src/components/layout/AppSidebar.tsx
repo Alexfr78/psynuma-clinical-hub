@@ -55,8 +55,9 @@ const financeNavItems = [
 
 // Items visible to admins only
 const adminOnlyNavItems = [
+  { title: 'Solicitudes', url: '/solicitudes', icon: ClipboardList },
   { title: 'Profesionales', url: '/profesionales', icon: UserCog },
-  { title: 'Auditoría', url: '/auditoria', icon: ClipboardList },
+  { title: 'Auditoría', url: '/auditoria', icon: FileText },
 ];
 
 // Items visible to all users

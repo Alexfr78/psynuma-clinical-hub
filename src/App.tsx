@@ -20,6 +20,7 @@ import Notifications from "./pages/Notifications";
 import Professionals from "./pages/Professionals";
 import Settings from "./pages/Settings";
 import Audit from "./pages/Audit";
+import IntakeRequests from "./pages/IntakeRequests";
 import NotFound from "./pages/NotFound";
 import SessionManagement from "./pages/SessionManagement";
 import Install from "./pages/Install";
@@ -136,6 +137,11 @@ const App = () => (
             <Route path="/auditoria" element={
               <ProtectedRoute requiredRoles={['admin']}>
                 <AppLayout><Audit /></AppLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/solicitudes" element={
+              <ProtectedRoute requiredRoles={['admin']}>
+                <AppLayout><IntakeRequests /></AppLayout>
               </ProtectedRoute>
             } />
             <Route path="/consentimientos" element={
