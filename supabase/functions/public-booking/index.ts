@@ -1430,6 +1430,18 @@ serve(async (req) => {
 
       console.log(`[cancel-booking] success sessionId=${session.id}`);
 
+      // Send patient cancellation notification
+      await queueAndSendPatientBookingNotification({
+        supabase,
+        centerId: sessionFull?.center_id || tokenData.centerId!,
+        patientId: session.patient_id,
+        sessionId: session.id,
+        eventType: 'cancelled',
+        sessionDate: session.session_date,
+        startTime: session.start_time,
+        reason: reason || undefined,
+      });
+
       return new Response(
         JSON.stringify({ success: true, message: "Cita cancelada correctamente" }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
