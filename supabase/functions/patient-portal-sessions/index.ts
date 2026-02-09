@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendAdminAlert, buildAlertMessage } from "../_shared/adminAlerts.ts";
+import { queueAndSendPatientBookingNotification } from "../_shared/bookingPatientNotifications.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -377,6 +378,20 @@ serve(async (req) => {
         });
       }
 
+      // Send patient confirmation notification
+      await queueAndSendPatientBookingNotification({
+        supabase,
+        centerId: session.centerId!,
+        patientId: session.patientId!,
+        sessionId: newSession.id,
+        eventType: 'created',
+        sessionDate,
+        startTime,
+        sessionType: sessionType.name,
+        sessionModality,
+        locationName: location.name,
+      });
+
       return new Response(
         JSON.stringify({ 
           success: true, 
@@ -486,6 +501,18 @@ serve(async (req) => {
           sessionId: sessionId,
         });
       }
+
+      // Send patient cancellation notification
+      await queueAndSendPatientBookingNotification({
+        supabase,
+        centerId: session.centerId!,
+        patientId: session.patientId!,
+        sessionId: sessionId,
+        eventType: 'cancelled',
+        sessionDate: existingSession.session_date,
+        startTime: existingSession.start_time,
+        reason: reason || undefined,
+      });
 
       return new Response(
         JSON.stringify({ success: true, message: "Cita cancelada correctamente" }),

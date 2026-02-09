@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendAdminAlert, buildAlertMessage } from "../_shared/adminAlerts.ts";
+import { queueAndSendPatientBookingNotification } from "../_shared/bookingPatientNotifications.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -1233,6 +1234,21 @@ serve(async (req) => {
 
       console.log(`[create-booking] success sessionId=${newSession.id} status=${status}`);
 
+      // Send patient confirmation notification
+      await queueAndSendPatientBookingNotification({
+        supabase,
+        centerId: center.id,
+        patientId,
+        sessionId: newSession.id,
+        eventType: 'created',
+        sessionDate,
+        startTime,
+        sessionType: sessionType.name,
+        sessionModality,
+        locationName,
+        manageUrl,
+      });
+
       return new Response(
         JSON.stringify({
           success: true,
@@ -1413,6 +1429,18 @@ serve(async (req) => {
       }
 
       console.log(`[cancel-booking] success sessionId=${session.id}`);
+
+      // Send patient cancellation notification
+      await queueAndSendPatientBookingNotification({
+        supabase,
+        centerId: sessionFull?.center_id || tokenData.centerId!,
+        patientId: session.patient_id,
+        sessionId: session.id,
+        eventType: 'cancelled',
+        sessionDate: session.session_date,
+        startTime: session.start_time,
+        reason: reason || undefined,
+      });
 
       return new Response(
         JSON.stringify({ success: true, message: "Cita cancelada correctamente" }),
@@ -1655,6 +1683,19 @@ serve(async (req) => {
       }
 
       console.log(`[reschedule-booking] success sessionId=${session.id} newDate=${newDate}`);
+
+      // Send patient reschedule notification
+      await queueAndSendPatientBookingNotification({
+        supabase,
+        centerId: tokenData.centerId!,
+        patientId: session.patient_id,
+        sessionId: session.id,
+        eventType: 'rescheduled',
+        sessionDate: newDate,
+        startTime: newStartTime,
+        oldDate: session.session_date,
+        oldTime: session.start_time,
+      });
 
       return new Response(
         JSON.stringify({ success: true, message: "Cita reprogramada correctamente" }),

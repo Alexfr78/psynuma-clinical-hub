@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendAdminAlert, buildAlertMessage, formatDateSpanish, formatTime } from "../_shared/adminAlerts.ts";
+import { queueAndSendPatientBookingNotification } from "../_shared/bookingPatientNotifications.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -342,6 +343,22 @@ Deno.serve(async (req) => {
         // Don't fail the reschedule if alert fails
       }
 
+      // Send patient reschedule notification
+      await queueAndSendPatientBookingNotification({
+        supabase,
+        centerId: session.center_id,
+        patientId: session.patient_id,
+        sessionId: session.id,
+        eventType: 'rescheduled',
+        sessionDate: newDate,
+        startTime: newStartTime,
+        sessionType: session.session_type,
+        sessionModality: session.session_modality,
+        locationName: locationName || undefined,
+        oldDate: session.session_date,
+        oldTime: session.start_time,
+      });
+
       return new Response(
         JSON.stringify({ 
           success: true,
@@ -464,6 +481,21 @@ Deno.serve(async (req) => {
         console.error("Error sending admin alert:", alertError);
         // Don't fail the cancellation if alert fails
       }
+
+      // Send patient cancellation notification
+      await queueAndSendPatientBookingNotification({
+        supabase,
+        centerId: session.center_id,
+        patientId: session.patient_id,
+        sessionId: session.id,
+        eventType: 'cancelled',
+        sessionDate: session.session_date,
+        startTime: session.start_time,
+        sessionType: session.session_type,
+        sessionModality: session.session_modality,
+        locationName: locationName || undefined,
+        reason: cancellation_reason || undefined,
+      });
 
       return new Response(
         JSON.stringify({ 
