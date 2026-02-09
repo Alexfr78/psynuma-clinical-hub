@@ -1664,7 +1664,12 @@ serve(async (req) => {
 
     // ===== SUBMIT-INTAKE-REQUEST =====
     if (action === "submit-intake-request") {
-      const { firstName, lastName, email, phone, requestType, modality, city, notes } = params;
+      const { 
+        firstName, lastName, email, phone, requestType, modality, city, notes,
+        // New privacy and referral wizard fields
+        privacyAccepted, privacyPolicyUrl, specialty, referralContext,
+        selectedPartnerId, recommendedPartnerIds
+      } = params;
 
       if (!centerSlug) {
         return new Response(
@@ -1685,6 +1690,55 @@ serve(async (req) => {
           JSON.stringify({ error: "Tipo de solicitud no válido" }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
+      }
+
+      // ===== NEW: Privacy validation =====
+      if (privacyAccepted !== true) {
+        return new Response(
+          JSON.stringify({ error: "Debes aceptar la política de privacidad" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Validate privacy policy URL contains required path
+      const requiredPrivacyPath = "politica-de-privacidad";
+      if (!privacyPolicyUrl || !privacyPolicyUrl.includes(requiredPrivacyPath)) {
+        return new Response(
+          JSON.stringify({ error: "URL de política de privacidad no válida" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // ===== NEW: Referral-specific validations =====
+      if (requestType === "referral") {
+        if (!specialty) {
+          return new Response(
+            JSON.stringify({ error: "La especialidad es obligatoria para derivaciones" }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        // referralContext should contain modality
+        const refContext = referralContext || {};
+        const refModality = refContext.modality || modality;
+        
+        if (!refModality) {
+          return new Response(
+            JSON.stringify({ error: "La modalidad es obligatoria para derivaciones" }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        // If presencial, province or city required
+        if (refModality === "presencial") {
+          const hasLocation = refContext.province || refContext.city || city;
+          if (!hasLocation) {
+            return new Response(
+              JSON.stringify({ error: "Indica tu provincia o ciudad para sesiones presenciales" }),
+              { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+        }
       }
 
       // Get center ID from slug
@@ -1708,7 +1762,7 @@ serve(async (req) => {
         );
       }
 
-      // Insert the intake request
+      // Insert the intake request with new fields
       const { data: intakeRequest, error: insertError } = await supabase
         .from("portal_intake_requests")
         .insert({
@@ -1721,7 +1775,15 @@ serve(async (req) => {
           modality: modality || null,
           city: city || null,
           notes: notes || null,
-          status: "pending"
+          status: "pending",
+          // New fields
+          privacy_accepted: true,
+          privacy_accepted_at: new Date().toISOString(),
+          privacy_policy_url: privacyPolicyUrl,
+          specialty: specialty || null,
+          referral_context: referralContext || null,
+          selected_partner_id: selectedPartnerId || null,
+          recommended_partner_ids: recommendedPartnerIds || null,
         })
         .select()
         .single();
@@ -1734,14 +1796,14 @@ serve(async (req) => {
         );
       }
 
-      console.log(`[submit-intake-request] success requestId=${intakeRequest.id} type=${requestType}`);
+      console.log(`[submit-intake-request] success requestId=${intakeRequest.id} type=${requestType} privacy=true`);
 
       // Send admin alert
       const alertMessage = buildAlertMessage({
         eventType: requestType === 'waitlist' ? 'Nueva solicitud de lista de espera' : 'Nueva solicitud de derivación',
         patientName: `${firstName} ${lastName}`,
         patientEmail: email,
-        ...(modality && { notes: `Modalidad: ${modality}${city ? `, Ciudad: ${city}` : ''}` }),
+        ...(modality && { notes: `Modalidad: ${modality}${city ? `, Ciudad: ${city}` : ''}${specialty ? `, Especialidad: ${specialty}` : ''}` }),
       });
 
       await sendAdminAlert({
@@ -1761,6 +1823,193 @@ serve(async (req) => {
             ? "Te hemos añadido a la lista de espera" 
             : "Hemos recibido tu solicitud de derivación"
         }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // ===== LIST-REFERRAL-FILTERS =====
+    if (action === "list-referral-filters") {
+      if (!centerSlug) {
+        return new Response(
+          JSON.stringify({ error: "centerSlug es requerido" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Get center ID from slug
+      const { data: center, error: centerError } = await supabase
+        .from("centers")
+        .select("id, public_booking_enabled")
+        .eq("portal_slug", centerSlug)
+        .single();
+
+      if (centerError || !center) {
+        return new Response(
+          JSON.stringify({ error: "Centro no encontrado" }),
+          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Get active specialties
+      const { data: specialties, error: specError } = await supabase
+        .from("referral_specialties")
+        .select("id, name")
+        .eq("center_id", center.id)
+        .eq("active", true)
+        .order("priority", { ascending: true })
+        .order("name", { ascending: true });
+
+      if (specError) {
+        console.error("[list-referral-filters] Error fetching specialties:", specError);
+      }
+
+      // Get unique provinces/cities from active presencial partners
+      const { data: partners, error: partnersError } = await supabase
+        .from("referral_partners")
+        .select("provinces, cities, modality")
+        .eq("center_id", center.id)
+        .eq("active", true);
+
+      if (partnersError) {
+        console.error("[list-referral-filters] Error fetching partners:", partnersError);
+      }
+
+      // Extract unique provinces and cities from partners with presencial modality
+      const provincesSet = new Set<string>();
+      const citiesSet = new Set<string>();
+
+      (partners || []).forEach(p => {
+        // Check if partner supports presencial
+        if (p.modality && Array.isArray(p.modality) && p.modality.includes("presencial")) {
+          if (p.provinces && Array.isArray(p.provinces)) {
+            p.provinces.forEach((prov: string) => {
+              if (prov && prov.trim()) provincesSet.add(prov.trim());
+            });
+          }
+          if (p.cities && Array.isArray(p.cities)) {
+            p.cities.forEach((city: string) => {
+              if (city && city.trim()) citiesSet.add(city.trim());
+            });
+          }
+        }
+      });
+
+      const provinces = Array.from(provincesSet).sort();
+      const cities = Array.from(citiesSet).sort();
+
+      console.log(`[list-referral-filters] centerSlug=${centerSlug} specialties=${(specialties || []).length} provinces=${provinces.length} cities=${cities.length}`);
+
+      return new Response(
+        JSON.stringify({
+          specialties: specialties || [],
+          provinces,
+          cities
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // ===== GET-REFERRAL-RECOMMENDATIONS =====
+    if (action === "get-referral-recommendations") {
+      const { modality: reqModality, specialty: reqSpecialty, province: reqProvince, city: reqCity } = params;
+
+      if (!centerSlug) {
+        return new Response(
+          JSON.stringify({ error: "centerSlug es requerido" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      if (!reqModality || !reqSpecialty) {
+        return new Response(
+          JSON.stringify({ error: "modality y specialty son requeridos" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Get center ID from slug
+      const { data: center, error: centerError } = await supabase
+        .from("centers")
+        .select("id, public_booking_enabled")
+        .eq("portal_slug", centerSlug)
+        .single();
+
+      if (centerError || !center) {
+        return new Response(
+          JSON.stringify({ error: "Centro no encontrado" }),
+          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Get active partners
+      const { data: allPartners, error: partnersError } = await supabase
+        .from("referral_partners")
+        .select("id, name, surname, public_name, description, website, phone, email, modality, provinces, cities, specialties, priority")
+        .eq("center_id", center.id)
+        .eq("active", true)
+        .order("priority", { ascending: true });
+
+      if (partnersError) {
+        console.error("[get-referral-recommendations] Error fetching partners:", partnersError);
+        return new Response(
+          JSON.stringify({ error: "Error al obtener recomendaciones" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Filter partners based on criteria
+      const filteredPartners = (allPartners || []).filter(partner => {
+        // Check modality match
+        if (!partner.modality || !Array.isArray(partner.modality)) return false;
+        if (!partner.modality.includes(reqModality)) return false;
+
+        // Check specialty match (required, skip if specialties is empty/null)
+        if (!partner.specialties || !Array.isArray(partner.specialties) || partner.specialties.length === 0) {
+          return false;
+        }
+        const specialtyMatch = partner.specialties.some((s: string) => 
+          s.toLowerCase().trim() === reqSpecialty.toLowerCase().trim()
+        );
+        if (!specialtyMatch) return false;
+
+        // If presencial and location provided, check location match
+        if (reqModality === "presencial" && (reqCity || reqProvince)) {
+          const cityMatch = reqCity && partner.cities && Array.isArray(partner.cities) && 
+            partner.cities.some((c: string) => c.toLowerCase().trim() === reqCity.toLowerCase().trim());
+          
+          const provinceMatch = reqProvince && partner.provinces && Array.isArray(partner.provinces) &&
+            partner.provinces.some((p: string) => p.toLowerCase().trim() === reqProvince.toLowerCase().trim());
+
+          // Partner matches if city OR province matches
+          if (!cityMatch && !provinceMatch) return false;
+        }
+
+        return true;
+      });
+
+      // Limit to 6 results
+      const limitedPartners = filteredPartners.slice(0, 6);
+
+      // Format response
+      const recommendations = limitedPartners.map(p => ({
+        id: p.id,
+        name: p.name,
+        surname: p.surname,
+        publicName: p.public_name || `${p.name}${p.surname ? ' ' + p.surname : ''}`,
+        description: p.description,
+        website: p.website,
+        phone: p.phone,
+        email: p.email,
+        modalities: p.modality,
+        provinces: p.provinces,
+        cities: p.cities,
+        specialties: p.specialties
+      }));
+
+      console.log(`[get-referral-recommendations] centerSlug=${centerSlug} modality=${reqModality} specialty=${reqSpecialty} found=${recommendations.length}`);
+
+      return new Response(
+        JSON.stringify({ partners: recommendations }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
