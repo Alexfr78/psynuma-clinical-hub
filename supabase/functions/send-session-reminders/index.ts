@@ -3,6 +3,47 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { decryptSecret } from "../_shared/crypto.ts";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+const WASENDER_API_URL = "https://www.wasenderapi.com/api";
+
+// Send WhatsApp via WasenderAPI
+async function sendWhatsAppViaWasender(
+  phone: string,
+  message: string,
+  wasenderToken: string,
+  wasenderSessionId: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    let cleanPhone = phone.replace(/\D/g, '');
+    if (cleanPhone.length === 9 && /^[67]/.test(cleanPhone)) {
+      cleanPhone = '34' + cleanPhone;
+    }
+
+    const response = await fetch(
+      `${WASENDER_API_URL}/whatsapp-sessions/${wasenderSessionId}/messages/text`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${wasenderToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          to: cleanPhone,
+          text: message,
+        }),
+      }
+    );
+
+    const data = await response.json();
+
+    if (response.ok && data.success !== false) {
+      return { success: true };
+    }
+
+    return { success: false, error: data.message || data.error || `API Error: ${response.status}` };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+}
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -29,6 +70,9 @@ interface CenterConfig {
   whatsapp_send_method: string | null;
   whatsapp_access_token: string | null;
   whatsapp_phone_number_id: string | null;
+  wasender_enabled: boolean | null;
+  wasender_auto_reminders: boolean | null;
+  wasender_emergency_stop: boolean | null;
 }
 
 interface SessionToRemind {
@@ -276,7 +320,10 @@ serve(async (req) => {
         session_reminder_channels,
         whatsapp_send_method,
         whatsapp_access_token,
-        whatsapp_phone_number_id
+        whatsapp_phone_number_id,
+        wasender_enabled,
+        wasender_auto_reminders,
+        wasender_emergency_stop
       `)
       .eq("session_reminder_enabled", true);
 
@@ -423,42 +470,105 @@ serve(async (req) => {
 
         // Send WhatsApp reminder
         if (channels.whatsapp && patient.phone) {
-          const sendMethod = center.whatsapp_send_method || 'web';
-          
-          if (sendMethod === 'api' && center.whatsapp_access_token && center.whatsapp_phone_number_id) {
-            // Send via Meta API
-            console.log(`Sending WhatsApp reminder via API to ${patient.phone} for session ${session.id}`);
-            // Decrypt the access token
-            const decryptedToken = await decryptSecret(center.whatsapp_access_token);
-            const whatsappResult = await sendWhatsAppViaMetaAPI(
-              patient.phone,
-              message,
-              decryptedToken,
-              center.whatsapp_phone_number_id
-            );
+          // Priority 1: WasenderAPI (automatic via personal number)
+          if (center.wasender_enabled && center.wasender_auto_reminders && !center.wasender_emergency_stop) {
+            const wasenderToken = Deno.env.get("WASENDER_PERSONAL_ACCESS_TOKEN");
             
-            if (whatsappResult.success) {
-              reminderSent = true;
-              console.log(`WhatsApp sent successfully to ${patient.phone}`);
-            } else {
-              console.error(`WhatsApp failed for ${patient.phone}:`, whatsappResult.error);
-              errors++;
-            }
+            if (wasenderToken) {
+              // Get WhatsApp session for this center
+              const { data: whatsappSession } = await supabase
+                .from("whatsapp_sessions")
+                .select("wasender_session_id, status")
+                .eq("center_id", center.id)
+                .single();
 
-            // Create notification record for WhatsApp API
-            await supabase.from("notifications").insert({
-              center_id: center.id,
-              patient_id: patient.id,
-              session_id: session.id,
-              type: 'whatsapp',
-              recipient: patient.phone,
-              message: message,
-              status: whatsappResult.success ? 'sent' : 'failed',
-              sent_at: whatsappResult.success ? new Date().toISOString() : null,
-              error_message: whatsappResult.error || null
-            });
-          } else {
-            // Web mode - create pending notification for manual sending
+              if (whatsappSession?.wasender_session_id && whatsappSession.status === 'connected') {
+                console.log(`Sending WhatsApp reminder via WasenderAPI to ${patient.phone} for session ${session.id}`);
+                const wasenderResult = await sendWhatsAppViaWasender(
+                  patient.phone,
+                  message,
+                  wasenderToken,
+                  whatsappSession.wasender_session_id
+                );
+
+                if (wasenderResult.success) {
+                  reminderSent = true;
+                  console.log(`WhatsApp sent via WasenderAPI to ${patient.phone}`);
+                } else {
+                  console.error(`WasenderAPI failed for ${patient.phone}:`, wasenderResult.error);
+                  errors++;
+                }
+
+                // Create notification record
+                await supabase.from("notifications").insert({
+                  center_id: center.id,
+                  patient_id: patient.id,
+                  session_id: session.id,
+                  type: 'whatsapp',
+                  recipient: patient.phone,
+                  message: message,
+                  status: wasenderResult.success ? 'sent' : 'failed',
+                  sent_at: wasenderResult.success ? new Date().toISOString() : null,
+                  error_message: wasenderResult.error || null
+                });
+
+                // Also record in whatsapp_messages for tracking
+                await supabase.from("whatsapp_messages").insert({
+                  center_id: center.id,
+                  phone: patient.phone.replace(/\D/g, ''),
+                  content: message,
+                  type: 'text',
+                  message_type: 'reminder',
+                  patient_id: patient.id,
+                  session_id: session.id,
+                  status: wasenderResult.success ? 'sent' : 'failed',
+                  sent_at: wasenderResult.success ? new Date().toISOString() : null,
+                  error_message: wasenderResult.success ? null : (wasenderResult.error || null),
+                });
+              } else {
+                console.log(`WasenderAPI session not connected for center ${center.id}, falling back`);
+              }
+            }
+          }
+          
+          // Priority 2: Meta Business API
+          if (!reminderSent) {
+            const sendMethod = center.whatsapp_send_method || 'web';
+            
+            if (sendMethod === 'api' && center.whatsapp_access_token && center.whatsapp_phone_number_id) {
+              console.log(`Sending WhatsApp reminder via Meta API to ${patient.phone} for session ${session.id}`);
+              const decryptedToken = await decryptSecret(center.whatsapp_access_token);
+              const whatsappResult = await sendWhatsAppViaMetaAPI(
+                patient.phone,
+                message,
+                decryptedToken,
+                center.whatsapp_phone_number_id
+              );
+              
+              if (whatsappResult.success) {
+                reminderSent = true;
+                console.log(`WhatsApp sent via Meta API to ${patient.phone}`);
+              } else {
+                console.error(`Meta API failed for ${patient.phone}:`, whatsappResult.error);
+                errors++;
+              }
+
+              await supabase.from("notifications").insert({
+                center_id: center.id,
+                patient_id: patient.id,
+                session_id: session.id,
+                type: 'whatsapp',
+                recipient: patient.phone,
+                message: message,
+                status: whatsappResult.success ? 'sent' : 'failed',
+                sent_at: whatsappResult.success ? new Date().toISOString() : null,
+                error_message: whatsappResult.error || null
+              });
+            }
+          }
+
+          // Priority 3: Web mode (manual fallback)
+          if (!reminderSent) {
             console.log(`Creating pending WhatsApp reminder for ${patient.phone} (web mode) for session ${session.id}`);
             
             await supabase.from("notifications").insert({
@@ -468,11 +578,10 @@ serve(async (req) => {
               type: 'whatsapp',
               recipient: patient.phone,
               message: message,
-              status: 'pending', // Pending for manual send via WhatsApp Web
+              status: 'pending',
               scheduled_for: new Date().toISOString(),
             });
             
-            // Mark as processed even though it's pending manual action
             reminderSent = true;
           }
         }
