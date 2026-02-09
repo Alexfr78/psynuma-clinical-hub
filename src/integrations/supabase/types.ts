@@ -2496,12 +2496,22 @@ export type Database = {
           created_at: string
           email: string
           first_name: string
+          handled_at: string | null
+          handled_by: string | null
           id: string
+          internal_notes: string | null
           last_name: string
           modality: string | null
           notes: string | null
           phone: string | null
+          privacy_accepted: boolean
+          privacy_accepted_at: string | null
+          privacy_policy_url: string | null
+          recommended_partner_ids: string[] | null
+          referral_context: Json | null
           request_type: string
+          selected_partner_id: string | null
+          specialty: string | null
           status: string
           updated_at: string
         }
@@ -2511,12 +2521,22 @@ export type Database = {
           created_at?: string
           email: string
           first_name: string
+          handled_at?: string | null
+          handled_by?: string | null
           id?: string
+          internal_notes?: string | null
           last_name: string
           modality?: string | null
           notes?: string | null
           phone?: string | null
+          privacy_accepted?: boolean
+          privacy_accepted_at?: string | null
+          privacy_policy_url?: string | null
+          recommended_partner_ids?: string[] | null
+          referral_context?: Json | null
           request_type: string
+          selected_partner_id?: string | null
+          specialty?: string | null
           status?: string
           updated_at?: string
         }
@@ -2526,12 +2546,22 @@ export type Database = {
           created_at?: string
           email?: string
           first_name?: string
+          handled_at?: string | null
+          handled_by?: string | null
           id?: string
+          internal_notes?: string | null
           last_name?: string
           modality?: string | null
           notes?: string | null
           phone?: string | null
+          privacy_accepted?: boolean
+          privacy_accepted_at?: string | null
+          privacy_policy_url?: string | null
+          recommended_partner_ids?: string[] | null
+          referral_context?: Json | null
           request_type?: string
+          selected_partner_id?: string | null
+          specialty?: string | null
           status?: string
           updated_at?: string
         }
@@ -2555,6 +2585,20 @@ export type Database = {
             columns: ["center_id"]
             isOneToOne: false
             referencedRelation: "portal_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portal_intake_requests_handled_by_fkey"
+            columns: ["handled_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portal_intake_requests_handled_by_fkey"
+            columns: ["handled_by"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
             referencedColumns: ["id"]
           },
         ]
@@ -2865,6 +2909,140 @@ export type Database = {
             columns: ["professional_id"]
             isOneToOne: false
             referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      referral_partners: {
+        Row: {
+          active: boolean
+          center_id: string
+          cities: string[] | null
+          created_at: string
+          description: string | null
+          email: string | null
+          id: string
+          modality: string[]
+          name: string
+          phone: string | null
+          priority: number
+          provinces: string[] | null
+          public_name: string | null
+          specialties: string[] | null
+          surname: string | null
+          updated_at: string
+          website: string | null
+        }
+        Insert: {
+          active?: boolean
+          center_id: string
+          cities?: string[] | null
+          created_at?: string
+          description?: string | null
+          email?: string | null
+          id?: string
+          modality?: string[]
+          name: string
+          phone?: string | null
+          priority?: number
+          provinces?: string[] | null
+          public_name?: string | null
+          specialties?: string[] | null
+          surname?: string | null
+          updated_at?: string
+          website?: string | null
+        }
+        Update: {
+          active?: boolean
+          center_id?: string
+          cities?: string[] | null
+          created_at?: string
+          description?: string | null
+          email?: string | null
+          id?: string
+          modality?: string[]
+          name?: string
+          phone?: string | null
+          priority?: number
+          provinces?: string[] | null
+          public_name?: string | null
+          specialties?: string[] | null
+          surname?: string | null
+          updated_at?: string
+          website?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "referral_partners_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referral_partners_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referral_partners_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "portal_centers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      referral_specialties: {
+        Row: {
+          active: boolean
+          center_id: string
+          created_at: string
+          id: string
+          name: string
+          priority: number
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          center_id: string
+          created_at?: string
+          id?: string
+          name: string
+          priority?: number
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          center_id?: string
+          created_at?: string
+          id?: string
+          name?: string
+          priority?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "referral_specialties_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referral_specialties_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referral_specialties_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "portal_centers"
             referencedColumns: ["id"]
           },
         ]
