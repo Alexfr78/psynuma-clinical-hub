@@ -53,12 +53,12 @@ export async function handleSessionIntegrations(
   if (isVideoSession) {
     if (session.video_provider === 'zoom' || 
         (professionalIntegrations?.default_video_provider === 'zoom' && !session.video_provider)) {
-      if (professionalIntegrations?.zoom_enabled && zoomConnection?.access_token) {
+      if (professionalIntegrations?.zoom_enabled && zoomConnection?.id) {
         videoProvider = 'zoom';
       }
     } else if (session.video_provider === 'google_meet' || 
                (professionalIntegrations?.default_video_provider === 'google_meet' && !session.video_provider)) {
-      if (professionalIntegrations?.google_meet_enabled && googleConnection?.access_token) {
+      if (professionalIntegrations?.google_meet_enabled && googleConnection?.id) {
         videoProvider = 'google_meet';
       }
     }
@@ -92,7 +92,7 @@ export async function handleSessionIntegrations(
   }
 
   // Create Google Calendar event (with or without Meet)
-  if (professionalIntegrations?.google_calendar_enabled && googleConnection?.access_token) {
+  if (professionalIntegrations?.google_calendar_enabled && googleConnection?.id) {
     const includeMeet = videoProvider === 'google_meet';
     
     try {
