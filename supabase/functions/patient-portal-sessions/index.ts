@@ -378,6 +378,20 @@ serve(async (req) => {
         });
       }
 
+      // Send patient confirmation notification
+      await queueAndSendPatientBookingNotification({
+        supabase,
+        centerId: session.centerId!,
+        patientId: session.patientId!,
+        sessionId: newSession.id,
+        eventType: 'created',
+        sessionDate,
+        startTime,
+        sessionType: sessionType.name,
+        sessionModality,
+        locationName: location.name,
+      });
+
       return new Response(
         JSON.stringify({ 
           success: true, 
