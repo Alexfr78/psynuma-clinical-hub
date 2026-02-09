@@ -488,12 +488,12 @@ export function ClosedAgendaScreen({
                     {filters.cities.length > 0 && (
                       <div className="space-y-2">
                         <Label>Ciudad (opcional)</Label>
-                        <Select value={selectedCity} onValueChange={setSelectedCity}>
+                        <Select value={selectedCity || '__any__'} onValueChange={(v) => setSelectedCity(v === '__any__' ? '' : v)}>
                           <SelectTrigger>
                             <SelectValue placeholder="Selecciona ciudad..." />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="">Cualquier ciudad</SelectItem>
+                            <SelectItem value="__any__">Cualquier ciudad</SelectItem>
                             {filters.cities.map((city) => (
                               <SelectItem key={city} value={city}>{city}</SelectItem>
                             ))}
