@@ -73,6 +73,8 @@ interface CenterConfig {
   wasender_enabled: boolean | null;
   wasender_auto_reminders: boolean | null;
   wasender_emergency_stop: boolean | null;
+  custom_domain: string | null;
+  public_domain: string | null;
 }
 
 interface SessionToRemind {
@@ -84,6 +86,7 @@ interface SessionToRemind {
   notes: string | null;
   session_type: string | null;
   video_call_link: string | null;
+  access_token: string | null;
   center_id: string;
   patient: {
     id: string;
@@ -253,39 +256,63 @@ function buildCenterAddress(center: CenterConfig): string | null {
   return parts.join(', ');
 }
 
-// Build reminder message
-function buildReminderMessage(session: SessionToRemind, center: CenterConfig): string {
+// Build reminder message from template or fallback
+function buildReminderMessage(
+  session: SessionToRemind,
+  center: CenterConfig,
+  template: string | null,
+  baseUrl: string
+): string {
   const professionalName = session.professional.first_name 
     ? `${session.professional.first_name} ${session.professional.last_name || ''}`.trim()
     : 'el profesional';
+  const professionalFirstName = session.professional.first_name || 'el profesional';
+  const professionalLastName = session.professional.last_name || '';
   
+  const sessionLink = session.access_token 
+    ? `${baseUrl}/cita/${session.access_token}` 
+    : '';
+  const videoCallLink = session.video_call_link || '';
+  
+  // Build location/address string
+  let direccion = '';
+  if (session.location) {
+    direccion = `${session.location.name}, ${session.location.street}, ${session.location.city}`;
+  } else {
+    const centerAddress = buildCenterAddress(center);
+    if (centerAddress) {
+      direccion = `${center.name}, ${centerAddress}`;
+    }
+  }
+
+  // If we have a template, use it with variable replacement
+  if (template) {
+    return template
+      .replace(/\{nombre_paciente\}/g, session.patient.first_name)
+      .replace(/\{profesional_nombre\}/g, professionalFirstName)
+      .replace(/\{profesional_apellidos\}/g, professionalLastName)
+      .replace(/\{fecha\}/g, formatDate(session.session_date))
+      .replace(/\{zona_horaria\}/g, formatTime(session.start_time))
+      .replace(/\{sesion_tipo\}/g, session.session_type || '')
+      .replace(/\{direccion\}/g, direccion)
+      .replace(/\{centro_nombre\}/g, center.name)
+      .replace(/\{link_sesion\}/g, sessionLink)
+      .replace(/\{link_confirmar\}/g, sessionLink ? `${sessionLink}?action=confirm` : '')
+      .replace(/\{link_videollamada\}/g, videoCallLink);
+  }
+
+  // Fallback hardcoded message
   let message = `Hola ${session.patient.first_name},\n\n`;
   message += `Te recordamos que tienes una cita programada:\n\n`;
   message += `📅 Fecha: ${formatDate(session.session_date)}\n`;
   message += `🕐 Hora: ${formatTime(session.start_time)}\n`;
   message += `👤 Profesional: ${professionalName}\n`;
-  
-  if (session.session_type) {
-    message += `📋 Tipo: ${session.session_type}\n`;
-  }
-  
-  // Show location if available, otherwise fallback to center address
-  if (session.location) {
-    message += `📍 Lugar: ${session.location.name}, ${session.location.street}, ${session.location.city}\n`;
-  } else {
-    const centerAddress = buildCenterAddress(center);
-    if (centerAddress) {
-      message += `📍 Lugar: ${center.name}, ${centerAddress}\n`;
-    }
-  }
-  
-  if (session.video_call_link) {
-    message += `\n🔗 Enlace de videollamada: ${session.video_call_link}\n`;
-  }
-  
+  if (session.session_type) message += `📋 Tipo: ${session.session_type}\n`;
+  if (direccion) message += `📍 Lugar: ${direccion}\n`;
+  if (videoCallLink) message += `\n🔗 Enlace de videollamada: ${videoCallLink}\n`;
+  if (sessionLink) message += `\n🔗 Ver cita: ${sessionLink}\n`;
   message += `\nSi necesitas cancelar o reprogramar tu cita, por favor contáctanos con la mayor antelación posible.\n\n`;
   message += `Un saludo,\n${center.name}`;
-  
   return message;
 }
 
@@ -323,7 +350,9 @@ serve(async (req) => {
         whatsapp_phone_number_id,
         wasender_enabled,
         wasender_auto_reminders,
-        wasender_emergency_stop
+        wasender_emergency_stop,
+        custom_domain,
+        public_domain
       `)
       .eq("session_reminder_enabled", true);
 
@@ -340,7 +369,23 @@ serve(async (req) => {
       console.log(`Processing center: ${center.name} (${center.id})`);
       
       const channels = center.session_reminder_channels || { email: true, whatsapp: false, sms: false };
-      
+
+      // Fetch WhatsApp reminder template for this center
+      const { data: whatsappTemplate } = await supabase
+        .from("communication_templates")
+        .select("whatsapp_message")
+        .eq("center_id", center.id)
+        .eq("template_type", "reminder")
+        .eq("channel", "whatsapp")
+        .maybeSingle();
+
+      const templateMessage = whatsappTemplate?.whatsapp_message || null;
+
+      // Determine base URL for session links
+      const baseUrl = center.custom_domain 
+        ? `https://${center.custom_domain}` 
+        : (center.public_domain ? `https://${center.public_domain}` : 'https://psycma.lovable.app');
+
       // Calculate the time window for reminders
       const now = new Date();
       let targetTime: Date;
@@ -390,6 +435,7 @@ serve(async (req) => {
           notes,
           session_type,
           video_call_link,
+          access_token,
           center_id,
           patient:patients!sessions_patient_id_fkey(
             id, first_name, last_name, email, phone
@@ -430,7 +476,7 @@ serve(async (req) => {
           continue;
         }
 
-        const message = buildReminderMessage(session, center);
+        const message = buildReminderMessage(session, center, templateMessage, baseUrl);
         const logoUrl = center.invoice_logo_url || center.logo_url;
         let reminderSent = false;
 
