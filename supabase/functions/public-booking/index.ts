@@ -1234,6 +1234,21 @@ serve(async (req) => {
 
       console.log(`[create-booking] success sessionId=${newSession.id} status=${status}`);
 
+      // Send patient confirmation notification
+      await queueAndSendPatientBookingNotification({
+        supabase,
+        centerId: center.id,
+        patientId,
+        sessionId: newSession.id,
+        eventType: 'created',
+        sessionDate,
+        startTime,
+        sessionType: sessionType.name,
+        sessionModality,
+        locationName,
+        manageUrl,
+      });
+
       return new Response(
         JSON.stringify({
           success: true,
