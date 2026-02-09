@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendAdminAlert, buildAlertMessage, formatDateSpanish, formatTime } from "../_shared/adminAlerts.ts";
+import { queueAndSendPatientBookingNotification } from "../_shared/bookingPatientNotifications.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
