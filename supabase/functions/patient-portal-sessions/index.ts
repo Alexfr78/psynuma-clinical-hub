@@ -502,6 +502,18 @@ serve(async (req) => {
         });
       }
 
+      // Send patient cancellation notification
+      await queueAndSendPatientBookingNotification({
+        supabase,
+        centerId: session.centerId!,
+        patientId: session.patientId!,
+        sessionId: sessionId,
+        eventType: 'cancelled',
+        sessionDate: existingSession.session_date,
+        startTime: existingSession.start_time,
+        reason: reason || undefined,
+      });
+
       return new Response(
         JSON.stringify({ success: true, message: "Cita cancelada correctamente" }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }

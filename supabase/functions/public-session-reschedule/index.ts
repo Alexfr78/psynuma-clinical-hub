@@ -482,6 +482,21 @@ Deno.serve(async (req) => {
         // Don't fail the cancellation if alert fails
       }
 
+      // Send patient cancellation notification
+      await queueAndSendPatientBookingNotification({
+        supabase,
+        centerId: session.center_id,
+        patientId: session.patient_id,
+        sessionId: session.id,
+        eventType: 'cancelled',
+        sessionDate: session.session_date,
+        startTime: session.start_time,
+        sessionType: session.session_type,
+        sessionModality: session.session_modality,
+        locationName: locationName || undefined,
+        reason: cancellation_reason || undefined,
+      });
+
       return new Response(
         JSON.stringify({ 
           success: true,

@@ -1684,6 +1684,19 @@ serve(async (req) => {
 
       console.log(`[reschedule-booking] success sessionId=${session.id} newDate=${newDate}`);
 
+      // Send patient reschedule notification
+      await queueAndSendPatientBookingNotification({
+        supabase,
+        centerId: tokenData.centerId!,
+        patientId: session.patient_id,
+        sessionId: session.id,
+        eventType: 'rescheduled',
+        sessionDate: newDate,
+        startTime: newStartTime,
+        oldDate: session.session_date,
+        oldTime: session.start_time,
+      });
+
       return new Response(
         JSON.stringify({ success: true, message: "Cita reprogramada correctamente" }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
