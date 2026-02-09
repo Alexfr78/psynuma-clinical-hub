@@ -5,8 +5,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Loader2, Clock, Users, ArrowRight, X, UserPlus, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
+
+const PRIVACY_POLICY_URL = 'https://psicologosexual.com/politica-de-privacidad/';
 
 interface ClosedAgendaScreenProps {
   centerName: string;
@@ -25,6 +28,9 @@ interface IntakeRequestData {
   modality?: 'online' | 'presencial';
   city?: string;
   notes?: string;
+  // Privacy acceptance fields
+  privacyAccepted: boolean;
+  privacyPolicyUrl: string;
 }
 
 type ScreenStep = 'options' | 'waitlist-form' | 'referral-form' | 'success';
@@ -37,7 +43,8 @@ export function ClosedAgendaScreen({
   loading = false,
 }: ClosedAgendaScreenProps) {
   const [step, setStep] = useState<ScreenStep>('options');
-  const [formData, setFormData] = useState<IntakeRequestData>({
+  const [privacyAccepted, setPrivacyAccepted] = useState(false);
+  const [formData, setFormData] = useState<Omit<IntakeRequestData, 'privacyAccepted' | 'privacyPolicyUrl'>>({
     requestType: 'waitlist',
     firstName: '',
     lastName: '',
@@ -64,9 +71,21 @@ export function ClosedAgendaScreen({
       return;
     }
 
-    const success = await onSubmitIntake(formData);
+    // Privacy validation
+    if (!privacyAccepted) {
+      toast.error('Debes aceptar la política de privacidad');
+      return;
+    }
+
+    const success = await onSubmitIntake({
+      ...formData,
+      privacyAccepted: true,
+      privacyPolicyUrl: PRIVACY_POLICY_URL,
+    });
     if (success) {
       setStep('success');
+      // Reset privacy checkbox for next use
+      setPrivacyAccepted(false);
     }
   };
 
@@ -277,10 +296,34 @@ export function ClosedAgendaScreen({
           />
         </div>
 
+        {/* Privacy acceptance checkbox */}
+        <div className="flex items-start space-x-2 pt-2">
+          <Checkbox
+            id="privacy-accept"
+            checked={privacyAccepted}
+            onCheckedChange={(checked) => setPrivacyAccepted(checked === true)}
+          />
+          <Label htmlFor="privacy-accept" className="text-sm leading-tight cursor-pointer">
+            He leído y acepto la{' '}
+            <a
+              href={PRIVACY_POLICY_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary underline hover:text-primary/80"
+              onClick={(e) => e.stopPropagation()}
+            >
+              Política de Privacidad
+            </a>
+          </Label>
+        </div>
+
         <div className="flex gap-3 pt-4">
           <Button
             variant="outline"
-            onClick={() => setStep('options')}
+            onClick={() => {
+              setStep('options');
+              setPrivacyAccepted(false);
+            }}
             className="flex-1"
           >
             Volver
