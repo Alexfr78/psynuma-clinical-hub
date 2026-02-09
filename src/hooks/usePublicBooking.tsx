@@ -72,6 +72,14 @@ interface IntakeRequestData {
   modality?: 'online' | 'presencial';
   city?: string;
   notes?: string;
+  // Privacy acceptance fields
+  privacyAccepted: boolean;
+  privacyPolicyUrl: string;
+  // Referral wizard fields (optional)
+  specialty?: string;
+  referralContext?: Record<string, any>;
+  selectedPartnerId?: string;
+  recommendedPartnerIds?: string[];
 }
 
 export function usePublicBooking(centerSlug: string) {
@@ -272,6 +280,14 @@ export function usePublicBooking(centerSlug: string) {
         modality: data.modality,
         city: data.city,
         notes: data.notes,
+        // Privacy fields
+        privacyAccepted: data.privacyAccepted,
+        privacyPolicyUrl: data.privacyPolicyUrl,
+        // Referral wizard fields
+        specialty: data.specialty,
+        referralContext: data.referralContext,
+        selectedPartnerId: data.selectedPartnerId,
+        recommendedPartnerIds: data.recommendedPartnerIds,
       });
       return result?.success ?? false;
     } catch (err: any) {
