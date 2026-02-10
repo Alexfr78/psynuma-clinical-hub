@@ -327,23 +327,34 @@ export function PortalBooking({
     const endMinutes = hours * 60 + mins + serviceDuration;
     const endTime = `${Math.floor(endMinutes / 60).toString().padStart(2, '0')}:${(endMinutes % 60).toString().padStart(2, '0')}`;
 
-    const result = await createSession({
-      professionalId: selectedProfessional || undefined,
-      sessionTypeId: selectedSessionType,
-      sessionDate: selectedSlot.date,
-      startTime: selectedSlot.time,
-      endTime,
-      locationId: selectedLocation,
-    });
+    let result: { success: boolean; error?: string; message?: string };
+
+    if (isRescheduleMode && rescheduleSession && rescheduleTarget) {
+      result = await rescheduleSession(
+        rescheduleTarget.sessionId,
+        selectedSlot.date,
+        selectedSlot.time,
+        endTime
+      );
+    } else {
+      result = await createSession({
+        professionalId: selectedProfessional || undefined,
+        sessionTypeId: selectedSessionType,
+        sessionDate: selectedSlot.date,
+        startTime: selectedSlot.time,
+        endTime,
+        locationId: selectedLocation,
+      });
+    }
 
     setSubmitting(false);
 
     if (result.success) {
       setSuccess(true);
-      setSuccessMessage(result.message || 'Cita solicitada correctamente');
-      toast.success(result.message || 'Cita solicitada');
+      setSuccessMessage(result.message || (isRescheduleMode ? 'Cita reprogramada correctamente' : 'Cita solicitada correctamente'));
+      toast.success(result.message || (isRescheduleMode ? 'Cita reprogramada' : 'Cita solicitada'));
     } else {
-      toast.error(result.error || 'Error al solicitar la cita');
+      toast.error(result.error || (isRescheduleMode ? 'Error al reprogramar' : 'Error al solicitar la cita'));
     }
   };
 
