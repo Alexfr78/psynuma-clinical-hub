@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { 
   Users, Plus, Pencil, Trash2, Loader2, Check, X, 
-  Globe, MapPin, ExternalLink, GripVertical, ToggleLeft
+  Globe, MapPin, ExternalLink, GripVertical, ToggleLeft, Link2, Clock, CheckCircle2, XCircle
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -46,6 +46,11 @@ import {
   type ReferralSpecialtyInput,
   type ReferralPartnerInput
 } from '@/hooks/useReferrals';
+import { useReferralRequests, type ReferralPartnerRequest } from '@/hooks/useReferralRequests';
+import { useCenter } from '@/hooks/useCenter';
+import { toast } from 'sonner';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
 
 // ===== SPECIALTY FORM =====
 interface SpecialtyFormProps {

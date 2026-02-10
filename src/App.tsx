@@ -75,6 +75,7 @@ const App = () => (
             <Route path="/reservas/:centerSlug/manage" element={<PublicBookingManage />} />
             <Route path="/pagar/:token" element={<PayDebt />} />
             <Route path="/pago-exitoso" element={<PaymentSuccess />} />
+            <Route path="/derivaciones/:centerSlug/registro" element={<PublicReferralRegister />} />
             
             {/* Protected Routes */}
             <Route path="/dashboard" element={
