@@ -140,7 +140,7 @@ export function PortalAppointments({
             </div>
 
             {/* Actions */}
-            {!isPast && (canCancel || canConfirm) && (
+            {!isPast && (canCancel || canConfirm || canReschedule) && (
               <div className="flex gap-2 pt-2 border-t">
                 {canConfirm && onConfirm && (
                   <Button
@@ -150,6 +150,16 @@ export function PortalAppointments({
                   >
                     <CheckCircle className="h-4 w-4 mr-1" />
                     Confirmar
+                  </Button>
+                )}
+                {canReschedule && onReschedule && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onReschedule(session)}
+                  >
+                    <RefreshCw className="h-4 w-4 mr-1" />
+                    Reprogramar
                   </Button>
                 )}
                 {canCancel && onCancel && (
