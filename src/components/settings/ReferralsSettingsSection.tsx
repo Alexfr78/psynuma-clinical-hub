@@ -502,10 +502,34 @@ export function ReferralsSettingsSection() {
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="partners" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="partners">Profesionales ({partners.length})</TabsTrigger>
-            <TabsTrigger value="specialties">Especialidades ({specialties.length})</TabsTrigger>
-          </TabsList>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <TabsList>
+              <TabsTrigger value="partners">Profesionales ({partners.length})</TabsTrigger>
+              <TabsTrigger value="specialties">Especialidades ({specialties.length})</TabsTrigger>
+              <TabsTrigger value="requests">
+                Solicitudes
+                {requests.filter(r => r.status === 'pending').length > 0 && (
+                  <Badge variant="destructive" className="ml-1.5 h-5 px-1.5 text-xs">
+                    {requests.filter(r => r.status === 'pending').length}
+                  </Badge>
+                )}
+              </TabsTrigger>
+            </TabsList>
+            {center?.portal_slug && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const url = `${window.location.origin}/derivaciones/${center.portal_slug}/registro`;
+                  navigator.clipboard.writeText(url);
+                  toast.success('Enlace copiado al portapapeles');
+                }}
+              >
+                <Link2 className="h-4 w-4 mr-2" />
+                Copiar enlace de registro
+              </Button>
+            )}
+          </div>
 
           {/* PARTNERS TAB */}
           <TabsContent value="partners" className="space-y-4">
