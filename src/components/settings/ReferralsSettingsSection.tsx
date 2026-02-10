@@ -861,6 +861,49 @@ export function ReferralsSettingsSection() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Reject Request Dialog */}
+      <Dialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Rechazar solicitud</DialogTitle>
+            <DialogDescription>
+              Puedes indicar un motivo opcional para el rechazo.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Motivo del rechazo (opcional)</Label>
+              <Textarea
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                placeholder="Indica el motivo..."
+                rows={3}
+              />
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setRejectDialogOpen(false)}>
+                Cancelar
+              </Button>
+              <Button
+                variant="destructive"
+                disabled={rejectRequest.isPending}
+                onClick={() => {
+                  if (rejectingId) {
+                    rejectRequest.mutate(
+                      { id: rejectingId, reason: rejectReason || undefined },
+                      { onSuccess: () => setRejectDialogOpen(false) }
+                    );
+                  }
+                }}
+              >
+                {rejectRequest.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                Rechazar
+              </Button>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
