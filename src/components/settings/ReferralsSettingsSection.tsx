@@ -203,7 +203,7 @@ function PartnerForm({ partner, specialties, onSubmit, onCancel, loading }: Part
   return (
     <form onSubmit={handleSubmit} className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
       {/* Basic info */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Nombre *</Label>
           <Input
@@ -246,7 +246,7 @@ function PartnerForm({ partner, specialties, onSubmit, onCancel, loading }: Part
       <Separator />
 
       {/* Contact */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Email</Label>
           <Input
@@ -379,7 +379,7 @@ function PartnerForm({ partner, specialties, onSubmit, onCancel, loading }: Part
       <Separator />
 
       {/* Priority & Active */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Prioridad</Label>
           <Input
@@ -390,7 +390,7 @@ function PartnerForm({ partner, specialties, onSubmit, onCancel, loading }: Part
           />
           <p className="text-xs text-muted-foreground">Menor = más arriba</p>
         </div>
-        <div className="flex items-center gap-2 pt-6">
+        <div className="flex items-center gap-2 sm:pt-6">
           <Switch
             checked={formData.active}
             onCheckedChange={(checked) => setFormData({ ...formData, active: checked })}
@@ -503,10 +503,10 @@ export function ReferralsSettingsSection() {
       <CardContent>
         <Tabs defaultValue="partners" className="space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-            <TabsList>
-              <TabsTrigger value="partners">Profesionales ({partners.length})</TabsTrigger>
-              <TabsTrigger value="specialties">Especialidades ({specialties.length})</TabsTrigger>
-              <TabsTrigger value="requests">
+            <TabsList className="w-full sm:w-auto flex">
+              <TabsTrigger value="partners" className="flex-1 sm:flex-none text-xs sm:text-sm">Profesionales ({partners.length})</TabsTrigger>
+              <TabsTrigger value="specialties" className="flex-1 sm:flex-none text-xs sm:text-sm">Especialidades ({specialties.length})</TabsTrigger>
+              <TabsTrigger value="requests" className="flex-1 sm:flex-none text-xs sm:text-sm">
                 Solicitudes
                 {requests.filter(r => r.status === 'pending').length > 0 && (
                   <Badge variant="destructive" className="ml-1.5 h-5 px-1.5 text-xs">
@@ -713,7 +713,7 @@ export function ReferralsSettingsSection() {
               <div className="space-y-3">
                 {requests.map(request => (
                   <Card key={request.id} className="p-4">
-                    <div className="flex items-start justify-between gap-4">
+                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-medium">
@@ -728,7 +728,7 @@ export function ReferralsSettingsSection() {
                           </Badge>
                         </div>
                         <div className="text-sm text-muted-foreground mt-1 space-y-0.5">
-                          <p>{request.email}{request.phone ? ` · ${request.phone}` : ''}</p>
+                          <p className="break-all">{request.email}{request.phone ? ` · ${request.phone}` : ''}</p>
                           <div className="flex gap-1 flex-wrap">
                             {request.modality.map(m => (
                               <Badge key={m} variant="outline" className="text-xs">
