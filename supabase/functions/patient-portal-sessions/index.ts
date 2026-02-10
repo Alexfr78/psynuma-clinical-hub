@@ -501,7 +501,26 @@ serve(async (req) => {
           message: alertMessage,
           patientId: session.patientId,
           sessionId: sessionId,
+          professionalId: existingSession.professional_id,
         });
+
+        // Send direct email to professional (independent of admin alerts)
+        if (existingSession.professional_id) {
+          await notifyProfessionalByEmail({
+            supabase,
+            centerId: session.centerId,
+            professionalId: existingSession.professional_id,
+            patientId: session.patientId,
+            sessionId,
+            subject: `Cita cancelada - ${patientData.first_name} ${patientData.last_name} - ${existingSession.session_date}`,
+            message: buildProfessionalCancelMessage({
+              patientName: `${patientData.first_name} ${patientData.last_name}`,
+              sessionDate: existingSession.session_date,
+              sessionTime: existingSession.start_time,
+              reason: reason || undefined,
+            }),
+          });
+        }
       }
 
       // Send patient cancellation notification
