@@ -80,6 +80,8 @@ export function PortalBooking({
   onComplete,
   createSession,
   getAvailability,
+  rescheduleSession,
+  rescheduleTarget,
 }: PortalBookingProps) {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
