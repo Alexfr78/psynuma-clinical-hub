@@ -713,7 +713,7 @@ export function ReferralsSettingsSection() {
               <div className="space-y-3">
                 {requests.map(request => (
                   <Card key={request.id} className="p-4">
-                    <div className="flex items-start justify-between gap-4">
+                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-medium">
@@ -728,7 +728,7 @@ export function ReferralsSettingsSection() {
                           </Badge>
                         </div>
                         <div className="text-sm text-muted-foreground mt-1 space-y-0.5">
-                          <p>{request.email}{request.phone ? ` · ${request.phone}` : ''}</p>
+                          <p className="break-all">{request.email}{request.phone ? ` · ${request.phone}` : ''}</p>
                           <div className="flex gap-1 flex-wrap">
                             {request.modality.map(m => (
                               <Badge key={m} variant="outline" className="text-xs">
