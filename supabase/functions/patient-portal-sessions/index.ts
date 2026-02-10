@@ -727,7 +727,11 @@ serve(async (req) => {
       ).sort((a, b) => a.startTime.localeCompare(b.startTime));
 
       return new Response(
-        JSON.stringify({ slots: uniqueSlots }),
+        JSON.stringify({ 
+          slots: uniqueSlots.map(s => s.startTime),
+          serviceDuration,
+          step: slotDuration
+        }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
