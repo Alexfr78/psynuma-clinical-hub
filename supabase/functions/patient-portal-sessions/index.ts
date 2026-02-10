@@ -809,7 +809,27 @@ serve(async (req) => {
           message: alertMessage,
           patientId: session.patientId,
           sessionId,
+          professionalId: existingSession.professional_id,
         });
+
+        // Send direct email to professional (independent of admin alerts)
+        if (existingSession.professional_id) {
+          await notifyProfessionalByEmail({
+            supabase,
+            centerId: session.centerId,
+            professionalId: existingSession.professional_id,
+            patientId: session.patientId,
+            sessionId,
+            subject: `Cita reprogramada - ${patientData.first_name} ${patientData.last_name} - ${newDate}`,
+            message: buildProfessionalRescheduleMessage({
+              patientName: `${patientData.first_name} ${patientData.last_name}`,
+              oldDate,
+              oldTime,
+              newDate,
+              newTime: newStartTime,
+            }),
+          });
+        }
       }
 
       // Send patient reschedule notification

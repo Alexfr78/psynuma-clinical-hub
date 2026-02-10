@@ -500,6 +500,22 @@ Deno.serve(async (req) => {
         // Don't fail the cancellation if alert fails
       }
 
+      // Send direct email to professional (independent of admin alerts)
+      await notifyProfessionalByEmail({
+        supabase,
+        centerId: session.center_id,
+        professionalId: session.professional_id,
+        patientId: session.patient_id,
+        sessionId: session.id,
+        subject: `Cita cancelada - ${patientName} - ${session.session_date}`,
+        message: buildProfessionalCancelMessage({
+          patientName,
+          sessionDate: session.session_date,
+          sessionTime: session.start_time,
+          reason: cancellation_reason || undefined,
+        }),
+      });
+
       // Send patient cancellation notification
       await queueAndSendPatientBookingNotification({
         supabase,
