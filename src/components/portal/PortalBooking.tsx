@@ -167,6 +167,29 @@ export function PortalBooking({
     }
   };
 
+  // Auto-select values when in reschedule mode
+  useEffect(() => {
+    if (!isRescheduleMode || loading || !rescheduleTarget) return;
+    
+    // Auto-select modality based on session modality
+    const modality: Modality = rescheduleTarget.sessionModality === 'online' || 
+      rescheduleTarget.sessionModality === 'zoom' || 
+      rescheduleTarget.sessionModality === 'google_meet' ? 'online' : 'in_person';
+    setSelectedModality(modality);
+
+    // Auto-select location
+    if (rescheduleTarget.locationId) {
+      setSelectedLocation(rescheduleTarget.locationId);
+    }
+
+    // Auto-select session type by name match
+    const matchingType = sessionTypes.find(t => t.name === rescheduleTarget.sessionType);
+    if (matchingType) {
+      setSelectedSessionType(matchingType.id);
+      setServiceDuration(matchingType.duration_minutes);
+    }
+  }, [isRescheduleMode, loading, rescheduleTarget, sessionTypes]);
+
   // Filter locations by modality - handle null location_type as in_person
   const filteredLocations = locations.filter(loc => {
     const locType = loc.location_type || 'in_person';
