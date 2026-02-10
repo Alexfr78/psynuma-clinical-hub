@@ -242,7 +242,6 @@ export default function PatientPortalDashboard() {
               rescheduleSession={rescheduleSession}
               rescheduleTarget={rescheduleTarget}
             />
-            />
           </TabsContent>
         </Tabs>
       </main>
