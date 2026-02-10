@@ -141,7 +141,7 @@ export function PortalAppointments({
 
             {/* Actions */}
             {!isPast && (canCancel || canConfirm || canReschedule) && (
-              <div className="flex gap-2 pt-2 border-t">
+              <div className="flex flex-wrap gap-2 pt-2 border-t">
                 {canConfirm && onConfirm && (
                   <Button
                     variant="default"
