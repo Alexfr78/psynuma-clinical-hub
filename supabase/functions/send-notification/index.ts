@@ -170,7 +170,7 @@ function generateWhatsAppWebLink(phone: string, message: string): string {
   return `https://wa.me/${cleanPhone}?text=${encodedMessage}`;
 }
 
-// Send WhatsApp via WasenderAPI
+// Send WhatsApp via WasenderAPI (direct HTTP call to avoid auth issues in server-to-server context)
 async function sendWhatsAppViaWasender(
   supabase: ReturnType<typeof createClient>,
   centerId: string,
@@ -179,39 +179,96 @@ async function sendWhatsAppViaWasender(
   patientId?: string,
   sessionId?: string
 ): Promise<{ success: boolean; error?: string }> {
+  const WASENDER_API_URL = "https://www.wasenderapi.com/api";
+  const wasenderApiKey = Deno.env.get("WASENDER_API_KEY");
+
   try {
     console.log(`[send-notification] Sending WhatsApp via WasenderAPI to ${phone}`);
-    
-    // Call the wasender-send-message edge function
-    const { data, error } = await supabase.functions.invoke('wasender-send-message', {
-      body: {
-        phone,
-        message,
+
+    if (!wasenderApiKey) {
+      return { success: false, error: "WASENDER_API_KEY not configured" };
+    }
+
+    // Get active Wasender session for this center
+    const { data: wsSession } = await supabase
+      .from("whatsapp_sessions")
+      .select("wasender_session_id, status")
+      .eq("center_id", centerId)
+      .single();
+
+    if (!wsSession?.wasender_session_id || wsSession.status !== "connected") {
+      return { success: false, error: "WhatsApp session not connected" };
+    }
+
+    // Normalize phone to E.164
+    const trimmedPhone = phone.trim();
+    const isJid = trimmedPhone.includes("@");
+    const normalized = trimmedPhone.replace(/[\s\-()]/g, "");
+    const to = isJid ? normalized : normalized.startsWith("+") ? normalized : `+${normalized}`;
+
+    // Record message in whatsapp_messages
+    const { data: messageRecord } = await supabase
+      .from("whatsapp_messages")
+      .insert({
+        center_id: centerId,
+        phone: to,
+        content: message,
+        type: "text",
+        message_type: "notification",
         patient_id: patientId,
         session_id: sessionId,
-        message_type: 'notification',
+        status: "queued",
+      })
+      .select("id")
+      .single();
+
+    // Send via WasenderAPI directly
+    const sendResponse = await fetch(`${WASENDER_API_URL}/send-message`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${wasenderApiKey}`,
+        "Content-Type": "application/json",
       },
+      body: JSON.stringify({
+        sessionId: wsSession.wasender_session_id,
+        to,
+        text: message,
+      }),
     });
 
-    if (error) {
-      console.error('[send-notification] WasenderAPI invoke error:', error);
-      return { success: false, error: error.message };
+    const contentType = sendResponse.headers.get("content-type");
+    if (!contentType || !contentType.includes("application/json")) {
+      const textResponse = await sendResponse.text();
+      console.error("[send-notification] WasenderAPI non-JSON response:", textResponse.substring(0, 500));
+      if (messageRecord) {
+        await supabase.from("whatsapp_messages").update({ status: "failed", error_message: "Invalid response format" }).eq("id", messageRecord.id);
+      }
+      return { success: false, error: `WasenderAPI error: ${sendResponse.status}` };
     }
 
-    if (!data?.success) {
-      const errorMsg = data?.error || 'Unknown WasenderAPI error';
-      console.error('[send-notification] WasenderAPI failed:', errorMsg);
+    const sendResult = await sendResponse.json();
+    console.log("[send-notification] WasenderAPI result:", sendResult);
+
+    if (sendResponse.ok && sendResult.success !== false) {
+      if (messageRecord) {
+        await supabase.from("whatsapp_messages").update({
+          status: "sent",
+          wasender_message_id: sendResult.data?.id || sendResult.message_id,
+          sent_at: new Date().toISOString(),
+        }).eq("id", messageRecord.id);
+      }
+      console.log("[send-notification] WhatsApp sent successfully via WasenderAPI");
+      return { success: true };
+    } else {
+      const errorMsg = sendResult.message || sendResult.error || "Unknown WasenderAPI error";
+      if (messageRecord) {
+        await supabase.from("whatsapp_messages").update({ status: "failed", error_message: errorMsg }).eq("id", messageRecord.id);
+      }
       return { success: false, error: errorMsg };
     }
-
-    console.log('[send-notification] WhatsApp sent successfully via WasenderAPI');
-    return { success: true };
   } catch (error) {
-    console.error('[send-notification] WasenderAPI exception:', error);
-    return { 
-      success: false, 
-      error: error instanceof Error ? error.message : 'Unknown error' 
-    };
+    console.error("[send-notification] WasenderAPI exception:", error);
+    return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
   }
 }
 
