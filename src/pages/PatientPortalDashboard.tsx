@@ -239,6 +239,9 @@ export default function PatientPortalDashboard() {
               onComplete={handleBookingComplete}
               createSession={createSession}
               getAvailability={getAvailability}
+              rescheduleSession={rescheduleSession}
+              rescheduleTarget={rescheduleTarget}
+            />
             />
           </TabsContent>
         </Tabs>
