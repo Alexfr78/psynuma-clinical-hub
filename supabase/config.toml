@@ -146,3 +146,6 @@ verify_jwt = false
 
 [functions.interpret-emo-results]
 verify_jwt = true
+
+[functions.public-referral-register]
+verify_jwt = false

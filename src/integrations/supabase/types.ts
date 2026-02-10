@@ -2913,6 +2913,117 @@ export type Database = {
           },
         ]
       }
+      referral_partner_requests: {
+        Row: {
+          center_id: string
+          cities: string[] | null
+          created_at: string
+          description: string | null
+          email: string
+          handled_at: string | null
+          handled_by: string | null
+          id: string
+          modality: string[]
+          name: string
+          phone: string | null
+          privacy_accepted: boolean
+          privacy_accepted_at: string | null
+          privacy_policy_url: string | null
+          provinces: string[] | null
+          public_name: string | null
+          rejection_reason: string | null
+          specialties: string[] | null
+          status: string
+          surname: string | null
+          updated_at: string
+          website: string | null
+        }
+        Insert: {
+          center_id: string
+          cities?: string[] | null
+          created_at?: string
+          description?: string | null
+          email: string
+          handled_at?: string | null
+          handled_by?: string | null
+          id?: string
+          modality?: string[]
+          name: string
+          phone?: string | null
+          privacy_accepted?: boolean
+          privacy_accepted_at?: string | null
+          privacy_policy_url?: string | null
+          provinces?: string[] | null
+          public_name?: string | null
+          rejection_reason?: string | null
+          specialties?: string[] | null
+          status?: string
+          surname?: string | null
+          updated_at?: string
+          website?: string | null
+        }
+        Update: {
+          center_id?: string
+          cities?: string[] | null
+          created_at?: string
+          description?: string | null
+          email?: string
+          handled_at?: string | null
+          handled_by?: string | null
+          id?: string
+          modality?: string[]
+          name?: string
+          phone?: string | null
+          privacy_accepted?: boolean
+          privacy_accepted_at?: string | null
+          privacy_policy_url?: string | null
+          provinces?: string[] | null
+          public_name?: string | null
+          rejection_reason?: string | null
+          specialties?: string[] | null
+          status?: string
+          surname?: string | null
+          updated_at?: string
+          website?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "referral_partner_requests_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referral_partner_requests_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referral_partner_requests_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "portal_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referral_partner_requests_handled_by_fkey"
+            columns: ["handled_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referral_partner_requests_handled_by_fkey"
+            columns: ["handled_by"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       referral_partners: {
         Row: {
           active: boolean
@@ -4276,6 +4387,12 @@ export type Database = {
           phone: string
           postal_code: string
           province: string
+        }[]
+      }
+      get_public_referral_specialties: {
+        Args: { center_slug: string }
+        Returns: {
+          name: string
         }[]
       }
       get_session_token: { Args: never; Returns: string }

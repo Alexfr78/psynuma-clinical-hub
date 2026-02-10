@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { 
   Users, Plus, Pencil, Trash2, Loader2, Check, X, 
-  Globe, MapPin, ExternalLink, GripVertical, ToggleLeft
+  Globe, MapPin, ExternalLink, GripVertical, ToggleLeft, Link2, Clock, CheckCircle2, XCircle
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -46,6 +46,11 @@ import {
   type ReferralSpecialtyInput,
   type ReferralPartnerInput
 } from '@/hooks/useReferrals';
+import { useReferralRequests, type ReferralPartnerRequest } from '@/hooks/useReferralRequests';
+import { useCenter } from '@/hooks/useCenter';
+import { toast } from 'sonner';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
 
 // ===== SPECIALTY FORM =====
 interface SpecialtyFormProps {
@@ -412,6 +417,14 @@ export function ReferralsSettingsSection() {
     partners, partnersLoading, createPartner, updatePartner, deletePartner,
   } = useReferrals();
 
+  const { requests, isLoading: requestsLoading, approveRequest, rejectRequest } = useReferralRequests();
+  const { center } = useCenter();
+
+  // Reject dialog state
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [rejectingId, setRejectingId] = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
+
   // Specialty dialog state
   const [specDialogOpen, setSpecDialogOpen] = useState(false);
   const [editingSpec, setEditingSpec] = useState<ReferralSpecialty | null>(null);
@@ -489,10 +502,34 @@ export function ReferralsSettingsSection() {
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="partners" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="partners">Profesionales ({partners.length})</TabsTrigger>
-            <TabsTrigger value="specialties">Especialidades ({specialties.length})</TabsTrigger>
-          </TabsList>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <TabsList>
+              <TabsTrigger value="partners">Profesionales ({partners.length})</TabsTrigger>
+              <TabsTrigger value="specialties">Especialidades ({specialties.length})</TabsTrigger>
+              <TabsTrigger value="requests">
+                Solicitudes
+                {requests.filter(r => r.status === 'pending').length > 0 && (
+                  <Badge variant="destructive" className="ml-1.5 h-5 px-1.5 text-xs">
+                    {requests.filter(r => r.status === 'pending').length}
+                  </Badge>
+                )}
+              </TabsTrigger>
+            </TabsList>
+            {center?.portal_slug && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const url = `${window.location.origin}/derivaciones/${center.portal_slug}/registro`;
+                  navigator.clipboard.writeText(url);
+                  toast.success('Enlace copiado al portapapeles');
+                }}
+              >
+                <Link2 className="h-4 w-4 mr-2" />
+                Copiar enlace de registro
+              </Button>
+            )}
+          </div>
 
           {/* PARTNERS TAB */}
           <TabsContent value="partners" className="space-y-4">
@@ -659,6 +696,96 @@ export function ReferralsSettingsSection() {
               </div>
             )}
           </TabsContent>
+
+          {/* REQUESTS TAB */}
+          <TabsContent value="requests" className="space-y-4">
+            {requestsLoading ? (
+              <div className="space-y-2">
+                {[1, 2, 3].map(i => <Skeleton key={i} className="h-12 w-full" />)}
+              </div>
+            ) : requests.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <Clock className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                <p>No hay solicitudes de registro</p>
+                <p className="text-sm">Comparte el enlace de registro para que profesionales se den de alta</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {requests.map(request => (
+                  <Card key={request.id} className="p-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-medium">
+                            {request.public_name || `${request.name} ${request.surname || ''}`}
+                          </span>
+                          <Badge variant={
+                            request.status === 'pending' ? 'secondary' :
+                            request.status === 'approved' ? 'default' : 'destructive'
+                          }>
+                            {request.status === 'pending' ? 'Pendiente' :
+                             request.status === 'approved' ? 'Aprobada' : 'Rechazada'}
+                          </Badge>
+                        </div>
+                        <div className="text-sm text-muted-foreground mt-1 space-y-0.5">
+                          <p>{request.email}{request.phone ? ` · ${request.phone}` : ''}</p>
+                          <div className="flex gap-1 flex-wrap">
+                            {request.modality.map(m => (
+                              <Badge key={m} variant="outline" className="text-xs">
+                                {m === 'online' ? <Globe className="h-3 w-3 mr-1" /> : <MapPin className="h-3 w-3 mr-1" />}
+                                {m}
+                              </Badge>
+                            ))}
+                            {request.specialties?.map(s => (
+                              <Badge key={s} variant="secondary" className="text-xs">{s}</Badge>
+                            ))}
+                          </div>
+                          {request.description && (
+                            <p className="text-xs mt-1 line-clamp-2">{request.description}</p>
+                          )}
+                          <p className="text-xs">
+                            Enviada: {format(new Date(request.created_at), "d MMM yyyy, HH:mm", { locale: es })}
+                          </p>
+                          {request.rejection_reason && (
+                            <p className="text-xs text-destructive">Motivo: {request.rejection_reason}</p>
+                          )}
+                        </div>
+                      </div>
+                      {request.status === 'pending' && (
+                        <div className="flex gap-1 shrink-0">
+                          <Button
+                            size="sm"
+                            variant="default"
+                            onClick={() => approveRequest.mutate(request)}
+                            disabled={approveRequest.isPending}
+                          >
+                            {approveRequest.isPending ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <CheckCircle2 className="h-4 w-4 mr-1" />
+                            )}
+                            Aprobar
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setRejectingId(request.id);
+                              setRejectReason('');
+                              setRejectDialogOpen(true);
+                            }}
+                          >
+                            <XCircle className="h-4 w-4 mr-1" />
+                            Rechazar
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </TabsContent>
         </Tabs>
       </CardContent>
 
@@ -734,6 +861,49 @@ export function ReferralsSettingsSection() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Reject Request Dialog */}
+      <Dialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Rechazar solicitud</DialogTitle>
+            <DialogDescription>
+              Puedes indicar un motivo opcional para el rechazo.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Motivo del rechazo (opcional)</Label>
+              <Textarea
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                placeholder="Indica el motivo..."
+                rows={3}
+              />
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setRejectDialogOpen(false)}>
+                Cancelar
+              </Button>
+              <Button
+                variant="destructive"
+                disabled={rejectRequest.isPending}
+                onClick={() => {
+                  if (rejectingId) {
+                    rejectRequest.mutate(
+                      { id: rejectingId, reason: rejectReason || undefined },
+                      { onSuccess: () => setRejectDialogOpen(false) }
+                    );
+                  }
+                }}
+              >
+                {rejectRequest.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                Rechazar
+              </Button>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
