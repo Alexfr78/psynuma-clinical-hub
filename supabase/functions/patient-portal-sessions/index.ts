@@ -419,7 +419,7 @@ serve(async (req) => {
       // Verify session belongs to patient
       const { data: existingSession } = await supabase
         .from("sessions")
-        .select("id, patient_id, session_date, start_time, cancellation_policy")
+        .select("id, patient_id, session_date, start_time, cancellation_policy, professional_id")
         .eq("id", sessionId)
         .eq("patient_id", session.patientId)
         .single();
