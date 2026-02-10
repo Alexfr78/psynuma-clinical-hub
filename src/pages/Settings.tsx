@@ -64,7 +64,7 @@ import { EmailIntegrationSection } from '@/components/settings/integrations/Emai
 import { OAuthCredentialsSection } from '@/components/settings/integrations/OAuthCredentialsSection';
 import { AgendaSettingsSection } from '@/components/settings/AgendaSettingsSection';
 import { AdminAlertsSettingsSection } from '@/components/settings/AdminAlertsSettingsSection';
-import { ReferralsSettingsSection } from '@/components/settings/ReferralsSettingsSection'; // kept for potential future use
+
 const centerSchema = z.object({
   name: z.string().min(1, 'El nombre es obligatorio'),
   tax_id: z.string().optional(),
