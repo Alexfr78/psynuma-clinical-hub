@@ -42,6 +42,7 @@ interface PortalAppointmentsProps {
   loading: boolean;
   onCancel?: (sessionId: string) => Promise<void>;
   onConfirm?: (sessionId: string) => Promise<void>;
+  onReschedule?: (session: Session) => void;
   isPast?: boolean;
   emptyMessage?: string;
 }
