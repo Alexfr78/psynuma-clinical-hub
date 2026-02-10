@@ -572,6 +572,252 @@ serve(async (req) => {
       );
     }
 
+    if (action === "reschedule") {
+      const { sessionId, newDate, newStartTime, newEndTime } = params;
+
+      if (!sessionId || !newDate || !newStartTime || !newEndTime) {
+        return new Response(
+          JSON.stringify({ error: "Datos incompletos para reprogramar" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Verify session belongs to patient
+      const { data: existingSession } = await supabase
+        .from("sessions")
+        .select("id, patient_id, session_date, start_time, end_time, status, session_type, session_modality, location_id, professional_id, center_id, cancellation_policy, google_calendar_event_id")
+        .eq("id", sessionId)
+        .eq("patient_id", session.patientId)
+        .single();
+
+      if (!existingSession) {
+        return new Response(
+          JSON.stringify({ error: "Cita no encontrada" }),
+          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Check if session can be rescheduled
+      if (['cancelled', 'completed', 'no_show'].includes(existingSession.status)) {
+        return new Response(
+          JSON.stringify({ error: "Esta cita no se puede reprogramar" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const sessionDateTime = new Date(`${existingSession.session_date}T${existingSession.start_time}`);
+      if (sessionDateTime < new Date()) {
+        return new Response(
+          JSON.stringify({ error: "No se pueden reprogramar citas pasadas" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Check cancellation policy (same rules apply to reschedule)
+      const now = new Date();
+      const hoursUntilSession = (sessionDateTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+      const policyHours: Record<string, number> = {
+        "not_allowed": Infinity,
+        "until_start": 0,
+        "1_hour": 1,
+        "2_hours": 2,
+        "24_hours": 24,
+        "48_hours": 48,
+        "72_hours": 72,
+      };
+      const requiredHours = policyHours[existingSession.cancellation_policy || "24_hours"] || 24;
+      
+      if (hoursUntilSession < requiredHours) {
+        return new Response(
+          JSON.stringify({ 
+            error: requiredHours === Infinity 
+              ? "Esta cita no se puede reprogramar" 
+              : `La cita debe reprogramarse con al menos ${requiredHours} horas de antelación` 
+          }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Validate new slot availability (anti-race-condition)
+      const newSlotStart = timeToMinutes(newStartTime);
+      const newSlotEnd = timeToMinutes(newEndTime);
+      const newDayOfWeek = new Date(newDate).getDay();
+
+      // Check professional availability
+      const { data: profAvailability } = await supabase
+        .from("availability")
+        .select("start_time, end_time")
+        .eq("professional_id", existingSession.professional_id)
+        .eq("day_of_week", newDayOfWeek)
+        .eq("is_available", true);
+
+      const profAvailable = profAvailability?.some(slot => {
+        return newSlotStart >= timeToMinutes(slot.start_time) && newSlotEnd <= timeToMinutes(slot.end_time);
+      });
+
+      if (!profAvailable) {
+        return new Response(
+          JSON.stringify({ error: "Ese horario ya no está disponible" }),
+          { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Check for conflicts with existing sessions (exclude current session)
+      const { data: conflictingSessions } = await supabase
+        .from("sessions")
+        .select("start_time, end_time")
+        .eq("professional_id", existingSession.professional_id)
+        .eq("session_date", newDate)
+        .neq("id", sessionId)
+        .not("status", "in", '("cancelled","no_show")');
+
+      const hasConflict = conflictingSessions?.some(s => {
+        const sStart = timeToMinutes(s.start_time.substring(0, 5));
+        const sEnd = timeToMinutes(s.end_time.substring(0, 5));
+        return newSlotStart < sEnd && newSlotEnd > sStart;
+      });
+
+      if (hasConflict) {
+        return new Response(
+          JSON.stringify({ error: "Ese hueco acaba de ocuparse. Elige otro horario." }),
+          { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Get center config for reschedule_require_confirmation
+      const { data: centerConfig } = await supabase
+        .from("centers")
+        .select("reschedule_require_confirmation, name")
+        .eq("id", session.centerId)
+        .single();
+
+      const newStatus = centerConfig?.reschedule_require_confirmation ? "pending_approval" : "scheduled";
+
+      // Store old values for notification
+      const oldDate = existingSession.session_date;
+      const oldTime = existingSession.start_time;
+
+      // Update session
+      const { data: updatedSession, error: updateError } = await supabase
+        .from("sessions")
+        .update({
+          session_date: newDate,
+          start_time: newStartTime,
+          end_time: newEndTime,
+          status: newStatus,
+        })
+        .eq("id", sessionId)
+        .select("id, session_date, start_time, status")
+        .single();
+
+      if (updateError || !updatedSession) {
+        console.error("Error rescheduling session:", updateError);
+        return new Response(
+          JSON.stringify({ error: "Error al reprogramar la cita" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Sync to Google Calendar
+      if (existingSession.google_calendar_event_id) {
+        try {
+          const { data: patientForGcal } = await supabase
+            .from("patients")
+            .select("first_name, last_name")
+            .eq("id", session.patientId)
+            .single();
+          
+          const patientName = patientForGcal ? `${patientForGcal.first_name} ${patientForGcal.last_name}` : 'Paciente';
+          
+          await fetch(`${supabaseUrl}/functions/v1/update-google-calendar-event`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${supabaseServiceKey}`,
+            },
+            body: JSON.stringify({
+              professional_id: existingSession.professional_id,
+              event_id: existingSession.google_calendar_event_id,
+              psycma_session_id: sessionId,
+              session_date: newDate,
+              start_time: newStartTime,
+              end_time: newEndTime,
+              title: `${existingSession.session_type || 'Sesión'} - ${patientName}`,
+              create_if_not_exists: true,
+            }),
+          });
+        } catch (googleError) {
+          console.error("[PORTAL-RESCHEDULE] Google Calendar sync error:", googleError);
+        }
+      }
+
+      // Get location name for notification
+      let locationName: string | undefined;
+      if (existingSession.location_id) {
+        const { data: loc } = await supabase
+          .from("center_locations")
+          .select("name")
+          .eq("id", existingSession.location_id)
+          .single();
+        locationName = loc?.name || undefined;
+      }
+
+      // Send admin alert
+      const { data: patientData } = await supabase
+        .from("patients")
+        .select("first_name, last_name, email, phone")
+        .eq("id", session.patientId)
+        .single();
+
+      if (patientData && session.centerId) {
+        const alertMessage = buildAlertMessage({
+          eventType: 'Cita reprogramada desde el portal del paciente',
+          patientName: `${patientData.first_name} ${patientData.last_name}`,
+          patientEmail: patientData.email,
+          oldDate,
+          oldTime,
+          newDate,
+          newTime: newStartTime,
+        });
+
+        await sendAdminAlert({
+          supabase,
+          centerId: session.centerId,
+          eventKey: 'portal_rescheduled',
+          subject: `Cita reprogramada (portal) — ${patientData.first_name} ${patientData.last_name} — ${newDate} ${newStartTime}`,
+          message: alertMessage,
+          patientId: session.patientId,
+          sessionId,
+        });
+      }
+
+      // Send patient reschedule notification
+      await queueAndSendPatientBookingNotification({
+        supabase,
+        centerId: session.centerId!,
+        patientId: session.patientId!,
+        sessionId,
+        eventType: 'rescheduled',
+        sessionDate: newDate,
+        startTime: newStartTime,
+        sessionType: existingSession.session_type,
+        sessionModality: existingSession.session_modality,
+        locationName,
+        oldDate,
+        oldTime,
+      });
+
+      return new Response(
+        JSON.stringify({ 
+          success: true,
+          message: centerConfig?.reschedule_require_confirmation 
+            ? "Reprogramación enviada para aprobación" 
+            : "Cita reprogramada correctamente"
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     if (action === "get-availability") {
       const { date, professionalId: requestedProfId, sessionTypeId, locationId } = params;
 
