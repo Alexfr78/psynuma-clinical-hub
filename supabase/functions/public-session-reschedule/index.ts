@@ -344,6 +344,23 @@ Deno.serve(async (req) => {
         // Don't fail the reschedule if alert fails
       }
 
+      // Send direct email to professional (independent of admin alerts)
+      await notifyProfessionalByEmail({
+        supabase,
+        centerId: session.center_id,
+        professionalId: session.professional_id,
+        patientId: session.patient_id,
+        sessionId: session.id,
+        subject: `Cita reprogramada - ${patientName} - ${newDate}`,
+        message: buildProfessionalRescheduleMessage({
+          patientName,
+          oldDate: session.session_date,
+          oldTime: session.start_time,
+          newDate,
+          newTime: newStartTime,
+        }),
+      });
+
       // Send patient reschedule notification
       await queueAndSendPatientBookingNotification({
         supabase,
