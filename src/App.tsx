@@ -38,6 +38,7 @@ import AssessmentResults from "./pages/AssessmentResults";
 import PayDebt from "./pages/PayDebt";
 import PaymentSuccess from "./pages/PaymentSuccess";
 import PublicReferralRegister from "./pages/PublicReferralRegister";
+import Referrals from "./pages/Referrals";
 
 const queryClient = new QueryClient();
 
@@ -129,6 +130,11 @@ const App = () => (
             <Route path="/profesionales" element={
               <ProtectedRoute requiredRoles={['admin']}>
                 <AppLayout><Professionals /></AppLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/derivaciones" element={
+              <ProtectedRoute requiredRoles={['admin']}>
+                <AppLayout><Referrals /></AppLayout>
               </ProtectedRoute>
             } />
             <Route path="/configuracion" element={

@@ -64,7 +64,7 @@ import { EmailIntegrationSection } from '@/components/settings/integrations/Emai
 import { OAuthCredentialsSection } from '@/components/settings/integrations/OAuthCredentialsSection';
 import { AgendaSettingsSection } from '@/components/settings/AgendaSettingsSection';
 import { AdminAlertsSettingsSection } from '@/components/settings/AdminAlertsSettingsSection';
-import { ReferralsSettingsSection } from '@/components/settings/ReferralsSettingsSection';
+
 const centerSchema = z.object({
   name: z.string().min(1, 'El nombre es obligatorio'),
   tax_id: z.string().optional(),
@@ -82,7 +82,7 @@ type SettingsSection =
   | 'centro-ubicaciones'
   | 'centro-agenda'
   | 'centro-portal'
-  | 'centro-derivaciones'
+  
   | 'sesiones-tipos'
   | 'pagos-config'
   | 'consentimientos-config'
@@ -134,7 +134,7 @@ const navItems: NavItem[] = [
   
   // Portal de Pacientes
   { id: 'centro-portal', label: 'Configuración del portal', icon: Settings2, parent: 'Portal de Pacientes' },
-  { id: 'centro-derivaciones', label: 'Derivaciones', icon: Users, parent: 'Portal de Pacientes' },
+  
   { id: 'consentimientos-config', label: 'Consentimientos informados', icon: FileText, parent: 'Portal de Pacientes' },
   
   // Pagos y Facturación
@@ -333,8 +333,6 @@ export default function Settings() {
         return <AgendaSettingsSection />;
       case 'centro-portal':
         return <PortalSettingsSection />;
-      case 'centro-derivaciones':
-        return <ReferralsSettingsSection />;
       case 'sesiones-tipos':
         return <SessionTypesSection />;
       case 'pagos-config':
