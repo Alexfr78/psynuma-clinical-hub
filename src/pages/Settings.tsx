@@ -333,8 +333,6 @@ export default function Settings() {
         return <AgendaSettingsSection />;
       case 'centro-portal':
         return <PortalSettingsSection />;
-      case 'centro-derivaciones':
-        return <ReferralsSettingsSection />;
       case 'sesiones-tipos':
         return <SessionTypesSection />;
       case 'pagos-config':
