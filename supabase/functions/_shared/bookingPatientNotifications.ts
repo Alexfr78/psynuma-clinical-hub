@@ -122,26 +122,23 @@ export async function queueAndSendPatientBookingNotification(args: BookingNotifi
     // Check WhatsApp auto capability
     let canAutoWhatsApp = false;
 
-    // Skip auto WhatsApp if method is 'web' (manual only)
-    if (center.whatsapp_send_method !== 'web') {
-      // Check Wasender
-      if (center.wasender_enabled && !center.wasender_emergency_stop) {
-        const { data: wasenderSession } = await supabase
-          .from("whatsapp_sessions")
-          .select("status")
-          .eq("center_id", centerId)
-          .maybeSingle();
+    // Check Wasender (independent of whatsapp_send_method)
+    if (center.wasender_enabled && !center.wasender_emergency_stop) {
+      const { data: wasenderSession } = await supabase
+        .from("whatsapp_sessions")
+        .select("status")
+        .eq("center_id", centerId)
+        .maybeSingle();
 
-        if (wasenderSession?.status === 'connected') {
-          canAutoWhatsApp = true;
-        }
-      }
-
-      // Check Meta API
-      if (!canAutoWhatsApp && center.whatsapp_send_method === 'api' &&
-        center.whatsapp_access_token && center.whatsapp_phone_number_id) {
+      if (wasenderSession?.status === 'connected') {
         canAutoWhatsApp = true;
       }
+    }
+
+    // Check Meta API (only if Wasender didn't work and method is not 'web')
+    if (!canAutoWhatsApp && center.whatsapp_send_method === 'api' &&
+      center.whatsapp_access_token && center.whatsapp_phone_number_id) {
+      canAutoWhatsApp = true;
     }
 
     // Determine which toggle to check
