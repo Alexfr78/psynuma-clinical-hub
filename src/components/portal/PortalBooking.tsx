@@ -11,6 +11,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
+interface RescheduleTarget {
+  sessionId: string;
+  sessionType: string;
+  sessionModality: string;
+  locationId: string | null;
+}
+
 interface PortalBookingProps {
   centerSlug: string;
   onComplete: () => void;
@@ -28,6 +35,8 @@ interface PortalBookingProps {
     sessionTypeId: string;
     locationId: string;
   }) => Promise<{ slots: string[]; serviceDuration: number; step: number }>;
+  rescheduleSession?: (sessionId: string, newDate: string, newStartTime: string, newEndTime: string) => Promise<{ success: boolean; error?: string; message?: string }>;
+  rescheduleTarget?: RescheduleTarget | null;
 }
 
 interface Professional {
