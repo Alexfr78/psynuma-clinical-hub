@@ -207,6 +207,7 @@ export default function PatientPortalDashboard() {
                   loading={sessionsLoading}
                   onCancel={handleCancel}
                   onConfirm={handleConfirm}
+                  onReschedule={handleReschedule}
                   emptyMessage="No tienes citas próximas"
                 />
               </CardContent>
