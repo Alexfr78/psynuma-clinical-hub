@@ -134,7 +134,7 @@ const navItems: NavItem[] = [
   
   // Portal de Pacientes
   { id: 'centro-portal', label: 'Configuración del portal', icon: Settings2, parent: 'Portal de Pacientes' },
-  { id: 'centro-derivaciones', label: 'Derivaciones', icon: Users, parent: 'Portal de Pacientes' },
+  
   { id: 'consentimientos-config', label: 'Consentimientos informados', icon: FileText, parent: 'Portal de Pacientes' },
   
   // Pagos y Facturación
