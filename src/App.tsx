@@ -37,6 +37,7 @@ import EMOPublic from "./pages/EMOPublic";
 import AssessmentResults from "./pages/AssessmentResults";
 import PayDebt from "./pages/PayDebt";
 import PaymentSuccess from "./pages/PaymentSuccess";
+import PublicReferralRegister from "./pages/PublicReferralRegister";
 
 const queryClient = new QueryClient();
 
