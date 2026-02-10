@@ -673,7 +673,7 @@ export function PortalBooking({
           ) : (
             <Calendar className="h-4 w-4 mr-2" />
           )}
-          Solicitar cita
+          {isRescheduleMode ? 'Reprogramar cita' : 'Solicitar cita'}
         </Button>
       </CardContent>
     </Card>
