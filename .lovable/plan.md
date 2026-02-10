@@ -1,51 +1,72 @@
 
-# Fix: Pantalla en blanco al buscar disponibilidad en el portal del paciente
+
+# Fix: Notificacion WhatsApp no se envia al reservar desde el portal del paciente
 
 ## Problema
-La edge function `patient-portal-sessions` (action `get-availability`) devuelve los slots como objetos `{startTime, endTime}`, pero el componente `PortalBooking` los trata como strings simples (ej: `"09:00"`). Cuando React intenta renderizar un objeto como texto, lanza un error y la pantalla se queda en blanco.
-
-Ademas, la respuesta no incluye `serviceDuration` ni `step`, que el frontend espera.
+Al reservar cita desde el portal del paciente, solo llega el email pero no el WhatsApp, a pesar de tener Wasender conectado y el toggle `wasender_confirm_booking` activado.
 
 ## Causa raiz
-Linea 729 de `patient-portal-sessions/index.ts`:
-```
-JSON.stringify({ slots: uniqueSlots })
-```
-Donde `uniqueSlots` es `[{startTime: "09:00", endTime: "10:00"}, ...]`
+En el archivo `supabase/functions/_shared/bookingPatientNotifications.ts`, la logica de seleccion de canal tiene un bloqueo incorrecto:
 
-Pero `PortalBooking.tsx` linea 579 renderiza cada slot directamente como texto: `{slot}` esperando un string.
+```
+if (center.whatsapp_send_method !== 'web') {
+  // Solo aqui se comprueba Wasender...
+}
+```
+
+Tu centro tiene `whatsapp_send_method = 'web'` (porque no usas la API de Meta), asi que el sistema salta completamente la comprobacion de Wasender. El resultado es que `canAutoWhatsApp` queda en `false` y el sistema hace fallback a email.
+
+El problema es que `'web'` se refiere al metodo manual (enlaces wa.me), pero Wasender es un canal automatico independiente que deberia funcionar sin importar ese ajuste.
 
 ## Solucion
 
-### Archivo a modificar: `supabase/functions/patient-portal-sessions/index.ts`
+### Archivo: `supabase/functions/_shared/bookingPatientNotifications.ts`
 
-Cambiar la respuesta del action `get-availability` (linea ~729) para:
-1. Devolver `slots` como array de strings (solo `startTime`): `uniqueSlots.map(s => s.startTime)`
-2. Incluir `serviceDuration` y `step` en la respuesta
+Separar la comprobacion de Wasender del bloqueo por `whatsapp_send_method`. Wasender siempre debe evaluarse si esta habilitado y conectado. Solo la comprobacion de Meta API debe respetar el filtro `whatsapp_send_method`.
 
-Cambio concreto:
-```typescript
-// ANTES
-return new Response(
-  JSON.stringify({ slots: uniqueSlots }),
-  { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-);
+Logica actualizada:
 
-// DESPUES
-return new Response(
-  JSON.stringify({ 
-    slots: uniqueSlots.map(s => s.startTime),
-    serviceDuration,
-    step: slotDuration
-  }),
-  { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-);
+1. Comprobar Wasender siempre (si `wasender_enabled` y no `wasender_emergency_stop` y sesion conectada)
+2. Comprobar Meta API solo si `whatsapp_send_method` NO es `'web'`
+
+### Cambio concreto
+
+```
+// ANTES (bloquea todo si method es 'web')
+if (center.whatsapp_send_method !== 'web') {
+  // Check Wasender
+  if (center.wasender_enabled && !center.wasender_emergency_stop) { ... }
+  // Check Meta API
+  if (!canAutoWhatsApp && center.whatsapp_send_method === 'api' && ...) { ... }
+}
+
+// DESPUES (Wasender se evalua siempre, Meta API respeta el filtro)
+// Check Wasender (independent of whatsapp_send_method)
+if (center.wasender_enabled && !center.wasender_emergency_stop) {
+  const { data: wasenderSession } = await supabase
+    .from("whatsapp_sessions")
+    .select("status")
+    .eq("center_id", centerId)
+    .maybeSingle();
+
+  if (wasenderSession?.status === 'connected') {
+    canAutoWhatsApp = true;
+  }
+}
+
+// Check Meta API (only if not 'web' and Wasender didn't work)
+if (!canAutoWhatsApp && center.whatsapp_send_method === 'api' &&
+    center.whatsapp_access_token && center.whatsapp_phone_number_id) {
+  canAutoWhatsApp = true;
+}
 ```
 
 ### Despliegue
-- Redesplegar `patient-portal-sessions`
+- Redesplegar `patient-portal-sessions` (que importa este helper compartido)
+- Tambien redesplegar cualquier otra funcion que use este helper: `public-booking`, `public-session-reschedule`
 
 ## Impacto
-- Corrige la pantalla en blanco al navegar semanas con disponibilidad
-- No afecta ninguna otra funcionalidad
-- Un solo cambio de 3 lineas en un archivo
+- Corrige el envio automatico de WhatsApp via Wasender al reservar desde el portal
+- No afecta centros que usen Meta API (ya funcionaban)
+- No afecta centros sin Wasender (seguiran usando email como fallback)
+
