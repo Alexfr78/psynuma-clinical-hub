@@ -354,6 +354,7 @@ export function usePatientPortal(centerSlug?: string) {
     createSession,
     cancelSession,
     confirmSession,
+    rescheduleSession,
     getAvailability,
   };
 }
