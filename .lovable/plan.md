@@ -1,96 +1,51 @@
 
-# Confirmaciones automaticas al paciente (crear/reprogramar/cancelar cita)
+# Fix: Pantalla en blanco al buscar disponibilidad en el portal del paciente
 
-## Resumen
-Implementar el envio automatico de un mensaje de confirmacion al paciente cuando se crea, reprograma o cancela una cita desde las 3 vias publicas/portal: `public-booking`, `patient-portal-sessions` y `public-session-reschedule`. Se reutiliza la infraestructura existente (`notifications` + `send-notification`).
+## Problema
+La edge function `patient-portal-sessions` (action `get-availability`) devuelve los slots como objetos `{startTime, endTime}`, pero el componente `PortalBooking` los trata como strings simples (ej: `"09:00"`). Cuando React intenta renderizar un objeto como texto, lanza un error y la pantalla se queda en blanco.
 
-## Arquitectura
+Ademas, la respuesta no incluye `serviceDuration` ni `step`, que el frontend espera.
 
-El flujo sera:
+## Causa raiz
+Linea 729 de `patient-portal-sessions/index.ts`:
+```
+JSON.stringify({ slots: uniqueSlots })
+```
+Donde `uniqueSlots` es `[{startTime: "09:00", endTime: "10:00"}, ...]`
 
-1. Una Edge Function (public-booking, patient-portal-sessions, public-session-reschedule) completa la operacion principal (crear/reprogramar/cancelar)
-2. Llama al helper compartido `queueAndSendPatientBookingNotification`
-3. El helper determina el canal (WhatsApp automatico o Email), construye el mensaje, inserta en `notifications` y llama a `send-notification`
-4. Si falla el envio, no se interrumpe la operacion principal
+Pero `PortalBooking.tsx` linea 579 renderiza cada slot directamente como texto: `{slot}` esperando un string.
 
-## Archivos a crear
+## Solucion
 
-### 1. `supabase/functions/_shared/bookingPatientNotifications.ts`
+### Archivo a modificar: `supabase/functions/patient-portal-sessions/index.ts`
 
-Helper compartido que exporta `queueAndSendPatientBookingNotification(args)`.
+Cambiar la respuesta del action `get-availability` (linea ~729) para:
+1. Devolver `slots` como array de strings (solo `startTime`): `uniqueSlots.map(s => s.startTime)`
+2. Incluir `serviceDuration` y `step` en la respuesta
 
-Logica interna:
-- Carga datos del centro (name, portal_slug, custom_domain, public_domain, wasender_enabled, wasender_emergency_stop, wasender_confirm_booking, wasender_notify_cancellation, whatsapp_send_method, whatsapp_access_token, whatsapp_phone_number_id)
-- Carga datos del paciente (first_name, last_name, email, phone)
-- Opcionalmente carga datos de la sesion (session_date, start_time, session_type, session_modality, location)
-- Determina canal preferido:
-  - `canAutoWhatsApp` = (wasender_enabled AND NOT wasender_emergency_stop AND whatsapp_sessions.status='connected') OR (whatsapp_send_method='api' AND credenciales configuradas)
-  - Si `whatsapp_send_method='web'` => canAutoWhatsApp = false
-  - Para created/rescheduled: usa WhatsApp si canAutoWhatsApp AND patient.phone AND wasender_confirm_booking=true; si no, email
-  - Para cancelled: usa WhatsApp si canAutoWhatsApp AND patient.phone AND wasender_notify_cancellation=true; si no, email
-- Construye subject + message segun eventType (created/rescheduled/cancelled)
-- Inserta en tabla `notifications` con status='pending'
-- Invoca `send-notification` con el notificationId
-- Todo envuelto en try/catch para no romper la operacion principal
+Cambio concreto:
+```typescript
+// ANTES
+return new Response(
+  JSON.stringify({ slots: uniqueSlots }),
+  { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+);
 
-## Archivos a modificar
-
-### 2. `supabase/functions/public-booking/index.ts`
-
-Insertar llamada al helper en 3 puntos:
-
-- **create-booking** (linea ~1234, tras generar manageUrl): llamar con eventType='created' y manageUrl
-- **reschedule-booking** (linea ~1657, tras exito del update): llamar con eventType='rescheduled', incluyendo oldDate/oldTime y newDate/newTime
-- **cancel-booking** (linea ~1415, tras exito de la cancelacion): llamar con eventType='cancelled' y reason
-
-### 3. `supabase/functions/patient-portal-sessions/index.ts`
-
-- **create** (linea ~378, tras crear sesion): llamar con eventType='created'
-- **cancel** (linea ~465, tras cancelar): llamar con eventType='cancelled' y reason
-
-### 4. `supabase/functions/public-session-reschedule/index.ts`
-
-- **reschedule** (linea ~344, tras exito del update y Google sync): llamar con eventType='rescheduled', incluyendo oldDate/oldTime y newDate/newTime
-- **cancel** (linea ~467, tras exito de la cancelacion): llamar con eventType='cancelled' y cancellation_reason
-
-## Detalles tecnicos
-
-### Firma del helper
-
-```text
-queueAndSendPatientBookingNotification({
-  supabase,           // Service role client
-  centerId,           // string
-  patientId,          // string
-  sessionId,          // string
-  eventType,          // 'created' | 'rescheduled' | 'cancelled'
-  sessionDate?,       // string (YYYY-MM-DD)
-  startTime?,         // string (HH:MM)
-  sessionType?,       // string
-  sessionModality?,   // string
-  locationName?,      // string
-  oldDate?,           // string (para rescheduled)
-  oldTime?,           // string (para rescheduled)
-  reason?,            // string (para cancelled)
-  manageUrl?,         // string (URL relativa de gestion)
-})
+// DESPUES
+return new Response(
+  JSON.stringify({ 
+    slots: uniqueSlots.map(s => s.startTime),
+    serviceDuration,
+    step: slotDuration
+  }),
+  { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+);
 ```
 
-### Mensajes generados
+### Despliegue
+- Redesplegar `patient-portal-sessions`
 
-- **created**: "Hola {Nombre}, tu cita en {Centro} ha quedado registrada. Fecha: {fecha} a las {hora}. Tipo: {tipo}. Modalidad: {modalidad}. {enlace de gestion si existe}"
-- **rescheduled**: "Hola {Nombre}, tu cita en {Centro} ha sido reprogramada. Antes: {oldDate} a las {oldTime}. Ahora: {newDate} a las {newTime}."
-- **cancelled**: "Hola {Nombre}, tu cita en {Centro} del {fecha} a las {hora} ha sido cancelada. {motivo si existe}"
-
-### Seguridad y robustez
-
-- El helper esta completamente envuelto en try/catch; si falla, solo loguea el error con prefijo `[patient-confirmation]`
-- No se duplican notificaciones: solo se llama desde backend, nunca desde frontend
-- No se modifica la logica de recordatorios existente (send-session-reminders)
-- No se requieren migraciones de base de datos: las columnas `wasender_confirm_booking` y `wasender_notify_cancellation` ya existen en la tabla `centers`
-
-### Edge Functions a redesplegar
-
-- public-booking
-- patient-portal-sessions
-- public-session-reschedule
+## Impacto
+- Corrige la pantalla en blanco al navegar semanas con disponibilidad
+- No afecta ninguna otra funcionalidad
+- Un solo cambio de 3 lineas en un archivo
