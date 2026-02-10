@@ -379,7 +379,7 @@ function PartnerForm({ partner, specialties, onSubmit, onCancel, loading }: Part
       <Separator />
 
       {/* Priority & Active */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Prioridad</Label>
           <Input
@@ -390,7 +390,7 @@ function PartnerForm({ partner, specialties, onSubmit, onCancel, loading }: Part
           />
           <p className="text-xs text-muted-foreground">Menor = más arriba</p>
         </div>
-        <div className="flex items-center gap-2 pt-6">
+        <div className="flex items-center gap-2 sm:pt-6">
           <Switch
             checked={formData.active}
             onCheckedChange={(checked) => setFormData({ ...formData, active: checked })}
