@@ -168,7 +168,7 @@ export default function PatientPortalDashboard() {
             <Button 
               className="w-full" 
               size="lg"
-              onClick={() => setActiveTab('booking')}
+              onClick={() => { setRescheduleTarget(null); setActiveTab('booking'); }}
             >
               <CalendarPlus className="h-5 w-5 mr-2" />
               Solicitar nueva cita
