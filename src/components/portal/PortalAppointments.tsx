@@ -1,6 +1,6 @@
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Calendar, Clock, User, MapPin, Loader2, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+import { Calendar, Clock, User, MapPin, Loader2, CheckCircle, XCircle, AlertCircle, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -42,6 +42,7 @@ interface PortalAppointmentsProps {
   loading: boolean;
   onCancel?: (sessionId: string) => Promise<void>;
   onConfirm?: (sessionId: string) => Promise<void>;
+  onReschedule?: (session: Session) => void;
   isPast?: boolean;
   emptyMessage?: string;
 }
@@ -60,6 +61,7 @@ export function PortalAppointments({
   loading,
   onCancel,
   onConfirm,
+  onReschedule,
   isPast = false,
   emptyMessage = 'No hay citas',
 }: PortalAppointmentsProps) {
@@ -87,6 +89,7 @@ export function PortalAppointments({
         const StatusIcon = status.icon;
         const canCancel = !isPast && ['scheduled', 'confirmed', 'pending_approval'].includes(session.status);
         const canConfirm = !isPast && session.status === 'scheduled';
+        const canReschedule = !isPast && ['scheduled', 'confirmed'].includes(session.status);
 
         return (
           <div
@@ -137,7 +140,7 @@ export function PortalAppointments({
             </div>
 
             {/* Actions */}
-            {!isPast && (canCancel || canConfirm) && (
+            {!isPast && (canCancel || canConfirm || canReschedule) && (
               <div className="flex gap-2 pt-2 border-t">
                 {canConfirm && onConfirm && (
                   <Button
@@ -147,6 +150,16 @@ export function PortalAppointments({
                   >
                     <CheckCircle className="h-4 w-4 mr-1" />
                     Confirmar
+                  </Button>
+                )}
+                {canReschedule && onReschedule && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onReschedule(session)}
+                  >
+                    <RefreshCw className="h-4 w-4 mr-1" />
+                    Reprogramar
                   </Button>
                 )}
                 {canCancel && onCancel && (

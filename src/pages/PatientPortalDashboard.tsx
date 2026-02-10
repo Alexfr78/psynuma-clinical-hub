@@ -9,6 +9,13 @@ import { PortalAppointments } from '@/components/portal/PortalAppointments';
 import { PortalBooking } from '@/components/portal/PortalBooking';
 import { toast } from 'sonner';
 
+interface RescheduleTarget {
+  sessionId: string;
+  sessionType: string;
+  sessionModality: string;
+  locationId: string | null;
+}
+
 export default function PatientPortalDashboard() {
   const { slug } = useParams<{ slug: string }>();
   const [searchParams] = useSearchParams();
@@ -27,12 +34,14 @@ export default function PatientPortalDashboard() {
     fetchSessions,
     cancelSession,
     confirmSession,
+    rescheduleSession,
     createSession,
     getAvailability,
   } = usePatientPortal(slug);
 
   const [activeTab, setActiveTab] = useState('appointments');
   const [verifying, setVerifying] = useState(false);
+  const [rescheduleTarget, setRescheduleTarget] = useState<RescheduleTarget | null>(null);
 
   // Verify magic link token on mount
   useEffect(() => {
@@ -88,9 +97,27 @@ export default function PatientPortalDashboard() {
     }
   };
 
+  const handleReschedule = (session: { id: string; session_type: string; session_modality: string; location: { id: string } | null }) => {
+    setRescheduleTarget({
+      sessionId: session.id,
+      sessionType: session.session_type,
+      sessionModality: session.session_modality,
+      locationId: session.location?.id || null,
+    });
+    setActiveTab('booking');
+  };
+
   const handleBookingComplete = () => {
     setActiveTab('appointments');
+    setRescheduleTarget(null);
     fetchSessions();
+  };
+
+  const handleTabChange = (tab: string) => {
+    if (tab !== 'booking') {
+      setRescheduleTarget(null);
+    }
+    setActiveTab(tab);
   };
 
   if (isLoading || verifying) {
@@ -141,7 +168,7 @@ export default function PatientPortalDashboard() {
             <Button 
               className="w-full" 
               size="lg"
-              onClick={() => setActiveTab('booking')}
+              onClick={() => { setRescheduleTarget(null); setActiveTab('booking'); }}
             >
               <CalendarPlus className="h-5 w-5 mr-2" />
               Solicitar nueva cita
@@ -150,7 +177,7 @@ export default function PatientPortalDashboard() {
         </Card>
 
         {/* Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <Tabs value={activeTab} onValueChange={handleTabChange}>
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="appointments" className="flex items-center gap-2">
               <Calendar className="h-4 w-4" />
@@ -180,6 +207,7 @@ export default function PatientPortalDashboard() {
                   loading={sessionsLoading}
                   onCancel={handleCancel}
                   onConfirm={handleConfirm}
+                  onReschedule={handleReschedule}
                   emptyMessage="No tienes citas próximas"
                 />
               </CardContent>
@@ -211,6 +239,8 @@ export default function PatientPortalDashboard() {
               onComplete={handleBookingComplete}
               createSession={createSession}
               getAvailability={getAvailability}
+              rescheduleSession={rescheduleSession}
+              rescheduleTarget={rescheduleTarget}
             />
           </TabsContent>
         </Tabs>

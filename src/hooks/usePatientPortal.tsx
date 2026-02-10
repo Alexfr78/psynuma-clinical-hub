@@ -285,6 +285,28 @@ export function usePatientPortal(centerSlug?: string) {
     }
   };
 
+  const rescheduleSession = async (sessionId: string, newDate: string, newStartTime: string, newEndTime: string): Promise<{ success: boolean; error?: string; message?: string }> => {
+    if (!state.sessionToken) {
+      return { success: false, error: 'Sesión no válida' };
+    }
+
+    try {
+      const { data, error } = await supabase.functions.invoke('patient-portal-sessions', {
+        body: { action: 'reschedule', sessionToken: state.sessionToken, sessionId, newDate, newStartTime, newEndTime },
+      });
+
+      if (error || !data?.success) {
+        return { success: false, error: data?.error || 'Error al reprogramar la cita' };
+      }
+
+      await fetchSessions();
+      return { success: true, message: data.message };
+    } catch (error) {
+      console.error('Error rescheduling session:', error);
+      return { success: false, error: 'Error de conexión' };
+    }
+  };
+
   const getAvailability = async (params: {
     professionalId?: string;
     date: string;
@@ -332,6 +354,7 @@ export function usePatientPortal(centerSlug?: string) {
     createSession,
     cancelSession,
     confirmSession,
+    rescheduleSession,
     getAvailability,
   };
 }

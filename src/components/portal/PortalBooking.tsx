@@ -11,6 +11,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
+interface RescheduleTarget {
+  sessionId: string;
+  sessionType: string;
+  sessionModality: string;
+  locationId: string | null;
+}
+
 interface PortalBookingProps {
   centerSlug: string;
   onComplete: () => void;
@@ -28,6 +35,8 @@ interface PortalBookingProps {
     sessionTypeId: string;
     locationId: string;
   }) => Promise<{ slots: string[]; serviceDuration: number; step: number }>;
+  rescheduleSession?: (sessionId: string, newDate: string, newStartTime: string, newEndTime: string) => Promise<{ success: boolean; error?: string; message?: string }>;
+  rescheduleTarget?: RescheduleTarget | null;
 }
 
 interface Professional {
@@ -71,6 +80,8 @@ export function PortalBooking({
   onComplete,
   createSession,
   getAvailability,
+  rescheduleSession,
+  rescheduleTarget,
 }: PortalBookingProps) {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -93,6 +104,8 @@ export function PortalBooking({
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [weekSlots, setWeekSlots] = useState<WeekSlots>({});
   const [selectedSlot, setSelectedSlot] = useState<{ date: string; time: string } | null>(null);
+
+  const isRescheduleMode = !!rescheduleTarget;
 
   useEffect(() => {
     fetchInitialData();
@@ -153,6 +166,29 @@ export function PortalBooking({
       setLoading(false);
     }
   };
+
+  // Auto-select values when in reschedule mode
+  useEffect(() => {
+    if (!isRescheduleMode || loading || !rescheduleTarget) return;
+    
+    // Auto-select modality based on session modality
+    const modality: Modality = rescheduleTarget.sessionModality === 'online' || 
+      rescheduleTarget.sessionModality === 'zoom' || 
+      rescheduleTarget.sessionModality === 'google_meet' ? 'online' : 'in_person';
+    setSelectedModality(modality);
+
+    // Auto-select location
+    if (rescheduleTarget.locationId) {
+      setSelectedLocation(rescheduleTarget.locationId);
+    }
+
+    // Auto-select session type by name match
+    const matchingType = sessionTypes.find(t => t.name === rescheduleTarget.sessionType);
+    if (matchingType) {
+      setSelectedSessionType(matchingType.id);
+      setServiceDuration(matchingType.duration_minutes);
+    }
+  }, [isRescheduleMode, loading, rescheduleTarget, sessionTypes]);
 
   // Filter locations by modality - handle null location_type as in_person
   const filteredLocations = locations.filter(loc => {
@@ -291,23 +327,34 @@ export function PortalBooking({
     const endMinutes = hours * 60 + mins + serviceDuration;
     const endTime = `${Math.floor(endMinutes / 60).toString().padStart(2, '0')}:${(endMinutes % 60).toString().padStart(2, '0')}`;
 
-    const result = await createSession({
-      professionalId: selectedProfessional || undefined,
-      sessionTypeId: selectedSessionType,
-      sessionDate: selectedSlot.date,
-      startTime: selectedSlot.time,
-      endTime,
-      locationId: selectedLocation,
-    });
+    let result: { success: boolean; error?: string; message?: string };
+
+    if (isRescheduleMode && rescheduleSession && rescheduleTarget) {
+      result = await rescheduleSession(
+        rescheduleTarget.sessionId,
+        selectedSlot.date,
+        selectedSlot.time,
+        endTime
+      );
+    } else {
+      result = await createSession({
+        professionalId: selectedProfessional || undefined,
+        sessionTypeId: selectedSessionType,
+        sessionDate: selectedSlot.date,
+        startTime: selectedSlot.time,
+        endTime,
+        locationId: selectedLocation,
+      });
+    }
 
     setSubmitting(false);
 
     if (result.success) {
       setSuccess(true);
-      setSuccessMessage(result.message || 'Cita solicitada correctamente');
-      toast.success(result.message || 'Cita solicitada');
+      setSuccessMessage(result.message || (isRescheduleMode ? 'Cita reprogramada correctamente' : 'Cita solicitada correctamente'));
+      toast.success(result.message || (isRescheduleMode ? 'Cita reprogramada' : 'Cita solicitada'));
     } else {
-      toast.error(result.error || 'Error al solicitar la cita');
+      toast.error(result.error || (isRescheduleMode ? 'Error al reprogramar' : 'Error al solicitar la cita'));
     }
   };
 
@@ -349,9 +396,9 @@ export function PortalBooking({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-lg">Solicitar cita</CardTitle>
+        <CardTitle className="text-lg">{isRescheduleMode ? 'Reprogramar cita' : 'Solicitar cita'}</CardTitle>
         <CardDescription>
-          Selecciona modalidad, ubicación, servicio, fecha y hora
+          {isRescheduleMode ? 'Selecciona una nueva fecha y hora' : 'Selecciona modalidad, ubicación, servicio, fecha y hora'}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -626,7 +673,7 @@ export function PortalBooking({
           ) : (
             <Calendar className="h-4 w-4 mr-2" />
           )}
-          Solicitar cita
+          {isRescheduleMode ? 'Reprogramar cita' : 'Solicitar cita'}
         </Button>
       </CardContent>
     </Card>
