@@ -503,10 +503,10 @@ export function ReferralsSettingsSection() {
       <CardContent>
         <Tabs defaultValue="partners" className="space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-            <TabsList>
-              <TabsTrigger value="partners">Profesionales ({partners.length})</TabsTrigger>
-              <TabsTrigger value="specialties">Especialidades ({specialties.length})</TabsTrigger>
-              <TabsTrigger value="requests">
+            <TabsList className="w-full sm:w-auto flex">
+              <TabsTrigger value="partners" className="flex-1 sm:flex-none text-xs sm:text-sm">Profesionales ({partners.length})</TabsTrigger>
+              <TabsTrigger value="specialties" className="flex-1 sm:flex-none text-xs sm:text-sm">Especialidades ({specialties.length})</TabsTrigger>
+              <TabsTrigger value="requests" className="flex-1 sm:flex-none text-xs sm:text-sm">
                 Solicitudes
                 {requests.filter(r => r.status === 'pending').length > 0 && (
                   <Badge variant="destructive" className="ml-1.5 h-5 px-1.5 text-xs">
