@@ -1,7 +1,8 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { sendAdminAlert, buildAlertMessage } from "../_shared/adminAlerts.ts";
+import { sendAdminAlert, buildAlertMessage, formatDateSpanish, formatTime } from "../_shared/adminAlerts.ts";
 import { queueAndSendPatientBookingNotification } from "../_shared/bookingPatientNotifications.ts";
+import { notifyProfessionalByEmail, buildProfessionalCancelMessage, buildProfessionalRescheduleMessage } from "../_shared/professionalNotification.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -418,7 +419,7 @@ serve(async (req) => {
       // Verify session belongs to patient
       const { data: existingSession } = await supabase
         .from("sessions")
-        .select("id, patient_id, session_date, start_time, cancellation_policy")
+        .select("id, patient_id, session_date, start_time, cancellation_policy, professional_id")
         .eq("id", sessionId)
         .eq("patient_id", session.patientId)
         .single();
@@ -500,7 +501,26 @@ serve(async (req) => {
           message: alertMessage,
           patientId: session.patientId,
           sessionId: sessionId,
+          professionalId: existingSession.professional_id,
         });
+
+        // Send direct email to professional (independent of admin alerts)
+        if (existingSession.professional_id) {
+          await notifyProfessionalByEmail({
+            supabase,
+            centerId: session.centerId,
+            professionalId: existingSession.professional_id,
+            patientId: session.patientId,
+            sessionId,
+            subject: `Cita cancelada - ${patientData.first_name} ${patientData.last_name} - ${existingSession.session_date}`,
+            message: buildProfessionalCancelMessage({
+              patientName: `${patientData.first_name} ${patientData.last_name}`,
+              sessionDate: existingSession.session_date,
+              sessionTime: existingSession.start_time,
+              reason: reason || undefined,
+            }),
+          });
+        }
       }
 
       // Send patient cancellation notification
@@ -789,7 +809,27 @@ serve(async (req) => {
           message: alertMessage,
           patientId: session.patientId,
           sessionId,
+          professionalId: existingSession.professional_id,
         });
+
+        // Send direct email to professional (independent of admin alerts)
+        if (existingSession.professional_id) {
+          await notifyProfessionalByEmail({
+            supabase,
+            centerId: session.centerId,
+            professionalId: existingSession.professional_id,
+            patientId: session.patientId,
+            sessionId,
+            subject: `Cita reprogramada - ${patientData.first_name} ${patientData.last_name} - ${newDate}`,
+            message: buildProfessionalRescheduleMessage({
+              patientName: `${patientData.first_name} ${patientData.last_name}`,
+              oldDate,
+              oldTime,
+              newDate,
+              newTime: newStartTime,
+            }),
+          });
+        }
       }
 
       // Send patient reschedule notification
