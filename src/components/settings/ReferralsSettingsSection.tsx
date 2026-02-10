@@ -417,6 +417,14 @@ export function ReferralsSettingsSection() {
     partners, partnersLoading, createPartner, updatePartner, deletePartner,
   } = useReferrals();
 
+  const { requests, isLoading: requestsLoading, approveRequest, rejectRequest } = useReferralRequests();
+  const { center } = useCenter();
+
+  // Reject dialog state
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [rejectingId, setRejectingId] = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
+
   // Specialty dialog state
   const [specDialogOpen, setSpecDialogOpen] = useState(false);
   const [editingSpec, setEditingSpec] = useState<ReferralSpecialty | null>(null);
