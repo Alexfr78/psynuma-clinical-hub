@@ -89,6 +89,7 @@ export function PortalAppointments({
         const StatusIcon = status.icon;
         const canCancel = !isPast && ['scheduled', 'confirmed', 'pending_approval'].includes(session.status);
         const canConfirm = !isPast && session.status === 'scheduled';
+        const canReschedule = !isPast && ['scheduled', 'confirmed'].includes(session.status);
 
         return (
           <div
