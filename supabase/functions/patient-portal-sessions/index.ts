@@ -102,7 +102,7 @@ serve(async (req) => {
     }
 
     if (action === "list") {
-      // Get patient's sessions
+      // Get ALL patient sessions (including cancelled for history)
       const { data: sessions, error } = await supabase
         .from("sessions")
         .select(`
@@ -122,7 +122,6 @@ serve(async (req) => {
           )
         `)
         .eq("patient_id", session.patientId)
-        .neq("status", "cancelled")
         .order("session_date", { ascending: false })
         .order("start_time", { ascending: false });
 
@@ -135,9 +134,11 @@ serve(async (req) => {
       }
 
       // Separate into upcoming and past
+      // Upcoming: future sessions that are NOT cancelled
+      // Past: all past sessions (including cancelled ones for history)
       const today = new Date().toISOString().split("T")[0];
-      const upcoming = sessions?.filter(s => s.session_date >= today) || [];
-      const past = sessions?.filter(s => s.session_date < today) || [];
+      const upcoming = sessions?.filter(s => s.session_date >= today && s.status !== 'cancelled') || [];
+      const past = sessions?.filter(s => s.session_date < today || s.status === 'cancelled') || [];
 
       return new Response(
         JSON.stringify({ upcoming: upcoming.reverse(), past }),
