@@ -203,7 +203,7 @@ function PartnerForm({ partner, specialties, onSubmit, onCancel, loading }: Part
   return (
     <form onSubmit={handleSubmit} className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
       {/* Basic info */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Nombre *</Label>
           <Input
