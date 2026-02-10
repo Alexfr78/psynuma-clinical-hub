@@ -1,72 +1,83 @@
 
-# Notificar al terapeuta por email cuando el paciente cancela o reprograma
 
-## Problema
-Actualmente, las notificaciones al terapeuta dependen del sistema de "Admin Alerts", que requiere configuracion especifica (activar alertas, habilitar eventos, marcar "incluir profesional"). El resultado es que el terapeuta no recibe ningun aviso cuando un paciente cambia o cancela su cita desde el portal o el enlace publico.
+## Registro publico de profesionales para derivaciones
 
-## Solucion
-Enviar siempre un email directo al profesional asignado a la sesion cuando el paciente cancela o reprograma, sin depender de la configuracion de alertas admin. Esto se hara insertando una notificacion de tipo `email` en la tabla `notifications` y disparando `send-notification` de forma inmediata (el mismo mecanismo que ya funciona para las notificaciones al paciente).
+### Resumen
+Crear una pagina publica donde profesionales externos puedan darse de alta en el catalogo de derivaciones del centro, rellenando sus propios datos. El registro queda pendiente de aprobacion por el admin. Se requiere aceptacion obligatoria de la politica de privacidad.
 
-## Cambios por archivo
+### Flujo del usuario
 
-### 1. `supabase/functions/patient-portal-sessions/index.ts`
+1. El admin copia un enlace publico desde la seccion "Derivaciones" en Configuracion (ej: `/derivaciones/{centerSlug}/registro`)
+2. El profesional externo abre el enlace, ve un formulario con los datos requeridos
+3. Rellena sus datos: nombre, apellidos, email, telefono, web, descripcion, modalidades, provincias, ciudades, especialidades
+4. Acepta la politica de privacidad obligatoriamente
+5. Envia el formulario
+6. Ve un mensaje de confirmacion ("Tu solicitud ha sido enviada y esta pendiente de aprobacion")
+7. El admin ve la solicitud en su panel de Derivaciones y puede aprobarla o rechazarla
 
-**Accion "cancel" (linea ~408):**
-- Ampliar la query de `existingSession` para incluir `professional_id`
-- Despues del admin alert existente, obtener el email del profesional desde `profiles` y crear una notificacion email directa
+### Cambios necesarios
 
-**Accion "reschedule" (linea ~576):**
-- Ya tiene `professional_id` en la query
-- Despues del admin alert existente, enviar email directo al profesional con los datos del cambio (fecha antigua y nueva)
+#### 1. Base de datos - Nueva tabla `referral_partner_requests`
 
-### 2. `supabase/functions/public-session-reschedule/index.ts`
+Tabla para almacenar solicitudes pendientes de profesionales:
 
-**Accion "reschedule" (linea ~207):**
-- Ya tiene datos del profesional cargados
-- Despues del admin alert, enviar email directo al profesional
+- `id` (uuid, PK)
+- `center_id` (uuid, FK centers)
+- `name`, `surname`, `email`, `phone`, `website`, `description` (datos del profesional)
+- `public_name` (text, opcional)
+- `modality` (text[], modalidades)
+- `provinces`, `cities`, `specialties` (text[], opcionales)
+- `status` (text: 'pending', 'approved', 'rejected', default 'pending')
+- `privacy_accepted` (boolean, NOT NULL)
+- `privacy_accepted_at` (timestamptz)
+- `privacy_policy_url` (text)
+- `handled_by` (uuid, FK profiles, nullable)
+- `handled_at` (timestamptz, nullable)
+- `rejection_reason` (text, nullable)
+- `created_at`, `updated_at` (timestamptz)
 
-**Accion "cancel" (linea ~374):**
-- Ya tiene datos del profesional cargados
-- Despues del admin alert, enviar email directo al profesional
+RLS: INSERT para anon (registro publico), SELECT/UPDATE para usuarios autenticados del mismo centro.
 
-### 3. Nuevo helper: `supabase/functions/_shared/professionalNotification.ts`
+#### 2. Edge Function - `public-referral-register`
 
-Para evitar duplicar codigo en los 4 puntos, crear un helper reutilizable:
+Endpoint que:
+- Recibe los datos del formulario + `center_slug`
+- Valida campos obligatorios (nombre, email, modalidad, privacidad aceptada)
+- Resuelve `center_id` a partir del slug
+- Inserta en `referral_partner_requests` con status 'pending'
+- Devuelve confirmacion
 
-```
-export async function notifyProfessionalByEmail(params: {
-  supabase: any;
-  centerId: string;
-  professionalId: string;
-  patientId: string;
-  sessionId: string;
-  subject: string;
-  message: string;
-}): Promise<void>
-```
+#### 3. Pagina publica - `/derivaciones/{centerSlug}/registro`
 
-Logica:
-1. Obtener email del profesional desde `profiles`
-2. Si no tiene email, salir sin error
-3. Insertar notificacion en tabla `notifications` con `type: 'email'`, `status: 'pending'`, `scheduled_for: now()`
-4. Invocar `send-notification` via fetch (como ya se hace en adminAlerts)
-5. Log del resultado, sin bloquear la operacion principal si falla
+Nuevo componente `PublicReferralRegister.tsx`:
+- Obtiene las especialidades activas del centro (via RPC publica o edge function)
+- Formulario con los mismos campos que `PartnerForm` pero adaptado al publico
+- Checkbox obligatorio de aceptacion de politica de privacidad con enlace a `https://psicologosexual.com/politica-de-privacidad/`
+- Mensaje de exito tras envio
 
-## Contenido del email
+#### 4. Panel de gestion en Configuracion > Derivaciones
 
-**Cancelacion:**
-- Asunto: `Cita cancelada - [Nombre Paciente] - [Fecha]`
-- Cuerpo: Datos del paciente, fecha/hora cancelada, motivo (si lo hay)
+Anadir una tercera pestana "Solicitudes" en `ReferralsSettingsSection`:
+- Lista de solicitudes pendientes/aprobadas/rechazadas
+- Acciones: Aprobar (crea el `referral_partner` automaticamente), Rechazar (con motivo opcional)
+- Boton para copiar enlace publico de registro
 
-**Reprogramacion:**
-- Asunto: `Cita reprogramada - [Nombre Paciente] - [Nueva Fecha]`
-- Cuerpo: Datos del paciente, fecha/hora anterior, nueva fecha/hora
+#### 5. Hook - `useReferralRequests`
 
-## Despliegue
-- Redesplegar: `patient-portal-sessions`, `public-session-reschedule`
+- Query para listar solicitudes del centro
+- Mutacion para aprobar (inserta en `referral_partners` y marca como 'approved')
+- Mutacion para rechazar
 
-## Impacto
-- El terapeuta recibira un email siempre que su paciente cancele o reprograme
-- No depende de la configuracion de admin alerts (es independiente)
-- No afecta las notificaciones existentes al paciente ni las admin alerts
-- Si el profesional no tiene email configurado, simplemente no se envia (sin error)
+#### 6. Ruta en App.tsx
+
+Anadir ruta publica: `/derivaciones/:centerSlug/registro`
+
+### Secuencia tecnica
+
+1. Crear migracion SQL (tabla + RLS + funcion RPC para obtener especialidades publicas)
+2. Crear edge function `public-referral-register`
+3. Crear pagina `src/pages/PublicReferralRegister.tsx`
+4. Crear hook `src/hooks/useReferralRequests.tsx`
+5. Actualizar `ReferralsSettingsSection.tsx` (pestana solicitudes + boton copiar enlace)
+6. Actualizar `App.tsx` (nueva ruta publica)
+
