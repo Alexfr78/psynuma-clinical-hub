@@ -132,6 +132,11 @@ const App = () => (
                 <AppLayout><Professionals /></AppLayout>
               </ProtectedRoute>
             } />
+            <Route path="/derivaciones" element={
+              <ProtectedRoute requiredRoles={['admin']}>
+                <AppLayout><Referrals /></AppLayout>
+              </ProtectedRoute>
+            } />
             <Route path="/configuracion" element={
               <ProtectedRoute>
                 <AppLayout><Settings /></AppLayout>

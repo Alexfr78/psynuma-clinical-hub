@@ -57,6 +57,7 @@ const financeNavItems = [
 const adminOnlyNavItems = [
   { title: 'Solicitudes', url: '/solicitudes', icon: ClipboardList },
   { title: 'Profesionales', url: '/profesionales', icon: UserCog },
+  { title: 'Derivaciones', url: '/derivaciones', icon: Users },
   { title: 'Auditoría', url: '/auditoria', icon: FileText },
 ];
 

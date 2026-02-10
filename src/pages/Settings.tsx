@@ -82,7 +82,7 @@ type SettingsSection =
   | 'centro-ubicaciones'
   | 'centro-agenda'
   | 'centro-portal'
-  | 'centro-derivaciones'
+  
   | 'sesiones-tipos'
   | 'pagos-config'
   | 'consentimientos-config'
