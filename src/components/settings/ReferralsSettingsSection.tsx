@@ -696,6 +696,96 @@ export function ReferralsSettingsSection() {
               </div>
             )}
           </TabsContent>
+
+          {/* REQUESTS TAB */}
+          <TabsContent value="requests" className="space-y-4">
+            {requestsLoading ? (
+              <div className="space-y-2">
+                {[1, 2, 3].map(i => <Skeleton key={i} className="h-12 w-full" />)}
+              </div>
+            ) : requests.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <Clock className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                <p>No hay solicitudes de registro</p>
+                <p className="text-sm">Comparte el enlace de registro para que profesionales se den de alta</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {requests.map(request => (
+                  <Card key={request.id} className="p-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-medium">
+                            {request.public_name || `${request.name} ${request.surname || ''}`}
+                          </span>
+                          <Badge variant={
+                            request.status === 'pending' ? 'secondary' :
+                            request.status === 'approved' ? 'default' : 'destructive'
+                          }>
+                            {request.status === 'pending' ? 'Pendiente' :
+                             request.status === 'approved' ? 'Aprobada' : 'Rechazada'}
+                          </Badge>
+                        </div>
+                        <div className="text-sm text-muted-foreground mt-1 space-y-0.5">
+                          <p>{request.email}{request.phone ? ` · ${request.phone}` : ''}</p>
+                          <div className="flex gap-1 flex-wrap">
+                            {request.modality.map(m => (
+                              <Badge key={m} variant="outline" className="text-xs">
+                                {m === 'online' ? <Globe className="h-3 w-3 mr-1" /> : <MapPin className="h-3 w-3 mr-1" />}
+                                {m}
+                              </Badge>
+                            ))}
+                            {request.specialties?.map(s => (
+                              <Badge key={s} variant="secondary" className="text-xs">{s}</Badge>
+                            ))}
+                          </div>
+                          {request.description && (
+                            <p className="text-xs mt-1 line-clamp-2">{request.description}</p>
+                          )}
+                          <p className="text-xs">
+                            Enviada: {format(new Date(request.created_at), "d MMM yyyy, HH:mm", { locale: es })}
+                          </p>
+                          {request.rejection_reason && (
+                            <p className="text-xs text-destructive">Motivo: {request.rejection_reason}</p>
+                          )}
+                        </div>
+                      </div>
+                      {request.status === 'pending' && (
+                        <div className="flex gap-1 shrink-0">
+                          <Button
+                            size="sm"
+                            variant="default"
+                            onClick={() => approveRequest.mutate(request)}
+                            disabled={approveRequest.isPending}
+                          >
+                            {approveRequest.isPending ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <CheckCircle2 className="h-4 w-4 mr-1" />
+                            )}
+                            Aprobar
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setRejectingId(request.id);
+                              setRejectReason('');
+                              setRejectDialogOpen(true);
+                            }}
+                          >
+                            <XCircle className="h-4 w-4 mr-1" />
+                            Rechazar
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </TabsContent>
         </Tabs>
       </CardContent>
 
