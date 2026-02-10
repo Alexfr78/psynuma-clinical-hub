@@ -61,6 +61,7 @@ export function PortalAppointments({
   loading,
   onCancel,
   onConfirm,
+  onReschedule,
   isPast = false,
   emptyMessage = 'No hay citas',
 }: PortalAppointmentsProps) {
