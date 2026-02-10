@@ -1,72 +1,72 @@
 
-
-# Fix: Notificacion WhatsApp no se envia al reservar desde el portal del paciente
+# Notificar al terapeuta por email cuando el paciente cancela o reprograma
 
 ## Problema
-Al reservar cita desde el portal del paciente, solo llega el email pero no el WhatsApp, a pesar de tener Wasender conectado y el toggle `wasender_confirm_booking` activado.
-
-## Causa raiz
-En el archivo `supabase/functions/_shared/bookingPatientNotifications.ts`, la logica de seleccion de canal tiene un bloqueo incorrecto:
-
-```
-if (center.whatsapp_send_method !== 'web') {
-  // Solo aqui se comprueba Wasender...
-}
-```
-
-Tu centro tiene `whatsapp_send_method = 'web'` (porque no usas la API de Meta), asi que el sistema salta completamente la comprobacion de Wasender. El resultado es que `canAutoWhatsApp` queda en `false` y el sistema hace fallback a email.
-
-El problema es que `'web'` se refiere al metodo manual (enlaces wa.me), pero Wasender es un canal automatico independiente que deberia funcionar sin importar ese ajuste.
+Actualmente, las notificaciones al terapeuta dependen del sistema de "Admin Alerts", que requiere configuracion especifica (activar alertas, habilitar eventos, marcar "incluir profesional"). El resultado es que el terapeuta no recibe ningun aviso cuando un paciente cambia o cancela su cita desde el portal o el enlace publico.
 
 ## Solucion
+Enviar siempre un email directo al profesional asignado a la sesion cuando el paciente cancela o reprograma, sin depender de la configuracion de alertas admin. Esto se hara insertando una notificacion de tipo `email` en la tabla `notifications` y disparando `send-notification` de forma inmediata (el mismo mecanismo que ya funciona para las notificaciones al paciente).
 
-### Archivo: `supabase/functions/_shared/bookingPatientNotifications.ts`
+## Cambios por archivo
 
-Separar la comprobacion de Wasender del bloqueo por `whatsapp_send_method`. Wasender siempre debe evaluarse si esta habilitado y conectado. Solo la comprobacion de Meta API debe respetar el filtro `whatsapp_send_method`.
+### 1. `supabase/functions/patient-portal-sessions/index.ts`
 
-Logica actualizada:
+**Accion "cancel" (linea ~408):**
+- Ampliar la query de `existingSession` para incluir `professional_id`
+- Despues del admin alert existente, obtener el email del profesional desde `profiles` y crear una notificacion email directa
 
-1. Comprobar Wasender siempre (si `wasender_enabled` y no `wasender_emergency_stop` y sesion conectada)
-2. Comprobar Meta API solo si `whatsapp_send_method` NO es `'web'`
+**Accion "reschedule" (linea ~576):**
+- Ya tiene `professional_id` en la query
+- Despues del admin alert existente, enviar email directo al profesional con los datos del cambio (fecha antigua y nueva)
 
-### Cambio concreto
+### 2. `supabase/functions/public-session-reschedule/index.ts`
+
+**Accion "reschedule" (linea ~207):**
+- Ya tiene datos del profesional cargados
+- Despues del admin alert, enviar email directo al profesional
+
+**Accion "cancel" (linea ~374):**
+- Ya tiene datos del profesional cargados
+- Despues del admin alert, enviar email directo al profesional
+
+### 3. Nuevo helper: `supabase/functions/_shared/professionalNotification.ts`
+
+Para evitar duplicar codigo en los 4 puntos, crear un helper reutilizable:
 
 ```
-// ANTES (bloquea todo si method es 'web')
-if (center.whatsapp_send_method !== 'web') {
-  // Check Wasender
-  if (center.wasender_enabled && !center.wasender_emergency_stop) { ... }
-  // Check Meta API
-  if (!canAutoWhatsApp && center.whatsapp_send_method === 'api' && ...) { ... }
-}
-
-// DESPUES (Wasender se evalua siempre, Meta API respeta el filtro)
-// Check Wasender (independent of whatsapp_send_method)
-if (center.wasender_enabled && !center.wasender_emergency_stop) {
-  const { data: wasenderSession } = await supabase
-    .from("whatsapp_sessions")
-    .select("status")
-    .eq("center_id", centerId)
-    .maybeSingle();
-
-  if (wasenderSession?.status === 'connected') {
-    canAutoWhatsApp = true;
-  }
-}
-
-// Check Meta API (only if not 'web' and Wasender didn't work)
-if (!canAutoWhatsApp && center.whatsapp_send_method === 'api' &&
-    center.whatsapp_access_token && center.whatsapp_phone_number_id) {
-  canAutoWhatsApp = true;
-}
+export async function notifyProfessionalByEmail(params: {
+  supabase: any;
+  centerId: string;
+  professionalId: string;
+  patientId: string;
+  sessionId: string;
+  subject: string;
+  message: string;
+}): Promise<void>
 ```
 
-### Despliegue
-- Redesplegar `patient-portal-sessions` (que importa este helper compartido)
-- Tambien redesplegar cualquier otra funcion que use este helper: `public-booking`, `public-session-reschedule`
+Logica:
+1. Obtener email del profesional desde `profiles`
+2. Si no tiene email, salir sin error
+3. Insertar notificacion en tabla `notifications` con `type: 'email'`, `status: 'pending'`, `scheduled_for: now()`
+4. Invocar `send-notification` via fetch (como ya se hace en adminAlerts)
+5. Log del resultado, sin bloquear la operacion principal si falla
+
+## Contenido del email
+
+**Cancelacion:**
+- Asunto: `Cita cancelada - [Nombre Paciente] - [Fecha]`
+- Cuerpo: Datos del paciente, fecha/hora cancelada, motivo (si lo hay)
+
+**Reprogramacion:**
+- Asunto: `Cita reprogramada - [Nombre Paciente] - [Nueva Fecha]`
+- Cuerpo: Datos del paciente, fecha/hora anterior, nueva fecha/hora
+
+## Despliegue
+- Redesplegar: `patient-portal-sessions`, `public-session-reschedule`
 
 ## Impacto
-- Corrige el envio automatico de WhatsApp via Wasender al reservar desde el portal
-- No afecta centros que usen Meta API (ya funcionaban)
-- No afecta centros sin Wasender (seguiran usando email como fallback)
-
+- El terapeuta recibira un email siempre que su paciente cancele o reprograme
+- No depende de la configuracion de admin alerts (es independiente)
+- No afecta las notificaciones existentes al paciente ni las admin alerts
+- Si el profesional no tiene email configurado, simplemente no se envia (sin error)
