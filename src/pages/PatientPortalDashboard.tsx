@@ -97,9 +97,27 @@ export default function PatientPortalDashboard() {
     }
   };
 
+  const handleReschedule = (session: { id: string; session_type: string; session_modality: string; location: { id: string } | null }) => {
+    setRescheduleTarget({
+      sessionId: session.id,
+      sessionType: session.session_type,
+      sessionModality: session.session_modality,
+      locationId: session.location?.id || null,
+    });
+    setActiveTab('booking');
+  };
+
   const handleBookingComplete = () => {
     setActiveTab('appointments');
+    setRescheduleTarget(null);
     fetchSessions();
+  };
+
+  const handleTabChange = (tab: string) => {
+    if (tab !== 'booking') {
+      setRescheduleTarget(null);
+    }
+    setActiveTab(tab);
   };
 
   if (isLoading || verifying) {
