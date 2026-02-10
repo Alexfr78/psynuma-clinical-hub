@@ -396,9 +396,9 @@ export function PortalBooking({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-lg">Solicitar cita</CardTitle>
+        <CardTitle className="text-lg">{isRescheduleMode ? 'Reprogramar cita' : 'Solicitar cita'}</CardTitle>
         <CardDescription>
-          Selecciona modalidad, ubicación, servicio, fecha y hora
+          {isRescheduleMode ? 'Selecciona una nueva fecha y hora' : 'Selecciona modalidad, ubicación, servicio, fecha y hora'}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
