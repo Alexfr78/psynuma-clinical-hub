@@ -105,6 +105,8 @@ export function PortalBooking({
   const [weekSlots, setWeekSlots] = useState<WeekSlots>({});
   const [selectedSlot, setSelectedSlot] = useState<{ date: string; time: string } | null>(null);
 
+  const isRescheduleMode = !!rescheduleTarget;
+
   useEffect(() => {
     fetchInitialData();
   }, [centerSlug]);
