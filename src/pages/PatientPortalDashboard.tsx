@@ -9,6 +9,13 @@ import { PortalAppointments } from '@/components/portal/PortalAppointments';
 import { PortalBooking } from '@/components/portal/PortalBooking';
 import { toast } from 'sonner';
 
+interface RescheduleTarget {
+  sessionId: string;
+  sessionType: string;
+  sessionModality: string;
+  locationId: string | null;
+}
+
 export default function PatientPortalDashboard() {
   const { slug } = useParams<{ slug: string }>();
   const [searchParams] = useSearchParams();
@@ -27,12 +34,14 @@ export default function PatientPortalDashboard() {
     fetchSessions,
     cancelSession,
     confirmSession,
+    rescheduleSession,
     createSession,
     getAvailability,
   } = usePatientPortal(slug);
 
   const [activeTab, setActiveTab] = useState('appointments');
   const [verifying, setVerifying] = useState(false);
+  const [rescheduleTarget, setRescheduleTarget] = useState<RescheduleTarget | null>(null);
 
   // Verify magic link token on mount
   useEffect(() => {
