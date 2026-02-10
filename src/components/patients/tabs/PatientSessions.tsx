@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Calendar, Clock, User, FileText } from 'lucide-react';
@@ -6,6 +7,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { SessionDetailDrawer } from '@/components/agenda/SessionDetailDrawer';
+import type { SessionWithRelations } from '@/hooks/useSessions';
 
 interface PatientSessionsProps {
   patientId: string;
@@ -21,6 +24,8 @@ const statusConfig = {
 };
 
 export function PatientSessions({ patientId }: PatientSessionsProps) {
+  const [selectedSession, setSelectedSession] = useState<SessionWithRelations | null>(null);
+
   const { data: sessions, isLoading } = useQuery({
     queryKey: ['patient-sessions', patientId],
     queryFn: async () => {
@@ -28,6 +33,9 @@ export function PatientSessions({ patientId }: PatientSessionsProps) {
         .from('sessions')
         .select(`
           *,
+          patient:patients!sessions_patient_id_fkey(
+            id, first_name, last_name, email, phone
+          ),
           professional:profiles!sessions_professional_id_fkey(
             id, first_name, last_name
           )
@@ -36,7 +44,7 @@ export function PatientSessions({ patientId }: PatientSessionsProps) {
         .order('session_date', { ascending: false });
 
       if (error) throw error;
-      return data;
+      return data as unknown as SessionWithRelations[];
     },
   });
 
@@ -68,7 +76,11 @@ export function PatientSessions({ patientId }: PatientSessionsProps) {
         const status = statusConfig[session.status as keyof typeof statusConfig] || statusConfig.scheduled;
         
         return (
-          <Card key={session.id} className="transition-colors hover:bg-muted/50">
+          <Card
+            key={session.id}
+            className="transition-colors hover:bg-muted/50 cursor-pointer"
+            onClick={() => setSelectedSession(session)}
+          >
             <CardContent className="p-4">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="space-y-2">
@@ -118,6 +130,12 @@ export function PatientSessions({ patientId }: PatientSessionsProps) {
           </Card>
         );
       })}
+
+      <SessionDetailDrawer
+        session={selectedSession}
+        open={!!selectedSession}
+        onOpenChange={(open) => { if (!open) setSelectedSession(null); }}
+      />
     </div>
   );
 }
