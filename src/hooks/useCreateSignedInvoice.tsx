@@ -2,7 +2,6 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useCenter } from './useCenter';
 import { useInvoiceSeries } from './useInvoiceSeries';
-import { useSendInvoiceNotification } from './useSendInvoiceNotification';
 import { toast } from 'sonner';
 
 interface InvoiceItem {
@@ -47,7 +46,7 @@ export function useCreateSignedInvoice() {
   const queryClient = useQueryClient();
   const { center } = useCenter();
   const { series } = useInvoiceSeries();
-  const sendNotification = useSendInvoiceNotification();
+  
 
   const getDefaultSeries = (type: 'simplified' | 'complete') => {
     const seriesType = type === 'simplified' ? 'simplified' : 'complete';
@@ -331,19 +330,27 @@ export function useCreateSignedInvoice() {
         const sendChannel = (center?.invoice_send_channel as 'email' | 'whatsapp' | 'both') || 'email';
         
         try {
-          const notificationResult = await sendNotification.mutateAsync({
-            invoiceId: invoice.id,
-            patientId,
-            patientEmail,
-            patientPhone,
-            channel: sendChannel,
-          });
+          const { data: notificationData, error: notifError } = await supabase.functions.invoke(
+            'send-invoice-notification',
+            {
+              body: {
+                invoiceId: invoice.id,
+                patientId,
+                patientEmail,
+                patientPhone,
+                channel: sendChannel,
+              },
+            }
+          );
 
-          result.notificationSent = true;
-          result.whatsappLink = notificationResult?.whatsappLink || null;
+          if (notifError) {
+            console.error('[useCreateSignedInvoice] Error sending invoice notification:', notifError);
+          } else {
+            result.notificationSent = true;
+            result.whatsappLink = notificationData?.whatsappLink || null;
+          }
         } catch (error) {
-          console.error('Error sending notification:', error);
-          // Don't fail the whole operation if notification fails
+          console.error('[useCreateSignedInvoice] Exception sending invoice notification:', error);
         }
       } else if (shouldSendNotification && result.verifactuPending) {
         // Notification will be sent later when Verifactu succeeds
