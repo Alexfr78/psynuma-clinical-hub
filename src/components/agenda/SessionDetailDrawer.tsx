@@ -1997,7 +1997,11 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
         sessionId={session.id}
         patientId={session.patient_id}
         patientName={patientName}
+        patientEmail={session.patient?.email}
+        patientPhone={session.patient?.phone}
         amount={localPrice}
+        sessionDate={session.session_date}
+        sessionType={session.session_type}
         onSuccess={() => refetchPaymentStatus()}
       />
     )}

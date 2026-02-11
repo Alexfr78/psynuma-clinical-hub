@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
 import { CreditCard, Calendar, Receipt, FileText, Loader2, Check, X, Mail, MessageSquare, ExternalLink, ShieldCheck, AlertTriangle } from 'lucide-react';
 import {
   Dialog,
@@ -107,9 +108,10 @@ export function CollectSessionPaymentDialog({
   };
 
   const createInvoiceForSession = async (type: 'simplified' | 'complete') => {
-    const description = sessionType 
-      ? `${sessionType} - ${sessionDate ? format(new Date(sessionDate), 'dd/MM/yyyy') : 'Sesión'}`
-      : `Sesión - ${sessionDate ? format(new Date(sessionDate), 'dd/MM/yyyy') : ''}`;
+    const formattedDate = sessionDate 
+      ? format(new Date(sessionDate), "d 'de' MMMM yyyy", { locale: es })
+      : format(new Date(), "d 'de' MMMM yyyy", { locale: es });
+    const description = `Sesión de ${sessionType || 'psicoterapia'} - ${formattedDate}`;
 
     const items = [{
       description,
