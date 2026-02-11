@@ -1,39 +1,49 @@
 
-## Incluir fecha de sesion en la descripcion de facturas
+
+## Corregir el envio de facturas al cobrar sesion
 
 ### Problema
-Al generar facturas desde el detalle de cita (cobro de sesion), la descripcion del concepto muestra "Sesion -" sin incluir la fecha ni el tipo de sesion, porque los props `sessionDate` y `sessionType` no se pasan al componente `CollectSessionPaymentDialog`.
+Al cobrar una sesion desde el detalle de cita, la factura se genera correctamente pero la notificacion (WhatsApp/email segun configuracion) nunca se envia. El edge function `send-invoice-notification` no recibe ninguna llamada.
+
+### Causa raiz
+En `useCreateSignedInvoice.tsx`, el paso de envio de notificacion (linea 334) utiliza `sendNotification.mutateAsync()` — una mutacion de React Query anidada dentro de otra mutacion (`createSignedInvoice.mutateAsync`). Las mutaciones anidadas en React Query pueden fallar silenciosamente porque el estado interno del hook de la mutacion exterior interfiere con la ejecucion de la interior.
+
+El `catch` en la linea 344 captura el error silenciosamente sin mostrarlo al usuario, haciendo invisible el fallo.
 
 ### Solucion
+Reemplazar la llamada a `sendNotification.mutateAsync()` dentro de la mutacion por una llamada directa a `supabase.functions.invoke('send-invoice-notification', ...)`. Esto elimina la dependencia de la mutacion anidada y asegura que la notificacion se envie siempre.
 
-#### 1. Pasar los props faltantes en `SessionDetailDrawer.tsx`
+### Cambios
 
-Anadir `sessionDate`, `sessionType`, `patientEmail` y `patientPhone` al componente `CollectSessionPaymentDialog` donde se invoca (linea ~1994):
+#### `src/hooks/useCreateSignedInvoice.tsx`
 
+1. Eliminar la importacion y uso de `useSendInvoiceNotification`
+2. En el paso 8 (envio de notificacion), reemplazar `sendNotification.mutateAsync(...)` por una llamada directa:
+
+```typescript
+const { data: notificationData, error: notifError } = await supabase.functions.invoke(
+  'send-invoice-notification',
+  {
+    body: {
+      invoiceId: invoice.id,
+      patientId,
+      patientEmail,
+      patientPhone,
+      channel: sendChannel,
+    },
+  }
+);
+
+if (notifError) {
+  console.error('Error sending notification:', notifError);
+} else {
+  result.notificationSent = true;
+  result.whatsappLink = notificationData?.whatsappLink || null;
+}
 ```
-sessionDate={session.session_date}
-sessionType={session.session_type}
-patientEmail={session.patient?.email}
-patientPhone={session.patient?.phone}
-```
 
-#### 2. Mejorar el formato de la descripcion en `CollectSessionPaymentDialog.tsx`
-
-Cambiar la logica de la descripcion (linea ~110-112) para que siempre incluya la fecha formateada de forma legible, coherente con el formato que ya usa `CreateSessionInvoiceDialog`:
-
-De:
-```
-`${sessionType} - ${sessionDate ? format(..., 'dd/MM/yyyy') : 'Sesion'}`
-```
-
-A:
-```
-`Sesion de ${sessionType || 'psicoterapia'} - ${sessionDate ? format(new Date(sessionDate), "d 'de' MMMM yyyy", { locale: es }) : ''}`
-```
-
-Esto producira descripciones como: **"Sesion de Terapia individual - 11 de febrero de 2026"**
+3. Mejorar el log de error para que sea visible en consola con el detalle completo
 
 #### Archivos a modificar
+- `src/hooks/useCreateSignedInvoice.tsx` - Unico archivo afectado
 
-- `src/components/agenda/SessionDetailDrawer.tsx` - Pasar props `sessionDate` y `sessionType`
-- `src/components/agenda/CollectSessionPaymentDialog.tsx` - Mejorar formato de descripcion con fecha legible y locale espanol
