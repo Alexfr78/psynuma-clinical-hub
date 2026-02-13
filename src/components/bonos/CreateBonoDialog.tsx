@@ -53,7 +53,7 @@ import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { usePatients } from '@/hooks/usePatients';
-import { useBonoTemplates, useCreateBono } from '@/hooks/useBonos';
+import { useBonoTemplates, useCreateBonoWithDebt } from '@/hooks/useBonos';
 import { useAuth } from '@/hooks/useAuth';
 import { useCenter } from '@/hooks/useCenter';
 import { useCreateSignedInvoice } from '@/hooks/useCreateSignedInvoice';
@@ -88,7 +88,7 @@ interface CreateBonoDialogProps {
 export function CreateBonoDialog({ open, onOpenChange, preselectedPatientId, onSuccess }: CreateBonoDialogProps) {
   const { data: patients } = usePatients();
   const { data: templates } = useBonoTemplates();
-  const createBono = useCreateBono();
+  const createBono = useCreateBonoWithDebt();
   const createSignedInvoice = useCreateSignedInvoice();
   const issueInvoice = useIssueInvoice();
   const { profile } = useAuth();
@@ -176,7 +176,7 @@ export function CreateBonoDialog({ open, onOpenChange, preselectedPatientId, onS
     
     setIsSubmitting(true);
     try {
-      // 1. Create the bono
+      // 1. Create bono + debt atomically via RPC
       const result = await createBono.mutateAsync({
         patient_id: values.patient_id,
         name: values.name,
@@ -186,35 +186,18 @@ export function CreateBonoDialog({ open, onOpenChange, preselectedPatientId, onS
         expires_at: values.expires_at?.toISOString() || null,
       });
 
-      if (result?.id && values.total_price > 0) {
-        // 2. FIRST: Create debt linked to bono (this MUST succeed before invoice)
-        const { data: debtData, error: debtError } = await supabase
-          .from('debts')
-          .insert({
-            patient_id: values.patient_id,
-            bono_id: result.id,
-            amount: values.total_price,
-            paid_amount: 0,
-            status: 'pending',
-            notes: `Bono: ${values.name} (${values.total_sessions} sesiones)`,
-            center_id: centerId,
-          })
-          .select('id')
-          .single();
+      const bonoId = result.bono_id;
+      const debtId = result.debt_id;
 
-        if (debtError) {
-          console.error('Error creating debt:', debtError);
-          throw new Error('No se pudo crear la deuda del bono');
-        }
-
-        // 3. Create DRAFT invoice and link to debt (only if shouldCreateInvoice)
+      if (bonoId && values.total_price > 0 && debtId) {
+        // 2. Create DRAFT invoice and link to debt (only if shouldCreateInvoice)
         let invoiceId: string | null = null;
         if (shouldCreateInvoice) {
           try {
             const invoiceResult = await createSignedInvoice.mutateAsync({
               patientId: values.patient_id,
               invoiceType: 'simplified',
-              bonoId: result.id,
+              bonoId: bonoId,
               statusOverride: 'draft',
               items: [{
                 description: `Bono: ${values.name} (${values.total_sessions} sesiones)`,
@@ -223,7 +206,7 @@ export function CreateBonoDialog({ open, onOpenChange, preselectedPatientId, onS
                 tax_rate: 0,
                 tax_amount: 0,
                 total: values.total_price,
-                bono_id: result.id,
+                bono_id: bonoId,
               }],
               notes: `Bono: ${values.name} (Exento de IVA)`,
               sendNotification: false,
@@ -236,7 +219,7 @@ export function CreateBonoDialog({ open, onOpenChange, preselectedPatientId, onS
               await supabase
                 .from('debts')
                 .update({ invoice_id: invoiceId })
-                .eq('id', debtData.id);
+                .eq('id', debtId);
             }
           } catch (invoiceError) {
             console.error('Error creating invoice:', invoiceError);
@@ -244,7 +227,7 @@ export function CreateBonoDialog({ open, onOpenChange, preselectedPatientId, onS
           }
         }
 
-        // 4. If paying now, record payment and optionally issue invoice
+        // 3. If paying now, record payment and optionally issue invoice
         const paidAmount = values.pay_now ? (values.payment_amount || values.total_price) : 0;
         
         if (values.pay_now && paidAmount > 0) {
@@ -264,7 +247,7 @@ export function CreateBonoDialog({ open, onOpenChange, preselectedPatientId, onS
           } else {
             if (invoiceId) {
               // Recompute debt via RPC
-              await supabase.rpc('recompute_debt_by_invoice', { p_debt_id: debtData.id });
+              await supabase.rpc('recompute_debt_by_invoice', { p_debt_id: debtId });
 
               // Issue the invoice (draft → issued + Verifactu)
               try {
@@ -309,14 +292,14 @@ export function CreateBonoDialog({ open, onOpenChange, preselectedPatientId, onS
                   paid_amount: paidAmount,
                   status: paidAmount >= values.total_price ? 'paid' : 'partial'
                 })
-                .eq('id', debtData.id);
+                .eq('id', debtId);
               toast.success('Bono creado y pago registrado (sin factura)');
             }
           }
         } else {
           toast.success(invoiceId ? 'Bono creado con factura borrador' : 'Bono creado');
         }
-      } else if (result?.id) {
+      } else if (bonoId) {
         // Bono with price 0
         toast.success('Bono creado');
       }
@@ -324,8 +307,8 @@ export function CreateBonoDialog({ open, onOpenChange, preselectedPatientId, onS
       const totalPrice = values.total_price;
       form.reset();
       onOpenChange(false);
-      if (onSuccess && result?.id) {
-        onSuccess(result.id, totalPrice);
+      if (onSuccess && bonoId) {
+        onSuccess(bonoId, totalPrice);
       }
     } catch (error) {
       console.error('Error creating bono:', error);

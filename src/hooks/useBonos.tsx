@@ -166,33 +166,54 @@ export function useBonoSessions(bonoId: string | undefined) {
   });
 }
 
-export function useCreateBono() {
+export interface CreateBonoWithDebtResult {
+  bono_id: string;
+  debt_id: string | null;
+}
+
+export function useCreateBonoWithDebt() {
   const queryClient = useQueryClient();
   const { profile } = useAuth();
 
   return useMutation({
-    mutationFn: async (bono: BonoInsert) => {
-      const { data, error } = await supabase
-        .from('bonos')
-        .insert({
-          ...bono,
-          center_id: profile!.center_id!,
-        })
-        .select()
-        .single();
+    mutationFn: async (bono: BonoInsert): Promise<CreateBonoWithDebtResult> => {
+      const { data, error } = await supabase.rpc('create_bono_with_debt', {
+        p_patient_id: bono.patient_id,
+        p_name: bono.name,
+        p_total_sessions: bono.total_sessions,
+        p_price_per_session: bono.price_per_session,
+        p_total_price: bono.total_price,
+        p_expires_at: bono.expires_at || null,
+        p_center_id: profile!.center_id!,
+      });
 
       if (error) throw error;
-      return data;
+      return data as unknown as CreateBonoWithDebtResult;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bonos'] });
       queryClient.invalidateQueries({ queryKey: ['patient-active-bonos'] });
-      toast.success('Bono creado correctamente');
+      queryClient.invalidateQueries({ queryKey: ['debts'] });
+      queryClient.invalidateQueries({ queryKey: ['debt-stats'] });
     },
     onError: (error) => {
       toast.error('Error al crear el bono: ' + error.message);
     },
   });
+}
+
+// Legacy hook kept for backward compatibility
+export function useCreateBono() {
+  const createBonoWithDebt = useCreateBonoWithDebt();
+
+  return {
+    ...createBonoWithDebt,
+    mutateAsync: async (bono: BonoInsert) => {
+      const result = await createBonoWithDebt.mutateAsync(bono);
+      // Return bono-like object for backward compat
+      return { id: result.bono_id } as any;
+    },
+  };
 }
 
 export function useUpdateBono() {

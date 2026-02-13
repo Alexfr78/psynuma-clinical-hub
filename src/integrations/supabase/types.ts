@@ -4295,6 +4295,18 @@ export type Database = {
         }
         Returns: string
       }
+      create_bono_with_debt: {
+        Args: {
+          p_center_id?: string
+          p_expires_at?: string
+          p_name: string
+          p_patient_id: string
+          p_price_per_session: number
+          p_total_price: number
+          p_total_sessions: number
+        }
+        Returns: Json
+      }
       create_session_type_with_order: {
         Args: {
           p_center_id: string
