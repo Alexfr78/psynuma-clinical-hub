@@ -1,54 +1,66 @@
 
 
-## Corregir envio automatico de WhatsApp al crear sesion
+## Corregir integridad financiera en creacion de bonos
 
-### Problema
-Al crear una sesion y marcar "Notificar por WhatsApp", el sistema abre un dialogo manual en lugar de enviar automaticamente via WasenderAPI, a pesar de que WasenderAPI esta habilitado y conectado.
+### Problema detectado
+
+Al crear el bono para Jaime Pizarro (12 feb 2026), el bono se guardo correctamente en la base de datos pero **no se creo el registro de deuda** asociado. Sin deuda, tampoco se registro el pago. Esto provoca que:
+
+1. El detalle de sesion muestre "Cubierto por bono" (porque el bono esta aplicado a la sesion)
+2. El historial de cobros NO muestre ningun pago por la compra del bono
 
 ### Causa raiz
-Es el mismo patron de "mutaciones anidadas" que ya corregimos para las facturas. En `CreateSessionDialog` y `QuickCreateSessionDialog`, el flujo de creacion llama secuencialmente a multiples `mutateAsync()`:
 
-1. `createSession.mutateAsync()` 
-2. `deductBonoSession.mutateAsync()` (si hay bono)
-3. `scheduleReminder.mutateAsync()` (si hay recordatorios)
-4. `sendNotification.mutateAsync()` (notificacion inmediata)
-
-La cuarta mutacion falla silenciosamente porque React Query tiene problemas gestionando el estado de multiples mutaciones encadenadas. El `catch` general captura el error sin dar visibilidad, y como la notificacion no se ejecuta, el sistema no detecta WasenderAPI y cae al modo manual mostrando el dialogo.
-
-Esto se confirma porque los logs del edge function `wasender-send-message` estan vacios: nunca se llega a invocar la funcion.
+En `CreateBonoDialog.tsx`, la creacion del bono y la creacion de la deuda son operaciones separadas (no transaccionales). Si la insercion de la deuda falla despues de que el bono ya ha sido guardado, el bono queda en la base de datos sin su registro financiero. El error se captura en un `catch` generico que muestra un toast, pero el bono ya esta persistido.
 
 ### Solucion
 
-Extraer la logica de envio de notificaciones de `useSendSessionNotification` a una funcion asincrona independiente que no dependa del ciclo de vida de React Query. Luego, llamar a esa funcion directamente desde los dialogos de creacion.
+#### 1. Reparar los datos existentes (migracion SQL)
 
-### Cambios
+Crear una migracion que detecte bonos con `total_price > 0` que no tengan deuda asociada e inserte el registro de deuda faltante:
 
-#### 1. `src/hooks/useSendSessionNotification.tsx`
+```sql
+INSERT INTO debts (patient_id, bono_id, amount, paid_amount, status, notes, center_id)
+SELECT b.patient_id, b.id, b.total_price, 0, 'pending',
+       'Bono: ' || b.name || ' (' || b.total_sessions || ' sesiones)',
+       b.center_id
+FROM bonos b
+WHERE b.total_price > 0
+  AND NOT EXISTS (SELECT 1 FROM debts d WHERE d.bono_id = b.id)
+  AND b.status != 'cancelled';
+```
 
-- Extraer la logica del `mutationFn` actual a una funcion exportada independiente: `sendSessionNotificationDirect(params, centerId, center)`
-- Mantener el hook `useSendSessionNotification` existente como wrapper que llama a esa funcion (para no romper otros consumidores)
-- La funcion directa ejecuta la misma logica: verificacion de duplicados, rate limiting, seleccion de canal (Wasender > Meta API > Manual), construccion de plantillas
+#### 2. Crear RPC transaccional para creacion de bonos (`create_bono_with_debt`)
 
-#### 2. `src/components/agenda/CreateSessionDialog.tsx`
+Crear una funcion SQL que agrupe la creacion del bono y la deuda en una sola transaccion, garantizando que ambos se crean o ninguno:
 
-- Importar `sendSessionNotificationDirect` en lugar de usar `sendNotification.mutateAsync()`
-- Llamar directamente a la funcion con los parametros necesarios, pasando `profile.center_id` y `center`
-- Mantener la misma logica de mostrar el dialogo manual solo si `whatsappAutoSent` es false
-- Invalidar queries de notificaciones manualmente despues de la llamada
+- Recibe los parametros del bono (patient_id, name, total_sessions, price_per_session, total_price, expires_at, center_id)
+- Inserta el bono
+- Inserta la deuda vinculada
+- Retorna el ID del bono y el ID de la deuda
+- Si cualquiera falla, ambos se revierten
 
-#### 3. `src/components/agenda/QuickCreateSessionDialog.tsx`
+#### 3. Actualizar `CreateBonoDialog.tsx`
 
-- Aplicar el mismo cambio: reemplazar `sendNotification.mutateAsync()` por `sendSessionNotificationDirect()`
-- Mantener el comportamiento identico al de `CreateSessionDialog`
+- Reemplazar la creacion manual del bono + deuda (lineas 180-208) por una llamada al RPC `create_bono_with_debt`
+- Mantener la logica posterior de facturacion y pago sin cambios
+- Usar el `debt_id` retornado por el RPC para las operaciones de pago/factura
+
+#### 4. Actualizar `useBonos.tsx`
+
+- Anadir una nueva funcion `useCreateBonoWithDebt` que llame al RPC
+- O modificar `useCreateBono` para usar el RPC
+
+### Archivos a modificar
+
+- **Migracion SQL** - Reparar datos existentes y crear funcion RPC `create_bono_with_debt`
+- `src/components/bonos/CreateBonoDialog.tsx` - Usar RPC transaccional en lugar de inserciones separadas
+- `src/hooks/useBonos.tsx` - Actualizar o anadir hook para el nuevo RPC
 
 ### Resultado esperado
 
-Cuando el usuario marca "WhatsApp" en "Notificar ahora" y WasenderAPI esta conectado:
-- El mensaje se envia automaticamente sin abrir ningun dialogo
-- Se muestra un toast "WhatsApp enviado automaticamente"
-- El badge deberia mostrar "Auto" en lugar de "Manual" (esto ya funciona correctamente via `useWhatsAppDelivery`)
+- Los bonos siempre se crean con su deuda asociada (operacion atomica)
+- El bono de Jaime Pizarro tendra su deuda pendiente visible en "Deudas pendientes"
+- Cuando se registre el pago del bono, aparecera en el historial de cobros
+- No se podran crear bonos "huerfanos" sin registro financiero
 
-### Archivos a modificar
-- `src/hooks/useSendSessionNotification.tsx` - Extraer funcion directa
-- `src/components/agenda/CreateSessionDialog.tsx` - Usar funcion directa
-- `src/components/agenda/QuickCreateSessionDialog.tsx` - Usar funcion directa
