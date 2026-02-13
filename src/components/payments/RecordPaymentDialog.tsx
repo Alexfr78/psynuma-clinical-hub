@@ -514,7 +514,7 @@ export function RecordPaymentDialog({
                 Cancelar
               </Button>
               <Button type="submit" disabled={isPending}>
-                {isPending ? 'Registrando...' : isDebtPayment ? 'Cobrar y facturar' : 'Registrar pago'}
+                {isPending ? 'Registrando...' : isDebtPayment ? (watchGenerateInvoice && showInvoiceOption ? 'Cobrar y facturar' : 'Registrar cobro') : 'Registrar pago'}
               </Button>
             </div>
           </form>
