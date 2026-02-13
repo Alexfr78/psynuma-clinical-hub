@@ -42,11 +42,12 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useCreateSession } from '@/hooks/useSessions';
+import { useQueryClient } from '@tanstack/react-query';
 import { usePatients, useProfessionals } from '@/hooks/usePatients';
 import { useAuth } from '@/hooks/useAuth';
 import { usePatientActiveBonos, useDeductBonoSession } from '@/hooks/useBonos';
 import { useScheduleSessionReminder } from '@/hooks/useNotifications';
-import { useSendSessionNotification, WhatsAppDialogData } from '@/hooks/useSendSessionNotification';
+import { sendSessionNotificationDirect, WhatsAppDialogData } from '@/hooks/useSendSessionNotification';
 import { CreateBonoDialog } from '@/components/bonos/CreateBonoDialog';
 import { SessionNotificationSettings } from './SessionNotificationSettings';
 import { WhatsAppLinkDialog } from './WhatsAppLinkDialog';
@@ -111,14 +112,14 @@ export function CreateSessionDialog({
   initialTime,
 }: CreateSessionDialogProps) {
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const createSession = useCreateSession();
   const deductBonoSession = useDeductBonoSession();
   const scheduleReminder = useScheduleSessionReminder();
-  const sendNotification = useSendSessionNotification();
   const { data: patients } = usePatients();
   const { data: professionals } = useProfessionals();
   const { center } = useCenter();
+  const queryClient = useQueryClient();
   const [showCreateBonoDialog, setShowCreateBonoDialog] = useState(false);
   // Track newly created bono and its price
   const [newlyCreatedBonoId, setNewlyCreatedBonoId] = useState<string | null>(null);
@@ -233,7 +234,7 @@ export function CreateSessionDialog({
       const hasNotifications = values.notify_whatsapp || values.notify_email || values.notify_sms;
       let notificationResult;
       if (hasNotifications && newSession?.id && patient) {
-        notificationResult = await sendNotification.mutateAsync({
+        notificationResult = await sendSessionNotificationDirect({
           patientId: values.patient_id,
           patientName: `${patient.first_name} ${patient.last_name}`,
           patientPhone: patient.phone,
@@ -249,7 +250,16 @@ export function CreateSessionDialog({
             email: values.notify_email,
             sms: values.notify_sms,
           },
-        });
+        }, profile!.center_id, center);
+        
+        // Invalidate notification queries manually
+        queryClient.invalidateQueries({ queryKey: ['notifications'] });
+        queryClient.invalidateQueries({ queryKey: ['whatsapp-messages'] });
+        
+        // Show toast for auto-sent notifications
+        if (notificationResult.whatsappAutoSent) {
+          toast({ title: 'WhatsApp enviado automáticamente', description: 'El mensaje se envió correctamente.' });
+        }
       }
 
       toast({
