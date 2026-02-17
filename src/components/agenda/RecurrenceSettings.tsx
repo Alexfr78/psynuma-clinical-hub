@@ -161,6 +161,7 @@ export function RecurrenceSettings({
                 max={99}
                 value={config.interval}
                 onChange={(e) => handleIntervalChange(e.target.value)}
+                onWheel={(e) => (e.target as HTMLInputElement).blur()}
                 className="w-20"
               />
               <span className="text-sm text-muted-foreground">
@@ -217,12 +218,13 @@ export function RecurrenceSettings({
                 <RadioGroupItem value="count" id="end-count" />
                 <Label htmlFor="end-count" className="font-normal flex items-center gap-2">
                   Después de
-                  <Input
+                    <Input
                     type="number"
                     min={1}
                     max={50}
                     value={config.count || 10}
                     onChange={(e) => handleCountChange(e.target.value)}
+                    onWheel={(e) => (e.target as HTMLInputElement).blur()}
                     className="w-16 h-8"
                     disabled={config.end_type !== 'count'}
                   />
@@ -312,10 +314,14 @@ export function RecurrenceSettings({
   );
 }
 
-export const defaultRecurrenceConfig: RecurrenceConfig = {
-  freq: 'WEEKLY',
-  interval: 1,
-  byweekday: [],
-  end_type: 'count',
-  count: 10,
-};
+export function getDefaultRecurrenceConfig(): RecurrenceConfig {
+  return {
+    freq: 'WEEKLY',
+    interval: 1,
+    byweekday: [],
+    end_type: 'count',
+    count: 10,
+  };
+}
+
+export const defaultRecurrenceConfig = getDefaultRecurrenceConfig();

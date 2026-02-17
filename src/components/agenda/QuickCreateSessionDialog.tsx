@@ -63,7 +63,7 @@ import { EditLocationsDialog } from '@/components/settings/EditLocationsDialog';
 import { CreateBonoDialog } from '@/components/bonos/CreateBonoDialog';
 import { SessionNotificationSettings } from './SessionNotificationSettings';
 import { WhatsAppLinkDialog } from './WhatsAppLinkDialog';
-import { RecurrenceSettings, defaultRecurrenceConfig } from './RecurrenceSettings';
+import { RecurrenceSettings, getDefaultRecurrenceConfig } from './RecurrenceSettings';
 import { useCreateRecurringSeries } from '@/hooks/useRecurringSeries';
 import { generateRecurrenceOccurrences } from '@/lib/recurrence-utils';
 import { RecurrenceConfig } from '@/types/recurring';
@@ -174,7 +174,7 @@ export function QuickCreateSessionDialog({
   const [whatsappDialogData, setWhatsappDialogData] = useState<WhatsAppDialogData | null>(null);
   // Recurrence state
   const [recurrenceEnabled, setRecurrenceEnabled] = useState(false);
-  const [recurrenceConfig, setRecurrenceConfig] = useState<RecurrenceConfig>(defaultRecurrenceConfig);
+  const [recurrenceConfig, setRecurrenceConfig] = useState<RecurrenceConfig>(getDefaultRecurrenceConfig());
   // Conflict detection state
   const [conflictsDialogOpen, setConflictsDialogOpen] = useState(false);
   const [detectedConflicts, setDetectedConflicts] = useState<ConflictResult[]>([]);
@@ -325,7 +325,7 @@ export function QuickCreateSessionDialog({
       setPatientSearch('');
       // Reset recurrence state
       setRecurrenceEnabled(false);
-      setRecurrenceConfig(defaultRecurrenceConfig);
+      setRecurrenceConfig(getDefaultRecurrenceConfig());
     }
   }, [open, initialDate, initialStartTime, initialEndTime, user?.id, professionals, sessionTypes, form, center]);
 
