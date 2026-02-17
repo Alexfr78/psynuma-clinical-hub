@@ -1,37 +1,33 @@
 
 
-## Corregir etiqueta del boton de cobro de deuda
+## Fix: Prevent accidental interval changes in recurrence settings
 
-### Problema
-El boton siempre muestra "Cobrar y facturar" cuando se cobra una deuda, incluso si el checkbox "Generar factura al registrar el pago" esta desmarcado. Esto genera confusion, pero la logica interna es correcta: si el checkbox esta desmarcado, NO se genera factura.
+### Root Cause
 
-### Confirmacion
-He revisado el codigo y puedo confirmar que:
-- Linea 193: `if (showInvoiceOption && values.generate_invoice && debtInfo?.bonoId)` - solo crea factura si `generate_invoice` es `true`
-- Si esta desmarcado, salta directamente al cobro en linea 230 sin crear factura
-- **La logica funciona correctamente, el problema es solo la etiqueta del boton**
+The database shows the recently created series have `interval: 30` instead of the intended `interval: 1`. This means the generation algorithm works correctly, but produces sessions every 30 weeks instead of every week.
 
-### Solucion
+The cause is the `<input type="number">` in the recurrence interval field. Browser number inputs respond to mouse wheel scroll events, so scrolling the dialog while the mouse hovers over the interval field silently changes the value. This is a well-known UX problem.
 
-Cambiar la etiqueta del boton para que refleje el estado del checkbox:
+### Changes
 
-#### `src/components/payments/RecordPaymentDialog.tsx`
+#### 1. `src/components/agenda/RecurrenceSettings.tsx`
 
-En la linea 517, cambiar:
-```
-isDebtPayment ? 'Cobrar y facturar' : 'Registrar pago'
-```
-Por:
-```
-isDebtPayment
-  ? (watchGenerateInvoice && showInvoiceOption ? 'Cobrar y facturar' : 'Registrar cobro')
-  : 'Registrar pago'
-```
+- Add `onWheel` handler to the interval and count number inputs to prevent scroll from changing values: `onWheel={(e) => (e.target as HTMLInputElement).blur()}`
+- Change `defaultRecurrenceConfig` to a function (`getDefaultRecurrenceConfig()`) that returns a fresh object each time, preventing any potential shared-reference mutation bugs
 
-Asi el boton dira:
-- **"Cobrar y facturar"** cuando el checkbox esta marcado
-- **"Registrar cobro"** cuando el checkbox esta desmarcado o no hay opcion de factura
-- **"Registrar pago"** para pagos normales (sin deuda)
+#### 2. `src/components/agenda/QuickCreateSessionDialog.tsx`
 
-### Archivos a modificar
-- `src/components/payments/RecordPaymentDialog.tsx` - Solo cambiar la etiqueta del boton (1 linea)
+- Update imports and usages of `defaultRecurrenceConfig` to use the new function `getDefaultRecurrenceConfig()`
+
+#### 3. `src/lib/recurrence-utils.ts`
+
+- Add early exit in `generateWeeklyOccurrences` when `currentWeekStart` is past `endDate` (performance optimization and safety)
+
+### Files to modify
+- `src/components/agenda/RecurrenceSettings.tsx` - Prevent scroll on number inputs, change default config to factory function
+- `src/components/agenda/QuickCreateSessionDialog.tsx` - Use factory function for defaults
+- `src/lib/recurrence-utils.ts` - Add early exit optimization
+
+### Note about existing data
+The two series created today (`4e725351` and `834bf212`) with `interval: 30` will need to be deleted and recreated with the correct interval, or their sessions can be manually managed from the agenda.
+
