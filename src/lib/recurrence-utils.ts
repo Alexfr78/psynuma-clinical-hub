@@ -225,6 +225,7 @@ export function generateWeeklyOccurrences(
   let weeksProcessed = 0;
   
   while (count < targetCount && weeksProcessed < 200) { // Safety limit
+    if (currentWeekStart > endDate) break; // Early exit if past end date
     for (const dayNum of sortedDays) {
       if (count >= targetCount) break;
       
