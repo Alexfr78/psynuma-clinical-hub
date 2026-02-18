@@ -41,7 +41,7 @@ interface IntakeRequestData {
 }
 
 type ScreenStep = 'options' | 'waitlist-form' | 'referral-wizard' | 'success';
-type ReferralWizardStep = 'modality' | 'location' | 'specialty' | 'recommendations' | 'contact';
+type ReferralWizardStep = 'modality' | 'location' | 'specialty' | 'recommendations';
 
 export function ClosedAgendaScreen({
   centerName,
@@ -382,11 +382,10 @@ export function ClosedAgendaScreen({
 
   // ===== REFERRAL WIZARD =====
   if (step === 'referral-wizard') {
-    const stepNumber = ['modality', 'location', 'specialty', 'recommendations', 'contact'].indexOf(referralStep) + 1;
-    const totalSteps = selectedModality === 'presencial' ? 5 : 4;
+    const stepNumber = ['modality', 'location', 'specialty', 'recommendations'].indexOf(referralStep) + 1;
+    const totalSteps = selectedModality === 'presencial' ? 4 : 3;
     const adjustedStep = selectedModality === 'online' && referralStep === 'specialty' ? 2 : 
-                         selectedModality === 'online' && referralStep === 'recommendations' ? 3 :
-                         selectedModality === 'online' && referralStep === 'contact' ? 4 : stepNumber;
+                         selectedModality === 'online' && referralStep === 'recommendations' ? 3 : stepNumber;
 
     return (
       <Card className="max-w-lg mx-auto">
@@ -575,7 +574,7 @@ export function ClosedAgendaScreen({
                 </>
               )}
 
-              {/* STEP 4: Recommendations */}
+              {/* STEP 4 (final): Recommendations with contact details */}
               {referralStep === 'recommendations' && (
                 <>
                   {recommendationsLoading ? (
@@ -588,29 +587,19 @@ export function ClosedAgendaScreen({
                       <CardDescription className="text-center pb-2">
                         He encontrado estos profesionales de confianza:
                       </CardDescription>
-                      <div className="space-y-3 max-h-80 overflow-y-auto">
+                      <div className="space-y-3 max-h-[28rem] overflow-y-auto">
                         {recommendations.map((partner) => (
                           <div 
                             key={partner.id}
-                            className={`border rounded-lg p-4 transition-all cursor-pointer ${
-                              selectedPartnerId === partner.id 
-                                ? 'border-primary bg-primary/5 ring-2 ring-primary/20' 
-                                : 'hover:border-primary/50'
-                            }`}
-                            onClick={() => setSelectedPartnerId(
-                              selectedPartnerId === partner.id ? null : partner.id
-                            )}
+                            className="border rounded-lg p-4"
                           >
                             <div className="flex items-start justify-between gap-2">
                               <div className="flex-1 min-w-0">
-                                <div className="font-medium flex items-center gap-2">
+                                <div className="font-medium">
                                   {partner.publicName}
-                                  {selectedPartnerId === partner.id && (
-                                    <Check className="h-4 w-4 text-primary" />
-                                  )}
                                 </div>
                                 {partner.description && (
-                                  <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                                  <p className="text-sm text-muted-foreground mt-1">
                                     {partner.description}
                                   </p>
                                 )}
@@ -620,34 +609,38 @@ export function ClosedAgendaScreen({
                                       {m === 'online' ? 'Online' : 'Presencial'}
                                     </span>
                                   ))}
-                                  {partner.cities?.slice(0, 2).map((c) => (
+                                  {partner.cities?.slice(0, 3).map((c) => (
                                     <span key={c} className="text-xs bg-muted px-2 py-0.5 rounded">
                                       {c}
                                     </span>
                                   ))}
                                 </div>
+                                {/* Contact details */}
+                                <div className="mt-3 pt-3 border-t space-y-1.5">
+                                  {partner.phone && (
+                                    <a href={`tel:${partner.phone}`} className="flex items-center gap-2 text-sm text-primary hover:underline">
+                                      📞 {partner.phone}
+                                    </a>
+                                  )}
+                                  {partner.email && (
+                                    <a href={`mailto:${partner.email}`} className="flex items-center gap-2 text-sm text-primary hover:underline">
+                                      ✉️ {partner.email}
+                                    </a>
+                                  )}
+                                  {partner.website && (
+                                    <a href={partner.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-primary hover:underline">
+                                      <ExternalLink className="h-3.5 w-3.5" />
+                                      {partner.website.replace(/^https?:\/\//, '').replace(/\/$/, '')}
+                                    </a>
+                                  )}
+                                </div>
                               </div>
-                              {partner.website && (
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="flex-shrink-0"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    window.open(partner.website!, '_blank');
-                                  }}
-                                >
-                                  <ExternalLink className="h-4 w-4" />
-                                </Button>
-                              )}
                             </div>
                           </div>
                         ))}
                       </div>
                       <p className="text-xs text-muted-foreground text-center">
-                        {selectedPartnerId 
-                          ? 'Profesional seleccionado. Continúa para dejarnos tus datos.'
-                          : 'Puedes seleccionar uno o continuar sin elegir.'}
+                        Puedes contactar directamente con cualquiera de estos profesionales.
                       </p>
                     </>
                   ) : (
@@ -659,7 +652,7 @@ export function ClosedAgendaScreen({
                         <p className="font-medium">No encontramos profesionales</p>
                         <p className="text-sm text-muted-foreground mt-1">
                           Ahora mismo no tengo un profesional de confianza para ese criterio. 
-                          Envíanos la solicitud y te responderemos igualmente.
+                          Prueba con otros filtros.
                         </p>
                       </div>
                     </div>
@@ -674,120 +667,16 @@ export function ClosedAgendaScreen({
                       Volver
                     </Button>
                     <Button
-                      onClick={() => setReferralStep('contact')}
-                      className="flex-1"
-                    >
-                      Continuar
-                      <ArrowRight className="h-4 w-4 ml-2" />
-                    </Button>
-                  </div>
-                </>
-              )}
-
-              {/* STEP 5: Contact info */}
-              {referralStep === 'contact' && (
-                <>
-                  <CardDescription className="text-center pb-2">
-                    Déjanos tus datos de contacto
-                  </CardDescription>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="ref-firstName">Nombre *</Label>
-                      <Input
-                        id="ref-firstName"
-                        value={formData.firstName}
-                        onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                        placeholder="Tu nombre"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="ref-lastName">Apellidos *</Label>
-                      <Input
-                        id="ref-lastName"
-                        value={formData.lastName}
-                        onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                        placeholder="Tus apellidos"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="ref-email">Email *</Label>
-                    <Input
-                      id="ref-email"
-                      type="email"
-                      value={formData.email}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      placeholder="tu@email.com"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="ref-phone">Teléfono</Label>
-                    <Input
-                      id="ref-phone"
-                      type="tel"
-                      value={formData.phone}
-                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                      placeholder="+34 600 000 000"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="ref-notes">Notas adicionales</Label>
-                    <Textarea
-                      id="ref-notes"
-                      value={formData.notes}
-                      onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                      placeholder="Cuéntanos un poco más sobre lo que buscas..."
-                      rows={2}
-                    />
-                  </div>
-
-                  <div className="flex items-start space-x-2 pt-2">
-                    <Checkbox
-                      id="privacy-referral"
-                      checked={privacyAccepted}
-                      onCheckedChange={(checked) => setPrivacyAccepted(checked === true)}
-                    />
-                    <Label htmlFor="privacy-referral" className="text-sm leading-tight cursor-pointer">
-                      He leído y acepto la{' '}
-                      <a
-                        href={PRIVACY_POLICY_URL}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-primary underline hover:text-primary/80"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        Política de Privacidad
-                      </a>
-                    </Label>
-                  </div>
-
-                  <div className="flex gap-3 pt-4">
-                    <Button
                       variant="outline"
-                      onClick={() => setReferralStep('recommendations')}
+                      onClick={() => setStep('options')}
                       className="flex-1"
                     >
-                      <ArrowLeft className="h-4 w-4 mr-2" />
-                      Volver
-                    </Button>
-                    <Button
-                      onClick={handleSubmit}
-                      disabled={loading}
-                      className="flex-1"
-                    >
-                      {loading ? (
-                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                      ) : (
-                        <ArrowRight className="h-4 w-4 mr-2" />
-                      )}
-                      Enviar solicitud
+                      Finalizar
                     </Button>
                   </div>
                 </>
               )}
+
             </>
           )}
         </CardContent>
