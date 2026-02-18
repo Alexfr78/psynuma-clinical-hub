@@ -714,10 +714,12 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
       
       if (!usesBono && currentBonoId) {
         // Removing bono - use RPC to return session to pool
-        await removeBonoFromSession.mutateAsync(session.id);
+        const result = await removeBonoFromSession.mutateAsync(session.id);
+        const restoredPrice = (result as any)?.restored_price ?? Number(session.price);
+        setLocalPrice(restoredPrice);
         toast({ 
           title: 'Bono quitado',
-          description: 'La sesión se ha devuelto al bono.',
+          description: 'La sesión se ha devuelto al bono y el precio se ha restaurado.',
         });
       } else if (usesBono) {
         // If there was a previous bono, first remove it
