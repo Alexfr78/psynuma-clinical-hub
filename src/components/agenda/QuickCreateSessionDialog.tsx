@@ -69,6 +69,7 @@ import { generateRecurrenceOccurrences } from '@/lib/recurrence-utils';
 import { RecurrenceConfig } from '@/types/recurring';
 import { checkSessionConflicts, ConflictResult, SessionToCheck } from '@/lib/conflicts';
 import { ConflictsDialog } from './ConflictsDialog';
+import { useWhatsAppDelivery } from '@/hooks/useWhatsAppDelivery';
 
 const quickSessionSchema = z.object({
   patient_id: z.string().uuid('Selecciona un contacto'),
@@ -157,6 +158,7 @@ export function QuickCreateSessionDialog({
   const deductBonoSession = useDeductBonoSession();
   const scheduleReminder = useScheduleSessionReminder();
   const { center } = useCenter();
+  const { isAutomatic } = useWhatsAppDelivery();
   const queryClient = useQueryClient();
   const { data: patients } = usePatients();
   const { data: professionals } = useProfessionals();
@@ -328,6 +330,13 @@ export function QuickCreateSessionDialog({
       setRecurrenceConfig(getDefaultRecurrenceConfig());
     }
   }, [open, initialDate, initialStartTime, initialEndTime, user?.id, professionals, sessionTypes, form, center]);
+
+  // Auto-enable WhatsApp notification when center has automatic delivery
+  useEffect(() => {
+    if (open && isAutomatic) {
+      form.setValue('notify_whatsapp', true);
+    }
+  }, [open, isAutomatic, form]);
 
   const filteredPatients = patients?.filter(
     (patient) =>
