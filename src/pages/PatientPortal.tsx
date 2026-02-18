@@ -49,19 +49,11 @@ export default function PatientPortal() {
 
     try {
       const { data, error: fetchError } = await supabase
-        .from('centers')
-        .select('name, logo_url, portal_enabled')
-        .eq('portal_slug', slug)
-        .single();
+        .rpc('get_portal_center', { p_slug: slug })
+        .maybeSingle();
 
       if (fetchError || !data) {
         setError('Centro no encontrado');
-        setLoading(false);
-        return;
-      }
-
-      if (!data.portal_enabled) {
-        setError('El portal no está habilitado para este centro');
         setLoading(false);
         return;
       }
