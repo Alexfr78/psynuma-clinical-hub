@@ -274,55 +274,51 @@ export default function PublicReferralRegister() {
               </div>
 
               {/* Location */}
-              {formData.modality.includes('presencial') && (
-                <>
-                  <div className="space-y-2">
-                    <Label>Provincias</Label>
-                    <div className="flex gap-2">
-                      <Input
-                        value={provincesInput}
-                        onChange={(e) => setProvincesInput(e.target.value)}
-                        placeholder="Añadir provincia..."
-                        onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addProvince())}
-                      />
-                      <Button type="button" size="icon" variant="outline" onClick={addProvince}>
-                        <Plus className="h-4 w-4" />
-                      </Button>
-                    </div>
-                    <div className="flex flex-wrap gap-1">
-                      {formData.provinces.map((prov) => (
-                        <Badge key={prov} variant="secondary" className="gap-1">
-                          {prov}
-                          <X className="h-3 w-3 cursor-pointer" onClick={() => removeProvince(prov)} />
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
+              <div className="space-y-2">
+                <Label>Provincias</Label>
+                <div className="flex gap-2">
+                  <Input
+                    value={provincesInput}
+                    onChange={(e) => setProvincesInput(e.target.value)}
+                    placeholder="Añadir provincia..."
+                    onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addProvince())}
+                  />
+                  <Button type="button" size="icon" variant="outline" onClick={addProvince}>
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {formData.provinces.map((prov) => (
+                    <Badge key={prov} variant="secondary" className="gap-1">
+                      {prov}
+                      <X className="h-3 w-3 cursor-pointer" onClick={() => removeProvince(prov)} />
+                    </Badge>
+                  ))}
+                </div>
+              </div>
 
-                  <div className="space-y-2">
-                    <Label>Ciudades</Label>
-                    <div className="flex gap-2">
-                      <Input
-                        value={citiesInput}
-                        onChange={(e) => setCitiesInput(e.target.value)}
-                        placeholder="Añadir ciudad..."
-                        onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addCity())}
-                      />
-                      <Button type="button" size="icon" variant="outline" onClick={addCity}>
-                        <Plus className="h-4 w-4" />
-                      </Button>
-                    </div>
-                    <div className="flex flex-wrap gap-1">
-                      {formData.cities.map((city) => (
-                        <Badge key={city} variant="secondary" className="gap-1">
-                          {city}
-                          <X className="h-3 w-3 cursor-pointer" onClick={() => removeCity(city)} />
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                </>
-              )}
+              <div className="space-y-2">
+                <Label>Ciudades</Label>
+                <div className="flex gap-2">
+                  <Input
+                    value={citiesInput}
+                    onChange={(e) => setCitiesInput(e.target.value)}
+                    placeholder="Añadir ciudad..."
+                    onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addCity())}
+                  />
+                  <Button type="button" size="icon" variant="outline" onClick={addCity}>
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {formData.cities.map((city) => (
+                    <Badge key={city} variant="secondary" className="gap-1">
+                      {city}
+                      <X className="h-3 w-3 cursor-pointer" onClick={() => removeCity(city)} />
+                    </Badge>
+                  ))}
+                </div>
+              </div>
 
               <Separator />
 
