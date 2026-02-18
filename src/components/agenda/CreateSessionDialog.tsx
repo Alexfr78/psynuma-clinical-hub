@@ -52,6 +52,7 @@ import { CreateBonoDialog } from '@/components/bonos/CreateBonoDialog';
 import { SessionNotificationSettings } from './SessionNotificationSettings';
 import { WhatsAppLinkDialog } from './WhatsAppLinkDialog';
 import { useCenter } from '@/hooks/useCenter';
+import { useWhatsAppDelivery } from '@/hooks/useWhatsAppDelivery';
 
 const PAYMENT_MODE_OPTIONS = [
   { value: '__default__', label: 'Usar predeterminado del centro', icon: Settings2 },
@@ -119,6 +120,7 @@ export function CreateSessionDialog({
   const { data: patients } = usePatients();
   const { data: professionals } = useProfessionals();
   const { center } = useCenter();
+  const { isAutomatic } = useWhatsAppDelivery();
   const queryClient = useQueryClient();
   const [showCreateBonoDialog, setShowCreateBonoDialog] = useState(false);
   // Track newly created bono and its price
@@ -173,6 +175,13 @@ export function CreateSessionDialog({
       form.setValue('end_time', calculateEndTime(initialTime));
     }
   }, [initialDate, initialTime, form]);
+
+  // Auto-enable WhatsApp notification when center has automatic delivery
+  useEffect(() => {
+    if (open && isAutomatic) {
+      form.setValue('notify_whatsapp', true);
+    }
+  }, [open, isAutomatic, form]);
 
   function calculateEndTime(startTime: string): string {
     const [hours, minutes] = startTime.split(':').map(Number);
