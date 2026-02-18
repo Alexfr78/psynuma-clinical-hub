@@ -1,33 +1,39 @@
 
+## Fix: Portal del paciente no puede acceder a datos del centro
 
-## Fix: Prevent accidental interval changes in recurrence settings
+### Problema
 
-### Root Cause
+La pagina del portal (`/portal/reservas`) consulta la tabla `centers` directamente:
+```typescript
+supabase.from('centers').select('name, logo_url, portal_enabled').eq('portal_slug', slug).single()
+```
 
-The database shows the recently created series have `interval: 30` instead of the intended `interval: 1`. This means the generation algorithm works correctly, but produces sessions every 30 weeks instead of every week.
+Pero las politicas RLS de `centers` solo permiten SELECT a usuarios autenticados que pertenezcan al centro. El portal se accede de forma anonima, por lo que la consulta devuelve error y se muestra "Centro no encontrado".
 
-The cause is the `<input type="number">` in the recurrence interval field. Browser number inputs respond to mouse wheel scroll events, so scrolling the dialog while the mouse hovers over the interval field silently changes the value. This is a well-known UX problem.
+### Solucion
 
-### Changes
+Ya existe una funcion RPC `get_portal_center(p_slug text)` con `SECURITY DEFINER` que permite acceso publico a los datos basicos del centro cuando `portal_enabled = true`. Solo hay que cambiar `PatientPortal.tsx` para usar esta funcion en lugar de la consulta directa.
 
-#### 1. `src/components/agenda/RecurrenceSettings.tsx`
+### Cambio en `src/pages/PatientPortal.tsx`
 
-- Add `onWheel` handler to the interval and count number inputs to prevent scroll from changing values: `onWheel={(e) => (e.target as HTMLInputElement).blur()}`
-- Change `defaultRecurrenceConfig` to a function (`getDefaultRecurrenceConfig()`) that returns a fresh object each time, preventing any potential shared-reference mutation bugs
+Reemplazar la consulta directa:
+```typescript
+const { data, error } = await supabase
+  .from('centers')
+  .select('name, logo_url, portal_enabled')
+  .eq('portal_slug', slug)
+  .single();
+```
 
-#### 2. `src/components/agenda/QuickCreateSessionDialog.tsx`
+Por la llamada al RPC existente:
+```typescript
+const { data, error } = await supabase
+  .rpc('get_portal_center', { p_slug: slug })
+  .maybeSingle();
+```
 
-- Update imports and usages of `defaultRecurrenceConfig` to use the new function `getDefaultRecurrenceConfig()`
+La funcion `get_portal_center` ya filtra por `portal_enabled = true` y devuelve `name`, `logo_url` y otros campos necesarios.
 
-#### 3. `src/lib/recurrence-utils.ts`
+### Archivos a modificar
 
-- Add early exit in `generateWeeklyOccurrences` when `currentWeekStart` is past `endDate` (performance optimization and safety)
-
-### Files to modify
-- `src/components/agenda/RecurrenceSettings.tsx` - Prevent scroll on number inputs, change default config to factory function
-- `src/components/agenda/QuickCreateSessionDialog.tsx` - Use factory function for defaults
-- `src/lib/recurrence-utils.ts` - Add early exit optimization
-
-### Note about existing data
-The two series created today (`4e725351` and `834bf212`) with `interval: 30` will need to be deleted and recreated with the correct interval, or their sessions can be manually managed from the agenda.
-
+- `src/pages/PatientPortal.tsx` - Usar RPC `get_portal_center` en lugar de consulta directa a `centers`
