@@ -15,7 +15,7 @@ interface RequestBody {
   channel: 'email' | 'whatsapp' | 'both';
 }
 
-// Send WhatsApp via WasenderAPI
+// Send WhatsApp via WasenderAPI (direct HTTP fetch to bypass JWT restrictions)
 async function sendWhatsAppViaWasender(
   supabase: ReturnType<typeof createClient>,
   centerId: string,
@@ -24,29 +24,76 @@ async function sendWhatsAppViaWasender(
   patientId?: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    console.log(`[send-invoice-notification] Sending WhatsApp via WasenderAPI to ${phone}`);
-    
-    const { data, error } = await supabase.functions.invoke('wasender-send-message', {
-      body: {
-        phone,
-        message,
-        patient_id: patientId,
-        message_type: 'invoice',
-      },
-    });
-
-    if (error) {
-      console.error('[send-invoice-notification] WasenderAPI invoke error:', error);
-      return { success: false, error: error.message };
+    const wasenderApiKey = Deno.env.get('WASENDER_API_KEY');
+    if (!wasenderApiKey) {
+      console.error('[send-invoice-notification] WASENDER_API_KEY not configured');
+      return { success: false, error: 'WASENDER_API_KEY not configured' };
     }
 
-    if (!data?.success) {
-      const errorMsg = data?.error || 'Unknown WasenderAPI error';
-      console.error('[send-invoice-notification] WasenderAPI failed:', errorMsg);
+    // Get the WasenderAPI session ID for this center
+    const { data: session, error: sessionError } = await supabase
+      .from('whatsapp_sessions')
+      .select('wasender_session_id')
+      .eq('center_id', centerId)
+      .eq('status', 'connected')
+      .maybeSingle();
+
+    if (sessionError || !session?.wasender_session_id) {
+      console.error('[send-invoice-notification] No connected WasenderAPI session found:', sessionError);
+      return { success: false, error: 'No connected WasenderAPI session' };
+    }
+
+    // Normalize phone number
+    let normalized = phone.replace(/[\s\-()]/g, '');
+    if (!normalized.startsWith('+')) normalized = '+' + normalized;
+
+    console.log(`[send-invoice-notification] Sending WhatsApp via WasenderAPI direct fetch to ${normalized}`);
+
+    const response = await fetch('https://www.wasenderapi.com/api/send-message', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${wasenderApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        sessionId: session.wasender_session_id,
+        to: normalized,
+        text: message,
+      }),
+    });
+
+    const contentType = response.headers.get('content-type') || '';
+    let responseData: Record<string, unknown> | null = null;
+    if (contentType.includes('application/json')) {
+      responseData = await response.json();
+    } else {
+      const text = await response.text();
+      console.warn('[send-invoice-notification] WasenderAPI non-JSON response:', text.substring(0, 200));
+    }
+
+    if (!response.ok) {
+      const errorMsg = (responseData as Record<string, string>)?.message || `HTTP ${response.status}`;
+      console.error('[send-invoice-notification] WasenderAPI error:', errorMsg);
       return { success: false, error: errorMsg };
     }
 
-    console.log('[send-invoice-notification] WhatsApp sent successfully via WasenderAPI');
+    // Log message in whatsapp_messages for traceability
+    try {
+      await supabase.from('whatsapp_messages').insert({
+        center_id: centerId,
+        patient_id: patientId || null,
+        phone: normalized,
+        message_body: message,
+        direction: 'outgoing',
+        status: 'sent',
+        message_type: 'invoice',
+        sent_at: new Date().toISOString(),
+      });
+    } catch (logError) {
+      console.warn('[send-invoice-notification] Failed to log whatsapp_message:', logError);
+    }
+
+    console.log('[send-invoice-notification] WhatsApp sent successfully via WasenderAPI direct fetch');
     return { success: true };
   } catch (error) {
     console.error('[send-invoice-notification] WasenderAPI exception:', error);
