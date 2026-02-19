@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { CreditCard, Calendar, Receipt, FileText, Loader2, Check, X, Mail, MessageSquare, ExternalLink, ShieldCheck, AlertTriangle } from 'lucide-react';
+import { CreditCard, Calendar, Receipt, FileText, Loader2, Check, X, Mail, MessageSquare, ShieldCheck, AlertTriangle } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 import {
   Dialog,
   DialogContent,
@@ -47,7 +48,7 @@ interface CollectSessionPaymentDialogProps {
   amount: number;
   sessionDate?: string;
   sessionType?: string;
-  onSuccess?: () => void;
+  onSuccess?: (invoiceData?: { id: string; invoice_number: string; total: number }) => void;
 }
 
 type Step = 'payment' | 'invoice-question' | 'invoice-type' | 'processing' | 'complete';
@@ -72,7 +73,8 @@ export function CollectSessionPaymentDialog({
   const [notes, setNotes] = useState('');
   const [selectedInvoiceType, setSelectedInvoiceType] = useState<'simplified' | 'complete'>('simplified');
   const [createdInvoiceId, setCreatedInvoiceId] = useState<string | null>(null);
-  const [whatsappLink, setWhatsappLink] = useState<string | null>(null);
+  const [createdInvoiceNumber, setCreatedInvoiceNumber] = useState<string | null>(null);
+  const [createdInvoiceTotal, setCreatedInvoiceTotal] = useState<number>(0);
   const [verifactuPending, setVerifactuPending] = useState(false);
   const [processingMessage, setProcessingMessage] = useState('Generando factura...');
 
@@ -97,7 +99,8 @@ export function CollectSessionPaymentDialog({
     setNotes('');
     setSelectedInvoiceType('simplified');
     setCreatedInvoiceId(null);
-    setWhatsappLink(null);
+    setCreatedInvoiceNumber(null);
+    setCreatedInvoiceTotal(0);
     setVerifactuPending(false);
     setProcessingMessage('Generando factura...');
   };
@@ -133,16 +136,25 @@ export function CollectSessionPaymentDialog({
       invoiceType: type,
       items,
       notes: 'Factura generada automáticamente al cobrar sesión',
-      sendNotification: true,
+      sendNotification: false,
       patientEmail,
       patientPhone,
     });
 
     if (result.invoiceId) {
       setCreatedInvoiceId(result.invoiceId);
-    }
-    if (result.whatsappLink) {
-      setWhatsappLink(result.whatsappLink);
+      
+      // Fetch invoice number for the send dialog
+      const { data: invoiceRow } = await supabase
+        .from('invoices')
+        .select('invoice_number, total')
+        .eq('id', result.invoiceId)
+        .single();
+      
+      if (invoiceRow) {
+        setCreatedInvoiceNumber(invoiceRow.invoice_number);
+        setCreatedInvoiceTotal(invoiceRow.total);
+      }
     }
     if (result.verifactuPending) {
       setVerifactuPending(true);
@@ -215,8 +227,11 @@ export function CollectSessionPaymentDialog({
   };
 
   const handleComplete = () => {
+    const invoiceData = createdInvoiceId && createdInvoiceNumber
+      ? { id: createdInvoiceId, invoice_number: createdInvoiceNumber, total: createdInvoiceTotal }
+      : undefined;
     handleClose();
-    onSuccess?.();
+    onSuccess?.(invoiceData);
   };
 
   const renderPaymentStep = () => (
@@ -441,18 +456,6 @@ export function CollectSessionPaymentDialog({
         </div>
       )}
 
-      {whatsappLink && !verifactuPending && (
-        <div className="rounded-lg border p-4 space-y-3">
-          <p className="text-sm font-medium">Enviar factura por WhatsApp:</p>
-          <Button asChild className="w-full gap-2">
-            <a href={whatsappLink} target="_blank" rel="noopener noreferrer">
-              <MessageSquare className="h-4 w-4" />
-              Abrir WhatsApp
-              <ExternalLink className="h-4 w-4" />
-            </a>
-          </Button>
-        </div>
-      )}
 
       <div className="pt-4">
         <Button onClick={handleComplete} className="w-full">
