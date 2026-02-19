@@ -2004,7 +2004,24 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
         amount={localPrice}
         sessionDate={session.session_date}
         sessionType={session.session_type}
-        onSuccess={() => refetchPaymentStatus()}
+        onSuccess={(invoiceData) => {
+          refetchPaymentStatus();
+          if (invoiceData && session.patient) {
+            setCreatedInvoiceForSend({
+              id: invoiceData.id,
+              invoice_number: invoiceData.invoice_number,
+              total: invoiceData.total,
+              patients: {
+                id: session.patient.id,
+                first_name: session.patient.first_name,
+                last_name: session.patient.last_name,
+                email: session.patient.email,
+                phone: session.patient.phone,
+              },
+            });
+            setShowSendInvoiceDialog(true);
+          }
+        }}
       />
     )}
 
