@@ -4269,6 +4269,7 @@ export type Database = {
         Args: { p_bono_id: string; p_session_id: string }
         Returns: Json
       }
+      auto_complete_past_sessions: { Args: never; Returns: Json }
       bootstrap_create_center: {
         Args: {
           p_address?: string
