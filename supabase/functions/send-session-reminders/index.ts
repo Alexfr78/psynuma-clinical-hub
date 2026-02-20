@@ -381,6 +381,18 @@ serve(async (req) => {
 
       const templateMessage = whatsappTemplate?.whatsapp_message || null;
 
+      // Fetch Email reminder template for this center
+      const { data: emailTemplate } = await supabase
+        .from("communication_templates")
+        .select("email_initial_text, email_subject")
+        .eq("center_id", center.id)
+        .eq("template_type", "reminder")
+        .eq("channel", "email")
+        .maybeSingle();
+
+      const emailTemplateMessage = emailTemplate?.email_initial_text || null;
+      const emailTemplateSubject = emailTemplate?.email_subject || null;
+
       // Determine base URL for session links
       const baseUrl = center.custom_domain 
         ? `https://${center.custom_domain}` 
@@ -391,18 +403,33 @@ serve(async (req) => {
       let targetTime: Date;
       
       if (center.session_reminder_timing === 'day_before_10am') {
-        // Sessions for tomorrow, send at 10am today
-        const today10am = new Date(now);
-        today10am.setHours(10, 0, 0, 0);
+        // Use Europe/Madrid timezone for the 10am window check
+        const madridFormatter = new Intl.DateTimeFormat('en-US', {
+          timeZone: 'Europe/Madrid',
+          hour: 'numeric',
+          minute: 'numeric',
+          hour12: false,
+        });
+        const madridParts = madridFormatter.formatToParts(now);
+        const madridHour = parseInt(madridParts.find(p => p.type === 'hour')?.value || '0');
+        const madridMinute = parseInt(madridParts.find(p => p.type === 'minute')?.value || '0');
+        const totalMinutes = madridHour * 60 + madridMinute;
         
-        // Only process if it's around 10am (within 30 min window)
-        const timeDiff = Math.abs(now.getTime() - today10am.getTime());
-        if (timeDiff > 30 * 60 * 1000) {
-          console.log(`Skipping center ${center.name}: not within 10am window`);
+        // Only process if Madrid time is between 09:30 and 10:30
+        if (totalMinutes < 570 || totalMinutes > 630) {
+          console.log(`Skipping center ${center.name}: Madrid time is ${madridHour}:${String(madridMinute).padStart(2, '0')}, not within 10am window`);
           continue;
         }
         
-        targetTime = new Date(now);
+        // Target = tomorrow's date in Madrid timezone
+        const madridDateFormatter = new Intl.DateTimeFormat('en-CA', {
+          timeZone: 'Europe/Madrid',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+        });
+        const todayMadrid = new Date(madridDateFormatter.format(now));
+        targetTime = new Date(todayMadrid);
         targetTime.setDate(targetTime.getDate() + 1);
       } else {
         // Hours-based timing
@@ -476,17 +503,23 @@ serve(async (req) => {
           continue;
         }
 
-        const message = buildReminderMessage(session, center, templateMessage, baseUrl);
+        const whatsappMessage = buildReminderMessage(session, center, templateMessage, baseUrl);
+        const emailMessage = buildReminderMessage(session, center, emailTemplateMessage || templateMessage, baseUrl);
         const logoUrl = center.invoice_logo_url || center.logo_url;
         let reminderSent = false;
 
         // Send email reminder
         if (channels.email && patient.email) {
+          const emailSubject = emailTemplateSubject 
+            ? emailTemplateSubject
+                .replace(/\{nombre_paciente\}/g, patient.first_name)
+                .replace(/\{fecha\}/g, formatDate(session.session_date))
+            : `Recordatorio de cita - ${formatDate(session.session_date)}`;
           console.log(`Sending email reminder to ${patient.email} for session ${session.id}`);
           const emailResult = await sendEmailViaResend(
             patient.email,
-            `Recordatorio de cita - ${formatDate(session.session_date)}`,
-            message,
+            emailSubject,
+            emailMessage,
             center.name,
             logoUrl
           );
@@ -506,8 +539,8 @@ serve(async (req) => {
             session_id: session.id,
             type: 'email',
             recipient: patient.email,
-            subject: `Recordatorio de cita - ${formatDate(session.session_date)}`,
-            message: message,
+            subject: emailSubject,
+            message: emailMessage,
             status: emailResult.success ? 'sent' : 'failed',
             sent_at: emailResult.success ? new Date().toISOString() : null,
             error_message: emailResult.error || null
@@ -516,12 +549,14 @@ serve(async (req) => {
 
         // Send WhatsApp reminder
         if (channels.whatsapp && patient.phone) {
+          let whatsappSentVia: string | null = null;
+          let whatsappError: string | null = null;
+
           // Priority 1: WasenderAPI (automatic via personal number)
-          if (center.wasender_enabled && center.wasender_auto_reminders && !center.wasender_emergency_stop) {
+          if (!whatsappSentVia && center.wasender_enabled && center.wasender_auto_reminders && !center.wasender_emergency_stop) {
             const wasenderToken = Deno.env.get("WASENDER_PERSONAL_ACCESS_TOKEN");
             
             if (wasenderToken) {
-              // Get WhatsApp session for this center
               const { data: whatsappSession } = await supabase
                 .from("whatsapp_sessions")
                 .select("wasender_session_id, status")
@@ -532,45 +567,19 @@ serve(async (req) => {
                 console.log(`Sending WhatsApp reminder via WasenderAPI to ${patient.phone} for session ${session.id}`);
                 const wasenderResult = await sendWhatsAppViaWasender(
                   patient.phone,
-                  message,
+                  whatsappMessage,
                   wasenderToken,
                   whatsappSession.wasender_session_id
                 );
 
                 if (wasenderResult.success) {
+                  whatsappSentVia = 'wasender';
                   reminderSent = true;
                   console.log(`WhatsApp sent via WasenderAPI to ${patient.phone}`);
                 } else {
-                  console.error(`WasenderAPI failed for ${patient.phone}:`, wasenderResult.error);
-                  errors++;
+                  console.error(`WasenderAPI failed for ${patient.phone}: ${wasenderResult.error}, trying next method...`);
+                  // Do NOT create a failed record here - let fallback handle it
                 }
-
-                // Create notification record
-                await supabase.from("notifications").insert({
-                  center_id: center.id,
-                  patient_id: patient.id,
-                  session_id: session.id,
-                  type: 'whatsapp',
-                  recipient: patient.phone,
-                  message: message,
-                  status: wasenderResult.success ? 'sent' : 'failed',
-                  sent_at: wasenderResult.success ? new Date().toISOString() : null,
-                  error_message: wasenderResult.error || null
-                });
-
-                // Also record in whatsapp_messages for tracking
-                await supabase.from("whatsapp_messages").insert({
-                  center_id: center.id,
-                  phone: patient.phone.replace(/\D/g, ''),
-                  content: message,
-                  type: 'text',
-                  message_type: 'reminder',
-                  patient_id: patient.id,
-                  session_id: session.id,
-                  status: wasenderResult.success ? 'sent' : 'failed',
-                  sent_at: wasenderResult.success ? new Date().toISOString() : null,
-                  error_message: wasenderResult.success ? null : (wasenderResult.error || null),
-                });
               } else {
                 console.log(`WasenderAPI session not connected for center ${center.id}, falling back`);
               }
@@ -578,57 +587,65 @@ serve(async (req) => {
           }
           
           // Priority 2: Meta Business API
-          if (!reminderSent) {
+          if (!whatsappSentVia) {
             const sendMethod = center.whatsapp_send_method || 'web';
             
             if (sendMethod === 'api' && center.whatsapp_access_token && center.whatsapp_phone_number_id) {
               console.log(`Sending WhatsApp reminder via Meta API to ${patient.phone} for session ${session.id}`);
               const decryptedToken = await decryptSecret(center.whatsapp_access_token);
-              const whatsappResult = await sendWhatsAppViaMetaAPI(
+              const metaResult = await sendWhatsAppViaMetaAPI(
                 patient.phone,
-                message,
+                whatsappMessage,
                 decryptedToken,
                 center.whatsapp_phone_number_id
               );
               
-              if (whatsappResult.success) {
+              if (metaResult.success) {
+                whatsappSentVia = 'meta_api';
                 reminderSent = true;
                 console.log(`WhatsApp sent via Meta API to ${patient.phone}`);
               } else {
-                console.error(`Meta API failed for ${patient.phone}:`, whatsappResult.error);
-                errors++;
+                console.error(`Meta API failed for ${patient.phone}: ${metaResult.error}, falling back to web`);
+                whatsappError = metaResult.error || null;
               }
-
-              await supabase.from("notifications").insert({
-                center_id: center.id,
-                patient_id: patient.id,
-                session_id: session.id,
-                type: 'whatsapp',
-                recipient: patient.phone,
-                message: message,
-                status: whatsappResult.success ? 'sent' : 'failed',
-                sent_at: whatsappResult.success ? new Date().toISOString() : null,
-                error_message: whatsappResult.error || null
-              });
             }
           }
 
           // Priority 3: Web mode (manual fallback)
-          if (!reminderSent) {
+          if (!whatsappSentVia) {
+            whatsappSentVia = 'web';
+            reminderSent = true;
             console.log(`Creating pending WhatsApp reminder for ${patient.phone} (web mode) for session ${session.id}`);
-            
-            await supabase.from("notifications").insert({
+          }
+
+          // Create ONE notification record based on the final result
+          const finalStatus = whatsappSentVia === 'web' ? 'pending' : (whatsappSentVia ? 'sent' : 'failed');
+          await supabase.from("notifications").insert({
+            center_id: center.id,
+            patient_id: patient.id,
+            session_id: session.id,
+            type: 'whatsapp',
+            recipient: patient.phone,
+            message: whatsappMessage,
+            status: finalStatus,
+            sent_at: finalStatus === 'sent' ? new Date().toISOString() : null,
+            scheduled_for: finalStatus === 'pending' ? new Date().toISOString() : null,
+            error_message: finalStatus === 'failed' ? whatsappError : null,
+          });
+
+          // Also record in whatsapp_messages for tracking (only if actually sent via API)
+          if (whatsappSentVia === 'wasender' || whatsappSentVia === 'meta_api') {
+            await supabase.from("whatsapp_messages").insert({
               center_id: center.id,
+              phone: patient.phone.replace(/\D/g, ''),
+              content: whatsappMessage,
+              type: 'text',
+              message_type: 'reminder',
               patient_id: patient.id,
               session_id: session.id,
-              type: 'whatsapp',
-              recipient: patient.phone,
-              message: message,
-              status: 'pending',
-              scheduled_for: new Date().toISOString(),
+              status: 'sent',
+              sent_at: new Date().toISOString(),
             });
-            
-            reminderSent = true;
           }
         }
 

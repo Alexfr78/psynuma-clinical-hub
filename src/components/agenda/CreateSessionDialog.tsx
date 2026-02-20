@@ -46,7 +46,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { usePatients, useProfessionals } from '@/hooks/usePatients';
 import { useAuth } from '@/hooks/useAuth';
 import { usePatientActiveBonos, useDeductBonoSession } from '@/hooks/useBonos';
-import { useScheduleSessionReminder } from '@/hooks/useNotifications';
+
 import { sendSessionNotificationDirect, WhatsAppDialogData } from '@/hooks/useSendSessionNotification';
 import { CreateBonoDialog } from '@/components/bonos/CreateBonoDialog';
 import { SessionNotificationSettings } from './SessionNotificationSettings';
@@ -116,7 +116,7 @@ export function CreateSessionDialog({
   const { user, profile } = useAuth();
   const createSession = useCreateSession();
   const deductBonoSession = useDeductBonoSession();
-  const scheduleReminder = useScheduleSessionReminder();
+  
   const { data: patients } = usePatients();
   const { data: professionals } = useProfessionals();
   const { center } = useCenter();
@@ -231,25 +231,7 @@ export function CreateSessionDialog({
         });
       }
 
-      // Schedule reminders if any are enabled
-      const hasReminders = values.send_reminder_email || values.send_reminder_sms || values.send_reminder_whatsapp;
-      if (hasReminders && newSession?.id && patient) {
-        await scheduleReminder.mutateAsync({
-          sessionId: newSession.id,
-          patientId: values.patient_id,
-          patientName: `${patient.first_name} ${patient.last_name}`,
-          patientEmail: patient.email,
-          patientPhone: patient.phone,
-          sessionDate: format(values.session_date, 'dd/MM/yyyy'),
-          sessionDateISO: format(values.session_date, 'yyyy-MM-dd'),
-          sessionTime: values.start_time,
-          reminderTypes: {
-            email: values.send_reminder_email,
-            sms: values.send_reminder_sms,
-            whatsapp: values.send_reminder_whatsapp,
-          },
-        });
-      }
+      // Reminders are handled automatically by the cron-based send-session-reminders edge function
 
       // Send immediate notifications if any are enabled
       const hasNotifications = values.notify_whatsapp || values.notify_email || values.notify_sms;
@@ -287,9 +269,7 @@ export function CreateSessionDialog({
         title: 'Sesión creada',
         description: values.bono_id && values.bono_id !== 'none' 
           ? 'Sesión programada y descontada del bono.'
-          : hasReminders 
-            ? 'Sesión programada con recordatorios configurados.'
-            : 'La sesión se ha programado correctamente.',
+          : 'La sesión se ha programado correctamente.',
       });
 
       form.reset();
