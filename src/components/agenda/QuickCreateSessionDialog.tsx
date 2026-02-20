@@ -52,7 +52,7 @@ import { usePatients, useProfessionals } from '@/hooks/usePatients';
 import { useAuth } from '@/hooks/useAuth';
 import { useLocations } from '@/hooks/useLocations';
 import { usePatientActiveBonos, useDeductBonoSession } from '@/hooks/useBonos';
-import { useScheduleSessionReminder } from '@/hooks/useNotifications';
+
 import { sendSessionNotificationDirect, WhatsAppDialogData } from '@/hooks/useSendSessionNotification';
 import { useSessionTypes } from '@/hooks/useSessionTypes';
 import { useCenter } from '@/hooks/useCenter';
@@ -156,7 +156,7 @@ export function QuickCreateSessionDialog({
   const updateSession = useUpdateSession();
   const createRecurringSeries = useCreateRecurringSeries();
   const deductBonoSession = useDeductBonoSession();
-  const scheduleReminder = useScheduleSessionReminder();
+  
   const { center } = useCenter();
   const { isAutomatic } = useWhatsAppDelivery();
   const queryClient = useQueryClient();
@@ -594,25 +594,7 @@ export function QuickCreateSessionDialog({
         });
       }
 
-      // Schedule reminders if any are enabled
-      const hasReminders = values.send_reminder_email || values.send_reminder_sms || values.send_reminder_whatsapp;
-      if (hasReminders && newSession?.id && selectedPatient) {
-        await scheduleReminder.mutateAsync({
-          sessionId: newSession.id,
-          patientId: values.patient_id,
-          patientName: `${selectedPatient.first_name} ${selectedPatient.last_name}`,
-          patientEmail: selectedPatient.email,
-          patientPhone: selectedPatient.phone,
-          sessionDate: format(values.session_date, 'dd/MM/yyyy'),
-          sessionDateISO: format(values.session_date, 'yyyy-MM-dd'),
-          sessionTime: values.start_time,
-          reminderTypes: {
-            email: values.send_reminder_email,
-            sms: values.send_reminder_sms,
-            whatsapp: values.send_reminder_whatsapp,
-          },
-        });
-      }
+      // Reminders are handled automatically by the cron-based send-session-reminders edge function
 
       // Send immediate notifications if any are enabled (only for non-drafts)
       const hasNotifications = values.notify_whatsapp || values.notify_email || values.notify_sms;
