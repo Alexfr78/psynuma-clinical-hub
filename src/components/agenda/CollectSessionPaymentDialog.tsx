@@ -107,7 +107,7 @@ export function CollectSessionPaymentDialog({
 
   const handleClose = () => {
     onOpenChange(false);
-    resetForm();
+    setTimeout(() => resetForm(), 350);
   };
 
   const createInvoiceForSession = async (type: 'simplified' | 'complete') => {
@@ -230,8 +230,13 @@ export function CollectSessionPaymentDialog({
     const invoiceData = createdInvoiceId && createdInvoiceNumber
       ? { id: createdInvoiceId, invoice_number: createdInvoiceNumber, total: createdInvoiceTotal }
       : undefined;
-    handleClose();
-    onSuccess?.(invoiceData);
+    // Close the dialog/drawer first
+    onOpenChange(false);
+    // Defer the callback so the Drawer animation completes before opening the next dialog
+    setTimeout(() => {
+      onSuccess?.(invoiceData);
+      resetForm();
+    }, 350);
   };
 
   const renderPaymentStep = () => (
