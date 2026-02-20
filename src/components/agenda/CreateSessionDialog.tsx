@@ -157,6 +157,18 @@ export function CreateSessionDialog({
   const { data: patientBonos, refetch: refetchBonos } = usePatientActiveBonos(watchPatientId || undefined);
 
   // Bono selection no longer changes session price - bono is billed separately
+
+  // Auto-select first active bono when patient has bonos available
+  useEffect(() => {
+    if (patientBonos && patientBonos.length > 0 && watchPatientId) {
+      const currentBono = form.getValues('bono_id');
+      if (!currentBono || currentBono === 'none' || currentBono === '') {
+        form.setValue('bono_id', patientBonos[0].id);
+      }
+    } else if (watchPatientId) {
+      form.setValue('bono_id', 'none');
+    }
+  }, [patientBonos, watchPatientId, form]);
   
   // Clear new bono tracking when bono selection changes to something else
   useEffect(() => {
