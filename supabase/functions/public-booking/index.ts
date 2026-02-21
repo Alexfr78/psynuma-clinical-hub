@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendAdminAlert, buildAlertMessage } from "../_shared/adminAlerts.ts";
 import { queueAndSendPatientBookingNotification } from "../_shared/bookingPatientNotifications.ts";
+import { isValidEmail, isValidDate, isValidTime, isValidName } from "../_shared/validation.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -433,6 +434,13 @@ serve(async (req) => {
       if (!centerSlug || !date || !sessionTypeId || !locationId) {
         return new Response(
           JSON.stringify({ error: "Faltan parámetros requeridos" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      if (!isValidDate(date)) {
+        return new Response(
+          JSON.stringify({ error: "Formato de fecha inválido (esperado YYYY-MM-DD)" }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
@@ -916,6 +924,32 @@ serve(async (req) => {
       if (!patient?.firstName || !patient?.lastName || !patient?.email) {
         return new Response(
           JSON.stringify({ error: "Datos del paciente incompletos" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Validate input formats
+      if (!isValidDate(sessionDate)) {
+        return new Response(
+          JSON.stringify({ error: "Formato de fecha inválido (esperado YYYY-MM-DD)" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      if (!isValidTime(startTime) || !isValidTime(endTime)) {
+        return new Response(
+          JSON.stringify({ error: "Formato de hora inválido (esperado HH:MM)" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      if (!isValidEmail(patient.email)) {
+        return new Response(
+          JSON.stringify({ error: "Formato de email inválido" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      if (!isValidName(patient.firstName) || !isValidName(patient.lastName)) {
+        return new Response(
+          JSON.stringify({ error: "Nombre o apellido inválido" }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
