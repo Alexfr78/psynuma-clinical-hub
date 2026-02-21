@@ -4408,6 +4408,7 @@ export type Database = {
           name: string
         }[]
       }
+      get_safe_center: { Args: { p_center_id: string }; Returns: Json }
       get_session_token: { Args: never; Returns: string }
       get_user_center_id: { Args: { _user_id: string }; Returns: string }
       handle_google_webhook_debounce: {

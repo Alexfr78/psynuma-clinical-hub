@@ -117,13 +117,10 @@ export function useCenter() {
       if (!centerId) return null;
       
       const { data, error } = await supabase
-        .from('centers')
-        .select('*')
-        .eq('id', centerId)
-        .maybeSingle();
+        .rpc('get_safe_center', { p_center_id: centerId });
 
       if (error) throw error;
-      return data as unknown as Center | null;
+      return (data as unknown as Center) ?? null;
     },
     enabled: !!centerId,
   });
