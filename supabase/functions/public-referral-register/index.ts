@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { isValidEmail, isValidName } from "../_shared/validation.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -33,6 +34,19 @@ Deno.serve(async (req) => {
     if (!center_slug || !name?.trim() || !email?.trim()) {
       return new Response(
         JSON.stringify({ error: "Nombre, email y slug del centro son obligatorios" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (!isValidEmail(email)) {
+      return new Response(
+        JSON.stringify({ error: "Formato de email inválido" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    if (!isValidName(name, 150)) {
+      return new Response(
+        JSON.stringify({ error: "Nombre inválido (máximo 150 caracteres)" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
