@@ -149,3 +149,6 @@ verify_jwt = true
 
 [functions.public-referral-register]
 verify_jwt = false
+
+[functions.wasender-webhook]
+verify_jwt = false

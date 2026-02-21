@@ -16,9 +16,18 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const webhookSecret = Deno.env.get("WASENDER_WEBHOOK_SECRET");
 
-    // Verify webhook secret if configured
+    // Webhook secret is mandatory - reject if not configured
+    if (!webhookSecret) {
+      console.error("WASENDER_WEBHOOK_SECRET not configured - rejecting webhook");
+      return new Response(JSON.stringify({ error: "Webhook not configured" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Verify webhook secret
     const receivedSecret = req.headers.get("x-webhook-secret");
-    if (webhookSecret && receivedSecret !== webhookSecret) {
+    if (receivedSecret !== webhookSecret) {
       console.warn("Invalid webhook secret received");
       return new Response(JSON.stringify({ error: "Invalid webhook secret" }), {
         status: 401,
