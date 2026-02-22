@@ -41,7 +41,8 @@ export function WhatsAppIntegrationSection() {
     isLoading: wasenderLoading, 
     isConnected, 
     qrCode, 
-    connectWhatsApp, 
+    connectWhatsApp,
+    disconnectWhatsApp,
     sendMessage,
     refetchSession,
     stats 
@@ -395,11 +396,29 @@ export function WhatsAppIntegrationSection() {
                   </div>
                 )}
 
-                {/* Connected Phone Info */}
-                {isConnected && session?.phone_number && (
-                  <div className="p-3 border rounded-lg bg-green-50/50 flex items-center gap-3">
-                    <Phone className="h-4 w-4 text-green-600" />
-                    <span className="text-sm">Conectado: {session.phone_number}</span>
+                {/* Connected Phone Info + Disconnect */}
+                {isConnected && (
+                  <div className="p-3 border rounded-lg bg-green-50/50 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <Phone className="h-4 w-4 text-green-600" />
+                      <span className="text-sm">Conectado{session?.phone_number ? `: ${session.phone_number}` : ''}</span>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => disconnectWhatsApp.mutateAsync()}
+                      disabled={disconnectWhatsApp.isPending}
+                      className="text-red-600 border-red-200 hover:bg-red-50"
+                    >
+                      {disconnectWhatsApp.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <>
+                          <XCircle className="h-4 w-4 mr-1" />
+                          Desconectar
+                        </>
+                      )}
+                    </Button>
                   </div>
                 )}
 

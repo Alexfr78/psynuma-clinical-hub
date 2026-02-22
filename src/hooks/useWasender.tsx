@@ -149,6 +149,26 @@ export function useWasender() {
     },
   });
 
+  // Disconnect WhatsApp session
+  const disconnectWhatsApp = useMutation({
+    mutationFn: async () => {
+      if (!centerId) throw new Error('No center');
+      // Update local DB status to disconnected
+      const { error } = await supabase
+        .from('whatsapp_sessions')
+        .update({ status: 'disconnected', qr_code: null })
+        .eq('center_id', centerId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['whatsapp-session', centerId] });
+      toast.success('Sesión de WhatsApp desconectada. Puedes reconectar escaneando un nuevo QR.');
+    },
+    onError: () => {
+      toast.error('Error al desconectar WhatsApp');
+    },
+  });
+
   // Get message statistics
   const stats = {
     total: messages?.length || 0,
@@ -165,6 +185,7 @@ export function useWasender() {
     isConnected: session?.status === 'connected',
     qrCode: session?.qr_code,
     connectWhatsApp,
+    disconnectWhatsApp,
     sendMessage,
     refetchSession,
   };
