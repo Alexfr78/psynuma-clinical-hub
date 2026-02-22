@@ -104,37 +104,84 @@ serve(async (req) => {
     if (Array.isArray(sessions) && sessions.length > 0) {
       const session = sessions[0];
       wasenderSessionId = session.id ?? null;
-      sessionStatus = session.status || "disconnected";
+      const rawStatus = session.status || "disconnected";
       phoneNumber = session.phone_number || null;
       sessionName = session.name || null;
+      
+      // Map WasenderAPI statuses to our DB-valid statuses
+      const statusMap: Record<string, string> = {
+        "connected": "connected",
+        "need_scan": "need_scan",
+        "STOPPED": "disconnected",
+        "logged_out": "disconnected",
+        "disconnected": "disconnected",
+      };
+      sessionStatus = statusMap[rawStatus] || "disconnected";
+      
       console.log(
-        `Found existing session: ${wasenderSessionId}, status: ${sessionStatus}, phone: ${phoneNumber}`,
+        `Found existing session: ${wasenderSessionId}, raw status: ${rawStatus}, mapped: ${sessionStatus}, phone: ${phoneNumber}`,
       );
 
       if (
-        sessionStatus === "need_scan" || sessionStatus === "disconnected" ||
-        sessionStatus === "STOPPED"
+        rawStatus === "need_scan" || rawStatus === "disconnected" ||
+        rawStatus === "STOPPED" || rawStatus === "logged_out"
       ) {
-        // Request QR code
-        console.log("Requesting QR code...");
-        const qrResponse = await fetch(
-          `${WASENDER_API_URL}/whatsapp-sessions/${wasenderSessionId}/qrcode`,
+        // First, initialize/connect the session via POST /connect
+        console.log("Initializing session via /connect endpoint...");
+        const connectResponse = await fetch(
+          `${WASENDER_API_URL}/whatsapp-sessions/${wasenderSessionId}/connect`,
           {
-            method: "GET",
+            method: "POST",
             headers: {
               "Authorization": `Bearer ${wasenderToken}`,
-              "Accept": "application/json",
+              "Content-Type": "application/json",
             },
           },
         );
 
-        if (qrResponse.ok) {
-          const qrData = await qrResponse.json();
-          qrCode = qrData.data?.qrCode || qrData.qrCode || qrData.data?.qr || qrData.qr;
-          console.log("QR code retrieved successfully");
+        if (connectResponse.ok) {
+          const connectData = await connectResponse.json();
+          console.log("Connect response:", JSON.stringify(connectData).substring(0, 500));
+          // The connect endpoint may return the QR code directly
+          qrCode = connectData.data?.qrCode || connectData.qrCode || connectData.data?.qr || connectData.qr || null;
+          if (connectData.data?.status) {
+            const newRawStatus = connectData.data.status;
+            sessionStatus = statusMap[newRawStatus] || statusMap[newRawStatus.toLowerCase()] || "need_scan";
+          }
+          if (qrCode) {
+            sessionStatus = "need_scan";
+            console.log("QR code retrieved from connect endpoint");
+          }
         } else {
-          const qrError = await qrResponse.text();
-          console.log("QR response not ok:", qrError.substring(0, 300));
+          const connectError = await connectResponse.text();
+          console.log("Connect response not ok:", connectError.substring(0, 300));
+        }
+
+        // If connect didn't return QR, try the qrcode endpoint
+        if (!qrCode) {
+          console.log("Requesting QR code from /qrcode endpoint...");
+          const qrResponse = await fetch(
+            `${WASENDER_API_URL}/whatsapp-sessions/${wasenderSessionId}/qrcode`,
+            {
+              method: "GET",
+              headers: {
+                "Authorization": `Bearer ${wasenderToken}`,
+                "Accept": "application/json",
+              },
+            },
+          );
+
+          if (qrResponse.ok) {
+            const qrData = await qrResponse.json();
+            qrCode = qrData.data?.qrCode || qrData.qrCode || qrData.data?.qr || qrData.qr;
+            if (qrCode) {
+              sessionStatus = "need_scan";
+              console.log("QR code retrieved from qrcode endpoint");
+            }
+          } else {
+            const qrError = await qrResponse.text();
+            console.log("QR response not ok:", qrError.substring(0, 300));
+          }
         }
       }
     } else {
