@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { QRCodeSVG } from "qrcode.react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -360,10 +361,10 @@ export function WhatsAppIntegrationSection() {
                     {qrCode ? (
                       <div className="flex flex-col items-center gap-4">
                         <div className="p-4 bg-white rounded-lg">
-                          <img 
-                            src={qrCode.startsWith('data:') ? qrCode : `data:image/png;base64,${qrCode}`}
-                            alt="WhatsApp QR Code"
-                            className="w-48 h-48"
+                          <QRCodeSVG 
+                            value={qrCode}
+                            size={192}
+                            level="M"
                           />
                         </div>
                         <p className="text-sm text-muted-foreground text-center">
