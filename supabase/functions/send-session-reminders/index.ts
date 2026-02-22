@@ -9,7 +9,7 @@ const WASENDER_API_URL = "https://www.wasenderapi.com/api";
 async function sendWhatsAppViaWasender(
   phone: string,
   message: string,
-  wasenderToken: string,
+  wasenderApiKey: string,
   wasenderSessionId: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
@@ -19,19 +19,28 @@ async function sendWhatsAppViaWasender(
     }
 
     const response = await fetch(
-      `${WASENDER_API_URL}/whatsapp-sessions/${wasenderSessionId}/messages/text`,
+      `${WASENDER_API_URL}/send-message`,
       {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${wasenderToken}`,
+          'Authorization': `Bearer ${wasenderApiKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          sessionId: wasenderSessionId,
           to: cleanPhone,
           text: message,
         }),
       }
     );
+
+    // Validate JSON response before parsing
+    const contentType = response.headers.get("content-type");
+    if (!contentType || !contentType.includes("application/json")) {
+      const textResponse = await response.text();
+      console.error("WasenderAPI returned non-JSON response:", textResponse.substring(0, 500));
+      return { success: false, error: `WasenderAPI error: ${response.status} - Invalid response format` };
+    }
 
     const data = await response.json();
 
@@ -554,7 +563,7 @@ serve(async (req) => {
 
           // Priority 1: WasenderAPI (automatic via personal number)
           if (!whatsappSentVia && center.wasender_enabled && center.wasender_auto_reminders && !center.wasender_emergency_stop) {
-            const wasenderToken = Deno.env.get("WASENDER_PERSONAL_ACCESS_TOKEN");
+            const wasenderToken = Deno.env.get("WASENDER_API_KEY");
             
             if (wasenderToken) {
               const { data: whatsappSession } = await supabase
