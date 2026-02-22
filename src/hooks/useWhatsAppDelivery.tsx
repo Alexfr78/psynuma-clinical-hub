@@ -151,7 +151,7 @@ export function useWhatsAppDelivery() {
     return generateWhatsAppUniversalLink(phone, message);
   }, []);
 
-  // Main send function that automatically uses the best available method
+  // Main send function - uses live DB check instead of cached state
   const sendWhatsApp = useCallback(async (params: {
     phone: string;
     message: string;
@@ -164,8 +164,6 @@ export function useWhatsAppDelivery() {
     result: WhatsAppDeliveryResult;
     manualLink?: string;
   }> => {
-    console.log('[WhatsAppDelivery] Sending via method:', deliveryMethod);
-
     // Validate phone
     if (!params.phone) {
       toast.warning('Sin teléfono', {
@@ -176,34 +174,45 @@ export function useWhatsAppDelivery() {
       };
     }
 
-    if (deliveryMethod === 'wasender') {
-      const result = await sendViaWasender({
-        phone: params.phone,
-        message: params.message,
-        patientId: params.patientId,
-        sessionId: params.sessionId,
-        messageType: params.messageType,
-      });
+    // Live DB check for WasenderAPI status (avoids stale cache)
+    if (center?.wasender_enabled && !center?.wasender_emergency_stop) {
+      const { data: liveSession } = await supabase
+        .from('whatsapp_sessions')
+        .select('status, wasender_session_id')
+        .eq('center_id', params.centerId)
+        .maybeSingle();
 
-      if (result.autoSent) {
-        toast.success('WhatsApp enviado', {
-          description: `Mensaje enviado a ${params.patientName}.`,
+      if (liveSession?.status === 'connected' && liveSession?.wasender_session_id) {
+        console.log('[WhatsAppDelivery] Live DB: WasenderAPI connected, sending auto');
+        const result = await sendViaWasender({
+          phone: params.phone,
+          message: params.message,
+          patientId: params.patientId,
+          sessionId: params.sessionId,
+          messageType: params.messageType,
         });
-        return { result };
-      } else {
-        // Fallback to manual if WasenderAPI fails
-        console.warn('[WhatsAppDelivery] WasenderAPI failed, falling back to manual');
-        toast.warning('Envío automático falló', {
-          description: 'Se abrirá el enlace manual.',
-        });
-        return {
-          result: { autoSent: false, method: 'manual' },
-          manualLink: getManualLink(params.phone, params.message),
-        };
+
+        if (result.autoSent) {
+          toast.success('WhatsApp enviado', {
+            description: `Mensaje enviado a ${params.patientName}.`,
+          });
+          return { result };
+        } else {
+          console.warn('[WhatsAppDelivery] WasenderAPI failed, falling back to manual');
+          toast.warning('Envío automático falló', {
+            description: 'Se abrirá el enlace manual.',
+          });
+          return {
+            result: { autoSent: false, method: 'manual' },
+            manualLink: getManualLink(params.phone, params.message),
+          };
+        }
       }
     }
 
-    if (deliveryMethod === 'meta_api') {
+    // Try Meta API if configured
+    if (center?.whatsapp_send_method === 'api' && center?.whatsapp_access_token) {
+      console.log('[WhatsAppDelivery] Sending via Meta API');
       const result = await sendViaMetaApi({
         phone: params.phone,
         message: params.message,
@@ -218,7 +227,6 @@ export function useWhatsAppDelivery() {
         });
         return { result };
       } else {
-        // Fallback to manual
         return {
           result: { autoSent: false, method: 'manual' },
           manualLink: getManualLink(params.phone, params.message),
@@ -231,7 +239,7 @@ export function useWhatsAppDelivery() {
       result: { autoSent: false, method: 'manual' },
       manualLink: getManualLink(params.phone, params.message),
     };
-  }, [deliveryMethod, sendViaWasender, sendViaMetaApi, getManualLink]);
+  }, [center, sendViaWasender, sendViaMetaApi, getManualLink]);
 
   return {
     // Current delivery method
