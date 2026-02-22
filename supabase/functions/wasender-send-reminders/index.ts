@@ -6,7 +6,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const WASENDER_API_URL = "https://api.wasenderapi.com/api/v1";
+const WASENDER_API_URL = "https://www.wasenderapi.com/api";
 
 interface SessionWithPatient {
   id: string;
@@ -42,7 +42,7 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const wasenderToken = Deno.env.get("WASENDER_PERSONAL_ACCESS_TOKEN");
+    const wasenderToken = Deno.env.get("WASENDER_API_KEY");
 
     if (!wasenderToken) {
       return new Response(JSON.stringify({ error: "WasenderAPI token not configured" }), {
@@ -246,7 +246,7 @@ async function sendReminder(
 
     // Send immediately (could also let the queue processor handle it)
     const sendResponse = await fetch(
-      `${WASENDER_API_URL}/sessions/${whatsappSession.wasender_session_id}/send-message`,
+      `${WASENDER_API_URL}/send-message`,
       {
         method: 'POST',
         headers: {
@@ -254,11 +254,29 @@ async function sendReminder(
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          sessionId: whatsappSession.wasender_session_id,
           to: phone,
           text: message,
         }),
       }
     );
+
+    // Validate JSON response before parsing
+    const contentType = sendResponse.headers.get("content-type");
+    if (!contentType || !contentType.includes("application/json")) {
+      const textResponse = await sendResponse.text();
+      console.error("WasenderAPI returned non-JSON response:", textResponse.substring(0, 500));
+      
+      await supabase
+        .from('whatsapp_messages')
+        .update({
+          status: 'failed',
+          error_message: `WasenderAPI error: ${sendResponse.status} - Invalid response format`,
+        })
+        .eq('id', messageRecord.id);
+
+      return false;
+    }
 
     const sendResult = await sendResponse.json();
 
