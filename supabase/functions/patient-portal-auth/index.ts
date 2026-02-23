@@ -188,6 +188,10 @@ serve(async (req) => {
         );
       }
 
+      // Record start time to ensure consistent response timing
+      const sendLinkStart = Date.now();
+      const MIN_RESPONSE_MS = 800;
+
       // Find patient by email in this center
       const { data: patient, error: patientError } = await supabase
         .from("patients")
@@ -198,7 +202,12 @@ serve(async (req) => {
 
       if (patientError || !patient) {
         // Don't reveal if patient exists or not for security
-        console.log("Patient not found for email:", email);
+        // Add delay to match the timing of the success path
+        const elapsed = Date.now() - sendLinkStart;
+        if (elapsed < MIN_RESPONSE_MS) {
+          await new Promise(r => setTimeout(r, MIN_RESPONSE_MS - elapsed));
+        }
+        console.log("Patient not found for email (timing-safe response)");
         return new Response(
           JSON.stringify({ success: true, message: "Si existe una cuenta con este email, recibirás un enlace de acceso" }),
           { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -274,8 +283,14 @@ serve(async (req) => {
         console.log("Magic link email sent to:", email);
       }
 
+      // Ensure consistent timing with the not-found path
+      const elapsed = Date.now() - sendLinkStart;
+      if (elapsed < MIN_RESPONSE_MS) {
+        await new Promise(r => setTimeout(r, MIN_RESPONSE_MS - elapsed));
+      }
+
       return new Response(
-        JSON.stringify({ success: true, message: "Enlace enviado a tu email" }),
+        JSON.stringify({ success: true, message: "Si existe una cuenta con este email, recibirás un enlace de acceso" }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
