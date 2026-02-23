@@ -108,17 +108,18 @@ serve(async (req) => {
       });
     }
 
-    // Normalize phone. Wasender expects either a WhatsApp JID or an E.164 number.
-    // Keep a leading '+' if provided; otherwise, prefix '+' to pure digit numbers.
+    // Normalize phone: strip non-digits, add Spanish country code if needed
     const trimmedPhone = phone.trim();
     const isJid = trimmedPhone.includes("@");
-
     const normalized = trimmedPhone.replace(/[\s\-()]/g, "");
-    const to = isJid
-      ? normalized
-      : normalized.startsWith("+")
-        ? normalized
-        : `+${normalized}`;
+
+    let cleanPhone = trimmedPhone.replace(/\D/g, '');
+    // Add Spanish country code for 9-digit numbers starting with 6 or 7
+    if (cleanPhone.length === 9 && /^[67]/.test(cleanPhone)) {
+      cleanPhone = '34' + cleanPhone;
+    }
+
+    const to = isJid ? normalized : `+${cleanPhone}`;
 
     // Create message record first
     const { data: messageRecord, error: insertError } = await supabase
