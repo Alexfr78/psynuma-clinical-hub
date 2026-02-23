@@ -1,60 +1,39 @@
 
 
-## Corrección: Normalización de teléfonos en wasender-send-message
+## Actualizar email de envío a dominio verificado
 
-### Diagnóstico
-
-Los mensajes de WhatsApp enviados via WasenderAPI aparecen como "Esperando mensaje" porque se envían con números de teléfono incorrectos. Por ejemplo, el mensaje a Iker se envió a `+680348650` en lugar de `+34680348650`.
-
-### Causa raíz
-
-La función `wasender-send-message` no normaliza los números españoles de 9 dígitos. Solo elimina espacios y guiones, y añade un `+` si no lo tiene. En contraste, la función `send-session-reminders` sí tiene la lógica correcta:
-
-```text
-send-session-reminders (correcto):
-  cleanPhone = phone.replace(/\D/g, '');
-  if (cleanPhone.length === 9 && /^[67]/.test(cleanPhone)) {
-    cleanPhone = '34' + cleanPhone;
-  }
-
-wasender-send-message (incorrecto):
-  normalized = trimmedPhone.replace(/[\s\-()]/g, "");
-  to = normalized.startsWith("+") ? normalized : `+${normalized}`;
-  // No añade prefijo 34 para números de 9 dígitos
-```
-
-Esto causa que números como `680348650` o `+680348650` se envíen sin el código de país, y WhatsApp no puede entregarlos correctamente.
+### Problema
+Hay 5 edge functions que tienen hardcodeado `onboarding@resend.dev` como dirección de envío. Solo una (`send-notification`) lee el secret `RESEND_FROM_EMAIL`, pero las otras 4 lo ignoran. Esto causa que los emails fallen con el error "You can only send testing emails to your own email address".
 
 ### Solución
 
-Actualizar la normalización de teléfonos en `wasender-send-message` para detectar y añadir el prefijo `34` a números españoles de 9 dígitos, usando la misma lógica que ya funciona en `send-session-reminders`.
+**Paso 1: Actualizar el secret `RESEND_FROM_EMAIL`**
+- Cambiar el valor a `alejandro@psicologosexual.com`
 
-### Cambios técnicos
+**Paso 2: Actualizar las 5 edge functions para usar el secret**
 
-**Archivo: `supabase/functions/wasender-send-message/index.ts`**
+Cada función que envía emails pasará a leer `RESEND_FROM_EMAIL` del entorno en lugar de tener `onboarding@resend.dev` hardcodeado:
 
-Reemplazar la lógica de normalización (líneas 111-121) por:
+1. **`send-notification/index.ts`** - Ya lee el secret, solo eliminar el fallback a `onboarding@resend.dev`
+2. **`patient-portal-auth/index.ts`** - Cambiar `onboarding@resend.dev` por `Deno.env.get("RESEND_FROM_EMAIL")`
+3. **`patient-portal-register/index.ts`** - Mismo cambio
+4. **`send-session-reminders/index.ts`** - Mismo cambio
+5. **`send-invoice-notification/index.ts`** - Mismo cambio
 
-```typescript
-// Normalize phone: strip non-digits, add Spanish country code if needed
-let cleanPhone = trimmedPhone.replace(/\D/g, '');
+**Paso 3: Redesplegar las 5 funciones**
 
-// Add Spanish country code for 9-digit numbers starting with 6 or 7
-if (cleanPhone.length === 9 && /^[67]/.test(cleanPhone)) {
-  cleanPhone = '34' + cleanPhone;
-}
+### Detalle tecnico
 
-const to = isJid ? normalized : `+${cleanPhone}`;
+En cada funcion, la linea:
+```
+from: `${name} <onboarding@resend.dev>`
+```
+se reemplazara por:
+```
+const fromEmail = Deno.env.get("RESEND_FROM_EMAIL") || "alejandro@psicologosexual.com";
+// ...
+from: `${name} <${fromEmail}>`
 ```
 
-Esto transforma:
-- `680348650` a `+34680348650` (correcto)
-- `+680348650` a `+34680348650` (correcto)
-- `+34680348650` a `+34680348650` (sin cambio)
-- `34680348650` a `+34680348650` (sin cambio)
+Esto garantiza que todos los emails salgan desde el dominio verificado `psicologosexual.com`.
 
-### Resultado esperado
-
-- Los mensajes de WhatsApp se enviarán con el número correcto incluyendo el prefijo de país
-- Los mensajes se entregarán inmediatamente en lugar de quedar en estado "Esperando mensaje"
-- El comportamiento será consistente entre `wasender-send-message` y `send-session-reminders`
