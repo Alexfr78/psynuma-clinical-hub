@@ -180,7 +180,7 @@ async function sendEmailViaResend(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: `${centerName || 'Psycma'} <onboarding@resend.dev>`,
+        from: `${centerName || 'Psycma'} <${Deno.env.get("RESEND_FROM_EMAIL") || "alejandro@psicologosexual.com"}>`,
         to: [to],
         subject: subject,
         html: htmlContent,
