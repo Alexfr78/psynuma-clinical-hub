@@ -1,70 +1,60 @@
 
 
-## Correccion: Envio automatico de WhatsApp desde detalle de cita
+## Corrección: Normalización de teléfonos en wasender-send-message
 
-### Diagnostico
+### Diagnóstico
 
-El boton "WhatsApp" en la seccion "Enviar ahora" del detalle de cita usa el hook `useWhatsAppDelivery`, que depende del estado cacheado de `useWasender`. Tras desconectar y reconectar WhatsApp, el estado cacheado puede quedar desactualizado (`disconnected`), lo que hace que el sistema considere que no hay envio automatico disponible y caiga al modo manual (abriendo la app de WhatsApp).
+Los mensajes de WhatsApp enviados via WasenderAPI aparecen como "Esperando mensaje" porque se envían con números de teléfono incorrectos. Por ejemplo, el mensaje a Iker se envió a `+680348650` en lugar de `+34680348650`.
 
-En contraste, la funcion `sendSessionNotificationDirect` (usada al crear citas) consulta directamente la base de datos para verificar el estado de WasenderAPI, y por eso funciona correctamente.
+### Causa raíz
 
-### Causa raiz
+La función `wasender-send-message` no normaliza los números españoles de 9 dígitos. Solo elimina espacios y guiones, y añade un `+` si no lo tiene. En contraste, la función `send-session-reminders` sí tiene la lógica correcta:
 
-El boton de envio en el detalle de cita depende de:
-1. `useWhatsAppDelivery().deliveryMethod` -- usa datos cacheados del hook `useWasender`
-2. Si `deliveryMethod !== 'wasender'`, cae al modo manual
+```text
+send-session-reminders (correcto):
+  cleanPhone = phone.replace(/\D/g, '');
+  if (cleanPhone.length === 9 && /^[67]/.test(cleanPhone)) {
+    cleanPhone = '34' + cleanPhone;
+  }
 
-Cuando el cache de `useWasender` tiene datos desactualizados (por ejemplo, tras reconectar), el metodo se evalua como `'manual'` en lugar de `'wasender'`.
-
-### Solucion
-
-Modificar el flujo de envio de WhatsApp en el detalle de cita para que, al igual que `sendSessionNotificationDirect`, consulte directamente la base de datos antes de decidir el metodo de envio, en lugar de depender exclusivamente del cache del hook.
-
-### Cambios tecnicos
-
-**Archivo: `src/components/agenda/SessionDetailDrawer.tsx`**
-
-Modificar el `onClick` del boton "WhatsApp" (lineas ~1553-1612) para:
-
-1. Antes de llamar a `whatsappDelivery.sendWhatsApp()`, verificar directamente en la BD:
-   - Consultar `whatsapp_sessions` para comprobar si `status === 'connected'`
-   - Si esta conectado, llamar directamente a `wasender-send-message` via `supabase.functions.invoke`
-   - Solo caer al modo manual si la llamada a WasenderAPI falla
-
-2. Reutilizar la logica ya probada de `sendSessionNotificationDirect` adaptandola al contexto del boton
-
-**Alternativa mas limpia**: Modificar la funcion `sendWhatsApp` del hook `useWhatsAppDelivery` para que siempre verifique el estado actual de la BD antes de decidir el metodo, anadiendo una consulta directa a `whatsapp_sessions` dentro de la funcion `sendWhatsApp` en lugar de depender del memo `deliveryMethod`.
-
-**Archivo: `src/hooks/useWhatsAppDelivery.tsx`**
-
-Cambiar la funcion `sendWhatsApp` (linea ~155) para:
-
+wasender-send-message (incorrecto):
+  normalized = trimmedPhone.replace(/[\s\-()]/g, "");
+  to = normalized.startsWith("+") ? normalized : `+${normalized}`;
+  // No añade prefijo 34 para números de 9 dígitos
 ```
-// En lugar de usar el deliveryMethod cacheado:
-// if (deliveryMethod === 'wasender') { ... }
 
-// Verificar directamente en la BD:
-const { data: liveSession } = await supabase
-  .from('whatsapp_sessions')
-  .select('status, wasender_session_id')
-  .eq('center_id', params.centerId)
-  .maybeSingle();
+Esto causa que números como `680348650` o `+680348650` se envíen sin el código de país, y WhatsApp no puede entregarlos correctamente.
 
-const isLiveConnected = liveSession?.status === 'connected' 
-  && center?.wasender_enabled 
-  && !center?.wasender_emergency_stop;
+### Solución
 
-if (isLiveConnected) {
-  // Enviar via WasenderAPI
-  const result = await sendViaWasender({ ... });
-  if (result.autoSent) { ... }
+Actualizar la normalización de teléfonos en `wasender-send-message` para detectar y añadir el prefijo `34` a números españoles de 9 dígitos, usando la misma lógica que ya funciona en `send-session-reminders`.
+
+### Cambios técnicos
+
+**Archivo: `supabase/functions/wasender-send-message/index.ts`**
+
+Reemplazar la lógica de normalización (líneas 111-121) por:
+
+```typescript
+// Normalize phone: strip non-digits, add Spanish country code if needed
+let cleanPhone = trimmedPhone.replace(/\D/g, '');
+
+// Add Spanish country code for 9-digit numbers starting with 6 or 7
+if (cleanPhone.length === 9 && /^[67]/.test(cleanPhone)) {
+  cleanPhone = '34' + cleanPhone;
 }
+
+const to = isJid ? normalized : `+${cleanPhone}`;
 ```
 
-Esto asegura que la decision de envio se basa en el estado real de la BD en el momento del click, no en datos cacheados que pueden estar desactualizados.
+Esto transforma:
+- `680348650` a `+34680348650` (correcto)
+- `+680348650` a `+34680348650` (correcto)
+- `+34680348650` a `+34680348650` (sin cambio)
+- `34680348650` a `+34680348650` (sin cambio)
 
 ### Resultado esperado
 
-- El boton "WhatsApp" en el detalle de cita enviara automaticamente via WasenderAPI cuando la sesion esta conectada
-- No se abrira la app de WhatsApp manualmente si WasenderAPI esta disponible
-- El comportamiento sera consistente con el envio durante la creacion de citas
+- Los mensajes de WhatsApp se enviarán con el número correcto incluyendo el prefijo de país
+- Los mensajes se entregarán inmediatamente en lugar de quedar en estado "Esperando mensaje"
+- El comportamiento será consistente entre `wasender-send-message` y `send-session-reminders`
