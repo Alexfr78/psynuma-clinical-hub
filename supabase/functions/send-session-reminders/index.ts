@@ -497,6 +497,7 @@ serve(async (req) => {
 
       let sent = 0;
       let errors = 0;
+      let lastWasenderSendAt = 0;
 
       for (const sessionData of sessions || []) {
         // Extract single objects from arrays (Supabase returns arrays for joins)
@@ -573,6 +574,14 @@ serve(async (req) => {
                 .single();
 
               if (whatsappSession?.wasender_session_id && whatsappSession.status === 'connected') {
+                // Rate limit: wait 6s between WasenderAPI calls (account protection = 1 msg / 5s)
+                if (lastWasenderSendAt > 0) {
+                  const elapsed = Date.now() - lastWasenderSendAt;
+                  if (elapsed < 6000) {
+                    await new Promise(r => setTimeout(r, 6000 - elapsed));
+                  }
+                }
+
                 console.log(`Sending WhatsApp reminder via WasenderAPI to ${patient.phone} for session ${session.id}`);
                 const wasenderResult = await sendWhatsAppViaWasender(
                   patient.phone,
@@ -580,6 +589,7 @@ serve(async (req) => {
                   wasenderToken,
                   whatsappSession.wasender_session_id
                 );
+                lastWasenderSendAt = Date.now();
 
                 if (wasenderResult.success) {
                   whatsappSentVia = 'wasender';
