@@ -630,11 +630,13 @@ export function QuickCreateSessionDialog({
 
       toast({
         title: asDraft ? 'Borrador guardado' : 'Sesión creada',
-        description: usesBono 
-          ? 'Sesión programada y descontada del bono.'
-          : asDraft 
-            ? 'La sesión se ha guardado como borrador.'
-            : 'La sesión se ha programado correctamente.',
+        description: notificationResult?.whatsappAutoSent
+          ? 'Sesión programada y WhatsApp enviado automáticamente.'
+          : usesBono 
+            ? 'Sesión programada y descontada del bono.'
+            : asDraft 
+              ? 'La sesión se ha guardado como borrador.'
+              : 'La sesión se ha programado correctamente.',
       });
 
       onOpenChange(false);

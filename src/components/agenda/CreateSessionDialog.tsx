@@ -267,9 +267,11 @@ export function CreateSessionDialog({
 
       toast({
         title: 'Sesión creada',
-        description: values.bono_id && values.bono_id !== 'none' 
-          ? 'Sesión programada y descontada del bono.'
-          : 'La sesión se ha programado correctamente.',
+        description: notificationResult?.whatsappAutoSent
+          ? 'Sesión programada y WhatsApp enviado automáticamente.'
+          : values.bono_id && values.bono_id !== 'none' 
+            ? 'Sesión programada y descontada del bono.'
+            : 'La sesión se ha programado correctamente.',
       });
 
       form.reset();
