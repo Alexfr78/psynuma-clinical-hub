@@ -304,7 +304,7 @@ Deno.serve(async (req) => {
           `;
 
           const emailResponse = await resend.emails.send({
-            from: `${center?.name || 'Psycma'} <onboarding@resend.dev>`,
+            from: `${center?.name || 'Psycma'} <${Deno.env.get("RESEND_FROM_EMAIL") || "alejandro@psicologosexual.com"}>`,
             to: [email],
             subject: `Factura ${invoiceNumber} - ${center?.name || 'Psycma'}`,
             html: emailHtml,

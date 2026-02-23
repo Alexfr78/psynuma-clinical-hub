@@ -30,7 +30,7 @@ async function sendEmailViaResendAPI(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: `${fromName} <onboarding@resend.dev>`,
+        from: `${fromName} <${Deno.env.get("RESEND_FROM_EMAIL") || "alejandro@psicologosexual.com"}>`,
         to: [to],
         subject: subject,
         html: htmlContent,
