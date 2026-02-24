@@ -1,48 +1,57 @@
 
-## Mostrar ID de reunión y contraseña de Zoom en la cita
 
-### Problema actual
-Cuando se crea una reunión de Zoom, la API devuelve el `meeting_id` y la `password`, pero solo se guarda el `join_url` en la base de datos. El paciente ve el enlace "Acceder a la videollamada" pero no tiene acceso al ID de la reunión ni a la contraseña, que pueden ser necesarios para unirse manualmente.
+## Mostrar ID y contraseña de Zoom en el recordatorio
 
-### Cambios necesarios
+### Diagnostico
 
-**1. Migración de base de datos** - Añadir 2 columnas a la tabla `sessions`:
-```sql
-ALTER TABLE public.sessions
-  ADD COLUMN zoom_meeting_id text,
-  ADD COLUMN zoom_password text;
+El codigo para guardar `zoom_meeting_id` y `zoom_password` en la base de datos se acaba de desplegar, pero la sesion de prueba se creo **antes** del despliegue, por lo que esos campos estan vacios (`null`) en la base de datos. El enlace de Zoom si se guardo correctamente.
+
+Ademas, la pagina de **Sesiones** (`/sesiones`) usa `CreateSessionDialog`, que **no llama a las integraciones de Zoom/Google Calendar** - solo la **Agenda** usa `QuickCreateSessionDialog` que si las gestiona.
+
+### Cambios propuestos
+
+**1. Fallback: extraer el ID de reunion desde la URL de Zoom**
+
+En `SessionManagement.tsx`, si `zoom_meeting_id` es null pero hay un `video_call_link` de Zoom, extraer el ID de la URL automaticamente (formato: `zoom.us/j/XXXXXXXXXXX`). Esto cubre:
+- Sesiones creadas antes del despliegue
+- Sesiones creadas desde la pagina de Sesiones (que no guarda estos campos)
+
+**2. Backfill de sesiones existentes via SQL**
+
+Actualizar las sesiones existentes que tienen `video_call_link` de Zoom pero `zoom_meeting_id` nulo, extrayendo el ID de la URL:
+
+```text
+UPDATE sessions
+SET zoom_meeting_id = substring(video_call_link from '/j/([0-9]+)')
+WHERE video_call_link LIKE '%zoom.us/j/%'
+  AND zoom_meeting_id IS NULL;
 ```
 
-**2. `src/hooks/useSessionIntegrations.tsx`** - Guardar los datos de Zoom al crear la reunión:
-- Después de crear el meeting, devolver `zoom_meeting_id` y `zoom_password` en el resultado
-- Actualizar el tipo `IntegrationResult` para incluir estos campos
+**3. Mostrar la contrasena desde la URL tambien**
 
-**3. `src/hooks/usePublicSession.tsx`** - Incluir los nuevos campos en la consulta pública:
-- Añadir `zoom_meeting_id` y `zoom_password` al SELECT
-- Añadir al tipo `PublicSessionData`
-
-**4. `src/pages/SessionManagement.tsx`** - Mostrar los datos bajo el enlace de Zoom:
-- Debajo de "Acceder a la videollamada", mostrar:
-  - **ID de reunión:** con el número formateado
-  - **Contraseña:** con el valor
-
-**5. Guardar los datos en la sesión** - En el flujo de creación de sesión (`CreateSessionDialog` o donde se llame a `handleSessionIntegrations`), guardar `zoom_meeting_id` y `zoom_password` en la fila de la sesión.
+La URL de Zoom contiene el parametro `pwd=...`. Se puede extraer como fallback para la contrasena (aunque es la version codificada, no la numerica que muestra Zoom).
 
 ### Detalle tecnico
 
-El flujo actual:
-1. `create-zoom-meeting` devuelve `{ meeting_id, join_url, password }`
-2. `useSessionIntegrations` solo guarda `join_url` como `video_call_link`
+En `SessionManagement.tsx`, se anadira una funcion helper:
 
-El flujo corregido:
-1. `create-zoom-meeting` devuelve `{ meeting_id, join_url, password }` (sin cambios)
-2. `useSessionIntegrations` devuelve tambien `zoom_meeting_id` y `zoom_password`
-3. Al guardar la sesion, se escriben los 3 campos: `video_call_link`, `zoom_meeting_id`, `zoom_password`
-4. La vista publica los muestra al paciente
+```text
+function extractZoomInfo(videoCallLink: string | null) {
+  if (!videoCallLink || !videoCallLink.includes('zoom.us')) return null;
+  const meetingIdMatch = videoCallLink.match(/\/j\/(\d+)/);
+  return {
+    meetingId: meetingIdMatch?.[1] || null,
+  };
+}
+```
+
+Y se usara como fallback:
+
+```text
+const zoomMeetingId = session.zoom_meeting_id
+  || extractZoomInfo(session.video_call_link)?.meetingId;
+```
 
 ### Archivos modificados
-- **Migracion SQL**: nueva migracion para las 2 columnas
-- `src/hooks/useSessionIntegrations.tsx`: devolver meeting_id y password
-- `src/hooks/usePublicSession.tsx`: añadir campos al query y tipo
-- `src/pages/SessionManagement.tsx`: mostrar ID y contraseña en la UI
-- Archivos que llaman a `handleSessionIntegrations` y guardan el resultado en la sesion (para persistir los nuevos campos)
+- `src/pages/SessionManagement.tsx` - Fallback para extraer ID desde URL
+- Migracion SQL - Backfill de sesiones existentes
