@@ -336,7 +336,14 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
-    console.log("Starting session reminders processing...");
+    // Support force mode to skip time window checks (for manual testing)
+    let forceMode = false;
+    try {
+      const body = await req.json();
+      forceMode = body?.force === true;
+    } catch { /* no body or invalid JSON, ignore */ }
+
+    console.log(`Starting session reminders processing...${forceMode ? ' (FORCE MODE)' : ''}`);
 
     // Get all centers with reminders enabled
     const { data: centers, error: centersError } = await supabase
@@ -424,8 +431,8 @@ serve(async (req) => {
         const madridMinute = parseInt(madridParts.find(p => p.type === 'minute')?.value || '0');
         const totalMinutes = madridHour * 60 + madridMinute;
         
-        // Only process if Madrid time is between 09:30 and 10:30
-        if (totalMinutes < 570 || totalMinutes > 630) {
+        // Only process if Madrid time is between 09:30 and 10:30 (unless force mode)
+        if (!forceMode && (totalMinutes < 570 || totalMinutes > 630)) {
           console.log(`Skipping center ${center.name}: Madrid time is ${madridHour}:${String(madridMinute).padStart(2, '0')}, not within 10am window`);
           continue;
         }
