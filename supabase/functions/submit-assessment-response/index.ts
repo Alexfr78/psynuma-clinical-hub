@@ -146,66 +146,65 @@ serve(async (req) => {
       `Processing ${template.code} assessment with response range ${responseMin}-${responseMax} (items=${items.length}, scales=${Object.keys(scoring).length})`
     );
 
-    // Validate all items are answered
-    const expectedItems = items.map((i) => i.index);
-    const answeredItems = Object.keys(answers).map((k) => parseInt(k, 10));
+    // EMO uses qualitative string-keyed answers (not numeric item indices),
+    // so skip standard numeric validation for EMO assessments.
+    if (!isEMO) {
+      // Validate all items are answered
+      const expectedItems = items.map((i) => i.index);
+      const answeredItems = Object.keys(answers).map((k) => parseInt(k, 10));
 
-    const missingItems = expectedItems.filter((i) => !answeredItems.includes(i));
-    if (missingItems.length > 0) {
-      console.error('Missing items:', missingItems);
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: `Faltan respuestas para los ítems: ${missingItems.join(', ')}`,
-        }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-      );
-    }
-
-    // SECURITY: Validate values are within template range using Number() for strict parsing
-    // parseInt() is insecure: parseInt('10.5') returns 10, parseInt('10abc') returns 10
-    for (const [key, value] of Object.entries(answers)) {
-      // SECURITY: Only allow numeric keys (item indices)
-      const keyNum = Number(key);
-      if (!Number.isInteger(keyNum) || keyNum < 0) {
-        console.error(`Invalid item key (non-integer):`, key);
+      const missingItems = expectedItems.filter((i) => !answeredItems.includes(i));
+      if (missingItems.length > 0) {
+        console.error('Missing items:', missingItems);
         return new Response(
           JSON.stringify({
             success: false,
-            error: `Clave de ítem inválida: ${key}. Solo se permiten índices numéricos.`,
+            error: `Faltan respuestas para los ítems: ${missingItems.join(', ')}`,
           }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
         );
       }
 
-      // SECURITY: Use Number() for strict validation - rejects trailing chars and decimals
-      const numValue = typeof value === 'number' ? value : Number(value);
-      
-      // Check for NaN, non-integers, or out-of-range values
-      if (!Number.isInteger(numValue) || numValue < responseMin || numValue > responseMax) {
-        console.error(`Invalid value for item ${key}:`, value, `(parsed: ${numValue})`);
+      // SECURITY: Validate values are within template range
+      for (const [key, value] of Object.entries(answers)) {
+        const keyNum = Number(key);
+        if (!Number.isInteger(keyNum) || keyNum < 0) {
+          console.error(`Invalid item key (non-integer):`, key);
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: `Clave de ítem inválida: ${key}. Solo se permiten índices numéricos.`,
+            }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+          );
+        }
+
+        const numValue = typeof value === 'number' ? value : Number(value);
+        if (!Number.isInteger(numValue) || numValue < responseMin || numValue > responseMax) {
+          console.error(`Invalid value for item ${key}:`, value, `(parsed: ${numValue})`);
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: `Valor inválido para el ítem ${key}. Debe ser un número entero entre ${responseMin} y ${responseMax}.`,
+            }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+          );
+        }
+      }
+
+      // SECURITY: Validate that only expected items are present
+      const answeredKeys = Object.keys(answers).map(k => Number(k));
+      const unexpectedItems = answeredKeys.filter(k => !expectedItems.includes(k));
+      if (unexpectedItems.length > 0) {
+        console.error('Unexpected items in answers:', unexpectedItems);
         return new Response(
           JSON.stringify({
             success: false,
-            error: `Valor inválido para el ítem ${key}. Debe ser un número entero entre ${responseMin} y ${responseMax}.`,
+            error: `Se encontraron ítems inesperados: ${unexpectedItems.join(', ')}`,
           }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
         );
       }
-    }
-
-    // SECURITY: Validate that only expected items are present (no extra fields)
-    const answeredKeys = Object.keys(answers).map(k => Number(k));
-    const unexpectedItems = answeredKeys.filter(k => !expectedItems.includes(k));
-    if (unexpectedItems.length > 0) {
-      console.error('Unexpected items in answers:', unexpectedItems);
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: `Se encontraron ítems inesperados: ${unexpectedItems.join(', ')}`,
-        }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-      );
     }
 
     // Calculate factor scores
