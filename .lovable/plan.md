@@ -1,57 +1,63 @@
 
 
-## Mostrar ID y contraseña de Zoom en el recordatorio
+## Diagnostico: Recordatorios de cita
 
-### Diagnostico
+### Lo que esta pasando
 
-El codigo para guardar `zoom_meeting_id` y `zoom_password` en la base de datos se acaba de desplegar, pero la sesion de prueba se creo **antes** del despliegue, por lo que esos campos estan vacios (`null`) en la base de datos. El enlace de Zoom si se guardo correctamente.
+He revisado los datos y logs en detalle. El sistema de recordatorios **si se ejecuto hoy a las 10:00 (hora Madrid)**, pero con resultados parciales:
 
-Ademas, la pagina de **Sesiones** (`/sesiones`) usa `CreateSessionDialog`, que **no llama a las integraciones de Zoom/Google Calendar** - solo la **Agenda** usa `QuickCreateSessionDialog` que si las gestiona.
+**Sesiones de mañana (25 Feb):**
+
+```text
+Sesion 18:00 → WhatsApp a +34646462507 → PENDIENTE (no enviado)
+Sesion 19:00 → WhatsApp a +34645702741 → ENVIADO correctamente
+Sesion 20:00 → Paciente "[Bloqueado] Google Calendar" → Sin datos de contacto, saltado
+```
+
+El recordatorio de la sesion de las 18:00 fallo al enviarse por WasenderAPI y cayo al modo "web" (manual), creando una notificacion con status "pending" en vez de enviarla automaticamente. **El error no quedo registrado** porque el codigo descarta el error silenciosamente cuando falla WasenderAPI y simplemente pasa al siguiente metodo (linea 599-601).
+
+**Patron recurrente**: Ayer tambien hubo multiples notificaciones que quedaron como "pending" en vez de enviarse. Los numeros que fallan tienen formatos variados (`+34603 40 01 70`, `686920520`, etc.) pero la limpieza de formato deberia funcionar.
+
+### Causa raiz
+
+Cuando WasenderAPI falla para un numero, el codigo:
+1. Registra el error en la consola (que luego se pierde)
+2. **No guarda el motivo del fallo** en la base de datos
+3. Cae silenciosamente al modo "web" (manual) marcando status = "pending"
+4. El profesional nunca se entera de que fallo ni por que
 
 ### Cambios propuestos
 
-**1. Fallback: extraer el ID de reunion desde la URL de Zoom**
+**1. Guardar el error real de WasenderAPI en la notificacion**
 
-En `SessionManagement.tsx`, si `zoom_meeting_id` es null pero hay un `video_call_link` de Zoom, extraer el ID de la URL automaticamente (formato: `zoom.us/j/XXXXXXXXXXX`). Esto cubre:
-- Sesiones creadas antes del despliegue
-- Sesiones creadas desde la pagina de Sesiones (que no guarda estos campos)
+Cuando WasenderAPI falle, en vez de caer silenciosamente a modo web, guardar el error especifico como `error_message` en la notificacion para poder diagnosticar.
 
-**2. Backfill de sesiones existentes via SQL**
+**2. Reintentar envio una vez si WasenderAPI falla**
 
-Actualizar las sesiones existentes que tienen `video_call_link` de Zoom pero `zoom_meeting_id` nulo, extrayendo el ID de la URL:
+Añadir un reintento automatico con espera de 3 segundos antes de dar por fallido.
 
-```text
-UPDATE sessions
-SET zoom_meeting_id = substring(video_call_link from '/j/([0-9]+)')
-WHERE video_call_link LIKE '%zoom.us/j/%'
-  AND zoom_meeting_id IS NULL;
-```
+**3. Marcar como "failed" en vez de "pending" cuando falla el envio automatico**
 
-**3. Mostrar la contrasena desde la URL tambien**
+Si WasenderAPI esta habilitado y el envio falla, el status debe ser "failed" con el error guardado, no "pending" (que implica que esta esperando envio manual).
 
-La URL de Zoom contiene el parametro `pwd=...`. Se puede extraer como fallback para la contrasena (aunque es la version codificada, no la numerica que muestra Zoom).
+**4. Añadir log persistente del resultado de cada envio**
+
+Guardar un resumen en el campo `error_message` de la notificacion incluso en caso de exito parcial.
+
+### Archivos modificados
+
+- `supabase/functions/send-session-reminders/index.ts` - Reintento, guardar errores, marcar failed correctamente
 
 ### Detalle tecnico
 
-En `SessionManagement.tsx`, se anadira una funcion helper:
-
 ```text
-function extractZoomInfo(videoCallLink: string | null) {
-  if (!videoCallLink || !videoCallLink.includes('zoom.us')) return null;
-  const meetingIdMatch = videoCallLink.match(/\/j\/(\d+)/);
-  return {
-    meetingId: meetingIdMatch?.[1] || null,
-  };
-}
+Flujo actual (buggy):
+WasenderAPI falla → log consola → cae a web mode → status "pending" → usuario no sabe que fallo
+
+Flujo corregido:
+WasenderAPI falla → reintenta 1 vez (3s espera) → si falla de nuevo:
+  → guarda error en error_message
+  → status "failed" (no "pending")
+  → el profesional ve en Notificaciones que fallo y por que
 ```
 
-Y se usara como fallback:
-
-```text
-const zoomMeetingId = session.zoom_meeting_id
-  || extractZoomInfo(session.video_call_link)?.meetingId;
-```
-
-### Archivos modificados
-- `src/pages/SessionManagement.tsx` - Fallback para extraer ID desde URL
-- Migracion SQL - Backfill de sesiones existentes
