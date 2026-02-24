@@ -1,51 +1,48 @@
 
-## Envío automático de consentimientos y evaluaciones por WhatsApp
+## Mostrar ID de reunión y contraseña de Zoom en la cita
 
 ### Problema actual
-- **Consentimientos (`SendConsentDialog`)**: Ya usa `useWhatsAppDelivery` correctamente para enviar por WhatsApp (automatico o manual). No se toca.
-- **Evaluaciones (`SendAssessmentDialog`)**: Cuando se selecciona "WhatsApp", solo actualiza el campo `sent_via` en la base de datos pero **no envía el mensaje realmente**. No usa `useWhatsAppDelivery`.
-- **Crear evaluacion (`CreateAssessmentDialog`)**: Igual, si se selecciona WhatsApp al crear, solo guarda el registro pero no envía nada.
+Cuando se crea una reunión de Zoom, la API devuelve el `meeting_id` y la `password`, pero solo se guarda el `join_url` en la base de datos. El paciente ve el enlace "Acceder a la videollamada" pero no tiene acceso al ID de la reunión ni a la contraseña, que pueden ser necesarios para unirse manualmente.
 
-### Cambios propuestos
+### Cambios necesarios
 
-Solo se modifican los dos diálogos de evaluaciones. No se tocan los consentimientos ni otras configuraciones.
+**1. Migración de base de datos** - Añadir 2 columnas a la tabla `sessions`:
+```sql
+ALTER TABLE public.sessions
+  ADD COLUMN zoom_meeting_id text,
+  ADD COLUMN zoom_password text;
+```
 
-#### 1. `SendAssessmentDialog` - Rediseñar para usar `useWhatsAppDelivery`
+**2. `src/hooks/useSessionIntegrations.tsx`** - Guardar los datos de Zoom al crear la reunión:
+- Después de crear el meeting, devolver `zoom_meeting_id` y `zoom_password` en el resultado
+- Actualizar el tipo `IntegrationResult` para incluir estos campos
 
-Reemplazar el diálogo actual (que solo guarda en DB) por uno similar al `SendConsentDialog`:
-- Mostrar el enlace de la evaluacion con boton de copiar
-- Boton de WhatsApp que use `useWhatsAppDelivery` (automatico/manual segun configuracion del centro)
-- Badge mostrando el metodo actual (Auto/Manual)
-- Boton de copiar mensaje completo
-- Vista previa del mensaje
-- Integrar `WhatsAppLinkDialog` para el fallback manual
-- Actualizar `sent_via`, `sent_to` y `sent_at` en la DB tras envio exitoso
+**3. `src/hooks/usePublicSession.tsx`** - Incluir los nuevos campos en la consulta pública:
+- Añadir `zoom_meeting_id` y `zoom_password` al SELECT
+- Añadir al tipo `PublicSessionData`
 
-#### 2. `CreateAssessmentDialog` - Envio automatico tras crear
+**4. `src/pages/SessionManagement.tsx`** - Mostrar los datos bajo el enlace de Zoom:
+- Debajo de "Acceder a la videollamada", mostrar:
+  - **ID de reunión:** con el número formateado
+  - **Contraseña:** con el valor
 
-Cuando se selecciona "WhatsApp" como canal al crear la evaluacion:
-- Tras crear la evaluacion en DB, invocar `sendWhatsApp` de `useWhatsAppDelivery` con el enlace generado
-- Si el envio es automatico (WasenderAPI/Meta), se completa sin interaccion adicional
-- Si es manual, abrir `WhatsAppLinkDialog` con el enlace
-- Actualizar los campos `sent_via`/`sent_to`/`sent_at` despues del envio
+**5. Guardar los datos en la sesión** - En el flujo de creación de sesión (`CreateSessionDialog` o donde se llame a `handleSessionIntegrations`), guardar `zoom_meeting_id` y `zoom_password` en la fila de la sesión.
 
 ### Detalle tecnico
 
-**Mensaje de evaluacion (template):**
-```
-Hola {nombre}, te envío el siguiente cuestionario para que lo completes cuando puedas:
+El flujo actual:
+1. `create-zoom-meeting` devuelve `{ meeting_id, join_url, password }`
+2. `useSessionIntegrations` solo guarda `join_url` como `video_call_link`
 
-{enlace_evaluacion}
+El flujo corregido:
+1. `create-zoom-meeting` devuelve `{ meeting_id, join_url, password }` (sin cambios)
+2. `useSessionIntegrations` devuelve tambien `zoom_meeting_id` y `zoom_password`
+3. Al guardar la sesion, se escriben los 3 campos: `video_call_link`, `zoom_meeting_id`, `zoom_password`
+4. La vista publica los muestra al paciente
 
-Si tienes cualquier duda, no dudes en consultarme.
-```
-
-**Archivos modificados:**
-1. `src/components/assessments/SendAssessmentDialog.tsx` - Rediseñar usando `useWhatsAppDelivery` y `WhatsAppLinkDialog`
-2. `src/components/assessments/CreateAssessmentDialog.tsx` - Añadir envio real por WhatsApp tras creacion
-3. `src/hooks/useAssessments.tsx` - Actualizar `resendAssessment` para recibir el resultado del envio real
-
-**Archivos NO modificados:**
-- `SendConsentDialog.tsx` (ya funciona correctamente)
-- `useWhatsAppDelivery.tsx` (se reutiliza tal cual)
-- Ningun otro dialogo o configuracion de envio
+### Archivos modificados
+- **Migracion SQL**: nueva migracion para las 2 columnas
+- `src/hooks/useSessionIntegrations.tsx`: devolver meeting_id y password
+- `src/hooks/usePublicSession.tsx`: añadir campos al query y tipo
+- `src/pages/SessionManagement.tsx`: mostrar ID y contraseña en la UI
+- Archivos que llaman a `handleSessionIntegrations` y guardan el resultado en la sesion (para persistir los nuevos campos)
