@@ -1,39 +1,51 @@
 
+## Envío automático de consentimientos y evaluaciones por WhatsApp
 
-## Actualizar email de envío a dominio verificado
+### Problema actual
+- **Consentimientos (`SendConsentDialog`)**: Ya usa `useWhatsAppDelivery` correctamente para enviar por WhatsApp (automatico o manual). No se toca.
+- **Evaluaciones (`SendAssessmentDialog`)**: Cuando se selecciona "WhatsApp", solo actualiza el campo `sent_via` en la base de datos pero **no envía el mensaje realmente**. No usa `useWhatsAppDelivery`.
+- **Crear evaluacion (`CreateAssessmentDialog`)**: Igual, si se selecciona WhatsApp al crear, solo guarda el registro pero no envía nada.
 
-### Problema
-Hay 5 edge functions que tienen hardcodeado `onboarding@resend.dev` como dirección de envío. Solo una (`send-notification`) lee el secret `RESEND_FROM_EMAIL`, pero las otras 4 lo ignoran. Esto causa que los emails fallen con el error "You can only send testing emails to your own email address".
+### Cambios propuestos
 
-### Solución
+Solo se modifican los dos diálogos de evaluaciones. No se tocan los consentimientos ni otras configuraciones.
 
-**Paso 1: Actualizar el secret `RESEND_FROM_EMAIL`**
-- Cambiar el valor a `alejandro@psicologosexual.com`
+#### 1. `SendAssessmentDialog` - Rediseñar para usar `useWhatsAppDelivery`
 
-**Paso 2: Actualizar las 5 edge functions para usar el secret**
+Reemplazar el diálogo actual (que solo guarda en DB) por uno similar al `SendConsentDialog`:
+- Mostrar el enlace de la evaluacion con boton de copiar
+- Boton de WhatsApp que use `useWhatsAppDelivery` (automatico/manual segun configuracion del centro)
+- Badge mostrando el metodo actual (Auto/Manual)
+- Boton de copiar mensaje completo
+- Vista previa del mensaje
+- Integrar `WhatsAppLinkDialog` para el fallback manual
+- Actualizar `sent_via`, `sent_to` y `sent_at` en la DB tras envio exitoso
 
-Cada función que envía emails pasará a leer `RESEND_FROM_EMAIL` del entorno en lugar de tener `onboarding@resend.dev` hardcodeado:
+#### 2. `CreateAssessmentDialog` - Envio automatico tras crear
 
-1. **`send-notification/index.ts`** - Ya lee el secret, solo eliminar el fallback a `onboarding@resend.dev`
-2. **`patient-portal-auth/index.ts`** - Cambiar `onboarding@resend.dev` por `Deno.env.get("RESEND_FROM_EMAIL")`
-3. **`patient-portal-register/index.ts`** - Mismo cambio
-4. **`send-session-reminders/index.ts`** - Mismo cambio
-5. **`send-invoice-notification/index.ts`** - Mismo cambio
-
-**Paso 3: Redesplegar las 5 funciones**
+Cuando se selecciona "WhatsApp" como canal al crear la evaluacion:
+- Tras crear la evaluacion en DB, invocar `sendWhatsApp` de `useWhatsAppDelivery` con el enlace generado
+- Si el envio es automatico (WasenderAPI/Meta), se completa sin interaccion adicional
+- Si es manual, abrir `WhatsAppLinkDialog` con el enlace
+- Actualizar los campos `sent_via`/`sent_to`/`sent_at` despues del envio
 
 ### Detalle tecnico
 
-En cada funcion, la linea:
+**Mensaje de evaluacion (template):**
 ```
-from: `${name} <onboarding@resend.dev>`
-```
-se reemplazara por:
-```
-const fromEmail = Deno.env.get("RESEND_FROM_EMAIL") || "alejandro@psicologosexual.com";
-// ...
-from: `${name} <${fromEmail}>`
+Hola {nombre}, te envío el siguiente cuestionario para que lo completes cuando puedas:
+
+{enlace_evaluacion}
+
+Si tienes cualquier duda, no dudes en consultarme.
 ```
 
-Esto garantiza que todos los emails salgan desde el dominio verificado `psicologosexual.com`.
+**Archivos modificados:**
+1. `src/components/assessments/SendAssessmentDialog.tsx` - Rediseñar usando `useWhatsAppDelivery` y `WhatsAppLinkDialog`
+2. `src/components/assessments/CreateAssessmentDialog.tsx` - Añadir envio real por WhatsApp tras creacion
+3. `src/hooks/useAssessments.tsx` - Actualizar `resendAssessment` para recibir el resultado del envio real
 
+**Archivos NO modificados:**
+- `SendConsentDialog.tsx` (ya funciona correctamente)
+- `useWhatsAppDelivery.tsx` (se reutiliza tal cual)
+- Ningun otro dialogo o configuracion de envio
