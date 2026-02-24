@@ -534,6 +534,8 @@ export function QuickCreateSessionDialog({
                 video_call_link: integrationResult.video_call_link || newSession.video_call_link,
                 video_provider: integrationResult.video_provider || newSession.video_provider,
                 google_calendar_event_id: integrationResult.google_calendar_event_id,
+                zoom_meeting_id: integrationResult.zoom_meeting_id,
+                zoom_password: integrationResult.zoom_password,
               });
             }
           }

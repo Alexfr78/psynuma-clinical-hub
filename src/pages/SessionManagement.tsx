@@ -437,14 +437,28 @@ export default function SessionManagement() {
                 </p>
                 {isOnline ? (
                   session.video_call_link ? (
-                    <a 
-                      href={session.video_call_link}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-primary hover:underline font-medium"
-                    >
-                      Acceder a la videollamada
-                    </a>
+                    <div className="space-y-1">
+                      <a 
+                        href={session.video_call_link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary hover:underline font-medium"
+                      >
+                        Acceder a la videollamada
+                      </a>
+                      {session.zoom_meeting_id && (
+                        <p className="text-sm text-muted-foreground">
+                          <span className="font-medium text-foreground">ID de reunión:</span>{' '}
+                          {session.zoom_meeting_id}
+                        </p>
+                      )}
+                      {session.zoom_password && (
+                        <p className="text-sm text-muted-foreground">
+                          <span className="font-medium text-foreground">Contraseña:</span>{' '}
+                          {session.zoom_password}
+                        </p>
+                      )}
+                    </div>
                   ) : (
                     <p className="text-muted-foreground text-sm">
                       El enlace estará disponible antes de la cita

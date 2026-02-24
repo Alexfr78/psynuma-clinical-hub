@@ -3283,6 +3283,8 @@ export type Database = {
           updated_at: string
           video_call_link: string | null
           video_provider: string | null
+          zoom_meeting_id: string | null
+          zoom_password: string | null
         }
         Insert: {
           access_token?: string | null
@@ -3323,6 +3325,8 @@ export type Database = {
           updated_at?: string
           video_call_link?: string | null
           video_provider?: string | null
+          zoom_meeting_id?: string | null
+          zoom_password?: string | null
         }
         Update: {
           access_token?: string | null
@@ -3363,6 +3367,8 @@ export type Database = {
           updated_at?: string
           video_call_link?: string | null
           video_provider?: string | null
+          zoom_meeting_id?: string | null
+          zoom_password?: string | null
         }
         Relationships: [
           {
