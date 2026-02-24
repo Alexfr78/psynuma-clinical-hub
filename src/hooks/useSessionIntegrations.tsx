@@ -26,6 +26,8 @@ interface IntegrationResult {
   google_calendar_event_id?: string;
   stripe_checkout_url?: string;
   stripe_payment_status?: string;
+  zoom_meeting_id?: string;
+  zoom_password?: string;
 }
 
 export async function handleSessionIntegrations(
@@ -84,6 +86,8 @@ export async function handleSessionIntegrations(
 
       result.video_call_link = data.join_url;
       result.video_provider = 'zoom';
+      result.zoom_meeting_id = String(data.meeting_id);
+      result.zoom_password = data.password || null;
       console.log('Zoom meeting created:', data.meeting_id);
     } catch (err) {
       console.error('Error creating Zoom meeting:', err);

@@ -17,6 +17,8 @@ export interface PublicSessionData {
   session_type: string | null;
   session_modality: string | null;
   video_call_link: string | null;
+  zoom_meeting_id: string | null;
+  zoom_password: string | null;
   cancellation_policy: string | null;
   notes: string | null;
   access_token: string | null;
@@ -69,6 +71,8 @@ export function usePublicSession(token: string | undefined) {
           session_type,
           session_modality,
           video_call_link,
+          zoom_meeting_id,
+          zoom_password,
           cancellation_policy,
           notes,
           access_token,
