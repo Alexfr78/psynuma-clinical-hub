@@ -39,6 +39,12 @@ import { usePublicSession, useUpdatePublicSession, canCancelSession, usePublicSe
 import { useState, useEffect } from 'react';
 import { Textarea } from '@/components/ui/textarea';
 
+function extractZoomInfo(videoCallLink: string | null | undefined) {
+  if (!videoCallLink || !videoCallLink.includes('zoom.us')) return null;
+  const meetingIdMatch = videoCallLink.match(/\/j\/(\d+)/);
+  return { meetingId: meetingIdMatch?.[1] || null };
+}
+
 const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive'; icon: React.ReactNode }> = {
   draft: { label: 'Borrador', variant: 'secondary', icon: null },
   scheduled: { label: 'Programada', variant: 'outline', icon: <Clock className="h-4 w-4" /> },
@@ -446,12 +452,15 @@ export default function SessionManagement() {
                       >
                         Acceder a la videollamada
                       </a>
-                      {session.zoom_meeting_id && (
-                        <p className="text-sm text-muted-foreground">
-                          <span className="font-medium text-foreground">ID de reunión:</span>{' '}
-                          {session.zoom_meeting_id}
-                        </p>
-                      )}
+                      {(() => {
+                        const zoomId = session.zoom_meeting_id || extractZoomInfo(session.video_call_link)?.meetingId;
+                        return zoomId ? (
+                          <p className="text-sm text-muted-foreground">
+                            <span className="font-medium text-foreground">ID de reunión:</span>{' '}
+                            {zoomId}
+                          </p>
+                        ) : null;
+                      })()}
                       {session.zoom_password && (
                         <p className="text-sm text-muted-foreground">
                           <span className="font-medium text-foreground">Contraseña:</span>{' '}
