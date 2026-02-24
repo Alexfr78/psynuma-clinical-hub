@@ -583,7 +583,7 @@ serve(async (req) => {
                 }
 
                 console.log(`Sending WhatsApp reminder via WasenderAPI to ${patient.phone} for session ${session.id}`);
-                const wasenderResult = await sendWhatsAppViaWasender(
+                let wasenderResult = await sendWhatsAppViaWasender(
                   patient.phone,
                   whatsappMessage,
                   wasenderToken,
@@ -591,13 +591,28 @@ serve(async (req) => {
                 );
                 lastWasenderSendAt = Date.now();
 
+                // Retry once after 3 seconds if first attempt fails
+                if (!wasenderResult.success) {
+                  console.warn(`WasenderAPI attempt 1 failed for ${patient.phone}: ${wasenderResult.error}. Retrying in 3s...`);
+                  await new Promise(r => setTimeout(r, 3000));
+                  wasenderResult = await sendWhatsAppViaWasender(
+                    patient.phone,
+                    whatsappMessage,
+                    wasenderToken,
+                    whatsappSession.wasender_session_id
+                  );
+                  lastWasenderSendAt = Date.now();
+                }
+
                 if (wasenderResult.success) {
                   whatsappSentVia = 'wasender';
                   reminderSent = true;
                   console.log(`WhatsApp sent via WasenderAPI to ${patient.phone}`);
                 } else {
-                  console.error(`WasenderAPI failed for ${patient.phone}: ${wasenderResult.error}, trying next method...`);
-                  // Do NOT create a failed record here - let fallback handle it
+                  console.error(`WasenderAPI failed definitively for ${patient.phone}: ${wasenderResult.error}`);
+                  whatsappError = `WasenderAPI: ${wasenderResult.error}`;
+                  // Mark as failed - do NOT fall through to web mode
+                  whatsappSentVia = 'wasender_failed';
                 }
               } else {
                 console.log(`WasenderAPI session not connected for center ${center.id}, falling back`);
@@ -630,7 +645,7 @@ serve(async (req) => {
             }
           }
 
-          // Priority 3: Web mode (manual fallback)
+          // Priority 3: Web mode (manual fallback) - only if no API method was attempted
           if (!whatsappSentVia) {
             whatsappSentVia = 'web';
             reminderSent = true;
@@ -638,7 +653,13 @@ serve(async (req) => {
           }
 
           // Create ONE notification record based on the final result
-          const finalStatus = whatsappSentVia === 'web' ? 'pending' : (whatsappSentVia ? 'sent' : 'failed');
+          const isFailed = whatsappSentVia === 'wasender_failed';
+          const finalStatus = isFailed ? 'failed' : (whatsappSentVia === 'web' ? 'pending' : (whatsappSentVia ? 'sent' : 'failed'));
+          
+          if (isFailed) {
+            errors++;
+          }
+
           await supabase.from("notifications").insert({
             center_id: center.id,
             patient_id: patient.id,
@@ -649,7 +670,7 @@ serve(async (req) => {
             status: finalStatus,
             sent_at: finalStatus === 'sent' ? new Date().toISOString() : null,
             scheduled_for: finalStatus === 'pending' ? new Date().toISOString() : null,
-            error_message: finalStatus === 'failed' ? whatsappError : null,
+            error_message: whatsappError || null,
           });
 
           // Also record in whatsapp_messages for tracking (only if actually sent via API)
