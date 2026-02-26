@@ -243,6 +243,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
   const [localPrice, setLocalPrice] = useState<number>(0);
   const [localPatientId, setLocalPatientId] = useState<string | null>(null);
   const [localDateTime, setLocalDateTime] = useState<{ date: string; startTime: string; endTime: string } | null>(null);
+  const [localStatus, setLocalStatus] = useState<string | null>(null);
 
   const { data: patientBonos, refetch: refetchBonos } = usePatientActiveBonos(session?.patient_id);
   const { data: currentBono } = useBono(session?.bono_id); // Fetch currently assigned bono even if exhausted
@@ -262,6 +263,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
       setLocalPrice(Number(session.price) || 0);
       setLocalPatientId(null);
       setLocalDateTime(null);
+      setLocalStatus(null);
       setEditingPatient(false);
     }
   }, [session?.id, session?.bono_id, session?.price]);
@@ -276,8 +278,9 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
   const recurringSeriesId = sessionData.recurring_series_id;
   const occurrenceIndex = sessionData.occurrence_index || 1;
 
-  const status = statusConfig[session.status as keyof typeof statusConfig] || statusConfig.scheduled;
-  const isBlockedSession = session.status === 'blocked';
+  const effectiveStatus = localStatus || session.status;
+  const status = statusConfig[effectiveStatus as keyof typeof statusConfig] || statusConfig.scheduled;
+  const isBlockedSession = effectiveStatus === 'blocked';
   
   // Use newPatientData if we just selected a patient, otherwise use session.patient
   const displayPatient = localPatientId && newPatientData ? newPatientData : session.patient;
@@ -375,6 +378,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
         }
       }
       
+      setLocalStatus(newStatus);
       toast({
         title: 'Estado actualizado',
         description: 'El estado de la sesión se ha actualizado.',
@@ -1773,7 +1777,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
             <div className="space-y-3">
               <p className="text-sm font-medium">Cambiar estado</p>
               <Select
-                value={session.status || 'scheduled'}
+                value={effectiveStatus || 'scheduled'}
                 onValueChange={handleStatusChange}
                 disabled={isUpdating}
               >
