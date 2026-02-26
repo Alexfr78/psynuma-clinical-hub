@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { format } from 'date-fns';
+import { format, parse } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
@@ -64,6 +64,12 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { Calendar as CalendarPicker } from '@/components/ui/calendar';
 import {
   Tooltip,
   TooltipContent,
@@ -980,12 +986,29 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
                 <Calendar className="h-5 w-5 text-muted-foreground mt-0.5" />
                 {editingDateTime ? (
                   <div className="flex-1 space-y-3">
-                    <Input
-                      type="date"
-                      value={dateTimeValue.date}
-                      onChange={(e) => setDateTimeValue(prev => ({ ...prev, date: e.target.value }))}
-                      className="h-8"
-                    />
+                    <Popover modal={true}>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" className="h-8 w-full justify-start text-left font-normal">
+                          <Calendar className="mr-2 h-4 w-4" />
+                          {dateTimeValue.date
+                            ? format(parse(dateTimeValue.date, 'yyyy-MM-dd', new Date()), "dd/MM/yyyy")
+                            : 'Seleccionar fecha'}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0 z-[9999]" align="start">
+                        <CalendarPicker
+                          mode="single"
+                          selected={dateTimeValue.date ? parse(dateTimeValue.date, 'yyyy-MM-dd', new Date()) : undefined}
+                          onSelect={(date) => {
+                            if (date) {
+                              setDateTimeValue(prev => ({ ...prev, date: format(date, 'yyyy-MM-dd') }));
+                            }
+                          }}
+                          locale={es}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
                     <div className="flex gap-2 items-center">
                       <Input
                         type="time"
