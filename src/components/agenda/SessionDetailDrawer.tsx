@@ -1022,7 +1022,20 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
                       <Input
                         type="time"
                         value={dateTimeValue.startTime}
-                        onChange={(e) => setDateTimeValue(prev => ({ ...prev, startTime: e.target.value }))}
+                        onChange={(e) => {
+                          const newStart = e.target.value;
+                          setDateTimeValue(prev => {
+                            // Calculate duration from original times to preserve it
+                            const [oldH, oldM] = prev.startTime.split(':').map(Number);
+                            const [endH, endM] = prev.endTime.split(':').map(Number);
+                            const durationMin = (endH * 60 + endM) - (oldH * 60 + oldM);
+                            const [newH, newM] = newStart.split(':').map(Number);
+                            const newEndTotal = newH * 60 + newM + (durationMin > 0 ? durationMin : 60);
+                            const newEndH = String(Math.floor(newEndTotal / 60) % 24).padStart(2, '0');
+                            const newEndM = String(newEndTotal % 60).padStart(2, '0');
+                            return { ...prev, startTime: newStart, endTime: `${newEndH}:${newEndM}` };
+                          });
+                        }}
                         className="h-8 flex-1"
                       />
                       <span className="text-muted-foreground">-</span>
