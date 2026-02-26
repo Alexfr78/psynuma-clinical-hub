@@ -266,7 +266,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
       setLocalStatus(null);
       setEditingPatient(false);
     }
-  }, [session?.id, session?.bono_id, session?.price]);
+  }, [session?.id, session?.bono_id, session?.price, session?.session_date, session?.start_time, session?.end_time, session?.status, open]);
 
   if (!session) return null;
 
