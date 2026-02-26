@@ -242,6 +242,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
   const [localBonoId, setLocalBonoId] = useState<string | null>(null);
   const [localPrice, setLocalPrice] = useState<number>(0);
   const [localPatientId, setLocalPatientId] = useState<string | null>(null);
+  const [localDateTime, setLocalDateTime] = useState<{ date: string; startTime: string; endTime: string } | null>(null);
 
   const { data: patientBonos, refetch: refetchBonos } = usePatientActiveBonos(session?.patient_id);
   const { data: currentBono } = useBono(session?.bono_id); // Fetch currently assigned bono even if exhausted
@@ -259,7 +260,8 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
     if (session) {
       setLocalBonoId(session.bono_id || null);
       setLocalPrice(Number(session.price) || 0);
-      setLocalPatientId(null); // Reset when session changes
+      setLocalPatientId(null);
+      setLocalDateTime(null);
       setEditingPatient(false);
     }
   }, [session?.id, session?.bono_id, session?.price]);
@@ -471,6 +473,13 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
         toast({ title: 'Fecha actualizada', description: 'Error sincronizando con Google.' });
       }
       
+      // Update local state immediately so UI reflects changes
+      setLocalDateTime({
+        date: dateTimeValue.date,
+        startTime: dateTimeValue.startTime,
+        endTime: dateTimeValue.endTime,
+      });
+      queryClient.invalidateQueries({ queryKey: ['sessions'] });
       setEditingDateTime(false);
     } catch {
       toast({ title: 'Error al actualizar', variant: 'destructive' });
@@ -1050,10 +1059,10 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
                   <>
                     <div className="flex-1">
                       <p className="font-medium capitalize">
-                        {format(new Date(session.session_date), "EEEE, d 'de' MMMM yyyy", { locale: es })}
+                        {format(new Date(localDateTime?.date || session.session_date), "EEEE, d 'de' MMMM yyyy", { locale: es })}
                       </p>
                       <p className="text-sm text-muted-foreground">
-                        {session.start_time?.slice(0, 5)} - {session.end_time?.slice(0, 5)}
+                        {(localDateTime?.startTime || session.start_time)?.slice(0, 5)} - {(localDateTime?.endTime || session.end_time)?.slice(0, 5)}
                       </p>
                     </div>
                     <Button 
