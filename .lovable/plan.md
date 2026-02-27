@@ -2,28 +2,26 @@
 
 ## Problem
 
-The `SessionDetailDrawer` has a `useEffect` that resets local state (`localDateTime`, `localStatus`, etc.) but its dependency array only watches `session?.id`, `session?.bono_id`, and `session?.price`. When the drawer is closed and reopened for the **same session**, or when session data is refetched with updated values, the local overrides (`localDateTime`, `localStatus`) are never cleared. This causes the drawer to show stale values from a previous edit.
-
-In your case: you edited date/time at some point, `localDateTime` was set to `{date: '2026-03-10', startTime: '18:00', endTime: '19:00'}`, but the DB actually has `2026-03-04 at 20:00`. Reopening the drawer doesn't reset `localDateTime` because `session.id` hasn't changed.
+The `create-zoom-meeting` edge function expects `end_time` in the request body (line 115), but the `handleModalityChange` in `SessionDetailDrawer.tsx` sends `duration` instead (line 632). This causes `end_time` to be `undefined`, crashing at `end_time.split(':')`.
 
 ## Fix
 
-**File: `src/components/agenda/SessionDetailDrawer.tsx`**
+**File: `src/components/agenda/SessionDetailDrawer.tsx` (lines 626-633)**
 
-1. **Add the `open` prop to the reset effect's dependency array** — so that every time the drawer opens, all local overrides are cleared and the component reads fresh data from the `session` prop.
+Change the call to `create-zoom-meeting` to send `end_time` instead of `duration`, matching what the edge function expects:
 
-2. **Also add `session?.session_date`, `session?.start_time`, `session?.end_time`, and `session?.status`** to the dependency array so that when the query cache updates with new data, local overrides are cleared.
-
-The effect at line ~260 changes from:
 ```typescript
-}, [session?.id, session?.bono_id, session?.price]);
-```
-to:
-```typescript
-}, [session?.id, session?.bono_id, session?.price, session?.session_date, session?.start_time, session?.end_time, session?.status, open]);
+const { data, error } = await supabase.functions.invoke('create-zoom-meeting', {
+  body: {
+    professional_id: session.professional_id,
+    topic: `Sesión con ${patientDisplayName}`,
+    session_date: session.session_date,
+    start_time: session.start_time,
+    end_time: session.end_time,        // was: duration: durationMinutes
+    patient_name: patientDisplayName,
+  },
+});
 ```
 
-This ensures that:
-- Opening the drawer always shows the DB values (not stale local edits)
-- When the session query refetches with updated data, local overrides are discarded
+Single line change — replace `duration: durationMinutes,` with `end_time: session.end_time,` and add `patient_name`.
 
