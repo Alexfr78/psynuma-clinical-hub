@@ -629,7 +629,8 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
             topic: `Sesión con ${patientDisplayName}`,
             session_date: session.session_date,
             start_time: session.start_time,
-            duration: durationMinutes,
+            end_time: session.end_time,
+            patient_name: patientDisplayName,
           },
         });
 
