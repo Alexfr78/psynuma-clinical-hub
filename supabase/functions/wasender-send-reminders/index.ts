@@ -254,8 +254,7 @@ async function sendReminder(
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          sessionId: whatsappSession.wasender_session_id,
-          to: phone,
+          to: `+${phone}`,
           text: message,
         }),
       }

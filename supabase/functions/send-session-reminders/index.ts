@@ -27,8 +27,7 @@ async function sendWhatsAppViaWasender(
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          sessionId: wasenderSessionId,
-          to: cleanPhone,
+          to: `+${cleanPhone}`,
           text: message,
         }),
       }
