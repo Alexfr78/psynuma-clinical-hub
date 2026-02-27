@@ -287,12 +287,8 @@ function buildReminderMessage(
   let direccion = '';
   if (session.location) {
     direccion = `${session.location.name}, ${session.location.street}, ${session.location.city}`;
-  } else {
-    const centerAddress = buildCenterAddress(center);
-    if (centerAddress) {
-      direccion = `${center.name}, ${centerAddress}`;
-    }
   }
+  // If no location is assigned, leave direccion empty — don't fallback to center address
 
   // If we have a template, use it with variable replacement
   if (template) {
