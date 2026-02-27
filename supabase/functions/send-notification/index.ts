@@ -230,7 +230,6 @@ async function sendWhatsAppViaWasender(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        sessionId: wsSession.wasender_session_id,
         to,
         text: message,
       }),

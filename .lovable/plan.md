@@ -1,86 +1,29 @@
 
 
-## Problem Analysis
+## Problem
 
-The automated messages (reminders and notifications) ARE being sent via WasenderAPI and the API returns success (DB shows `status: sent`). However, these messages appear as **"Esperando mensaje. Esto puede tomar tiempo."** on your phone instead of showing the actual message content.
+The `SessionDetailDrawer` has a `useEffect` that resets local state (`localDateTime`, `localStatus`, etc.) but its dependency array only watches `session?.id`, `session?.bono_id`, and `session?.price`. When the drawer is closed and reopened for the **same session**, or when session data is refetched with updated values, the local overrides (`localDateTime`, `localStatus`) are never cleared. This causes the drawer to show stale values from a previous edit.
 
-I verified this by cross-referencing timestamps:
-- DB record: Gregorio reminder sent `2026-02-25 09:00:11 UTC` (10:00 Madrid) → Screenshot shows "Esperando mensaje" at 10:00
-- DB record: Gregorio notification sent `2026-02-26 19:15:41 UTC` (20:15 Madrid) → Screenshot shows "Esperando mensaje" at 20:15
-
-Meanwhile, manually sent messages (like the "Resumen Extendido" at 8:11) appear normally with blue checkmarks.
-
-## Root Cause
-
-After reviewing the WasenderAPI official documentation, I found a discrepancy: **all our functions send a `sessionId` field in the request body**, but the WasenderAPI `/api/send-message` endpoint does NOT accept this parameter. The correct format per the docs is:
-
-```text
-POST /api/send-message
-Authorization: Bearer YOUR_API_KEY    ← The API key identifies the session
-Body: { "to": "+34627946506", "text": "Hello" }   ← Only "to" and "text"
-```
-
-Our code sends:
-```text
-Body: { "sessionId": "60354", "to": "34627946506", "text": "Hello" }
-```
-
-The extra `sessionId` field is likely causing WasenderAPI to process the message differently (possibly routing it through an internal queue instead of the live WhatsApp Web session), which is why the API returns "success" but the messages appear as pending on the phone.
-
-Additionally, the phone number format is inconsistent across functions: some use `+34...` (correct E.164) and others use `34...` (missing `+`).
+In your case: you edited date/time at some point, `localDateTime` was set to `{date: '2026-03-10', startTime: '18:00', endTime: '19:00'}`, but the DB actually has `2026-03-04 at 20:00`. Reopening the drawer doesn't reset `localDateTime` because `session.id` hasn't changed.
 
 ## Fix
 
-Remove the `sessionId` field from the request body and standardize phone format with `+` prefix in all four functions:
+**File: `src/components/agenda/SessionDetailDrawer.tsx`**
 
-### 1. `supabase/functions/send-session-reminders/index.ts` (line 29-33)
+1. **Add the `open` prop to the reset effect's dependency array** — so that every time the drawer opens, all local overrides are cleared and the component reads fresh data from the `session` prop.
+
+2. **Also add `session?.session_date`, `session?.start_time`, `session?.end_time`, and `session?.status`** to the dependency array so that when the query cache updates with new data, local overrides are cleared.
+
+The effect at line ~260 changes from:
 ```typescript
-body: JSON.stringify({
-  to: `+${cleanPhone}`,    // Add + prefix
-  text: message,
-  // Remove sessionId
-}),
+}, [session?.id, session?.bono_id, session?.price]);
+```
+to:
+```typescript
+}, [session?.id, session?.bono_id, session?.price, session?.session_date, session?.start_time, session?.end_time, session?.status, open]);
 ```
 
-### 2. `supabase/functions/send-notification/index.ts` (line 232-236)
-```typescript
-body: JSON.stringify({
-  to,                       // Already has + prefix
-  text: message,
-  // Remove sessionId
-}),
-```
-
-### 3. `supabase/functions/wasender-send-message/index.ts` (lines 168-180)
-```typescript
-if (type === "image" && image_url) {
-  messageBody = {
-    to,                     // Already has + prefix
-    mediaUrl: image_url,
-    caption: caption || message,
-    // Remove sessionId
-  };
-} else {
-  messageBody = {
-    to,                     // Already has + prefix
-    text: message,
-    // Remove sessionId
-  };
-}
-```
-
-### 4. `supabase/functions/wasender-send-reminders/index.ts` (line 256-260)
-```typescript
-body: JSON.stringify({
-  to: `+${phone}`,         // Add + prefix (phone already has digits only)
-  text: message,
-  // Remove sessionId
-}),
-```
-
-## Summary
-
-- Remove `sessionId` from request body in 4 edge functions (not part of WasenderAPI spec)
-- Standardize phone number format to E.164 (`+34...`) in all functions
-- No database changes needed
+This ensures that:
+- Opening the drawer always shows the DB values (not stale local edits)
+- When the session query refetches with updated data, local overrides are discarded
 

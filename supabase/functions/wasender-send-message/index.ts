@@ -166,14 +166,12 @@ serve(async (req) => {
 
       if (type === "image" && image_url) {
         messageBody = {
-          sessionId: session.wasender_session_id,
           to,
           mediaUrl: image_url,
           caption: caption || message,
         };
       } else {
         messageBody = {
-          sessionId: session.wasender_session_id,
           to,
           text: message,
         };
