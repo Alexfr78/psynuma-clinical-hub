@@ -2272,6 +2272,7 @@ export type Database = {
         Row: {
           address: string | null
           assigned_professional_id: string | null
+          auto_invoice_on_complete: boolean
           center_id: string
           city: string | null
           created_at: string
@@ -2301,6 +2302,7 @@ export type Database = {
         Insert: {
           address?: string | null
           assigned_professional_id?: string | null
+          auto_invoice_on_complete?: boolean
           center_id: string
           city?: string | null
           created_at?: string
@@ -2330,6 +2332,7 @@ export type Database = {
         Update: {
           address?: string | null
           assigned_professional_id?: string | null
+          auto_invoice_on_complete?: boolean
           center_id?: string
           city?: string | null
           created_at?: string
