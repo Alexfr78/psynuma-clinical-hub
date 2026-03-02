@@ -129,7 +129,7 @@ export function PaymentHistoryTable({ payments, onEdit, onDelete, onLinkToInvoic
           <TableHeader>
             <TableRow>
               <TableHead>Fecha</TableHead>
-              <TableHead>Paciente</TableHead>
+              <TableHead>Contacto</TableHead>
               <TableHead>Método</TableHead>
               <TableHead>Factura</TableHead>
               <TableHead>Sesión</TableHead>

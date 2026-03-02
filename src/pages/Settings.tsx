@@ -119,7 +119,7 @@ interface NavItem {
 // Category icons for main sections
 const categoryIcons: Record<string, React.ComponentType<{ className?: string }>> = {
   'Mi Centro': Building2,
-  'Portal de Pacientes': Users,
+  'Portal de Contactos': Users,
   'Pagos y Facturación': Wallet,
   'Comunicaciones': Mail,
   'Conexiones Externas': Plug,
@@ -132,10 +132,10 @@ const navItems: NavItem[] = [
   { id: 'centro-agenda', label: 'Configuración de agenda', icon: CalendarDays, parent: 'Mi Centro' },
   { id: 'sesiones-tipos', label: 'Tipos de cita', icon: Calendar, parent: 'Mi Centro' },
   
-  // Portal de Pacientes
-  { id: 'centro-portal', label: 'Configuración del portal', icon: Settings2, parent: 'Portal de Pacientes' },
+  // Portal de Contactos
+  { id: 'centro-portal', label: 'Configuración del portal', icon: Settings2, parent: 'Portal de Contactos' },
   
-  { id: 'consentimientos-config', label: 'Consentimientos informados', icon: FileText, parent: 'Portal de Pacientes' },
+  { id: 'consentimientos-config', label: 'Consentimientos informados', icon: FileText, parent: 'Portal de Contactos' },
   
   // Pagos y Facturación
   { id: 'pagos-config', label: 'Métodos de cobro', icon: Wallet, parent: 'Pagos y Facturación' },
@@ -167,7 +167,7 @@ const navItems: NavItem[] = [
 ];
 
 // Order of main categories
-const categoryOrder = ['Mi Centro', 'Portal de Pacientes', 'Pagos y Facturación', 'Comunicaciones', 'Conexiones Externas'];
+const categoryOrder = ['Mi Centro', 'Portal de Contactos', 'Pagos y Facturación', 'Comunicaciones', 'Conexiones Externas'];
 
 export default function Settings() {
   const { center, isLoading, updateCenter } = useCenter();

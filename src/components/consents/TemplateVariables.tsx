@@ -31,7 +31,7 @@ export function TemplateVariables({ onInsert }: TemplateVariablesProps) {
   const [isOpen, setIsOpen] = useState(false);
 
   const categories = [
-    { id: 'paciente', label: 'Paciente' },
+    { id: 'paciente', label: 'Contacto' },
     { id: 'tutor', label: 'Tutor' },
     { id: 'profesional', label: 'Profesional' },
     { id: 'centro', label: 'Centro' },

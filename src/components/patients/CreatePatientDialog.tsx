@@ -490,7 +490,7 @@ export function CreatePatientDialog() {
               </Button>
               <Button type="submit" disabled={createPatient.isPending}>
                 {createPatient.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Crear Paciente
+                Crear Contacto
               </Button>
             </div>
           </form>

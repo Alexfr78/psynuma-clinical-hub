@@ -112,7 +112,7 @@ export function useGoogleCalendarUpdate(overrideProfessionalId?: string) {
     // Update the existing event
     const patientName = session.patient 
       ? `${session.patient.first_name} ${session.patient.last_name}`
-      : 'Paciente';
+      : 'Contacto';
 
     console.log(`[SYNC] Updating Google Calendar event ${googleEventId} for session ${session.id}`);
 

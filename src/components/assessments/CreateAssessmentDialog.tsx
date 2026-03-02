@@ -66,7 +66,7 @@ export function CreateAssessmentDialog({ open, onOpenChange, preselectedPatientI
     // If WhatsApp selected, trigger real send
     if (sendVia === 'whatsapp' && selectedPatient?.phone && center?.id && result) {
       const assessmentLink = `${window.location.origin}/evaluacion/${result.access_token}`;
-      const patientName = selectedPatient.first_name || 'Paciente';
+      const patientName = selectedPatient.first_name || 'Contacto';
       const message = `Hola${patientName ? ` ${patientName}` : ''}, te envío el siguiente cuestionario para que lo completes cuando puedas:\n\n${assessmentLink}\n\nSi tienes cualquier duda, no dudes en consultarme.`;
 
       const sendResult = await sendWhatsApp({

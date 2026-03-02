@@ -196,7 +196,7 @@ export function PAIResultsView({
                 </div>
               ))}
               <p className="text-sm text-destructive mt-2">
-                Estas escalas requieren atención inmediata. Evalúe riesgo y seguridad del paciente.
+                Estas escalas requieren atención inmediata. Evalúe riesgo y seguridad del contacto.
               </p>
             </div>
           </CardContent>

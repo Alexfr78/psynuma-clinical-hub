@@ -21,7 +21,7 @@ interface AppLayoutProps {
 const routeTitles: Record<string, string> = {
   '/dashboard': 'Dashboard',
   '/agenda': 'Agenda',
-  '/pacientes': 'Pacientes',
+  '/pacientes': 'Contactos',
   '/sesiones': 'Sesiones',
   '/bonos': 'Bonos',
   '/facturas': 'Facturas',

@@ -209,7 +209,7 @@ export function StripeIntegrationSection() {
             <div>
               <CardTitle className="text-lg">Stripe</CardTitle>
               <CardDescription>
-                Recibe pagos online de tus pacientes
+                Recibe pagos online de tus contactos
               </CardDescription>
             </div>
           </div>
@@ -303,7 +303,7 @@ export function StripeIntegrationSection() {
                         Pago obligatorio
                       </Label>
                       <p className="text-xs text-muted-foreground">
-                        El paciente debe pagar para confirmar la cita
+                        El contacto debe pagar para confirmar la cita
                       </p>
                     </div>
                   </div>

@@ -154,7 +154,7 @@ export default function PatientPortal() {
           )}
           <div>
             <CardTitle className="text-2xl">{centerData?.name}</CardTitle>
-            <CardDescription>Portal de Pacientes</CardDescription>
+            <CardDescription>Portal de Contactos</CardDescription>
           </div>
         </CardHeader>
         <CardContent>

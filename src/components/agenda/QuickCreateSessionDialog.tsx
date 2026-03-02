@@ -756,7 +756,7 @@ export function QuickCreateSessionDialog({
               name="patient_id"
               render={({ field }) => (
                 <FormItem className="flex flex-col">
-                  <FormLabel className="text-sm font-medium">Paciente</FormLabel>
+                  <FormLabel className="text-sm font-medium">Contacto</FormLabel>
                   <Popover open={patientPopoverOpen} onOpenChange={setPatientPopoverOpen}>
                     <PopoverTrigger asChild>
                       <FormControl>
@@ -785,7 +785,7 @@ export function QuickCreateSessionDialog({
                     <PopoverContent className="w-[--radix-popover-trigger-width] max-w-[calc(100vw-2rem)] p-0" align="start">
                       <Command>
                         <CommandInput 
-                          placeholder="Buscar paciente..." 
+                          placeholder="Buscar contacto..." 
                           value={patientSearch}
                           onValueChange={setPatientSearch}
                         />
