@@ -108,6 +108,49 @@ serve(async (req) => {
       });
     }
 
+    // If api_key is missing, fetch it from WasenderAPI and persist
+    let sessionApiKey = session.api_key;
+    if (!sessionApiKey && wasenderApiKey) {
+      try {
+        const WASENDER_API_URL_BASE = "https://api.wasenderapi.com/api";
+        const infoRes = await fetch(
+          `${WASENDER_API_URL_BASE}/whatsapp-sessions/${session.wasender_session_id}`,
+          {
+            method: "GET",
+            headers: {
+              "Authorization": `Bearer ${wasenderApiKey}`,
+              "Accept": "application/json",
+            },
+          }
+        );
+        if (infoRes.ok) {
+          const infoData = await infoRes.json();
+          const fetchedKey = infoData.data?.api_key || infoData.api_key;
+          if (fetchedKey) {
+            sessionApiKey = fetchedKey;
+            // Persist for future calls
+            await supabase
+              .from("whatsapp_sessions")
+              .update({ api_key: fetchedKey, updated_at: new Date().toISOString() })
+              .eq("center_id", profile.center_id);
+            console.log("Fetched and persisted session api_key from WasenderAPI");
+          }
+        }
+      } catch (e) {
+        console.error("Error fetching session api_key:", e);
+      }
+    }
+
+    if (!sessionApiKey) {
+      return new Response(JSON.stringify({
+        error: "No session API key available. Please reconnect WhatsApp.",
+        code: "NO_SESSION_API_KEY",
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Normalize phone: strip non-digits, add Spanish country code if needed
     const trimmedPhone = phone.trim();
     const isJid = trimmedPhone.includes("@");
@@ -184,7 +227,7 @@ serve(async (req) => {
       });
 
       // Send via WasenderAPI - use /api/send-message with session API key
-      const sendToken = session.api_key || wasenderApiKey;
+      const sendToken = sessionApiKey;
       const sendResponse = await fetch(
         `${WASENDER_API_URL}/send-message`,
         {

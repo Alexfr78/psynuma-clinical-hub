@@ -1,25 +1,29 @@
 
 
-## Problema
+## Problem
 
-El `api_key` de la sesion WasenderAPI nunca se guardo en la base de datos. La funcion `wasender-get-session` solo guarda el `api_key` cuando el estado cambia, pero como ya estaba "connected", nunca se ejecuto el update. Resultado: `api_key = NULL` en la tabla `whatsapp_sessions`.
+The `SessionDetailDrawer` has a `useEffect` that resets local state (`localDateTime`, `localStatus`, etc.) but its dependency array only watches `session?.id`, `session?.bono_id`, and `session?.price`. When the drawer is closed and reopened for the **same session**, or when session data is refetched with updated values, the local overrides (`localDateTime`, `localStatus`) are never cleared. This causes the drawer to show stale values from a previous edit.
 
-Al enviar, `wasender-send-message` hace `session.api_key || wasenderApiKey` — como api_key es null, usa el Personal Access Token, que WasenderAPI rechaza con "invalid API key" para el endpoint `/api/send-message`.
+In your case: you edited date/time at some point, `localDateTime` was set to `{date: '2026-03-10', startTime: '18:00', endTime: '19:00'}`, but the DB actually has `2026-03-04 at 20:00`. Reopening the drawer doesn't reset `localDateTime` because `session.id` hasn't changed.
 
-## Solucion
+## Fix
 
-### 1. Fix `wasender-get-session/index.ts`
-Guardar el `api_key` **siempre** que este disponible en la respuesta de WasenderAPI, no solo cuando cambia el estado. Mover la logica de guardado de `api_key` fuera del `if (mappedStatus !== session.status)`.
+**File: `src/components/agenda/SessionDetailDrawer.tsx`**
 
-Ademas, forzar un update inmediato si `api_key` existe en la respuesta pero no en la DB.
+1. **Add the `open` prop to the reset effect's dependency array** — so that every time the drawer opens, all local overrides are cleared and the component reads fresh data from the `session` prop.
 
-### 2. Fix `wasender-send-message/index.ts`  
-Si `session.api_key` es null, antes de intentar enviar, hacer una llamada rapida a la API de WasenderAPI para obtener el `api_key` de la sesion y guardarlo. Esto actua como fallback para sesiones que ya estaban conectadas antes de la migracion.
+2. **Also add `session?.session_date`, `session?.start_time`, `session?.end_time`, and `session?.status`** to the dependency array so that when the query cache updates with new data, local overrides are cleared.
 
-### Archivos a modificar
-- `supabase/functions/wasender-get-session/index.ts` — siempre persistir `api_key` cuando disponible
-- `supabase/functions/wasender-send-message/index.ts` — fetch api_key de WasenderAPI si no esta en DB
+The effect at line ~260 changes from:
+```typescript
+}, [session?.id, session?.bono_id, session?.price]);
+```
+to:
+```typescript
+}, [session?.id, session?.bono_id, session?.price, session?.session_date, session?.start_time, session?.end_time, session?.status, open]);
+```
 
-### Redespliegue
-Redesplegar ambas funciones tras los cambios.
+This ensures that:
+- Opening the drawer always shows the DB values (not stale local edits)
+- When the session query refetches with updated data, local overrides are discarded
 
