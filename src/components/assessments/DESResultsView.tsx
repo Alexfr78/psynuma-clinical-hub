@@ -249,7 +249,7 @@ export function DESResultsView({
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
               <Quote className="h-5 w-5" />
-              Ejemplos del Paciente
+              Ejemplos del Contacto
             </CardTitle>
             <CardDescription>
               Descripciones proporcionadas por el paciente sobre sus experiencias disociativas

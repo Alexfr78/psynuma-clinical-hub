@@ -156,7 +156,7 @@ function PendingConsentCard({ consent }: { consent: Consent }) {
   const handleSendWhatsApp = async () => {
     if (!patientPhone) {
       toast.error('Sin teléfono', {
-        description: 'El paciente no tiene número de teléfono registrado.',
+        description: 'El contacto no tiene número de teléfono registrado.',
       });
       return;
     }
