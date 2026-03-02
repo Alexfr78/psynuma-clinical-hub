@@ -1,29 +1,40 @@
 
 
-## Problem
+## Feature: Auto-invoice & auto-send on session completion (per patient)
 
-The `SessionDetailDrawer` has a `useEffect` that resets local state (`localDateTime`, `localStatus`, etc.) but its dependency array only watches `session?.id`, `session?.bono_id`, and `session?.price`. When the drawer is closed and reopened for the **same session**, or when session data is refetched with updated values, the local overrides (`localDateTime`, `localStatus`) are never cleared. This causes the drawer to show stale values from a previous edit.
+### What it does
+A new toggle on each patient's profile: **"Facturar automáticamente al completar sesión"**. When enabled, changing a session's status to "Completada" will automatically:
+1. Generate a simplified invoice for that session
+2. Send it to the patient via the center's configured channel (email/WhatsApp/both)
 
-In your case: you edited date/time at some point, `localDateTime` was set to `{date: '2026-03-10', startTime: '18:00', endTime: '19:00'}`, but the DB actually has `2026-03-04 at 20:00`. Reopening the drawer doesn't reset `localDateTime` because `session.id` hasn't changed.
+### Changes required
 
-## Fix
-
-**File: `src/components/agenda/SessionDetailDrawer.tsx`**
-
-1. **Add the `open` prop to the reset effect's dependency array** — so that every time the drawer opens, all local overrides are cleared and the component reads fresh data from the `session` prop.
-
-2. **Also add `session?.session_date`, `session?.start_time`, `session?.end_time`, and `session?.status`** to the dependency array so that when the query cache updates with new data, local overrides are cleared.
-
-The effect at line ~260 changes from:
-```typescript
-}, [session?.id, session?.bono_id, session?.price]);
-```
-to:
-```typescript
-}, [session?.id, session?.bono_id, session?.price, session?.session_date, session?.start_time, session?.end_time, session?.status, open]);
+#### 1. Database migration
+Add column to `patients` table:
+```sql
+ALTER TABLE patients ADD COLUMN auto_invoice_on_complete boolean NOT NULL DEFAULT false;
 ```
 
-This ensures that:
-- Opening the drawer always shows the DB values (not stale local edits)
-- When the session query refetches with updated data, local overrides are discarded
+#### 2. Patient form (`PatientData.tsx`)
+Add a Switch field "Facturar automáticamente al completar sesión" in the patient data form, bound to `auto_invoice_on_complete`.
+
+#### 3. Session status change logic (`SessionDetailDrawer.tsx`)
+In `handleStatusChange`, after successfully updating to `completed`:
+- Check if `patient.auto_invoice_on_complete === true`
+- If yes, automatically call the existing `useCreateSignedInvoice` flow (simplified invoice, single item with session details)
+- Then send notification via `send-invoice-notification` edge function using the center's `invoice_send_channel` setting
+- Show toast confirming auto-invoice was generated and sent
+
+This reuses the existing invoice creation and notification infrastructure — no new edge functions needed.
+
+#### 4. Patient schema update
+Add `auto_invoice_on_complete` to the zod schema in `PatientData.tsx`.
+
+### Technical details
+
+- The auto-invoice logic will use `useCreateSignedInvoice` with `sendNotification: true` and the center's configured `invoice_send_channel`
+- Invoice type will be `simplified` by default (matching the existing "auto" mode behavior)
+- If VeriFactu auto is enabled, it will be processed through the existing VeriFactu pipeline
+- The billable event will be created/used as part of the existing `useGetOrCreateBillableEvent` flow
+- Error handling: if invoice generation fails, a toast error is shown but the session status change is preserved (session stays completed)
 
