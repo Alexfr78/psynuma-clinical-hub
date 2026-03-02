@@ -10,7 +10,8 @@ async function sendWhatsAppViaWasender(
   phone: string,
   message: string,
   wasenderToken: string,
-  wasenderSessionId: string
+  _wasenderSessionId: string,
+  sessionApiKey?: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
     let cleanPhone = phone.replace(/\D/g, '');
@@ -18,12 +19,13 @@ async function sendWhatsAppViaWasender(
       cleanPhone = '34' + cleanPhone;
     }
 
+    const sendToken = sessionApiKey || wasenderToken;
     const response = await fetch(
-      `${WASENDER_API_URL}/whatsapp-sessions/${wasenderSessionId}/messages/text`,
+      `${WASENDER_API_URL}/send-message`,
       {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${wasenderToken}`,
+          'Authorization': `Bearer ${sendToken}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -571,7 +573,7 @@ serve(async (req) => {
             if (wasenderToken) {
               const { data: whatsappSession } = await supabase
                 .from("whatsapp_sessions")
-                .select("wasender_session_id, status")
+                .select("wasender_session_id, status, api_key")
                 .eq("center_id", center.id)
                 .single();
 
@@ -589,7 +591,8 @@ serve(async (req) => {
                   patient.phone,
                   whatsappMessage,
                   wasenderToken,
-                  whatsappSession.wasender_session_id
+                  whatsappSession.wasender_session_id,
+                  whatsappSession.api_key || undefined
                 );
                 lastWasenderSendAt = Date.now();
 
@@ -601,7 +604,8 @@ serve(async (req) => {
                     patient.phone,
                     whatsappMessage,
                     wasenderToken,
-                    whatsappSession.wasender_session_id
+                    whatsappSession.wasender_session_id,
+                    whatsappSession.api_key || undefined
                   );
                   lastWasenderSendAt = Date.now();
                 }

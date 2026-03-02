@@ -94,7 +94,7 @@ serve(async (req) => {
     // Get active session
     const { data: session } = await supabase
       .from("whatsapp_sessions")
-      .select("wasender_session_id, status")
+      .select("wasender_session_id, status, api_key")
       .eq("center_id", profile.center_id)
       .single();
 
@@ -183,13 +183,14 @@ serve(async (req) => {
         sessionId: session.wasender_session_id,
       });
 
-      // Send via WasenderAPI - session-specific endpoint for proper phone sync
+      // Send via WasenderAPI - use /api/send-message with session API key
+      const sendToken = session.api_key || wasenderApiKey;
       const sendResponse = await fetch(
-        `${WASENDER_API_URL}/whatsapp-sessions/${session.wasender_session_id}/messages/text`,
+        `${WASENDER_API_URL}/send-message`,
         {
           method: "POST",
           headers: {
-            "Authorization": `Bearer ${wasenderApiKey}`,
+            "Authorization": `Bearer ${sendToken}`,
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
