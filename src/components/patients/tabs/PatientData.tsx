@@ -517,6 +517,34 @@ export function PatientData({ patient }: PatientDataProps) {
           </CardContent>
         </Card>
 
+        {/* Billing Automation */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Facturación</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <FormField
+              control={form.control}
+              name="auto_invoice_on_complete"
+              render={({ field }) => (
+                <FormItem className="flex items-center justify-between rounded-lg border p-4">
+                  <div className="space-y-0.5">
+                    <FormLabel className="text-base">Facturar automáticamente al completar sesión</FormLabel>
+                    <p className="text-sm text-muted-foreground">
+                      Genera y envía una factura simplificada automáticamente al marcar la sesión como completada
+                    </p>
+                  </div>
+                  <FormControl>
+                    <Switch 
+                      checked={field.value} 
+                      onCheckedChange={field.onChange}
+                      disabled={!isEditing}
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+          </CardContent>
         {/* Notes */}
         <Card>
           <CardHeader>
