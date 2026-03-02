@@ -84,7 +84,7 @@ export function InvoiceAutomationSection() {
                       Generar y enviar automáticamente
                     </Label>
                     <p className="text-sm text-muted-foreground">
-                      Al cobrar, se genera la factura simplificada automáticamente y se envía al paciente.
+                      Al cobrar, se genera la factura simplificada automáticamente y se envía al contacto.
                     </p>
                   </div>
                 </div>
@@ -265,7 +265,7 @@ export function InvoiceAutomationSection() {
                 </Label>
                 <p className="text-sm text-muted-foreground">
                   Genera automáticamente una factura recapitulativa al final de cada mes 
-                  con todas las sesiones completadas de cada paciente.
+                  con todas las sesiones completadas de cada contacto.
                 </p>
               </div>
             </div>
@@ -293,7 +293,7 @@ export function InvoiceAutomationSection() {
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-primary font-medium">2.</span>
-                  Se agrupa por paciente y se genera una factura recapitulativa para cada uno.
+                  Se agrupa por contacto y se genera una factura recapitulativa para cada uno.
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-primary font-medium">3.</span>

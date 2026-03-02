@@ -44,12 +44,12 @@ const eventLabels: Record<keyof AlertEvents, { label: string; description: strin
     description: 'Cuando un cliente cambia la fecha/hora de su cita',
   },
   portal_created: {
-    label: 'Nueva cita (portal paciente)',
-    description: 'Cuando un paciente registrado solicita una cita desde su portal',
+    label: 'Nueva cita (portal contacto)',
+    description: 'Cuando un contacto registrado solicita una cita desde su portal',
   },
   portal_cancelled: {
-    label: 'Cancelación (portal paciente)',
-    description: 'Cuando un paciente registrado cancela su cita desde el portal',
+    label: 'Cancelación (portal contacto)',
+    description: 'Cuando un contacto registrado cancela su cita desde el portal',
   },
   payment_online: {
     label: 'Pago online recibido',
@@ -57,7 +57,7 @@ const eventLabels: Record<keyof AlertEvents, { label: string; description: strin
   },
   assessment_completed: {
     label: 'Evaluación completada',
-    description: 'Cuando un paciente finaliza un cuestionario/test enviado',
+    description: 'Cuando un contacto finaliza un cuestionario/test enviado',
   },
 };
 

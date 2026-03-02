@@ -38,7 +38,7 @@ import { usePatients } from '@/hooks/usePatients';
 import { useCreateInvoice, useUnbilledSessions } from '@/hooks/useInvoices';
 
 const formSchema = z.object({
-  patient_id: z.string().min(1, 'Selecciona un paciente'),
+  patient_id: z.string().min(1, 'Selecciona un contacto'),
   issue_date: z.date(),
   tax_rate: z.coerce.number().min(0).max(100),
   notes: z.string().optional(),
@@ -139,7 +139,7 @@ export function CreateRecapInvoiceDialog({ open, onOpenChange }: CreateRecapInvo
             Nueva factura recapitulativa
           </DialogTitle>
           <DialogDescription>
-            Selecciona un paciente y las sesiones a incluir en la factura.
+            Selecciona un contacto y las sesiones a incluir en la factura.
           </DialogDescription>
         </DialogHeader>
 
@@ -150,11 +150,11 @@ export function CreateRecapInvoiceDialog({ open, onOpenChange }: CreateRecapInvo
               name="patient_id"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Paciente</FormLabel>
+                  <FormLabel>Contacto</FormLabel>
                   <Select onValueChange={handlePatientChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Seleccionar paciente" />
+                        <SelectValue placeholder="Seleccionar contacto" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
@@ -183,7 +183,7 @@ export function CreateRecapInvoiceDialog({ open, onOpenChange }: CreateRecapInvo
                 
                 {!unbilledSessions || unbilledSessions.length === 0 ? (
                   <p className="text-sm text-muted-foreground py-4 text-center">
-                    No hay sesiones pendientes de facturar para este paciente
+                    No hay sesiones pendientes de facturar para este contacto
                   </p>
                 ) : (
                   <div className="border rounded-lg divide-y max-h-48 overflow-y-auto">

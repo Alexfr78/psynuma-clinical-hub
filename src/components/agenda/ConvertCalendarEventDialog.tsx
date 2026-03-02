@@ -177,7 +177,7 @@ export function ConvertCalendarEventDialog({
           <div className="space-y-2">
             <Label className="flex items-center gap-2">
               <User className="h-4 w-4" />
-              Paciente *
+              Contacto *
             </Label>
             {patientId && patientName ? (
               <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">

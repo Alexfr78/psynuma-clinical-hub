@@ -279,7 +279,7 @@ export function RecordPaymentDialog({
               name="patient_id"
               render={({ field }) => (
                 <FormItem className="flex flex-col">
-                  <FormLabel>Paciente</FormLabel>
+                  <FormLabel>Contacto</FormLabel>
                   <Popover open={patientPopoverOpen} onOpenChange={setPatientPopoverOpen}>
                     <PopoverTrigger asChild disabled={isDebtPayment}>
                       <FormControl>

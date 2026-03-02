@@ -206,7 +206,7 @@ export default function Dashboard() {
           <div className="grid gap-3 grid-cols-2 sm:grid-cols-4">
             <Link to="/pacientes" className="flex flex-col items-center gap-2 rounded-lg border border-border bg-card p-4 transition-colors hover:bg-muted">
               <Users className="h-6 w-6 text-primary" />
-              <span className="text-sm font-medium">Nuevo Paciente</span>
+              <span className="text-sm font-medium">Nuevo Contacto</span>
             </Link>
             <Link to="/agenda" className="flex flex-col items-center gap-2 rounded-lg border border-border bg-card p-4 transition-colors hover:bg-muted">
               <Calendar className="h-6 w-6 text-primary" />

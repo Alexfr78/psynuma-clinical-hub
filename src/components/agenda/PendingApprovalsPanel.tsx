@@ -145,7 +145,7 @@ export function PendingApprovalsPanel() {
           </Badge>
         </div>
         <CardDescription>
-          Solicitudes de citas desde el portal de pacientes
+          Solicitudes de citas desde el portal de contactos
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">

@@ -142,7 +142,7 @@ export function SendPaymentReminderDialog({
 
     const recipient = channel === 'email' ? patientEmail : patientPhone;
     if (!recipient) {
-      toast.error(`El paciente no tiene ${channel === 'email' ? 'email' : 'teléfono'} registrado`);
+      toast.error(`El contacto no tiene ${channel === 'email' ? 'email' : 'teléfono'} registrado`);
       return;
     }
 
@@ -214,7 +214,7 @@ export function SendPaymentReminderDialog({
             (channel === 'sms' && !canSendSms)) && (
             <Alert variant="destructive">
               <AlertDescription>
-                El paciente no tiene {channel === 'email' ? 'email' : 'teléfono'} registrado.
+                El contacto no tiene {channel === 'email' ? 'email' : 'teléfono'} registrado.
               </AlertDescription>
             </Alert>
           )}
@@ -235,7 +235,7 @@ export function SendPaymentReminderDialog({
                   Enlace de pago con tarjeta (Stripe)
                 </Label>
                 <p className="text-xs text-muted-foreground">
-                  El paciente podrá pagar directamente con tarjeta
+                  El contacto podrá pagar directamente con tarjeta
                 </p>
               </div>
             </div>
@@ -252,7 +252,7 @@ export function SendPaymentReminderDialog({
                   Número de Bizum ({(center as any)?.bizum_phone || '609555514'})
                 </Label>
                 <p className="text-xs text-muted-foreground">
-                  El paciente puede enviar Bizum al número indicado
+                  El contacto puede enviar Bizum al número indicado
                 </p>
               </div>
             </div>
@@ -269,7 +269,7 @@ export function SendPaymentReminderDialog({
                   Opción de comprar bono
                 </Label>
                 <p className="text-xs text-muted-foreground">
-                  El paciente puede comprar un bono de sesiones con descuento
+                  El contacto puede comprar un bono de sesiones con descuento
                 </p>
               </div>
             </div>
