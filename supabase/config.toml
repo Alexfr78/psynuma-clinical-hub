@@ -152,3 +152,12 @@ verify_jwt = false
 
 [functions.wasender-webhook]
 verify_jwt = false
+
+[functions.wasender-send-message]
+verify_jwt = true
+
+[functions.wasender-get-session]
+verify_jwt = true
+
+[functions.wasender-send-reminders]
+verify_jwt = false

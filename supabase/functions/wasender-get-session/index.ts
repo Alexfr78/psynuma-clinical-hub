@@ -81,6 +81,7 @@ serve(async (req) => {
             const rawStatus = statusData.data?.status || statusData.status || "";
             const phoneNumber = statusData.data?.phone || statusData.phone || 
                                 statusData.data?.phone_number || statusData.phone_number || null;
+            const sessionApiKey = statusData.data?.api_key || statusData.api_key || null;
 
             // Map WasenderAPI statuses to our DB statuses
             const statusMap: Record<string, string> = {
@@ -121,6 +122,7 @@ serve(async (req) => {
                 updateData.last_connected_at = new Date().toISOString();
                 updateData.qr_code = null; // Clear QR once connected
                 if (phoneNumber) updateData.phone_number = phoneNumber;
+                if (sessionApiKey) updateData.api_key = sessionApiKey;
               }
 
               if (mappedStatus === "disconnected") {

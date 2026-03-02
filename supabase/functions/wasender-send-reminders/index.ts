@@ -186,7 +186,7 @@ async function sendReminder(
     // Get WhatsApp session for this center
     const { data: whatsappSession } = await supabase
       .from('whatsapp_sessions')
-      .select('wasender_session_id, status')
+      .select('wasender_session_id, status, api_key')
       .eq('center_id', session.center.id)
       .single();
 
@@ -244,13 +244,14 @@ async function sendReminder(
         scheduled_at: new Date().toISOString(),
       });
 
-    // Send immediately (could also let the queue processor handle it)
+    // Send immediately via /api/send-message with session API key
+    const sendToken = whatsappSession.api_key || wasenderToken;
     const sendResponse = await fetch(
-      `${WASENDER_API_URL}/whatsapp-sessions/${whatsappSession.wasender_session_id}/messages/text`,
+      `${WASENDER_API_URL}/send-message`,
       {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${wasenderToken}`,
+          'Authorization': `Bearer ${sendToken}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
