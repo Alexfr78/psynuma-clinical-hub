@@ -42,7 +42,7 @@ serve(async (req) => {
     if (!wasenderApiKey) {
       return new Response(
         JSON.stringify({
-          error: "WasenderAPI API key not configured",
+          error: "WasenderAPI Personal Access Token not configured",
           code: "CREDENTIALS_MISSING",
         }),
         {
