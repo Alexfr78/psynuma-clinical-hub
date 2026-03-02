@@ -14,6 +14,7 @@ export interface SessionWithRelations extends Session {
     last_name: string;
     email: string | null;
     phone: string | null;
+    auto_invoice_on_complete: boolean;
   } | null;
   professional?: {
     id: string;
@@ -33,7 +34,7 @@ export function useSessions(startDate?: string, endDate?: string, professionalId
         .select(`
           *,
           patient:patients!sessions_patient_id_fkey(
-            id, first_name, last_name, email, phone
+            id, first_name, last_name, email, phone, auto_invoice_on_complete
           ),
           professional:profiles!sessions_professional_id_fkey(
             id, first_name, last_name
