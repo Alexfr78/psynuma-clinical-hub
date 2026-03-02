@@ -227,7 +227,7 @@ serve(async (req) => {
       });
 
       // Send via WasenderAPI - use /api/send-message with session API key
-      const sendToken = session.api_key || wasenderApiKey;
+      const sendToken = sessionApiKey;
       const sendResponse = await fetch(
         `${WASENDER_API_URL}/send-message`,
         {
