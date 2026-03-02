@@ -545,6 +545,8 @@ export function PatientData({ patient }: PatientDataProps) {
               )}
             />
           </CardContent>
+        </Card>
+
         {/* Notes */}
         <Card>
           <CardHeader>
