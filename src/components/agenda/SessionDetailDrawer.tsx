@@ -364,7 +364,6 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
     setIsConvertingSession(false);
   };
 
-  const createSignedInvoice = useCreateSignedInvoice();
 
   const handleStatusChange = async (newStatus: string) => {
     setIsUpdating(true);
