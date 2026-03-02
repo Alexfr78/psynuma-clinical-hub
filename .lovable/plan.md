@@ -1,29 +1,56 @@
 
 
-## Problem
+## Problema real
 
-The `SessionDetailDrawer` has a `useEffect` that resets local state (`localDateTime`, `localStatus`, etc.) but its dependency array only watches `session?.id`, `session?.bono_id`, and `session?.price`. When the drawer is closed and reopened for the **same session**, or when session data is refetched with updated values, the local overrides (`localDateTime`, `localStatus`) are never cleared. This causes the drawer to show stale values from a previous edit.
+El fix anterior (quitar `sessionId` del body) no era la causa raiz. El problema es que hay **dos endpoints distintos** de WasenderAPI en el codigo:
 
-In your case: you edited date/time at some point, `localDateTime` was set to `{date: '2026-03-10', startTime: '18:00', endTime: '19:00'}`, but the DB actually has `2026-03-04 at 20:00`. Reopening the drawer doesn't reset `localDateTime` because `session.id` hasn't changed.
+| Funcion | Endpoint | Token | Resultado |
+|---------|----------|-------|-----------|
+| `wasender-process-queue` | `/whatsapp-sessions/{id}/messages/text` | `WASENDER_PERSONAL_ACCESS_TOKEN` | Funciona correctamente |
+| `send-session-reminders` | `/api/send-message` | `WASENDER_API_KEY` | "Esperando mensaje" |
+| `send-notification` | `/api/send-message` | `WASENDER_API_KEY` | "Esperando mensaje" |
+| `wasender-send-message` | `/api/send-message` | `WASENDER_API_KEY` | "Esperando mensaje" |
+| `wasender-send-reminders` | `/api/send-message` | `WASENDER_API_KEY` | "Esperando mensaje" |
 
-## Fix
+El endpoint `/api/send-message` con API Key envia a traves de la infraestructura cloud de WasenderAPI, no a traves de tu sesion real de WhatsApp Web. Por eso el telefono no puede descargar el contenido del mensaje.
 
-**File: `src/components/agenda/SessionDetailDrawer.tsx`**
+El endpoint `/whatsapp-sessions/{sessionId}/messages/text` con Personal Access Token envia directamente a traves de tu sesion de WhatsApp Web vinculada, haciendo que el mensaje sea visible en tu conversacion del telefono.
 
-1. **Add the `open` prop to the reset effect's dependency array** — so that every time the drawer opens, all local overrides are cleared and the component reads fresh data from the `session` prop.
+## Solucion
 
-2. **Also add `session?.session_date`, `session?.start_time`, `session?.end_time`, and `session?.status`** to the dependency array so that when the query cache updates with new data, local overrides are cleared.
+Cambiar las 4 funciones para que usen el mismo endpoint y token que el queue processor:
 
-The effect at line ~260 changes from:
+**Endpoint**: `/whatsapp-sessions/{wasender_session_id}/messages/text`
+**Auth**: `Bearer WASENDER_PERSONAL_ACCESS_TOKEN`
+
+### Funciones a modificar
+
+1. **`send-session-reminders/index.ts`** -- funcion `sendWhatsAppViaWasender` (lineas 9-54): cambiar endpoint y token
+2. **`send-notification/index.ts`** -- funcion `sendWhatsAppViaWasender` (lineas 174-272): cambiar endpoint y token
+3. **`wasender-send-message/index.ts`** -- envio directo (lineas 186-197): cambiar endpoint y token
+4. **`wasender-send-reminders/index.ts`** -- envio (lineas 248-261): cambiar endpoint y token
+
+### Cambio tipo (en cada funcion)
+
+De:
 ```typescript
-}, [session?.id, session?.bono_id, session?.price]);
-```
-to:
-```typescript
-}, [session?.id, session?.bono_id, session?.price, session?.session_date, session?.start_time, session?.end_time, session?.status, open]);
+const wasenderApiKey = Deno.env.get("WASENDER_API_KEY");
+// ...
+fetch(`${WASENDER_API_URL}/send-message`, {
+  headers: { "Authorization": `Bearer ${wasenderApiKey}` },
+  body: JSON.stringify({ to, text: message }),
+})
 ```
 
-This ensures that:
-- Opening the drawer always shows the DB values (not stale local edits)
-- When the session query refetches with updated data, local overrides are discarded
+A:
+```typescript
+const wasenderToken = Deno.env.get("WASENDER_PERSONAL_ACCESS_TOKEN");
+// ...
+fetch(`${WASENDER_API_URL}/whatsapp-sessions/${wasenderSessionId}/messages/text`, {
+  headers: { "Authorization": `Bearer ${wasenderToken}` },
+  body: JSON.stringify({ to, text: message }),
+})
+```
+
+Cada funcion ya tiene acceso al `wasender_session_id` a traves de la consulta a `whatsapp_sessions`, asi que solo hay que cambiar el endpoint, el nombre del secret, y pasar el session ID a la URL.
 
