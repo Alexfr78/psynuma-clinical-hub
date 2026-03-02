@@ -74,7 +74,7 @@ Si tienes cualquier consulta, no dudes en avisarme.`;
         phone: patientPhone,
         message,
         patientId: consent.patient_id,
-        patientName: patientName || 'Paciente',
+        patientName: patientName || 'Contacto',
         centerId: center.id,
         messageType: 'consent',
       });
@@ -191,7 +191,7 @@ Si tienes cualquier consulta, no dudes en avisarme.`;
         onOpenChange={setWhatsAppDialogOpen}
         phone={patientPhone || ''}
         message={message}
-        patientName={patientName || 'Paciente'}
+        patientName={patientName || 'Contacto'}
       />
     </>
   );

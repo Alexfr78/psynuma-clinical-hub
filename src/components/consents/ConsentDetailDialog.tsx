@@ -250,7 +250,7 @@ export function ConsentDetailDialog({
                   {signatures.map((sig) => {
                     // Handle "undefined undefined" from legacy signatures
                     const displayName = sig.signer_name === 'undefined undefined' 
-                      ? `${consent.patient?.first_name || ''} ${consent.patient?.last_name || ''}`.trim() || 'Paciente'
+                      ? `${consent.patient?.first_name || ''} ${consent.patient?.last_name || ''}`.trim() || 'Contacto'
                       : sig.signer_name;
                     
                     return (
@@ -259,7 +259,7 @@ export function ConsentDetailDialog({
                         <div>
                           <p className="font-medium">{displayName}</p>
                           <p className="text-xs text-muted-foreground">
-                            {sig.signer_role === 'guardian' ? 'Tutor' : 'Paciente'} •{' '}
+                            {sig.signer_role === 'guardian' ? 'Tutor' : 'Contacto'} •{' '}
                             {format(new Date(sig.signed_at), "d MMM yyyy, HH:mm", { locale: es })}
                           </p>
                         </div>

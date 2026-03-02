@@ -785,7 +785,7 @@ export function QuickCreateSessionDialog({
                     <PopoverContent className="w-[--radix-popover-trigger-width] max-w-[calc(100vw-2rem)] p-0" align="start">
                       <Command>
                         <CommandInput 
-                          placeholder="Buscar paciente..." 
+                          placeholder="Buscar contacto..." 
                           value={patientSearch}
                           onValueChange={setPatientSearch}
                         />

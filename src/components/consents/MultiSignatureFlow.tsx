@@ -216,7 +216,7 @@ export function MultiSignatureFlow({ consent, token }: MultiSignatureFlowProps) 
       } else {
         const firstName = consent.patient?.first_name?.trim() || '';
         const lastName = consent.patient?.last_name?.trim() || '';
-        signerName = [firstName, lastName].filter(Boolean).join(' ') || 'Paciente';
+        signerName = [firstName, lastName].filter(Boolean).join(' ') || 'Contacto';
       }
 
       await addSignature.mutateAsync({
@@ -309,7 +309,7 @@ export function MultiSignatureFlow({ consent, token }: MultiSignatureFlowProps) 
         <div className="flex justify-between text-xs text-muted-foreground">
           <span>Lectura</span>
           {needsGuardian && <span>Firma tutor</span>}
-          <span>Firma paciente</span>
+          <span>Firma contacto</span>
           <span>Completado</span>
         </div>
         <Progress value={getProgress()} />
@@ -404,7 +404,7 @@ export function MultiSignatureFlow({ consent, token }: MultiSignatureFlowProps) 
       {currentStep === 'patient' && (
         <div className="space-y-6">
           <div className="text-center">
-            <h3 className="font-semibold">Firma del paciente</h3>
+            <h3 className="font-semibold">Firma del contacto</h3>
             <p className="text-sm text-muted-foreground">
               {consent.patient?.first_name} {consent.patient?.last_name}
             </p>

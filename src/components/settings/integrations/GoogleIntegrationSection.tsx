@@ -1121,7 +1121,7 @@ export function GoogleIntegrationSection() {
                         <Input
                           value={titleFormat}
                           onChange={(e) => setTitleFormat(e.target.value)}
-                          placeholder="{tipo} - {paciente}"
+                          placeholder="{tipo} - {contacto}"
                         />
                       </div>
                       

@@ -169,7 +169,7 @@ function PendingConsentCard({ consent }: { consent: Consent }) {
         phone: patientPhone,
         message,
         patientId: consent.patient_id,
-        patientName: patientName || 'Paciente',
+        patientName: patientName || 'Contacto',
         centerId: center.id,
         messageType: 'consent',
       });
@@ -255,7 +255,7 @@ function PendingConsentCard({ consent }: { consent: Consent }) {
         onOpenChange={setWhatsAppDialogOpen}
         phone={patientPhone}
         message={message}
-        patientName={patientName || 'Paciente'}
+        patientName={patientName || 'Contacto'}
       />
     </>
   );

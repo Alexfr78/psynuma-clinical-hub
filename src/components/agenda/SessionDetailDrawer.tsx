@@ -617,7 +617,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
     try {
       const patientDisplayName = displayPatient
         ? `${displayPatient.first_name} ${displayPatient.last_name}`
-        : 'Paciente';
+        : 'Contacto';
 
       // Calculate duration in minutes
       const [startH, startM] = session.start_time.split(':').map(Number);
@@ -841,7 +841,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
     try {
       const patientName = session.patient 
         ? `${session.patient.first_name} ${session.patient.last_name}`.trim() 
-        : 'Paciente';
+        : 'Contacto';
       
       const checkoutUrl = await createStripeCheckout(
         session.id,

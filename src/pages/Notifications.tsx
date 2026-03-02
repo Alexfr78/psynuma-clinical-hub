@@ -66,7 +66,7 @@ export default function Notifications() {
         message: notification.message,
         patientName: notification.patients 
           ? `${notification.patients.first_name} ${notification.patients.last_name}`
-          : 'Paciente',
+          : 'Contacto',
       });
     }
   };
@@ -84,7 +84,7 @@ export default function Notifications() {
           open: true,
           phone: notification.recipient,
           message: notification.message,
-          patientName: 'Paciente', // Pending notifications don't have patient data loaded
+          patientName: 'Contacto', // Pending notifications don't have patient data loaded
         });
         // Wait for user to close dialog before processing next
         break;

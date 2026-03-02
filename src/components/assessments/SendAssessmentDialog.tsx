@@ -55,7 +55,7 @@ export function SendAssessmentDialog({ assessment, onClose }: SendAssessmentDial
         phone: patientPhone,
         message,
         patientId: assessment.patient_id,
-        patientName: patientName || 'Paciente',
+        patientName: patientName || 'Contacto',
         centerId: center.id,
         messageType: 'assessment',
       });
@@ -175,7 +175,7 @@ export function SendAssessmentDialog({ assessment, onClose }: SendAssessmentDial
         onOpenChange={setWhatsAppDialogOpen}
         phone={patientPhone}
         message={message}
-        patientName={patientName || 'Paciente'}
+        patientName={patientName || 'Contacto'}
       />
     </>
   );
