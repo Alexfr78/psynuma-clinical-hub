@@ -36,13 +36,13 @@ serve(async (req) => {
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const wasenderApiKey = Deno.env.get("WASENDER_API_KEY");
+    const wasenderApiKey = Deno.env.get("WASENDER_PERSONAL_ACCESS_TOKEN");
 
     // Wasender send-message endpoint authenticates with the API key
     if (!wasenderApiKey) {
       return new Response(
         JSON.stringify({
-          error: "WasenderAPI API key not configured",
+          error: "WasenderAPI Personal Access Token not configured",
           code: "CREDENTIALS_MISSING",
         }),
         {
@@ -183,16 +183,19 @@ serve(async (req) => {
         sessionId: session.wasender_session_id,
       });
 
-      // Send via WasenderAPI - correct endpoint is /api/send-message
+      // Send via WasenderAPI - session-specific endpoint for proper phone sync
       const sendResponse = await fetch(
-        `${WASENDER_API_URL}/send-message`,
+        `${WASENDER_API_URL}/whatsapp-sessions/${session.wasender_session_id}/messages/text`,
         {
           method: "POST",
           headers: {
             "Authorization": `Bearer ${wasenderApiKey}`,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify(messageBody),
+          body: JSON.stringify({
+            to,
+            text: type === "image" ? (caption || message) : message,
+          }),
         }
       );
 

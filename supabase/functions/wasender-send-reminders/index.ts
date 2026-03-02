@@ -42,7 +42,7 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const wasenderToken = Deno.env.get("WASENDER_API_KEY");
+    const wasenderToken = Deno.env.get("WASENDER_PERSONAL_ACCESS_TOKEN");
 
     if (!wasenderToken) {
       return new Response(JSON.stringify({ error: "WasenderAPI token not configured" }), {
@@ -246,7 +246,7 @@ async function sendReminder(
 
     // Send immediately (could also let the queue processor handle it)
     const sendResponse = await fetch(
-      `${WASENDER_API_URL}/send-message`,
+      `${WASENDER_API_URL}/whatsapp-sessions/${whatsappSession.wasender_session_id}/messages/text`,
       {
         method: 'POST',
         headers: {

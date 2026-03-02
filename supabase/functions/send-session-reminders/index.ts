@@ -9,7 +9,7 @@ const WASENDER_API_URL = "https://www.wasenderapi.com/api";
 async function sendWhatsAppViaWasender(
   phone: string,
   message: string,
-  wasenderApiKey: string,
+  wasenderToken: string,
   wasenderSessionId: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
@@ -19,11 +19,11 @@ async function sendWhatsAppViaWasender(
     }
 
     const response = await fetch(
-      `${WASENDER_API_URL}/send-message`,
+      `${WASENDER_API_URL}/whatsapp-sessions/${wasenderSessionId}/messages/text`,
       {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${wasenderApiKey}`,
+          'Authorization': `Bearer ${wasenderToken}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -566,7 +566,7 @@ serve(async (req) => {
 
           // Priority 1: WasenderAPI (automatic via personal number)
           if (!whatsappSentVia && center.wasender_enabled && center.wasender_auto_reminders && !center.wasender_emergency_stop) {
-            const wasenderToken = Deno.env.get("WASENDER_API_KEY");
+            const wasenderToken = Deno.env.get("WASENDER_PERSONAL_ACCESS_TOKEN");
             
             if (wasenderToken) {
               const { data: whatsappSession } = await supabase
