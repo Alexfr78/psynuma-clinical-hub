@@ -1,0 +1,1 @@
+ALTER TABLE public.patients ADD COLUMN auto_invoice_on_complete boolean NOT NULL DEFAULT false;
