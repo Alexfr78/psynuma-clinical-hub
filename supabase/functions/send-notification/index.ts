@@ -180,13 +180,13 @@ async function sendWhatsAppViaWasender(
   sessionId?: string
 ): Promise<{ success: boolean; error?: string }> {
   const WASENDER_API_URL = "https://www.wasenderapi.com/api";
-  const wasenderApiKey = Deno.env.get("WASENDER_API_KEY");
+  const wasenderToken = Deno.env.get("WASENDER_PERSONAL_ACCESS_TOKEN");
 
   try {
     console.log(`[send-notification] Sending WhatsApp via WasenderAPI to ${phone}`);
 
-    if (!wasenderApiKey) {
-      return { success: false, error: "WASENDER_API_KEY not configured" };
+    if (!wasenderToken) {
+      return { success: false, error: "WASENDER_PERSONAL_ACCESS_TOKEN not configured" };
     }
 
     // Get active Wasender session for this center
@@ -222,11 +222,11 @@ async function sendWhatsAppViaWasender(
       .select("id")
       .single();
 
-    // Send via WasenderAPI directly
-    const sendResponse = await fetch(`${WASENDER_API_URL}/send-message`, {
+    // Send via WasenderAPI directly through the session endpoint
+    const sendResponse = await fetch(`${WASENDER_API_URL}/whatsapp-sessions/${wsSession.wasender_session_id}/messages/text`, {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${wasenderApiKey}`,
+        "Authorization": `Bearer ${wasenderToken}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
