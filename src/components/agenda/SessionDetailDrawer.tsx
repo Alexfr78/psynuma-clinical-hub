@@ -96,6 +96,7 @@ import { CreateBonoDialog } from '@/components/bonos/CreateBonoDialog';
 import { useSessionPaymentStatus } from '@/hooks/useSessionPayment';
 import { useBonoPaymentStatus } from '@/hooks/useBonoPaymentStatus';
 import { useSessionInvoiceStatus } from '@/hooks/useInvoices';
+import { useCreateSignedInvoice } from '@/hooks/useCreateSignedInvoice';
 import { CollectSessionPaymentDialog } from './CollectSessionPaymentDialog';
 import { CollectBonoPaymentDialog } from './CollectBonoPaymentDialog';
 import { CreateSessionInvoiceDialog } from './CreateSessionInvoiceDialog';
@@ -361,6 +362,8 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
     setIsConvertingSession(false);
   };
 
+  const createSignedInvoice = useCreateSignedInvoice();
+
   const handleStatusChange = async (newStatus: string) => {
     setIsUpdating(true);
     try {
@@ -383,6 +386,53 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
         title: 'Estado actualizado',
         description: 'El estado de la sesión se ha actualizado.',
       });
+
+      // Auto-invoice on completion if patient has it enabled
+      if (newStatus === 'completed' && session.patient?.auto_invoice_on_complete && !session.bono_id) {
+        const sessionPrice = Number(localPrice || session.price) || 0;
+        if (sessionPrice > 0) {
+          const taxRate = center?.default_tax_rate ?? 0;
+          const includeTax = center?.include_tax_in_price ?? false;
+          const unitPrice = includeTax ? sessionPrice / (1 + taxRate / 100) : sessionPrice;
+          const taxAmount = unitPrice * (taxRate / 100);
+          const itemTotal = unitPrice + taxAmount;
+
+          try {
+            const result = await createSignedInvoice.mutateAsync({
+              patientId: session.patient_id,
+              invoiceType: 'simplified',
+              items: [{
+                description: `${session.session_type || 'Sesión'} — ${format(new Date(session.session_date), 'dd/MM/yyyy')}`,
+                quantity: 1,
+                unit_price: Math.round(unitPrice * 100) / 100,
+                tax_rate: taxRate,
+                tax_amount: Math.round(taxAmount * 100) / 100,
+                total: Math.round(itemTotal * 100) / 100,
+                session_id: session.id,
+              }],
+              sendNotification: true,
+              patientEmail: session.patient?.email,
+              patientPhone: session.patient?.phone,
+            });
+
+            if (result.invoiceId) {
+              toast({
+                title: 'Factura generada',
+                description: result.notificationSent
+                  ? 'Se ha generado y enviado la factura automáticamente.'
+                  : 'Se ha generado la factura automáticamente.',
+              });
+            }
+          } catch (invoiceError) {
+            console.error('Error generating auto-invoice:', invoiceError);
+            toast({
+              title: 'Error al facturar',
+              description: 'La sesión se completó pero no se pudo generar la factura automática.',
+              variant: 'destructive',
+            });
+          }
+        }
+      }
     } catch (error) {
       toast({
         title: 'Error',
