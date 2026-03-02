@@ -111,18 +111,24 @@ serve(async (req) => {
 
             const mappedStatus = statusMap[rawStatus] || statusMap[rawStatus.toLowerCase()] || session.status;
 
-            // Update DB if status changed
-            if (mappedStatus !== session.status || (phoneNumber && phoneNumber !== session.phone_number)) {
+            // Always persist api_key if available and missing in DB
+            const needsApiKeyUpdate = sessionApiKey && sessionApiKey !== session.api_key;
+            const needsStatusUpdate = mappedStatus !== session.status;
+            const needsPhoneUpdate = phoneNumber && phoneNumber !== session.phone_number;
+
+            if (needsStatusUpdate || needsApiKeyUpdate || needsPhoneUpdate) {
               const updateData: Record<string, unknown> = {
                 status: mappedStatus,
                 updated_at: new Date().toISOString(),
               };
 
+              // Always save api_key when available
+              if (sessionApiKey) updateData.api_key = sessionApiKey;
+              if (phoneNumber) updateData.phone_number = phoneNumber;
+
               if (mappedStatus === "connected") {
                 updateData.last_connected_at = new Date().toISOString();
-                updateData.qr_code = null; // Clear QR once connected
-                if (phoneNumber) updateData.phone_number = phoneNumber;
-                if (sessionApiKey) updateData.api_key = sessionApiKey;
+                updateData.qr_code = null;
               }
 
               if (mappedStatus === "disconnected") {
