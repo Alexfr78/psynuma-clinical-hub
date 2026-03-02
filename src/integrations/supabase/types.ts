@@ -3847,6 +3847,7 @@ export type Database = {
       }
       whatsapp_sessions: {
         Row: {
+          api_key: string | null
           center_id: string
           created_at: string
           id: string
@@ -3864,6 +3865,7 @@ export type Database = {
           webhook_secret: string | null
         }
         Insert: {
+          api_key?: string | null
           center_id: string
           created_at?: string
           id?: string
@@ -3881,6 +3883,7 @@ export type Database = {
           webhook_secret?: string | null
         }
         Update: {
+          api_key?: string | null
           center_id?: string
           created_at?: string
           id?: string
