@@ -1,47 +1,29 @@
 
 
-## Problema identificado
+## Problem
 
-La sesion de Ulises (19:00 manana) fue reprogramada del 24 de febrero al 3 de marzo. El campo `reminder_sent_at` conserva el valor del 23 de febrero (cuando se envio el recordatorio para la fecha antigua), por lo que el sistema cree que ya se envio el recordatorio y la omite.
+The `SessionDetailDrawer` has a `useEffect` that resets local state (`localDateTime`, `localStatus`, etc.) but its dependency array only watches `session?.id`, `session?.bono_id`, and `session?.price`. When the drawer is closed and reopened for the **same session**, or when session data is refetched with updated values, the local overrides (`localDateTime`, `localStatus`) are never cleared. This causes the drawer to show stale values from a previous edit.
 
-**Sesiones de manana (3 de marzo):**
-- Zeus 18:00 -- recordatorio enviado correctamente hoy
-- Ulises 19:00 -- **sin recordatorio** (reprogramada, `reminder_sent_at` no se reseteo)
-- [Bloqueado] 20:00 -- sin telefono, no aplica
+In your case: you edited date/time at some point, `localDateTime` was set to `{date: '2026-03-10', startTime: '18:00', endTime: '19:00'}`, but the DB actually has `2026-03-04 at 20:00`. Reopening the drawer doesn't reset `localDateTime` because `session.id` hasn't changed.
 
-## Plan de solucion
+## Fix
 
-### 1. Fix estructural: resetear `reminder_sent_at` al reprogramar
+**File: `src/components/agenda/SessionDetailDrawer.tsx`**
 
-Crear un trigger en la base de datos que resetee `reminder_sent_at` a `NULL` cuando cambia `session_date` o `start_time`:
+1. **Add the `open` prop to the reset effect's dependency array** — so that every time the drawer opens, all local overrides are cleared and the component reads fresh data from the `session` prop.
 
-```sql
-CREATE OR REPLACE FUNCTION reset_reminder_on_reschedule()
-RETURNS TRIGGER AS $$
-BEGIN
-  IF (OLD.session_date IS DISTINCT FROM NEW.session_date)
-     OR (OLD.start_time IS DISTINCT FROM NEW.start_time) THEN
-    NEW.reminder_sent_at := NULL;
-  END IF;
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
+2. **Also add `session?.session_date`, `session?.start_time`, `session?.end_time`, and `session?.status`** to the dependency array so that when the query cache updates with new data, local overrides are cleared.
 
-CREATE TRIGGER trg_reset_reminder_on_reschedule
-  BEFORE UPDATE ON sessions
-  FOR EACH ROW
-  EXECUTE FUNCTION reset_reminder_on_reschedule();
+The effect at line ~260 changes from:
+```typescript
+}, [session?.id, session?.bono_id, session?.price]);
+```
+to:
+```typescript
+}, [session?.id, session?.bono_id, session?.price, session?.session_date, session?.start_time, session?.end_time, session?.status, open]);
 ```
 
-### 2. Fix inmediato: enviar el recordatorio pendiente de Ulises
-
-Resetear manualmente `reminder_sent_at` para la sesion de Ulises y disparar el cron de recordatorios en modo forzado para que lo procese.
-
-### Cambios necesarios
-
-- **1 migracion SQL**: trigger `reset_reminder_on_reschedule`
-- **1 operacion de datos**: resetear `reminder_sent_at` para la sesion `a6d1f3dc` de Ulises
-- **1 invocacion**: llamar a `send-session-reminders` con `force: true`
-
-No se requieren cambios en el frontend ni en edge functions.
+This ensures that:
+- Opening the drawer always shows the DB values (not stale local edits)
+- When the session query refetches with updated data, local overrides are discarded
 
