@@ -257,6 +257,8 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
   // For blocked sessions with newly assigned patient
   const { data: newPatientData } = usePatient(localPatientId || undefined);
 
+  const createSignedInvoice = useCreateSignedInvoice();
+
   // Sync local state with session prop
   useEffect(() => {
     if (session) {
