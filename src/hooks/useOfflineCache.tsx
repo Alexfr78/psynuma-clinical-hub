@@ -140,6 +140,7 @@ export function useOfflineCache(options: UseOfflineCacheOptions = {}) {
             last_name: s.patient.last_name,
             email: s.patient.email,
             phone: s.patient.phone,
+            auto_invoice_on_complete: s.patient.auto_invoice_on_complete ?? false,
           } : null,
           professional: s.professional ? {
             id: s.professional.id,
