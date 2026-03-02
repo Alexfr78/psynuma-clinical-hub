@@ -566,7 +566,7 @@ serve(async (req) => {
 
           // Priority 1: WasenderAPI (automatic via personal number)
           if (!whatsappSentVia && center.wasender_enabled && center.wasender_auto_reminders && !center.wasender_emergency_stop) {
-            const wasenderToken = Deno.env.get("WASENDER_API_KEY");
+            const wasenderToken = Deno.env.get("WASENDER_PERSONAL_ACCESS_TOKEN");
             
             if (wasenderToken) {
               const { data: whatsappSession } = await supabase
