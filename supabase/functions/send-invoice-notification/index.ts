@@ -122,7 +122,7 @@ async function sendWhatsAppViaWasender(
       console.warn('[send-invoice-notification] Failed to log whatsapp_message:', logError);
     }
 
-    console.log('[send-invoice-notification] WhatsApp sent successfully via WasenderAPI direct fetch');
+    console.log('[send-invoice-notification] WhatsApp sent successfully via WasenderAPI');
     return { success: true };
   } catch (error) {
     console.error('[send-invoice-notification] WasenderAPI exception:', error);
