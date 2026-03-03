@@ -30,10 +30,10 @@ async function sendWhatsAppViaWasender(
       return { success: false, error: 'WASENDER_API_KEY not configured' };
     }
 
-    // Get the WasenderAPI session ID for this center
+    // Get the WasenderAPI session ID AND api_key for this center
     const { data: session, error: sessionError } = await supabase
       .from('whatsapp_sessions')
-      .select('wasender_session_id')
+      .select('wasender_session_id, api_key')
       .eq('center_id', centerId)
       .eq('status', 'connected')
       .maybeSingle();
@@ -43,20 +43,49 @@ async function sendWhatsAppViaWasender(
       return { success: false, error: 'No connected WasenderAPI session' };
     }
 
+    // Get session API key, with fallback fetch if missing
+    let sessionApiKey = session.api_key;
+    if (!sessionApiKey) {
+      console.log('[send-invoice-notification] api_key missing in DB, fetching from WasenderAPI...');
+      try {
+        const infoRes = await fetch(
+          `https://www.wasenderapi.com/api/whatsapp-sessions/${session.wasender_session_id}`,
+          { headers: { 'Authorization': `Bearer ${wasenderApiKey}` } }
+        );
+        if (infoRes.ok) {
+          const infoData = await infoRes.json();
+          const fetchedKey = infoData?.data?.api_key;
+          if (fetchedKey) {
+            sessionApiKey = fetchedKey;
+            await supabase
+              .from('whatsapp_sessions')
+              .update({ api_key: fetchedKey })
+              .eq('center_id', centerId);
+            console.log('[send-invoice-notification] api_key fetched and persisted');
+          }
+        }
+      } catch (fetchErr) {
+        console.warn('[send-invoice-notification] Failed to fetch api_key:', fetchErr);
+      }
+    }
+
+    if (!sessionApiKey) {
+      return { success: false, error: 'Could not obtain session API key' };
+    }
+
     // Normalize phone number
     let normalized = phone.replace(/[\s\-()]/g, '');
     if (!normalized.startsWith('+')) normalized = '+' + normalized;
 
-    console.log(`[send-invoice-notification] Sending WhatsApp via WasenderAPI direct fetch to ${normalized}`);
+    console.log(`[send-invoice-notification] Sending WhatsApp via WasenderAPI to ${normalized}`);
 
     const response = await fetch('https://www.wasenderapi.com/api/send-message', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${wasenderApiKey}`,
+        'Authorization': `Bearer ${sessionApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        sessionId: session.wasender_session_id,
         to: normalized,
         text: message,
       }),
@@ -93,7 +122,7 @@ async function sendWhatsAppViaWasender(
       console.warn('[send-invoice-notification] Failed to log whatsapp_message:', logError);
     }
 
-    console.log('[send-invoice-notification] WhatsApp sent successfully via WasenderAPI direct fetch');
+    console.log('[send-invoice-notification] WhatsApp sent successfully via WasenderAPI');
     return { success: true };
   } catch (error) {
     console.error('[send-invoice-notification] WasenderAPI exception:', error);
