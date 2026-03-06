@@ -193,7 +193,7 @@ export function RecordPaymentDialog({
   const selectedPatient = patients?.find(p => p.id === watchPatientId);
   const patientInvoices = invoices?.filter(inv => inv.patient_id === watchPatientId) || [];
 
-  // Show invoice option for debts without invoice
+  // Show invoice option for debts without invoice (both bono and session debts)
   const showInvoiceOption = isDebtPayment && debtInfo && !debtInfo.hasInvoice;
 
   const onSubmit = async (values: FormValues) => {
