@@ -95,6 +95,10 @@ export function RecordPaymentDialog({
     hasInvoice: boolean;
     bonoId: string | null;
     bonoName: string | null;
+    sessionId: string | null;
+    sessionDate: string | null;
+    sessionType: string | null;
+    sessionPrice: number | null;
   } | null>(null);
   
   const { data: patients } = usePatients({ search: patientSearch || undefined });
@@ -152,7 +156,9 @@ export function RecordPaymentDialog({
           patient_id,
           invoice_id,
           bono_id,
-          bonos (id, name, total_sessions, total_price)
+          session_id,
+          bonos (id, name, total_sessions, total_price),
+          sessions (id, session_date, start_time, session_type, price)
         `)
         .eq("id", preselectedDebtId)
         .single();
@@ -163,10 +169,15 @@ export function RecordPaymentDialog({
         form.setValue("patient_id", data.patient_id, { shouldValidate: true });
       }
       
+      const sessionData = data.sessions as any;
       setDebtInfo({
         hasInvoice: !!data.invoice_id,
         bonoId: data.bono_id,
         bonoName: (data.bonos as any)?.name || null,
+        sessionId: data.session_id,
+        sessionDate: sessionData?.session_date || null,
+        sessionType: sessionData?.session_type || null,
+        sessionPrice: sessionData?.price != null ? Number(sessionData.price) : null,
       });
     };
 
@@ -182,7 +193,7 @@ export function RecordPaymentDialog({
   const selectedPatient = patients?.find(p => p.id === watchPatientId);
   const patientInvoices = invoices?.filter(inv => inv.patient_id === watchPatientId) || [];
 
-  // Show invoice option for debts without invoice
+  // Show invoice option for debts without invoice (both bono and session debts)
   const showInvoiceOption = isDebtPayment && debtInfo && !debtInfo.hasInvoice;
 
   const onSubmit = async (values: FormValues) => {
@@ -190,15 +201,23 @@ export function RecordPaymentDialog({
       // Check if we need to create an invoice first
       let invoiceIdToUse: string | undefined = undefined;
       
-      if (showInvoiceOption && values.generate_invoice && debtInfo?.bonoId) {
+      if (showInvoiceOption && values.generate_invoice) {
         try {
-          // Create invoice for the bono
-          const invoiceResult = await createSignedInvoice.mutateAsync({
-            patientId: values.patient_id,
-            invoiceType: 'simplified',
-            bonoId: debtInfo.bonoId,
-            statusOverride: 'draft',
-            items: [{
+          let items: Array<{
+            description: string;
+            quantity: number;
+            unit_price: number;
+            tax_rate: number;
+            tax_amount: number;
+            total: number;
+            session_id?: string;
+            bono_id?: string;
+          }>;
+          let invoiceNotes: string;
+
+          if (debtInfo?.bonoId) {
+            // Bono invoice
+            items = [{
               description: `Bono: ${debtInfo.bonoName || 'Bono de sesiones'}`,
               quantity: 1,
               unit_price: preselectedAmount || values.amount,
@@ -206,8 +225,35 @@ export function RecordPaymentDialog({
               tax_amount: 0,
               total: preselectedAmount || values.amount,
               bono_id: debtInfo.bonoId,
-            }],
-            notes: `Bono: ${debtInfo.bonoName || 'Bono de sesiones'} (Exento de IVA)`,
+            }];
+            invoiceNotes = `Bono: ${debtInfo.bonoName || 'Bono de sesiones'} (Exento de IVA)`;
+          } else {
+            // Session invoice
+            const sessionDesc = debtInfo?.sessionType
+              ? `Sesión de ${debtInfo.sessionType}`
+              : 'Sesión de psicoterapia';
+            const dateStr = debtInfo?.sessionDate
+              ? ` - ${format(new Date(debtInfo.sessionDate), "d 'de' MMMM yyyy")}`
+              : '';
+            items = [{
+              description: `${sessionDesc}${dateStr}`,
+              quantity: 1,
+              unit_price: preselectedAmount || values.amount,
+              tax_rate: 0,
+              tax_amount: 0,
+              total: preselectedAmount || values.amount,
+              session_id: debtInfo?.sessionId || undefined,
+            }];
+            invoiceNotes = 'Factura generada al registrar pago';
+          }
+
+          const invoiceResult = await createSignedInvoice.mutateAsync({
+            patientId: values.patient_id,
+            invoiceType: 'simplified',
+            bonoId: debtInfo?.bonoId || undefined,
+            statusOverride: 'draft',
+            items,
+            notes: invoiceNotes,
             sendNotification: false,
           });
           
