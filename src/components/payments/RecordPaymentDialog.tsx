@@ -95,6 +95,10 @@ export function RecordPaymentDialog({
     hasInvoice: boolean;
     bonoId: string | null;
     bonoName: string | null;
+    sessionId: string | null;
+    sessionDate: string | null;
+    sessionType: string | null;
+    sessionPrice: number | null;
   } | null>(null);
   
   const { data: patients } = usePatients({ search: patientSearch || undefined });
