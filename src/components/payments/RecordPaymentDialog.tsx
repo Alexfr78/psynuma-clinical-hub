@@ -156,7 +156,9 @@ export function RecordPaymentDialog({
           patient_id,
           invoice_id,
           bono_id,
-          bonos (id, name, total_sessions, total_price)
+          session_id,
+          bonos (id, name, total_sessions, total_price),
+          sessions (id, session_date, start_time, session_type, price)
         `)
         .eq("id", preselectedDebtId)
         .single();
@@ -167,10 +169,15 @@ export function RecordPaymentDialog({
         form.setValue("patient_id", data.patient_id, { shouldValidate: true });
       }
       
+      const sessionData = data.sessions as any;
       setDebtInfo({
         hasInvoice: !!data.invoice_id,
         bonoId: data.bono_id,
         bonoName: (data.bonos as any)?.name || null,
+        sessionId: data.session_id,
+        sessionDate: sessionData?.session_date || null,
+        sessionType: sessionData?.session_type || null,
+        sessionPrice: sessionData?.price != null ? Number(sessionData.price) : null,
       });
     };
 
