@@ -27,7 +27,7 @@ interface AuthContextType {
   isPatient: boolean;
   hasCenter: boolean;
   needsMfaVerification: boolean;
-  signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
+  signIn: (email: string, password: string) => Promise<{ error: Error | null; needsMfa: boolean }>;
   signUp: (email: string, password: string, firstName?: string, lastName?: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -116,20 +116,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       email,
       password,
     });
+    let needsMfa = false;
     if (!error) {
       // Check if MFA verification is needed
       const { data: aalData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
       if (aalData && aalData.currentLevel === 'aal1' && aalData.nextLevel === 'aal2') {
-        // User has MFA enrolled, need verification
-        const factors = aalData.currentAuthenticationMethods;
         const totpFactor = (await supabase.auth.mfa.listFactors()).data?.totp?.[0];
         if (totpFactor) {
           setMfaFactorId(totpFactor.id);
           setNeedsMfaVerification(true);
+          needsMfa = true;
         }
       }
     }
-    return { error };
+    return { error, needsMfa };
   };
 
   const verifyMfa = async (code: string) => {

@@ -25,7 +25,7 @@ const signupSchema = z.object({
 
 export default function Auth() {
   const navigate = useNavigate();
-  const { signIn, signUp, user, needsMfaVerification, verifyMfa } = useAuth();
+  const { signIn, signUp, user, needsMfaVerification, verifyMfa, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -41,8 +41,8 @@ export default function Auth() {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
 
-  // Redirect if already logged in (and not waiting for MFA)
-  if (user && !needsMfaVerification) {
+  // Redirect if already logged in (and not waiting for MFA or active login)
+  if (user && !needsMfaVerification && !isLoading) {
     navigate('/dashboard');
     return null;
   }
@@ -93,7 +93,7 @@ export default function Auth() {
         return;
       }
 
-      const { error } = await signIn(loginEmail, loginPassword);
+      const { error, needsMfa } = await signIn(loginEmail, loginPassword);
       
       if (error) {
         if (error.message.includes('Invalid login credentials')) {
@@ -109,7 +109,7 @@ export default function Auth() {
             variant: 'destructive',
           });
         }
-      } else {
+      } else if (!needsMfa) {
         navigate('/dashboard');
       }
     } catch (err) {
