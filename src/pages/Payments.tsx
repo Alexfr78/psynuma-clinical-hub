@@ -288,6 +288,7 @@ export default function Payments() {
                   Se eliminará el pago de <strong>{Number(paymentToDelete.amount).toFixed(2)}€</strong> de{' '}
                   <strong>{paymentToDelete.patients.first_name} {paymentToDelete.patients.last_name}</strong>.
                   {paymentToDelete.session_id && ' La sesión volverá a estado "Pendiente de pago".'}
+                  {paymentToDelete.invoice_id && ' La deuda asociada a la factura se recomputará automáticamente.'}
                 </>
               )}
             </AlertDialogDescription>
