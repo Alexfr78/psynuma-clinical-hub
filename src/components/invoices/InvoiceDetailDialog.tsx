@@ -282,6 +282,34 @@ export function InvoiceDetailDialog({ open, onOpenChange, invoiceId }: InvoiceDe
               </>
             )}
 
+            {/* Verifactu Pending - Retry */}
+            {isPendingVerifactu && (
+              <>
+                <Separator />
+                <div className="space-y-3">
+                  <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 text-amber-500" />
+                    Registro AEAT pendiente
+                  </h3>
+                  <div className="rounded-lg border border-amber-200 bg-amber-50/50 dark:border-amber-900 dark:bg-amber-950/20 p-4">
+                    <p className="text-sm text-muted-foreground mb-3">
+                      Esta factura no se ha podido registrar en AEAT.
+                      {invoice.verifactu_retry_count ? ` Intentos: ${invoice.verifactu_retry_count}` : ''}
+                    </p>
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      onClick={handleRetryVerifactu}
+                      disabled={retrying}
+                    >
+                      <RefreshCw className={`h-3 w-3 mr-1 ${retrying ? 'animate-spin' : ''}`} />
+                      {retrying ? 'Registrando...' : 'Reintentar registro AEAT'}
+                    </Button>
+                  </div>
+                </div>
+              </>
+            )}
+
             {/* Notes */}
             {invoice.notes && (
               <>
