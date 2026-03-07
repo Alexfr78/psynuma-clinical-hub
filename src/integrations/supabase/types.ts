@@ -1777,6 +1777,8 @@ export type Database = {
           tax_rate: number | null
           total: number
           updated_at: string
+          verifactu_error_message: string | null
+          verifactu_error_permanent: boolean | null
           verifactu_hash: string | null
           verifactu_pending: boolean | null
           verifactu_qr: string | null
@@ -1813,6 +1815,8 @@ export type Database = {
           tax_rate?: number | null
           total?: number
           updated_at?: string
+          verifactu_error_message?: string | null
+          verifactu_error_permanent?: boolean | null
           verifactu_hash?: string | null
           verifactu_pending?: boolean | null
           verifactu_qr?: string | null
@@ -1849,6 +1853,8 @@ export type Database = {
           tax_rate?: number | null
           total?: number
           updated_at?: string
+          verifactu_error_message?: string | null
+          verifactu_error_permanent?: boolean | null
           verifactu_hash?: string | null
           verifactu_pending?: boolean | null
           verifactu_qr?: string | null
