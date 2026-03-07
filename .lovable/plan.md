@@ -1,29 +1,47 @@
 
 
-## Problem
+## Problema
 
-The `SessionDetailDrawer` has a `useEffect` that resets local state (`localDateTime`, `localStatus`, etc.) but its dependency array only watches `session?.id`, `session?.bono_id`, and `session?.price`. When the drawer is closed and reopened for the **same session**, or when session data is refetched with updated values, the local overrides (`localDateTime`, `localStatus`) are never cleared. This causes the drawer to show stale values from a previous edit.
+La factura SP260011 (75€, status "issued") no tiene un registro en la tabla `debts`. El dashboard y la pagina de Cobros solo consultan la tabla `debts` para calcular "Pendientes Cobro". La funcion `generate-pending-debts` excluye explicitamente sesiones que ya tienen factura (lineas 84-86), asi que nunca crea deuda para sesiones facturadas.
 
-In your case: you edited date/time at some point, `localDateTime` was set to `{date: '2026-03-10', startTime: '18:00', endTime: '19:00'}`, but the DB actually has `2026-03-04 at 20:00`. Reopening the drawer doesn't reset `localDateTime` because `session.id` hasn't changed.
+Resultado: facturas emitidas sin cobrar no aparecen en ningun sitio como pendientes.
 
-## Fix
+## Solucion
 
-**File: `src/components/agenda/SessionDetailDrawer.tsx`**
+Incluir facturas emitidas sin cobrar (`status = 'issued'`) en el calculo de pendientes, tanto en el Dashboard como en la pagina de Cobros.
 
-1. **Add the `open` prop to the reset effect's dependency array** — so that every time the drawer opens, all local overrides are cleared and the component reads fresh data from the `session` prop.
+### 1. Dashboard (`src/pages/Dashboard.tsx`)
+- Agregar una query adicional a `invoices` con `status = 'issued'` para sumar el total de facturas emitidas no cobradas
+- Restar las cantidades que ya estan cubiertas por debts con `invoice_id` para evitar doble conteo
+- Combinar ambas cantidades en `pendingDebts`
 
-2. **Also add `session?.session_date`, `session?.start_time`, `session?.end_time`, and `session?.status`** to the dependency array so that when the query cache updates with new data, local overrides are cleared.
+### 2. Pagina de Cobros - Stats (`src/hooks/useDebts.tsx` - `useDebtStats`)
+- Misma logica: ademas de sumar debts pendientes, sumar facturas `issued` sin debt asociada
+- Asi el resumen de cobros pendientes refleja toda la deuda real
 
-The effect at line ~260 changes from:
-```typescript
-}, [session?.id, session?.bono_id, session?.price]);
-```
-to:
-```typescript
-}, [session?.id, session?.bono_id, session?.price, session?.session_date, session?.start_time, session?.end_time, session?.status, open]);
-```
+### 3. Pagina de Cobros - Lista (`src/hooks/useDebts.tsx` o `src/pages/Payments.tsx`)
+- Mostrar facturas emitidas sin debt como items cobrables en la lista de deudas
+- Crear un debt automaticamente al intentar cobrar una factura sin debt, o mostrar las facturas pendientes en una seccion separada
 
-This ensures that:
-- Opening the drawer always shows the DB values (not stale local edits)
-- When the session query refetches with updated data, local overrides are discarded
+### Enfoque preferido: Auto-crear debt al emitir factura
+
+En lugar de parchear multiples queries, la solucion mas limpia es crear un registro `debts` automaticamente cuando se emite una factura. Asi el flujo existente (que ya funciona bien para debts) cubre todo.
+
+#### Archivo: `src/hooks/useIssueInvoice.tsx` (o equivalente donde se emite la factura)
+- Tras emitir la factura exitosamente, insertar un registro en `debts` con:
+  - `invoice_id` = id de la factura
+  - `patient_id` = paciente de la factura  
+  - `amount` = total de la factura
+  - `due_date` = fecha de emision (o configurable)
+
+#### Archivo: `src/hooks/useCreateSignedInvoice.tsx` (si la emision se hace ahi)
+- Misma logica de auto-creacion de debt
+
+Esto garantiza que toda factura emitida aparece automaticamente en Cobros.
+
+### Archivos a revisar/modificar
+- `src/hooks/useIssueInvoice.tsx` — crear debt al emitir
+- `src/hooks/useCreateSignedInvoice.tsx` — crear debt al emitir  
+- `src/pages/Dashboard.tsx` — fallback: incluir facturas issued sin debt en el calculo
+- No se necesitan migraciones
 
