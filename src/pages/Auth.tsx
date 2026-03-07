@@ -6,7 +6,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Brain, Mail, Lock, User, AlertCircle, Loader2 } from 'lucide-react';
+import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
+import { Brain, Mail, Lock, User, AlertCircle, Loader2, ShieldCheck } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { z } from 'zod';
 
@@ -24,10 +25,11 @@ const signupSchema = z.object({
 
 export default function Auth() {
   const navigate = useNavigate();
-  const { signIn, signUp, user } = useAuth();
+  const { signIn, signUp, user, needsMfaVerification, verifyMfa } = useAuth();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [otpCode, setOtpCode] = useState('');
 
   // Login form state
   const [loginEmail, setLoginEmail] = useState('');
@@ -39,11 +41,37 @@ export default function Auth() {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
 
-  // Redirect if already logged in
-  if (user) {
+  // Redirect if already logged in (and not waiting for MFA)
+  if (user && !needsMfaVerification) {
     navigate('/dashboard');
     return null;
   }
+
+  const handleMfaVerify = async () => {
+    if (otpCode.length !== 6) return;
+    setIsLoading(true);
+    try {
+      const { error } = await verifyMfa(otpCode);
+      if (error) {
+        toast({
+          title: 'Código incorrecto',
+          description: 'El código de verificación no es válido. Inténtalo de nuevo.',
+          variant: 'destructive',
+        });
+        setOtpCode('');
+      } else {
+        navigate('/dashboard');
+      }
+    } catch {
+      toast({
+        title: 'Error',
+        description: 'Ocurrió un error al verificar el código.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
