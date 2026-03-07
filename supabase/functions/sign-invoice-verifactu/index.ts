@@ -450,7 +450,9 @@ function buildRegistroAltaXML(
   previousHash: string | null, 
   generationTimestamp: string, 
   invoiceHash: string,
-  rectifiedInvoice: { id: string; invoice_number: string; issue_date: string } | null
+  rectifiedInvoice: { id: string; invoice_number: string; issue_date: string } | null,
+  previousInvoiceNumber?: string,
+  previousInvoiceDate?: string
 ): string {
   // Normalize NIFs: remove ES prefix for Spanish VAT numbers (AEAT requirement)
   const nifEmisor = normalizeNifForAEAT(center.tax_id);
@@ -507,15 +509,21 @@ function buildRegistroAltaXML(
   console.log("Desglose XML preview:", desgloseXML.substring(0, 500));
 
   // Build encadenamiento (chaining)
+  // IMPORTANT: RegistroAnterior must reference the PREVIOUS invoice in the chain,
+  // not the current one. Use previousInvoiceNumber/Date passed from the caller.
   let encadenamientoXML = '';
-  if (previousHash) {
+  if (previousHash && previousInvoiceNumber && previousInvoiceDate) {
     encadenamientoXML = `
             <sum1:RegistroAnterior>
               <sum1:IDEmisorFactura>${nifEmisor}</sum1:IDEmisorFactura>
-              <sum1:NumSerieFactura>${numSerieFactura}</sum1:NumSerieFactura>
-              <sum1:FechaExpedicionFactura>${fechaExpedicion}</sum1:FechaExpedicionFactura>
+              <sum1:NumSerieFactura>${sanitizeNumSerieFactura(previousInvoiceNumber)}</sum1:NumSerieFactura>
+              <sum1:FechaExpedicionFactura>${formatDateVerifactu(previousInvoiceDate)}</sum1:FechaExpedicionFactura>
               <sum1:Huella>${previousHash}</sum1:Huella>
             </sum1:RegistroAnterior>`;
+  } else if (previousHash) {
+    // Fallback: we have a hash but no previous invoice data (shouldn't happen normally)
+    console.warn("WARNING: previousHash exists but no previous invoice data available. Using PrimerRegistro=S as fallback.");
+    encadenamientoXML = `<sum1:PrimerRegistro>S</sum1:PrimerRegistro>`;
   } else {
     encadenamientoXML = `<sum1:PrimerRegistro>S</sum1:PrimerRegistro>`;
   }
@@ -1082,6 +1090,24 @@ serve(async (req) => {
     console.log(`Chain status for NIF=${nifEmisor}, Sistema=${idSistemaInformatico}, Instalacion=${numeroInstalacion}:`, 
       previousHash ? `found hash from invoice ${chainStatus?.ultima_factura_id}` : "none (first invoice in this chain)");
 
+    // Fetch previous invoice data for RegistroAnterior block
+    let previousInvoiceNumber: string | undefined;
+    let previousInvoiceDate: string | undefined;
+    if (chainStatus?.ultima_factura_id) {
+      const { data: prevInv } = await supabase
+        .from("invoices")
+        .select("invoice_number, issue_date")
+        .eq("id", chainStatus.ultima_factura_id)
+        .single();
+      if (prevInv) {
+        previousInvoiceNumber = prevInv.invoice_number;
+        previousInvoiceDate = prevInv.issue_date;
+        console.log(`Previous invoice for chain: ${previousInvoiceNumber} (${previousInvoiceDate})`);
+      } else {
+        console.warn(`Could not fetch previous invoice ${chainStatus.ultima_factura_id} for RegistroAnterior`);
+      }
+    }
+
     // Generate timestamp
     const generationTimestamp = formatTimestampVerifactu(new Date());
     console.log("Generation timestamp:", generationTimestamp);
@@ -1146,7 +1172,7 @@ serve(async (req) => {
     }
 
     // Build XML body
-    const xmlBody = buildRegistroAltaXML(invoice, center, patient, invoiceItems, previousHash, generationTimestamp, invoiceHash, rectifiedInvoice);
+    const xmlBody = buildRegistroAltaXML(invoice, center, patient, invoiceItems, previousHash, generationTimestamp, invoiceHash, rectifiedInvoice, previousInvoiceNumber, previousInvoiceDate);
     console.log("Built XML body, length:", xmlBody.length);
     
     // CRITICAL VERIFICATION: Ensure Desglose block is present and contains DetalleDesglose
