@@ -1,29 +1,23 @@
 
 
-## Problem
+## Problema
 
-The `SessionDetailDrawer` has a `useEffect` that resets local state (`localDateTime`, `localStatus`, etc.) but its dependency array only watches `session?.id`, `session?.bono_id`, and `session?.price`. When the drawer is closed and reopened for the **same session**, or when session data is refetched with updated values, the local overrides (`localDateTime`, `localStatus`) are never cleared. This causes the drawer to show stale values from a previous edit.
+Los pagos vinculados a facturas muestran un candado y no permiten editar ni eliminar. Esto impide deshacer cobros incorrectos.
 
-In your case: you edited date/time at some point, `localDateTime` was set to `{date: '2026-03-10', startTime: '18:00', endTime: '19:00'}`, but the DB actually has `2026-03-04 at 20:00`. Reopening the drawer doesn't reset `localDateTime` because `session.id` hasn't changed.
+La lógica backend ya existe (`delete_payment_and_recompute_debt_v2` y `update_payment_and_recompute_debt_v2`) para manejar correctamente la eliminación/edición recomputando la deuda. Solo falta desbloquear la UI.
 
-## Fix
+## Solución
 
-**File: `src/components/agenda/SessionDetailDrawer.tsx`**
+### Archivo: `src/components/payments/PaymentHistoryTable.tsx`
 
-1. **Add the `open` prop to the reset effect's dependency array** — so that every time the drawer opens, all local overrides are cleared and the component reads fresh data from the `session` prop.
+- Eliminar la condición `canEdit = !hasInvoice` que bloquea las acciones
+- Permitir siempre editar y eliminar pagos, independientemente de si están vinculados a factura
+- Mantener el botón "Vincular a factura" solo cuando NO tiene factura (eso sigue teniendo sentido)
+- Mostrar el badge de factura como info, no como bloqueo
 
-2. **Also add `session?.session_date`, `session?.start_time`, `session?.end_time`, and `session?.status`** to the dependency array so that when the query cache updates with new data, local overrides are cleared.
+### Archivo: `src/pages/Payments.tsx`
 
-The effect at line ~260 changes from:
-```typescript
-}, [session?.id, session?.bono_id, session?.price]);
-```
-to:
-```typescript
-}, [session?.id, session?.bono_id, session?.price, session?.session_date, session?.start_time, session?.end_time, session?.status, open]);
-```
+- Actualizar el texto del diálogo de confirmación de eliminación para mencionar que se recomputará la deuda asociada si hay factura vinculada
 
-This ensures that:
-- Opening the drawer always shows the DB values (not stale local edits)
-- When the session query refetches with updated data, local overrides are discarded
+No se necesitan cambios en hooks ni migraciones — la lógica backend ya soporta ambas operaciones.
 
