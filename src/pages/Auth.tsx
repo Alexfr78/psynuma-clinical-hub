@@ -122,6 +122,7 @@ export default function Auth() {
       });
     } finally {
       setIsLoading(false);
+      setIsSigningIn(false);
     }
   };
 
