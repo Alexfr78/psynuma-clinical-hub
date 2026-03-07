@@ -75,6 +75,13 @@ async function sendWhatsAppViaWasender(
 
     // Normalize phone number
     let normalized = phone.replace(/[\s\-()]/g, '');
+    // Add Spanish country code for 9-digit numbers starting with 6 or 7
+    if (/^\+?\d{9}$/.test(normalized)) {
+      const digits = normalized.replace('+', '');
+      if (/^[67]/.test(digits)) {
+        normalized = '+34' + digits;
+      }
+    }
     if (!normalized.startsWith('+')) normalized = '+' + normalized;
 
     console.log(`[send-invoice-notification] Sending WhatsApp via WasenderAPI to ${normalized}`);
