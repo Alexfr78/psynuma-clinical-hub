@@ -27,6 +27,8 @@ export interface Invoice {
   verifactu_registration_id: string | null;
   verifactu_pending: boolean | null;
   verifactu_retry_count: number | null;
+  verifactu_error_permanent: boolean | null;
+  verifactu_error_message: string | null;
   rectified_invoice_id: string | null;
   created_at: string;
   updated_at: string;

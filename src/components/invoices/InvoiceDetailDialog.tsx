@@ -48,8 +48,8 @@ export function InvoiceDetailDialog({ open, onOpenChange, invoiceId }: InvoiceDe
   const isLoading = invoiceLoading || itemsLoading;
   const isSealed = !!invoice?.verifactu_hash;
   const isPendingVerifactu = !!invoice?.verifactu_pending && !isSealed;
-  const isPermanentError = !!(invoice as any)?.verifactu_error_permanent && !isSealed;
-  const permanentErrorMessage = (invoice as any)?.verifactu_error_message;
+  const isPermanentError = !!invoice?.verifactu_error_permanent && !isSealed;
+  const permanentErrorMessage = invoice?.verifactu_error_message;
 
   const handleRetryVerifactu = async () => {
     if (!invoiceId) return;
