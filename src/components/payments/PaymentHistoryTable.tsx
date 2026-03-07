@@ -1,6 +1,6 @@
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { CreditCard, Banknote, ArrowRightLeft, Smartphone, Pencil, Trash2, Lock, CalendarDays, Link2 } from 'lucide-react';
+import { CreditCard, Banknote, ArrowRightLeft, Smartphone, Pencil, Trash2, CalendarDays, Link2 } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -49,7 +49,6 @@ export function PaymentHistoryTable({ payments, onEdit, onDelete, onLinkToInvoic
         {payments.map((payment) => {
           const method = methodConfig[payment.payment_method] || methodConfig.cash;
           const hasInvoice = !!payment.invoice_id;
-          const canEdit = !hasInvoice;
 
           return (
             <div key={payment.id} className="rounded-lg border p-4 space-y-3">
@@ -81,43 +80,36 @@ export function PaymentHistoryTable({ payments, onEdit, onDelete, onLinkToInvoic
                 )}
               </div>
 
-              {canEdit ? (
-                <div className="flex items-center gap-2 pt-2 border-t">
-                  {!hasInvoice && onLinkToInvoice && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="flex-1"
-                      onClick={() => onLinkToInvoice(payment)}
-                    >
-                      <Link2 className="h-4 w-4 mr-2" />
-                      Vincular
-                    </Button>
-                  )}
+              <div className="flex items-center gap-2 pt-2 border-t">
+                {!hasInvoice && onLinkToInvoice && (
                   <Button
                     variant="outline"
                     size="sm"
                     className="flex-1"
-                    onClick={() => onEdit?.(payment)}
+                    onClick={() => onLinkToInvoice(payment)}
                   >
-                    <Pencil className="h-4 w-4 mr-2" />
-                    Editar
+                    <Link2 className="h-4 w-4 mr-2" />
+                    Vincular
                   </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="text-destructive hover:text-destructive"
-                    onClick={() => onDelete?.(payment)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2 pt-2 border-t text-sm text-muted-foreground">
-                  <Lock className="h-4 w-4" />
-                  Vinculado a factura
-                </div>
-              )}
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1"
+                  onClick={() => onEdit?.(payment)}
+                >
+                  <Pencil className="h-4 w-4 mr-2" />
+                  Editar
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-destructive hover:text-destructive"
+                  onClick={() => onDelete?.(payment)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           );
         })}
@@ -141,7 +133,6 @@ export function PaymentHistoryTable({ payments, onEdit, onDelete, onLinkToInvoic
             {payments.map((payment) => {
               const method = methodConfig[payment.payment_method] || methodConfig.cash;
               const hasInvoice = !!payment.invoice_id;
-              const canEdit = !hasInvoice;
 
               return (
                 <TableRow key={payment.id}>
@@ -172,60 +163,49 @@ export function PaymentHistoryTable({ payments, onEdit, onDelete, onLinkToInvoic
                     {Number(payment.amount).toFixed(2)}€
                   </TableCell>
                   <TableCell>
-                    {canEdit ? (
-                      <div className="flex items-center gap-1">
-                        {!hasInvoice && onLinkToInvoice && (
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8"
-                                onClick={() => onLinkToInvoice(payment)}
-                              >
-                                <Link2 className="h-4 w-4" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>Vincular a factura</TooltipContent>
-                          </Tooltip>
-                        )}
+                    <div className="flex items-center gap-1">
+                      {!hasInvoice && onLinkToInvoice && (
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <Button
                               variant="ghost"
                               size="icon"
                               className="h-8 w-8"
-                              onClick={() => onEdit?.(payment)}
+                              onClick={() => onLinkToInvoice(payment)}
                             >
-                              <Pencil className="h-4 w-4" />
+                              <Link2 className="h-4 w-4" />
                             </Button>
                           </TooltipTrigger>
-                          <TooltipContent>Editar pago</TooltipContent>
+                          <TooltipContent>Vincular a factura</TooltipContent>
                         </Tooltip>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-destructive hover:text-destructive"
-                              onClick={() => onDelete?.(payment)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>Eliminar pago</TooltipContent>
-                        </Tooltip>
-                      </div>
-                    ) : (
+                      )}
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <div className="flex items-center justify-center">
-                            <Lock className="h-4 w-4 text-muted-foreground" />
-                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => onEdit?.(payment)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
                         </TooltipTrigger>
-                        <TooltipContent>Vinculado a factura</TooltipContent>
+                        <TooltipContent>Editar pago</TooltipContent>
                       </Tooltip>
-                    )}
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive hover:text-destructive"
+                            onClick={() => onDelete?.(payment)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Eliminar pago</TooltipContent>
+                      </Tooltip>
+                    </div>
                   </TableCell>
                 </TableRow>
               );
