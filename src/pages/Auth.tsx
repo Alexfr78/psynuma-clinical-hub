@@ -6,7 +6,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Brain, Mail, Lock, User, AlertCircle, Loader2 } from 'lucide-react';
+import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
+import { Brain, Mail, Lock, User, AlertCircle, Loader2, ShieldCheck } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { z } from 'zod';
 
@@ -24,10 +25,11 @@ const signupSchema = z.object({
 
 export default function Auth() {
   const navigate = useNavigate();
-  const { signIn, signUp, user } = useAuth();
+  const { signIn, signUp, user, needsMfaVerification, verifyMfa } = useAuth();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [otpCode, setOtpCode] = useState('');
 
   // Login form state
   const [loginEmail, setLoginEmail] = useState('');
@@ -39,11 +41,37 @@ export default function Auth() {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
 
-  // Redirect if already logged in
-  if (user) {
+  // Redirect if already logged in (and not waiting for MFA)
+  if (user && !needsMfaVerification) {
     navigate('/dashboard');
     return null;
   }
+
+  const handleMfaVerify = async () => {
+    if (otpCode.length !== 6) return;
+    setIsLoading(true);
+    try {
+      const { error } = await verifyMfa(otpCode);
+      if (error) {
+        toast({
+          title: 'Código incorrecto',
+          description: 'El código de verificación no es válido. Inténtalo de nuevo.',
+          variant: 'destructive',
+        });
+        setOtpCode('');
+      } else {
+        navigate('/dashboard');
+      }
+    } catch {
+      toast({
+        title: 'Error',
+        description: 'Ocurrió un error al verificar el código.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -153,6 +181,64 @@ export default function Auth() {
       setIsLoading(false);
     }
   };
+
+  if (needsMfaVerification) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-background via-background to-muted p-4">
+        <div className="mb-8 flex flex-col items-center">
+          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl gradient-clinical shadow-clinical">
+            <Brain className="h-9 w-9 text-primary-foreground" />
+          </div>
+          <h1 className="font-display text-3xl font-bold text-foreground">Psycma</h1>
+          <p className="mt-1 text-muted-foreground">Verificación de doble factor</p>
+        </div>
+
+        <Card className="w-full max-w-md shadow-card">
+          <CardHeader className="text-center">
+            <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+              <ShieldCheck className="h-6 w-6 text-primary" />
+            </div>
+            <CardTitle>Código de verificación</CardTitle>
+            <CardDescription>
+              Introduce el código de 6 dígitos de tu app autenticadora
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="flex justify-center">
+              <InputOTP
+                maxLength={6}
+                value={otpCode}
+                onChange={setOtpCode}
+              >
+                <InputOTPGroup>
+                  <InputOTPSlot index={0} />
+                  <InputOTPSlot index={1} />
+                  <InputOTPSlot index={2} />
+                  <InputOTPSlot index={3} />
+                  <InputOTPSlot index={4} />
+                  <InputOTPSlot index={5} />
+                </InputOTPGroup>
+              </InputOTP>
+            </div>
+            <Button
+              className="w-full"
+              onClick={handleMfaVerify}
+              disabled={otpCode.length !== 6 || isLoading}
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Verificando...
+                </>
+              ) : (
+                'Verificar'
+              )}
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-background via-background to-muted p-4">

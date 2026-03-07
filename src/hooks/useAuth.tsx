@@ -26,10 +26,12 @@ interface AuthContextType {
   isProfessional: boolean;
   isPatient: boolean;
   hasCenter: boolean;
+  needsMfaVerification: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signUp: (email: string, password: string, firstName?: string, lastName?: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  verifyMfa: (code: string) => Promise<{ error: Error | null }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -40,6 +42,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [roles, setRoles] = useState<AppRole[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [needsMfaVerification, setNeedsMfaVerification] = useState(false);
+  const [mfaFactorId, setMfaFactorId] = useState<string | null>(null);
 
   const fetchProfile = async (userId: string) => {
     const { data, error } = await supabase
@@ -112,7 +116,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       email,
       password,
     });
+    if (!error) {
+      // Check if MFA verification is needed
+      const { data: aalData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      if (aalData && aalData.currentLevel === 'aal1' && aalData.nextLevel === 'aal2') {
+        // User has MFA enrolled, need verification
+        const factors = aalData.currentAuthenticationMethods;
+        const totpFactor = (await supabase.auth.mfa.listFactors()).data?.totp?.[0];
+        if (totpFactor) {
+          setMfaFactorId(totpFactor.id);
+          setNeedsMfaVerification(true);
+        }
+      }
+    }
     return { error };
+  };
+
+  const verifyMfa = async (code: string) => {
+    if (!mfaFactorId) {
+      return { error: new Error('No MFA factor found') };
+    }
+    try {
+      const { data: challengeData, error: challengeError } = await supabase.auth.mfa.challenge({
+        factorId: mfaFactorId,
+      });
+      if (challengeError) return { error: challengeError };
+
+      const { error: verifyError } = await supabase.auth.mfa.verify({
+        factorId: mfaFactorId,
+        challengeId: challengeData.id,
+        code,
+      });
+      if (verifyError) return { error: verifyError };
+
+      setNeedsMfaVerification(false);
+      setMfaFactorId(null);
+      return { error: null };
+    } catch (err) {
+      return { error: err as Error };
+    }
   };
 
   const signUp = async (email: string, password: string, firstName?: string, lastName?: string) => {
@@ -138,6 +180,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSession(null);
     setProfile(null);
     setRoles([]);
+    setNeedsMfaVerification(false);
+    setMfaFactorId(null);
   };
 
   const isAdmin = roles.includes('admin');
@@ -157,10 +201,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isProfessional,
         isPatient,
         hasCenter,
+        needsMfaVerification,
         signIn,
         signUp,
         signOut,
         refreshProfile,
+        verifyMfa,
       }}
     >
       {children}
