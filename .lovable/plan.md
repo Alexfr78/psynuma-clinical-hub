@@ -1,29 +1,47 @@
 
 
-## Problem
+## Plan: Recordar 2FA durante 30 días por dispositivo
 
-The `SessionDetailDrawer` has a `useEffect` that resets local state (`localDateTime`, `localStatus`, etc.) but its dependency array only watches `session?.id`, `session?.bono_id`, and `session?.price`. When the drawer is closed and reopened for the **same session**, or when session data is refetched with updated values, the local overrides (`localDateTime`, `localStatus`) are never cleared. This causes the drawer to show stale values from a previous edit.
+### Concepto
+Cuando el usuario verifica exitosamente el código 2FA, guardar un "token de confianza" en `localStorage` vinculado al dispositivo. En futuros logins, si el token existe y no ha expirado (30 días), saltar la verificación MFA.
 
-In your case: you edited date/time at some point, `localDateTime` was set to `{date: '2026-03-10', startTime: '18:00', endTime: '19:00'}`, but the DB actually has `2026-03-04 at 20:00`. Reopening the drawer doesn't reset `localDateTime` because `session.id` hasn't changed.
+### Implementación
 
-## Fix
+#### 1. `src/hooks/useAuth.tsx`
 
-**File: `src/components/agenda/SessionDetailDrawer.tsx`**
+**Tras verificar MFA exitosamente** (`verifyMfa`):
+- Generar un token de confianza: `{ userId, timestamp, expiry (30 días) }`
+- Guardarlo en `localStorage` con clave `mfa_trusted_device`
 
-1. **Add the `open` prop to the reset effect's dependency array** — so that every time the drawer opens, all local overrides are cleared and the component reads fresh data from the `session` prop.
+**En `signIn`**, antes de pedir MFA:
+- Comprobar si existe un token de confianza válido en `localStorage` para ese usuario
+- Si es válido (no expirado, mismo userId), saltar MFA → `needsMfa = false`
+- Si no es válido o ha expirado, eliminarlo y pedir MFA normalmente
 
-2. **Also add `session?.session_date`, `session?.start_time`, `session?.end_time`, and `session?.status`** to the dependency array so that when the query cache updates with new data, local overrides are cleared.
+**En `signOut`**:
+- NO eliminar el token de confianza (para que persista entre sesiones en el mismo dispositivo)
 
-The effect at line ~260 changes from:
+#### 2. Estructura del token en localStorage
+
 ```typescript
-}, [session?.id, session?.bono_id, session?.price]);
-```
-to:
-```typescript
-}, [session?.id, session?.bono_id, session?.price, session?.session_date, session?.start_time, session?.end_time, session?.status, open]);
+interface TrustedDevice {
+  userId: string;
+  trustedAt: number;  // timestamp
+  expiresAt: number;  // trustedAt + 30 días
+}
 ```
 
-This ensures that:
-- Opening the drawer always shows the DB values (not stale local edits)
-- When the session query refetches with updated data, local overrides are discarded
+Clave: `mfa_trusted_device_{userId_hash}` para soportar múltiples cuentas.
+
+#### 3. `src/components/settings/SecuritySection.tsx`
+
+- Añadir botón "Revocar dispositivos de confianza" que borre los tokens de localStorage
+- Informar que al desactivar 2FA se eliminan los tokens automáticamente
+
+### Archivos afectados
+- `src/hooks/useAuth.tsx` — lógica de trusted device
+- `src/components/settings/SecuritySection.tsx` — opción para revocar
+
+### Sin cambios de base de datos
+Todo se gestiona en `localStorage` del dispositivo del usuario.
 
