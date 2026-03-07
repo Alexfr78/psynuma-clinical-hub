@@ -28,6 +28,7 @@ export default function Auth() {
   const { signIn, signUp, user, needsMfaVerification, verifyMfa, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const [isSigningIn, setIsSigningIn] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [otpCode, setOtpCode] = useState('');
 
@@ -41,8 +42,8 @@ export default function Auth() {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
 
-  // Redirect if already logged in (and not waiting for MFA or active login)
-  if (user && !needsMfaVerification && !authLoading) {
+  // Redirect if already logged in (and not waiting for MFA or active sign-in)
+  if (user && !needsMfaVerification && !authLoading && !isSigningIn) {
     navigate('/dashboard');
     return null;
   }
