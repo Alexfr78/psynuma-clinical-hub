@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { 
@@ -7,7 +8,9 @@ import {
   Copy, 
   User, 
   Calendar, 
-  Receipt 
+  Receipt,
+  RefreshCw,
+  AlertTriangle
 } from 'lucide-react';
 import {
   Dialog,
@@ -21,6 +24,7 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useInvoice, useInvoiceItems, type InvoiceWithPatient } from '@/hooks/useInvoices';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 interface InvoiceDetailDialogProps {
@@ -37,11 +41,38 @@ const statusConfig = {
 };
 
 export function InvoiceDetailDialog({ open, onOpenChange, invoiceId }: InvoiceDetailDialogProps) {
-  const { data: invoice, isLoading: invoiceLoading } = useInvoice(invoiceId || undefined);
+  const { data: invoice, isLoading: invoiceLoading, refetch: refetchInvoice } = useInvoice(invoiceId || undefined);
   const { data: items, isLoading: itemsLoading } = useInvoiceItems(invoiceId || undefined);
+  const [retrying, setRetrying] = useState(false);
 
   const isLoading = invoiceLoading || itemsLoading;
   const isSealed = !!invoice?.verifactu_hash;
+  const isPendingVerifactu = !!invoice?.verifactu_pending && !isSealed;
+
+  const handleRetryVerifactu = async () => {
+    if (!invoiceId) return;
+    setRetrying(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('sign-invoice-verifactu', {
+        body: { invoice_id: invoiceId },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      if (data?.success) {
+        toast.success('Factura registrada en AEAT correctamente');
+        refetchInvoice();
+      } else if (data?.pending) {
+        toast.info('AEAT no disponible temporalmente. Se reintentará más tarde.');
+      } else {
+        toast.error('Error inesperado al registrar en AEAT');
+      }
+    } catch (err: any) {
+      console.error('Retry verifactu error:', err);
+      toast.error(err.message || 'Error al registrar en AEAT');
+    } finally {
+      setRetrying(false);
+    }
+  };
 
   const handleCopyQR = () => {
     if (invoice?.verifactu_qr) {
@@ -246,6 +277,34 @@ export function InvoiceDetailDialog({ open, onOpenChange, invoiceId }: InvoiceDe
                         </div>
                       </div>
                     </div>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* Verifactu Pending - Retry */}
+            {isPendingVerifactu && (
+              <>
+                <Separator />
+                <div className="space-y-3">
+                  <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 text-amber-500" />
+                    Registro AEAT pendiente
+                  </h3>
+                  <div className="rounded-lg border border-amber-200 bg-amber-50/50 dark:border-amber-900 dark:bg-amber-950/20 p-4">
+                    <p className="text-sm text-muted-foreground mb-3">
+                      Esta factura no se ha podido registrar en AEAT.
+                      {invoice.verifactu_retry_count ? ` Intentos: ${invoice.verifactu_retry_count}` : ''}
+                    </p>
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      onClick={handleRetryVerifactu}
+                      disabled={retrying}
+                    >
+                      <RefreshCw className={`h-3 w-3 mr-1 ${retrying ? 'animate-spin' : ''}`} />
+                      {retrying ? 'Registrando...' : 'Reintentar registro AEAT'}
+                    </Button>
                   </div>
                 </div>
               </>
