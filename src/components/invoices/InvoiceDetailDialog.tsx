@@ -48,6 +48,8 @@ export function InvoiceDetailDialog({ open, onOpenChange, invoiceId }: InvoiceDe
   const isLoading = invoiceLoading || itemsLoading;
   const isSealed = !!invoice?.verifactu_hash;
   const isPendingVerifactu = !!invoice?.verifactu_pending && !isSealed;
+  const isPermanentError = !!invoice?.verifactu_error_permanent && !isSealed;
+  const permanentErrorMessage = invoice?.verifactu_error_message;
 
   const handleRetryVerifactu = async () => {
     if (!invoiceId) return;
@@ -283,7 +285,7 @@ export function InvoiceDetailDialog({ open, onOpenChange, invoiceId }: InvoiceDe
             )}
 
             {/* Verifactu Pending - Retry */}
-            {isPendingVerifactu && (
+            {isPendingVerifactu && !isPermanentError && (
               <>
                 <Separator />
                 <div className="space-y-3">
@@ -304,6 +306,36 @@ export function InvoiceDetailDialog({ open, onOpenChange, invoiceId }: InvoiceDe
                     >
                       <RefreshCw className={`h-3 w-3 mr-1 ${retrying ? 'animate-spin' : ''}`} />
                       {retrying ? 'Registrando...' : 'Reintentar registro AEAT'}
+                    </Button>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* Verifactu Permanent Error */}
+            {isPermanentError && (
+              <>
+                <Separator />
+                <div className="space-y-3">
+                  <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 text-destructive" />
+                    Error permanente AEAT
+                  </h3>
+                  <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 space-y-3">
+                    <p className="text-sm font-medium text-destructive">
+                      {permanentErrorMessage || 'AEAT ha rechazado esta factura por un error en los datos.'}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Este error no se resolverá con reintentos. Corrija los datos del paciente (NIF, nombre, etc.) y pulse reintentar.
+                    </p>
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      onClick={handleRetryVerifactu}
+                      disabled={retrying}
+                    >
+                      <RefreshCw className={`h-3 w-3 mr-1 ${retrying ? 'animate-spin' : ''}`} />
+                      {retrying ? 'Registrando...' : 'Reintentar tras corrección'}
                     </Button>
                   </div>
                 </div>

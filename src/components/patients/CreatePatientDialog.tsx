@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Plus, Loader2 } from 'lucide-react';
+import { validateSpanishTaxId } from '@/lib/nif-validation';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -40,7 +41,10 @@ const patientSchema = z.object({
   phone: z.string().max(20).optional().or(z.literal('')),
   date_of_birth: z.string().optional().or(z.literal('')),
   gender: z.string().optional(),
-  tax_id: z.string().max(20).optional().or(z.literal('')),
+  tax_id: z.string().max(20).optional().or(z.literal('')).refine(
+    (val) => !val || validateSpanishTaxId(val).valid,
+    (val) => ({ message: validateSpanishTaxId(val).message || 'NIF/NIE inválido' })
+  ),
   address: z.string().max(255).optional().or(z.literal('')),
   city: z.string().max(100).optional().or(z.literal('')),
   postal_code: z.string().max(10).optional().or(z.literal('')),
