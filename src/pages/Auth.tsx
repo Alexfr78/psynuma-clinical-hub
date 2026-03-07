@@ -78,6 +78,7 @@ export default function Auth() {
     e.preventDefault();
     setErrors({});
     setIsLoading(true);
+    setIsSigningIn(true);
 
     try {
       const result = loginSchema.safeParse({ email: loginEmail, password: loginPassword });
