@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { FileText, User, Download, MoreVertical, ShieldCheck, Search, FileX, FilePlus2, RefreshCw, Clock, Mail, Link2 } from 'lucide-react';
+import { FileText, User, Download, MoreVertical, ShieldCheck, Search, FileX, FilePlus2, RefreshCw, Clock, Mail, Link2, AlertTriangle } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -57,6 +57,8 @@ export function InvoiceCard({
   const needsVerifactuSign = invoice.status === 'issued' && !isSealed && !isPendingVerifactu;
   // Check if invoice has been invalidated (rectified)
   const isInvalidated = (invoice as any).is_valid === false;
+  // Orphan: issued/paid but never registered in AEAT (no verifactu_hash)
+  const isOrphanVerifactu = (invoice.status === 'issued' || invoice.status === 'paid') && !invoice.verifactu_hash && !isPendingVerifactu;
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
@@ -93,6 +95,12 @@ export function InvoiceCard({
                     <Badge variant="destructive" className="gap-1 text-xs shrink-0">
                       <RefreshCw className="h-3 w-3" />
                       Error
+                    </Badge>
+                  )}
+                  {isOrphanVerifactu && (
+                    <Badge variant="outline" className="gap-1 text-xs shrink-0 border-amber-500 text-amber-600">
+                      <AlertTriangle className="h-3 w-3" />
+                      <span className="hidden sm:inline">Sin AEAT</span>
                     </Badge>
                   )}
                 </div>
