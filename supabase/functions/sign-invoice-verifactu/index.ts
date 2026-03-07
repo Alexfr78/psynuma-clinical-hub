@@ -1325,7 +1325,7 @@ serve(async (req) => {
       );
     }
 
-    // Update invoice with Verifactu data
+    // Update invoice with Verifactu data (clear any previous error state)
     const { error: updateError } = await supabase
       .from("invoices")
       .update({
@@ -1336,7 +1336,9 @@ serve(async (req) => {
         verifactu_timestamp: generationTimestamp,
         verifactu_registration_id: csv,
         verifactu_pending: false,
-        verifactu_retry_count: 0
+        verifactu_retry_count: 0,
+        verifactu_error_permanent: false,
+        verifactu_error_message: null
       })
       .eq("id", invoice_id);
 
