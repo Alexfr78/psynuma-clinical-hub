@@ -1075,6 +1075,33 @@ serve(async (req) => {
     const idSistemaInformatico = '01'; // Fixed in our system
     const numeroInstalacion = center.verifactu_numero_instalacion || 1;
     
+    // Acquire advisory lock to prevent concurrent chain writes for this center
+    const MAX_LOCK_ATTEMPTS = 10;
+    const LOCK_RETRY_MS = 500;
+    let lockAcquired = false;
+    
+    for (let attempt = 0; attempt < MAX_LOCK_ATTEMPTS; attempt++) {
+      const { data: lockResult } = await supabase.rpc('acquire_verifactu_chain_lock', { p_center_id: invoice.center_id });
+      if (lockResult === true) {
+        lockAcquired = true;
+        console.log(`[VERIFACTU:LOCK] Acquired on attempt ${attempt + 1}`);
+        break;
+      }
+      console.log(`[VERIFACTU:LOCK] Attempt ${attempt + 1}/${MAX_LOCK_ATTEMPTS} failed, waiting ${LOCK_RETRY_MS}ms...`);
+      await new Promise(resolve => setTimeout(resolve, LOCK_RETRY_MS));
+    }
+    
+    if (!lockAcquired) {
+      console.error('[VERIFACTU:LOCK] Could not acquire chain lock after max attempts');
+      return new Response(
+        JSON.stringify({ error: 'No se pudo adquirir el bloqueo de la cadena Verifactu. Otro proceso de firma está en curso. Reintente en unos segundos.' }),
+        { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // From here on, we MUST release the lock in all code paths
+    try {
+    
     // Get previous hash from chain status table (per installation)
     // This ensures proper chaining per NIF + Sistema + Instalación
     const { data: chainStatus } = await supabase
@@ -1387,6 +1414,12 @@ serve(async (req) => {
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
+
+    } finally {
+      // ALWAYS release the advisory lock
+      await supabase.rpc('release_verifactu_chain_lock', { p_center_id: invoice.center_id });
+      console.log('[VERIFACTU:LOCK] Released chain lock');
+    }
 
   } catch (error) {
     console.error("Error in sign-invoice-verifactu:", error);

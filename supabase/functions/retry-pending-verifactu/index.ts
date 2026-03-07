@@ -22,11 +22,13 @@ serve(async (req) => {
     console.log("[retry-pending-verifactu] Starting retry process...");
 
     // Get all pending invoices (exclude permanent errors)
+    // CRITICAL: Order by issue_date ASC, invoice_number ASC to preserve chronological sequence
     const { data: pendingInvoices, error: fetchError } = await supabase
       .from("invoices")
       .select(`
         id,
         invoice_number,
+        issue_date,
         center_id,
         verifactu_retry_count,
         verifactu_error_permanent
@@ -34,7 +36,8 @@ serve(async (req) => {
       .eq("verifactu_pending", true)
       .neq("verifactu_error_permanent", true)
       .lt("verifactu_retry_count", MAX_RETRIES)
-      .order("created_at", { ascending: true });
+      .order("issue_date", { ascending: true })
+      .order("invoice_number", { ascending: true });
 
     if (fetchError) {
       console.error("[retry-pending-verifactu] Error fetching pending invoices:", fetchError);
@@ -51,92 +54,110 @@ serve(async (req) => {
 
     console.log(`[retry-pending-verifactu] Found ${pendingInvoices.length} pending invoices`);
 
+    // Group invoices by center_id to process each center's chain sequentially
+    const invoicesByCenter = new Map<string, typeof pendingInvoices>();
+    for (const invoice of pendingInvoices) {
+      const existing = invoicesByCenter.get(invoice.center_id) || [];
+      existing.push(invoice);
+      invoicesByCenter.set(invoice.center_id, existing);
+    }
+
     const results: { id: string; success: boolean; error?: string }[] = [];
 
-    // Process each invoice
-    for (const invoice of pendingInvoices) {
-      console.log(`[retry-pending-verifactu] Processing invoice ${invoice.invoice_number} (retry ${(invoice.verifactu_retry_count || 0) + 1}/${MAX_RETRIES})`);
+    // Process each center's invoices in strict chronological order
+    // CRITICAL: Stop processing a center on first failure to prevent chain gaps
+    for (const [centerId, centerInvoices] of invoicesByCenter) {
+      console.log(`[retry-pending-verifactu] Processing center ${centerId}: ${centerInvoices.length} pending invoices`);
+      
+      for (const invoice of centerInvoices) {
+        console.log(`[retry-pending-verifactu] Processing invoice ${invoice.invoice_number} (${invoice.issue_date}) (retry ${(invoice.verifactu_retry_count || 0) + 1}/${MAX_RETRIES})`);
 
-      try {
-        // Call sign-invoice-verifactu function
-        const signResponse = await fetch(`${supabaseUrl}/functions/v1/sign-invoice-verifactu`, {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${supabaseServiceKey}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ invoice_id: invoice.id }),
-        });
+        try {
+          // Call sign-invoice-verifactu function
+          const signResponse = await fetch(`${supabaseUrl}/functions/v1/sign-invoice-verifactu`, {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${supabaseServiceKey}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ invoice_id: invoice.id }),
+          });
 
-        const signResult = await signResponse.json();
+          const signResult = await signResponse.json();
 
-        if (signResponse.ok && !signResult.error) {
-          // Success - mark as not pending
-          console.log(`[retry-pending-verifactu] Invoice ${invoice.invoice_number} registered successfully`);
+          if (signResponse.ok && !signResult.error) {
+            // Success
+            console.log(`[retry-pending-verifactu] Invoice ${invoice.invoice_number} registered successfully`);
+            
+            await supabase
+              .from("invoices")
+              .update({ verifactu_pending: false })
+              .eq("id", invoice.id);
+
+            results.push({ id: invoice.id, success: true });
+          } else {
+            // Failed - increment retry count
+            const newRetryCount = (invoice.verifactu_retry_count || 0) + 1;
+            const maxRetriesReached = newRetryCount >= MAX_RETRIES;
+            
+            console.log(`[retry-pending-verifactu] Invoice ${invoice.invoice_number} failed: ${signResult.error || 'Unknown error'}`);
+            
+            await supabase
+              .from("invoices")
+              .update({
+                verifactu_retry_count: newRetryCount,
+                verifactu_pending: !maxRetriesReached,
+              })
+              .eq("id", invoice.id);
+
+            // Log the failure
+            await supabase.from("verifactu_events").insert({
+              center_id: invoice.center_id,
+              invoice_id: invoice.id,
+              event_type: "retry_failed",
+              error_details: signResult.error || "Unknown error",
+              retry_count: newRetryCount,
+            });
+
+            results.push({ 
+              id: invoice.id, 
+              success: false, 
+              error: maxRetriesReached 
+                ? `Max retries (${MAX_RETRIES}) reached` 
+                : signResult.error 
+            });
+
+            // CRITICAL: Stop processing this center on failure to preserve chain order
+            console.log(`[retry-pending-verifactu] STOPPING center ${centerId} - must resolve ${invoice.invoice_number} before processing subsequent invoices`);
+            break;
+          }
+        } catch (invoiceError) {
+          console.error(`[retry-pending-verifactu] Error processing invoice ${invoice.id}:`, invoiceError);
           
-          await supabase
-            .from("invoices")
-            .update({
-              verifactu_pending: false,
-            })
-            .eq("id", invoice.id);
-
-          results.push({ id: invoice.id, success: true });
-        } else {
-          // Failed - increment retry count
           const newRetryCount = (invoice.verifactu_retry_count || 0) + 1;
-          const maxRetriesReached = newRetryCount >= MAX_RETRIES;
-          
-          console.log(`[retry-pending-verifactu] Invoice ${invoice.invoice_number} failed: ${signResult.error || 'Unknown error'}`);
           
           await supabase
             .from("invoices")
             .update({
               verifactu_retry_count: newRetryCount,
-              // Keep pending unless max retries reached
-              verifactu_pending: !maxRetriesReached,
+              verifactu_pending: newRetryCount < MAX_RETRIES,
             })
             .eq("id", invoice.id);
-
-          // Log the failure
-          await supabase.from("verifactu_events").insert({
-            center_id: invoice.center_id,
-            invoice_id: invoice.id,
-            event_type: "retry_failed",
-            error_details: signResult.error || "Unknown error",
-            retry_count: newRetryCount,
-          });
 
           results.push({ 
             id: invoice.id, 
             success: false, 
-            error: maxRetriesReached 
-              ? `Max retries (${MAX_RETRIES}) reached` 
-              : signResult.error 
+            error: invoiceError instanceof Error ? invoiceError.message : "Unknown error" 
           });
+
+          // CRITICAL: Stop processing this center on error
+          console.log(`[retry-pending-verifactu] STOPPING center ${centerId} due to error`);
+          break;
         }
-      } catch (invoiceError) {
-        console.error(`[retry-pending-verifactu] Error processing invoice ${invoice.id}:`, invoiceError);
-        
-        const newRetryCount = (invoice.verifactu_retry_count || 0) + 1;
-        
-        await supabase
-          .from("invoices")
-          .update({
-            verifactu_retry_count: newRetryCount,
-            verifactu_pending: newRetryCount < MAX_RETRIES,
-          })
-          .eq("id", invoice.id);
 
-        results.push({ 
-          id: invoice.id, 
-          success: false, 
-          error: invoiceError instanceof Error ? invoiceError.message : "Unknown error" 
-        });
+        // Small delay between invoices to avoid rate limiting
+        await new Promise(resolve => setTimeout(resolve, 1000));
       }
-
-      // Small delay between invoices to avoid rate limiting
-      await new Promise(resolve => setTimeout(resolve, 1000));
     }
 
     const successCount = results.filter(r => r.success).length;

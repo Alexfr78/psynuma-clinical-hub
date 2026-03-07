@@ -364,14 +364,35 @@ export function useUpdateInvoiceStatus() {
 
   return useMutation({
     mutationFn: async ({ id, status }: { id: string; status: Invoice['status'] }) => {
-      // Get current invoice to check if it's a draft being issued
+      // Get current invoice with Verifactu fields
       const { data: currentInvoice, error: fetchError } = await supabase
         .from('invoices')
-        .select('invoice_number, series_id')
+        .select('invoice_number, series_id, status, verifactu_hash, verifactu_pending')
         .eq('id', id)
         .single();
 
       if (fetchError) throw fetchError;
+
+      // GUARD: Block cancellation of issued invoices without AEAT registration when Verifactu is enabled
+      if (status === 'cancelled' && currentInvoice?.status === 'issued') {
+        // Check if center has Verifactu configured
+        const { data: center } = await supabase
+          .from('centers')
+          .select('verifactu_certificate_base64')
+          .eq('id', profile!.center_id!)
+          .single();
+
+        const hasVerifactu = !!center?.verifactu_certificate_base64;
+
+        if (hasVerifactu) {
+          if (currentInvoice.verifactu_pending) {
+            throw new Error('Esta factura tiene un envío pendiente a AEAT. Espere a que se complete o reintente manualmente antes de cancelarla.');
+          }
+          if (!currentInvoice.verifactu_hash) {
+            throw new Error('Esta factura no ha sido registrada en AEAT. Debe registrarla primero en Verifactu antes de poder cancelarla, para evitar huecos en la secuencia.');
+          }
+        }
+      }
 
       let updateData: { status: Invoice['status']; invoice_number?: string } = { status };
 
@@ -380,7 +401,6 @@ export function useUpdateInvoiceStatus() {
         let series;
 
         if (currentInvoice.series_id) {
-          // Use the series saved with the invoice
           const { data: seriesData, error: seriesError } = await supabase
             .from('invoice_series')
             .select('*')
@@ -390,7 +410,6 @@ export function useUpdateInvoiceStatus() {
           if (seriesError) throw seriesError;
           series = seriesData;
         } else {
-          // Fallback to default ordinary series
           const { data: defaultSeries, error: defaultError } = await supabase
             .from('invoice_series')
             .select('*')
@@ -408,7 +427,6 @@ export function useUpdateInvoiceStatus() {
           series = defaultSeries;
         }
 
-        // Generate invoice number from series format
         const year = new Date().getFullYear();
         const invoiceNumber = series.format
           .replace('{SERIE}', series.name)
@@ -420,7 +438,6 @@ export function useUpdateInvoiceStatus() {
 
         updateData.invoice_number = invoiceNumber;
 
-        // Increment series next_number
         const { error: updateSeriesError } = await supabase
           .from('invoice_series')
           .update({ next_number: series.next_number + 1 })

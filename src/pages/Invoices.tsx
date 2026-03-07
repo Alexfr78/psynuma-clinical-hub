@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
-import { FileText, Plus, RefreshCw, ArrowUpDown, Hash, Calendar, Search, Download } from 'lucide-react';
+import { FileText, Plus, RefreshCw, ArrowUpDown, Hash, Calendar, Search, Download, AlertTriangle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -94,6 +95,18 @@ export default function Invoices() {
              formattedDate.includes(query);
     });
   }, [invoices, searchQuery]);
+  
+  // Count orphan invoices (issued/paid without verifactu_hash)
+  const orphanCount = useMemo(() => {
+    if (!invoices) return 0;
+    return invoices.filter(inv => 
+      (inv.status === 'issued' || inv.status === 'paid') && 
+      !inv.verifactu_hash && 
+      !inv.verifactu_pending &&
+      !inv.invoice_number?.startsWith('BORRADOR-')
+    ).length;
+  }, [invoices]);
+  
   const { data: stats } = useInvoiceStats();
   const updateStatus = useUpdateInvoiceStatus();
   
@@ -343,6 +356,17 @@ export default function Invoices() {
           </CardContent>
         </Card>
       </div>
+
+      {orphanCount > 0 && (
+        <Alert variant="destructive" className="border-amber-500 bg-amber-50 dark:bg-amber-950/20">
+          <AlertTriangle className="h-4 w-4 text-amber-600" />
+          <AlertTitle className="text-amber-800 dark:text-amber-400">Facturas sin registrar en AEAT</AlertTitle>
+          <AlertDescription className="text-amber-700 dark:text-amber-300">
+            Hay {orphanCount} factura{orphanCount > 1 ? 's' : ''} emitida{orphanCount > 1 ? 's' : ''} que no {orphanCount > 1 ? 'han' : 'ha'} sido registrada{orphanCount > 1 ? 's' : ''} en la Agencia Tributaria. 
+            Esto puede causar huecos en la secuencia de Verifactu. Regístrelas desde el menú de cada factura.
+          </AlertDescription>
+        </Alert>
+      )}
 
       <Tabs value={statusFilter} onValueChange={setStatusFilter} className="min-w-0 w-full overflow-hidden">
         <div className="relative min-w-0 overflow-hidden">
