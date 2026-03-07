@@ -1,29 +1,48 @@
 
 
-## Problem
+## Diagnóstico: Race condition en el flujo MFA
 
-The `SessionDetailDrawer` has a `useEffect` that resets local state (`localDateTime`, `localStatus`, etc.) but its dependency array only watches `session?.id`, `session?.bono_id`, and `session?.price`. When the drawer is closed and reopened for the **same session**, or when session data is refetched with updated values, the local overrides (`localDateTime`, `localStatus`) are never cleared. This causes the drawer to show stale values from a previous edit.
+Hay un bug de **condición de carrera** que hace que el 2FA se salte en el login:
 
-In your case: you edited date/time at some point, `localDateTime` was set to `{date: '2026-03-10', startTime: '18:00', endTime: '19:00'}`, but the DB actually has `2026-03-04 at 20:00`. Reopening the drawer doesn't reset `localDateTime` because `session.id` hasn't changed.
+1. `signIn()` llama a `signInWithPassword()` → éxito
+2. Inmediatamente, `onAuthStateChange` se dispara → establece `user`
+3. Auth.tsx tiene `if (user && !needsMfaVerification) → navigate('/dashboard')` — esto redirige al dashboard ANTES de que `signIn` termine de comprobar el MFA
+4. `signIn` continúa, pone `needsMfaVerification = true`... pero ya es tarde, el usuario ya está en el dashboard
 
-## Fix
+Adicionalmente, `handleLogin` hace `navigate('/dashboard')` después de `signIn()` sin comprobar si necesita MFA.
 
-**File: `src/components/agenda/SessionDetailDrawer.tsx`**
+## Plan de corrección
 
-1. **Add the `open` prop to the reset effect's dependency array** — so that every time the drawer opens, all local overrides are cleared and the component reads fresh data from the `session` prop.
+### 1. `useAuth.tsx` — signIn devuelve si necesita MFA
 
-2. **Also add `session?.session_date`, `session?.start_time`, `session?.end_time`, and `session?.status`** to the dependency array so that when the query cache updates with new data, local overrides are cleared.
+Modificar `signIn` para que devuelva `{ error, needsMfa }`. Así el componente Auth puede decidir si redirigir o mostrar el OTP.
 
-The effect at line ~260 changes from:
+### 2. `useAuth.tsx` — Evitar que onAuthStateChange redirija durante MFA pendiente
+
+Añadir un flag interno `mfaCheckInProgress` que se active durante `signIn` para que Auth.tsx no redirija prematuramente.
+
+### 3. `Auth.tsx` — handleLogin comprueba needsMfa
+
 ```typescript
-}, [session?.id, session?.bono_id, session?.price]);
-```
-to:
-```typescript
-}, [session?.id, session?.bono_id, session?.price, session?.session_date, session?.start_time, session?.end_time, session?.status, open]);
+const { error, needsMfa } = await signIn(email, password);
+if (!error && !needsMfa) {
+  navigate('/dashboard');
+}
+// Si needsMfa === true, el estado se actualiza y se muestra el OTP
 ```
 
-This ensures that:
-- Opening the drawer always shows the DB values (not stale local edits)
-- When the session query refetches with updated data, local overrides are discarded
+### 4. `Auth.tsx` — Guard de redirección
+
+Cambiar la guarda para que no redirija mientras el signIn está en curso:
+```typescript
+if (user && !needsMfaVerification && !isLoading) {
+  navigate('/dashboard');
+}
+```
+
+### Archivos afectados
+- `src/hooks/useAuth.tsx` — Modificar `signIn` para devolver `needsMfa` y controlar la race condition
+- `src/pages/Auth.tsx` — Usar el retorno de `signIn` para decidir si navegar o mostrar OTP
+
+No se necesitan cambios de base de datos.
 
