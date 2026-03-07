@@ -141,7 +141,6 @@ export function PaymentHistoryTable({ payments, onEdit, onDelete, onLinkToInvoic
             {payments.map((payment) => {
               const method = methodConfig[payment.payment_method] || methodConfig.cash;
               const hasInvoice = !!payment.invoice_id;
-              const canEdit = !hasInvoice;
 
               return (
                 <TableRow key={payment.id}>
