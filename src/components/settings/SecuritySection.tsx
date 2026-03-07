@@ -99,6 +99,7 @@ export function SecuritySection() {
     try {
       const { error } = await supabase.auth.mfa.unenroll({ factorId });
       if (error) throw error;
+      revokeTrustedDevices();
       setStatus('disabled');
       setFactorId('');
       toast({
