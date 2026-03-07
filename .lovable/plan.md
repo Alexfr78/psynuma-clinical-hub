@@ -1,29 +1,30 @@
 
 
-## Problem
+## Problema
 
-The `SessionDetailDrawer` has a `useEffect` that resets local state (`localDateTime`, `localStatus`, etc.) but its dependency array only watches `session?.id`, `session?.bono_id`, and `session?.price`. When the drawer is closed and reopened for the **same session**, or when session data is refetched with updated values, the local overrides (`localDateTime`, `localStatus`) are never cleared. This causes the drawer to show stale values from a previous edit.
+Cuando se genera una factura desde una cita usando el diálogo de facturación de sesión (`CreateSessionInvoiceDialog`), se usa el hook `useCreateInvoiceWithSeries`. Este hook crea la factura con status `issued` pero **no genera un registro de deuda** en la tabla `debts`.
 
-In your case: you edited date/time at some point, `localDateTime` was set to `{date: '2026-03-10', startTime: '18:00', endTime: '19:00'}`, but the DB actually has `2026-03-04 at 20:00`. Reopening the drawer doesn't reset `localDateTime` because `session.id` hasn't changed.
+La corrección anterior solo añadió la auto-creación de deuda en `useIssueInvoice` y `useCreateSignedInvoice`, pero no en `useCreateInvoiceWithSeries`, que es el flujo principal para facturar desde la agenda.
 
-## Fix
+## Solución
 
-**File: `src/components/agenda/SessionDetailDrawer.tsx`**
+### Archivo: `src/hooks/useInvoices.tsx` — `useCreateInvoiceWithSeries`
 
-1. **Add the `open` prop to the reset effect's dependency array** — so that every time the drawer opens, all local overrides are cleared and the component reads fresh data from the `session` prop.
+Tras crear la factura con status `issued` (no draft), insertar automáticamente un registro en `debts` con:
+- `invoice_id` = id de la factura creada
+- `patient_id` = paciente de la factura
+- `center_id` = centro
+- `amount` = total de la factura
+- `paid_amount` = 0
+- `status` = 'pending'
+- `due_date` = fecha actual
+- `session_id` = session_id del primer item (si existe)
 
-2. **Also add `session?.session_date`, `session?.start_time`, `session?.end_time`, and `session?.status`** to the dependency array so that when the query cache updates with new data, local overrides are cleared.
+Solo se crea la deuda si el status NO es `draft`.
 
-The effect at line ~260 changes from:
-```typescript
-}, [session?.id, session?.bono_id, session?.price]);
-```
-to:
-```typescript
-}, [session?.id, session?.bono_id, session?.price, session?.session_date, session?.start_time, session?.end_time, session?.status, open]);
-```
+### Archivo: `src/components/invoices/CreateSimpleInvoiceDialog.tsx`
 
-This ensures that:
-- Opening the drawer always shows the DB values (not stale local edits)
-- When the session query refetches with updated data, local overrides are discarded
+Verificar si este diálogo también usa `useCreateInvoiceWithSeries` con status `issued` — si es así, la corrección en el hook cubrirá ambos flujos automáticamente.
+
+No se necesitan migraciones de base de datos.
 
