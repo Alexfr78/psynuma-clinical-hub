@@ -229,6 +229,22 @@ export function useCreateSignedInvoice() {
           .is('invoice_id', null);
       }
 
+      // 5b. For non-session invoices (simple/recap), create debt if issued
+      if (!sessionId && !isDraft && total > 0) {
+        await supabase
+          .from('debts')
+          .insert({
+            invoice_id: invoice.id,
+            patient_id: patientId,
+            center_id: center.id,
+            amount: total,
+            paid_amount: 0,
+            status: 'pending' as const,
+            due_date: new Date().toISOString().split('T')[0],
+            bono_id: params.bonoId || null,
+          });
+      }
+
       // 6. Create invoice items with billable_event_id and bono_id
       const invoiceItems = items.map(item => ({
         invoice_id: invoice.id,
