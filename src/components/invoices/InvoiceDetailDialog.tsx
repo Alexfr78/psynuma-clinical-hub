@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { 
@@ -7,7 +8,9 @@ import {
   Copy, 
   User, 
   Calendar, 
-  Receipt 
+  Receipt,
+  RefreshCw,
+  AlertTriangle
 } from 'lucide-react';
 import {
   Dialog,
@@ -21,6 +24,7 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useInvoice, useInvoiceItems, type InvoiceWithPatient } from '@/hooks/useInvoices';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 interface InvoiceDetailDialogProps {
