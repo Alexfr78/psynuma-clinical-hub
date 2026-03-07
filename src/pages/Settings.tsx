@@ -125,6 +125,7 @@ const categoryIcons: Record<string, React.ComponentType<{ className?: string }>>
   'Pagos y Facturación': Wallet,
   'Comunicaciones': Mail,
   'Conexiones Externas': Plug,
+  'Seguridad': Shield,
 };
 
 const navItems: NavItem[] = [
@@ -166,10 +167,13 @@ const navItems: NavItem[] = [
   { id: 'integraciones-zoom', label: 'Zoom', icon: Video, parent: 'Conexiones Externas' },
   { id: 'integraciones-stripe', label: 'Stripe - Cobros online', icon: CreditCard, parent: 'Conexiones Externas' },
   { id: 'integraciones-credenciales', label: 'Configuración avanzada', icon: Settings2, parent: 'Conexiones Externas' },
+  
+  // Seguridad
+  { id: 'seguridad', label: 'Doble factor (2FA)', icon: Shield, parent: 'Seguridad' },
 ];
 
 // Order of main categories
-const categoryOrder = ['Mi Centro', 'Portal de Contactos', 'Pagos y Facturación', 'Comunicaciones', 'Conexiones Externas'];
+const categoryOrder = ['Mi Centro', 'Portal de Contactos', 'Pagos y Facturación', 'Comunicaciones', 'Conexiones Externas', 'Seguridad'];
 
 export default function Settings() {
   const { center, isLoading, updateCenter } = useCenter();
