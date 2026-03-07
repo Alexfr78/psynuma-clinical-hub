@@ -134,30 +134,48 @@ export function useDebtStats() {
   return useQuery({
     queryKey: ['debt-stats'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('debts')
-        .select('amount, paid_amount, status, due_date')
-        .in('status', ['pending', 'partial']);
+      const [debtsRes, issuedRes] = await Promise.all([
+        supabase
+          .from('debts')
+          .select('amount, paid_amount, status, due_date, invoice_id')
+          .in('status', ['pending', 'partial']),
+        supabase
+          .from('invoices')
+          .select('id, total')
+          .eq('status', 'issued'),
+      ]);
 
-      if (error) throw error;
+      if (debtsRes.error) throw debtsRes.error;
 
       const now = new Date();
       const stats = {
         totalPending: 0,
         overdueAmount: 0,
         overdueCount: 0,
-        totalCount: data.length,
+        totalCount: debtsRes.data.length,
       };
 
-      data.forEach((debt) => {
+      const debtInvoiceIds = new Set<string>();
+      debtsRes.data.forEach((debt) => {
         const remaining = Number(debt.amount) - Number(debt.paid_amount);
         stats.totalPending += remaining;
+        if (debt.invoice_id) debtInvoiceIds.add(debt.invoice_id);
 
         if (debt.due_date && new Date(debt.due_date) < now) {
           stats.overdueAmount += remaining;
           stats.overdueCount++;
         }
       });
+
+      // Add issued invoices without a debt record
+      if (issuedRes.data) {
+        issuedRes.data
+          .filter(inv => !debtInvoiceIds.has(inv.id))
+          .forEach(inv => {
+            stats.totalPending += Number(inv.total);
+            stats.totalCount++;
+          });
+      }
 
       return stats;
     },

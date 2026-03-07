@@ -38,7 +38,7 @@ export function useIssueInvoice() {
         .from('invoices')
         .select('*, series:invoice_series(*)')
         .eq('id', invoiceId)
-        .single();
+        .single() as { data: any; error: any };
 
       if (invoiceError || !invoice) {
         throw new Error('Factura no encontrada');
@@ -105,7 +105,35 @@ export function useIssueInvoice() {
       result.success = true;
       result.invoiceNumber = invoiceNumber;
 
-      // 5. Sign with Verifactu if enabled
+      // 5. Auto-create debt if none exists for this invoice
+      const { data: existingDebt } = await supabase
+        .from('debts')
+        .select('id')
+        .eq('invoice_id', invoiceId)
+        .maybeSingle();
+
+      if (!existingDebt) {
+        // Get patient_id and total from invoice
+        const patientId = invoice.patient_id;
+        const invoiceTotal = Number(invoice.total);
+
+        if (patientId && invoiceTotal > 0) {
+          await supabase
+            .from('debts')
+            .insert({
+              invoice_id: invoiceId,
+              patient_id: patientId,
+              center_id: center!.id,
+              amount: invoiceTotal,
+              paid_amount: 0,
+              status: 'pending' as const,
+              due_date: new Date().toISOString().split('T')[0],
+              session_id: invoice.session_id || null,
+            });
+        }
+      }
+
+      // 6. Sign with Verifactu if enabled
       const verifactuAutoEnabled = center?.verifactu_auto_enabled === true;
       const hasCertificate = !!center?.verifactu_certificate_base64;
 
