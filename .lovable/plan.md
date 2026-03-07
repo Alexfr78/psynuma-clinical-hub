@@ -1,29 +1,46 @@
 
 
-## Problem
+## Plan: Autenticación de Doble Factor (TOTP)
 
-The `SessionDetailDrawer` has a `useEffect` that resets local state (`localDateTime`, `localStatus`, etc.) but its dependency array only watches `session?.id`, `session?.bono_id`, and `session?.price`. When the drawer is closed and reopened for the **same session**, or when session data is refetched with updated values, the local overrides (`localDateTime`, `localStatus`) are never cleared. This causes the drawer to show stale values from a previous edit.
+### Resumen
+Implementar 2FA basado en TOTP (Time-based One-Time Password) usando la API MFA nativa de Supabase Auth. Los usuarios podrán activar/desactivar 2FA desde Configuración, y al iniciar sesión se les pedirá el código TOTP si tienen 2FA activo.
 
-In your case: you edited date/time at some point, `localDateTime` was set to `{date: '2026-03-10', startTime: '18:00', endTime: '19:00'}`, but the DB actually has `2026-03-04 at 20:00`. Reopening the drawer doesn't reset `localDateTime` because `session.id` hasn't changed.
+### Flujo de usuario
 
-## Fix
+1. **Activar 2FA** (en Configuración > nueva sección "Seguridad"):
+   - Botón "Activar autenticación de doble factor"
+   - Se muestra código QR generado por `supabase.auth.mfa.enroll()`
+   - El usuario escanea con app autenticadora (Google Authenticator, Authy, etc.)
+   - Introduce código de 6 dígitos para verificar → `supabase.auth.mfa.challengeAndVerify()`
 
-**File: `src/components/agenda/SessionDetailDrawer.tsx`**
+2. **Login con 2FA activo**:
+   - El usuario introduce email + contraseña normalmente
+   - Si tiene factor TOTP activo, se muestra pantalla intermedia pidiendo código OTP de 6 dígitos
+   - Se verifica con `supabase.auth.mfa.challengeAndVerify()`
+   - Si correcto → accede al dashboard
 
-1. **Add the `open` prop to the reset effect's dependency array** — so that every time the drawer opens, all local overrides are cleared and the component reads fresh data from the `session` prop.
+3. **Desactivar 2FA** (en Configuración):
+   - Botón para desactivar → `supabase.auth.mfa.unenroll()`
 
-2. **Also add `session?.session_date`, `session?.start_time`, `session?.end_time`, and `session?.status`** to the dependency array so that when the query cache updates with new data, local overrides are cleared.
+### Cambios técnicos
 
-The effect at line ~260 changes from:
-```typescript
-}, [session?.id, session?.bono_id, session?.price]);
-```
-to:
-```typescript
-}, [session?.id, session?.bono_id, session?.price, session?.session_date, session?.start_time, session?.end_time, session?.status, open]);
-```
+1. **`src/hooks/useAuth.tsx`**
+   - Tras `signIn`, detectar si la sesión tiene `aal1` (necesita 2FA) consultando `supabase.auth.mfa.getAuthenticatorAssuranceLevel()`
+   - Exponer estado `needsMfaVerification` y función `verifyMfa(code)`
 
-This ensures that:
-- Opening the drawer always shows the DB values (not stale local edits)
-- When the session query refetches with updated data, local overrides are discarded
+2. **`src/pages/Auth.tsx`**
+   - Añadir estado condicional: si `needsMfaVerification === true`, mostrar formulario OTP (6 dígitos) usando el componente `InputOTP` existente
+   - Al verificar correctamente, redirigir al dashboard
+
+3. **Nuevo componente `src/components/settings/SecuritySection.tsx`**
+   - Sección para activar/desactivar 2FA
+   - Genera QR con `qrcode.react` (ya instalado) mostrando URI TOTP
+   - Input OTP para verificar el factor
+
+4. **`src/pages/Settings.tsx`**
+   - Añadir nueva sección "Seguridad" con icono Shield en el menú lateral
+   - Renderizar `SecuritySection`
+
+### Sin cambios de base de datos
+Supabase Auth gestiona MFA internamente en `auth.mfa_factors` y `auth.mfa_challenges`. No se necesitan migraciones.
 
