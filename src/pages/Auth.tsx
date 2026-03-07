@@ -42,7 +42,7 @@ export default function Auth() {
   const [lastName, setLastName] = useState('');
 
   // Redirect if already logged in (and not waiting for MFA or active login)
-  if (user && !needsMfaVerification && !isLoading) {
+  if (user && !needsMfaVerification && !authLoading) {
     navigate('/dashboard');
     return null;
   }
