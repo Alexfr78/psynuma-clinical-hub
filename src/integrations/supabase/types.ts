@@ -4283,6 +4283,10 @@ export type Database = {
       }
     }
     Functions: {
+      acquire_verifactu_chain_lock: {
+        Args: { p_center_id: string }
+        Returns: boolean
+      }
       apply_bono_to_session: {
         Args: { p_bono_id: string; p_session_id: string }
         Returns: Json
@@ -4502,6 +4506,10 @@ export type Database = {
       recompute_debt_by_invoice: { Args: { p_debt_id: string }; Returns: Json }
       release_google_sync_lock: {
         Args: { p_professional_id: string }
+        Returns: undefined
+      }
+      release_verifactu_chain_lock: {
+        Args: { p_center_id: string }
         Returns: undefined
       }
       remove_bono_from_session: {
