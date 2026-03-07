@@ -1245,18 +1245,62 @@ serve(async (req) => {
          aeatResult.error?.includes('no habilitado') ||
          aeatResult.response?.includes('Desactivada temporalmente'));
 
-      // Update invoice with pending status for retry
+      // Classify error as permanent (data issue) vs transient (server issue)
+      // Permanent errors: AEAT data validation errors that won't resolve with retries
+      const PERMANENT_ERROR_CODES = [
+        '1100', // Valor o tipo incorrecto de campo
+        '1239', // Error en bloque Destinatario / NIF incorrecto
+        '1240', // Error en datos fiscales
+        '1238', // Error en desglose fiscal
+        '2005', // ImporteTotal no cuadra
+        '3001', // Factura ya registrada (duplicado)
+        '4102', // Desglose vacío
+      ];
+      
+      // Extract error code from response
+      const errorCodeMatch = aeatResult.error?.match(/Error (\d+):/);
+      const aeatErrorCode = errorCodeMatch?.[1] || null;
+      const isPermanentError = aeatErrorCode ? PERMANENT_ERROR_CODES.includes(aeatErrorCode) : false;
+      
+      console.log(`Error classification: code=${aeatErrorCode}, permanent=${isPermanentError}, temporary_unavailable=${isTemporaryUnavailable}`);
+
+      if (isPermanentError) {
+        // Permanent error: stop retrying, save error message for UI
+        await supabase
+          .from("invoices")
+          .update({
+            verifactu_pending: false,
+            verifactu_error_permanent: true,
+            verifactu_error_message: aeatResult.error || 'Error permanente de AEAT',
+            verifactu_retry_count: (invoice.verifactu_retry_count || 0) + 1
+          })
+          .eq("id", invoice_id);
+
+        return new Response(
+          JSON.stringify({ 
+            error: `Error de AEAT: ${aeatResult.error}`,
+            permanent: true,
+            error_code: aeatErrorCode,
+            details: aeatResult.response,
+            httpStatus: aeatResult.httpStatus
+          }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Transient error: mark as pending for retry
       await supabase
         .from("invoices")
         .update({
           verifactu_pending: true,
+          verifactu_error_permanent: false,
+          verifactu_error_message: aeatResult.error || null,
           verifactu_retry_count: (invoice.verifactu_retry_count || 0) + 1
         })
         .eq("id", invoice_id);
 
       // Return different response based on error type
       if (isTemporaryUnavailable) {
-        // AEAT is temporarily down - return success with pending status
         return new Response(
           JSON.stringify({ 
             success: false,
@@ -1270,7 +1314,7 @@ serve(async (req) => {
         );
       }
 
-      // Other AEAT errors
+      // Other transient AEAT errors
       return new Response(
         JSON.stringify({ 
           error: `Error de AEAT: ${aeatResult.error}`,

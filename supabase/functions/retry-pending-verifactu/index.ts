@@ -21,16 +21,18 @@ serve(async (req) => {
 
     console.log("[retry-pending-verifactu] Starting retry process...");
 
-    // Get all pending invoices grouped by center
+    // Get all pending invoices (exclude permanent errors)
     const { data: pendingInvoices, error: fetchError } = await supabase
       .from("invoices")
       .select(`
         id,
         invoice_number,
         center_id,
-        verifactu_retry_count
+        verifactu_retry_count,
+        verifactu_error_permanent
       `)
       .eq("verifactu_pending", true)
+      .neq("verifactu_error_permanent", true)
       .lt("verifactu_retry_count", MAX_RETRIES)
       .order("created_at", { ascending: true });
 
