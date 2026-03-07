@@ -64,6 +64,7 @@ import { EmailIntegrationSection } from '@/components/settings/integrations/Emai
 import { OAuthCredentialsSection } from '@/components/settings/integrations/OAuthCredentialsSection';
 import { AgendaSettingsSection } from '@/components/settings/AgendaSettingsSection';
 import { AdminAlertsSettingsSection } from '@/components/settings/AdminAlertsSettingsSection';
+import { SecuritySection } from '@/components/settings/SecuritySection';
 
 const centerSchema = z.object({
   name: z.string().min(1, 'El nombre es obligatorio'),
@@ -106,7 +107,8 @@ type SettingsSection =
   
   | 'integraciones-zoom'
   | 'integraciones-google'
-  | 'integraciones-stripe';
+  | 'integraciones-stripe'
+  | 'seguridad';
 
 interface NavItem {
   id: SettingsSection;
