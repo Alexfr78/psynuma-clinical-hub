@@ -322,6 +322,23 @@ export function useCreateInvoiceWithSeries() {
           .eq('id', seriesId);
 
         if (updateError) throw updateError;
+
+        // Auto-create debt for non-draft invoices
+        const sessionId = items.find(i => i.session_id)?.session_id || null;
+        const { error: debtError } = await supabase
+          .from('debts')
+          .insert({
+            invoice_id: newInvoice.id,
+            patient_id: invoice.patient_id,
+            center_id: profile!.center_id!,
+            amount: invoice.total,
+            paid_amount: 0,
+            status: 'pending' as const,
+            due_date: new Date().toISOString().split('T')[0],
+            session_id: sessionId,
+          });
+
+        if (debtError) throw debtError;
       }
 
       return newInvoice;
