@@ -41,11 +41,38 @@ const statusConfig = {
 };
 
 export function InvoiceDetailDialog({ open, onOpenChange, invoiceId }: InvoiceDetailDialogProps) {
-  const { data: invoice, isLoading: invoiceLoading } = useInvoice(invoiceId || undefined);
+  const { data: invoice, isLoading: invoiceLoading, refetch: refetchInvoice } = useInvoice(invoiceId || undefined);
   const { data: items, isLoading: itemsLoading } = useInvoiceItems(invoiceId || undefined);
+  const [retrying, setRetrying] = useState(false);
 
   const isLoading = invoiceLoading || itemsLoading;
   const isSealed = !!invoice?.verifactu_hash;
+  const isPendingVerifactu = !!invoice?.verifactu_pending && !isSealed;
+
+  const handleRetryVerifactu = async () => {
+    if (!invoiceId) return;
+    setRetrying(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('sign-invoice-verifactu', {
+        body: { invoice_id: invoiceId },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      if (data?.success) {
+        toast.success('Factura registrada en AEAT correctamente');
+        refetchInvoice();
+      } else if (data?.pending) {
+        toast.info('AEAT no disponible temporalmente. Se reintentará más tarde.');
+      } else {
+        toast.error('Error inesperado al registrar en AEAT');
+      }
+    } catch (err: any) {
+      console.error('Retry verifactu error:', err);
+      toast.error(err.message || 'Error al registrar en AEAT');
+    } finally {
+      setRetrying(false);
+    }
+  };
 
   const handleCopyQR = () => {
     if (invoice?.verifactu_qr) {
