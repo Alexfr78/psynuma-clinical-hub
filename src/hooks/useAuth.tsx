@@ -32,6 +32,7 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   verifyMfa: (code: string) => Promise<{ error: Error | null }>;
+  revokeTrustedDevices: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -111,6 +112,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
+  const isTrustedDevice = (userId: string): boolean => {
+    try {
+      const raw = localStorage.getItem(`mfa_trusted_device_${userId}`);
+      if (!raw) return false;
+      const parsed = JSON.parse(raw) as { userId: string; expiresAt: number };
+      if (parsed.userId === userId && Date.now() < parsed.expiresAt) {
+        return true;
+      }
+      localStorage.removeItem(`mfa_trusted_device_${userId}`);
+      return false;
+    } catch {
+      return false;
+    }
+  };
+
+  const trustDevice = (userId: string) => {
+    const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
+    const token = { userId, trustedAt: Date.now(), expiresAt: Date.now() + THIRTY_DAYS };
+    localStorage.setItem(`mfa_trusted_device_${userId}`, JSON.stringify(token));
+  };
+
+  const revokeTrustedDevices = () => {
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key?.startsWith('mfa_trusted_device_')) keysToRemove.push(key);
+    }
+    keysToRemove.forEach(k => localStorage.removeItem(k));
+  };
+
   const signIn = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({
       email,
@@ -123,9 +154,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (aalData && aalData.currentLevel === 'aal1' && aalData.nextLevel === 'aal2') {
         const totpFactor = (await supabase.auth.mfa.listFactors()).data?.totp?.[0];
         if (totpFactor) {
-          setMfaFactorId(totpFactor.id);
-          setNeedsMfaVerification(true);
-          needsMfa = true;
+          // Check if this device is trusted
+          const currentUser = (await supabase.auth.getUser()).data.user;
+          if (currentUser && isTrustedDevice(currentUser.id)) {
+            // Skip MFA - device is trusted
+            needsMfa = false;
+          } else {
+            setMfaFactorId(totpFactor.id);
+            setNeedsMfaVerification(true);
+            needsMfa = true;
+          }
         }
       }
     }
@@ -148,6 +186,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         code,
       });
       if (verifyError) return { error: verifyError };
+
+      // Trust this device for 30 days
+      const currentUser = (await supabase.auth.getUser()).data.user;
+      if (currentUser) {
+        trustDevice(currentUser.id);
+      }
 
       setNeedsMfaVerification(false);
       setMfaFactorId(null);
@@ -207,6 +251,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signOut,
         refreshProfile,
         verifyMfa,
+        revokeTrustedDevices,
       }}
     >
       {children}

@@ -4,13 +4,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { useToast } from '@/hooks/use-toast';
-import { Shield, ShieldCheck, ShieldOff, Loader2, QrCode } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+import { Shield, ShieldCheck, ShieldOff, Loader2, QrCode, Smartphone } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 
 type MfaStatus = 'loading' | 'disabled' | 'enrolling' | 'verifying' | 'enabled';
 
 export function SecuritySection() {
   const { toast } = useToast();
+  const { revokeTrustedDevices } = useAuth();
   const [status, setStatus] = useState<MfaStatus>('loading');
   const [qrUri, setQrUri] = useState('');
   const [factorId, setFactorId] = useState('');
@@ -147,18 +149,33 @@ export function SecuritySection() {
                 </p>
               </div>
             </div>
-            <Button
-              variant="destructive"
-              onClick={handleUnenroll}
-              disabled={isProcessing}
-            >
-              {isProcessing ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <ShieldOff className="mr-2 h-4 w-4" />
-              )}
-              Desactivar 2FA
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="destructive"
+                onClick={handleUnenroll}
+                disabled={isProcessing}
+              >
+                {isProcessing ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <ShieldOff className="mr-2 h-4 w-4" />
+                )}
+                Desactivar 2FA
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  revokeTrustedDevices();
+                  toast({
+                    title: 'Dispositivos revocados',
+                    description: 'Todos los dispositivos de confianza han sido eliminados. Se pedirá 2FA en el próximo inicio de sesión.',
+                  });
+                }}
+              >
+                <Smartphone className="mr-2 h-4 w-4" />
+                Revocar dispositivos de confianza
+              </Button>
+            </div>
           </div>
         )}
 
