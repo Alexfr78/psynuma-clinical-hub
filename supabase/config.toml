@@ -161,3 +161,6 @@ verify_jwt = true
 
 [functions.wasender-send-reminders]
 verify_jwt = false
+
+[functions.patient-portal-invoices]
+verify_jwt = false
