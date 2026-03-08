@@ -125,7 +125,7 @@ export function AppSidebar() {
 
   return (
     <>
-      <SidebarHeader className="p-4">
+      <Sidebar className="border-r-0">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-sidebar-primary">
             <Brain className="h-6 w-6 text-sidebar-primary-foreground" />
