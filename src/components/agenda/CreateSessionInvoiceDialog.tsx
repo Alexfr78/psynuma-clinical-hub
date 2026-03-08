@@ -29,6 +29,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { useCenter } from '@/hooks/useCenter';
 import { useInvoiceSeries } from '@/hooks/useInvoiceSeries';
