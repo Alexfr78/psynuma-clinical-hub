@@ -1,16 +1,29 @@
 
 
-## Plan: Fix consent PDF generation - redeploy edge function
+## Problem
 
-### Problem
-The `sanitizeForPdf` fix (removing zero-width spaces U+200B) was added to the code but the edge function wasn't redeployed. The running version is still the old one that crashes on these characters.
+The `SessionDetailDrawer` has a `useEffect` that resets local state (`localDateTime`, `localStatus`, etc.) but its dependency array only watches `session?.id`, `session?.bono_id`, and `session?.price`. When the drawer is closed and reopened for the **same session**, or when session data is refetched with updated values, the local overrides (`localDateTime`, `localStatus`) are never cleared. This causes the drawer to show stale values from a previous edit.
 
-### Solution
-1. **Redeploy `generate-consent-pdf`** edge function - this is the only action needed. The code already contains the fix.
+In your case: you edited date/time at some point, `localDateTime` was set to `{date: '2026-03-10', startTime: '18:00', endTime: '19:00'}`, but the DB actually has `2026-03-04 at 20:00`. Reopening the drawer doesn't reset `localDateTime` because `session.id` hasn't changed.
 
-2. **Additional safety**: Wrap all `drawText` calls that use dynamic data (center name, address, patient name, professional name, signer name) with `sanitizeForPdf()` to prevent any other string from causing the same crash. Currently only the main document content goes through sanitization, but metadata strings are passed raw.
+## Fix
 
-### Changes
-- **`supabase/functions/generate-consent-pdf/index.ts`**: Apply `sanitizeForPdf()` to all dynamic strings passed to `drawText` (center name, address, patient/professional names, signer names, template name, dates)
-- **Redeploy** the edge function
+**File: `src/components/agenda/SessionDetailDrawer.tsx`**
+
+1. **Add the `open` prop to the reset effect's dependency array** — so that every time the drawer opens, all local overrides are cleared and the component reads fresh data from the `session` prop.
+
+2. **Also add `session?.session_date`, `session?.start_time`, `session?.end_time`, and `session?.status`** to the dependency array so that when the query cache updates with new data, local overrides are cleared.
+
+The effect at line ~260 changes from:
+```typescript
+}, [session?.id, session?.bono_id, session?.price]);
+```
+to:
+```typescript
+}, [session?.id, session?.bono_id, session?.price, session?.session_date, session?.start_time, session?.end_time, session?.status, open]);
+```
+
+This ensures that:
+- Opening the drawer always shows the DB values (not stale local edits)
+- When the session query refetches with updated data, local overrides are discarded
 

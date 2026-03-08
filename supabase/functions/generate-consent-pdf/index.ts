@@ -379,7 +379,7 @@ serve(async (req) => {
       });
       
       // Center name next to logo
-      currentPage.drawText(typedConsent.center?.name || 'Centro', {
+      currentPage.drawText(sanitizeForPdf(typedConsent.center?.name || 'Centro'), {
         x: margin + logoWidth + 15,
         y: currentY - 20,
         size: 16,
@@ -395,7 +395,7 @@ serve(async (req) => {
       ].filter(Boolean).join(', ');
       
       if (address) {
-        currentPage.drawText(address, {
+        currentPage.drawText(sanitizeForPdf(address), {
           x: margin + logoWidth + 15,
           y: currentY - 38,
           size: 10,
@@ -407,7 +407,7 @@ serve(async (req) => {
       currentY -= Math.max(logoHeight, 50) + 20;
     } else {
       // No logo, just center name
-      currentPage.drawText(typedConsent.center?.name || 'Centro', {
+      currentPage.drawText(sanitizeForPdf(typedConsent.center?.name || 'Centro'), {
         x: margin,
         y: currentY - 20,
         size: 18,
@@ -427,7 +427,7 @@ serve(async (req) => {
     currentY -= 30;
 
     // Document title
-    const templateName = typedConsent.template?.name || 'Consentimiento Informado';
+    const templateName = sanitizeForPdf(typedConsent.template?.name || 'Consentimiento Informado');
     currentPage.drawText(templateName, {
       x: margin,
       y: currentY,
@@ -458,11 +458,11 @@ serve(async (req) => {
       borderWidth: 1,
     });
 
-    const patientName = `${typedConsent.patient?.first_name || ''} ${typedConsent.patient?.last_name || ''}`.trim();
-    const professionalName = `${typedConsent.professional?.first_name || ''} ${typedConsent.professional?.last_name || ''}`.trim();
-    const signedDate = typedConsent.signed_at 
+    const patientName = sanitizeForPdf(`${typedConsent.patient?.first_name || ''} ${typedConsent.patient?.last_name || ''}`.trim());
+    const professionalName = sanitizeForPdf(`${typedConsent.professional?.first_name || ''} ${typedConsent.professional?.last_name || ''}`.trim());
+    const signedDate = sanitizeForPdf(typedConsent.signed_at 
       ? new Date(typedConsent.signed_at).toLocaleString('es-ES', { timeZone: 'Europe/Madrid' })
-      : new Date().toLocaleString('es-ES', { timeZone: 'Europe/Madrid' });
+      : new Date().toLocaleString('es-ES', { timeZone: 'Europe/Madrid' }));
 
     currentPage.drawText('Paciente:', { x: margin + 10, y: currentY - 20, size: 10, font: helveticaBold, color: rgb(0.12, 0.25, 0.55) });
     currentPage.drawText(patientName, { x: margin + 70, y: currentY - 20, size: 10, font: helvetica, color: rgb(0.12, 0.15, 0.21) });
@@ -560,7 +560,7 @@ serve(async (req) => {
       });
       
       // Name
-      currentPage.drawText(sig.signer_name, {
+      currentPage.drawText(sanitizeForPdf(sig.signer_name), {
         x: xOffset + 10,
         y: currentY - 34,
         size: 10,
@@ -602,7 +602,7 @@ serve(async (req) => {
       }
       
       // Signed date
-      const sigDate = new Date(sig.signed_at).toLocaleString('es-ES', { timeZone: 'Europe/Madrid' });
+      const sigDate = sanitizeForPdf(new Date(sig.signed_at).toLocaleString('es-ES', { timeZone: 'Europe/Madrid' }));
       currentPage.drawText(`Firmado: ${sigDate}`, {
         x: xOffset + 10,
         y: currentY - 92,
