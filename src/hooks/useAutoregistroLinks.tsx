@@ -15,7 +15,7 @@ export interface AutoregistroLink {
   expires_at: string | null;
   created_at: string;
   template?: { name: string };
-  patient?: { first_name: string; last_name: string | null };
+  patient?: { first_name: string; last_name: string | null; phone: string | null };
 }
 
 export function useAutoregistroLinks(opts?: { patientId?: string }) {
@@ -28,7 +28,7 @@ export function useAutoregistroLinks(opts?: { patientId?: string }) {
     queryFn: async () => {
       let q = supabase
         .from('autoregistro_links')
-        .select('*, template:autoregistro_templates(name), patient:patients(first_name, last_name)')
+        .select('*, template:autoregistro_templates(name), patient:patients(first_name, last_name, phone)')
         .eq('center_id', centerId!)
         .order('created_at', { ascending: false });
       if (opts?.patientId) q = q.eq('patient_id', opts.patientId);
