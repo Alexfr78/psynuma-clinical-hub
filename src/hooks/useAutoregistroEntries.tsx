@@ -42,3 +42,27 @@ export function useAutoregistroEntries(opts?: { patientId?: string; templateId?:
     enabled: !!centerId,
   });
 }
+
+export function useDeleteAutoregistroEntries() {
+  const { profile } = useAuth();
+  const centerId = profile?.center_id;
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (patientId: string) => {
+      const { error } = await supabase
+        .from('autoregistro_entries')
+        .delete()
+        .eq('center_id', centerId!)
+        .eq('patient_id', patientId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['autoregistro-entries'] });
+      toast.success('Todos los registros han sido eliminados');
+    },
+    onError: () => {
+      toast.error('Error al eliminar los registros');
+    },
+  });
+}
