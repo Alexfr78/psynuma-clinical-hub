@@ -4596,6 +4596,7 @@ export type Database = {
         Returns: string
       }
       delete_bono_safely: { Args: { p_bono_id: string }; Returns: Json }
+      delete_patient_gdpr: { Args: { p_patient_id: string }; Returns: Json }
       delete_payment_and_recompute_debt_v2: {
         Args: { p_payment_id: string }
         Returns: Json

@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Loader2, Save } from 'lucide-react';
+import { Loader2, Save, ShieldAlert } from 'lucide-react';
 import { validateSpanishTaxId } from '@/lib/nif-validation';
+import { DeletePatientGDPRDialog } from '@/components/patients/DeletePatientGDPRDialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
@@ -575,6 +576,30 @@ export function PatientData({ patient }: PatientDataProps) {
                 </FormItem>
               )}
             />
+          </CardContent>
+        </Card>
+
+        {/* GDPR Danger Zone */}
+        <Card className="border-destructive/30">
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2 text-destructive">
+              <ShieldAlert className="h-4 w-4" />
+              Zona de peligro — RGPD
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <p className="text-sm font-medium">Eliminar contacto y todos sus datos</p>
+                <p className="text-xs text-muted-foreground">
+                  Cumplimiento del derecho de supresión (Art. 17 RGPD). Esta acción es irreversible.
+                </p>
+              </div>
+              <DeletePatientGDPRDialog
+                patientId={patient.id}
+                patientName={`${patient.first_name} ${patient.last_name}`}
+              />
+            </div>
           </CardContent>
         </Card>
       </form>
