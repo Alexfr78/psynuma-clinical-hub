@@ -900,7 +900,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
   // Common tabs content (everything inside Tabs)
   const tabsContent = (
     <Tabs defaultValue="info" className="w-full">
-      <TabsList className="w-full justify-start px-4 sm:px-6 rounded-none border-b bg-transparent h-auto p-0 overflow-x-auto flex-nowrap">
+      <TabsList className="w-full justify-start px-3 sm:px-6 rounded-none border-b bg-transparent h-auto p-0 overflow-x-auto flex-nowrap">
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
