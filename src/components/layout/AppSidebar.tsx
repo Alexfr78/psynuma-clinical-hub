@@ -244,5 +244,8 @@ export function AppSidebar() {
         </div>
       </SidebarFooter>
     </Sidebar>
+
+    <MyProfileDialog open={profileOpen} onOpenChange={setProfileOpen} />
+    </>
   );
 }
