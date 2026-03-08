@@ -44,6 +44,28 @@ export default function PatientPortalDashboard() {
   const [activeTab, setActiveTab] = useState('appointments');
   const [verifying, setVerifying] = useState(false);
   const [rescheduleTarget, setRescheduleTarget] = useState<RescheduleTarget | null>(null);
+  const [invoices, setInvoices] = useState<any[]>([]);
+  const [invoicesLoading, setInvoicesLoading] = useState(false);
+  const [invoicesFetched, setInvoicesFetched] = useState(false);
+
+  const fetchInvoices = useCallback(async () => {
+    const currentToken = localStorage.getItem(`portal_session_${slug}`);
+    if (!currentToken) return;
+    setInvoicesLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('patient-portal-invoices', {
+        body: { action: 'list', sessionToken: currentToken },
+      });
+      if (!error && data?.invoices) {
+        setInvoices(data.invoices);
+      }
+    } catch (e) {
+      console.error('Error fetching invoices:', e);
+    } finally {
+      setInvoicesLoading(false);
+      setInvoicesFetched(true);
+    }
+  }, [slug]);
 
   // Verify magic link token on mount
   useEffect(() => {
