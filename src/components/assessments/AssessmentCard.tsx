@@ -158,7 +158,7 @@ export function AssessmentCard({ assessment, onView, onSend, onRevoke, onDelete 
               </div>
             </div>
 
-            <DropdownMenu>
+            <DropdownMenu modal={false}>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="shrink-0">
                   <MoreVertical className="h-4 w-4" />
