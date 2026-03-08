@@ -109,6 +109,7 @@ export default function AssessmentPublic() {
   const isTrueFalse = responseMax === 1 && responseMin === 0;
   // Detect if this is a BDI-II assessment
   const isBDI2 = template?.code === 'BDI2';
+  const isYBOCS2 = template?.code === 'YBOCS2';
   // Detect if this is a DES (percentage scale 0-100)
   const isDES = template?.code === 'DES';
   // Get response step for slider-based scales (DES uses 10% increments)
