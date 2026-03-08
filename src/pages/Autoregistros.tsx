@@ -124,7 +124,7 @@ export default function Autoregistros() {
           ) : links && links.length > 0 ? (
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {links.map((l) => (
-                <LinkCard key={l.id} link={l} onDeactivate={(id) => deactivateLink.mutate(id)} />
+                <LinkCard key={l.id} link={l} onDeactivate={(id) => deactivateLink.mutate(id)} onDelete={(id) => deleteLink.mutate(id)} />
               ))}
             </div>
           ) : (
