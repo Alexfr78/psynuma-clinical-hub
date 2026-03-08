@@ -15,7 +15,7 @@ export interface AutoregistroLink {
   expires_at: string | null;
   created_at: string;
   template?: { name: string };
-  patient?: { first_name: string; last_name: string | null };
+  patient?: { first_name: string; last_name: string | null; phone: string | null };
 }
 
 export function useAutoregistroLinks(opts?: { patientId?: string }) {
