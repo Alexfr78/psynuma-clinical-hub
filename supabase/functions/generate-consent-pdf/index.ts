@@ -56,6 +56,8 @@ async function generateHash(data: string): Promise<string> {
 // Sanitize text for WinAnsi encoding (StandardFonts compatibility)
 function sanitizeForPdf(text: string): string {
   return text
+    // Remove zero-width and invisible Unicode characters
+    .replace(/[\u200B\u200C\u200D\u200E\u200F\uFEFF\u00AD\u2028\u2029\u202A-\u202F\u2060-\u206F]/g, '')
     // Replace common Unicode symbols with ASCII equivalents
     .replace(/✓/g, '[X]')
     .replace(/✗/g, '[ ]')
@@ -85,7 +87,9 @@ function sanitizeForPdf(text: string): string {
     .replace(/ñ/g, 'n')
     .replace(/Ñ/g, 'N')
     .replace(/ü/g, 'u')
-    .replace(/Ü/g, 'U');
+    .replace(/Ü/g, 'U')
+    // Strip any remaining non-WinAnsi characters (keep basic Latin + Latin-1 Supplement)
+    .replace(/[^\x20-\x7E\xA0-\xFF\n\r\t]/g, '');
 }
 
 // Replace verification placeholder with actual responses
