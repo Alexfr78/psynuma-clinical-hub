@@ -939,6 +939,17 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
           <Tooltip>
             <TooltipTrigger asChild>
               <TabsTrigger
+                value="autoregistros"
+                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-3 sm:px-4 py-3 shrink-0"
+              >
+                {isMobile ? <NotebookPen className="h-4 w-4" /> : 'Autorregistros'}
+              </TabsTrigger>
+            </TooltipTrigger>
+            {isMobile && <TooltipContent>Autorregistros</TooltipContent>}
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <TabsTrigger
                 value="otras"
                 className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-3 sm:px-4 py-3 shrink-0"
               >
