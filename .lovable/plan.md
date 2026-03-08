@@ -1,29 +1,24 @@
 
 
-## Problem
+## Plan: Prerrellenar campos de fecha y hora con valores actuales
 
-The `SessionDetailDrawer` has a `useEffect` that resets local state (`localDateTime`, `localStatus`, etc.) but its dependency array only watches `session?.id`, `session?.bono_id`, and `session?.price`. When the drawer is closed and reopened for the **same session**, or when session data is refetched with updated values, the local overrides (`localDateTime`, `localStatus`) are never cleared. This causes the drawer to show stale values from a previous edit.
+### Cambio
 
-In your case: you edited date/time at some point, `localDateTime` was set to `{date: '2026-03-10', startTime: '18:00', endTime: '19:00'}`, but the DB actually has `2026-03-04 at 20:00`. Reopening the drawer doesn't reset `localDateTime` because `session.id` hasn't changed.
+**`src/components/autoregistros/DynamicFormRenderer.tsx`** — Inicializar el estado `values` con valores por defecto para campos `date` y `time`:
 
-## Fix
+- En el `useState` inicial, recorrer `fields` y para cada campo de tipo `date` asignar `new Date().toISOString().slice(0, 10)` (formato `YYYY-MM-DD`) y para tipo `time` asignar `new Date().toTimeString().slice(0, 5)` (formato `HH:MM`).
+- Esto se calcula una vez al montar el componente usando una función inicializadora en `useState`.
 
-**File: `src/components/agenda/SessionDetailDrawer.tsx`**
-
-1. **Add the `open` prop to the reset effect's dependency array** — so that every time the drawer opens, all local overrides are cleared and the component reads fresh data from the `session` prop.
-
-2. **Also add `session?.session_date`, `session?.start_time`, `session?.end_time`, and `session?.status`** to the dependency array so that when the query cache updates with new data, local overrides are cleared.
-
-The effect at line ~260 changes from:
 ```typescript
-}, [session?.id, session?.bono_id, session?.price]);
-```
-to:
-```typescript
-}, [session?.id, session?.bono_id, session?.price, session?.session_date, session?.start_time, session?.end_time, session?.status, open]);
+const [values, setValues] = useState<Record<string, any>>(() => {
+  const defaults: Record<string, any> = {};
+  for (const field of fields) {
+    if (field.type === 'date') defaults[field.label] = new Date().toISOString().slice(0, 10);
+    if (field.type === 'time') defaults[field.label] = new Date().toTimeString().slice(0, 5);
+  }
+  return defaults;
+});
 ```
 
-This ensures that:
-- Opening the drawer always shows the DB values (not stale local edits)
-- When the session query refetches with updated data, local overrides are discarded
+Un solo cambio en una línea. Sin cambios en backend ni otros archivos.
 
