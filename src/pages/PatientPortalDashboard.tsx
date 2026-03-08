@@ -1,12 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
-import { Loader2, LogOut, CalendarPlus, Calendar, History, User } from 'lucide-react';
+import { Loader2, LogOut, CalendarPlus, Calendar, History, User, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { usePatientPortal } from '@/hooks/usePatientPortal';
 import { PortalAppointments } from '@/components/portal/PortalAppointments';
 import { PortalBooking } from '@/components/portal/PortalBooking';
+import { PortalInvoices } from '@/components/portal/PortalInvoices';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 interface RescheduleTarget {
@@ -42,6 +44,28 @@ export default function PatientPortalDashboard() {
   const [activeTab, setActiveTab] = useState('appointments');
   const [verifying, setVerifying] = useState(false);
   const [rescheduleTarget, setRescheduleTarget] = useState<RescheduleTarget | null>(null);
+  const [invoices, setInvoices] = useState<any[]>([]);
+  const [invoicesLoading, setInvoicesLoading] = useState(false);
+  const [invoicesFetched, setInvoicesFetched] = useState(false);
+
+  const fetchInvoices = useCallback(async () => {
+    const currentToken = localStorage.getItem(`portal_session_${slug}`);
+    if (!currentToken) return;
+    setInvoicesLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('patient-portal-invoices', {
+        body: { action: 'list', sessionToken: currentToken },
+      });
+      if (!error && data?.invoices) {
+        setInvoices(data.invoices);
+      }
+    } catch (e) {
+      console.error('Error fetching invoices:', e);
+    } finally {
+      setInvoicesLoading(false);
+      setInvoicesFetched(true);
+    }
+  }, [slug]);
 
   // Verify magic link token on mount
   useEffect(() => {
@@ -178,7 +202,7 @@ export default function PatientPortalDashboard() {
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={handleTabChange}>
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="appointments" className="flex items-center gap-2">
               <Calendar className="h-4 w-4" />
               <span className="hidden sm:inline">Próximas</span>
@@ -186,6 +210,10 @@ export default function PatientPortalDashboard() {
             <TabsTrigger value="history" className="flex items-center gap-2">
               <History className="h-4 w-4" />
               <span className="hidden sm:inline">Historial</span>
+            </TabsTrigger>
+            <TabsTrigger value="invoices" className="flex items-center gap-2" onClick={() => { if (!invoicesFetched) fetchInvoices(); }}>
+              <FileText className="h-4 w-4" />
+              <span className="hidden sm:inline">Facturas</span>
             </TabsTrigger>
             <TabsTrigger value="booking" className="flex items-center gap-2">
               <CalendarPlus className="h-4 w-4" />
@@ -228,6 +256,24 @@ export default function PatientPortalDashboard() {
                   loading={sessionsLoading}
                   isPast
                   emptyMessage="No tienes citas anteriores"
+                />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="invoices" className="mt-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Facturas</CardTitle>
+                <CardDescription>
+                  Tus facturas emitidas
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <PortalInvoices
+                  invoices={invoices}
+                  loading={invoicesLoading}
+                  sessionToken={localStorage.getItem(`portal_session_${slug}`)}
                 />
               </CardContent>
             </Card>

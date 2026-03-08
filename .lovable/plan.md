@@ -1,40 +1,29 @@
 
 
-# Facturas en el Portal del Paciente
+## Problem
 
-## Resumen
+The `SessionDetailDrawer` has a `useEffect` that resets local state (`localDateTime`, `localStatus`, etc.) but its dependency array only watches `session?.id`, `session?.bono_id`, and `session?.price`. When the drawer is closed and reopened for the **same session**, or when session data is refetched with updated values, the local overrides (`localDateTime`, `localStatus`) are never cleared. This causes the drawer to show stale values from a previous edit.
 
-Añadir una pestaña "Facturas" al portal del paciente donde pueda ver y descargar todas sus facturas emitidas. Se necesita una edge function nueva para servir los datos con el mismo patrón de autenticación por token HMAC que usa el portal.
+In your case: you edited date/time at some point, `localDateTime` was set to `{date: '2026-03-10', startTime: '18:00', endTime: '19:00'}`, but the DB actually has `2026-03-04 at 20:00`. Reopening the drawer doesn't reset `localDateTime` because `session.id` hasn't changed.
 
-## Cambios
+## Fix
 
-### 1. Edge Function: `patient-portal-invoices`
-Nueva función que:
-- Valida el `sessionToken` HMAC (misma lógica que `patient-portal-sessions`)
-- Acción `list`: devuelve facturas del paciente con `status != 'draft'` y `is_valid = true`, incluyendo datos del centro para descarga
-- Acción `download`: genera el PDF de una factura verificando que pertenece al paciente (reutiliza lógica de `generate-invoice-pdf` o invoca la función existente)
+**File: `src/components/agenda/SessionDetailDrawer.tsx`**
 
-### 2. Componente: `src/components/portal/PortalInvoices.tsx`
-- Lista de facturas con número, fecha, importe, estado y badge
-- Botón de descarga PDF por factura (invoca la edge function con acción `download`)
-- Botón para ver factura online (abre `/factura/{access_token}` en nueva pestaña)
-- Estado vacío cuando no hay facturas
-- Mobile-first
+1. **Add the `open` prop to the reset effect's dependency array** — so that every time the drawer opens, all local overrides are cleared and the component reads fresh data from the `session` prop.
 
-### 3. Hook: `src/hooks/usePortalInvoices.tsx`
-- `fetchInvoices(sessionToken)` — llama a la edge function
-- Estado de carga y datos
+2. **Also add `session?.session_date`, `session?.start_time`, `session?.end_time`, and `session?.status`** to the dependency array so that when the query cache updates with new data, local overrides are cleared.
 
-### 4. Modificar: `src/pages/PatientPortalDashboard.tsx`
-- Añadir tab "Facturas" con icono `FileText`
-- Grid de tabs pasa de 3 a 4 columnas
-- Conectar con `PortalInvoices`
+The effect at line ~260 changes from:
+```typescript
+}, [session?.id, session?.bono_id, session?.price]);
+```
+to:
+```typescript
+}, [session?.id, session?.bono_id, session?.price, session?.session_date, session?.start_time, session?.end_time, session?.status, open]);
+```
 
-### 5. Modificar: `src/hooks/usePatientPortal.tsx`
-- Añadir `fetchInvoices` y estado de facturas al hook, o dejar el hook de invoices independiente
-
-## Seguridad
-- La edge function usa `SUPABASE_SERVICE_ROLE_KEY` para queries, validando el token HMAC del paciente
-- Solo se devuelven facturas con `status` distinto de `draft` (no borradores)
-- La descarga de PDF verifica que la factura pertenece al `patient_id` del token
+This ensures that:
+- Opening the drawer always shows the DB values (not stale local edits)
+- When the session query refetches with updated data, local overrides are discarded
 
