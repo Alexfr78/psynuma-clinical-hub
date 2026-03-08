@@ -1,29 +1,22 @@
 
 
-## Problem
+# Registros en formato tabla
 
-The `SessionDetailDrawer` has a `useEffect` that resets local state (`localDateTime`, `localStatus`, etc.) but its dependency array only watches `session?.id`, `session?.bono_id`, and `session?.price`. When the drawer is closed and reopened for the **same session**, or when session data is refetched with updated values, the local overrides (`localDateTime`, `localStatus`) are never cleared. This causes the drawer to show stale values from a previous edit.
+## Cambio
 
-In your case: you edited date/time at some point, `localDateTime` was set to `{date: '2026-03-10', startTime: '18:00', endTime: '19:00'}`, but the DB actually has `2026-03-04 at 20:00`. Reopening the drawer doesn't reset `localDateTime` because `session.id` hasn't changed.
+Reemplazar las tarjetas (`EntryCard`) por una tabla en la pestaña "Registros" de la página principal de Autorregistros y en `PatientAutoregistros`.
 
-## Fix
+## Modificaciones
 
-**File: `src/components/agenda/SessionDetailDrawer.tsx`**
+### 1. `src/pages/Autoregistros.tsx`
+- Reemplazar el mapeo de `EntryCard` por un componente `Table` con columnas: Paciente, Plantilla, Fecha, Campos, y acción de ver detalle
+- Importar `Table, TableHeader, TableBody, TableRow, TableHead, TableCell` de `@/components/ui/table`
+- Cada fila clickeable abre el `EntryDetailDialog` igual que antes
 
-1. **Add the `open` prop to the reset effect's dependency array** — so that every time the drawer opens, all local overrides are cleared and the component reads fresh data from the `session` prop.
+### 2. `src/components/patients/tabs/PatientAutoregistros.tsx`
+- Mismo cambio: reemplazar `EntryCard` por tabla (sin columna "Paciente" ya que es contexto de un solo paciente)
+- Columnas: Plantilla, Fecha, Campos, acción
 
-2. **Also add `session?.session_date`, `session?.start_time`, `session?.end_time`, and `session?.status`** to the dependency array so that when the query cache updates with new data, local overrides are cleared.
-
-The effect at line ~260 changes from:
-```typescript
-}, [session?.id, session?.bono_id, session?.price]);
-```
-to:
-```typescript
-}, [session?.id, session?.bono_id, session?.price, session?.session_date, session?.start_time, session?.end_time, session?.status, open]);
-```
-
-This ensures that:
-- Opening the drawer always shows the DB values (not stale local edits)
-- When the session query refetches with updated data, local overrides are discarded
+### 3. `src/components/autoregistros/EntryCard.tsx`
+- Se mantiene el archivo por si se usa en otros contextos, pero ya no se importará desde las dos vistas principales
 
