@@ -261,6 +261,24 @@ export default function PatientPortalDashboard() {
             </Card>
           </TabsContent>
 
+          <TabsContent value="invoices" className="mt-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Facturas</CardTitle>
+                <CardDescription>
+                  Tus facturas emitidas
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <PortalInvoices
+                  invoices={invoices}
+                  loading={invoicesLoading}
+                  sessionToken={localStorage.getItem(`portal_session_${slug}`)}
+                />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
           <TabsContent value="booking" className="mt-4">
             <PortalBooking
               centerSlug={slug!}
