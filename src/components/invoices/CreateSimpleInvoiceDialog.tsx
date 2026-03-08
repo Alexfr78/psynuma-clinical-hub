@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
@@ -110,6 +111,7 @@ export function CreateSimpleInvoiceDialog({ open, onOpenChange, preselectedPatie
   });
   const [savingPatient, setSavingPatient] = useState(false);
   const [isSigningVerifactu, setIsSigningVerifactu] = useState(false);
+  const [notes, setNotes] = useState('');
 
   // Default tax and retention from center
   const defaultTaxRate = center?.default_tax_rate ?? 0;
@@ -354,6 +356,7 @@ export function CreateSimpleInvoiceDialog({ open, onOpenChange, preselectedPatie
           retention_amount: invoiceTotals.retentionAmount,
           total: invoiceTotals.total,
           status: 'issued',
+          notes: notes.trim() || null,
         },
         items: items.map(item => ({
           description: item.description,
@@ -1015,6 +1018,17 @@ export function CreateSimpleInvoiceDialog({ open, onOpenChange, preselectedPatie
                   <span>{invoiceTotals.total.toFixed(2)}€</span>
                 </div>
               </div>
+            </div>
+
+            {/* Notes */}
+            <div className="space-y-2">
+              <Label>Observaciones (opcional)</Label>
+              <Textarea
+                placeholder="Notas u observaciones para la factura..."
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                rows={2}
+              />
             </div>
 
             {/* Missing Data Warning */}
