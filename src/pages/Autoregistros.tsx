@@ -44,13 +44,17 @@ export default function Autoregistros() {
   const [editingTemplate, setEditingTemplate] = useState<AutoregistroTemplate | null>(null);
   const [selectedEntry, setSelectedEntry] = useState<AutoregistroEntry | null>(null);
   const [filterPatientId, setFilterPatientId] = useState<string>('all');
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
 
   const { data: templates, isLoading: loadingTemplates, deleteTemplate } = useAutoregistroTemplates();
   const { data: links, isLoading: loadingLinks, deactivateLink } = useAutoregistroLinks();
   const { data: patients } = usePatients();
+  const deleteEntries = useDeleteAutoregistroEntries();
   const { data: entries, isLoading: loadingEntries } = useAutoregistroEntries({
     patientId: filterPatientId !== 'all' ? filterPatientId : undefined,
   });
+
+  const selectedPatient = patients?.find((p) => p.id === filterPatientId);
 
   // Get fields from first entry for chart
   const firstTemplate = entries?.[0]?.template;
