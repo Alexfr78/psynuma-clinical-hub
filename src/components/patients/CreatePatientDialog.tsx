@@ -63,7 +63,7 @@ type PatientFormValues = z.infer<typeof patientSchema>;
 export function CreatePatientDialog() {
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
-  const isMobile = useIsMobile();
+  
   const createPatient = useCreatePatient();
   const { data: professionals } = useProfessionals();
 
