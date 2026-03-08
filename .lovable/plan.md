@@ -1,30 +1,29 @@
 
 
-# Mostrar respuestas de campos en la tabla de Registros
+## Problem
 
-## Problema
-La tabla actual muestra metadatos (paciente, plantilla, fecha, conteo de campos) en vez de las respuestas reales del paciente.
+The `SessionDetailDrawer` has a `useEffect` that resets local state (`localDateTime`, `localStatus`, etc.) but its dependency array only watches `session?.id`, `session?.bono_id`, and `session?.price`. When the drawer is closed and reopened for the **same session**, or when session data is refetched with updated values, the local overrides (`localDateTime`, `localStatus`) are never cleared. This causes the drawer to show stale values from a previous edit.
 
-## Solución
-Reemplazar las columnas actuales por columnas dinámicas basadas en los campos de la plantilla. Cada campo del template se convierte en una columna de la tabla mostrando directamente el valor respondido.
+In your case: you edited date/time at some point, `localDateTime` was set to `{date: '2026-03-10', startTime: '18:00', endTime: '19:00'}`, but the DB actually has `2026-03-04 at 20:00`. Reopening the drawer doesn't reset `localDateTime` because `session.id` hasn't changed.
 
-## Modificaciones
+## Fix
 
-### `src/pages/Autoregistros.tsx` — Pestaña "Registros"
+**File: `src/components/agenda/SessionDetailDrawer.tsx`**
 
-1. Mantener columnas fijas: **Paciente**, **Fecha**
-2. Generar columnas dinámicas a partir de los campos del template (usando `entries[0].template.fields` ordenados por `order`)
-3. Para cada entrada, mostrar el valor de `entry.values[field.label]` en la celda correspondiente
-4. Formateo especial por tipo de campo:
-   - `checkbox` → "Sí" / "No"
-   - `scale` → valor + "/10"
-   - resto → valor directo
-5. Mantener fila clickeable para abrir `EntryDetailDialog`
-6. Scroll horizontal si hay muchos campos
+1. **Add the `open` prop to the reset effect's dependency array** — so that every time the drawer opens, all local overrides are cleared and the component reads fresh data from the `session` prop.
 
-### `src/components/patients/tabs/PatientAutoregistros.tsx`
+2. **Also add `session?.session_date`, `session?.start_time`, `session?.end_time`, and `session?.status`** to the dependency array so that when the query cache updates with new data, local overrides are cleared.
 
-Mismo cambio pero sin columna "Paciente" (ya está filtrado por paciente). Columnas: **Fecha** + campos dinámicos del template.
+The effect at line ~260 changes from:
+```typescript
+}, [session?.id, session?.bono_id, session?.price]);
+```
+to:
+```typescript
+}, [session?.id, session?.bono_id, session?.price, session?.session_date, session?.start_time, session?.end_time, session?.status, open]);
+```
 
-> Nota: cuando hay entradas de distintas plantillas mezcladas (sin filtro de paciente), se usarán los campos de la primera entrada como referencia. Los valores de plantillas distintas que no coincidan se mostrarán como "—".
+This ensures that:
+- Opening the drawer always shows the DB values (not stale local edits)
+- When the session query refetches with updated data, local overrides are discarded
 

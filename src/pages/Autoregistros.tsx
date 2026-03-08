@@ -22,6 +22,8 @@ import { LinkCard } from '@/components/autoregistros/LinkCard';
 import { EntryDetailDialog } from '@/components/autoregistros/EntryDetailDialog';
 import { EntryChart } from '@/components/autoregistros/EntryChart';
 import type { AutoregistroEntry } from '@/hooks/useAutoregistroEntries';
+import type { AutoregistroField } from '@/hooks/useAutoregistroTemplates';
+import { formatFieldValue } from '@/lib/autoregistro-format';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -152,45 +154,49 @@ export default function Autoregistros() {
 
           {loadingEntries ? (
             <p className="text-sm text-muted-foreground">Cargando...</p>
-          ) : entries && entries.length > 0 ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Paciente</TableHead>
-                  <TableHead>Plantilla</TableHead>
-                  <TableHead>Fecha</TableHead>
-                  <TableHead className="text-center">Campos</TableHead>
-                  <TableHead className="w-10"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {entries.map((e) => {
-                  const fieldCount = Object.keys(e.values || {}).length;
-                  return (
-                    <TableRow
-                      key={e.id}
-                      className="cursor-pointer"
-                      onClick={() => setSelectedEntry(e)}
-                    >
-                      <TableCell className="font-medium">
-                        {(e.patient as any)?.first_name} {(e.patient as any)?.last_name}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {(e.template as any)?.name}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {format(new Date(e.submitted_at), 'dd MMM yyyy HH:mm', { locale: es })}
-                      </TableCell>
-                      <TableCell className="text-center">{fieldCount}</TableCell>
-                      <TableCell>
-                        <Eye className="h-4 w-4 text-muted-foreground" />
-                      </TableCell>
+          ) : entries && entries.length > 0 ? (() => {
+            const dynamicFields: AutoregistroField[] = [...(entries[0]?.template?.fields ?? [])].sort((a, b) => a.order - b.order);
+            return (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="sticky left-0 bg-background z-10">Paciente</TableHead>
+                      <TableHead>Fecha</TableHead>
+                      {dynamicFields.map((f) => (
+                        <TableHead key={f.label}>{f.label}</TableHead>
+                      ))}
+                      <TableHead className="w-10"></TableHead>
                     </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          ) : (
+                  </TableHeader>
+                  <TableBody>
+                    {entries.map((e) => (
+                      <TableRow
+                        key={e.id}
+                        className="cursor-pointer"
+                        onClick={() => setSelectedEntry(e)}
+                      >
+                        <TableCell className="font-medium sticky left-0 bg-background z-10">
+                          {(e.patient as any)?.first_name} {(e.patient as any)?.last_name}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground whitespace-nowrap">
+                          {format(new Date(e.submitted_at), 'dd MMM yyyy HH:mm', { locale: es })}
+                        </TableCell>
+                        {dynamicFields.map((f) => (
+                          <TableCell key={f.label}>
+                            {formatFieldValue(f, e.values?.[f.label])}
+                          </TableCell>
+                        ))}
+                        <TableCell>
+                          <Eye className="h-4 w-4 text-muted-foreground" />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            );
+          })() : (
             <div className="text-center py-12">
               <p className="text-muted-foreground">No hay registros completados</p>
             </div>
