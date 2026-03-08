@@ -2045,6 +2045,17 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
             )}
           </TabsContent>
 
+          <TabsContent value="autoregistros" className="mt-0 px-4 sm:px-6 py-4">
+            {session.patient_id ? (
+              <PatientAutoregistros patientId={session.patient_id} />
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <NotebookPen className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <p className="text-sm">Asigna un paciente para ver sus autorregistros</p>
+              </div>
+            )}
+          </TabsContent>
+
           <TabsContent value="otras" className="mt-0 px-4 sm:px-6 py-4">
             {session.patient_id ? (
               <PatientSessionHistory
