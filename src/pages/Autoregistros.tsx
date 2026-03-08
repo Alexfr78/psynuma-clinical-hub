@@ -138,7 +138,7 @@ export default function Autoregistros() {
         </TabsContent>
 
         <TabsContent value="entries">
-          <div className="mb-4">
+          <div className="mb-4 flex flex-col sm:flex-row gap-2 sm:items-center">
             <Select value={filterPatientId} onValueChange={setFilterPatientId}>
               <SelectTrigger className="w-full sm:w-64">
                 <SelectValue placeholder="Filtrar por paciente" />
@@ -152,6 +152,16 @@ export default function Autoregistros() {
                 ))}
               </SelectContent>
             </Select>
+            {filterPatientId !== 'all' && entries && entries.length > 0 && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-destructive border-destructive/30 hover:bg-destructive/10"
+                onClick={() => setConfirmDeleteOpen(true)}
+              >
+                <Trash2 className="h-4 w-4 mr-2" /> Borrar todos
+              </Button>
+            )}
           </div>
 
           {entries && entries.length >= 2 && chartFields.length > 0 && (

@@ -22,8 +22,10 @@ interface PatientAutoregistrosProps {
 export function PatientAutoregistros({ patientId }: PatientAutoregistrosProps) {
   const [selectedEntry, setSelectedEntry] = useState<AutoregistroEntry | null>(null);
   const [sendOpen, setSendOpen] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const { data: entries, isLoading } = useAutoregistroEntries({ patientId });
   const { data: links } = useAutoregistroLinks({ patientId });
+  const deleteEntries = useDeleteAutoregistroEntries();
 
   // Get fields from first entry's template for chart
   const firstTemplate = entries?.[0]?.template;
@@ -33,9 +35,21 @@ export function PatientAutoregistros({ patientId }: PatientAutoregistrosProps) {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold">Autorregistros</h3>
-        <Button size="sm" onClick={() => setSendOpen(true)}>
-          <Send className="h-4 w-4 mr-2" /> Enviar
-        </Button>
+        <div className="flex gap-2">
+          {entries && entries.length > 0 && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="text-destructive border-destructive/30 hover:bg-destructive/10"
+              onClick={() => setConfirmDeleteOpen(true)}
+            >
+              <Trash2 className="h-4 w-4 mr-2" /> Borrar todos
+            </Button>
+          )}
+          <Button size="sm" onClick={() => setSendOpen(true)}>
+            <Send className="h-4 w-4 mr-2" /> Enviar
+          </Button>
+        </div>
       </div>
 
       {/* Chart */}
