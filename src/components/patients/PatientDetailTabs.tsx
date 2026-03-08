@@ -37,6 +37,7 @@ const tabOptions = [
   { value: 'bonos', label: 'Bonos' },
   { value: 'consents', label: 'Consentimientos' },
   { value: 'assessments', label: 'Evaluaciones' },
+  { value: 'autoregistros', label: 'Autorregistros' },
 ];
 
 export function PatientDetailTabs({ patient }: PatientDetailTabsProps) {
