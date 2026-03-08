@@ -119,6 +119,7 @@ export default function AssessmentResults() {
   const isDES = templateCode === 'DES';
   const isSTAI = templateCode === 'STAI';
   const isEMO = templateCode === 'EMO';
+  const isYBOCS2 = templateCode === 'YBOCS2';
   const flagThreshold = template.flag_threshold;
   const chartFullMark = template.chart_full_mark;
   
