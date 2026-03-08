@@ -1,26 +1,29 @@
 
 
-# Borrar todos los autorregistros de un paciente
+## Problem
 
-## Solución
+The `SessionDetailDrawer` has a `useEffect` that resets local state (`localDateTime`, `localStatus`, etc.) but its dependency array only watches `session?.id`, `session?.bono_id`, and `session?.price`. When the drawer is closed and reopened for the **same session**, or when session data is refetched with updated values, the local overrides (`localDateTime`, `localStatus`) are never cleared. This causes the drawer to show stale values from a previous edit.
 
-Añadir un botón "Borrar todos" en la pestaña "Registros" que aparece cuando hay un paciente seleccionado y existen entradas. Al pulsarlo, se muestra un `AlertDialog` de confirmación y se eliminan todas las entradas de `autoregistro_entries` filtradas por `patient_id` y `center_id`.
+In your case: you edited date/time at some point, `localDateTime` was set to `{date: '2026-03-10', startTime: '18:00', endTime: '19:00'}`, but the DB actually has `2026-03-04 at 20:00`. Reopening the drawer doesn't reset `localDateTime` because `session.id` hasn't changed.
 
-## Cambios
+## Fix
 
-### 1. `src/hooks/useAutoregistroEntries.tsx`
-- Añadir una mutación `useDeleteAutoregistroEntries` (o exportar `deleteEntries` desde el hook) que ejecute `supabase.from('autoregistro_entries').delete().eq('center_id', centerId).eq('patient_id', patientId)`.
-- Invalidar query `autoregistro-entries` on success.
+**File: `src/components/agenda/SessionDetailDrawer.tsx`**
 
-### 2. RLS — Verificar permisos DELETE
-- Revisar si la tabla `autoregistro_entries` tiene política de DELETE. Si no existe, crear una migración para permitir DELETE a usuarios del centro.
+1. **Add the `open` prop to the reset effect's dependency array** — so that every time the drawer opens, all local overrides are cleared and the component reads fresh data from the `session` prop.
 
-### 3. `src/pages/Autoregistros.tsx`
-- Añadir estado `confirmDeleteOpen`.
-- Cuando `filterPatientId !== 'all'` y hay entradas, mostrar botón "Borrar todos" (icono Trash2, variant destructive/outline) junto al Select de filtro.
-- AlertDialog de confirmación con mensaje "¿Eliminar todos los registros de [nombre paciente]?" y botón destructivo.
-- Al confirmar, ejecutar la mutación y mostrar toast de éxito.
+2. **Also add `session?.session_date`, `session?.start_time`, `session?.end_time`, and `session?.status`** to the dependency array so that when the query cache updates with new data, local overrides are cleared.
 
-### 4. `src/components/patients/tabs/PatientAutoregistros.tsx`
-- Mismo botón "Borrar todos" con AlertDialog, usando el `patientId` prop directamente.
+The effect at line ~260 changes from:
+```typescript
+}, [session?.id, session?.bono_id, session?.price]);
+```
+to:
+```typescript
+}, [session?.id, session?.bono_id, session?.price, session?.session_date, session?.start_time, session?.end_time, session?.status, open]);
+```
+
+This ensures that:
+- Opening the drawer always shows the DB values (not stale local edits)
+- When the session query refetches with updated data, local overrides are discarded
 

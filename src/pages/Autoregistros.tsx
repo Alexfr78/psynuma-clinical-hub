@@ -2,7 +2,11 @@ import { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
-import { Plus, Send, Eye } from 'lucide-react';
+import { Plus, Send, Eye, Trash2 } from 'lucide-react';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import {
   Select,
   SelectContent,
@@ -12,7 +16,7 @@ import {
 } from '@/components/ui/select';
 import { useAutoregistroTemplates, type AutoregistroTemplate } from '@/hooks/useAutoregistroTemplates';
 import { useAutoregistroLinks } from '@/hooks/useAutoregistroLinks';
-import { useAutoregistroEntries } from '@/hooks/useAutoregistroEntries';
+import { useAutoregistroEntries, useDeleteAutoregistroEntries } from '@/hooks/useAutoregistroEntries';
 import { usePatients } from '@/hooks/usePatients';
 import { TemplateCard } from '@/components/autoregistros/TemplateCard';
 import { EditTemplateDialog } from '@/components/autoregistros/EditTemplateDialog';
@@ -40,13 +44,17 @@ export default function Autoregistros() {
   const [editingTemplate, setEditingTemplate] = useState<AutoregistroTemplate | null>(null);
   const [selectedEntry, setSelectedEntry] = useState<AutoregistroEntry | null>(null);
   const [filterPatientId, setFilterPatientId] = useState<string>('all');
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
 
   const { data: templates, isLoading: loadingTemplates, deleteTemplate } = useAutoregistroTemplates();
   const { data: links, isLoading: loadingLinks, deactivateLink } = useAutoregistroLinks();
   const { data: patients } = usePatients();
+  const deleteEntries = useDeleteAutoregistroEntries();
   const { data: entries, isLoading: loadingEntries } = useAutoregistroEntries({
     patientId: filterPatientId !== 'all' ? filterPatientId : undefined,
   });
+
+  const selectedPatient = patients?.find((p) => p.id === filterPatientId);
 
   // Get fields from first entry for chart
   const firstTemplate = entries?.[0]?.template;
@@ -130,7 +138,7 @@ export default function Autoregistros() {
         </TabsContent>
 
         <TabsContent value="entries">
-          <div className="mb-4">
+          <div className="mb-4 flex flex-col sm:flex-row gap-2 sm:items-center">
             <Select value={filterPatientId} onValueChange={setFilterPatientId}>
               <SelectTrigger className="w-full sm:w-64">
                 <SelectValue placeholder="Filtrar por paciente" />
@@ -144,6 +152,16 @@ export default function Autoregistros() {
                 ))}
               </SelectContent>
             </Select>
+            {filterPatientId !== 'all' && entries && entries.length > 0 && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-destructive border-destructive/30 hover:bg-destructive/10"
+                onClick={() => setConfirmDeleteOpen(true)}
+              >
+                <Trash2 className="h-4 w-4 mr-2" /> Borrar todos
+              </Button>
+            )}
           </div>
 
           {entries && entries.length >= 2 && chartFields.length > 0 && (
@@ -211,6 +229,26 @@ export default function Autoregistros() {
           template={editingTemplate}
         />
       )}
+
+      <AlertDialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar todos los registros?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Se eliminarán todos los registros de {selectedPatient?.first_name} {selectedPatient?.last_name}. Esta acción no se puede deshacer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => deleteEntries.mutate(filterPatientId)}
+            >
+              Eliminar todos
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

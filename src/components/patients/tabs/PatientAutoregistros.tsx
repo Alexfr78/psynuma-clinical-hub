@@ -1,8 +1,12 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
-import { Send, Eye } from 'lucide-react';
-import { useAutoregistroEntries } from '@/hooks/useAutoregistroEntries';
+import { Send, Eye, Trash2 } from 'lucide-react';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { useAutoregistroEntries, useDeleteAutoregistroEntries } from '@/hooks/useAutoregistroEntries';
 import { useAutoregistroLinks } from '@/hooks/useAutoregistroLinks';
 import { EntryDetailDialog } from '@/components/autoregistros/EntryDetailDialog';
 import { EntryChart } from '@/components/autoregistros/EntryChart';
@@ -10,8 +14,6 @@ import { SendAutoregistroDialog } from '@/components/autoregistros/SendAutoregis
 import type { AutoregistroEntry } from '@/hooks/useAutoregistroEntries';
 import type { AutoregistroField } from '@/hooks/useAutoregistroTemplates';
 import { formatFieldValue } from '@/lib/autoregistro-format';
-import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
 
 interface PatientAutoregistrosProps {
   patientId: string;
@@ -20,8 +22,10 @@ interface PatientAutoregistrosProps {
 export function PatientAutoregistros({ patientId }: PatientAutoregistrosProps) {
   const [selectedEntry, setSelectedEntry] = useState<AutoregistroEntry | null>(null);
   const [sendOpen, setSendOpen] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const { data: entries, isLoading } = useAutoregistroEntries({ patientId });
   const { data: links } = useAutoregistroLinks({ patientId });
+  const deleteEntries = useDeleteAutoregistroEntries();
 
   // Get fields from first entry's template for chart
   const firstTemplate = entries?.[0]?.template;
@@ -31,9 +35,21 @@ export function PatientAutoregistros({ patientId }: PatientAutoregistrosProps) {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold">Autorregistros</h3>
-        <Button size="sm" onClick={() => setSendOpen(true)}>
-          <Send className="h-4 w-4 mr-2" /> Enviar
-        </Button>
+        <div className="flex gap-2">
+          {entries && entries.length > 0 && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="text-destructive border-destructive/30 hover:bg-destructive/10"
+              onClick={() => setConfirmDeleteOpen(true)}
+            >
+              <Trash2 className="h-4 w-4 mr-2" /> Borrar todos
+            </Button>
+          )}
+          <Button size="sm" onClick={() => setSendOpen(true)}>
+            <Send className="h-4 w-4 mr-2" /> Enviar
+          </Button>
+        </div>
       </div>
 
       {/* Chart */}
@@ -106,6 +122,26 @@ export function PatientAutoregistros({ patientId }: PatientAutoregistrosProps) {
         onOpenChange={setSendOpen}
         preselectedPatientId={patientId}
       />
+
+      <AlertDialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar todos los registros?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Se eliminarán todos los autorregistros de este paciente. Esta acción no se puede deshacer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => deleteEntries.mutate(patientId)}
+            >
+              Eliminar todos
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
