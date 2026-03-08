@@ -68,6 +68,14 @@ export function CreateTemplateDialog({ open, onOpenChange }: CreateTemplateDialo
             <FieldBuilder fields={fields} onChange={setFields} />
           </div>
 
+          <div className="flex items-center justify-between rounded-lg border p-3">
+            <div className="space-y-0.5">
+              <Label htmlFor="feedback-toggle" className="text-sm font-medium">Feedback al paciente</Label>
+              <p className="text-xs text-muted-foreground">Permitir que el paciente vea sus registros anteriores</p>
+            </div>
+            <Switch id="feedback-toggle" checked={feedbackEnabled} onCheckedChange={setFeedbackEnabled} />
+          </div>
+
           <Button
             onClick={handleSubmit}
             disabled={!name.trim() || fields.length === 0 || createTemplate.isPending}

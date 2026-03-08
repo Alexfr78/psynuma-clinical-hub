@@ -71,12 +71,13 @@ export function useAutoregistroTemplates() {
   });
 
   const updateTemplate = useMutation({
-    mutationFn: async (input: { id: string; name?: string; description?: string; fields?: AutoregistroField[]; is_active?: boolean }) => {
+    mutationFn: async (input: { id: string; name?: string; description?: string; fields?: AutoregistroField[]; is_active?: boolean; patient_feedback_enabled?: boolean }) => {
       const updates: any = { updated_at: new Date().toISOString() };
       if (input.name !== undefined) updates.name = input.name;
       if (input.description !== undefined) updates.description = input.description;
       if (input.fields !== undefined) updates.fields = input.fields;
       if (input.is_active !== undefined) updates.is_active = input.is_active;
+      if (input.patient_feedback_enabled !== undefined) updates.patient_feedback_enabled = input.patient_feedback_enabled;
       const { error } = await supabase.from('autoregistro_templates').update(updates).eq('id', input.id);
       if (error) throw error;
     },

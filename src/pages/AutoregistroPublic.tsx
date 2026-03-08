@@ -2,12 +2,13 @@ import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { usePublicAutoregistro } from '@/hooks/usePublicAutoregistro';
 import { DynamicFormRenderer } from '@/components/autoregistros/DynamicFormRenderer';
+import { PatientFeedbackPanel } from '@/components/autoregistros/PatientFeedbackPanel';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { CheckCircle2, AlertCircle } from 'lucide-react';
 
 export default function AutoregistroPublic() {
   const { token } = useParams<{ token: string }>();
-  const { data, isLoading, error, submitEntry } = usePublicAutoregistro(token ?? '');
+  const { data, isLoading, error, submitEntry, entries, feedbackEnabled } = usePublicAutoregistro(token ?? '');
   const [submitted, setSubmitted] = useState(false);
 
   if (isLoading) {
@@ -60,7 +61,7 @@ export default function AutoregistroPublic() {
 
   return (
     <div className="min-h-screen bg-background p-4 flex justify-center">
-      <div className="w-full max-w-lg">
+      <div className="w-full max-w-lg space-y-6">
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">{data.template.name}</CardTitle>
@@ -80,6 +81,10 @@ export default function AutoregistroPublic() {
             />
           </CardContent>
         </Card>
+
+        {feedbackEnabled && entries.length > 0 && (
+          <PatientFeedbackPanel entries={entries} fields={data.template.fields} />
+        )}
       </div>
     </div>
   );
