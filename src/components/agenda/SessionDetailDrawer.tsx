@@ -129,6 +129,7 @@ import { SendConsentDialog } from '@/components/consents/SendConsentDialog';
 import { ConsentCard } from '@/components/consents/ConsentCard';
 import { PatientAssessments } from '@/components/patients/tabs/PatientAssessments';
 import { PatientSessionHistory } from './PatientSessionHistory';
+import { PatientAutoregistros } from '@/components/patients/tabs/PatientAutoregistros';
 
 interface SessionDetailDrawerProps {
   session: SessionWithRelations | null;
