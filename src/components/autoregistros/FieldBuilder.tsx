@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -11,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ArrowUp, ArrowDown, Trash2, Plus } from 'lucide-react';
+import { ArrowUp, ArrowDown, Trash2, Plus, GripVertical } from 'lucide-react';
 import type { AutoregistroField } from '@/hooks/useAutoregistroTemplates';
 
 const FIELD_TYPES = [
@@ -31,6 +31,9 @@ interface FieldBuilderProps {
 }
 
 export function FieldBuilder({ fields, onChange }: FieldBuilderProps) {
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+
   const addField = () => {
     onChange([
       ...fields,
@@ -55,12 +58,59 @@ export function FieldBuilder({ fields, onChange }: FieldBuilderProps) {
     onChange(next.map((f, i) => ({ ...f, order: i })));
   };
 
+  const handleDragStart = (index: number) => {
+    setDragIndex(index);
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    if (dragIndex === null || dragIndex === index) return;
+    setDragOverIndex(index);
+  };
+
+  const handleDrop = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    if (dragIndex === null || dragIndex === index) {
+      setDragIndex(null);
+      setDragOverIndex(null);
+      return;
+    }
+    const next = [...fields];
+    const [moved] = next.splice(dragIndex, 1);
+    next.splice(index, 0, moved);
+    onChange(next.map((f, i) => ({ ...f, order: i })));
+    setDragIndex(null);
+    setDragOverIndex(null);
+  };
+
+  const handleDragEnd = () => {
+    setDragIndex(null);
+    setDragOverIndex(null);
+  };
+
   return (
     <div className="space-y-3">
       {fields.map((field, index) => (
-        <Card key={index} className="border border-border">
+        <Card
+          key={index}
+          draggable
+          onDragStart={() => handleDragStart(index)}
+          onDragOver={(e) => handleDragOver(e, index)}
+          onDrop={(e) => handleDrop(e, index)}
+          onDragEnd={handleDragEnd}
+          className={`border transition-all ${
+            dragIndex === index ? 'opacity-40' : ''
+          } ${
+            dragOverIndex === index && dragIndex !== index
+              ? 'border-primary ring-1 ring-primary/30'
+              : 'border-border'
+          }`}
+        >
           <CardContent className="p-3 space-y-3">
             <div className="flex items-center gap-2">
+              <div className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground transition-colors">
+                <GripVertical className="h-5 w-5" />
+              </div>
               <Input
                 placeholder="Nombre del campo"
                 value={field.label}
