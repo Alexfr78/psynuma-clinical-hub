@@ -23,6 +23,7 @@ export function CreateTemplateDialog({ open, onOpenChange }: CreateTemplateDialo
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [fields, setFields] = useState<AutoregistroField[]>([]);
+  const [feedbackEnabled, setFeedbackEnabled] = useState(false);
   const { createTemplate } = useAutoregistroTemplates();
 
   const handleSubmit = () => {
