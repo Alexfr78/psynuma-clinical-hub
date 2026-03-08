@@ -356,6 +356,7 @@ export function CreateSimpleInvoiceDialog({ open, onOpenChange, preselectedPatie
           retention_amount: invoiceTotals.retentionAmount,
           total: invoiceTotals.total,
           status: 'issued',
+          notes: notes.trim() || null,
         },
         items: items.map(item => ({
           description: item.description,
