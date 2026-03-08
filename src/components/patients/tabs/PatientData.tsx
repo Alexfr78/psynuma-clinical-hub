@@ -578,6 +578,30 @@ export function PatientData({ patient }: PatientDataProps) {
             />
           </CardContent>
         </Card>
+
+        {/* GDPR Danger Zone */}
+        <Card className="border-destructive/30">
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2 text-destructive">
+              <ShieldAlert className="h-4 w-4" />
+              Zona de peligro — RGPD
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <p className="text-sm font-medium">Eliminar contacto y todos sus datos</p>
+                <p className="text-xs text-muted-foreground">
+                  Cumplimiento del derecho de supresión (Art. 17 RGPD). Esta acción es irreversible.
+                </p>
+              </div>
+              <DeletePatientGDPRDialog
+                patientId={patient.id}
+                patientName={`${patient.first_name} ${patient.last_name}`}
+              />
+            </div>
+          </CardContent>
+        </Card>
       </form>
     </Form>
   );
