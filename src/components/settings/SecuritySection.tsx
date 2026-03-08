@@ -141,20 +141,21 @@ export function SecuritySection() {
       <CardContent className="space-y-6">
         {status === 'enabled' && (
           <div className="space-y-4">
-            <div className="flex items-center gap-3 rounded-lg border border-green-200 bg-green-50 p-4 dark:border-green-900 dark:bg-green-950">
-              <ShieldCheck className="h-6 w-6 text-green-600 dark:text-green-400" />
-              <div>
+            <div className="flex items-start gap-3 rounded-lg border border-green-200 bg-green-50 p-3 sm:p-4 dark:border-green-900 dark:bg-green-950">
+              <ShieldCheck className="h-6 w-6 shrink-0 text-green-600 dark:text-green-400" />
+              <div className="min-w-0">
                 <p className="font-medium text-green-800 dark:text-green-200">2FA activado</p>
-                <p className="text-sm text-green-600 dark:text-green-400">
+                <p className="text-sm text-green-600 dark:text-green-400 break-words">
                   Tu cuenta está protegida con autenticación de doble factor.
                 </p>
               </div>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <Button
                 variant="destructive"
                 onClick={handleUnenroll}
                 disabled={isProcessing}
+                className="w-full sm:w-auto"
               >
                 {isProcessing ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -165,6 +166,7 @@ export function SecuritySection() {
               </Button>
               <Button
                 variant="outline"
+                className="w-full sm:w-auto"
                 onClick={() => {
                   revokeTrustedDevices();
                   toast({
@@ -174,7 +176,7 @@ export function SecuritySection() {
                 }}
               >
                 <Smartphone className="mr-2 h-4 w-4" />
-                Revocar dispositivos de confianza
+                Revocar dispositivos
               </Button>
             </div>
           </div>
@@ -182,16 +184,16 @@ export function SecuritySection() {
 
         {status === 'disabled' && (
           <div className="space-y-4">
-            <div className="flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950">
-              <Shield className="h-6 w-6 text-amber-600 dark:text-amber-400" />
-              <div>
+            <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 sm:p-4 dark:border-amber-900 dark:bg-amber-950">
+              <Shield className="h-6 w-6 shrink-0 text-amber-600 dark:text-amber-400" />
+              <div className="min-w-0">
                 <p className="font-medium text-amber-800 dark:text-amber-200">2FA no activado</p>
-                <p className="text-sm text-amber-600 dark:text-amber-400">
+                <p className="text-sm text-amber-600 dark:text-amber-400 break-words">
                   Añade una capa extra de seguridad a tu cuenta usando una app autenticadora como Google Authenticator o Authy.
                 </p>
               </div>
             </div>
-            <Button onClick={handleEnroll} disabled={isProcessing}>
+            <Button onClick={handleEnroll} disabled={isProcessing} className="w-full sm:w-auto">
               {isProcessing ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
@@ -209,8 +211,8 @@ export function SecuritySection() {
               <p className="text-sm text-muted-foreground">
                 Abre tu app autenticadora (Google Authenticator, Authy, etc.) y escanea este código QR.
               </p>
-              <div className="flex justify-center rounded-lg border bg-white p-6">
-                <QRCodeSVG value={qrUri} size={200} />
+              <div className="flex justify-center rounded-lg border bg-white p-4 sm:p-6">
+                <QRCodeSVG value={qrUri} size={180} />
               </div>
             </div>
 
@@ -237,9 +239,10 @@ export function SecuritySection() {
               </div>
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <Button
                 variant="outline"
+                className="w-full sm:w-auto"
                 onClick={() => {
                   setStatus('disabled');
                   setVerifyCode('');
@@ -250,6 +253,7 @@ export function SecuritySection() {
               <Button
                 onClick={handleVerifyEnrollment}
                 disabled={verifyCode.length !== 6 || isProcessing}
+                className="w-full sm:w-auto"
               >
                 {isProcessing ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
