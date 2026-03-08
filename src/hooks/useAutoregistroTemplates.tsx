@@ -19,6 +19,7 @@ export interface AutoregistroTemplate {
   description: string | null;
   fields: AutoregistroField[];
   is_active: boolean;
+  patient_feedback_enabled: boolean;
   created_at: string;
   updated_at: string;
 }
