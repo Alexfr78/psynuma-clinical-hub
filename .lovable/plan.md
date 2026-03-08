@@ -1,29 +1,29 @@
 
 
-## Problem
+## Plan: Unificar formato de factura PDF con la vista web
 
-The `SessionDetailDrawer` has a `useEffect` that resets local state (`localDateTime`, `localStatus`, etc.) but its dependency array only watches `session?.id`, `session?.bono_id`, and `session?.price`. When the drawer is closed and reopened for the **same session**, or when session data is refetched with updated values, the local overrides (`localDateTime`, `localStatus`) are never cleared. This causes the drawer to show stale values from a previous edit.
+**Problema**: El HTML generado por la edge function `generate-invoice-pdf` tiene un diseño distinto (línea azul, tipografía formal, sin badges) al de la vista web (`InvoiceView.tsx`) que es la que prefieres.
 
-In your case: you edited date/time at some point, `localDateTime` was set to `{date: '2026-03-10', startTime: '18:00', endTime: '19:00'}`, but the DB actually has `2026-03-04 at 20:00`. Reopening the drawer doesn't reset `localDateTime` because `session.id` hasn't changed.
+**Solución**: Reescribir la función `generateInvoiceHTML` en la edge function para que produzca un HTML visualmente idéntico a la vista web.
 
-## Fix
+### Cambios
 
-**File: `src/components/agenda/SessionDetailDrawer.tsx`**
+1. **`supabase/functions/generate-invoice-pdf/index.ts`** — Reescribir `generateInvoiceHTML()`:
+   - Fondo gris claro (`#f8fafc`) con tarjeta blanca centrada con bordes redondeados y sombra
+   - Cabecera con logo a la izquierda, tipo de documento + número a la derecha
+   - Sección "Datos del cliente" con fondo `muted` y borde redondeado
+   - Tabla de conceptos con columnas: Concepto, Cant., Precio, IVA, IRPF, Total
+   - Totales alineados a la derecha con separador antes del total final en azul/primario
+   - Sección de notas con borde superior
+   - QR Verifactu con badge y texto descriptivo
+   - Footer del centro con texto centrado
+   - Tipografía, colores y espaciado replicando exactamente los estilos de Tailwind usados en `InvoiceView.tsx`
 
-1. **Add the `open` prop to the reset effect's dependency array** — so that every time the drawer opens, all local overrides are cleared and the component reads fresh data from the `session` prop.
+2. **Redesplegar** la edge function tras el cambio
 
-2. **Also add `session?.session_date`, `session?.start_time`, `session?.end_time`, and `session?.status`** to the dependency array so that when the query cache updates with new data, local overrides are cleared.
-
-The effect at line ~260 changes from:
-```typescript
-}, [session?.id, session?.bono_id, session?.price]);
-```
-to:
-```typescript
-}, [session?.id, session?.bono_id, session?.price, session?.session_date, session?.start_time, session?.end_time, session?.status, open]);
-```
-
-This ensures that:
-- Opening the drawer always shows the DB values (not stale local edits)
-- When the session query refetches with updated data, local overrides are discarded
+### Detalle técnico
+- Se mantiene toda la lógica de fetching de datos, imágenes y QR base64 sin cambios
+- Solo se modifica el template HTML y CSS dentro de `generateInvoiceHTML()`
+- Los estilos CSS replicarán los valores de Tailwind: `text-primary` → `#2563eb`, `bg-muted/30` → `#f8fafc`, badges con bordes redondeados, etc.
+- Se incluye `@media print` para eliminar padding extra al imprimir
 
