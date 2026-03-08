@@ -122,6 +122,26 @@ export function PatientAutoregistros({ patientId }: PatientAutoregistrosProps) {
         onOpenChange={setSendOpen}
         preselectedPatientId={patientId}
       />
+
+      <AlertDialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar todos los registros?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Se eliminarán todos los autorregistros de este paciente. Esta acción no se puede deshacer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => deleteEntries.mutate(patientId)}
+            >
+              Eliminar todos
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -229,6 +229,26 @@ export default function Autoregistros() {
           template={editingTemplate}
         />
       )}
+
+      <AlertDialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar todos los registros?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Se eliminarán todos los registros de {selectedPatient?.first_name} {selectedPatient?.last_name}. Esta acción no se puede deshacer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => deleteEntries.mutate(filterPatientId)}
+            >
+              Eliminar todos
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
