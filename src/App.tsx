@@ -170,6 +170,11 @@ const App = () => (
                 <AppLayout><AssessmentResults /></AppLayout>
               </ProtectedRoute>
             } />
+            <Route path="/autorregistros" element={
+              <ProtectedRoute>
+                <AppLayout><Autoregistros /></AppLayout>
+              </ProtectedRoute>
+            } />
             
             <Route path="*" element={<NotFound />} />
           </Routes>

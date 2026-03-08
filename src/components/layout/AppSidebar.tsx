@@ -45,6 +45,7 @@ const mainNavItems = [
   { title: 'Sesiones', url: '/sesiones', icon: FileText },
   { title: 'Consents.', url: '/consentimientos', icon: FileSignature },
   { title: 'Evaluaciones', url: '/evaluaciones', icon: ClipboardCheck },
+  { title: 'Autorregistros', url: '/autorregistros', icon: NotebookPen },
 ];
 
 const financeNavItems = [
