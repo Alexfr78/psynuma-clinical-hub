@@ -117,14 +117,14 @@ export function ConsentCard({ consent }: ConsentCardProps) {
                   </DropdownMenuItem>
                 </>
               )}
-              {consent.status === 'signed' && consent.signed_pdf_url && (
-                <DropdownMenuItem asChild>
-                  <a href={consent.signed_pdf_url} target="_blank" rel="noopener noreferrer">
-                    <Download className="mr-2 h-4 w-4" />
-                    Descargar PDF
-                  </a>
-                </DropdownMenuItem>
-              )}
+              <DropdownMenuItem onClick={handleDownloadPdf} disabled={generatingPdf}>
+                {generatingPdf ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="mr-2 h-4 w-4" />
+                )}
+                Descargar PDF
+              </DropdownMenuItem>
               {consent.status === 'signed' && (
                 <>
                   <DropdownMenuSeparator />

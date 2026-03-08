@@ -313,14 +313,14 @@ export function ConsentDetailDialog({
 
           {/* Actions */}
           <div className="flex justify-end gap-3 pt-4">
-            {consent.status === 'signed' && consent.signed_pdf_url && (
-              <Button asChild>
-                <a href={consent.signed_pdf_url} target="_blank" rel="noopener noreferrer">
-                  <Download className="mr-2 h-4 w-4" />
-                  Descargar PDF
-                </a>
-              </Button>
-            )}
+            <Button onClick={handleDownloadPdf} disabled={generatingPdf}>
+              {generatingPdf ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="mr-2 h-4 w-4" />
+              )}
+              Descargar PDF
+            </Button>
             {consent.status === 'pending' && !isExpired && (
               <Button asChild variant="outline">
                 <a
