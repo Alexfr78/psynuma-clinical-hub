@@ -150,6 +150,12 @@ export default function Autoregistros() {
         onOpenChange={(v) => !v && setSelectedEntry(null)}
         entry={selectedEntry}
       />
+
+      <EditTemplateDialog
+        open={!!editingTemplate}
+        onOpenChange={(v) => !v && setEditingTemplate(null)}
+        template={editingTemplate}
+      />
     </div>
   );
 }
