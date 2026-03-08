@@ -19,6 +19,7 @@ import { DCIResultsView } from '@/components/assessments/DCIResultsView';
 import { DESResultsView } from '@/components/assessments/DESResultsView';
 import { STAIResultsView } from '@/components/assessments/STAIResultsView';
 import { EMOResultsView } from '@/components/assessments/EMOResultsView';
+import { YBOCS2ResultsView } from '@/components/assessments/YBOCS2ResultsView';
 import { MMPI2RFInterpretation } from '@/hooks/useMMPI2RFInterpretation';
 import { usePAIInterpretation, PAIInterpretation } from '@/hooks/usePAIInterpretation';
 import {
