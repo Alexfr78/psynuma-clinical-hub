@@ -47,7 +47,7 @@ export default function Autoregistros() {
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
 
   const { data: templates, isLoading: loadingTemplates, deleteTemplate } = useAutoregistroTemplates();
-  const { data: links, isLoading: loadingLinks, deactivateLink } = useAutoregistroLinks();
+  const { data: links, isLoading: loadingLinks, deactivateLink, deleteLink } = useAutoregistroLinks();
   const { data: patients } = usePatients();
   const deleteEntries = useDeleteAutoregistroEntries();
   const { data: entries, isLoading: loadingEntries } = useAutoregistroEntries({
