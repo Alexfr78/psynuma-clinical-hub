@@ -132,11 +132,43 @@ export default function Autoregistros() {
           {loadingEntries ? (
             <p className="text-sm text-muted-foreground">Cargando...</p>
           ) : entries && entries.length > 0 ? (
-            <div className="space-y-2">
-              {entries.map((e) => (
-                <EntryCard key={e.id} entry={e} onClick={() => setSelectedEntry(e)} />
-              ))}
-            </div>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Paciente</TableHead>
+                  <TableHead>Plantilla</TableHead>
+                  <TableHead>Fecha</TableHead>
+                  <TableHead className="text-center">Campos</TableHead>
+                  <TableHead className="w-10"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {entries.map((e) => {
+                  const fieldCount = Object.keys(e.values || {}).length;
+                  return (
+                    <TableRow
+                      key={e.id}
+                      className="cursor-pointer"
+                      onClick={() => setSelectedEntry(e)}
+                    >
+                      <TableCell className="font-medium">
+                        {(e.patient as any)?.first_name} {(e.patient as any)?.last_name}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {(e.template as any)?.name}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {format(new Date(e.submitted_at), 'dd MMM yyyy HH:mm', { locale: es })}
+                      </TableCell>
+                      <TableCell className="text-center">{fieldCount}</TableCell>
+                      <TableCell>
+                        <Eye className="h-4 w-4 text-muted-foreground" />
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
           ) : (
             <div className="text-center py-12">
               <p className="text-muted-foreground">No hay registros completados</p>
