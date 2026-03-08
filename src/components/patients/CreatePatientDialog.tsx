@@ -508,6 +508,6 @@ export function CreatePatientDialog() {
           </form>
         </Form>
       </DialogContent>
-    </Dialog>
+    </Wrapper>
   );
 }
