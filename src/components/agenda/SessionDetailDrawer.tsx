@@ -31,6 +31,7 @@ import {
   RefreshCw,
   FileSignature,
   ClipboardCheck,
+  NotebookPen,
 } from 'lucide-react';
 import {
   Sheet,
