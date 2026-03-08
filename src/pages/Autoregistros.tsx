@@ -13,6 +13,7 @@ import {
 import { useAutoregistroTemplates, type AutoregistroTemplate } from '@/hooks/useAutoregistroTemplates';
 import { useAutoregistroLinks } from '@/hooks/useAutoregistroLinks';
 import { useAutoregistroEntries } from '@/hooks/useAutoregistroEntries';
+import { usePatients } from '@/hooks/usePatients';
 import { TemplateCard } from '@/components/autoregistros/TemplateCard';
 import { EditTemplateDialog } from '@/components/autoregistros/EditTemplateDialog';
 import { CreateTemplateDialog } from '@/components/autoregistros/CreateTemplateDialog';
@@ -36,10 +37,14 @@ export default function Autoregistros() {
   const [sendOpen, setSendOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<AutoregistroTemplate | null>(null);
   const [selectedEntry, setSelectedEntry] = useState<AutoregistroEntry | null>(null);
+  const [filterPatientId, setFilterPatientId] = useState<string>('all');
 
   const { data: templates, isLoading: loadingTemplates, deleteTemplate } = useAutoregistroTemplates();
   const { data: links, isLoading: loadingLinks, deactivateLink } = useAutoregistroLinks();
-  const { data: entries, isLoading: loadingEntries } = useAutoregistroEntries();
+  const { data: patients } = usePatients();
+  const { data: entries, isLoading: loadingEntries } = useAutoregistroEntries({
+    patientId: filterPatientId !== 'all' ? filterPatientId : undefined,
+  });
 
   // Get fields from first entry for chart
   const firstTemplate = entries?.[0]?.template;
@@ -123,6 +128,22 @@ export default function Autoregistros() {
         </TabsContent>
 
         <TabsContent value="entries">
+          <div className="mb-4">
+            <Select value={filterPatientId} onValueChange={setFilterPatientId}>
+              <SelectTrigger className="w-full sm:w-64">
+                <SelectValue placeholder="Filtrar por paciente" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos los pacientes</SelectItem>
+                {patients?.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.first_name} {p.last_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           {entries && entries.length >= 2 && chartFields.length > 0 && (
             <div className="mb-4">
               <EntryChart entries={entries} fields={chartFields} />
