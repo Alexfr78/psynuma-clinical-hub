@@ -141,12 +141,19 @@ export function FieldBuilder({ fields, onChange }: FieldBuilderProps) {
             {field.type === 'select' && (
               <Input
                 placeholder="Opciones separadas por coma"
-                value={(field.options ?? []).join(', ')}
+                value={getOptionsText(index, field)}
                 onChange={(e) =>
-                  updateField(index, {
-                    options: e.target.value.split(',').map((s) => s.trim()).filter(Boolean),
-                  })
+                  setOptionsTextMap((prev) => ({ ...prev, [index]: e.target.value }))
                 }
+                onBlur={() => {
+                  const raw = optionsTextMap[index];
+                  if (raw !== undefined) {
+                    updateField(index, {
+                      options: raw.split(',').map((s) => s.trim()).filter(Boolean),
+                    });
+                    setOptionsTextMap((prev) => { const n = { ...prev }; delete n[index]; return n; });
+                  }
+                }}
               />
             )}
 
