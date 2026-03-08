@@ -79,6 +79,7 @@ const App = () => (
             <Route path="/pagar/:token" element={<PayDebt />} />
             <Route path="/pago-exitoso" element={<PaymentSuccess />} />
             <Route path="/derivaciones/:centerSlug/registro" element={<PublicReferralRegister />} />
+            <Route path="/registro/:token" element={<AutoregistroPublic />} />
             
             {/* Protected Routes */}
             <Route path="/dashboard" element={
