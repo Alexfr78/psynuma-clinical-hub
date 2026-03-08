@@ -144,7 +144,7 @@ export default function AssessmentPublic() {
           {items.map((item, idx) => (
             <Card key={item.index} className={answers[item.index] !== undefined ? 'border-primary/30' : ''}>
               <CardContent className="pt-6">
-                {isBDI2 ? (
+                {(isBDI2 || isYBOCS2) ? (
                   <BDI2ItemRenderer
                     item={{
                       index: item.index,

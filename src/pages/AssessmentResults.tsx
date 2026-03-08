@@ -460,6 +460,55 @@ export default function AssessmentResults() {
             </AccordionItem>
           </Accordion>
         </>
+      ) : isYBOCS2 && hasResults ? (
+        /* Y-BOCS-II: Use specialized view */
+        <>
+          <YBOCS2ResultsView
+            totalScore={factorScores['TOTAL'] ?? 0}
+            obsessionScore={factorScores['OBSESIONES']}
+            compulsionScore={factorScores['COMPULSIONES']}
+          />
+          {/* Detailed answers accordion */}
+          <Accordion type="single" collapsible>
+            <AccordionItem value="answers">
+              <AccordionTrigger className="text-lg font-semibold">
+                Ver respuestas detalladas ({Object.keys(answers).length} ítems)
+              </AccordionTrigger>
+              <AccordionContent>
+                <div className="grid gap-2 pt-2">
+                  {template.items
+                    .sort((a: { index: number }, b: { index: number }) => a.index - b.index)
+                    .map((item: { index: number; text: string; options?: Array<{ value: number; text: string }> }) => {
+                      const answer = answers[item.index.toString()];
+                      const options = item.options as Array<{ value: number; text: string }> | undefined;
+                      const selectedOption = options?.find(opt => opt.value === answer);
+                      return (
+                        <div 
+                          key={item.index} 
+                          className="flex justify-between items-start py-2 border-b last:border-b-0 gap-4"
+                        >
+                          <span className="text-sm flex-1">
+                            <span className="font-medium mr-2">{item.index}.</span>
+                            {item.text}
+                          </span>
+                          <div className="shrink-0 text-right">
+                            <Badge variant="outline" className="font-mono">
+                              {answer !== undefined ? answer : '—'}
+                            </Badge>
+                            {selectedOption && (
+                              <p className="text-xs text-muted-foreground mt-1 max-w-[200px]">
+                                {selectedOption.text}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+        </>
       ) : isEMO && hasResults ? (
         /* EMO: Use specialized view for Emotional Regulation Interview */
         <EMOResultsView
