@@ -13,6 +13,7 @@ import {
 import { useAutoregistroTemplates, type AutoregistroTemplate } from '@/hooks/useAutoregistroTemplates';
 import { useAutoregistroLinks } from '@/hooks/useAutoregistroLinks';
 import { useAutoregistroEntries } from '@/hooks/useAutoregistroEntries';
+import { usePatients } from '@/hooks/usePatients';
 import { TemplateCard } from '@/components/autoregistros/TemplateCard';
 import { EditTemplateDialog } from '@/components/autoregistros/EditTemplateDialog';
 import { CreateTemplateDialog } from '@/components/autoregistros/CreateTemplateDialog';
