@@ -161,8 +161,6 @@ export default function Autoregistros() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="sticky left-0 bg-background z-10">Paciente</TableHead>
-                      <TableHead>Fecha</TableHead>
                       {dynamicFields.map((f) => (
                         <TableHead key={f.label}>{f.label}</TableHead>
                       ))}
@@ -176,12 +174,6 @@ export default function Autoregistros() {
                         className="cursor-pointer"
                         onClick={() => setSelectedEntry(e)}
                       >
-                        <TableCell className="font-medium sticky left-0 bg-background z-10">
-                          {(e.patient as any)?.first_name} {(e.patient as any)?.last_name}
-                        </TableCell>
-                        <TableCell className="text-muted-foreground whitespace-nowrap">
-                          {format(new Date(e.submitted_at), 'dd MMM yyyy HH:mm', { locale: es })}
-                        </TableCell>
                         {dynamicFields.map((f) => (
                           <TableCell key={f.label}>
                             {formatFieldValue(f, e.values?.[f.label])}
