@@ -54,7 +54,7 @@ export function ConsentCard({ consent }: ConsentCardProps) {
               <FileText className={`h-5 w-5 ${displayStatus.color.replace('bg-', 'text-')}`} />
             </div>
             <div className="min-w-0 flex-1">
-              <h3 className="truncate font-semibold">
+              <h3 className="font-semibold break-words">
                 {consent.template?.name || 'Consentimiento'}
               </h3>
               <p className="text-xs text-muted-foreground">
