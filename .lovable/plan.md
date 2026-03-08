@@ -1,29 +1,38 @@
 
 
-## Problem
+## Plan: Acceso directo "Añadir a pantalla de inicio" en Autoregistro Público
 
-The `SessionDetailDrawer` has a `useEffect` that resets local state (`localDateTime`, `localStatus`, etc.) but its dependency array only watches `session?.id`, `session?.bono_id`, and `session?.price`. When the drawer is closed and reopened for the **same session**, or when session data is refetched with updated values, the local overrides (`localDateTime`, `localStatus`) are never cleared. This causes the drawer to show stale values from a previous edit.
+### Contexto
+La página pública de autoregistro (`/autoregistro/:token`) es visitada por pacientes desde el móvil. Queremos que la primera vez que entran, se les ofrezca crear un acceso directo en la pantalla de inicio para acceder más rápido.
 
-In your case: you edited date/time at some point, `localDateTime` was set to `{date: '2026-03-10', startTime: '18:00', endTime: '19:00'}`, but the DB actually has `2026-03-04 at 20:00`. Reopening the drawer doesn't reset `localDateTime` because `session.id` hasn't changed.
+### Enfoque técnico
+Usar la **Web App Install Prompt API** (`beforeinstallprompt`). Esta API permite interceptar el evento de instalación de PWA y mostrarlo de forma personalizada. Sin embargo, dado que cada autoregistro es una URL con token específico, la alternativa más fiable y universal (funciona en iOS y Android) es mostrar un **banner informativo** con instrucciones para añadir a la pantalla de inicio, ya que iOS Safari no soporta `beforeinstallprompt`.
 
-## Fix
+**Solución híbrida:**
+1. **Android/Chrome**: Capturar el evento `beforeinstallprompt` y ofrecer el botón de instalación nativo.
+2. **iOS/Safari**: Mostrar instrucciones visuales ("Pulsa Compartir → Añadir a pantalla de inicio").
+3. **Control de primera vez**: Guardar en `localStorage` un flag `autoregistro_install_dismissed_{token}` para no volver a mostrar el banner tras descartarlo.
 
-**File: `src/components/agenda/SessionDetailDrawer.tsx`**
+### Cambios
 
-1. **Add the `open` prop to the reset effect's dependency array** — so that every time the drawer opens, all local overrides are cleared and the component reads fresh data from the `session` prop.
+#### 1. Crear hook `src/hooks/useInstallPrompt.tsx`
+- Escucha el evento `beforeinstallprompt` y guarda la referencia.
+- Detecta si es iOS (User Agent).
+- Expone: `canInstall`, `isIOS`, `promptInstall()`, `dismissed`, `dismiss()`.
+- Usa `localStorage` con clave basada en token para recordar si se descartó.
 
-2. **Also add `session?.session_date`, `session?.start_time`, `session?.end_time`, and `session?.status`** to the dependency array so that when the query cache updates with new data, local overrides are cleared.
+#### 2. Crear componente `src/components/autoregistros/InstallBanner.tsx`
+- Banner compacto que aparece arriba del formulario.
+- En Android: botón "Añadir a inicio" que llama a `promptInstall()`.
+- En iOS: instrucciones con icono de compartir.
+- Botón X para descartar (guarda en localStorage).
+- Solo se muestra la primera vez (si no fue descartado previamente).
 
-The effect at line ~260 changes from:
-```typescript
-}, [session?.id, session?.bono_id, session?.price]);
-```
-to:
-```typescript
-}, [session?.id, session?.bono_id, session?.price, session?.session_date, session?.start_time, session?.end_time, session?.status, open]);
-```
+#### 3. Modificar `src/pages/AutoregistroPublic.tsx`
+- Importar y renderizar `InstallBanner` dentro del layout principal, encima de la Card del formulario.
 
-This ensures that:
-- Opening the drawer always shows the DB values (not stale local edits)
-- When the session query refetches with updated data, local overrides are discarded
+### Archivos afectados
+- `src/hooks/useInstallPrompt.tsx` (nuevo)
+- `src/components/autoregistros/InstallBanner.tsx` (nuevo)
+- `src/pages/AutoregistroPublic.tsx` (minor: añadir banner)
 
