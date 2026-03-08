@@ -47,7 +47,7 @@ export function useAutoregistroTemplates() {
   });
 
   const createTemplate = useMutation({
-    mutationFn: async (input: { name: string; description?: string; fields: AutoregistroField[] }) => {
+    mutationFn: async (input: { name: string; description?: string; fields: AutoregistroField[]; patient_feedback_enabled?: boolean }) => {
       const { data, error } = await supabase
         .from('autoregistro_templates')
         .insert({
@@ -56,6 +56,7 @@ export function useAutoregistroTemplates() {
           name: input.name,
           description: input.description || null,
           fields: input.fields as any,
+          patient_feedback_enabled: input.patient_feedback_enabled ?? false,
         })
         .select()
         .single();
