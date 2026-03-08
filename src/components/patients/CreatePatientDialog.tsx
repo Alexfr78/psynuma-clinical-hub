@@ -500,5 +500,6 @@ export function CreatePatientDialog() {
         </Form>
       </DialogContent>
     </ResponsiveDialog>
+    </>
   );
 }
