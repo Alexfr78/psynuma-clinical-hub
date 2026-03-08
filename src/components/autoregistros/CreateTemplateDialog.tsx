@@ -32,13 +32,14 @@ export function CreateTemplateDialog({ open, onOpenChange }: CreateTemplateDialo
     if (fields.some((f) => !f.label.trim())) return;
 
     createTemplate.mutate(
-      { name: name.trim(), description: description.trim() || undefined, fields },
+      { name: name.trim(), description: description.trim() || undefined, fields, patient_feedback_enabled: feedbackEnabled },
       {
         onSuccess: () => {
           onOpenChange(false);
           setName('');
           setDescription('');
           setFields([]);
+          setFeedbackEnabled(false);
         },
       }
     );
