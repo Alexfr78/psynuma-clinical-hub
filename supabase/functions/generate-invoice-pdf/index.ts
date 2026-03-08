@@ -267,43 +267,37 @@ function generateInvoiceHTML(
 ): string {
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
-    return date.toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' });
+    const months = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+    return `${date.getDate()} de ${months[date.getMonth()]} de ${date.getFullYear()}`;
   };
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(amount);
   };
 
-  // Use unified invoice document type label
   const invoiceTypeLabel = getInvoiceDocumentTypeLabel(invoice, series);
 
-  // Generate QR section if verifactu is configured and QR base64 is available
-  const qrSection = invoice.verifactu_qr && qrBase64 ? `
-    <div class="qr-section">
-      <div class="qr-container">
-        <img src="${qrBase64}" alt="QR Verifactu" class="qr-image" />
-        <div class="qr-info">
-          <p class="qr-title">Verificación AEAT</p>
-          <p class="qr-text">Escanea este código QR para verificar la autenticidad de esta factura en la Agencia Tributaria</p>
-          ${invoice.verifactu_registration_id ? `<p class="qr-csv">CSV: ${invoice.verifactu_registration_id}</p>` : ''}
-        </div>
-      </div>
-      <div class="verifactu-badge">
-        <span>✓ Factura VeriFactu</span>
-      </div>
-    </div>
-  ` : '';
+  // Build badge HTML for document type flags
+  const isSimplified = series?.invoice_type === 'simplified';
+  const isRectifying = !!invoice.rectified_invoice_id || series?.series_type === 'rectifying';
+  const isSubstitution = invoice.rectification_type === 'substitution';
+  const isRecapitulativa = !!invoice.is_recapitulative;
 
-  // Generate rectified invoice reference
+  let flagBadges = '';
+  if (isSimplified) flagBadges += '<span class="badge">Simplificada</span>';
+  if (isRectifying) flagBadges += `<span class="badge">${isSubstitution ? 'Sustitutiva' : 'Por diferencias'}</span>`;
+  if (isRecapitulativa) flagBadges += '<span class="badge">Recapitulativa</span>';
+
   const rectifiedSection = rectifiedInvoice ? `
     <div class="rectified-info">
       <p><strong>Factura rectificada:</strong> ${rectifiedInvoice.invoice_number} del ${formatDate(rectifiedInvoice.issue_date)}</p>
     </div>
   ` : '';
 
-  // Calculate totals from items
   const totalTax = items.reduce((sum, item) => sum + (Number(item.tax_amount) || 0), 0);
   const totalRetention = items.reduce((sum, item) => sum + (Number(item.retention_amount) || 0), 0);
+  const avgTaxRate = items.length > 0 ? items.find(i => (i.tax_rate || 0) > 0)?.tax_rate || 0 : 0;
+  const avgRetentionRate = items.length > 0 ? items.find(i => (i.retention_rate || 0) > 0)?.retention_rate || 0 : 0;
 
   return `
 <!DOCTYPE html>
@@ -313,145 +307,253 @@ function generateInvoiceHTML(
   <title>Factura ${invoice.invoice_number}</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 12px; line-height: 1.5; color: #333; padding: 30px; }
-    .invoice { max-width: 800px; margin: 0 auto; }
-    .header { display: flex; justify-content: space-between; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 2px solid #2563eb; }
-    .company-info h1 { font-size: 20px; color: #2563eb; margin-bottom: 6px; }
-    .company-info p { font-size: 11px; color: #666; margin-bottom: 2px; }
-    .invoice-info { text-align: right; }
-    .invoice-info h2 { font-size: 22px; color: #2563eb; margin-bottom: 6px; }
-    .invoice-info .invoice-type { font-size: 10px; color: #666; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
-    .invoice-info p { font-size: 11px; color: #666; margin-bottom: 2px; }
-    .parties { display: flex; justify-content: space-between; margin-bottom: 30px; }
-    .party { width: 45%; }
-    .party h3 { font-size: 10px; text-transform: uppercase; color: #666; margin-bottom: 6px; letter-spacing: 1px; }
-    .party p { margin-bottom: 3px; font-size: 11px; }
-    .rectified-info { background: #fef3c7; border: 1px solid #f59e0b; padding: 10px; margin-bottom: 20px; border-radius: 4px; }
-    .rectified-info p { font-size: 11px; color: #92400e; }
-    .items { margin-bottom: 30px; }
-    .items table { width: 100%; border-collapse: collapse; }
-    .items th { background: #f8fafc; padding: 10px 8px; text-align: left; font-size: 10px; text-transform: uppercase; color: #666; border-bottom: 2px solid #e2e8f0; }
-    .items td { padding: 10px 8px; border-bottom: 1px solid #e2e8f0; font-size: 11px; }
-    .items .amount { text-align: right; }
-    .totals { display: flex; justify-content: flex-end; margin-bottom: 30px; }
-    .totals-table { width: 280px; }
-    .totals-table tr td { padding: 6px 0; font-size: 11px; }
-    .totals-table tr td:last-child { text-align: right; }
-    .totals-table .subtotal { border-top: 1px solid #e2e8f0; padding-top: 10px; }
-    .totals-table .total { font-size: 14px; font-weight: bold; color: #2563eb; border-top: 2px solid #2563eb; padding-top: 10px; }
-    .notes { margin-bottom: 30px; padding: 12px; background: #f8fafc; border-radius: 6px; }
-    .notes p { font-size: 11px; color: #666; }
-    .qr-section { margin-top: 30px; padding-top: 20px; border-top: 1px solid #e2e8f0; }
-    .qr-container { display: flex; align-items: flex-start; gap: 15px; }
-    .qr-image { width: 100px; height: 100px; border: 1px solid #e2e8f0; }
-    .qr-info { flex: 1; }
-    .qr-title { font-weight: bold; font-size: 12px; color: #2563eb; margin-bottom: 4px; }
-    .qr-text { font-size: 10px; color: #666; margin-bottom: 4px; }
-    .qr-csv { font-size: 9px; color: #999; font-family: monospace; }
-    .verifactu-badge { margin-top: 10px; }
-    .verifactu-badge span { display: inline-block; background: #dcfce7; color: #166534; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 500; }
-    .footer { text-align: center; font-size: 10px; color: #999; border-top: 1px solid #e2e8f0; padding-top: 20px; margin-top: 30px; }
-    .footer .custom-footer { margin-bottom: 10px; color: #666; }
-    @media print { body { padding: 15px; } }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
+      color: #0f172a;
+      background: #f8fafc;
+      padding: 32px;
+    }
+    .container { max-width: 800px; margin: 0 auto; }
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 1px 3px 0 rgba(0,0,0,0.1), 0 1px 2px -1px rgba(0,0,0,0.1);
+      border: 1px solid #e2e8f0;
+      padding: 40px;
+    }
+    .space-y-8 > * + * { margin-top: 32px; }
+
+    /* Header */
+    .header { display: flex; justify-content: space-between; gap: 24px; }
+    .header-left { flex: 1; }
+    .header-left img { max-height: 64px; object-fit: contain; margin-bottom: 16px; }
+    .header-left h2 { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+    .header-left .meta { font-size: 13px; color: #64748b; }
+    .header-left .meta p { margin-bottom: 2px; }
+    .header-right { text-align: right; flex-shrink: 0; }
+    .header-right h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+    .header-right .inv-number { font-size: 20px; font-weight: 600; color: #2563eb; margin-bottom: 8px; }
+    .header-right .dates { font-size: 13px; color: #64748b; }
+    .header-right .dates p { margin-bottom: 4px; }
+    .header-right .dates span.label { font-weight: 500; }
+
+    /* Badges */
+    .badges { display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-end; margin-top: 8px; }
+    .badge {
+      display: inline-block;
+      font-size: 11px;
+      padding: 2px 8px;
+      border: 1px solid #e2e8f0;
+      border-radius: 9999px;
+      color: #475569;
+      background: #fff;
+    }
+
+    /* Client info */
+    .client-box {
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 16px;
+      background: rgba(248,250,252,0.5);
+    }
+    .client-box h3 { font-size: 14px; font-weight: 600; margin-bottom: 8px; }
+    .client-box .info { font-size: 13px; }
+    .client-box .info p { margin-bottom: 2px; }
+    .client-box .info .name { font-weight: 500; }
+
+    /* Rectified info */
+    .rectified-info {
+      background: #fef3c7;
+      border: 1px solid #f59e0b;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      color: #92400e;
+    }
+
+    /* Items table */
+    .items-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .items-table th {
+      text-align: left;
+      padding: 12px 8px;
+      border-bottom: 1px solid #e2e8f0;
+      font-weight: 500;
+      color: #0f172a;
+    }
+    .items-table th.right, .items-table td.right { text-align: right; }
+    .items-table td {
+      padding: 12px 8px;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    .items-table td.right.bold { font-weight: 500; }
+
+    /* Totals */
+    .totals-wrapper { display: flex; justify-content: flex-end; }
+    .totals { width: 256px; }
+    .totals .row { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 8px; }
+    .totals .row.muted { color: #64748b; }
+    .totals .total-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 18px;
+      font-weight: 700;
+      border-top: 1px solid #e2e8f0;
+      padding-top: 8px;
+      margin-top: 4px;
+    }
+    .totals .total-row .amount { color: #2563eb; }
+
+    /* Notes */
+    .notes { border-top: 1px solid #e2e8f0; padding-top: 16px; }
+    .notes h4 { font-size: 14px; font-weight: 500; margin-bottom: 8px; }
+    .notes p { font-size: 13px; color: #64748b; white-space: pre-wrap; }
+
+    /* QR section */
+    .qr-section { border-top: 1px solid #e2e8f0; padding-top: 16px; display: flex; align-items: center; gap: 16px; }
+    .qr-section img { width: 96px; height: 96px; }
+    .qr-section .qr-text { font-size: 12px; color: #64748b; }
+    .qr-section .qr-text p.title { font-weight: 500; color: #475569; margin-bottom: 2px; }
+
+    /* Footer */
+    .footer {
+      border-top: 1px solid #e2e8f0;
+      padding-top: 16px;
+      text-align: center;
+      font-size: 12px;
+      color: #64748b;
+      white-space: pre-wrap;
+    }
+
+    @media print {
+      body { background: #fff; padding: 16px; }
+      .card { box-shadow: none; border: none; padding: 0; }
+    }
   </style>
 </head>
 <body>
-  <div class="invoice">
-    <div class="header">
-      <div class="company-info">
-        ${logoBase64 ? `<img src="${logoBase64}" alt="Logo" style="max-height: 60px; margin-bottom: 8px;" />` : ''}
-        <h1>${invoice.centers?.name || 'Centro'}</h1>
-        ${invoice.centers?.tax_id ? `<p>NIF: ${invoice.centers.tax_id}</p>` : ''}
-        ${invoice.centers?.address ? `<p>${invoice.centers.address}</p>` : ''}
-        ${invoice.centers?.city || invoice.centers?.postal_code ? `<p>${invoice.centers.postal_code || ''} ${invoice.centers.city || ''}</p>` : ''}
-        ${invoice.centers?.phone ? `<p>Tel: ${invoice.centers.phone}</p>` : ''}
-        ${invoice.centers?.email ? `<p>${invoice.centers.email}</p>` : ''}
-      </div>
-      <div class="invoice-info">
-        <p class="invoice-type">${invoiceTypeLabel}</p>
-        <h2>${invoice.invoice_number}</h2>
-        <p><strong>Fecha:</strong> ${formatDate(invoice.issue_date)}</p>
-        ${invoice.due_date ? `<p><strong>Vencimiento:</strong> ${formatDate(invoice.due_date)}</p>` : ''}
-      </div>
-    </div>
+  <div class="container">
+    <div class="card">
+      <div class="space-y-8">
 
-    ${rectifiedSection}
+        <!-- Header -->
+        <div class="header">
+          <div class="header-left">
+            ${logoBase64 ? `<img src="${logoBase64}" alt="Logo" />` : ''}
+            <h2>${invoice.centers?.name || 'Centro'}</h2>
+            <div class="meta">
+              ${invoice.centers?.tax_id ? `<p>NIF: ${invoice.centers.tax_id}</p>` : ''}
+              ${invoice.centers?.address ? `<p>${invoice.centers.address}</p>` : ''}
+              ${invoice.centers?.city || invoice.centers?.postal_code ? `<p>${[invoice.centers.postal_code, invoice.centers.city].filter(Boolean).join(' ')}</p>` : ''}
+              ${invoice.centers?.phone ? `<p>Tel: ${invoice.centers.phone}</p>` : ''}
+              ${invoice.centers?.email ? `<p>${invoice.centers.email}</p>` : ''}
+            </div>
+          </div>
+          <div class="header-right">
+            <h1>${invoiceTypeLabel}</h1>
+            <p class="inv-number">${invoice.invoice_number}</p>
+            <div class="dates">
+              <p><span class="label">Fecha emisión:</span> ${formatDate(invoice.issue_date)}</p>
+              ${invoice.due_date ? `<p><span class="label">Fecha vencimiento:</span> ${formatDate(invoice.due_date)}</p>` : ''}
+            </div>
+            ${flagBadges ? `<div class="badges">${flagBadges}</div>` : ''}
+          </div>
+        </div>
 
-    <div class="parties">
-      <div class="party">
-        <h3>Facturar a</h3>
-        <p><strong>${invoice.patients.first_name} ${invoice.patients.last_name}</strong></p>
-        ${invoice.patients.tax_id ? `<p>NIF: ${invoice.patients.tax_id}</p>` : ''}
-        ${invoice.patients.address ? `<p>${invoice.patients.address}</p>` : ''}
-        ${invoice.patients.city || invoice.patients.postal_code ? `<p>${invoice.patients.postal_code || ''} ${invoice.patients.city || ''}</p>` : ''}
-        ${invoice.patients.email ? `<p>${invoice.patients.email}</p>` : ''}
-      </div>
-    </div>
+        ${rectifiedSection}
 
-    <div class="items">
-      <table>
-        <thead>
-          <tr>
-            <th style="width: 40%">Descripción</th>
-            <th class="amount">Cantidad</th>
-            <th class="amount">Precio Unit.</th>
-            <th class="amount">IVA</th>
-            <th class="amount">Ret.</th>
-            <th class="amount">Importe</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${items.map(item => `
-          <tr>
-            <td>${item.description}</td>
-            <td class="amount">${item.quantity}</td>
-            <td class="amount">${formatCurrency(item.unit_price)}</td>
-            <td class="amount">${item.tax_rate ? `${item.tax_rate}%` : '-'}</td>
-            <td class="amount">${item.retention_rate ? `${item.retention_rate}%` : '-'}</td>
-            <td class="amount">${formatCurrency(item.total)}</td>
-          </tr>
-          `).join('')}
-        </tbody>
-      </table>
-    </div>
+        <!-- Client info -->
+        <div class="client-box">
+          <h3>Datos del cliente</h3>
+          <div class="info">
+            <p class="name">${invoice.patients.first_name} ${invoice.patients.last_name}</p>
+            ${invoice.patients.tax_id ? `<p>NIF/CIF: ${invoice.patients.tax_id}</p>` : ''}
+            ${invoice.patients.address ? `<p>${invoice.patients.address}</p>` : ''}
+            ${invoice.patients.city || invoice.patients.postal_code ? `<p>${[invoice.patients.postal_code, invoice.patients.city].filter(Boolean).join(' ')}</p>` : ''}
+            ${invoice.patients.email ? `<p>${invoice.patients.email}</p>` : ''}
+          </div>
+        </div>
 
-    <div class="totals">
-      <table class="totals-table">
-        <tr class="subtotal">
-          <td>Base imponible:</td>
-          <td>${formatCurrency(invoice.subtotal)}</td>
-        </tr>
-        ${totalTax > 0 ? `
-        <tr>
-          <td>IVA:</td>
-          <td>${formatCurrency(totalTax)}</td>
-        </tr>
+        <!-- Items table -->
+        <div>
+          <table class="items-table">
+            <thead>
+              <tr>
+                <th>Concepto</th>
+                <th class="right" style="width:64px">Cant.</th>
+                <th class="right" style="width:96px">Precio</th>
+                <th class="right" style="width:64px">IVA</th>
+                <th class="right" style="width:64px">IRPF</th>
+                <th class="right" style="width:96px">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${items.map(item => `
+              <tr>
+                <td>${item.description}</td>
+                <td class="right">${item.quantity}</td>
+                <td class="right">${formatCurrency(item.unit_price)}</td>
+                <td class="right">${item.tax_rate ? `${item.tax_rate}%` : '-'}</td>
+                <td class="right">${item.retention_rate ? `-${item.retention_rate}%` : '-'}</td>
+                <td class="right bold">${formatCurrency(item.total)}</td>
+              </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Totals -->
+        <div class="totals-wrapper">
+          <div class="totals">
+            <div class="row">
+              <span>Base imponible:</span>
+              <span>${formatCurrency(invoice.subtotal)}</span>
+            </div>
+            ${totalTax > 0 ? `
+            <div class="row">
+              <span>IVA${avgTaxRate ? ` (${avgTaxRate}%)` : ''}:</span>
+              <span>${formatCurrency(totalTax)}</span>
+            </div>
+            ` : ''}
+            ${totalRetention > 0 ? `
+            <div class="row muted">
+              <span>Retención IRPF${avgRetentionRate ? ` (${avgRetentionRate}%)` : ''}:</span>
+              <span>-${formatCurrency(totalRetention)}</span>
+            </div>
+            ` : ''}
+            <div class="total-row">
+              <span>Total:</span>
+              <span class="amount">${formatCurrency(invoice.total)}</span>
+            </div>
+          </div>
+        </div>
+
+        ${invoice.notes ? `
+        <!-- Notes -->
+        <div class="notes">
+          <h4>Observaciones</h4>
+          <p>${invoice.notes}</p>
+        </div>
         ` : ''}
-        ${totalRetention > 0 ? `
-        <tr>
-          <td>Retención IRPF:</td>
-          <td>-${formatCurrency(totalRetention)}</td>
-        </tr>
+
+        ${invoice.verifactu_qr && qrBase64 ? `
+        <!-- QR Verifactu -->
+        <div class="qr-section">
+          <img src="${qrBase64}" alt="Código QR Verifactu" />
+          <div class="qr-text">
+            <p class="title">Factura registrada en Verifactu</p>
+            <p>Puede verificar la autenticidad de esta factura escaneando el código QR</p>
+          </div>
+        </div>
         ` : ''}
-        <tr class="total">
-          <td>TOTAL:</td>
-          <td>${formatCurrency(invoice.total)}</td>
-        </tr>
-      </table>
-    </div>
 
-    ${invoice.notes ? `
-    <div class="notes">
-      <p><strong>Notas:</strong> ${invoice.notes}</p>
-    </div>
-    ` : ''}
+        ${invoice.centers?.invoice_footer ? `
+        <!-- Footer -->
+        <div class="footer">${invoice.centers.invoice_footer}</div>
+        ` : ''}
 
-    ${qrSection}
-
-    <div class="footer">
-      ${invoice.centers?.invoice_footer ? `<p class="custom-footer">${invoice.centers.invoice_footer}</p>` : ''}
-      <p>Factura generada por Psycma · Sistema de Gestión Clínica</p>
-      ${invoice.verifactu_hash ? `<p style="font-size: 8px; color: #999; margin-top: 5px;">Hash: ${invoice.verifactu_hash.substring(0, 32)}...</p>` : ''}
+      </div>
     </div>
   </div>
 </body>
