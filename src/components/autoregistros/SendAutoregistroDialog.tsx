@@ -19,7 +19,9 @@ import {
 import { useAutoregistroTemplates } from '@/hooks/useAutoregistroTemplates';
 import { useAutoregistroLinks } from '@/hooks/useAutoregistroLinks';
 import { usePatients } from '@/hooks/usePatients';
-import { Copy, Check } from 'lucide-react';
+import { useWhatsAppDelivery } from '@/hooks/useWhatsAppDelivery';
+import { useAuth } from '@/hooks/useAuth';
+import { Copy, Check, MessageCircle, Loader2 } from 'lucide-react';
 
 interface SendAutoregistroDialogProps {
   open: boolean;
@@ -34,12 +36,16 @@ export function SendAutoregistroDialog({ open, onOpenChange, preselectedPatientI
   const [expiresAt, setExpiresAt] = useState('');
   const [generatedLink, setGeneratedLink] = useState('');
   const [copied, setCopied] = useState(false);
+  const [sendingWa, setSendingWa] = useState(false);
 
   const { data: templates } = useAutoregistroTemplates();
   const { createLink } = useAutoregistroLinks();
   const { data: patients } = usePatients();
+  const { sendWhatsApp, getManualLink } = useWhatsAppDelivery();
+  const { profile } = useAuth();
 
   const activeTemplates = (templates ?? []).filter((t) => t.is_active);
+  const selectedPatient = (patients ?? []).find((p) => p.id === patientId);
 
   const handleCreate = () => {
     if (!templateId || !patientId) return;
@@ -63,6 +69,37 @@ export function SendAutoregistroDialog({ open, onOpenChange, preselectedPatientI
     navigator.clipboard.writeText(generatedLink);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleWhatsApp = async () => {
+    if (!selectedPatient || !generatedLink) return;
+    const patientName = `${selectedPatient.first_name} ${selectedPatient.last_name ?? ''}`.trim();
+    const message = `Hola ${selectedPatient.first_name}, aquí tienes el enlace para tu autorregistro:\n${generatedLink}`;
+    const phone = (selectedPatient as any).phone as string | null;
+
+    if (!phone) {
+      const manualLink = getManualLink('', message);
+      window.open(manualLink, '_blank');
+      return;
+    }
+
+    setSendingWa(true);
+    try {
+      const { result, manualLink } = await sendWhatsApp({
+        phone,
+        message,
+        patientId: selectedPatient.id,
+        patientName,
+        centerId: profile?.center_id ?? '',
+        messageType: 'autoregistro_link',
+      });
+
+      if (!result.autoSent && manualLink) {
+        window.open(manualLink, '_blank');
+      }
+    } finally {
+      setSendingWa(false);
+    }
   };
 
   const handleClose = (val: boolean) => {
@@ -92,7 +129,15 @@ export function SendAutoregistroDialog({ open, onOpenChange, preselectedPatientI
                 {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
               </Button>
             </div>
-            <Button variant="outline" className="w-full" onClick={() => handleClose(false)}>
+            <Button variant="outline" className="w-full" onClick={handleWhatsApp} disabled={sendingWa}>
+              {sendingWa ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <MessageCircle className="mr-2 h-4 w-4" />
+              )}
+              Enviar por WhatsApp
+            </Button>
+            <Button variant="ghost" className="w-full" onClick={() => handleClose(false)}>
               Cerrar
             </Button>
           </div>
