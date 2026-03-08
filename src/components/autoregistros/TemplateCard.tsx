@@ -1,12 +1,13 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Trash2, FileText } from 'lucide-react';
+import { Trash2, FileText, Pencil } from 'lucide-react';
 import type { AutoregistroTemplate } from '@/hooks/useAutoregistroTemplates';
 
 interface TemplateCardProps {
   template: AutoregistroTemplate;
   onDelete: (id: string) => void;
+  onEdit: (template: AutoregistroTemplate) => void;
 }
 
 const TYPE_LABELS: Record<string, string> = {
@@ -20,7 +21,7 @@ const TYPE_LABELS: Record<string, string> = {
   scale: 'Escala',
 };
 
-export function TemplateCard({ template, onDelete }: TemplateCardProps) {
+export function TemplateCard({ template, onDelete, onEdit }: TemplateCardProps) {
   return (
     <Card>
       <CardHeader className="pb-2">
@@ -29,9 +30,14 @@ export function TemplateCard({ template, onDelete }: TemplateCardProps) {
             <FileText className="h-4 w-4 text-primary shrink-0" />
             <CardTitle className="text-base truncate">{template.name}</CardTitle>
           </div>
-          <Button variant="ghost" size="icon" className="shrink-0" onClick={() => onDelete(template.id)}>
-            <Trash2 className="h-4 w-4 text-destructive" />
-          </Button>
+          <div className="flex shrink-0">
+            <Button variant="ghost" size="icon" onClick={() => onEdit(template)}>
+              <Pencil className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="icon" onClick={() => onDelete(template.id)}>
+              <Trash2 className="h-4 w-4 text-destructive" />
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="pt-0">
