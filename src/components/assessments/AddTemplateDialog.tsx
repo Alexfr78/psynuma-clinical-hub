@@ -11,6 +11,7 @@ import { getDCITemplateData } from '@/data/dci-template';
 import { getDESTemplateData } from '@/data/des-template';
 import { getSTAITemplateData } from '@/data/stai-template';
 import { getEMOTemplateData } from '@/data/emo-template';
+import { getYBOCS2TemplateData } from '@/data/ybocs2-template';
 import { toast } from 'sonner';
 
 interface AddTemplateDialogProps {
