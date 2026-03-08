@@ -602,7 +602,7 @@ serve(async (req) => {
       }
       
       // Signed date
-      const sigDate = new Date(sig.signed_at).toLocaleString('es-ES', { timeZone: 'Europe/Madrid' });
+      const sigDate = sanitizeForPdf(new Date(sig.signed_at).toLocaleString('es-ES', { timeZone: 'Europe/Madrid' }));
       currentPage.drawText(`Firmado: ${sigDate}`, {
         x: xOffset + 10,
         y: currentY - 92,
