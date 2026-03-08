@@ -14,6 +14,7 @@ import { PatientInvoices } from './tabs/PatientInvoices';
 import { PatientBonos } from './tabs/PatientBonos';
 import { PatientConsents } from './tabs/PatientConsents';
 import { PatientAssessments } from './tabs/PatientAssessments';
+import { PatientAutoregistros } from './tabs/PatientAutoregistros';
 import { Patient } from '@/hooks/usePatients';
 
 interface PatientDetailTabsProps {
