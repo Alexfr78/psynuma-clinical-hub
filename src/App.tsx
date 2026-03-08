@@ -39,6 +39,8 @@ import PayDebt from "./pages/PayDebt";
 import PaymentSuccess from "./pages/PaymentSuccess";
 import PublicReferralRegister from "./pages/PublicReferralRegister";
 import Referrals from "./pages/Referrals";
+import Autoregistros from "./pages/Autoregistros";
+import AutoregistroPublic from "./pages/AutoregistroPublic";
 
 const queryClient = new QueryClient();
 
