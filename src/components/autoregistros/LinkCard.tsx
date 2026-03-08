@@ -53,6 +53,14 @@ export function LinkCard({ link, onDeactivate, onDelete }: LinkCardProps) {
               <XCircle className="h-3 w-3 mr-1" /> Desactivar
             </Button>
           )}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+            onClick={() => onDelete(link.id)}
+          >
+            <Trash2 className="h-3 w-3 mr-1" /> Eliminar
+          </Button>
         </div>
       </CardContent>
     </Card>

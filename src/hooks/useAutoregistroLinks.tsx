@@ -75,5 +75,17 @@ export function useAutoregistroLinks(opts?: { patientId?: string }) {
     onError: () => toast.error('Error al desactivar enlace'),
   });
 
-  return { ...query, createLink, deactivateLink };
+  const deleteLink = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('autoregistro_links').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['autoregistro-links'] });
+      toast.success('Envío eliminado');
+    },
+    onError: () => toast.error('Error al eliminar envío'),
+  });
+
+  return { ...query, createLink, deactivateLink, deleteLink };
 }
