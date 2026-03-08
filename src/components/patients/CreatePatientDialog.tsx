@@ -138,14 +138,17 @@ export function CreatePatientDialog() {
     }
   };
 
+  const Wrapper = isMobile ? Drawer : Dialog;
+  const Trigger = isMobile ? DrawerTrigger : DialogTrigger;
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
+    <Wrapper open={open} onOpenChange={setOpen}>
+      <Trigger asChild>
         <Button>
           <Plus className="mr-2 h-4 w-4" />
           Nuevo Contacto
         </Button>
-      </DialogTrigger>
+      </Trigger>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[600px]">
         <DialogHeader>
           <DialogTitle>Nuevo Contacto</DialogTitle>
