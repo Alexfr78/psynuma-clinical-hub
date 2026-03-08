@@ -202,7 +202,11 @@ export function AppSidebar() {
       <SidebarFooter className="p-4">
         <div className="flex flex-col gap-2">
           {profile && (
-            <div className="flex items-center gap-3 rounded-lg bg-sidebar-accent p-3">
+            <button
+              type="button"
+              onClick={() => setProfileOpen(true)}
+              className="flex w-full items-center gap-3 rounded-lg bg-sidebar-accent p-3 text-left transition-colors hover:bg-sidebar-accent/80 cursor-pointer"
+            >
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-sidebar-primary text-sm font-medium text-sidebar-primary-foreground">
                 {profile.first_name?.[0] || profile.email[0].toUpperCase()}
               </div>
@@ -216,7 +220,7 @@ export function AppSidebar() {
                   {profile.specialty || 'Profesional'}
                 </span>
               </div>
-            </div>
+            </button>
           )}
 
           <div className="flex gap-2">
