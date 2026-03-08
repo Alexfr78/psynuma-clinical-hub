@@ -949,7 +949,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
         </TooltipProvider>
       </TabsList>
 
-          <TabsContent value="info" className="mt-0 px-6 py-4 space-y-6">
+          <TabsContent value="info" className="mt-0 px-4 sm:px-6 py-4 space-y-6">
             {/* Patient Card / Blocked Session Conversion */}
             {isBlockedSession && !session.patient ? (
               // Blocked session without patient - show conversion UI
