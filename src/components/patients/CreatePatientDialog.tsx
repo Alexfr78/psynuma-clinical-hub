@@ -10,12 +10,13 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import {
-  ResponsiveDialog,
   ResponsiveDialogContent as DialogContent,
   ResponsiveDialogDescription as DialogDescription,
   ResponsiveDialogHeader as DialogHeader,
   ResponsiveDialogTitle as DialogTitle,
 } from '@/components/ui/responsive-dialog';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { Drawer, DrawerTrigger } from '@/components/ui/drawer';
 import {
   Form,
   FormControl,
