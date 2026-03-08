@@ -9,10 +9,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useAutoregistroTemplates } from '@/hooks/useAutoregistroTemplates';
+import { useAutoregistroTemplates, type AutoregistroTemplate } from '@/hooks/useAutoregistroTemplates';
 import { useAutoregistroLinks } from '@/hooks/useAutoregistroLinks';
 import { useAutoregistroEntries } from '@/hooks/useAutoregistroEntries';
 import { TemplateCard } from '@/components/autoregistros/TemplateCard';
+import { EditTemplateDialog } from '@/components/autoregistros/EditTemplateDialog';
 import { CreateTemplateDialog } from '@/components/autoregistros/CreateTemplateDialog';
 import { SendAutoregistroDialog } from '@/components/autoregistros/SendAutoregistroDialog';
 import { LinkCard } from '@/components/autoregistros/LinkCard';
