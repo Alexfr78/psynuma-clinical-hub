@@ -62,7 +62,8 @@ export default function AutoregistroPublic() {
 
   return (
     <div className="min-h-screen bg-background p-4 flex justify-center">
-      <div className="w-full max-w-lg space-y-6">
+      <div className="w-full max-w-lg space-y-4">
+        <InstallBanner token={token ?? ''} />
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">{data.template.name}</CardTitle>
