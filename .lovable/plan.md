@@ -1,35 +1,29 @@
 
 
-## Problema
+## Problem
 
-Los menús desplegables (tres puntos) dentro del Drawer no responden en móvil. Ya se aplicó `pointer-events-auto` y `z-[9999]` al `DropdownMenuContent`, pero no funciona porque **Vaul Drawer** intercepta los eventos táctiles a nivel de gesture handler, no solo con CSS.
+The `SessionDetailDrawer` has a `useEffect` that resets local state (`localDateTime`, `localStatus`, etc.) but its dependency array only watches `session?.id`, `session?.bono_id`, and `session?.price`. When the drawer is closed and reopened for the **same session**, or when session data is refetched with updated values, the local overrides (`localDateTime`, `localStatus`) are never cleared. This causes the drawer to show stale values from a previous edit.
 
-El `DropdownMenuContent` se renderiza mediante un `Portal` al `body`, pero el Drawer de Vaul tiene un overlay a pantalla completa que captura los toques antes de que lleguen al dropdown, independientemente del z-index.
+In your case: you edited date/time at some point, `localDateTime` was set to `{date: '2026-03-10', startTime: '18:00', endTime: '19:00'}`, but the DB actually has `2026-03-04 at 20:00`. Reopening the drawer doesn't reset `localDateTime` because `session.id` hasn't changed.
 
-## Solución
+## Fix
 
-Añadir una prop opcional `usePortal` al componente `DropdownMenuContent` (default `true`). Cuando se usa `usePortal={false}`, el contenido se renderiza **inline** (sin Portal), posicionándose relativo a su padre dentro del Drawer. Como ya está dentro del portal del Drawer, no necesita su propio portal.
+**File: `src/components/agenda/SessionDetailDrawer.tsx`**
 
-### Cambios
+1. **Add the `open` prop to the reset effect's dependency array** — so that every time the drawer opens, all local overrides are cleared and the component reads fresh data from the `session` prop.
 
-**1. `src/components/ui/dropdown-menu.tsx`** — Añadir prop `usePortal` a `DropdownMenuContent`:
+2. **Also add `session?.session_date`, `session?.start_time`, `session?.end_time`, and `session?.status`** to the dependency array so that when the query cache updates with new data, local overrides are cleared.
 
-```tsx
-// Acepta usePortal?: boolean (default true)
-// Si usePortal es false, renderiza Content directamente sin envolver en Portal
-const Wrapper = usePortal ? DropdownMenuPrimitive.Portal : React.Fragment;
-return (
-  <Wrapper>
-    <DropdownMenuPrimitive.Content ... />
-  </Wrapper>
-);
+The effect at line ~260 changes from:
+```typescript
+}, [session?.id, session?.bono_id, session?.price]);
+```
+to:
+```typescript
+}, [session?.id, session?.bono_id, session?.price, session?.session_date, session?.start_time, session?.end_time, session?.status, open]);
 ```
 
-**2. `src/components/consents/ConsentCard.tsx`** — Usar `usePortal={false}` en el dropdown que se abre dentro de drawers:
-
-```tsx
-<DropdownMenuContent align="end" usePortal={false}>
-```
-
-Esto hará que el menú se posicione dentro del flujo del Drawer, donde los eventos táctiles funcionan correctamente.
+This ensures that:
+- Opening the drawer always shows the DB values (not stale local edits)
+- When the session query refetches with updated data, local overrides are discarded
 

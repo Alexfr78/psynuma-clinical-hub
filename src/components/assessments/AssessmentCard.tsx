@@ -164,7 +164,7 @@ export function AssessmentCard({ assessment, onView, onSend, onRevoke, onDelete 
                   <MoreVertical className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
+              <DropdownMenuContent align="end" usePortal={false}>
                 {assessment.status === 'completed' && (
                   <>
                     <DropdownMenuItem onClick={() => navigate(`/evaluaciones/${assessment.id}/resultados`)}>

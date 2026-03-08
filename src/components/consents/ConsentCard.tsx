@@ -68,7 +68,7 @@ export function ConsentCard({ consent }: ConsentCardProps) {
                 <MoreVertical className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
+            <DropdownMenuContent align="end" usePortal={false}>
               <DropdownMenuItem onClick={() => setDetailOpen(true)}>
                 <Eye className="mr-2 h-4 w-4" />
                 Ver documento
