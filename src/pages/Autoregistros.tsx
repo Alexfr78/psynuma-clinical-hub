@@ -9,10 +9,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useAutoregistroTemplates } from '@/hooks/useAutoregistroTemplates';
+import { useAutoregistroTemplates, type AutoregistroTemplate } from '@/hooks/useAutoregistroTemplates';
 import { useAutoregistroLinks } from '@/hooks/useAutoregistroLinks';
 import { useAutoregistroEntries } from '@/hooks/useAutoregistroEntries';
 import { TemplateCard } from '@/components/autoregistros/TemplateCard';
+import { EditTemplateDialog } from '@/components/autoregistros/EditTemplateDialog';
 import { CreateTemplateDialog } from '@/components/autoregistros/CreateTemplateDialog';
 import { SendAutoregistroDialog } from '@/components/autoregistros/SendAutoregistroDialog';
 import { LinkCard } from '@/components/autoregistros/LinkCard';
@@ -31,6 +32,7 @@ export default function Autoregistros() {
   const [tab, setTab] = useState('templates');
   const [createOpen, setCreateOpen] = useState(false);
   const [sendOpen, setSendOpen] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<AutoregistroTemplate | null>(null);
   const [selectedEntry, setSelectedEntry] = useState<AutoregistroEntry | null>(null);
 
   const { data: templates, isLoading: loadingTemplates, deleteTemplate } = useAutoregistroTemplates();
@@ -86,7 +88,7 @@ export default function Autoregistros() {
           ) : templates && templates.length > 0 ? (
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {templates.map((t) => (
-                <TemplateCard key={t.id} template={t} onDelete={(id) => deleteTemplate.mutate(id)} />
+                <TemplateCard key={t.id} template={t} onDelete={(id) => deleteTemplate.mutate(id)} onEdit={(tmpl) => setEditingTemplate(tmpl)} />
               ))}
             </div>
           ) : (
@@ -147,6 +149,12 @@ export default function Autoregistros() {
         open={!!selectedEntry}
         onOpenChange={(v) => !v && setSelectedEntry(null)}
         entry={selectedEntry}
+      />
+
+      <EditTemplateDialog
+        open={!!editingTemplate}
+        onOpenChange={(v) => !v && setEditingTemplate(null)}
+        template={editingTemplate}
       />
     </div>
   );
