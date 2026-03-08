@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { usePublicAutoregistro } from '@/hooks/usePublicAutoregistro';
 import { DynamicFormRenderer } from '@/components/autoregistros/DynamicFormRenderer';
 import { PatientFeedbackPanel } from '@/components/autoregistros/PatientFeedbackPanel';
+import { InstallBanner } from '@/components/autoregistros/InstallBanner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { CheckCircle2, AlertCircle } from 'lucide-react';
 
