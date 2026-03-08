@@ -36,6 +36,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { useState, useEffect } from 'react';
+import { MyProfileDialog } from '@/components/layout/MyProfileDialog';
 
 
 const mainNavItems = [
