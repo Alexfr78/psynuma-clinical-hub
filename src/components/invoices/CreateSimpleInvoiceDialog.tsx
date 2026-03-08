@@ -3,12 +3,12 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { FileText, AlertTriangle, Building2, User, Pencil, Trash2, Plus, Check, X, ShieldCheck, Loader2, FlaskConical, CalendarIcon } from 'lucide-react';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+  ResponsiveDialog as Dialog,
+  ResponsiveDialogContent as DialogContent,
+  ResponsiveDialogDescription as DialogDescription,
+  ResponsiveDialogHeader as DialogHeader,
+  ResponsiveDialogTitle as DialogTitle,
+} from '@/components/ui/responsive-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';

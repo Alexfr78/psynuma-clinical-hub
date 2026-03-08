@@ -7,12 +7,16 @@ import { validateSpanishTaxId } from '@/lib/nif-validation';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import {
+  ResponsiveDialogContent as DialogContent,
+  ResponsiveDialogDescription as DialogDescription,
+  ResponsiveDialogHeader as DialogHeader,
+  ResponsiveDialogTitle as DialogTitle,
+} from '@/components/ui/responsive-dialog';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { Drawer, DrawerTrigger } from '@/components/ui/drawer';
 import {
   Form,
   FormControl,
@@ -64,6 +68,7 @@ type PatientFormValues = z.infer<typeof patientSchema>;
 export function CreatePatientDialog() {
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
+  const isMobile = useIsMobile();
   const createPatient = useCreatePatient();
   const { data: professionals } = useProfessionals();
 
@@ -133,14 +138,17 @@ export function CreatePatientDialog() {
     }
   };
 
+  const Wrapper = isMobile ? Drawer : Dialog;
+  const Trigger = isMobile ? DrawerTrigger : DialogTrigger;
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
+    <Wrapper open={open} onOpenChange={setOpen}>
+      <Trigger asChild>
         <Button>
           <Plus className="mr-2 h-4 w-4" />
           Nuevo Contacto
         </Button>
-      </DialogTrigger>
+      </Trigger>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[600px]">
         <DialogHeader>
           <DialogTitle>Nuevo Contacto</DialogTitle>
@@ -500,6 +508,6 @@ export function CreatePatientDialog() {
           </form>
         </Form>
       </DialogContent>
-    </Dialog>
+    </Wrapper>
   );
 }

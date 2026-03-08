@@ -1,134 +1,29 @@
 
 
-## Plan: Hacer todos los diálogos responsivos para móviles
+## Problem
 
-### Análisis realizado
+The `SessionDetailDrawer` has a `useEffect` that resets local state (`localDateTime`, `localStatus`, etc.) but its dependency array only watches `session?.id`, `session?.bono_id`, and `session?.price`. When the drawer is closed and reopened for the **same session**, or when session data is refetched with updated values, the local overrides (`localDateTime`, `localStatus`) are never cleared. This causes the drawer to show stale values from a previous edit.
 
-He revisado los 41 archivos de diálogo del proyecto. Solo **6** usan el patrón responsivo (Dialog en desktop + Drawer en móvil):
+In your case: you edited date/time at some point, `localDateTime` was set to `{date: '2026-03-10', startTime: '18:00', endTime: '19:00'}`, but the DB actually has `2026-03-04 at 20:00`. Reopening the drawer doesn't reset `localDateTime` because `session.id` hasn't changed.
 
-- `CreateBonoDialog` ✅
-- `SendInvoiceDialog` ✅
-- `WhatsAppLinkDialog` ✅
-- `CollectSessionPaymentDialog` ✅
-- `CollectBonoPaymentDialog` ✅
-- `CreateSessionInvoiceDialog` ✅
-- `SessionDetailDrawer` ✅
+## Fix
 
-### Diálogos que necesitan convertirse (29 diálogos principales)
+**File: `src/components/agenda/SessionDetailDrawer.tsx`**
 
-Los AlertDialog de confirmación (eliminar pago, cancelar cita, etc.) son pequeños y funcionan aceptablemente en móvil, así que los excluyo. Me centro en los diálogos con formularios o contenido extenso:
+1. **Add the `open` prop to the reset effect's dependency array** — so that every time the drawer opens, all local overrides are cleared and the component reads fresh data from the `session` prop.
 
-**Prioridad Alta** (formularios complejos, uso frecuente):
-1. `CreateSessionDialog` — Crear sesión
-2. `QuickCreateSessionDialog` — Reserva rápida
-3. `CreatePatientDialog` — Crear contacto
-4. `QuickCreatePatientDialog` — Crear contacto rápido
-5. `CreateSimpleInvoiceDialog` — Crear factura
-6. `CreateRectificativaDialog` — Factura rectificativa
-7. `RecordPaymentDialog` — Registrar pago
-8. `EditPaymentDialog` — Editar pago
+2. **Also add `session?.session_date`, `session?.start_time`, `session?.end_time`, and `session?.status`** to the dependency array so that when the query cache updates with new data, local overrides are cleared.
 
-**Prioridad Media** (detalle/consulta con scroll):
-9. `InvoiceDetailDialog` — Detalle de factura
-10. `BonoDetailDialog` — Detalle de bono
-11. `SessionDetailDialog` — Detalle de sesión (simple)
-12. `ConsentDetailDialog` — Detalle de consentimiento
-13. `AssessmentDetailDialog` — Detalle de evaluación
-14. `ProfessionalDetailDialog` — Detalle de profesional
-15. `IntakeRequestDetailDialog` — Detalle solicitud intake
-
-**Prioridad Normal** (uso menos frecuente):
-16. `CreateAssessmentDialog` — Crear evaluación
-17. `SendAssessmentDialog` — Enviar evaluación
-18. `AddTemplateDialog` — Añadir plantilla evaluación
-19. `CreateConsentDialog` — Crear consentimiento
-20. `CreateTemplateDialog` — Crear plantilla consentimiento
-21. `SendConsentDialog` — Enviar consentimiento
-22. `ExportInvoicesDialog` — Exportar facturas
-23. `LinkPaymentsToInvoiceDialog` — Vincular pagos a factura
-24. `LinkPaymentToInvoiceDialog` — Vincular pago individual
-25. `SendPaymentReminderDialog` — Recordatorio de pago
-26. `ConvertCalendarEventDialog` — Convertir evento
-27. `MoveSessionDialog` — Mover sesión
-28. `BonoTemplatesDialog` — Plantillas de bonos
-29. `EditLocationsDialog` / `CreateSeriesDialog` — Config
-
-**Páginas con diálogos inline** (Audit detail dialog):
-30. `Audit.tsx` — Detalle de evento
-
-### Patrón de conversión
-
-Cada diálogo se convierte siguiendo el patrón ya establecido:
-
+The effect at line ~260 changes from:
 ```typescript
-import { useIsMobile } from '@/hooks/use-mobile';
-import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerFooter } from '@/components/ui/drawer';
-
-// Extraer contenido a variable compartida
-const content = (...);
-const footer = (...);
-
-if (isMobile) {
-  return (
-    <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="max-h-[90vh]">
-        <DrawerHeader className="text-left">
-          <DrawerTitle>...</DrawerTitle>
-        </DrawerHeader>
-        <div className="px-4 pb-4 overflow-y-auto">{content}</div>
-        <DrawerFooter>{footer}</DrawerFooter>
-      </DrawerContent>
-    </Drawer>
-  );
-}
-
-return (
-  <Dialog open={open} onOpenChange={onOpenChange}>
-    <DialogContent>...</DialogContent>
-  </Dialog>
-);
+}, [session?.id, session?.bono_id, session?.price]);
+```
+to:
+```typescript
+}, [session?.id, session?.bono_id, session?.price, session?.session_date, session?.start_time, session?.end_time, session?.status, open]);
 ```
 
-Para diálogos con formularios extensos, se usa `h-[95vh]` con scroll interno en lugar de `max-h-[90vh]`.
-
-### Archivos a modificar (29 archivos)
-
-| Archivo | Tipo |
-|---|---|
-| `src/components/agenda/CreateSessionDialog.tsx` | Formulario complejo |
-| `src/components/agenda/QuickCreateSessionDialog.tsx` | Formulario complejo |
-| `src/components/agenda/SessionDetailDialog.tsx` | Detalle |
-| `src/components/agenda/ConvertCalendarEventDialog.tsx` | Formulario |
-| `src/components/agenda/MoveSessionDialog.tsx` | Formulario |
-| `src/components/patients/CreatePatientDialog.tsx` | Formulario complejo |
-| `src/components/patients/QuickCreatePatientDialog.tsx` | Formulario |
-| `src/components/invoices/InvoiceDetailDialog.tsx` | Detalle extenso |
-| `src/components/invoices/CreateSimpleInvoiceDialog.tsx` | Formulario |
-| `src/components/invoices/CreateRectificativaDialog.tsx` | Formulario |
-| `src/components/invoices/ExportInvoicesDialog.tsx` | Formulario |
-| `src/components/invoices/LinkPaymentsToInvoiceDialog.tsx` | Lista |
-| `src/components/invoices/CreateRecapInvoiceDialog.tsx` | Formulario |
-| `src/components/payments/RecordPaymentDialog.tsx` | Formulario |
-| `src/components/payments/EditPaymentDialog.tsx` | Formulario |
-| `src/components/payments/SendPaymentReminderDialog.tsx` | Formulario |
-| `src/components/payments/LinkPaymentToInvoiceDialog.tsx` | Lista |
-| `src/components/bonos/BonoDetailDialog.tsx` | Detalle |
-| `src/components/bonos/BonoTemplatesDialog.tsx` | Lista |
-| `src/components/consents/ConsentDetailDialog.tsx` | Detalle |
-| `src/components/consents/CreateConsentDialog.tsx` | Formulario |
-| `src/components/consents/CreateTemplateDialog.tsx` | Formulario |
-| `src/components/consents/SendConsentDialog.tsx` | Formulario |
-| `src/components/assessments/CreateAssessmentDialog.tsx` | Formulario |
-| `src/components/assessments/SendAssessmentDialog.tsx` | Formulario |
-| `src/components/assessments/AddTemplateDialog.tsx` | Lista |
-| `src/components/assessments/AssessmentDetailDialog.tsx` | Detalle |
-| `src/components/professionals/ProfessionalDetailDialog.tsx` | Detalle |
-| `src/components/intake/IntakeRequestDetailDialog.tsx` | Detalle |
-| `src/components/settings/EditLocationsDialog.tsx` | Formulario |
-| `src/components/settings/CreateSeriesDialog.tsx` | Formulario |
-| `src/pages/Audit.tsx` | Detalle inline |
-
-### Estrategia de implementación
-
-Dado el volumen (29+ archivos), se implementarán en lotes paralelos para maximizar eficiencia. El cambio es mecánico y repetitivo: extraer contenido, añadir import de Drawer + useIsMobile, y bifurcar el render.
+This ensures that:
+- Opening the drawer always shows the DB values (not stale local edits)
+- When the session query refetches with updated data, local overrides are discarded
 

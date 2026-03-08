@@ -6,11 +6,11 @@ import { z } from 'zod';
 import { format } from 'date-fns';
 import { CalendarIcon, CreditCard, Check, ChevronsUpDown, AlertTriangle } from 'lucide-react';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+  ResponsiveDialog as Dialog,
+  ResponsiveDialogContent as DialogContent,
+  ResponsiveDialogHeader as DialogHeader,
+  ResponsiveDialogTitle as DialogTitle,
+} from '@/components/ui/responsive-dialog';
 import {
   Form,
   FormControl,
