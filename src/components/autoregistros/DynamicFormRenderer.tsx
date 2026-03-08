@@ -21,7 +21,14 @@ interface DynamicFormRendererProps {
 }
 
 export function DynamicFormRenderer({ fields, onSubmit, isSubmitting }: DynamicFormRendererProps) {
-  const [values, setValues] = useState<Record<string, any>>({});
+  const [values, setValues] = useState<Record<string, any>>(() => {
+    const defaults: Record<string, any> = {};
+    for (const field of fields) {
+      if (field.type === 'date') defaults[field.label] = new Date().toISOString().slice(0, 10);
+      if (field.type === 'time') defaults[field.label] = new Date().toTimeString().slice(0, 5);
+    }
+    return defaults;
+  });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const sorted = [...fields].sort((a, b) => a.order - b.order);
