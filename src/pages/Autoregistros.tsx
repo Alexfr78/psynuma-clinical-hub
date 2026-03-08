@@ -127,6 +127,22 @@ export default function Autoregistros() {
         </TabsContent>
 
         <TabsContent value="entries">
+          <div className="mb-4">
+            <Select value={filterPatientId} onValueChange={setFilterPatientId}>
+              <SelectTrigger className="w-full sm:w-64">
+                <SelectValue placeholder="Filtrar por paciente" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos los pacientes</SelectItem>
+                {patients?.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.first_name} {p.last_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           {entries && entries.length >= 2 && chartFields.length > 0 && (
             <div className="mb-4">
               <EntryChart entries={entries} fields={chartFields} />
