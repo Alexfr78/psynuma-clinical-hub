@@ -18,6 +18,9 @@ import {
 } from "@/components/ui/drawer";
 import { cn } from "@/lib/utils";
 
+// Shared context so every child reads the same value the parent decided on
+const ResponsiveContext = React.createContext(false);
+
 interface ResponsiveDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -27,18 +30,18 @@ interface ResponsiveDialogProps {
 function ResponsiveDialog({ open, onOpenChange, children }: ResponsiveDialogProps) {
   const isMobile = useIsMobile();
 
-  if (isMobile) {
-    return (
-      <Drawer open={open} onOpenChange={onOpenChange}>
-        {children}
-      </Drawer>
-    );
-  }
-
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      {children}
-    </Dialog>
+    <ResponsiveContext.Provider value={isMobile}>
+      {isMobile ? (
+        <Drawer open={open} onOpenChange={onOpenChange}>
+          {children}
+        </Drawer>
+      ) : (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+          {children}
+        </Dialog>
+      )}
+    </ResponsiveContext.Provider>
   );
 }
 
@@ -48,7 +51,7 @@ interface ResponsiveDialogContentProps extends React.HTMLAttributes<HTMLDivEleme
 
 const ResponsiveDialogContent = React.forwardRef<HTMLDivElement, ResponsiveDialogContentProps>(
   ({ className, children, ...props }, ref) => {
-    const isMobile = useIsMobile();
+    const isMobile = React.useContext(ResponsiveContext);
 
     if (isMobile) {
       return (
@@ -70,7 +73,7 @@ const ResponsiveDialogContent = React.forwardRef<HTMLDivElement, ResponsiveDialo
 ResponsiveDialogContent.displayName = "ResponsiveDialogContent";
 
 function ResponsiveDialogHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  const isMobile = useIsMobile();
+  const isMobile = React.useContext(ResponsiveContext);
 
   if (isMobile) {
     return <DrawerHeader className={cn("text-left", className)} {...props} />;
@@ -80,7 +83,7 @@ function ResponsiveDialogHeader({ className, ...props }: React.HTMLAttributes<HT
 }
 
 function ResponsiveDialogTitle({ className, ...props }: React.ComponentPropsWithoutRef<typeof DialogTitle>) {
-  const isMobile = useIsMobile();
+  const isMobile = React.useContext(ResponsiveContext);
 
   if (isMobile) {
     return <DrawerTitle className={className} {...props} />;
@@ -90,7 +93,7 @@ function ResponsiveDialogTitle({ className, ...props }: React.ComponentPropsWith
 }
 
 function ResponsiveDialogDescription({ className, ...props }: React.ComponentPropsWithoutRef<typeof DialogDescription>) {
-  const isMobile = useIsMobile();
+  const isMobile = React.useContext(ResponsiveContext);
 
   if (isMobile) {
     return <DrawerDescription className={className} {...props} />;
@@ -100,7 +103,7 @@ function ResponsiveDialogDescription({ className, ...props }: React.ComponentPro
 }
 
 function ResponsiveDialogFooter({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  const isMobile = useIsMobile();
+  const isMobile = React.useContext(ResponsiveContext);
 
   if (isMobile) {
     return <DrawerFooter className={className} {...props} />;
