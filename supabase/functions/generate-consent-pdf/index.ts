@@ -560,7 +560,7 @@ serve(async (req) => {
       });
       
       // Name
-      currentPage.drawText(sig.signer_name, {
+      currentPage.drawText(sanitizeForPdf(sig.signer_name), {
         x: xOffset + 10,
         y: currentY - 34,
         size: 10,
