@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
 import { FieldBuilder } from './FieldBuilder';
 import type { AutoregistroField, AutoregistroTemplate } from '@/hooks/useAutoregistroTemplates';
 import { useAutoregistroTemplates } from '@/hooks/useAutoregistroTemplates';
