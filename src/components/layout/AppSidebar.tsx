@@ -7,6 +7,7 @@ import {
   FileText,
   FileSignature,
   ClipboardCheck,
+  NotebookPen,
   Package,
   Receipt,
   CreditCard,
