@@ -1982,7 +1982,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
             )}
           </TabsContent>
 
-          <TabsContent value="consentimientos" className="mt-0 px-6 py-4">
+          <TabsContent value="consentimientos" className="mt-0 px-4 sm:px-6 py-4">
             {!session.patient ? (
               <div className="text-center py-8 text-muted-foreground">
                 <FileSignature className="h-8 w-8 mx-auto mb-2 opacity-50" />
