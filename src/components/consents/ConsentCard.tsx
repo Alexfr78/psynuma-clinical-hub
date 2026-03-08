@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FileText, Eye, Download, MoreVertical, XCircle, Send, Copy, ExternalLink } from 'lucide-react';
+import { FileText, Eye, Download, MoreVertical, XCircle, Send, Copy, ExternalLink, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
