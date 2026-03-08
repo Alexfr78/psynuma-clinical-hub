@@ -18,10 +18,11 @@ import { EditTemplateDialog } from '@/components/autoregistros/EditTemplateDialo
 import { CreateTemplateDialog } from '@/components/autoregistros/CreateTemplateDialog';
 import { SendAutoregistroDialog } from '@/components/autoregistros/SendAutoregistroDialog';
 import { LinkCard } from '@/components/autoregistros/LinkCard';
-import { EntryCard } from '@/components/autoregistros/EntryCard';
 import { EntryDetailDialog } from '@/components/autoregistros/EntryDetailDialog';
 import { EntryChart } from '@/components/autoregistros/EntryChart';
 import type { AutoregistroEntry } from '@/hooks/useAutoregistroEntries';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
 
 const tabOptions = [
   { value: 'templates', label: 'Plantillas' },
