@@ -900,7 +900,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
   // Common tabs content (everything inside Tabs)
   const tabsContent = (
     <Tabs defaultValue="info" className="w-full">
-      <TabsList className="w-full justify-start px-4 sm:px-6 rounded-none border-b bg-transparent h-auto p-0 overflow-x-auto flex-nowrap">
+      <TabsList className="w-full justify-start px-3 sm:px-6 rounded-none border-b bg-transparent h-auto p-0 overflow-x-auto flex-nowrap">
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -949,7 +949,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
         </TooltipProvider>
       </TabsList>
 
-          <TabsContent value="info" className="mt-0 px-6 py-4 space-y-6">
+          <TabsContent value="info" className="mt-0 px-4 sm:px-6 py-4 space-y-6">
             {/* Patient Card / Blocked Session Conversion */}
             {isBlockedSession && !session.patient ? (
               // Blocked session without patient - show conversion UI
@@ -1971,7 +1971,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
             </div>
           </TabsContent>
 
-          <TabsContent value="evaluaciones" className="mt-0 px-6 py-4">
+          <TabsContent value="evaluaciones" className="mt-0 px-4 sm:px-6 py-4">
             {!session.patient ? (
               <div className="text-center py-8 text-muted-foreground">
                 <ClipboardCheck className="h-8 w-8 mx-auto mb-2 opacity-50" />
@@ -1982,7 +1982,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
             )}
           </TabsContent>
 
-          <TabsContent value="consentimientos" className="mt-0 px-6 py-4">
+          <TabsContent value="consentimientos" className="mt-0 px-4 sm:px-6 py-4">
             {!session.patient ? (
               <div className="text-center py-8 text-muted-foreground">
                 <FileSignature className="h-8 w-8 mx-auto mb-2 opacity-50" />
@@ -2033,7 +2033,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
             )}
           </TabsContent>
 
-          <TabsContent value="otras" className="mt-0 px-6 py-4">
+          <TabsContent value="otras" className="mt-0 px-4 sm:px-6 py-4">
             {session.patient_id ? (
               <PatientSessionHistory
                 patientId={session.patient_id}
