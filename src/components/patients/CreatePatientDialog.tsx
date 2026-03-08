@@ -494,6 +494,6 @@ export function CreatePatientDialog() {
           </form>
         </Form>
       </DialogContent>
-    </Wrapper>
+    </ResponsiveDialog>
   );
 }
