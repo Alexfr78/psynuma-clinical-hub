@@ -427,7 +427,7 @@ serve(async (req) => {
     currentY -= 30;
 
     // Document title
-    const templateName = typedConsent.template?.name || 'Consentimiento Informado';
+    const templateName = sanitizeForPdf(typedConsent.template?.name || 'Consentimiento Informado');
     currentPage.drawText(templateName, {
       x: margin,
       y: currentY,
