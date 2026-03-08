@@ -34,6 +34,31 @@ export function ConsentCard({ consent }: ConsentCardProps) {
   const [detailOpen, setDetailOpen] = useState(false);
   const [revokeOpen, setRevokeOpen] = useState(false);
   const [sendOpen, setSendOpen] = useState(false);
+  const [generatingPdf, setGeneratingPdf] = useState(false);
+
+  const handleDownloadPdf = async () => {
+    if (consent.signed_pdf_url) {
+      window.open(consent.signed_pdf_url, '_blank');
+      return;
+    }
+    setGeneratingPdf(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-consent-pdf', {
+        body: { consent_id: consent.id },
+      });
+      if (error) throw error;
+      if (data?.url) {
+        window.open(data.url, '_blank');
+      } else {
+        throw new Error('No se recibió la URL del PDF');
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('Error al generar el PDF');
+    } finally {
+      setGeneratingPdf(false);
+    }
+  };
 
   const status = statusConfig[consent.status] || statusConfig.pending;
   const isExpired = new Date(consent.expires_at) < new Date() && consent.status === 'pending';
