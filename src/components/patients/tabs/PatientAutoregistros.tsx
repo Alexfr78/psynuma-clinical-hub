@@ -60,13 +60,12 @@ export function PatientAutoregistros({ patientId }: PatientAutoregistrosProps) {
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
-                  <TableRow>
-                    <TableHead className="sticky left-0 bg-background z-10">Fecha</TableHead>
-                    {dynamicFields.map((f) => (
-                      <TableHead key={f.label}>{f.label}</TableHead>
-                    ))}
-                    <TableHead className="w-10"></TableHead>
-                  </TableRow>
+                    <TableRow>
+                      {dynamicFields.map((f) => (
+                        <TableHead key={f.label}>{f.label}</TableHead>
+                      ))}
+                      <TableHead className="w-10"></TableHead>
+                    </TableRow>
                 </TableHeader>
                 <TableBody>
                   {entries.map((entry) => (
