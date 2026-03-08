@@ -135,15 +135,15 @@ export function AssessmentCard({ assessment, onView, onSend, onRevoke, onDelete 
     <>
       <Card className="hover:shadow-md transition-shadow">
         <CardContent className="p-4">
-          <div className="flex items-start justify-between gap-4">
+          <div className="flex items-start justify-between gap-2">
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1">
-                <h4 className="font-medium truncate">
+              <div className="flex flex-wrap items-center gap-2 mb-1">
+                <h4 className="font-medium break-words">
                   {assessment.patient?.first_name} {assessment.patient?.last_name}
                 </h4>
                 {getStatusBadge()}
               </div>
-              <p className="text-sm text-muted-foreground mb-2">
+              <p className="text-sm text-muted-foreground mb-2 break-words">
                 {assessment.template?.name}
               </p>
               <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
