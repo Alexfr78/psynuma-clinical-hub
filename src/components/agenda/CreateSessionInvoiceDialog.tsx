@@ -130,6 +130,7 @@ export function CreateSessionInvoiceDialog({
   });
   const [savingPatient, setSavingPatient] = useState(false);
   const [isSigningVerifactu, setIsSigningVerifactu] = useState(false);
+  const [notes, setNotes] = useState('');
 
   // Default tax and retention from center
   const defaultTaxRate = center?.default_tax_rate ?? 0;
