@@ -31,6 +31,7 @@ import {
   RefreshCw,
   FileSignature,
   ClipboardCheck,
+  NotebookPen,
 } from 'lucide-react';
 import {
   Sheet,
@@ -128,6 +129,7 @@ import { SendConsentDialog } from '@/components/consents/SendConsentDialog';
 import { ConsentCard } from '@/components/consents/ConsentCard';
 import { PatientAssessments } from '@/components/patients/tabs/PatientAssessments';
 import { PatientSessionHistory } from './PatientSessionHistory';
+import { PatientAutoregistros } from '@/components/patients/tabs/PatientAutoregistros';
 
 interface SessionDetailDrawerProps {
   session: SessionWithRelations | null;
@@ -934,6 +936,17 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
               </TabsTrigger>
             </TooltipTrigger>
             {isMobile && <TooltipContent>Consentimientos</TooltipContent>}
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <TabsTrigger
+                value="autoregistros"
+                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-3 sm:px-4 py-3 shrink-0"
+              >
+                {isMobile ? <NotebookPen className="h-4 w-4" /> : 'Autorregistros'}
+              </TabsTrigger>
+            </TooltipTrigger>
+            {isMobile && <TooltipContent>Autorregistros</TooltipContent>}
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -2029,6 +2042,17 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
                     ))}
                   </div>
                 )}
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="autoregistros" className="mt-0 px-4 sm:px-6 py-4">
+            {session.patient_id ? (
+              <PatientAutoregistros patientId={session.patient_id} />
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <NotebookPen className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <p className="text-sm">Asigna un paciente para ver sus autorregistros</p>
               </div>
             )}
           </TabsContent>
