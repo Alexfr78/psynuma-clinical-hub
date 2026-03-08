@@ -52,7 +52,7 @@ const ResponsiveDialogContent = React.forwardRef<HTMLDivElement, ResponsiveDialo
 
     if (isMobile) {
       return (
-        <DrawerContent className={cn("max-h-[90vh]", className)}>
+        <DrawerContent className={cn("max-h-[90vh]", className)} aria-describedby={undefined}>
           <div className="overflow-y-auto px-4 pb-4">
             {children}
           </div>
