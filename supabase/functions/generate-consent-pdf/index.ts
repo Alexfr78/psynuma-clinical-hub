@@ -379,7 +379,7 @@ serve(async (req) => {
       });
       
       // Center name next to logo
-      currentPage.drawText(typedConsent.center?.name || 'Centro', {
+      currentPage.drawText(sanitizeForPdf(typedConsent.center?.name || 'Centro'), {
         x: margin + logoWidth + 15,
         y: currentY - 20,
         size: 16,
