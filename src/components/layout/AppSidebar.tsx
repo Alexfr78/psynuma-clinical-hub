@@ -73,6 +73,7 @@ export function AppSidebar() {
   const { signOut, profile, isAdmin } = useAuth();
   const { setOpenMobile, isMobile } = useSidebar();
   const [isDark, setIsDark] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
 
   useEffect(() => {
     const isDarkMode = document.documentElement.classList.contains('dark');
