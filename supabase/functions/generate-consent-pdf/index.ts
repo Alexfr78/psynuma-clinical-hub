@@ -395,7 +395,7 @@ serve(async (req) => {
       ].filter(Boolean).join(', ');
       
       if (address) {
-        currentPage.drawText(address, {
+        currentPage.drawText(sanitizeForPdf(address), {
           x: margin + logoWidth + 15,
           y: currentY - 38,
           size: 10,
