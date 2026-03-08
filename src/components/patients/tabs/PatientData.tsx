@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Loader2, Save } from 'lucide-react';
+import { Loader2, Save, ShieldAlert } from 'lucide-react';
 import { validateSpanishTaxId } from '@/lib/nif-validation';
+import { DeletePatientGDPRDialog } from '@/components/patients/DeletePatientGDPRDialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
