@@ -54,39 +54,45 @@ export function PatientAutoregistros({ patientId }: PatientAutoregistrosProps) {
       {isLoading ? (
         <p className="text-sm text-muted-foreground">Cargando...</p>
       ) : entries && entries.length > 0 ? (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Plantilla</TableHead>
-              <TableHead>Fecha</TableHead>
-              <TableHead className="text-center">Campos</TableHead>
-              <TableHead className="w-10"></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {entries.map((entry) => {
-              const fieldCount = Object.keys(entry.values || {}).length;
-              return (
-                <TableRow
-                  key={entry.id}
-                  className="cursor-pointer"
-                  onClick={() => setSelectedEntry(entry)}
-                >
-                  <TableCell className="font-medium">
-                    {(entry.template as any)?.name}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {format(new Date(entry.submitted_at), 'dd MMM yyyy HH:mm', { locale: es })}
-                  </TableCell>
-                  <TableCell className="text-center">{fieldCount}</TableCell>
-                  <TableCell>
-                    <Eye className="h-4 w-4 text-muted-foreground" />
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
+        (() => {
+          const dynamicFields: AutoregistroField[] = [...(entries[0]?.template?.fields ?? [])].sort((a, b) => a.order - b.order);
+          return (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="sticky left-0 bg-background z-10">Fecha</TableHead>
+                    {dynamicFields.map((f) => (
+                      <TableHead key={f.label}>{f.label}</TableHead>
+                    ))}
+                    <TableHead className="w-10"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {entries.map((entry) => (
+                    <TableRow
+                      key={entry.id}
+                      className="cursor-pointer"
+                      onClick={() => setSelectedEntry(entry)}
+                    >
+                      <TableCell className="text-muted-foreground whitespace-nowrap sticky left-0 bg-background z-10">
+                        {format(new Date(entry.submitted_at), 'dd MMM yyyy HH:mm', { locale: es })}
+                      </TableCell>
+                      {dynamicFields.map((f) => (
+                        <TableCell key={f.label}>
+                          {formatFieldValue(f, entry.values?.[f.label])}
+                        </TableCell>
+                      ))}
+                      <TableCell>
+                        <Eye className="h-4 w-4 text-muted-foreground" />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          );
+        })()
       ) : (
         <p className="text-sm text-muted-foreground text-center py-8">
           No hay registros aún
