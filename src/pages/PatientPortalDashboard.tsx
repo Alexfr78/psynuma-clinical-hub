@@ -202,7 +202,7 @@ export default function PatientPortalDashboard() {
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={handleTabChange}>
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="appointments" className="flex items-center gap-2">
               <Calendar className="h-4 w-4" />
               <span className="hidden sm:inline">Próximas</span>
@@ -210,6 +210,10 @@ export default function PatientPortalDashboard() {
             <TabsTrigger value="history" className="flex items-center gap-2">
               <History className="h-4 w-4" />
               <span className="hidden sm:inline">Historial</span>
+            </TabsTrigger>
+            <TabsTrigger value="invoices" className="flex items-center gap-2" onClick={() => { if (!invoicesFetched) fetchInvoices(); }}>
+              <FileText className="h-4 w-4" />
+              <span className="hidden sm:inline">Facturas</span>
             </TabsTrigger>
             <TabsTrigger value="booking" className="flex items-center gap-2">
               <CalendarPlus className="h-4 w-4" />
