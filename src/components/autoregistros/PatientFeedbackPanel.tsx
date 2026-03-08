@@ -15,8 +15,6 @@ interface PatientFeedbackPanelProps {
 }
 
 export function PatientFeedbackPanel({ entries, fields }: PatientFeedbackPanelProps) {
-  if (entries.length === 0) return null;
-
   const displayFields = useMemo(() => {
     return fields.filter((f) => ['number', 'scale', 'select', 'text'].includes(f.type)).slice(0, 5);
   }, [fields]);
@@ -27,6 +25,8 @@ export function PatientFeedbackPanel({ entries, fields }: PatientFeedbackPanelPr
       values: e.values as Record<string, any>,
     }));
   }, [entries]);
+
+  if (entries.length === 0) return null;
 
   const recentEntries = entries.slice(0, 10);
 
