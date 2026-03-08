@@ -1,58 +1,29 @@
 
 
-## Plan: Implementar Y-BOCS-II (Escala de Obsesiones y Compulsiones de Yale-Brown)
+## Problem
 
-### Descripción
-La Y-BOCS-II es una escala de 10 ítems que evalúa la gravedad de obsesiones (ítems 1-5) y compulsiones (ítems 6-10). Cada ítem se puntúa de 0 a 5, con un rango total de 0-50.
+The `SessionDetailDrawer` has a `useEffect` that resets local state (`localDateTime`, `localStatus`, etc.) but its dependency array only watches `session?.id`, `session?.bono_id`, and `session?.price`. When the drawer is closed and reopened for the **same session**, or when session data is refetched with updated values, the local overrides (`localDateTime`, `localStatus`) are never cleared. This causes the drawer to show stale values from a previous edit.
 
-### Archivos a crear
+In your case: you edited date/time at some point, `localDateTime` was set to `{date: '2026-03-10', startTime: '18:00', endTime: '19:00'}`, but the DB actually has `2026-03-04 at 20:00`. Reopening the drawer doesn't reset `localDateTime` because `session.id` hasn't changed.
 
-**1. `src/data/ybocs2-template.ts`**
-- Template con 10 ítems, cada uno con 6 opciones (0-5), estilo BDI-2
-- Ítems de obsesiones: Tiempo ocupado, Interferencia, Malestar, Resistencia, Control
-- Ítems de compulsiones: Tiempo ocupado, Interferencia, Malestar, Resistencia, Control
-- Scoring: `OBSESIONES` (ítems 1-5), `COMPULSIONES` (ítems 6-10), `TOTAL` (1-10)
-- Cutoffs: Subclínico (0-7), Leve (8-15), Moderado (16-23), Grave (24-31), Extremo (32-50)
-- `response_min: 0`, `response_max: 5`
-- Función `getYBOCS2TemplateData()` para inserción en BD
+## Fix
 
-**2. `src/components/assessments/YBOCS2ResultsView.tsx`**
-- Vista de resultados especializada (patrón BDI2ResultsView)
-- Puntuación total con barra de progreso y nivel de severidad
-- Comparación obsesiones vs compulsiones (dos barras)
-- Interpretación clínica por nivel
-- Recomendaciones terapéuticas
+**File: `src/components/agenda/SessionDetailDrawer.tsx`**
 
-### Archivos a modificar
+1. **Add the `open` prop to the reset effect's dependency array** — so that every time the drawer opens, all local overrides are cleared and the component reads fresh data from the `session` prop.
 
-**3. `src/components/assessments/AddTemplateDialog.tsx`**
-- Añadir entrada YBOCS2 al array `PREDEFINED_TEMPLATES` con import de `getYBOCS2TemplateData`
+2. **Also add `session?.session_date`, `session?.start_time`, `session?.end_time`, and `session?.status`** to the dependency array so that when the query cache updates with new data, local overrides are cleared.
 
-**4. `src/pages/AssessmentResults.tsx`**
-- Importar `YBOCS2ResultsView`
-- Añadir detección `isYBOCS2 = templateCode === 'YBOCS2'`
-- Renderizar vista especializada en el bloque condicional existente
-
-**5. `src/pages/AssessmentPublic.tsx`**
-- La Y-BOCS-II usa el mismo renderer BDI-2 (ítems con opciones radio), así que se añade detección `isYBOCS2 = template?.code === 'YBOCS2'` para usar `BDI2ItemRenderer`
-
-### Estructura de los ítems (ejemplo ítem 1)
+The effect at line ~260 changes from:
 ```typescript
-{
-  index: 1,
-  label: 'Tiempo ocupado por obsesiones',
-  text: 'Tiempo ocupado por pensamientos obsesivos',
-  options: [
-    { value: 0, text: 'Ningún tiempo dedicado a obsesiones.' },
-    { value: 1, text: 'Menos de 1 hora/día o intrusiones ocasionales.' },
-    { value: 2, text: 'De 1 a 3 horas/día o intrusiones frecuentes.' },
-    { value: 3, text: 'De 3 a 8 horas/día o intrusiones muy frecuentes.' },
-    { value: 4, text: 'Más de 8 horas/día o intrusiones casi constantes.' },
-    { value: 5, text: 'Más de 8 horas/día o intrusiones constantes e incapacitantes.' },
-  ],
-}
+}, [session?.id, session?.bono_id, session?.price]);
+```
+to:
+```typescript
+}, [session?.id, session?.bono_id, session?.price, session?.session_date, session?.start_time, session?.end_time, session?.status, open]);
 ```
 
-### Sin cambios en backend
-No se requieren migraciones SQL ni edge functions. El template se inserta usando la infraestructura existente (`createTemplate`).
+This ensures that:
+- Opening the drawer always shows the DB values (not stale local edits)
+- When the session query refetches with updated data, local overrides are discarded
 

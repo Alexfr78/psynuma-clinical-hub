@@ -11,6 +11,7 @@ import { getDCITemplateData } from '@/data/dci-template';
 import { getDESTemplateData } from '@/data/des-template';
 import { getSTAITemplateData } from '@/data/stai-template';
 import { getEMOTemplateData } from '@/data/emo-template';
+import { getYBOCS2TemplateData } from '@/data/ybocs2-template';
 import { toast } from 'sonner';
 
 interface AddTemplateDialogProps {
@@ -66,6 +67,14 @@ const PREDEFINED_TEMPLATES = [
     items: 35,
     time: '45-60 min',
     getData: getEMOTemplateData,
+  },
+  {
+    id: 'YBOCS2',
+    name: 'Y-BOCS-II - Escala de Obsesiones y Compulsiones de Yale-Brown',
+    description: 'Evaluación de la gravedad de síntomas obsesivo-compulsivos. 10 ítems de severidad (5 obsesiones + 5 compulsiones). Escala 0-5, rango total 0-50.',
+    items: 10,
+    time: '15-30 min',
+    getData: getYBOCS2TemplateData,
   },
 ];
 
