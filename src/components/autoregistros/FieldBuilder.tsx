@@ -33,6 +33,12 @@ interface FieldBuilderProps {
 export function FieldBuilder({ fields, onChange }: FieldBuilderProps) {
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const [optionsTextMap, setOptionsTextMap] = useState<Record<number, string>>({});
+
+  const getOptionsText = (index: number, field: AutoregistroField) => {
+    if (index in optionsTextMap) return optionsTextMap[index];
+    return (field.options ?? []).join(', ');
+  };
 
   const addField = () => {
     onChange([
