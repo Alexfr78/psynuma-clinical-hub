@@ -9,6 +9,8 @@ import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Consent, useConsentSignatures } from '@/hooks/useConsents';
 import { Download, ExternalLink, Loader2, CheckCircle2, XCircle } from 'lucide-react';
+import { toast } from 'sonner';
+import { useState } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { sanitizeHtml } from '@/lib/sanitize';
@@ -103,6 +105,31 @@ export function ConsentDetailDialog({
   const { data: fullConsent } = useConsentDetail(consent.id);
   const status = statusConfig[consent.status] || statusConfig.pending;
   const isExpired = new Date(consent.expires_at) < new Date() && consent.status === 'pending';
+  const [generatingPdf, setGeneratingPdf] = useState(false);
+
+  const handleDownloadPdf = async () => {
+    if (consent.signed_pdf_url) {
+      window.open(consent.signed_pdf_url, '_blank');
+      return;
+    }
+    setGeneratingPdf(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-consent-pdf', {
+        body: { consent_id: consent.id },
+      });
+      if (error) throw error;
+      if (data?.url) {
+        window.open(data.url, '_blank');
+      } else {
+        throw new Error('No se recibió la URL del PDF');
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('Error al generar el PDF');
+    } finally {
+      setGeneratingPdf(false);
+    }
+  };
   
   const verificationCheckboxes = (fullConsent?.template as any)?.verification_checkboxes || [];
   const verificationResponses = (fullConsent?.verification_responses as Record<string, boolean>) || null;
@@ -286,14 +313,14 @@ export function ConsentDetailDialog({
 
           {/* Actions */}
           <div className="flex justify-end gap-3 pt-4">
-            {consent.status === 'signed' && consent.signed_pdf_url && (
-              <Button asChild>
-                <a href={consent.signed_pdf_url} target="_blank" rel="noopener noreferrer">
-                  <Download className="mr-2 h-4 w-4" />
-                  Descargar PDF
-                </a>
-              </Button>
-            )}
+            <Button onClick={handleDownloadPdf} disabled={generatingPdf}>
+              {generatingPdf ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="mr-2 h-4 w-4" />
+              )}
+              Descargar PDF
+            </Button>
             {consent.status === 'pending' && !isExpired && (
               <Button asChild variant="outline">
                 <a

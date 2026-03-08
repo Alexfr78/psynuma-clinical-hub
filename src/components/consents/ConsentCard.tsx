@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FileText, Eye, Download, MoreVertical, XCircle, Send, Copy, ExternalLink } from 'lucide-react';
+import { FileText, Eye, Download, MoreVertical, XCircle, Send, Copy, ExternalLink, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -17,6 +17,7 @@ import { SendConsentDialog } from './SendConsentDialog';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 interface ConsentCardProps {
   consent: Consent;
@@ -33,6 +34,31 @@ export function ConsentCard({ consent }: ConsentCardProps) {
   const [detailOpen, setDetailOpen] = useState(false);
   const [revokeOpen, setRevokeOpen] = useState(false);
   const [sendOpen, setSendOpen] = useState(false);
+  const [generatingPdf, setGeneratingPdf] = useState(false);
+
+  const handleDownloadPdf = async () => {
+    if (consent.signed_pdf_url) {
+      window.open(consent.signed_pdf_url, '_blank');
+      return;
+    }
+    setGeneratingPdf(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-consent-pdf', {
+        body: { consent_id: consent.id },
+      });
+      if (error) throw error;
+      if (data?.url) {
+        window.open(data.url, '_blank');
+      } else {
+        throw new Error('No se recibió la URL del PDF');
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('Error al generar el PDF');
+    } finally {
+      setGeneratingPdf(false);
+    }
+  };
 
   const status = statusConfig[consent.status] || statusConfig.pending;
   const isExpired = new Date(consent.expires_at) < new Date() && consent.status === 'pending';
@@ -91,14 +117,14 @@ export function ConsentCard({ consent }: ConsentCardProps) {
                   </DropdownMenuItem>
                 </>
               )}
-              {consent.status === 'signed' && consent.signed_pdf_url && (
-                <DropdownMenuItem asChild>
-                  <a href={consent.signed_pdf_url} target="_blank" rel="noopener noreferrer">
-                    <Download className="mr-2 h-4 w-4" />
-                    Descargar PDF
-                  </a>
-                </DropdownMenuItem>
-              )}
+              <DropdownMenuItem onClick={handleDownloadPdf} disabled={generatingPdf}>
+                {generatingPdf ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="mr-2 h-4 w-4" />
+                )}
+                Descargar PDF
+              </DropdownMenuItem>
               {consent.status === 'signed' && (
                 <>
                   <DropdownMenuSeparator />
