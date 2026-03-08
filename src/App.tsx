@@ -39,6 +39,8 @@ import PayDebt from "./pages/PayDebt";
 import PaymentSuccess from "./pages/PaymentSuccess";
 import PublicReferralRegister from "./pages/PublicReferralRegister";
 import Referrals from "./pages/Referrals";
+import Autoregistros from "./pages/Autoregistros";
+import AutoregistroPublic from "./pages/AutoregistroPublic";
 
 const queryClient = new QueryClient();
 
@@ -77,6 +79,7 @@ const App = () => (
             <Route path="/pagar/:token" element={<PayDebt />} />
             <Route path="/pago-exitoso" element={<PaymentSuccess />} />
             <Route path="/derivaciones/:centerSlug/registro" element={<PublicReferralRegister />} />
+            <Route path="/registro/:token" element={<AutoregistroPublic />} />
             
             {/* Protected Routes */}
             <Route path="/dashboard" element={
@@ -165,6 +168,11 @@ const App = () => (
             <Route path="/evaluaciones/:assessmentId/resultados" element={
               <ProtectedRoute>
                 <AppLayout><AssessmentResults /></AppLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/autorregistros" element={
+              <ProtectedRoute>
+                <AppLayout><Autoregistros /></AppLayout>
               </ProtectedRoute>
             } />
             

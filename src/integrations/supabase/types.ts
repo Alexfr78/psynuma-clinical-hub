@@ -287,6 +287,254 @@ export type Database = {
         }
         Relationships: []
       }
+      autoregistro_entries: {
+        Row: {
+          center_id: string
+          id: string
+          link_id: string
+          patient_id: string
+          submitted_at: string | null
+          template_id: string
+          values: Json
+        }
+        Insert: {
+          center_id: string
+          id?: string
+          link_id: string
+          patient_id: string
+          submitted_at?: string | null
+          template_id: string
+          values?: Json
+        }
+        Update: {
+          center_id?: string
+          id?: string
+          link_id?: string
+          patient_id?: string
+          submitted_at?: string | null
+          template_id?: string
+          values?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "autoregistro_entries_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "autoregistro_entries_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "autoregistro_entries_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "portal_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "autoregistro_entries_link_id_fkey"
+            columns: ["link_id"]
+            isOneToOne: false
+            referencedRelation: "autoregistro_links"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "autoregistro_entries_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "autoregistro_entries_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "autoregistro_entries_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "autoregistro_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      autoregistro_links: {
+        Row: {
+          access_token: string
+          allow_multiple: boolean | null
+          center_id: string
+          created_at: string | null
+          expires_at: string | null
+          id: string
+          patient_id: string
+          professional_id: string
+          status: string
+          template_id: string
+        }
+        Insert: {
+          access_token?: string
+          allow_multiple?: boolean | null
+          center_id: string
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          patient_id: string
+          professional_id: string
+          status?: string
+          template_id: string
+        }
+        Update: {
+          access_token?: string
+          allow_multiple?: boolean | null
+          center_id?: string
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          patient_id?: string
+          professional_id?: string
+          status?: string
+          template_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "autoregistro_links_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "autoregistro_links_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "autoregistro_links_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "portal_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "autoregistro_links_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "autoregistro_links_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "autoregistro_links_professional_id_fkey"
+            columns: ["professional_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "autoregistro_links_professional_id_fkey"
+            columns: ["professional_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "autoregistro_links_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "autoregistro_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      autoregistro_templates: {
+        Row: {
+          center_id: string
+          created_at: string | null
+          description: string | null
+          fields: Json
+          id: string
+          is_active: boolean | null
+          name: string
+          professional_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          center_id: string
+          created_at?: string | null
+          description?: string | null
+          fields?: Json
+          id?: string
+          is_active?: boolean | null
+          name: string
+          professional_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          center_id?: string
+          created_at?: string | null
+          description?: string | null
+          fields?: Json
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          professional_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "autoregistro_templates_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "autoregistro_templates_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "autoregistro_templates_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "portal_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "autoregistro_templates_professional_id_fkey"
+            columns: ["professional_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "autoregistro_templates_professional_id_fkey"
+            columns: ["professional_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       availability: {
         Row: {
           created_at: string
@@ -4353,6 +4601,7 @@ export type Database = {
         Returns: Json
       }
       get_assessment_token: { Args: never; Returns: string }
+      get_autoregistro_token: { Args: never; Returns: string }
       get_bono_sessions: {
         Args: { p_bono_id: string }
         Returns: {
@@ -4553,6 +4802,10 @@ export type Database = {
       }
       verify_assessment_token_for_template: {
         Args: { template_uuid: string }
+        Returns: boolean
+      }
+      verify_autoregistro_token: {
+        Args: { link_uuid: string }
         Returns: boolean
       }
       verify_consent_token: { Args: { consent_uuid: string }; Returns: boolean }

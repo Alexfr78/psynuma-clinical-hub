@@ -1,0 +1,101 @@
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from './useAuth';
+import { toast } from 'sonner';
+
+export interface AutoregistroField {
+  label: string;
+  type: 'text' | 'textarea' | 'number' | 'date' | 'time' | 'select' | 'checkbox' | 'scale';
+  options?: string[];
+  required: boolean;
+  order: number;
+}
+
+export interface AutoregistroTemplate {
+  id: string;
+  center_id: string;
+  professional_id: string;
+  name: string;
+  description: string | null;
+  fields: AutoregistroField[];
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export function useAutoregistroTemplates() {
+  const { profile } = useAuth();
+  const queryClient = useQueryClient();
+  const centerId = profile?.center_id;
+
+  const query = useQuery({
+    queryKey: ['autoregistro-templates', centerId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('autoregistro_templates')
+        .select('*')
+        .eq('center_id', centerId!)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return (data ?? []).map((t: any) => ({
+        ...t,
+        fields: (typeof t.fields === 'string' ? JSON.parse(t.fields) : t.fields) as AutoregistroField[],
+      })) as AutoregistroTemplate[];
+    },
+    enabled: !!centerId,
+  });
+
+  const createTemplate = useMutation({
+    mutationFn: async (input: { name: string; description?: string; fields: AutoregistroField[] }) => {
+      const { data, error } = await supabase
+        .from('autoregistro_templates')
+        .insert({
+          center_id: centerId!,
+          professional_id: profile!.id,
+          name: input.name,
+          description: input.description || null,
+          fields: input.fields as any,
+        })
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['autoregistro-templates'] });
+      toast.success('Plantilla creada');
+    },
+    onError: () => toast.error('Error al crear plantilla'),
+  });
+
+  const updateTemplate = useMutation({
+    mutationFn: async (input: { id: string; name?: string; description?: string; fields?: AutoregistroField[]; is_active?: boolean }) => {
+      const updates: any = { updated_at: new Date().toISOString() };
+      if (input.name !== undefined) updates.name = input.name;
+      if (input.description !== undefined) updates.description = input.description;
+      if (input.fields !== undefined) updates.fields = input.fields;
+      if (input.is_active !== undefined) updates.is_active = input.is_active;
+      const { error } = await supabase.from('autoregistro_templates').update(updates).eq('id', input.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['autoregistro-templates'] });
+      toast.success('Plantilla actualizada');
+    },
+    onError: () => toast.error('Error al actualizar plantilla'),
+  });
+
+  const deleteTemplate = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('autoregistro_templates').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['autoregistro-templates'] });
+      toast.success('Plantilla eliminada');
+    },
+    onError: () => toast.error('Error al eliminar plantilla'),
+  });
+
+  return { ...query, createTemplate, updateTemplate, deleteTemplate };
+}
