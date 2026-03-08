@@ -458,11 +458,11 @@ serve(async (req) => {
       borderWidth: 1,
     });
 
-    const patientName = `${typedConsent.patient?.first_name || ''} ${typedConsent.patient?.last_name || ''}`.trim();
-    const professionalName = `${typedConsent.professional?.first_name || ''} ${typedConsent.professional?.last_name || ''}`.trim();
-    const signedDate = typedConsent.signed_at 
+    const patientName = sanitizeForPdf(`${typedConsent.patient?.first_name || ''} ${typedConsent.patient?.last_name || ''}`.trim());
+    const professionalName = sanitizeForPdf(`${typedConsent.professional?.first_name || ''} ${typedConsent.professional?.last_name || ''}`.trim());
+    const signedDate = sanitizeForPdf(typedConsent.signed_at 
       ? new Date(typedConsent.signed_at).toLocaleString('es-ES', { timeZone: 'Europe/Madrid' })
-      : new Date().toLocaleString('es-ES', { timeZone: 'Europe/Madrid' });
+      : new Date().toLocaleString('es-ES', { timeZone: 'Europe/Madrid' }));
 
     currentPage.drawText('Paciente:', { x: margin + 10, y: currentY - 20, size: 10, font: helveticaBold, color: rgb(0.12, 0.25, 0.55) });
     currentPage.drawText(patientName, { x: margin + 70, y: currentY - 20, size: 10, font: helvetica, color: rgb(0.12, 0.15, 0.21) });
