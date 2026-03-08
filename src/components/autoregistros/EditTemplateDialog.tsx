@@ -24,6 +24,7 @@ export function EditTemplateDialog({ open, onOpenChange, template }: EditTemplat
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [fields, setFields] = useState<AutoregistroField[]>([]);
+  const [feedbackEnabled, setFeedbackEnabled] = useState(false);
   const { updateTemplate } = useAutoregistroTemplates();
 
   useEffect(() => {
@@ -31,6 +32,7 @@ export function EditTemplateDialog({ open, onOpenChange, template }: EditTemplat
       setName(template.name);
       setDescription(template.description || '');
       setFields([...template.fields]);
+      setFeedbackEnabled(template.patient_feedback_enabled ?? false);
     }
   }, [template]);
 
