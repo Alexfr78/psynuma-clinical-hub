@@ -2033,7 +2033,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
             )}
           </TabsContent>
 
-          <TabsContent value="otras" className="mt-0 px-6 py-4">
+          <TabsContent value="otras" className="mt-0 px-4 sm:px-6 py-4">
             {session.patient_id ? (
               <PatientSessionHistory
                 patientId={session.patient_id}
