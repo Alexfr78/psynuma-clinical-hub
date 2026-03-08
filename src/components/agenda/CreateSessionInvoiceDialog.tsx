@@ -859,6 +859,17 @@ export function CreateSessionInvoiceDialog({
         </div>
       </div>
 
+      {/* Notes */}
+      <div className="space-y-2">
+        <Label>Observaciones (opcional)</Label>
+        <Textarea
+          placeholder="Notas u observaciones para la factura..."
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          rows={2}
+        />
+      </div>
+
       {/* Missing Fields Warning */}
       {invoiceType === 'complete' && missingFields.length > 0 && !editingPatient && (
         <Alert variant="destructive">

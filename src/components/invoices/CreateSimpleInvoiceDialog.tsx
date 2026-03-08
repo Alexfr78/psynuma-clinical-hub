@@ -1020,6 +1020,17 @@ export function CreateSimpleInvoiceDialog({ open, onOpenChange, preselectedPatie
               </div>
             </div>
 
+            {/* Notes */}
+            <div className="space-y-2">
+              <Label>Observaciones (opcional)</Label>
+              <Textarea
+                placeholder="Notas u observaciones para la factura..."
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                rows={2}
+              />
+            </div>
+
             {/* Missing Data Warning */}
             {invoiceType === 'complete' && missingFields.length > 0 && !editingPatient && (
               <Alert variant="destructive">
