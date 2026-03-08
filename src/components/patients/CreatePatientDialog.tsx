@@ -6,17 +6,13 @@ import { Plus, Loader2 } from 'lucide-react';
 import { validateSpanishTaxId } from '@/lib/nif-validation';
 import { Button } from '@/components/ui/button';
 import {
-  Dialog,
-  DialogTrigger,
-} from '@/components/ui/dialog';
-import {
+  ResponsiveDialog,
   ResponsiveDialogContent as DialogContent,
   ResponsiveDialogDescription as DialogDescription,
   ResponsiveDialogHeader as DialogHeader,
   ResponsiveDialogTitle as DialogTitle,
 } from '@/components/ui/responsive-dialog';
-import { useIsMobile } from '@/hooks/use-mobile';
-import { Drawer, DrawerTrigger } from '@/components/ui/drawer';
+import { Button } from '@/components/ui/button';
 import {
   Form,
   FormControl,
