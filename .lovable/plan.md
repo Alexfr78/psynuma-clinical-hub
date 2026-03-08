@@ -1,29 +1,23 @@
 
 
-## Problem
+## Plan: Arreglar input de opciones del campo Selección
 
-The `SessionDetailDrawer` has a `useEffect` that resets local state (`localDateTime`, `localStatus`, etc.) but its dependency array only watches `session?.id`, `session?.bono_id`, and `session?.price`. When the drawer is closed and reopened for the **same session**, or when session data is refetched with updated values, the local overrides (`localDateTime`, `localStatus`) are never cleared. This causes the drawer to show stale values from a previous edit.
+### Problema
+Al escribir una coma en el input de opciones, el valor se recalcula inmediatamente: `split(',')` + `filter(Boolean)` elimina el string vacío después de la coma, y `join(', ')` vuelve a renderizar sin ella. La coma "desaparece".
 
-In your case: you edited date/time at some point, `localDateTime` was set to `{date: '2026-03-10', startTime: '18:00', endTime: '19:00'}`, but the DB actually has `2026-03-04 at 20:00`. Reopening the drawer doesn't reset `localDateTime` because `session.id` hasn't changed.
+### Solución
+Guardar el texto raw del input en lugar de hacer round-trip `split → filter → join` en cada keystroke:
 
-## Fix
+1. **En `FieldBuilder.tsx`**: cambiar el input de opciones para que almacene el valor crudo como string en el estado, y solo parsear a array al perder foco (`onBlur`) o al guardar.
 
-**File: `src/components/agenda/SessionDetailDrawer.tsx`**
+Concretamente:
+- Cambiar `value` del input a usar directamente el texto que escribe el usuario (no `options.join(', ')`)
+- Usar un estado local `optionsText` por campo, inicializado desde `field.options.join(', ')`
+- En `onChange`: actualizar solo el texto local
+- En `onBlur`: parsear con `split(',').map(trim).filter(Boolean)` y llamar `updateField`
 
-1. **Add the `open` prop to the reset effect's dependency array** — so that every time the drawer opens, all local overrides are cleared and the component reads fresh data from the `session` prop.
+**Alternativa más simple**: almacenar el raw string directamente en `field.options` como texto intermedio, parseando solo en `onBlur`. Pero esto rompe el tipo. Mejor usar estado local.
 
-2. **Also add `session?.session_date`, `session?.start_time`, `session?.end_time`, and `session?.status`** to the dependency array so that when the query cache updates with new data, local overrides are cleared.
-
-The effect at line ~260 changes from:
-```typescript
-}, [session?.id, session?.bono_id, session?.price]);
-```
-to:
-```typescript
-}, [session?.id, session?.bono_id, session?.price, session?.session_date, session?.start_time, session?.end_time, session?.status, open]);
-```
-
-This ensures that:
-- Opening the drawer always shows the DB values (not stale local edits)
-- When the session query refetches with updated data, local overrides are discarded
+### Archivo
+- `src/components/autoregistros/FieldBuilder.tsx` — modificar solo la sección del input de opciones (líneas 135-144)
 
