@@ -7,6 +7,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -15,7 +16,7 @@ import {
 } from '@/components/ui/select';
 import { useAutoregistroTemplates, type AutoregistroTemplate } from '@/hooks/useAutoregistroTemplates';
 import { useAutoregistroLinks } from '@/hooks/useAutoregistroLinks';
-import { useAutoregistroEntries } from '@/hooks/useAutoregistroEntries';
+import { useAutoregistroEntries, useDeleteAutoregistroEntries } from '@/hooks/useAutoregistroEntries';
 import { usePatients } from '@/hooks/usePatients';
 import { TemplateCard } from '@/components/autoregistros/TemplateCard';
 import { EditTemplateDialog } from '@/components/autoregistros/EditTemplateDialog';
