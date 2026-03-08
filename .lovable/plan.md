@@ -1,25 +1,29 @@
 
 
-## Plan: Drag & Drop para reordenar campos en FieldBuilder
+## Problem
 
-### Enfoque
-Implementar drag and drop nativo con la HTML Drag and Drop API (sin dependencias externas). Es suficiente para una lista vertical simple de cards y evita añadir librerías.
+The `SessionDetailDrawer` has a `useEffect` that resets local state (`localDateTime`, `localStatus`, etc.) but its dependency array only watches `session?.id`, `session?.bono_id`, and `session?.price`. When the drawer is closed and reopened for the **same session**, or when session data is refetched with updated values, the local overrides (`localDateTime`, `localStatus`) are never cleared. This causes the drawer to show stale values from a previous edit.
 
-### Cambios en `src/components/autoregistros/FieldBuilder.tsx`
+In your case: you edited date/time at some point, `localDateTime` was set to `{date: '2026-03-10', startTime: '18:00', endTime: '19:00'}`, but the DB actually has `2026-03-04 at 20:00`. Reopening the drawer doesn't reset `localDateTime` because `session.id` hasn't changed.
 
-1. **Estado de drag**: Añadir `dragIndex` (campo siendo arrastrado) y `dragOverIndex` (posición destino).
+## Fix
 
-2. **Eventos en cada Card**:
-   - `draggable={true}`
-   - `onDragStart` → guarda el índice origen
-   - `onDragOver` → `preventDefault()` + guarda índice destino
-   - `onDrop` → reordena el array moviendo el campo de `dragIndex` a `dragOverIndex`, recalcula `order`
-   - `onDragEnd` → limpia estado
+**File: `src/components/agenda/SessionDetailDrawer.tsx`**
 
-3. **Visual feedback**: Añadir un handle de arrastre (icono `GripVertical` de lucide) a la izquierda de cada card. Aplicar `opacity-50` al campo que se está arrastrando y un borde superior/inferior destacado en la posición destino.
+1. **Add the `open` prop to the reset effect's dependency array** — so that every time the drawer opens, all local overrides are cleared and the component reads fresh data from the `session` prop.
 
-4. **Mantener flechas**: Los botones ↑/↓ se mantienen como alternativa de accesibilidad.
+2. **Also add `session?.session_date`, `session?.start_time`, `session?.end_time`, and `session?.status`** to the dependency array so that when the query cache updates with new data, local overrides are cleared.
 
-### Archivo afectado
-- `src/components/autoregistros/FieldBuilder.tsx` (solo este archivo)
+The effect at line ~260 changes from:
+```typescript
+}, [session?.id, session?.bono_id, session?.price]);
+```
+to:
+```typescript
+}, [session?.id, session?.bono_id, session?.price, session?.session_date, session?.start_time, session?.end_time, session?.status, open]);
+```
+
+This ensures that:
+- Opening the drawer always shows the DB values (not stale local edits)
+- When the session query refetches with updated data, local overrides are discarded
 
