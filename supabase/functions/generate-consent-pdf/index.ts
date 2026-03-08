@@ -407,7 +407,7 @@ serve(async (req) => {
       currentY -= Math.max(logoHeight, 50) + 20;
     } else {
       // No logo, just center name
-      currentPage.drawText(typedConsent.center?.name || 'Centro', {
+      currentPage.drawText(sanitizeForPdf(typedConsent.center?.name || 'Centro'), {
         x: margin,
         y: currentY - 20,
         size: 18,
