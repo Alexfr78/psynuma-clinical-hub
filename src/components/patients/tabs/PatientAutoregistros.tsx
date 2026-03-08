@@ -1,13 +1,15 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Plus, Send } from 'lucide-react';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
+import { Send, Eye } from 'lucide-react';
 import { useAutoregistroEntries } from '@/hooks/useAutoregistroEntries';
 import { useAutoregistroLinks } from '@/hooks/useAutoregistroLinks';
-import { EntryCard } from '@/components/autoregistros/EntryCard';
 import { EntryDetailDialog } from '@/components/autoregistros/EntryDetailDialog';
 import { EntryChart } from '@/components/autoregistros/EntryChart';
 import { SendAutoregistroDialog } from '@/components/autoregistros/SendAutoregistroDialog';
 import type { AutoregistroEntry } from '@/hooks/useAutoregistroEntries';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
 
 interface PatientAutoregistrosProps {
   patientId: string;
