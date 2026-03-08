@@ -74,9 +74,6 @@ export function PatientAutoregistros({ patientId }: PatientAutoregistrosProps) {
                       className="cursor-pointer"
                       onClick={() => setSelectedEntry(entry)}
                     >
-                      <TableCell className="text-muted-foreground whitespace-nowrap sticky left-0 bg-background z-10">
-                        {format(new Date(entry.submitted_at), 'dd MMM yyyy HH:mm', { locale: es })}
-                      </TableCell>
                       {dynamicFields.map((f) => (
                         <TableCell key={f.label}>
                           {formatFieldValue(f, entry.values?.[f.label])}
