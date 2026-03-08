@@ -8,6 +8,8 @@ import { EntryDetailDialog } from '@/components/autoregistros/EntryDetailDialog'
 import { EntryChart } from '@/components/autoregistros/EntryChart';
 import { SendAutoregistroDialog } from '@/components/autoregistros/SendAutoregistroDialog';
 import type { AutoregistroEntry } from '@/hooks/useAutoregistroEntries';
+import type { AutoregistroField } from '@/hooks/useAutoregistroTemplates';
+import { formatFieldValue } from '@/lib/autoregistro-format';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
