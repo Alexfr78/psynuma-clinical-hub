@@ -1,7 +1,7 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Copy, XCircle } from 'lucide-react';
+import { Copy, XCircle, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -10,9 +10,10 @@ import type { AutoregistroLink } from '@/hooks/useAutoregistroLinks';
 interface LinkCardProps {
   link: AutoregistroLink;
   onDeactivate: (id: string) => void;
+  onDelete: (id: string) => void;
 }
 
-export function LinkCard({ link, onDeactivate }: LinkCardProps) {
+export function LinkCard({ link, onDeactivate, onDelete }: LinkCardProps) {
   const url = `${window.location.origin}/registro/${link.access_token}`;
   const isExpired = link.expires_at && new Date(link.expires_at) < new Date();
   const statusLabel = link.status === 'active' && !isExpired ? 'Activo' : 'Expirado';
