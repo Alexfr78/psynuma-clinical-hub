@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
 import { FieldBuilder } from './FieldBuilder';
 import type { AutoregistroField } from '@/hooks/useAutoregistroTemplates';
 import { useAutoregistroTemplates } from '@/hooks/useAutoregistroTemplates';
@@ -22,6 +23,7 @@ export function CreateTemplateDialog({ open, onOpenChange }: CreateTemplateDialo
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [fields, setFields] = useState<AutoregistroField[]>([]);
+  const [feedbackEnabled, setFeedbackEnabled] = useState(false);
   const { createTemplate } = useAutoregistroTemplates();
 
   const handleSubmit = () => {
@@ -30,13 +32,14 @@ export function CreateTemplateDialog({ open, onOpenChange }: CreateTemplateDialo
     if (fields.some((f) => !f.label.trim())) return;
 
     createTemplate.mutate(
-      { name: name.trim(), description: description.trim() || undefined, fields },
+      { name: name.trim(), description: description.trim() || undefined, fields, patient_feedback_enabled: feedbackEnabled },
       {
         onSuccess: () => {
           onOpenChange(false);
           setName('');
           setDescription('');
           setFields([]);
+          setFeedbackEnabled(false);
         },
       }
     );
@@ -63,6 +66,14 @@ export function CreateTemplateDialog({ open, onOpenChange }: CreateTemplateDialo
           <div className="space-y-1.5">
             <Label>Campos del formulario</Label>
             <FieldBuilder fields={fields} onChange={setFields} />
+          </div>
+
+          <div className="flex items-center justify-between rounded-lg border p-3">
+            <div className="space-y-0.5">
+              <Label htmlFor="feedback-toggle" className="text-sm font-medium">Feedback al paciente</Label>
+              <p className="text-xs text-muted-foreground">Permitir que el paciente vea sus registros anteriores</p>
+            </div>
+            <Switch id="feedback-toggle" checked={feedbackEnabled} onCheckedChange={setFeedbackEnabled} />
           </div>
 
           <Button

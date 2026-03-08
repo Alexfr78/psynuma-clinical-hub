@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
 import { FieldBuilder } from './FieldBuilder';
 import type { AutoregistroField, AutoregistroTemplate } from '@/hooks/useAutoregistroTemplates';
 import { useAutoregistroTemplates } from '@/hooks/useAutoregistroTemplates';
@@ -23,6 +24,7 @@ export function EditTemplateDialog({ open, onOpenChange, template }: EditTemplat
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [fields, setFields] = useState<AutoregistroField[]>([]);
+  const [feedbackEnabled, setFeedbackEnabled] = useState(false);
   const { updateTemplate } = useAutoregistroTemplates();
 
   useEffect(() => {
@@ -30,6 +32,7 @@ export function EditTemplateDialog({ open, onOpenChange, template }: EditTemplat
       setName(template.name);
       setDescription(template.description || '');
       setFields([...template.fields]);
+      setFeedbackEnabled(template.patient_feedback_enabled ?? false);
     }
   }, [template]);
 
@@ -38,7 +41,7 @@ export function EditTemplateDialog({ open, onOpenChange, template }: EditTemplat
     if (fields.some((f) => !f.label.trim())) return;
 
     updateTemplate.mutate(
-      { id: template.id, name: name.trim(), description: description.trim() || undefined, fields },
+      { id: template.id, name: name.trim(), description: description.trim() || undefined, fields, patient_feedback_enabled: feedbackEnabled },
       {
         onSuccess: () => {
           onOpenChange(false);
@@ -68,6 +71,14 @@ export function EditTemplateDialog({ open, onOpenChange, template }: EditTemplat
           <div className="space-y-1.5">
             <Label>Campos del formulario</Label>
             <FieldBuilder fields={fields} onChange={setFields} />
+          </div>
+
+          <div className="flex items-center justify-between rounded-lg border p-3">
+            <div className="space-y-0.5">
+              <Label htmlFor="edit-feedback-toggle" className="text-sm font-medium">Feedback al paciente</Label>
+              <p className="text-xs text-muted-foreground">Permitir que el paciente vea sus registros anteriores</p>
+            </div>
+            <Switch id="edit-feedback-toggle" checked={feedbackEnabled} onCheckedChange={setFeedbackEnabled} />
           </div>
 
           <Button

@@ -19,6 +19,7 @@ export interface AutoregistroTemplate {
   description: string | null;
   fields: AutoregistroField[];
   is_active: boolean;
+  patient_feedback_enabled: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -46,7 +47,7 @@ export function useAutoregistroTemplates() {
   });
 
   const createTemplate = useMutation({
-    mutationFn: async (input: { name: string; description?: string; fields: AutoregistroField[] }) => {
+    mutationFn: async (input: { name: string; description?: string; fields: AutoregistroField[]; patient_feedback_enabled?: boolean }) => {
       const { data, error } = await supabase
         .from('autoregistro_templates')
         .insert({
@@ -55,6 +56,7 @@ export function useAutoregistroTemplates() {
           name: input.name,
           description: input.description || null,
           fields: input.fields as any,
+          patient_feedback_enabled: input.patient_feedback_enabled ?? false,
         })
         .select()
         .single();
@@ -69,12 +71,13 @@ export function useAutoregistroTemplates() {
   });
 
   const updateTemplate = useMutation({
-    mutationFn: async (input: { id: string; name?: string; description?: string; fields?: AutoregistroField[]; is_active?: boolean }) => {
+    mutationFn: async (input: { id: string; name?: string; description?: string; fields?: AutoregistroField[]; is_active?: boolean; patient_feedback_enabled?: boolean }) => {
       const updates: any = { updated_at: new Date().toISOString() };
       if (input.name !== undefined) updates.name = input.name;
       if (input.description !== undefined) updates.description = input.description;
       if (input.fields !== undefined) updates.fields = input.fields;
       if (input.is_active !== undefined) updates.is_active = input.is_active;
+      if (input.patient_feedback_enabled !== undefined) updates.patient_feedback_enabled = input.patient_feedback_enabled;
       const { error } = await supabase.from('autoregistro_templates').update(updates).eq('id', input.id);
       if (error) throw error;
     },
