@@ -1,8 +1,12 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
-import { Send, Eye } from 'lucide-react';
-import { useAutoregistroEntries } from '@/hooks/useAutoregistroEntries';
+import { Send, Eye, Trash2 } from 'lucide-react';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { useAutoregistroEntries, useDeleteAutoregistroEntries } from '@/hooks/useAutoregistroEntries';
 import { useAutoregistroLinks } from '@/hooks/useAutoregistroLinks';
 import { EntryDetailDialog } from '@/components/autoregistros/EntryDetailDialog';
 import { EntryChart } from '@/components/autoregistros/EntryChart';
@@ -10,8 +14,6 @@ import { SendAutoregistroDialog } from '@/components/autoregistros/SendAutoregis
 import type { AutoregistroEntry } from '@/hooks/useAutoregistroEntries';
 import type { AutoregistroField } from '@/hooks/useAutoregistroTemplates';
 import { formatFieldValue } from '@/lib/autoregistro-format';
-import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
 
 interface PatientAutoregistrosProps {
   patientId: string;
