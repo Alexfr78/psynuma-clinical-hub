@@ -393,12 +393,13 @@ export function CreateSessionInvoiceDialog({
         invoice: {
           patient_id: patientData.id,
           subtotal: invoiceTotals.subtotal,
-          tax_rate: 0, // Global rate not used anymore, per-item
+          tax_rate: 0,
           tax_amount: invoiceTotals.taxAmount,
           retention_rate: 0,
           retention_amount: invoiceTotals.retentionAmount,
           total: invoiceTotals.total,
           status: 'issued',
+          notes: notes.trim() || null,
         },
         items: items.map(item => ({
           description: item.description,
