@@ -1076,8 +1076,8 @@ serve(async (req) => {
     const numeroInstalacion = center.verifactu_numero_instalacion || 1;
     
     // Acquire advisory lock to prevent concurrent chain writes for this center
-    const MAX_LOCK_ATTEMPTS = 10;
-    const LOCK_RETRY_MS = 500;
+    const MAX_LOCK_ATTEMPTS = 20;
+    const LOCK_RETRY_MS = 800;
     let lockAcquired = false;
     
     for (let attempt = 0; attempt < MAX_LOCK_ATTEMPTS; attempt++) {
