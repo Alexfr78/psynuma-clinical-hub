@@ -167,15 +167,7 @@ export function QuickCreateSessionDialog({
   const { data: sessionTypes } = useSessionTypes();
   const [patientSearch, setPatientSearch] = useState('');
   const [patientPopoverOpen, setPatientPopoverOpen] = useState(false);
-  const patientInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (patientPopoverOpen) {
-      setTimeout(() => {
-        patientInputRef.current?.focus();
-      }, 100);
-    }
-  }, [patientPopoverOpen]);
+  const isMobile = useIsMobile();
   const [showQuickPatientDialog, setShowQuickPatientDialog] = useState(false);
   const [showLocationsDialog, setShowLocationsDialog] = useState(false);
   const [showCreateBonoDialog, setShowCreateBonoDialog] = useState(false);
