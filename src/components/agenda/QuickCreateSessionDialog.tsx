@@ -782,7 +782,7 @@ export function QuickCreateSessionDialog({
                         </Button>
                       </FormControl>
                     </PopoverTrigger>
-                    <PopoverContent className="w-[--radix-popover-trigger-width] max-w-[calc(10 z-[9999] pointer-events-auto0vw-2rem)] p-0" align="start">
+                    <PopoverContent className="w-[--radix-popover-trigger-width] max-w-[calc(100vw-2rem)] p-0 z-[9999] pointer-events-auto" align="start" data-vaul-no-drag>
                       <Command>
                         <CommandInput 
                           placeholder="Buscar contacto..." 
