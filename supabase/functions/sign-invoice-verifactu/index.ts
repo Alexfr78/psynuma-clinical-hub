@@ -1076,7 +1076,7 @@ serve(async (req) => {
     const numeroInstalacion = center.verifactu_numero_instalacion || 1;
     
     // Acquire optimistic row-level lock (works with pgbouncer transaction mode)
-    // Advisory locks are session-level and can become orphaned with connection pooling
+    // Advisory locks do NOT work with pgbouncer transaction mode - pg_try_advisory_lock always returns false
     const MAX_LOCK_ATTEMPTS = 15;
     const LOCK_RETRY_MS = 2000;
     let lockId: string | null = null;
