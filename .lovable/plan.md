@@ -1,29 +1,18 @@
 
 
-## Problem
+## Plan: Corregir filtro de eventos de calendario en reprogramación
 
-The `SessionDetailDrawer` has a `useEffect` that resets local state (`localDateTime`, `localStatus`, etc.) but its dependency array only watches `session?.id`, `session?.bono_id`, and `session?.price`. When the drawer is closed and reopened for the **same session**, or when session data is refetched with updated values, the local overrides (`localDateTime`, `localStatus`) are never cleared. This causes the drawer to show stale values from a previous edit.
+### Problema raíz
+El evento "Maricongelada" tiene `deleted: false` (booleano), pero la función `public-session-reschedule` filtra con `.is("deleted", null)`, que solo coincide con valores `NULL`. Como `false ≠ NULL`, el evento se excluye de la consulta y no se detecta como conflicto.
 
-In your case: you edited date/time at some point, `localDateTime` was set to `{date: '2026-03-10', startTime: '18:00', endTime: '19:00'}`, but the DB actually has `2026-03-04 at 20:00`. Reopening the drawer doesn't reset `localDateTime` because `session.id` hasn't changed.
+La función `public-booking` lo hace correctamente usando `.eq("deleted", false)`.
 
-## Fix
+### Solución
+Cambiar `.is("deleted", null)` por `.eq("deleted", false)` en las dos consultas a `calendar_events` dentro de `public-session-reschedule`:
 
-**File: `src/components/agenda/SessionDetailDrawer.tsx`**
+1. **Línea 620** (función `getAvailability`): `.is("deleted", null)` → `.eq("deleted", false)`
+2. **Línea 766** (función `checkDayHasAvailability`): `.is("deleted", null)` → `.eq("deleted", false)`
 
-1. **Add the `open` prop to the reset effect's dependency array** — so that every time the drawer opens, all local overrides are cleared and the component reads fresh data from the `session` prop.
-
-2. **Also add `session?.session_date`, `session?.start_time`, `session?.end_time`, and `session?.status`** to the dependency array so that when the query cache updates with new data, local overrides are cleared.
-
-The effect at line ~260 changes from:
-```typescript
-}, [session?.id, session?.bono_id, session?.price]);
-```
-to:
-```typescript
-}, [session?.id, session?.bono_id, session?.price, session?.session_date, session?.start_time, session?.end_time, session?.status, open]);
-```
-
-This ensures that:
-- Opening the drawer always shows the DB values (not stale local edits)
-- When the session query refetches with updated data, local overrides are discarded
+### Archivo a modificar
+- `supabase/functions/public-session-reschedule/index.ts` — dos líneas
 
