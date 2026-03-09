@@ -1,29 +1,64 @@
 
 
-## Problem
+## Plan: Corregir reprogramación que ignora eventos de Google Calendar
 
-The `SessionDetailDrawer` has a `useEffect` that resets local state (`localDateTime`, `localStatus`, etc.) but its dependency array only watches `session?.id`, `session?.bono_id`, and `session?.price`. When the drawer is closed and reopened for the **same session**, or when session data is refetched with updated values, the local overrides (`localDateTime`, `localStatus`) are never cleared. This causes the drawer to show stale values from a previous edit.
+### Problema
+El sistema de reprogramación pública (`public-session-reschedule`) solo consulta la tabla `sessions` para detectar conflictos. No consulta la tabla `calendar_events`, por lo que eventos externos de Google Calendar (como "Maricongelada" que bloquea de 16:00 a 21:00 el día 12) son completamente ignorados. El paciente puede reprogramar su cita a un día bloqueado por eventos de Google.
 
-In your case: you edited date/time at some point, `localDateTime` was set to `{date: '2026-03-10', startTime: '18:00', endTime: '19:00'}`, but the DB actually has `2026-03-04 at 20:00`. Reopening the drawer doesn't reset `localDateTime` because `session.id` hasn't changed.
+El sistema de reservas públicas (`public-booking`) SÍ lo hace correctamente — hay que replicar esa lógica.
 
-## Fix
+### Solución
 
-**File: `src/components/agenda/SessionDetailDrawer.tsx`**
+**Archivo: `supabase/functions/public-session-reschedule/index.ts`**
 
-1. **Add the `open` prop to the reset effect's dependency array** — so that every time the drawer opens, all local overrides are cleared and the component reads fresh data from the `session` prop.
+Modificar las dos funciones clave para que también consulten `calendar_events`:
 
-2. **Also add `session?.session_date`, `session?.start_time`, `session?.end_time`, and `session?.status`** to the dependency array so that when the query cache updates with new data, local overrides are cleared.
+#### 1. `getAvailability()` (línea ~556)
+Después de consultar las sesiones existentes (línea ~598), añadir una consulta a `calendar_events`:
 
-The effect at line ~260 changes from:
 ```typescript
-}, [session?.id, session?.bono_id, session?.price]);
-```
-to:
-```typescript
-}, [session?.id, session?.bono_id, session?.price, session?.session_date, session?.start_time, session?.end_time, session?.status, open]);
+// Get calendar events (Google Calendar blocks) for this day
+const dateStart = `${date}T00:00:00`;
+const dateEnd = `${date}T23:59:59`;
+
+const { data: calendarEvents } = await supabase
+  .from("calendar_events")
+  .select("start_at, end_at, status, all_day")
+  .eq("professional_id", professionalId)
+  .eq("is_converted", false)
+  .is("deleted", null)
+  .lte("start_at", dateEnd)
+  .gte("end_at", dateStart);
+
+// Add calendar events as booked slots (convert from timestamptz to time)
+for (const evt of (calendarEvents || [])) {
+  if (evt.all_day) {
+    // All-day event blocks the entire day
+    bookedSlots.push({ start: "00:00:00", end: "23:59:59" });
+  } else {
+    const evtStart = new Date(evt.start_at);
+    const evtEnd = new Date(evt.end_at);
+    // Convert to Europe/Madrid local time
+    const startLocal = evtStart.toLocaleTimeString('en-GB', { timeZone: 'Europe/Madrid', hour12: false });
+    const endLocal = evtEnd.toLocaleTimeString('en-GB', { timeZone: 'Europe/Madrid', hour12: false });
+    bookedSlots.push({ start: startLocal, end: endLocal });
+  }
+}
 ```
 
-This ensures that:
-- Opening the drawer always shows the DB values (not stale local edits)
-- When the session query refetches with updated data, local overrides are discarded
+#### 2. `checkDayHasAvailability()` (línea ~672)
+Aplicar la misma lógica: después de obtener las sesiones existentes, consultar `calendar_events` y añadirlos como slots ocupados.
+
+#### 3. Timezone
+Los `calendar_events` almacenan `start_at`/`end_at` como `timestamptz` (UTC). Se necesita convertir a hora local de España (`Europe/Madrid`) para comparar correctamente con los horarios de disponibilidad (que están en hora local).
+
+Usaremos el mismo approach que `public-booking`: extraer hora/minuto del timestamp convertido a zona horaria local.
+
+### Resultado esperado
+- El día 12 de marzo NO aparecerá como disponible (el evento "Maricongelada" bloquea 16:00-21:00, que es toda la ventana del profesional)
+- Los eventos de todo el día bloquearán completamente el día
+- Los eventos parciales solo bloquearán su franja horaria
+
+### Archivos a modificar
+- `supabase/functions/public-session-reschedule/index.ts` — funciones `getAvailability()` y `checkDayHasAvailability()`
 
