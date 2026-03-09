@@ -26,12 +26,14 @@ function useDashboardStats() {
       const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
       const endOfMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString().split('T')[0];
 
-      const [patientsRes, todaySessionsRes, monthInvoicesRes, debtsRes, issuedInvoicesRes] = await Promise.all([
+      const [patientsRes, todaySessionsRes, monthInvoicesRes, debtsRes, issuedInvoicesRes, allDebtInvoiceIdsRes] = await Promise.all([
         supabase.from('patients').select('id', { count: 'exact', head: true }).eq('status', 'active'),
         supabase.from('sessions').select('id', { count: 'exact', head: true }).eq('session_date', today).neq('status', 'cancelled').neq('status', 'no_show').neq('status', 'blocked'),
         supabase.from('invoices').select('total, status').gte('issue_date', startOfMonth).lte('issue_date', endOfMonth),
         supabase.from('debts').select('amount, paid_amount, invoice_id').in('status', ['pending', 'partial']),
         supabase.from('invoices').select('id, total').eq('status', 'issued'),
+        // All debts with invoice_id (any status) to know which invoices already have debt records
+        supabase.from('debts').select('invoice_id').not('invoice_id', 'is', null),
       ]);
 
       const monthlyRevenue = monthInvoicesRes.data
@@ -42,10 +44,10 @@ function useDashboardStats() {
       const debtsPending = debtsRes.data
         ?.reduce((sum, debt) => sum + (Number(debt.amount) - Number(debt.paid_amount)), 0) || 0;
 
-      // Issued invoices without a debt record (fallback for older invoices)
-      const debtInvoiceIds = new Set(debtsRes.data?.map(d => d.invoice_id).filter(Boolean));
+      // Issued invoices without ANY debt record (fallback for older invoices)
+      const allDebtInvoiceIds = new Set(allDebtInvoiceIdsRes.data?.map(d => d.invoice_id).filter(Boolean));
       const invoicesWithoutDebt = issuedInvoicesRes.data
-        ?.filter(inv => !debtInvoiceIds.has(inv.id))
+        ?.filter(inv => !allDebtInvoiceIds.has(inv.id))
         .reduce((sum, inv) => sum + Number(inv.total), 0) || 0;
 
       return {
