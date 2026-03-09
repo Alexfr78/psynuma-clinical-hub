@@ -782,7 +782,18 @@ export function QuickCreateSessionDialog({
                         </Button>
                       </FormControl>
                     </PopoverTrigger>
-                    <PopoverContent className="w-[--radix-popover-trigger-width] max-w-[calc(100vw-2rem)] p-0 z-[9999] pointer-events-auto" align="start" data-vaul-no-drag>
+                    <PopoverContent 
+                      className="w-[--radix-popover-trigger-width] max-w-[calc(100vw-2rem)] p-0 z-[9999] pointer-events-auto" 
+                      align="start" 
+                      data-vaul-no-drag
+                      onOpenAutoFocus={(e) => {
+                        e.preventDefault();
+                        setTimeout(() => {
+                          const input = (e.currentTarget as HTMLElement)?.querySelector('input');
+                          input?.focus();
+                        }, 50);
+                      }}
+                    >
                       <Command>
                         <CommandInput 
                           placeholder="Buscar contacto..." 
