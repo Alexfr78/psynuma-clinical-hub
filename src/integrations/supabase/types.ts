@@ -3755,6 +3755,8 @@ export type Database = {
           created_at: string
           id: string
           id_sistema_informatico: string
+          locked_at: string | null
+          locked_by: string | null
           nif_emisor: string
           numero_instalacion: number
           ultima_factura_id: string | null
@@ -3766,6 +3768,8 @@ export type Database = {
           created_at?: string
           id?: string
           id_sistema_informatico: string
+          locked_at?: string | null
+          locked_by?: string | null
           nif_emisor: string
           numero_instalacion: number
           ultima_factura_id?: string | null
@@ -3777,6 +3781,8 @@ export type Database = {
           created_at?: string
           id?: string
           id_sistema_informatico?: string
+          locked_at?: string | null
+          locked_by?: string | null
           nif_emisor?: string
           numero_instalacion?: number
           ultima_factura_id?: string | null
@@ -4538,6 +4544,14 @@ export type Database = {
         Args: { p_center_id: string }
         Returns: boolean
       }
+      acquire_verifactu_chain_lock_v2: {
+        Args: {
+          p_center_id: string
+          p_lock_timeout_seconds?: number
+          p_nif_emisor?: string
+        }
+        Returns: string
+      }
       apply_bono_to_session: {
         Args: { p_bono_id: string; p_session_id: string }
         Returns: Json
@@ -4763,6 +4777,10 @@ export type Database = {
       }
       release_verifactu_chain_lock: {
         Args: { p_center_id: string }
+        Returns: undefined
+      }
+      release_verifactu_chain_lock_v2: {
+        Args: { p_center_id: string; p_lock_id: string }
         Returns: undefined
       }
       remove_bono_from_session: {
