@@ -763,7 +763,7 @@ async function checkDayHasAvailability(
     .select("start_at, end_at, all_day")
     .eq("professional_id", professionalId)
     .eq("is_converted", false)
-    .is("deleted", null)
+    .eq("deleted", false)
     .lte("start_at", dateEndIso)
     .gte("end_at", dateStartIso);
 
