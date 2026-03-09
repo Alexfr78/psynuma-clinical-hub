@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -166,6 +166,15 @@ export function QuickCreateSessionDialog({
   const { data: sessionTypes } = useSessionTypes();
   const [patientSearch, setPatientSearch] = useState('');
   const [patientPopoverOpen, setPatientPopoverOpen] = useState(false);
+  const patientInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (patientPopoverOpen) {
+      setTimeout(() => {
+        patientInputRef.current?.focus();
+      }, 100);
+    }
+  }, [patientPopoverOpen]);
   const [showQuickPatientDialog, setShowQuickPatientDialog] = useState(false);
   const [showLocationsDialog, setShowLocationsDialog] = useState(false);
   const [showCreateBonoDialog, setShowCreateBonoDialog] = useState(false);
@@ -786,16 +795,10 @@ export function QuickCreateSessionDialog({
                       className="w-[--radix-popover-trigger-width] max-w-[calc(100vw-2rem)] p-0 z-[9999] pointer-events-auto" 
                       align="start" 
                       data-vaul-no-drag
-                      onOpenAutoFocus={(e) => {
-                        e.preventDefault();
-                        setTimeout(() => {
-                          const input = (e.currentTarget as HTMLElement)?.querySelector('input');
-                          input?.focus();
-                        }, 50);
-                      }}
                     >
                       <Command>
                         <CommandInput 
+                          ref={patientInputRef}
                           placeholder="Buscar contacto..." 
                           value={patientSearch}
                           onValueChange={setPatientSearch}
