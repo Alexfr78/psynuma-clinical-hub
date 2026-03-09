@@ -1421,9 +1421,11 @@ serve(async (req) => {
     );
 
     } finally {
-      // ALWAYS release the advisory lock
-      await supabase.rpc('release_verifactu_chain_lock', { p_center_id: invoice.center_id });
-      console.log('[VERIFACTU:LOCK] Released chain lock');
+      // ALWAYS release the optimistic lock
+      if (lockId) {
+        await supabase.rpc('release_verifactu_chain_lock_v2', { p_center_id: invoice.center_id, p_lock_id: lockId });
+        console.log('[VERIFACTU:LOCK] Released chain lock');
+      }
     }
 
   } catch (error) {
