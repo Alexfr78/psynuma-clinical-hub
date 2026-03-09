@@ -28,7 +28,8 @@ export function PatientSelector({ onSelect, disabled }: PatientSelectorProps) {
   const { data: patients, isLoading } = usePatients({ search: searchValue });
 
   return (
-    <Popover open={open} onOpenChange={setOpen} modal={false}erTrigger asChild>
+    <Popover open={open} onOpenChange={setOpen} modal={false}>
+      <PopoverTrigger asChild>
         <Button
           variant="outline"
           role="combobox"
@@ -43,7 +44,7 @@ export function PatientSelector({ onSelect, disabled }: PatientSelectorProps) {
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className= z-[9999] poin"w-[300px] p-0 z-[9999] pointer-events-auto">
+      <PopoverContent className="w-[300px] p-0 z-[9999] pointer-events-auto" align="start">
         <Command shouldFilter={false}>
           <CommandInput
             placeholder="Buscar por nombre..."
