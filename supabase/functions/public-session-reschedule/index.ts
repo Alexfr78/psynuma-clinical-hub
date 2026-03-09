@@ -608,6 +608,31 @@ async function getAvailability(
     end: s.end_time,
   }));
 
+  // Get calendar events (Google Calendar blocks) for this day
+  const dateStartIso = `${date}T00:00:00`;
+  const dateEndIso = `${date}T23:59:59`;
+
+  const { data: calendarEvents } = await supabase
+    .from("calendar_events")
+    .select("start_at, end_at, all_day")
+    .eq("professional_id", professionalId)
+    .eq("is_converted", false)
+    .is("deleted", null)
+    .lte("start_at", dateEndIso)
+    .gte("end_at", dateStartIso);
+
+  for (const evt of (calendarEvents || [])) {
+    if (evt.all_day) {
+      bookedSlots.push({ start: "00:00:00", end: "23:59:59" });
+    } else if (evt.start_at && evt.end_at) {
+      const evtStart = new Date(evt.start_at);
+      const evtEnd = new Date(evt.end_at);
+      const startLocal = evtStart.toLocaleTimeString('en-GB', { timeZone: 'Europe/Madrid', hour12: false });
+      const endLocal = evtEnd.toLocaleTimeString('en-GB', { timeZone: 'Europe/Madrid', hour12: false });
+      bookedSlots.push({ start: startLocal, end: endLocal });
+    }
+  }
+
   // Generate available slots
   const slots: AvailabilitySlot[] = [];
   const now = new Date();
@@ -728,6 +753,31 @@ async function checkDayHasAvailability(
     start: s.start_time,
     end: s.end_time,
   }));
+
+  // Get calendar events (Google Calendar blocks) for this day
+  const dateStartIso = `${date}T00:00:00`;
+  const dateEndIso = `${date}T23:59:59`;
+
+  const { data: calendarEvents } = await supabase
+    .from("calendar_events")
+    .select("start_at, end_at, all_day")
+    .eq("professional_id", professionalId)
+    .eq("is_converted", false)
+    .is("deleted", null)
+    .lte("start_at", dateEndIso)
+    .gte("end_at", dateStartIso);
+
+  for (const evt of (calendarEvents || [])) {
+    if (evt.all_day) {
+      bookedSlots.push({ start: "00:00:00", end: "23:59:59" });
+    } else if (evt.start_at && evt.end_at) {
+      const evtStart = new Date(evt.start_at);
+      const evtEnd = new Date(evt.end_at);
+      const startLocal = evtStart.toLocaleTimeString('en-GB', { timeZone: 'Europe/Madrid', hour12: false });
+      const endLocal = evtEnd.toLocaleTimeString('en-GB', { timeZone: 'Europe/Madrid', hour12: false });
+      bookedSlots.push({ start: startLocal, end: endLocal });
+    }
+  }
 
   // Check if there's at least one slot available
   for (const avail of availability as { start_time: string; end_time: string }[]) {
