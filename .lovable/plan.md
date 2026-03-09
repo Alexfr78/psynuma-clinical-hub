@@ -1,29 +1,46 @@
 
 
-## Problem
+## Plan: Corregir foco del input de búsqueda de contacto en móvil
 
-The `SessionDetailDrawer` has a `useEffect` that resets local state (`localDateTime`, `localStatus`, etc.) but its dependency array only watches `session?.id`, `session?.bono_id`, and `session?.price`. When the drawer is closed and reopened for the **same session**, or when session data is refetched with updated values, the local overrides (`localDateTime`, `localStatus`) are never cleared. This causes the drawer to show stale values from a previous edit.
+### Problema raíz
+El `onOpenAutoFocus` actual usa `e.currentTarget?.querySelector('input')` pero en un Portal de Radix, `e.currentTarget` puede ser `null` o no corresponder al DOM esperado cuando se ejecuta dentro de un Drawer en móvil. Además, el `CommandInput` de cmdk renderiza un input nativo envuelto en un div — el input no recibe foco porque el Drawer sigue interceptando los eventos de puntero a nivel del input individual (el `stopPropagation` del `PopoverContent` solo protege el contenedor, no garantiza que el input hijo reciba el foco inicial).
 
-In your case: you edited date/time at some point, `localDateTime` was set to `{date: '2026-03-10', startTime: '18:00', endTime: '19:00'}`, but the DB actually has `2026-03-04 at 20:00`. Reopening the drawer doesn't reset `localDateTime` because `session.id` hasn't changed.
+### Solución
+Reemplazar el mecanismo de auto-foco por una ref directa al input, y añadir un efecto que fuerce el foco cuando el popover se abre:
 
-## Fix
+**Archivo: `src/components/agenda/QuickCreateSessionDialog.tsx`**
 
-**File: `src/components/agenda/SessionDetailDrawer.tsx`**
+1. Añadir un `useRef` para el input de búsqueda de pacientes
+2. Usar un `useEffect` que observe `patientPopoverOpen` y fuerce `inputRef.current?.focus()` con un delay de 100ms (más fiable que 50ms en móviles lentos)
+3. Pasar la ref al `CommandInput` mediante una prop `ref`
+4. Eliminar el `onOpenAutoFocus` actual que no funciona
 
-1. **Add the `open` prop to the reset effect's dependency array** — so that every time the drawer opens, all local overrides are cleared and the component reads fresh data from the `session` prop.
+**Archivo: `src/components/ui/command.tsx`**
 
-2. **Also add `session?.session_date`, `session?.start_time`, `session?.end_time`, and `session?.status`** to the dependency array so that when the query cache updates with new data, local overrides are cleared.
+El `CommandInput` actualmente no expone `ref` al input nativo — lo pasa al `CommandPrimitive.Input`. Verificar que el forwardRef funciona correctamente para poder usar `inputRef.current?.focus()`.
 
-The effect at line ~260 changes from:
-```typescript
-}, [session?.id, session?.bono_id, session?.price]);
+### Cambios concretos
+
+```tsx
+// QuickCreateSessionDialog.tsx
+const patientInputRef = useRef<HTMLInputElement>(null);
+
+useEffect(() => {
+  if (patientPopoverOpen) {
+    setTimeout(() => {
+      patientInputRef.current?.focus();
+    }, 100);
+  }
+}, [patientPopoverOpen]);
+
+// En el JSX, quitar onOpenAutoFocus y añadir ref al CommandInput:
+<CommandInput 
+  ref={patientInputRef}
+  placeholder="Buscar contacto..." 
+  ...
+/>
 ```
-to:
-```typescript
-}, [session?.id, session?.bono_id, session?.price, session?.session_date, session?.start_time, session?.end_time, session?.status, open]);
-```
 
-This ensures that:
-- Opening the drawer always shows the DB values (not stale local edits)
-- When the session query refetches with updated data, local overrides are discarded
+### Archivos a modificar
+1. `src/components/agenda/QuickCreateSessionDialog.tsx` — ref + useEffect para foco automático
 
