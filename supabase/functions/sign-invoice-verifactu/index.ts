@@ -1075,23 +1075,28 @@ serve(async (req) => {
     const idSistemaInformatico = '01'; // Fixed in our system
     const numeroInstalacion = center.verifactu_numero_instalacion || 1;
     
-    // Acquire advisory lock to prevent concurrent chain writes for this center
-    const MAX_LOCK_ATTEMPTS = 20;
-    const LOCK_RETRY_MS = 800;
-    let lockAcquired = false;
+    // Acquire optimistic row-level lock (works with pgbouncer transaction mode)
+    // Advisory locks are session-level and can become orphaned with connection pooling
+    const MAX_LOCK_ATTEMPTS = 15;
+    const LOCK_RETRY_MS = 2000;
+    let lockId: string | null = null;
     
     for (let attempt = 0; attempt < MAX_LOCK_ATTEMPTS; attempt++) {
-      const { data: lockResult } = await supabase.rpc('acquire_verifactu_chain_lock', { p_center_id: invoice.center_id });
-      if (lockResult === true) {
-        lockAcquired = true;
-        console.log(`[VERIFACTU:LOCK] Acquired on attempt ${attempt + 1}`);
+      const { data: lockResult } = await supabase.rpc('acquire_verifactu_chain_lock_v2', { 
+        p_center_id: invoice.center_id,
+        p_nif_emisor: nifEmisor,
+        p_lock_timeout_seconds: 30
+      });
+      if (lockResult) {
+        lockId = lockResult;
+        console.log(`[VERIFACTU:LOCK] Acquired lock ${lockId} on attempt ${attempt + 1}`);
         break;
       }
       console.log(`[VERIFACTU:LOCK] Attempt ${attempt + 1}/${MAX_LOCK_ATTEMPTS} failed, waiting ${LOCK_RETRY_MS}ms...`);
       await new Promise(resolve => setTimeout(resolve, LOCK_RETRY_MS));
     }
     
-    if (!lockAcquired) {
+    if (!lockId) {
       console.error('[VERIFACTU:LOCK] Could not acquire chain lock after max attempts');
       return new Response(
         JSON.stringify({ error: 'No se pudo adquirir el bloqueo de la cadena Verifactu. Otro proceso de firma está en curso. Reintente en unos segundos.' }),
@@ -1416,9 +1421,11 @@ serve(async (req) => {
     );
 
     } finally {
-      // ALWAYS release the advisory lock
-      await supabase.rpc('release_verifactu_chain_lock', { p_center_id: invoice.center_id });
-      console.log('[VERIFACTU:LOCK] Released chain lock');
+      // ALWAYS release the optimistic lock
+      if (lockId) {
+        await supabase.rpc('release_verifactu_chain_lock_v2', { p_center_id: invoice.center_id, p_lock_id: lockId });
+        console.log('[VERIFACTU:LOCK] Released chain lock');
+      }
     }
 
   } catch (error) {
