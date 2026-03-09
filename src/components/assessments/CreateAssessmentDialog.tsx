@@ -120,7 +120,7 @@ export function CreateAssessmentDialog({ open, onOpenChange, preselectedPatientI
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>Contacto</Label>
-              <Popover open={patientPopoverOpen} onOpenChange={setPatientPopoverOpen}>
+              <Popover open={patientPopoverOpen} onOpenChange={setPatientPopoverOpen} modal={false}>
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
@@ -137,7 +137,7 @@ export function CreateAssessmentDialog({ open, onOpenChange, preselectedPatientI
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                <PopoverContent className="w-[--radix-popover-trig z-[9999] pointer-events-autoger-width] p-0" align="start">
                   <Command shouldFilter={false}>
                     <CommandInput
                       placeholder="Buscar por nombre..."
