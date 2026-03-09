@@ -1,29 +1,51 @@
 
 
-## Problem
+## Plan: Corregir input de búsqueda de contacto en móvil
 
-The `SessionDetailDrawer` has a `useEffect` that resets local state (`localDateTime`, `localStatus`, etc.) but its dependency array only watches `session?.id`, `session?.bono_id`, and `session?.price`. When the drawer is closed and reopened for the **same session**, or when session data is refetched with updated values, the local overrides (`localDateTime`, `localStatus`) are never cleared. This causes the drawer to show stale values from a previous edit.
+### Problema raíz
+En móvil, el `PopoverContent` se renderiza en un Portal fuera del Drawer. Aunque el `stopPropagation` evita que el Drawer arrastre, el input de cmdk (`CommandInput`) no recibe el foco correctamente porque el Drawer captura el evento `pointerdown` antes de que el input pueda activar el teclado virtual. El `stopPropagation` de touch events no cubre `pointerdown`/`pointerup`, que son los eventos que usa Radix y el navegador para gestionar el foco.
 
-In your case: you edited date/time at some point, `localDateTime` was set to `{date: '2026-03-10', startTime: '18:00', endTime: '19:00'}`, but the DB actually has `2026-03-04 at 20:00`. Reopening the drawer doesn't reset `localDateTime` because `session.id` hasn't changed.
+### Solución
+Dos cambios complementarios:
 
-## Fix
+**1. `src/components/ui/popover.tsx`** — Añadir `onPointerDown` stopPropagation para que el Drawer no capture el evento de foco, y mover los handlers DESPUÉS de `{...props}` para que no sean sobrescritos:
 
-**File: `src/components/agenda/SessionDetailDrawer.tsx`**
-
-1. **Add the `open` prop to the reset effect's dependency array** — so that every time the drawer opens, all local overrides are cleared and the component reads fresh data from the `session` prop.
-
-2. **Also add `session?.session_date`, `session?.start_time`, `session?.end_time`, and `session?.status`** to the dependency array so that when the query cache updates with new data, local overrides are cleared.
-
-The effect at line ~260 changes from:
-```typescript
-}, [session?.id, session?.bono_id, session?.price]);
+```tsx
+<PopoverPrimitive.Content
+  ref={ref}
+  align={align}
+  sideOffset={sideOffset}
+  className={cn(...)}
+  {...props}
+  onPointerDownOutside={(e) => {
+    // Allow closing but call user handler first
+    props.onPointerDownOutside?.(e);
+  }}
+  onTouchStart={(e) => e.stopPropagation()}
+  onTouchMove={(e) => e.stopPropagation()}
+  onTouchEnd={(e) => e.stopPropagation()}
+  onPointerDown={(e) => e.stopPropagation()}
+  onPointerUp={(e) => e.stopPropagation()}
+/>
 ```
-to:
-```typescript
-}, [session?.id, session?.bono_id, session?.price, session?.session_date, session?.start_time, session?.end_time, session?.status, open]);
+
+**2. `src/components/agenda/QuickCreateSessionDialog.tsx`** — Añadir `onOpenAutoFocus` al PopoverContent del selector de pacientes para forzar el foco en el input de búsqueda al abrir:
+
+```tsx
+<PopoverContent 
+  className="..."
+  onOpenAutoFocus={(e) => {
+    e.preventDefault();
+    // Focus the search input after a small delay for mobile
+    setTimeout(() => {
+      const input = e.currentTarget?.querySelector('input');
+      input?.focus();
+    }, 50);
+  }}
+>
 ```
 
-This ensures that:
-- Opening the drawer always shows the DB values (not stale local edits)
-- When the session query refetches with updated data, local overrides are discarded
+### Archivos a modificar
+1. `src/components/ui/popover.tsx` — añadir `onPointerDown`/`onPointerUp` stopPropagation
+2. `src/components/agenda/QuickCreateSessionDialog.tsx` — añadir `onOpenAutoFocus` para forzar foco en input
 
