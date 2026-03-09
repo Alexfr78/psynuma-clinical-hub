@@ -1,19 +1,29 @@
 
 
-## Plan: Revertir `onPointerDown`/`onPointerUp` de popover.tsx
+## Problem
 
-### Diagnóstico
-El replay de sesión confirma que el usuario toca el input repetidamente (elemento 1794) y cmdk responde cambiando la selección de items (`aria-selected`), pero el teclado virtual nunca se activa. El input recibe los taps pero no gana foco de escritura.
+The `SessionDetailDrawer` has a `useEffect` that resets local state (`localDateTime`, `localStatus`, etc.) but its dependency array only watches `session?.id`, `session?.bono_id`, and `session?.price`. When the drawer is closed and reopened for the **same session**, or when session data is refetched with updated values, the local overrides (`localDateTime`, `localStatus`) are never cleared. This causes the drawer to show stale values from a previous edit.
 
-**Causa raíz**: El `onPointerDown={(e) => e.stopPropagation()}` añadido a `PopoverContent` en esta misma conversación impide que el evento `pointerdown` burbujee al documento. En navegadores móviles (especialmente Safari iOS), el mecanismo interno del navegador para activar el teclado virtual necesita ver el `pointerdown` propagarse hasta el nivel del documento. Al cortarlo con `stopPropagation`, el navegador no reconoce el tap como gesto de usuario para abrir el teclado.
+In your case: you edited date/time at some point, `localDateTime` was set to `{date: '2026-03-10', startTime: '18:00', endTime: '19:00'}`, but the DB actually has `2026-03-04 at 20:00`. Reopening the drawer doesn't reset `localDateTime` because `session.id` hasn't changed.
 
-Esto explica por qué **antes funcionaba** (no había stopPropagation en pointerdown) y ahora no.
+## Fix
 
-### Solución
+**File: `src/components/agenda/SessionDetailDrawer.tsx`**
 
-**Archivo: `src/components/ui/popover.tsx`**
-- Eliminar `onPointerDown` y `onPointerUp` stopPropagation (líneas 27-28)
-- Mantener `onTouchStart/Move/End` stopPropagation que son suficientes para evitar el drag del Drawer
+1. **Add the `open` prop to the reset effect's dependency array** — so that every time the drawer opens, all local overrides are cleared and the component reads fresh data from the `session` prop.
 
-Solo se modifica un archivo, dos líneas eliminadas.
+2. **Also add `session?.session_date`, `session?.start_time`, `session?.end_time`, and `session?.status`** to the dependency array so that when the query cache updates with new data, local overrides are cleared.
+
+The effect at line ~260 changes from:
+```typescript
+}, [session?.id, session?.bono_id, session?.price]);
+```
+to:
+```typescript
+}, [session?.id, session?.bono_id, session?.price, session?.session_date, session?.start_time, session?.end_time, session?.status, open]);
+```
+
+This ensures that:
+- Opening the drawer always shows the DB values (not stale local edits)
+- When the session query refetches with updated data, local overrides are discarded
 

@@ -24,8 +24,6 @@ const PopoverContent = React.forwardRef<
       onTouchStart={(e) => e.stopPropagation()}
       onTouchMove={(e) => e.stopPropagation()}
       onTouchEnd={(e) => e.stopPropagation()}
-      onPointerDown={(e) => e.stopPropagation()}
-      onPointerUp={(e) => e.stopPropagation()}
     />
   </PopoverPrimitive.Portal>
 ));
