@@ -1,34 +1,29 @@
 
 
-## Plan: Corregir interacción táctil del selector de contacto en móvil
+## Problem
 
-### Problema raíz
-El `PopoverContent` se renderiza en un **Portal** (fuera del DOM del Drawer). Aunque `data-vaul-no-drag` funciona para elementos *dentro* del Drawer, el Portal coloca el contenido fuera de ese árbol DOM. El overlay del Drawer (`z-50`, `bg-black/80`) sigue capturando eventos táctiles antes de que lleguen al PopoverContent, incluso con `z-[9999]` y `pointer-events-auto`.
+The `SessionDetailDrawer` has a `useEffect` that resets local state (`localDateTime`, `localStatus`, etc.) but its dependency array only watches `session?.id`, `session?.bono_id`, and `session?.price`. When the drawer is closed and reopened for the **same session**, or when session data is refetched with updated values, the local overrides (`localDateTime`, `localStatus`) are never cleared. This causes the drawer to show stale values from a previous edit.
 
-Los atributos `data-vaul-no-drag` y `modal={false}` no resuelven el problema porque el Drawer overlay intercepta `touchstart`/`touchmove` a nivel global.
+In your case: you edited date/time at some point, `localDateTime` was set to `{date: '2026-03-10', startTime: '18:00', endTime: '19:00'}`, but the DB actually has `2026-03-04 at 20:00`. Reopening the drawer doesn't reset `localDateTime` because `session.id` hasn't changed.
 
-### Solución
-Interceptar los eventos táctiles directamente en el `PopoverContent` para que no se propaguen al overlay del Drawer. Modificar el componente `PopoverContent` en `src/components/ui/popover.tsx` para detener la propagación de `touchstart`, `touchmove` y `touchend` cuando se usa dentro de un Drawer.
+## Fix
 
-Esto se aplica de forma centralizada en el componente base, corrigiendo todos los selectores afectados de una vez.
+**File: `src/components/agenda/SessionDetailDrawer.tsx`**
 
-### Cambios
+1. **Add the `open` prop to the reset effect's dependency array** — so that every time the drawer opens, all local overrides are cleared and the component reads fresh data from the `session` prop.
 
-**Archivo: `src/components/ui/popover.tsx`**
-- Añadir `onPointerDownOutside` handler para evitar que el Popover se cierre al tocar el input
-- Envolver el `PopoverPrimitive.Content` en un `div` con handlers `onTouchStart`, `onTouchMove`, `onTouchEnd` que llamen a `e.stopPropagation()` para evitar que los eventos táctiles lleguen al overlay del Drawer
+2. **Also add `session?.session_date`, `session?.start_time`, `session?.end_time`, and `session?.status`** to the dependency array so that when the query cache updates with new data, local overrides are cleared.
 
-Alternativa más limpia: añadir los `stopPropagation` handlers directamente en las props del `PopoverPrimitive.Content` sin necesidad de un div wrapper.
-
-```tsx
-// En popover.tsx - añadir al PopoverPrimitive.Content:
-onTouchStart={(e) => e.stopPropagation()}
-onTouchMove={(e) => e.stopPropagation()}  
-onTouchEnd={(e) => e.stopPropagation()}
+The effect at line ~260 changes from:
+```typescript
+}, [session?.id, session?.bono_id, session?.price]);
+```
+to:
+```typescript
+}, [session?.id, session?.bono_id, session?.price, session?.session_date, session?.start_time, session?.end_time, session?.status, open]);
 ```
 
-Esto es seguro porque el PopoverContent ya está en un Portal aislado — detener la propagación solo evita que el evento burbujee al overlay del Drawer sin afectar la funcionalidad interna del Command/Input.
-
-### Archivos a modificar
-1. `src/components/ui/popover.tsx` — añadir touch event stopPropagation
+This ensures that:
+- Opening the drawer always shows the DB values (not stale local edits)
+- When the session query refetches with updated data, local overrides are discarded
 
