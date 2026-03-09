@@ -1,64 +1,29 @@
 
 
-## Plan: Reemplazar Popover por Command inline en móvil para el selector de paciente
+## Problem
 
-### Diagnóstico real
+The `SessionDetailDrawer` has a `useEffect` that resets local state (`localDateTime`, `localStatus`, etc.) but its dependency array only watches `session?.id`, `session?.bono_id`, and `session?.price`. When the drawer is closed and reopened for the **same session**, or when session data is refetched with updated values, the local overrides (`localDateTime`, `localStatus`) are never cleared. This causes the drawer to show stale values from a previous edit.
 
-El problema NO es de stopPropagation ni de refs. El problema fundamental es que **Vaul (Drawer) gestiona el foco internamente** y cuando el Popover renderiza su contenido en un **Portal fuera del DOM del Drawer**, Vaul recaptura el foco de vuelta al Drawer. Además, en iOS Safari el teclado virtual solo se activa con un gesto directo del usuario, y los `setTimeout` + `focus()` no cuentan como gesto.
+In your case: you edited date/time at some point, `localDateTime` was set to `{date: '2026-03-10', startTime: '18:00', endTime: '19:00'}`, but the DB actually has `2026-03-04 at 20:00`. Reopening the drawer doesn't reset `localDateTime` because `session.id` hasn't changed.
 
-Por eso los intentos anteriores con `onPointerDown`, `useRef` + `useEffect`, y `onOpenAutoFocus` no funcionaron: todos intentan forzar foco asíncronamente en un elemento que está en un Portal fuera del Drawer.
+## Fix
 
-### Solución
+**File: `src/components/agenda/SessionDetailDrawer.tsx`**
 
-En móvil, **no usar Popover**. Reemplazar el patrón Popover+Command por un **Command inline expandible** que se muestra/oculta directamente dentro del DOM del Drawer (sin Portal). Así no hay conflicto de foco.
+1. **Add the `open` prop to the reset effect's dependency array** — so that every time the drawer opens, all local overrides are cleared and the component reads fresh data from the `session` prop.
 
-### Cambios
+2. **Also add `session?.session_date`, `session?.start_time`, `session?.end_time`, and `session?.status`** to the dependency array so that when the query cache updates with new data, local overrides are cleared.
 
-**Archivo: `src/components/agenda/QuickCreateSessionDialog.tsx`**
-
-En la sección del selector de paciente (líneas ~765-850):
-
-1. Importar `useIsMobile` 
-2. En móvil: cuando el usuario toca "Buscar paciente...", mostrar el Command directamente debajo del botón (inline, sin Popover ni Portal), con un input nativo que recibe foco naturalmente
-3. En desktop: mantener el Popover actual sin cambios
-4. Eliminar el `useRef` + `useEffect` de foco que ya no es necesario
-
-```tsx
-// Concepto del cambio:
-const isMobile = useIsMobile();
-
-// En el JSX:
-{isMobile ? (
-  <>
-    <Button onClick={() => setPatientPopoverOpen(!patientPopoverOpen)} ...>
-      Buscar paciente...
-    </Button>
-    {patientPopoverOpen && (
-      <div className="border rounded-md mt-1">
-        <Command>
-          <CommandInput 
-            autoFocus
-            placeholder="Buscar contacto..."
-            ...
-          />
-          <CommandList>...</CommandList>
-        </Command>
-      </div>
-    )}
-  </>
-) : (
-  <Popover ...>
-    {/* código actual sin cambios */}
-  </Popover>
-)}
+The effect at line ~260 changes from:
+```typescript
+}, [session?.id, session?.bono_id, session?.price]);
+```
+to:
+```typescript
+}, [session?.id, session?.bono_id, session?.price, session?.session_date, session?.start_time, session?.end_time, session?.status, open]);
 ```
 
-### Por qué esto funciona
-
-- El Command se renderiza **dentro del DOM del Drawer**, no en un Portal
-- `autoFocus` en un input que se monta como resultado de un tap directo del usuario **sí activa el teclado virtual** en iOS Safari
-- No hay conflicto de foco con Vaul porque el input está en su árbol DOM
-
-### Archivos a modificar
-1. `src/components/agenda/QuickCreateSessionDialog.tsx` — bifurcar el selector de paciente para móvil/desktop
+This ensures that:
+- Opening the drawer always shows the DB values (not stale local edits)
+- When the session query refetches with updated data, local overrides are discarded
 
