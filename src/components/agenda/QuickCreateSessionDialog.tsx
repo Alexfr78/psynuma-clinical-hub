@@ -759,16 +759,18 @@ export function QuickCreateSessionDialog({
               render={({ field }) => (
                 <FormItem className="flex flex-col">
                   <FormLabel className="text-sm font-medium">Contacto</FormLabel>
-                  <Popover open={patientPopoverOpen} onOpenChange={setPatientPopoverOpen} modal={false}>
-                    <PopoverTrigger asChild>
+                  {isMobile ? (
+                    <>
                       <FormControl>
                         <Button
                           variant="outline"
                           role="combobox"
+                          type="button"
                           className={cn(
                             'w-full justify-between h-10',
                             !field.value && 'text-muted-foreground'
                           )}
+                          onClick={() => setPatientPopoverOpen(!patientPopoverOpen)}
                         >
                           {selectedPatient ? (
                             <span className="flex items-center gap-2">
@@ -783,68 +785,152 @@ export function QuickCreateSessionDialog({
                           <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                         </Button>
                       </FormControl>
-                    </PopoverTrigger>
-                    <PopoverContent 
-                      className="w-[--radix-popover-trigger-width] max-w-[calc(100vw-2rem)] p-0 z-[9999] pointer-events-auto" 
-                      align="start" 
-                      data-vaul-no-drag
-                    >
-                      <Command>
-                        <CommandInput 
-                          ref={patientInputRef}
-                          placeholder="Buscar contacto..." 
-                          value={patientSearch}
-                          onValueChange={setPatientSearch}
-                        />
-                        <CommandList>
-                          {filteredPatients && filteredPatients.length > 0 ? (
-                            <CommandGroup>
-                              {filteredPatients.slice(0, 10).map((patient) => (
-                                <CommandItem
-                                  key={patient.id}
-                                  value={`${patient.first_name} ${patient.last_name}`}
-                                  onSelect={() => {
-                                    field.onChange(patient.id);
+                      {patientPopoverOpen && (
+                        <div className="border rounded-md mt-1 bg-popover" data-vaul-no-drag>
+                          <Command>
+                            <CommandInput 
+                              autoFocus
+                              placeholder="Buscar contacto..." 
+                              value={patientSearch}
+                              onValueChange={setPatientSearch}
+                            />
+                            <CommandList>
+                              {filteredPatients && filteredPatients.length > 0 ? (
+                                <CommandGroup>
+                                  {filteredPatients.slice(0, 10).map((patient) => (
+                                    <CommandItem
+                                      key={patient.id}
+                                      value={`${patient.first_name} ${patient.last_name}`}
+                                      onSelect={() => {
+                                        field.onChange(patient.id);
+                                        setPatientPopoverOpen(false);
+                                      }}
+                                    >
+                                      <div className="flex items-center gap-2">
+                                        <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
+                                          <User className="h-4 w-4" />
+                                        </div>
+                                        <div>
+                                          <p className="font-medium">{patient.first_name} {patient.last_name}</p>
+                                          {patient.email && (
+                                            <p className="text-xs text-muted-foreground">{patient.email}</p>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              ) : (
+                                <div className="py-6 px-4 text-center">
+                                  <p className="text-sm text-muted-foreground mb-3">
+                                    No se encontraron pacientes.
+                                  </p>
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm"
+                                    type="button"
+                                    onClick={() => {
+                                      setPatientPopoverOpen(false);
+                                      setShowQuickPatientDialog(true);
+                                    }}
+                                  >
+                                    <Plus className="h-4 w-4 mr-2" />
+                                    Crear nueva ficha de paciente
+                                  </Button>
+                                </div>
+                              )}
+                            </CommandList>
+                          </Command>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <Popover open={patientPopoverOpen} onOpenChange={setPatientPopoverOpen} modal={false}>
+                      <PopoverTrigger asChild>
+                        <FormControl>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            className={cn(
+                              'w-full justify-between h-10',
+                              !field.value && 'text-muted-foreground'
+                            )}
+                          >
+                            {selectedPatient ? (
+                              <span className="flex items-center gap-2">
+                                <div className="h-6 w-6 rounded-full bg-muted flex items-center justify-center">
+                                  <User className="h-3 w-3" />
+                                </div>
+                                {selectedPatient.first_name} {selectedPatient.last_name}
+                              </span>
+                            ) : (
+                              'Buscar paciente...'
+                            )}
+                            <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </FormControl>
+                      </PopoverTrigger>
+                      <PopoverContent 
+                        className="w-[--radix-popover-trigger-width] max-w-[calc(100vw-2rem)] p-0 z-[9999] pointer-events-auto" 
+                        align="start" 
+                        data-vaul-no-drag
+                      >
+                        <Command>
+                          <CommandInput 
+                            placeholder="Buscar contacto..." 
+                            value={patientSearch}
+                            onValueChange={setPatientSearch}
+                          />
+                          <CommandList>
+                            {filteredPatients && filteredPatients.length > 0 ? (
+                              <CommandGroup>
+                                {filteredPatients.slice(0, 10).map((patient) => (
+                                  <CommandItem
+                                    key={patient.id}
+                                    value={`${patient.first_name} ${patient.last_name}`}
+                                    onSelect={() => {
+                                      field.onChange(patient.id);
+                                      setPatientPopoverOpen(false);
+                                    }}
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
+                                        <User className="h-4 w-4" />
+                                      </div>
+                                      <div>
+                                        <p className="font-medium">{patient.first_name} {patient.last_name}</p>
+                                        {patient.email && (
+                                          <p className="text-xs text-muted-foreground">{patient.email}</p>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            ) : (
+                              <div className="py-6 px-4 text-center">
+                                <p className="text-sm text-muted-foreground mb-3">
+                                  No se encontraron pacientes.
+                                </p>
+                                <Button 
+                                  variant="outline" 
+                                  size="sm"
+                                  type="button"
+                                  onClick={() => {
                                     setPatientPopoverOpen(false);
+                                    setShowQuickPatientDialog(true);
                                   }}
                                 >
-                                  <div className="flex items-center gap-2">
-                                    <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
-                                      <User className="h-4 w-4" />
-                                    </div>
-                                    <div>
-                                      <p className="font-medium">{patient.first_name} {patient.last_name}</p>
-                                      {patient.email && (
-                                        <p className="text-xs text-muted-foreground">{patient.email}</p>
-                                      )}
-                                    </div>
-                                  </div>
-                                </CommandItem>
-                              ))}
-                            </CommandGroup>
-                          ) : (
-                            <div className="py-6 px-4 text-center">
-                              <p className="text-sm text-muted-foreground mb-3">
-                                No se encontraron pacientes.
-                              </p>
-                              <Button 
-                                variant="outline" 
-                                size="sm"
-                                type="button"
-                                onClick={() => {
-                                  setPatientPopoverOpen(false);
-                                  setShowQuickPatientDialog(true);
-                                }}
-                              >
-                                <Plus className="h-4 w-4 mr-2" />
-                                Crear nueva ficha de paciente
-                              </Button>
-                            </div>
-                          )}
-                        </CommandList>
-                      </Command>
-                    </PopoverContent>
-                  </Popover>
+                                  <Plus className="h-4 w-4 mr-2" />
+                                  Crear nueva ficha de paciente
+                                </Button>
+                              </div>
+                            )}
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                  )}
                   <FormMessage />
                 </FormItem>
               )}
