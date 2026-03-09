@@ -28,7 +28,7 @@ export function PatientSelector({ onSelect, disabled }: PatientSelectorProps) {
   const { data: patients, isLoading } = usePatients({ search: searchValue });
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={setOpen} modal={false}>
       <PopoverTrigger asChild>
         <Button
           variant="outline"
