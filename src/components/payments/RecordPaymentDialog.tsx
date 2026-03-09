@@ -326,7 +326,7 @@ export function RecordPaymentDialog({
               render={({ field }) => (
                 <FormItem className="flex flex-col">
                   <FormLabel>Contacto</FormLabel>
-                  <Popover open={patientPopoverOpen} onOpenChange={setPatientPopoverOpen} modal={false} modal={false}>
+                  <Popover open={patientPopoverOpen} onOpenChange={setPatientPopoverOpen} modal={false}>
                     <PopoverTrigger asChild disabled={isDebtPayment}>
                       <FormControl>
                         <Button

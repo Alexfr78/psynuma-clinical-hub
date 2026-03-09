@@ -757,7 +757,7 @@ export function QuickCreateSessionDialog({
               render={({ field }) => (
                 <FormItem className="flex flex-col">
                   <FormLabel className="text-sm font-medium">Contacto</FormLabel>
-                  <Popover open={patientPopoverOpen} onOpenChange={setPatientPopoverOpen} modal={false} modal={false}>
+                  <Popover open={patientPopoverOpen} onOpenChange={setPatientPopoverOpen} modal={false}>
                     <PopoverTrigger asChild>
                       <FormControl>
                         <Button

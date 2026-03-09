@@ -120,7 +120,7 @@ export function CreateAssessmentDialog({ open, onOpenChange, preselectedPatientI
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>Contacto</Label>
-              <Popover open={patientPopoverOpen} onOpenChange={setPatientPopoverOpen} modal={false} modal={false}>
+              <Popover open={patientPopoverOpen} onOpenChange={setPatientPopoverOpen} modal={false}>
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
