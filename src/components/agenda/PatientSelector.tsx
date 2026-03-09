@@ -44,7 +44,7 @@ export function PatientSelector({ onSelect, disabled }: PatientSelectorProps) {
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[300px] p-0 z-[9999] pointer-events-auto" align="start">
+      <PopoverContent className="w-[300px] p-0 z-[9999] pointer-events-auto" align="start" data-vaul-no-drag>
         <Command shouldFilter={false}>
           <CommandInput
             placeholder="Buscar por nombre..."
