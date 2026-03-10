@@ -347,6 +347,17 @@ export default function Payments() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {createdInvoiceId && (
+        <SendInvoiceDialog
+          open={sendInvoiceDialogOpen}
+          onOpenChange={(open) => {
+            setSendInvoiceDialogOpen(open);
+            if (!open) setCreatedInvoiceId(null);
+          }}
+          invoiceId={createdInvoiceId}
+        />
+      )}
     </div>
   );
 }
