@@ -45,7 +45,12 @@ export default function Payments() {
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
   const [paymentToLink, setPaymentToLink] = useState<PaymentWithRelations | null>(null);
   const [sendInvoiceDialogOpen, setSendInvoiceDialogOpen] = useState(false);
-  const [createdInvoiceId, setCreatedInvoiceId] = useState<string | null>(null);
+  const [createdInvoice, setCreatedInvoice] = useState<{
+    id: string;
+    invoice_number: string;
+    total: number;
+    patients: { id: string; first_name: string; last_name: string; email?: string | null; phone?: string | null };
+  } | null>(null);
   
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
