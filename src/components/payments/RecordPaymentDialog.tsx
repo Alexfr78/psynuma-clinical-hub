@@ -89,6 +89,7 @@ export function RecordPaymentDialog({
   preselectedInvoiceId,
   preselectedAmount,
   preselectedDescription,
+  onInvoiceCreated,
 }: RecordPaymentDialogProps) {
   const [patientSearch, setPatientSearch] = useState('');
   const [patientPopoverOpen, setPatientPopoverOpen] = useState(false);
