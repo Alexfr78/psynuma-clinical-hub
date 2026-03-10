@@ -261,6 +261,10 @@ export default function Payments() {
         preselectedPatientId={selectedDebt?.patientId}
         preselectedAmount={selectedDebt?.amount}
         preselectedDescription={selectedDebt?.description}
+        onInvoiceCreated={(invoiceId) => {
+          setCreatedInvoiceId(invoiceId);
+          setSendInvoiceDialogOpen(true);
+        }}
       />
 
       <SendPaymentReminderDialog
