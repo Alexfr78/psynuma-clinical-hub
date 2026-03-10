@@ -366,14 +366,14 @@ export default function Payments() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {createdInvoiceId && (
+      {createdInvoice && (
         <SendInvoiceDialog
           open={sendInvoiceDialogOpen}
           onOpenChange={(open) => {
             setSendInvoiceDialogOpen(open);
-            if (!open) setCreatedInvoiceId(null);
+            if (!open) setCreatedInvoice(null);
           }}
-          invoiceId={createdInvoiceId}
+          invoice={createdInvoice}
         />
       )}
     </div>
