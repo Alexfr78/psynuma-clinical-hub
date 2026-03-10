@@ -99,27 +99,7 @@ export function useCollectDebtPayment() {
 
       if (payErr) throw payErr;
 
-      // 5. Recompute debt via RPC if there's an invoice
-      if (invoiceId) {
-        const { error: rpcErr } = await supabase.rpc('recompute_debt_by_invoice', { 
-          p_debt_id: debtId 
-        });
-
-        if (rpcErr) {
-          console.error('Error recomputing debt:', rpcErr);
-          // Don't fail, payment is recorded
-        }
-      } else {
-        // Manual update if no invoice
-        const newPaid = Number(debt.paid_amount || 0) + amount;
-        const newStatus = newPaid >= Number(debt.amount) ? 'paid' : 'partial';
-        await supabase
-          .from('debts')
-          .update({ paid_amount: newPaid, status: newStatus })
-          .eq('id', debtId);
-      }
-
-      // 6. If invoice is draft and shouldIssue, issue it
+      // 5. If invoice is draft and shouldIssue, issue it BEFORE recomputing
       let invoiceIssued = false;
       if (invoiceId && invoiceStatus === 'draft' && shouldIssue) {
         try {
@@ -129,6 +109,25 @@ export function useCollectDebtPayment() {
           console.error('Error issuing invoice:', issueErr);
           toast.warning('Pago registrado, pero hubo un error al emitir la factura');
         }
+      }
+
+      // 6. Recompute debt via RPC if there's an invoice (also syncs invoice status)
+      if (invoiceId) {
+        const { error: rpcErr } = await supabase.rpc('recompute_debt_by_invoice', { 
+          p_debt_id: debtId 
+        });
+
+        if (rpcErr) {
+          console.error('Error recomputing debt:', rpcErr);
+        }
+      } else {
+        // Manual update if no invoice
+        const newPaid = Number(debt.paid_amount || 0) + amount;
+        const newStatus = newPaid >= Number(debt.amount) ? 'paid' : 'partial';
+        await supabase
+          .from('debts')
+          .update({ paid_amount: newPaid, status: newStatus })
+          .eq('id', debtId);
       }
 
       return { 

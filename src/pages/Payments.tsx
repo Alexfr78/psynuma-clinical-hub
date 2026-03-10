@@ -23,6 +23,7 @@ import { RecordPaymentDialog } from '@/components/payments/RecordPaymentDialog';
 import { EditPaymentDialog } from '@/components/payments/EditPaymentDialog';
 import { SendPaymentReminderDialog } from '@/components/payments/SendPaymentReminderDialog';
 import { LinkPaymentToInvoiceDialog } from '@/components/payments/LinkPaymentToInvoiceDialog';
+import { SendInvoiceDialog } from '@/components/invoices/SendInvoiceDialog';
 import { format } from 'date-fns';
 
 export default function Payments() {
@@ -43,6 +44,13 @@ export default function Payments() {
   const [selectedDebtForReminder, setSelectedDebtForReminder] = useState<DebtWithRelations | null>(null);
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
   const [paymentToLink, setPaymentToLink] = useState<PaymentWithRelations | null>(null);
+  const [sendInvoiceDialogOpen, setSendInvoiceDialogOpen] = useState(false);
+  const [createdInvoice, setCreatedInvoice] = useState<{
+    id: string;
+    invoice_number: string;
+    total: number;
+    patients: { id: string; first_name: string; last_name: string; email?: string | null; phone?: string | null };
+  } | null>(null);
   
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
@@ -258,6 +266,23 @@ export default function Payments() {
         preselectedPatientId={selectedDebt?.patientId}
         preselectedAmount={selectedDebt?.amount}
         preselectedDescription={selectedDebt?.description}
+        onInvoiceCreated={async (invoiceId) => {
+          // Fetch invoice details for SendInvoiceDialog
+          const { data } = await (await import('@/integrations/supabase/client')).supabase
+            .from('invoices')
+            .select('id, invoice_number, total, patients:patient_id(id, first_name, last_name, email, phone)')
+            .eq('id', invoiceId)
+            .single();
+          if (data) {
+            setCreatedInvoice({
+              id: data.id,
+              invoice_number: data.invoice_number || '',
+              total: Number(data.total),
+              patients: data.patients as any,
+            });
+            setSendInvoiceDialogOpen(true);
+          }
+        }}
       />
 
       <SendPaymentReminderDialog
@@ -340,6 +365,17 @@ export default function Payments() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {createdInvoice && (
+        <SendInvoiceDialog
+          open={sendInvoiceDialogOpen}
+          onOpenChange={(open) => {
+            setSendInvoiceDialogOpen(open);
+            if (!open) setCreatedInvoice(null);
+          }}
+          invoice={createdInvoice}
+        />
+      )}
     </div>
   );
 }
