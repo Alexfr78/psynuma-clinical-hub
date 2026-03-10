@@ -275,7 +275,7 @@ export function RecordPaymentDialog({
       }
       
       // Collect debt payment
-      await collectDebtPayment.mutateAsync({
+      const result = await collectDebtPayment.mutateAsync({
         debtId: preselectedDebtId,
         amount: values.amount,
         paymentMethod: values.payment_method,
@@ -283,6 +283,15 @@ export function RecordPaymentDialog({
         notes: values.notes || null,
         invoiceId: invoiceIdToUse,
       });
+      
+      form.reset();
+      onOpenChange(false);
+      
+      // Notify parent about created invoice for SendInvoiceDialog
+      const finalInvoiceId = invoiceIdToUse || result?.invoiceId;
+      if (finalInvoiceId && onInvoiceCreated) {
+        onInvoiceCreated(finalInvoiceId);
+      }
     } else {
       // Simple payment (no invoice generation)
       await createPayment.mutateAsync({
@@ -294,9 +303,9 @@ export function RecordPaymentDialog({
         reference: values.reference || null,
         notes: values.notes || null,
       });
+      form.reset();
+      onOpenChange(false);
     }
-    form.reset();
-    onOpenChange(false);
   };
   
   const isPending = createPayment.isPending || collectDebtPayment.isPending || createSignedInvoice.isPending;

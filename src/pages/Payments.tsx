@@ -23,6 +23,7 @@ import { RecordPaymentDialog } from '@/components/payments/RecordPaymentDialog';
 import { EditPaymentDialog } from '@/components/payments/EditPaymentDialog';
 import { SendPaymentReminderDialog } from '@/components/payments/SendPaymentReminderDialog';
 import { LinkPaymentToInvoiceDialog } from '@/components/payments/LinkPaymentToInvoiceDialog';
+import { SendInvoiceDialog } from '@/components/invoices/SendInvoiceDialog';
 import { format } from 'date-fns';
 
 export default function Payments() {
