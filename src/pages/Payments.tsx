@@ -44,6 +44,8 @@ export default function Payments() {
   const [selectedDebtForReminder, setSelectedDebtForReminder] = useState<DebtWithRelations | null>(null);
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
   const [paymentToLink, setPaymentToLink] = useState<PaymentWithRelations | null>(null);
+  const [sendInvoiceDialogOpen, setSendInvoiceDialogOpen] = useState(false);
+  const [createdInvoiceId, setCreatedInvoiceId] = useState<string | null>(null);
   
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
