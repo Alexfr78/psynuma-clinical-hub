@@ -266,9 +266,22 @@ export default function Payments() {
         preselectedPatientId={selectedDebt?.patientId}
         preselectedAmount={selectedDebt?.amount}
         preselectedDescription={selectedDebt?.description}
-        onInvoiceCreated={(invoiceId) => {
-          setCreatedInvoiceId(invoiceId);
-          setSendInvoiceDialogOpen(true);
+        onInvoiceCreated={async (invoiceId) => {
+          // Fetch invoice details for SendInvoiceDialog
+          const { data } = await (await import('@/integrations/supabase/client')).supabase
+            .from('invoices')
+            .select('id, invoice_number, total, patients:patient_id(id, first_name, last_name, email, phone)')
+            .eq('id', invoiceId)
+            .single();
+          if (data) {
+            setCreatedInvoice({
+              id: data.id,
+              invoice_number: data.invoice_number || '',
+              total: Number(data.total),
+              patients: data.patients as any,
+            });
+            setSendInvoiceDialogOpen(true);
+          }
         }}
       />
 
