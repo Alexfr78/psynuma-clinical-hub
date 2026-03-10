@@ -71,6 +71,7 @@ interface RecordPaymentDialogProps {
   preselectedInvoiceId?: string;
   preselectedAmount?: number;
   preselectedDescription?: string;
+  onInvoiceCreated?: (invoiceId: string) => void;
 }
 
 const paymentMethods = [
