@@ -453,6 +453,23 @@ export function LocationsSection() {
     );
 
     try {
+      // When marking a location as default, unmark others for the same day
+      if (field === 'is_default' && value === true && allSchedules) {
+        const otherDefaults = allSchedules.filter(
+          s => s.day_of_week === day && s.location_id !== locationId && s.is_default === true
+        );
+        for (const other of otherDefaults) {
+          await upsertSchedule.mutateAsync({
+            location_id: other.location_id,
+            day_of_week: day,
+            start_time: other.start_time,
+            end_time: other.end_time,
+            is_open: other.is_open ?? true,
+            is_default: false,
+          });
+        }
+      }
+
       await upsertSchedule.mutateAsync({
         location_id: locationId,
         day_of_week: day,

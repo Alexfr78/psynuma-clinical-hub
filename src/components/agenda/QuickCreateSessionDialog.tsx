@@ -291,8 +291,11 @@ export function QuickCreateSessionDialog({
     );
     if (result) {
       form.setValue('session_modality', result.modality);
-      if (!result.isOnline) {
+      if (result.isOnline) {
+        form.setValue('location_id', '');
+      } else {
         form.setValue('location_id', result.locationId);
+        form.setValue('video_call_link', '');
       }
     }
   }, [watchSessionDate, locations, allSchedules, userOverrodeLocation, integrations?.default_video_provider, form]);

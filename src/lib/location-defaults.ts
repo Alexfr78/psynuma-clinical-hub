@@ -66,8 +66,9 @@ export function getDefaultLocationForDate(
 
   if (candidates.length === 0) return null;
 
-  // Return first candidate (no physical>online bias)
-  return toDefault(candidates[0], defaultVideoProvider);
+  // Deterministic fallback: sort by name for stable selection
+  const sorted = [...candidates].sort((a, b) => a.name.localeCompare(b.name));
+  return toDefault(sorted[0], defaultVideoProvider);
 }
 
 function toDefault(
