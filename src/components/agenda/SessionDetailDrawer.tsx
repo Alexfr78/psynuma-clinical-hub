@@ -250,6 +250,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
   const [localPatientId, setLocalPatientId] = useState<string | null>(null);
   const [localDateTime, setLocalDateTime] = useState<{ date: string; startTime: string; endTime: string } | null>(null);
   const [localStatus, setLocalStatus] = useState<string | null>(null);
+  const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
 
   const { data: patientBonos, refetch: refetchBonos } = usePatientActiveBonos(session?.patient_id);
   const { data: currentBono } = useBono(session?.bono_id); // Fetch currently assigned bono even if exhausted
