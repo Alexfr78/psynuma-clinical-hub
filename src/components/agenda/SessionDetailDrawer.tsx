@@ -130,6 +130,9 @@ import { ConsentCard } from '@/components/consents/ConsentCard';
 import { PatientAssessments } from '@/components/patients/tabs/PatientAssessments';
 import { PatientSessionHistory } from './PatientSessionHistory';
 import { PatientAutoregistros } from '@/components/patients/tabs/PatientAutoregistros';
+import { PatientInvoices } from '@/components/patients/tabs/PatientInvoices';
+import { InvoiceDetailDialog } from '@/components/invoices/InvoiceDetailDialog';
+import { Receipt } from 'lucide-react';
 
 interface SessionDetailDrawerProps {
   session: SessionWithRelations | null;
@@ -247,6 +250,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
   const [localPatientId, setLocalPatientId] = useState<string | null>(null);
   const [localDateTime, setLocalDateTime] = useState<{ date: string; startTime: string; endTime: string } | null>(null);
   const [localStatus, setLocalStatus] = useState<string | null>(null);
+  const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
 
   const { data: patientBonos, refetch: refetchBonos } = usePatientActiveBonos(session?.patient_id);
   const { data: currentBono } = useBono(session?.bono_id); // Fetch currently assigned bono even if exhausted
@@ -270,6 +274,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
       setLocalDateTime(null);
       setLocalStatus(null);
       setEditingPatient(false);
+      setSelectedInvoiceId(null);
     }
   }, [session?.id, session?.bono_id, session?.price, session?.session_date, session?.start_time, session?.end_time, session?.status, open]);
 
@@ -947,6 +952,17 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
               </TabsTrigger>
             </TooltipTrigger>
             {isMobile && <TooltipContent>Autorregistros</TooltipContent>}
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <TabsTrigger
+                value="facturas"
+                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-3 sm:px-4 py-3 shrink-0"
+              >
+                {isMobile ? <Receipt className="h-4 w-4" /> : 'Facturas'}
+              </TabsTrigger>
+            </TooltipTrigger>
+            {isMobile && <TooltipContent>Facturas</TooltipContent>}
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -2057,6 +2073,20 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
             )}
           </TabsContent>
 
+          <TabsContent value="facturas" className="mt-0 px-4 sm:px-6 py-4">
+            {session.patient_id ? (
+              <PatientInvoices 
+                patientId={session.patient_id} 
+                onInvoiceClick={(id) => setSelectedInvoiceId(id)} 
+              />
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <Receipt className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <p className="text-sm">Asigna un paciente para ver sus facturas</p>
+              </div>
+            )}
+          </TabsContent>
+
           <TabsContent value="otras" className="mt-0 px-4 sm:px-6 py-4">
             {session.patient_id ? (
               <PatientSessionHistory
@@ -2289,6 +2319,13 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
         onOpenChange={(open) => !open && setSendConsentDialogData(null)}
       />
     )}
+
+    {/* Invoice Detail Dialog */}
+    <InvoiceDetailDialog
+      open={!!selectedInvoiceId}
+      onOpenChange={(open) => { if (!open) setSelectedInvoiceId(null); }}
+      invoiceId={selectedInvoiceId}
+    />
     </>
   );
 }
