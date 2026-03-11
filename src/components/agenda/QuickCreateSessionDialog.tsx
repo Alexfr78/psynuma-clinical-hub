@@ -283,14 +283,19 @@ export function QuickCreateSessionDialog({
   useEffect(() => {
     if (!watchSessionDate || !locations || !allSchedules || userOverrodeLocation) return;
     
-    const result = getDefaultLocationForDate(watchSessionDate, locations, allSchedules);
+    const result = getDefaultLocationForDate(
+      watchSessionDate,
+      locations,
+      allSchedules,
+      integrations?.default_video_provider
+    );
     if (result) {
       form.setValue('session_modality', result.modality);
       if (!result.isOnline) {
         form.setValue('location_id', result.locationId);
       }
     }
-  }, [watchSessionDate, locations, allSchedules, userOverrodeLocation, form]);
+  }, [watchSessionDate, locations, allSchedules, userOverrodeLocation, integrations?.default_video_provider, form]);
 
   useEffect(() => {
     if (open) {
