@@ -281,7 +281,7 @@ export function QuickCreateSessionDialog({
 
   // Smart auto-select location/modality based on day-of-week schedules
   useEffect(() => {
-    if (!watchSessionDate || !locations || !allSchedules || userOverrodeLocation) return;
+    if (!open || !watchSessionDate || !locations || !allSchedules || userOverrodeLocation) return;
     
     const result = getDefaultLocationForDate(
       watchSessionDate,
@@ -298,7 +298,7 @@ export function QuickCreateSessionDialog({
         form.setValue('video_call_link', '');
       }
     }
-  }, [watchSessionDate, locations, allSchedules, userOverrodeLocation, integrations?.default_video_provider, form]);
+  }, [open, watchSessionDate, locations, allSchedules, userOverrodeLocation, integrations?.default_video_provider, form]);
 
   useEffect(() => {
     if (open) {
