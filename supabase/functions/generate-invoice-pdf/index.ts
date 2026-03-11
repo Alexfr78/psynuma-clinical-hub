@@ -45,6 +45,7 @@ interface InvoiceData {
   };
   centers: {
     name: string;
+    invoice_data_protection_text: string | null;
     tax_id: string | null;
     address: string | null;
     city: string | null;
