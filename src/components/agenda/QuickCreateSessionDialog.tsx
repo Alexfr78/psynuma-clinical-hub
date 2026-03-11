@@ -1201,7 +1201,7 @@ export function QuickCreateSessionDialog({
                       Dirección
                     </FormLabel>
                     <div className="flex gap-2">
-                      <Select onValueChange={(v) => field.onChange(v === '__none__' ? '' : v)} value={field.value || '__none__'}>
+                      <Select onValueChange={(v) => { field.onChange(v === '__none__' ? '' : v); setUserOverrodeLocation(true); }} value={field.value || '__none__'}>
                         <SelectTrigger className="h-10 flex-1">
                           <SelectValue placeholder="Sin especificar" />
                         </SelectTrigger>
