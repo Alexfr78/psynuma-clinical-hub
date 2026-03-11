@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 
 const invoiceEditSchema = z.object({
   invoice_footer: z.string().optional(),
+  invoice_data_protection_text: z.string().optional(),
 });
 
 type InvoiceEditFormValues = z.infer<typeof invoiceEditSchema>;
