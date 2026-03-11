@@ -1128,7 +1128,7 @@ export function QuickCreateSessionDialog({
                     <Video className="h-4 w-4" />
                     Videollamada
                   </FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
+                  <Select onValueChange={(v) => { field.onChange(v); setUserOverrodeLocation(true); }} value={field.value}>
                     <SelectTrigger className="h-10">
                       <SelectValue />
                     </SelectTrigger>
