@@ -336,17 +336,23 @@ export function QuickCreateSessionDialog({
       const reminderChannels = center?.session_reminder_channels as { email?: boolean; whatsapp?: boolean; sms?: boolean } | null;
       const reminderEnabled = center?.session_reminder_enabled ?? false;
       
+      // Compute default location before reset so we can include it
+      const dateForDefaults = initialDate || new Date();
+      const locationDefault = (locations && allSchedules)
+        ? getDefaultLocationForDate(dateForDefaults, locations, allSchedules, integrations?.default_video_provider)
+        : null;
+
       form.reset({
         patient_id: '',
         professional_id: user?.id || professionals?.[0]?.id || '',
-        session_date: initialDate || new Date(),
+        session_date: dateForDefaults,
         start_time: initialStartTime || '09:00',
         end_time: finalEndTime,
         session_type: selectedSessionTypeId,
         cancellation_policy: '24_hours',
-        session_modality: 'in_person',
+        session_modality: locationDefault?.modality ?? 'in_person',
         video_call_link: '',
-        location_id: '',
+        location_id: locationDefault && !locationDefault.isOnline ? locationDefault.locationId : '',
         bono_id: '',
         payment_mode: '__default__',
         notify_whatsapp: false,
