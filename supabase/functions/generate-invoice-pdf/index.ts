@@ -564,6 +564,11 @@ function generateInvoiceHTML(
         <div class="footer">${invoice.centers.invoice_footer}</div>
         ` : ''}
 
+        ${invoice.centers?.invoice_data_protection_text ? `
+        <!-- Data Protection -->
+        <div class="data-protection">${invoice.centers.invoice_data_protection_text}</div>
+        ` : ''}
+
       </div>
     </div>
   </div>

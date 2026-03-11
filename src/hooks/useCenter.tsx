@@ -26,6 +26,7 @@ export interface Center {
   retention_rate: number | null;
   invoice_footer: string | null;
   invoice_logo_url: string | null;
+  invoice_data_protection_text: string | null;
   auto_invoicing_enabled: boolean | null;
   // WhatsApp configuration
   whatsapp_send_method: string | null;

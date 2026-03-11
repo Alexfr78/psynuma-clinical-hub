@@ -309,6 +309,13 @@ export default function InvoiceView() {
                 {invoice.center.invoice_footer}
               </div>
             )}
+
+            {/* Data Protection Legal Text */}
+            {invoice.center.invoice_data_protection_text && (
+              <div className="border-t pt-4 text-[10px] leading-relaxed text-muted-foreground whitespace-pre-wrap">
+                {invoice.center.invoice_data_protection_text}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

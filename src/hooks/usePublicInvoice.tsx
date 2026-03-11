@@ -174,6 +174,7 @@ export function usePublicInvoice(token: string | undefined) {
           email: null,
           invoice_logo_url: null,
           invoice_footer: null,
+          invoice_data_protection_text: null,
         },
         series,
         items: items || [],

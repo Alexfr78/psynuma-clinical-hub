@@ -232,6 +232,36 @@ export function InvoiceEditSection() {
               )}
             </form>
           </TabsContent>
+          <TabsContent value="data-protection" className="mt-6">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="invoice_data_protection_text">Texto de protección de datos</Label>
+                <Textarea
+                  id="invoice_data_protection_text"
+                  {...form.register('invoice_data_protection_text')}
+                  placeholder="De conformidad con la normativa vigente en materia de protección de datos..."
+                  rows={6}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Este texto aparecerá al final de todas tus facturas (vista web, PDF e impresión).
+                  Ideal para cláusulas de protección de datos / RGPD. Si se deja vacío, no se mostrará.
+                </p>
+              </div>
+
+              {isAdmin && (
+                <div className="flex justify-end">
+                  <Button type="submit" disabled={updateCenter.isPending}>
+                    {updateCenter.isPending ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Save className="mr-2 h-4 w-4" />
+                    )}
+                    Guardar
+                  </Button>
+                </div>
+              )}
+            </form>
+          </TabsContent>
         </Tabs>
       </CardContent>
     </Card>
