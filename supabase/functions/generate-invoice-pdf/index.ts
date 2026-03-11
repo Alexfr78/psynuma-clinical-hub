@@ -45,6 +45,7 @@ interface InvoiceData {
   };
   centers: {
     name: string;
+    invoice_data_protection_text: string | null;
     tax_id: string | null;
     address: string | null;
     city: string | null;
@@ -165,7 +166,7 @@ serve(async (req) => {
       .select(`
         *,
         patients (first_name, last_name, tax_id, address, city, postal_code, email),
-        centers (name, tax_id, address, city, postal_code, phone, email, invoice_logo_url, invoice_footer)
+        centers (name, tax_id, address, city, postal_code, phone, email, invoice_logo_url, invoice_footer, invoice_data_protection_text)
       `)
       .eq("id", invoice_id)
       .single();
@@ -426,6 +427,16 @@ function generateInvoiceHTML(
       white-space: pre-wrap;
     }
 
+    /* Data Protection */
+    .data-protection {
+      border-top: 1px solid #e2e8f0;
+      padding-top: 12px;
+      font-size: 9px;
+      line-height: 1.5;
+      color: #94a3b8;
+      white-space: pre-wrap;
+    }
+
     @media print {
       body { background: #fff; padding: 16px; }
       .card { box-shadow: none; border: none; padding: 0; }
@@ -551,6 +562,11 @@ function generateInvoiceHTML(
         ${invoice.centers?.invoice_footer ? `
         <!-- Footer -->
         <div class="footer">${invoice.centers.invoice_footer}</div>
+        ` : ''}
+
+        ${invoice.centers?.invoice_data_protection_text ? `
+        <!-- Data Protection -->
+        <div class="data-protection">${invoice.centers.invoice_data_protection_text}</div>
         ` : ''}
 
       </div>

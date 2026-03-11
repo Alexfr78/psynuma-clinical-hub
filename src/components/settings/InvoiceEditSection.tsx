@@ -2,7 +2,7 @@ import { useState, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Save, Loader2, Upload, X, Image, FileText } from 'lucide-react';
+import { Save, Loader2, Upload, X, Image, FileText, ShieldCheck } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 
 const invoiceEditSchema = z.object({
   invoice_footer: z.string().optional(),
+  invoice_data_protection_text: z.string().optional(),
 });
 
 type InvoiceEditFormValues = z.infer<typeof invoiceEditSchema>;
@@ -30,6 +31,7 @@ export function InvoiceEditSection() {
     resolver: zodResolver(invoiceEditSchema),
     values: {
       invoice_footer: center?.invoice_footer || '',
+      invoice_data_protection_text: center?.invoice_data_protection_text || '',
     },
   });
 
@@ -110,7 +112,7 @@ export function InvoiceEditSection() {
       </CardHeader>
       <CardContent>
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full max-w-xs grid-cols-2">
+          <TabsList className="grid w-full max-w-md grid-cols-3">
             <TabsTrigger value="logo" className="flex items-center gap-2">
               <Image className="h-4 w-4" />
               Logo
@@ -118,6 +120,10 @@ export function InvoiceEditSection() {
             <TabsTrigger value="footer" className="flex items-center gap-2">
               <FileText className="h-4 w-4" />
               Pie de página
+            </TabsTrigger>
+            <TabsTrigger value="data-protection" className="flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4" />
+              RGPD
             </TabsTrigger>
           </TabsList>
 
@@ -209,6 +215,36 @@ export function InvoiceEditSection() {
                 <p className="text-xs text-muted-foreground">
                   Este texto aparecerá en la parte inferior de todas tus facturas. 
                   Ideal para condiciones de pago, información bancaria, etc.
+                </p>
+              </div>
+
+              {isAdmin && (
+                <div className="flex justify-end">
+                  <Button type="submit" disabled={updateCenter.isPending}>
+                    {updateCenter.isPending ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Save className="mr-2 h-4 w-4" />
+                    )}
+                    Guardar
+                  </Button>
+                </div>
+              )}
+            </form>
+          </TabsContent>
+          <TabsContent value="data-protection" className="mt-6">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="invoice_data_protection_text">Texto de protección de datos</Label>
+                <Textarea
+                  id="invoice_data_protection_text"
+                  {...form.register('invoice_data_protection_text')}
+                  placeholder="De conformidad con la normativa vigente en materia de protección de datos..."
+                  rows={6}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Este texto aparecerá al final de todas tus facturas (vista web, PDF e impresión).
+                  Ideal para cláusulas de protección de datos / RGPD. Si se deja vacío, no se mostrará.
                 </p>
               </div>
 

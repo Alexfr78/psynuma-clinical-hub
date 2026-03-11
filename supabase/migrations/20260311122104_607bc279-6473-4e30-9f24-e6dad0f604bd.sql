@@ -1,0 +1,1 @@
+ALTER TABLE public.centers ADD COLUMN IF NOT EXISTS invoice_data_protection_text text DEFAULT NULL;
