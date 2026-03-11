@@ -35,7 +35,7 @@ export default function PublicBooking() {
   const [selectedProfessional, setSelectedProfessional] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [selectedSlot, setSelectedSlot] = useState<{ startTime: string; endTime: string } | null>(null);
-  const [slots, setSlots] = useState<{ startTime: string; endTime: string }[]>([]);
+  const [slots, setSlots] = useState<{ startTime: string; endTime: string; isOptimal?: boolean }[]>([]);
   const [slotsLoading, setSlotsLoading] = useState(false);
   
   // Month availability state
