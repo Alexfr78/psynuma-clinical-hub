@@ -443,7 +443,7 @@ export function LocationsSection() {
   const handleScheduleChange = async (
     locationId: string,
     day: number,
-    field: 'is_open' | 'start_time' | 'end_time',
+    field: 'is_open' | 'start_time' | 'end_time' | 'is_default',
     value: boolean | string
   ) => {
     setUpdatingLocation(locationId);
@@ -459,6 +459,7 @@ export function LocationsSection() {
         start_time: field === 'start_time' ? (value as string) : (currentSchedule?.start_time || '09:00'),
         end_time: field === 'end_time' ? (value as string) : (currentSchedule?.end_time || '21:00'),
         is_open: field === 'is_open' ? (value as boolean) : (currentSchedule?.is_open ?? true),
+        is_default: field === 'is_default' ? (value as boolean) : (currentSchedule?.is_default ?? false),
       });
     } catch (error) {
       toast.error('Error al actualizar el horario');
