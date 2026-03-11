@@ -2319,6 +2319,13 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
         onOpenChange={(open) => !open && setSendConsentDialogData(null)}
       />
     )}
+
+    {/* Invoice Detail Dialog */}
+    <InvoiceDetailDialog
+      open={!!selectedInvoiceId}
+      onOpenChange={(open) => { if (!open) setSelectedInvoiceId(null); }}
+      invoiceId={selectedInvoiceId}
+    />
     </>
   );
 }
