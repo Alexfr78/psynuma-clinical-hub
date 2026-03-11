@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils';
 
 interface PatientInvoicesProps {
   patientId: string;
+  onInvoiceClick?: (invoiceId: string) => void;
 }
 
 const statusConfig = {
