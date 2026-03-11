@@ -342,6 +342,35 @@ export function usePatientPortal(centerSlug?: string) {
     }
   };
 
+  const getMonthAvailability = async (params: {
+    professionalId?: string;
+    month: string;
+    sessionTypeId: string;
+    locationId: string;
+  }): Promise<Record<string, number>> => {
+    if (!state.sessionToken) return {};
+
+    try {
+      const { data, error } = await supabase.functions.invoke('patient-portal-sessions', {
+        body: {
+          action: 'get-month-availability',
+          sessionToken: state.sessionToken,
+          ...params,
+        },
+      });
+
+      if (error) {
+        console.error('Error getting month availability:', error);
+        return {};
+      }
+
+      return data?.availability || {};
+    } catch (error) {
+      console.error('Error getting month availability:', error);
+      return {};
+    }
+  };
+
   return {
     ...state,
     sessions,
@@ -356,5 +385,6 @@ export function usePatientPortal(centerSlug?: string) {
     confirmSession,
     rescheduleSession,
     getAvailability,
+    getMonthAvailability,
   };
 }

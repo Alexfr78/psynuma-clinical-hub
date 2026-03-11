@@ -37,6 +37,7 @@ export default function PatientPortalDashboard() {
     cancelSession,
     confirmSession,
     rescheduleSession,
+    getMonthAvailability,
     createSession,
     getAvailability,
   } = usePatientPortal(slug);
