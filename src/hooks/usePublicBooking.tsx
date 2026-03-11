@@ -42,6 +42,7 @@ interface Professional {
 interface Slot {
   startTime: string;
   endTime: string;
+  isOptimal?: boolean;
 }
 
 interface DayAvailability {

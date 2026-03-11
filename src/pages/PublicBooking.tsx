@@ -381,7 +381,10 @@ export default function PublicBooking() {
                         <p className="text-muted-foreground text-center py-4">No hay horarios disponibles este día</p>
                       ) : (
                         <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                          {slots.map(slot => (
+                          {slots.map(slot => {
+                            const hasOptimalSlots = slots.some(s => s.isOptimal);
+                            const isSuboptimal = hasOptimalSlots && slot.isOptimal === false;
+                            return (
                             <button
                               key={slot.startTime}
                               onClick={() => setSelectedSlot(slot)}
@@ -389,12 +392,15 @@ export default function PublicBooking() {
                                 "py-2 px-3 rounded-md border text-sm font-medium transition-all",
                                 selectedSlot?.startTime === slot.startTime 
                                   ? "border-primary bg-primary text-primary-foreground" 
-                                  : "border-border hover:border-primary"
+                                  : isSuboptimal
+                                    ? "border-dashed border-muted-foreground/40 text-muted-foreground opacity-60 hover:border-muted-foreground/60"
+                                    : "border-border hover:border-primary"
                               )}
                             >
                               {slot.startTime}
                             </button>
-                          ))}
+                            );
+                          })}
                         </div>
                       )}
                     </div>
