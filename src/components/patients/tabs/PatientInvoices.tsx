@@ -21,7 +21,7 @@ const statusConfig = {
   cancelled: { label: 'Cancelada', variant: 'destructive' as const },
 };
 
-export function PatientInvoices({ patientId }: PatientInvoicesProps) {
+export function PatientInvoices({ patientId, onInvoiceClick }: PatientInvoicesProps) {
   const { data: invoices, isLoading } = useQuery({
     queryKey: ['patient-invoices', patientId],
     queryFn: async () => {
