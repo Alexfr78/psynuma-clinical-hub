@@ -65,10 +65,15 @@ export function PatientInvoices({ patientId, onInvoiceClick }: PatientInvoicesPr
         const isInvalidated = (invoice as any).is_valid === false;
         
         return (
-          <Card key={invoice.id} className={cn(
-            "transition-colors hover:bg-muted/50",
-            isInvalidated && "opacity-60"
-          )}>
+          <Card 
+            key={invoice.id} 
+            className={cn(
+              "transition-colors hover:bg-muted/50",
+              isInvalidated && "opacity-60",
+              onInvoiceClick && "cursor-pointer"
+            )}
+            onClick={() => onInvoiceClick?.(invoice.id)}
+          >
             <CardContent className="p-4">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="space-y-1 min-w-0">
