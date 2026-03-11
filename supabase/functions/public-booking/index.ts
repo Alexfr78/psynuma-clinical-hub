@@ -534,6 +534,18 @@ serve(async (req) => {
       const dayOfWeek = new Date(date).getDay();
       const centerTimezone = 'Europe/Madrid';
 
+      // Get minPublicDuration for scoring
+      const { data: allPublicTypes } = await supabase
+        .from("session_types")
+        .select("duration_minutes")
+        .eq("center_id", center.id)
+        .eq("is_active", true)
+        .eq("is_public", true);
+
+      const minPublicDuration = allPublicTypes?.length
+        ? Math.min(...allPublicTypes.map((t: any) => t.duration_minutes))
+        : serviceDuration;
+
       // Get professional's availability
       const { data: profAvailability } = await supabase
         .from("availability")
@@ -584,80 +596,25 @@ serve(async (req) => {
         .gte("start_at", startOfDay)
         .lte("start_at", endOfDay);
 
-      // Calculate available slots
-      const slots: { startTime: string; endTime: string }[] = [];
-      const preferFullHours = serviceDuration % 60 === 0;
-      const effectiveStep = preferFullHours ? 60 : step;
+      // Build free windows and generate scored slots
+      const freeWindows = buildFreeWindows(
+        profAvailability,
+        locationSchedules,
+        existingSessions,
+        calendarEvents,
+        centerTimezone
+      );
 
-      for (const profSlot of profAvailability) {
-        const profStart = timeToMinutes(profSlot.start_time);
-        const profEnd = timeToMinutes(profSlot.end_time);
+      const scoredSlots = generateScoredSlots(freeWindows, serviceDuration, step, minPublicDuration);
 
-        for (const locSchedule of locationSchedules) {
-          const locStart = timeToMinutes(locSchedule.start_time);
-          const locEnd = timeToMinutes(locSchedule.end_time);
+      // Map to response format (include isOptimal flag)
+      const slots = scoredSlots.map(s => ({
+        startTime: s.startTime,
+        endTime: s.endTime,
+        isOptimal: s.isOptimal,
+      }));
 
-          const intersectionStart = Math.max(profStart, locStart);
-          const intersectionEnd = Math.min(profEnd, locEnd);
-
-          if (intersectionStart >= intersectionEnd) continue;
-
-          const isSlotValid = (time: number): boolean => {
-            const slotEndMinutes = time + serviceDuration;
-            if (slotEndMinutes > intersectionEnd) return false;
-
-            const hasSessionConflict = existingSessions?.some(s => {
-              const sessionStart = timeToMinutes(s.start_time.substring(0, 5));
-              const sessionEnd = timeToMinutes(s.end_time.substring(0, 5));
-              return time < sessionEnd && slotEndMinutes > sessionStart;
-            });
-            if (hasSessionConflict) return false;
-
-            const hasCalendarConflict = calendarEvents?.some(event => {
-              if (event.status === 'cancelled') return false;
-              if (event.all_day) return true;
-
-              const eventStartMinutes = getLocalTimeMinutes(event.start_at, centerTimezone);
-              const eventEndMinutes = getLocalTimeMinutes(event.end_at, centerTimezone);
-
-              return time < eventEndMinutes && slotEndMinutes > eventStartMinutes;
-            });
-            if (hasCalendarConflict) return false;
-
-            return true;
-          };
-
-          for (let time = intersectionStart; time + serviceDuration <= intersectionEnd; time += effectiveStep) {
-            if (isSlotValid(time)) {
-              const slotStartTime = minutesToTime(time);
-              const slotEndTime = minutesToTime(time + serviceDuration);
-              if (!slots.some(s => s.startTime === slotStartTime)) {
-                slots.push({ startTime: slotStartTime, endTime: slotEndTime });
-              }
-            }
-          }
-
-          // Fill gaps created by existing sessions
-          if (preferFullHours && existingSessions?.length) {
-            existingSessions.forEach(session => {
-              const sessionEnd = timeToMinutes(session.end_time.substring(0, 5));
-              if (sessionEnd % 60 !== 0 && sessionEnd >= intersectionStart && sessionEnd + serviceDuration <= intersectionEnd) {
-                if (isSlotValid(sessionEnd)) {
-                  const slotStartTime = minutesToTime(sessionEnd);
-                  const slotEndTime = minutesToTime(sessionEnd + serviceDuration);
-                  if (!slots.some(s => s.startTime === slotStartTime)) {
-                    slots.push({ startTime: slotStartTime, endTime: slotEndTime });
-                  }
-                }
-              }
-            });
-          }
-        }
-      }
-
-      slots.sort((a, b) => a.startTime.localeCompare(b.startTime));
-
-      console.log(`[get-availability] date=${date} slots=${slots.length}`);
+      console.log(`[get-availability] date=${date} slots=${slots.length} (optimal=${slots.filter(s => s.isOptimal).length})`);
 
       return new Response(
         JSON.stringify({ slots, serviceDuration }),
