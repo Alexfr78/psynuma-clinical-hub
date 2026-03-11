@@ -71,6 +71,8 @@ import { RecurrenceConfig } from '@/types/recurring';
 import { checkSessionConflicts, ConflictResult, SessionToCheck } from '@/lib/conflicts';
 import { ConflictsDialog } from './ConflictsDialog';
 import { useWhatsAppDelivery } from '@/hooks/useWhatsAppDelivery';
+import { useAllLocationSchedules } from '@/hooks/useLocationSchedules';
+import { getDefaultLocationForDate } from '@/lib/location-defaults';
 
 const quickSessionSchema = z.object({
   patient_id: z.string().uuid('Selecciona un contacto'),
