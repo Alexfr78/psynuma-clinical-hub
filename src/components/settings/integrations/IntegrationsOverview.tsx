@@ -4,6 +4,14 @@ import { useProfessionalIntegrations } from "@/hooks/useProfessionalIntegrations
 import { useCenter } from "@/hooks/useCenter";
 import { MessageSquare, Video, Calendar, CreditCard, Mail, CheckCircle2, XCircle } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface IntegrationStatusProps {
   icon: React.ReactNode;
@@ -45,8 +53,18 @@ function IntegrationStatus({ icon, name, description, enabled, connected }: Inte
 }
 
 export function IntegrationsOverview() {
-  const { integrations, isLoading, isProviderConnected } = useProfessionalIntegrations();
+  const { integrations, isLoading, isProviderConnected, updateIntegrations } = useProfessionalIntegrations();
   const { center } = useCenter();
+
+  const bothVideoEnabled =
+    (integrations?.zoom_enabled && isProviderConnected('zoom')) &&
+    (integrations?.google_meet_enabled && isProviderConnected('google'));
+
+  const handleDefaultProviderChange = (value: string) => {
+    updateIntegrations.mutate({
+      default_video_provider: value as 'zoom' | 'google_meet',
+    });
+  };
 
   if (isLoading) {
     return (
@@ -126,6 +144,27 @@ export function IntegrationsOverview() {
           enabled={integrations?.stripe_enabled ?? false}
           connected={isProviderConnected('stripe')}
         />
+
+        {bothVideoEnabled && (
+          <div className="border rounded-lg p-4 space-y-2">
+            <Label htmlFor="default-video-provider">Aplicación de videollamada por defecto</Label>
+            <p className="text-sm text-muted-foreground">
+              Se usará al crear sesiones online automáticamente
+            </p>
+            <Select
+              value={integrations?.default_video_provider ?? 'zoom'}
+              onValueChange={handleDefaultProviderChange}
+            >
+              <SelectTrigger id="default-video-provider" className="w-full max-w-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="zoom">Zoom</SelectItem>
+                <SelectItem value="google_meet">Google Meet</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
