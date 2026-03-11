@@ -128,6 +128,16 @@ export function useCollectDebtPayment() {
           .from('debts')
           .update({ paid_amount: newPaid, status: newStatus })
           .eq('id', debtId);
+
+        // Auto-complete past session when debt is fully paid
+        if (newStatus === 'paid' && debt.session_id) {
+          await supabase
+            .from('sessions')
+            .update({ status: 'completed', updated_at: new Date().toISOString() })
+            .eq('id', debt.session_id)
+            .in('status', ['scheduled', 'confirmed'])
+            .lt('session_date', new Date().toISOString().split('T')[0]);
+        }
       }
 
       return { 
