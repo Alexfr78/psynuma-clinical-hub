@@ -1,29 +1,40 @@
 
 
-## Problem
+## Plan: Fix location auto-selection not triggering on dialog open
 
-The `SessionDetailDrawer` has a `useEffect` that resets local state (`localDateTime`, `localStatus`, etc.) but its dependency array only watches `session?.id`, `session?.bono_id`, and `session?.price`. When the drawer is closed and reopened for the **same session**, or when session data is refetched with updated values, the local overrides (`localDateTime`, `localStatus`) are never cleared. This causes the drawer to show stale values from a previous edit.
+### Root Cause
 
-In your case: you edited date/time at some point, `localDateTime` was set to `{date: '2026-03-10', startTime: '18:00', endTime: '19:00'}`, but the DB actually has `2026-03-04 at 20:00`. Reopening the drawer doesn't reset `localDateTime` because `session.id` hasn't changed.
+The auto-selection `useEffect` (line 282) depends on `watchSessionDate`. When the dialog opens, `form.reset()` sets `session_date` to `initialDate || new Date()` — but this is often the **same value** as the form's `defaultValues` or the previous session. Since `watchSessionDate` doesn't change, React skips the effect entirely.
 
-## Fix
+### Fix
 
-**File: `src/components/agenda/SessionDetailDrawer.tsx`**
+Add `open` to the dependency array of the auto-selection `useEffect` so it re-runs every time the dialog opens:
 
-1. **Add the `open` prop to the reset effect's dependency array** — so that every time the drawer opens, all local overrides are cleared and the component reads fresh data from the `session` prop.
-
-2. **Also add `session?.session_date`, `session?.start_time`, `session?.end_time`, and `session?.status`** to the dependency array so that when the query cache updates with new data, local overrides are cleared.
-
-The effect at line ~260 changes from:
 ```typescript
-}, [session?.id, session?.bono_id, session?.price]);
-```
-to:
-```typescript
-}, [session?.id, session?.bono_id, session?.price, session?.session_date, session?.start_time, session?.end_time, session?.status, open]);
+useEffect(() => {
+  if (!open || !watchSessionDate || !locations || !allSchedules || userOverrodeLocation) return;
+  
+  const result = getDefaultLocationForDate(
+    watchSessionDate,
+    locations,
+    allSchedules,
+    integrations?.default_video_provider
+  );
+  if (result) {
+    form.setValue('session_modality', result.modality);
+    if (result.isOnline) {
+      form.setValue('location_id', '');
+    } else {
+      form.setValue('location_id', result.locationId);
+      form.setValue('video_call_link', '');
+    }
+  }
+}, [open, watchSessionDate, locations, allSchedules, userOverrodeLocation, integrations?.default_video_provider, form]);
 ```
 
-This ensures that:
-- Opening the drawer always shows the DB values (not stale local edits)
-- When the session query refetches with updated data, local overrides are discarded
+### File
+
+| File | Change |
+|---|---|
+| `src/components/agenda/QuickCreateSessionDialog.tsx` | Add `open` guard and dependency to auto-selection useEffect |
 
