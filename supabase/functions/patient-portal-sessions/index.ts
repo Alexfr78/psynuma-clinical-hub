@@ -3,6 +3,14 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendAdminAlert, buildAlertMessage, formatDateSpanish, formatTime } from "../_shared/adminAlerts.ts";
 import { queueAndSendPatientBookingNotification } from "../_shared/bookingPatientNotifications.ts";
 import { notifyProfessionalByEmail, buildProfessionalCancelMessage, buildProfessionalRescheduleMessage } from "../_shared/professionalNotification.ts";
+import {
+  buildFreeWindows,
+  generateScoredSlots,
+  countOptimalSlots,
+  timeToMinutes as ttm,
+  minutesToTime as mtt,
+  getLocalTimeMinutes as gltm,
+} from "../_shared/availability.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -904,6 +912,17 @@ serve(async (req) => {
       const serviceDuration = sessionType.duration_minutes;
       const slotDuration = center?.reschedule_slot_duration || 30;
 
+      // Get minPublicDuration for scoring
+      const { data: allPublicTypes } = await supabase
+        .from("session_types")
+        .select("duration_minutes")
+        .eq("center_id", session.centerId)
+        .eq("is_active", true);
+
+      const minPublicDuration = allPublicTypes?.length
+        ? Math.min(...allPublicTypes.map((t: any) => t.duration_minutes))
+        : serviceDuration;
+
       // Get all professional availability (all days)
       const { data: profAvailability } = await supabase
         .from("availability")
@@ -925,16 +944,16 @@ serve(async (req) => {
         );
       }
 
-      // Build day-of-week lookup for quick access
-      const profByDay: Record<number, { start: number; end: number }[]> = {};
+      // Build day-of-week lookups
+      const profByDay: Record<number, { start_time: string; end_time: string }[]> = {};
       for (const slot of profAvailability) {
         if (!profByDay[slot.day_of_week]) profByDay[slot.day_of_week] = [];
-        profByDay[slot.day_of_week].push({ start: timeToMinutes(slot.start_time), end: timeToMinutes(slot.end_time) });
+        profByDay[slot.day_of_week].push({ start_time: slot.start_time, end_time: slot.end_time });
       }
-      const locByDay: Record<number, { start: number; end: number }[]> = {};
+      const locByDay: Record<number, { start_time: string; end_time: string }[]> = {};
       for (const slot of locationSchedule) {
         if (!locByDay[slot.day_of_week]) locByDay[slot.day_of_week] = [];
-        locByDay[slot.day_of_week].push({ start: timeToMinutes(slot.start_time), end: timeToMinutes(slot.end_time) });
+        locByDay[slot.day_of_week].push({ start_time: slot.start_time, end_time: slot.end_time });
       }
 
       // Generate all dates in the month
@@ -946,7 +965,6 @@ serve(async (req) => {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
-      // Fetch all sessions for this professional in the month
       const monthStartStr = `${month}-01`;
       const monthEndStr = `${month}-${lastDay.getDate().toString().padStart(2, "0")}`;
 
@@ -958,7 +976,6 @@ serve(async (req) => {
         .lte("session_date", monthEndStr)
         .not("status", "in", '("cancelled","no_show")');
 
-      // Fetch calendar events for the month
       const { data: calendarEvents } = await supabase
         .from("calendar_events")
         .select("start_at, end_at, status, all_day")
@@ -980,7 +997,6 @@ serve(async (req) => {
         const locSlots = locByDay[dayOfWeek];
         if (!profSlots || !locSlots) continue;
 
-        let slotCount = 0;
         const daySessions = existingSessions?.filter(s => s.session_date === dateStr) || [];
         const dayEvents = calendarEvents?.filter(e => {
           const eventDate = new Date(e.start_at);
@@ -988,40 +1004,16 @@ serve(async (req) => {
           return formatter.format(eventDate) === dateStr;
         }) || [];
 
-        for (const profSlot of profSlots) {
-          for (const locSlot of locSlots) {
-            const availStart = Math.max(profSlot.start, locSlot.start);
-            const availEnd = Math.min(profSlot.end, locSlot.end);
-            if (availEnd <= availStart) continue;
+        // Build free windows using shared helper
+        const freeWindows = buildFreeWindows(
+          profSlots,
+          locSlots,
+          daySessions,
+          dayEvents,
+          centerTimezone
+        );
 
-            for (let slotStart = availStart; slotStart + serviceDuration <= availEnd; slotStart += slotDuration) {
-              const slotEnd = slotStart + serviceDuration;
-
-              const hasSessionConflict = daySessions.some(s => {
-                const sStart = timeToMinutes(s.start_time.substring(0, 5));
-                const sEnd = timeToMinutes(s.end_time.substring(0, 5));
-                return slotStart < sEnd && slotEnd > sStart;
-              });
-              if (hasSessionConflict) continue;
-
-              const hasCalendarConflict = dayEvents.some(event => {
-                if (event.status === 'cancelled') return false;
-                if (event.all_day) return true;
-                const eventStartMinutes = getLocalTimeMinutes(event.start_at, centerTimezone);
-                const eventEndMinutes = getLocalTimeMinutes(event.end_at, centerTimezone);
-                return slotStart < eventEndMinutes && slotEnd > eventStartMinutes;
-              });
-              if (hasCalendarConflict) continue;
-
-              // Check if slot is in the past (for today)
-              const now = new Date();
-              const slotDateTime = new Date(`${dateStr}T${minutesToTime(slotStart)}:00`);
-              if (slotDateTime <= now) continue;
-
-              slotCount++;
-            }
-          }
-        }
+        const slotCount = countOptimalSlots(freeWindows, serviceDuration, slotDuration, minPublicDuration);
 
         if (slotCount > 0) {
           availability[dateStr] = slotCount;
@@ -1127,70 +1119,38 @@ serve(async (req) => {
 
       const centerTimezone = 'Europe/Madrid';
 
-      // Calculate available slots
-      const slots: { startTime: string; endTime: string }[] = [];
+      // Get minPublicDuration for scoring
+      const { data: allPublicTypes } = await supabase
+        .from("session_types")
+        .select("duration_minutes")
+        .eq("center_id", session.centerId)
+        .eq("is_active", true);
 
-      for (const profSlot of profAvailability) {
-        const profStartMins = timeToMinutes(profSlot.start_time);
-        const profEndMins = timeToMinutes(profSlot.end_time);
+      const minPublicDuration = allPublicTypes?.length
+        ? Math.min(...allPublicTypes.map((t: any) => t.duration_minutes))
+        : serviceDuration;
 
-        for (const locSlot of locationSchedule) {
-          const locStartMins = timeToMinutes(locSlot.start_time);
-          const locEndMins = timeToMinutes(locSlot.end_time);
+      // Build free windows and generate scored slots
+      const freeWindows = buildFreeWindows(
+        profAvailability,
+        locationSchedule,
+        existingSessions,
+        calendarEvents,
+        centerTimezone
+      );
 
-          // Intersection of professional and location availability
-          const availStart = Math.max(profStartMins, locStartMins);
-          const availEnd = Math.min(profEndMins, locEndMins);
+      const scoredSlots = generateScoredSlots(freeWindows, serviceDuration, slotDuration, minPublicDuration);
 
-          if (availEnd <= availStart) continue;
-
-          // Generate slots
-          for (let slotStart = availStart; slotStart + serviceDuration <= availEnd; slotStart += slotDuration) {
-            const slotEnd = slotStart + serviceDuration;
-
-            // Check session conflicts
-            const hasSessionConflict = existingSessions?.some(s => {
-              const sessionStart = timeToMinutes(s.start_time.substring(0, 5));
-              const sessionEnd = timeToMinutes(s.end_time.substring(0, 5));
-              return slotStart < sessionEnd && slotEnd > sessionStart;
-            });
-
-            if (hasSessionConflict) continue;
-
-            // Check calendar conflicts
-            const hasCalendarConflict = calendarEvents?.some(event => {
-              if (event.status === 'cancelled') return false;
-              if (event.all_day) return true;
-
-              const eventStartMinutes = getLocalTimeMinutes(event.start_at, centerTimezone);
-              const eventEndMinutes = getLocalTimeMinutes(event.end_at, centerTimezone);
-
-              return slotStart < eventEndMinutes && slotEnd > eventStartMinutes;
-            });
-
-            if (hasCalendarConflict) continue;
-
-            // Check if slot is in the past
-            const now = new Date();
-            const slotDateTime = new Date(`${date}T${minutesToTime(slotStart)}:00`);
-            if (slotDateTime <= now) continue;
-
-            slots.push({
-              startTime: minutesToTime(slotStart),
-              endTime: minutesToTime(slotEnd),
-            });
-          }
-        }
-      }
-
-      // Remove duplicates and sort
-      const uniqueSlots = slots.filter((slot, index, self) =>
-        index === self.findIndex(s => s.startTime === slot.startTime && s.endTime === slot.endTime)
-      ).sort((a, b) => a.startTime.localeCompare(b.startTime));
+      // Filter past slots
+      const now = new Date();
+      const futureSlots = scoredSlots.filter(s => {
+        const slotDateTime = new Date(`${date}T${s.startTime}:00`);
+        return slotDateTime > now;
+      });
 
       return new Response(
         JSON.stringify({ 
-          slots: uniqueSlots.map(s => s.startTime),
+          slots: futureSlots.map(s => s.startTime),
           serviceDuration,
           step: slotDuration
         }),
