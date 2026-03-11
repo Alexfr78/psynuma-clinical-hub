@@ -29,7 +29,7 @@ interface LocationCardProps {
   location: CenterLocation;
   schedules: LocationSchedule[];
   onDelete: () => void;
-  onScheduleChange: (day: number, field: 'is_open' | 'start_time' | 'end_time', value: boolean | string) => void;
+  onScheduleChange: (day: number, field: 'is_open' | 'start_time' | 'end_time' | 'is_default', value: boolean | string) => void;
   onVisibilityChange: (isPublic: boolean) => void;
   isUpdating: boolean;
 }
