@@ -699,6 +699,18 @@ serve(async (req) => {
       const centerTimezone = 'Europe/Madrid';
       const maxDaysAhead = center.reschedule_max_days ?? 90;
 
+      // Get minPublicDuration for scoring
+      const { data: allPublicTypes } = await supabase
+        .from("session_types")
+        .select("duration_minutes")
+        .eq("center_id", center.id)
+        .eq("is_active", true)
+        .eq("is_public", true);
+
+      const minPublicDuration = allPublicTypes?.length
+        ? Math.min(...allPublicTypes.map((t: any) => t.duration_minutes))
+        : serviceDuration;
+
       // Calculate today and max allowed date
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -712,13 +724,10 @@ serve(async (req) => {
       const year = parseInt(yearStr);
       const monthNum = parseInt(monthStr); // 1-indexed
       
-      const startStr = formatDateLocal(year, monthNum, 1); // e.g. 2025-12-01
-      // Next month first day (exclusive end)
+      const startStr = formatDateLocal(year, monthNum, 1);
       const nextMonth = monthNum === 12 ? 1 : monthNum + 1;
       const nextYear = monthNum === 12 ? year + 1 : year;
-      const endStr = formatDateLocal(nextYear, nextMonth, 1); // e.g. 2026-01-01
-
-      // Days in this month
+      const endStr = formatDateLocal(nextYear, nextMonth, 1);
       const daysInMonth = new Date(year, monthNum, 0).getDate();
 
       console.log(`[get-availability-month] month=${month} range=${startStr} to ${endStr} days=${daysInMonth}`);
@@ -732,7 +741,7 @@ serve(async (req) => {
         .lt("session_date", endStr)
         .not("status", "in", '("cancelled","no_show")');
 
-      // Fetch all calendar events that INTERSECT the month (multi-day support)
+      // Fetch all calendar events that INTERSECT the month
       const { data: monthEvents } = await supabase
         .from("calendar_events")
         .select("id, start_at, end_at, all_day, status, deleted")
@@ -759,11 +768,10 @@ serve(async (req) => {
         }
       }
 
-      // Cache availability and location_schedules by day of week (0-6)
+      // Cache availability and location_schedules by day of week
       const availabilityByDow: Record<number, { start_time: string; end_time: string }[]> = {};
       const locationSchedulesByDow: Record<number, { start_time: string; end_time: string }[]> = {};
 
-      // Fetch all 7 days of availability and location schedules
       const { data: allAvailability } = await supabase
         .from("availability")
         .select("day_of_week, start_time, end_time")
@@ -786,13 +794,12 @@ serve(async (req) => {
         locationSchedulesByDow[l.day_of_week].push({ start_time: l.start_time, end_time: l.end_time });
       }
 
-      // Calculate availability for each day
+      // Calculate availability for each day using shared scoring logic
       const days: { date: string; availableCount: number }[] = [];
 
       for (let d = 1; d <= daysInMonth; d++) {
         const dateStr = formatDateLocal(year, monthNum, d);
         
-        // Skip dates outside allowed range
         if (dateStr < todayStr || dateStr > maxDateStr) {
           days.push({ date: dateStr, availableCount: 0 });
           continue;
@@ -812,53 +819,16 @@ serve(async (req) => {
         const daySessions = sessionsByDate[dateStr] || [];
         const dayEvents = eventsByDate[dateStr] || [];
 
-        // Check if any all_day event blocks the entire day
-        const hasAllDayBlock = dayEvents.some(e => e.all_day);
-        if (hasAllDayBlock) {
-          days.push({ date: dateStr, availableCount: 0 });
-          continue;
-        }
+        // Build free windows using shared helper
+        const freeWindows = buildFreeWindows(
+          profAvailability,
+          locationSchedules,
+          daySessions,
+          dayEvents,
+          centerTimezone
+        );
 
-        let availableCount = 0;
-
-        for (const profSlot of profAvailability) {
-          const profStart = timeToMinutes(profSlot.start_time);
-          const profEnd = timeToMinutes(profSlot.end_time);
-
-          for (const locSchedule of locationSchedules) {
-            const locStart = timeToMinutes(locSchedule.start_time);
-            const locEnd = timeToMinutes(locSchedule.end_time);
-
-            const intersectionStart = Math.max(profStart, locStart);
-            const intersectionEnd = Math.min(profEnd, locEnd);
-
-            if (intersectionStart >= intersectionEnd) continue;
-
-            for (let time = intersectionStart; time + serviceDuration <= intersectionEnd; time += step) {
-              const slotEnd = time + serviceDuration;
-
-              // Check session conflicts
-              const hasSessionConflict = daySessions.some(s => {
-                const sessionStart = timeToMinutes(s.start_time.substring(0, 5));
-                const sessionEnd = timeToMinutes(s.end_time.substring(0, 5));
-                return time < sessionEnd && slotEnd > sessionStart;
-              });
-              if (hasSessionConflict) continue;
-
-              // Check calendar event conflicts
-              const hasCalendarConflict = dayEvents.some(event => {
-                if (!event.start_at) return false;
-                const eventStartMinutes = getLocalTimeMinutes(event.start_at, centerTimezone);
-                const eventEndMinutes = event.end_at ? getLocalTimeMinutes(event.end_at, centerTimezone) : eventStartMinutes + 60;
-                return time < eventEndMinutes && slotEnd > eventStartMinutes;
-              });
-              if (hasCalendarConflict) continue;
-
-              availableCount++;
-            }
-          }
-        }
-
+        const availableCount = countOptimalSlots(freeWindows, serviceDuration, step, minPublicDuration);
         days.push({ date: dateStr, availableCount });
       }
 
