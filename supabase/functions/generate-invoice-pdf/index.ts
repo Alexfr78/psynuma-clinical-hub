@@ -427,6 +427,16 @@ function generateInvoiceHTML(
       white-space: pre-wrap;
     }
 
+    /* Data Protection */
+    .data-protection {
+      border-top: 1px solid #e2e8f0;
+      padding-top: 12px;
+      font-size: 9px;
+      line-height: 1.5;
+      color: #94a3b8;
+      white-space: pre-wrap;
+    }
+
     @media print {
       body { background: #fff; padding: 16px; }
       .card { box-shadow: none; border: none; padding: 0; }
