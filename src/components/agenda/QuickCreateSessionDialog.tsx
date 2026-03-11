@@ -218,11 +218,19 @@ export function QuickCreateSessionDialog({
   const watchSessionType = form.watch('session_type');
   const watchStartTime = form.watch('start_time');
   const watchProfessionalId = form.watch('professional_id');
+  const watchSessionDate = form.watch('session_date');
   
   // Use integrations for the selected professional (not necessarily the authenticated user)
   const { integrations, oauthConnections } = useProfessionalIntegrations(watchProfessionalId || undefined);
   
   const { data: patientBonos, refetch: refetchBonos } = usePatientActiveBonos(watchPatientId || undefined);
+
+  // Fetch all location schedules for smart auto-selection
+  const locationIds = locations?.map(l => l.id) || [];
+  const { data: allSchedules } = useAllLocationSchedules(locationIds);
+
+  // Track whether user has manually changed modality/location to avoid overriding
+  const [userOverrodeLocation, setUserOverrodeLocation] = useState(false);
 
   // Helper function to calculate end time based on start time and duration
   const calculateEndTime = (startTime: string, durationMinutes: number): string => {
@@ -271,17 +279,18 @@ export function QuickCreateSessionDialog({
     }
   }, [watchSessionType, watchStartTime, sessionTypes, form]);
 
-  // Auto-select "Consulta Eguilaz" location when modality is in_person
+  // Smart auto-select location/modality based on day-of-week schedules
   useEffect(() => {
-    if (sessionModality === 'in_person' && locations && locations.length > 0) {
-      const eguilazLocation = locations.find(loc => 
-        loc.name.toLowerCase().includes('eguilaz')
-      );
-      if (eguilazLocation) {
-        form.setValue('location_id', eguilazLocation.id);
+    if (!watchSessionDate || !locations || !allSchedules || userOverrodeLocation) return;
+    
+    const result = getDefaultLocationForDate(watchSessionDate, locations, allSchedules);
+    if (result) {
+      form.setValue('session_modality', result.modality);
+      if (!result.isOnline) {
+        form.setValue('location_id', result.locationId);
       }
     }
-  }, [sessionModality, locations, form]);
+  }, [watchSessionDate, locations, allSchedules, userOverrodeLocation, form]);
 
   useEffect(() => {
     if (open) {
