@@ -64,6 +64,7 @@ interface PublicInvoice {
     email: string | null;
     invoice_logo_url: string | null;
     invoice_footer: string | null;
+    invoice_data_protection_text: string | null;
   };
   series: InvoiceSeries | null;
   items: InvoiceItem[];
