@@ -1119,70 +1119,38 @@ serve(async (req) => {
 
       const centerTimezone = 'Europe/Madrid';
 
-      // Calculate available slots
-      const slots: { startTime: string; endTime: string }[] = [];
+      // Get minPublicDuration for scoring
+      const { data: allPublicTypes } = await supabase
+        .from("session_types")
+        .select("duration_minutes")
+        .eq("center_id", session.centerId)
+        .eq("is_active", true);
 
-      for (const profSlot of profAvailability) {
-        const profStartMins = timeToMinutes(profSlot.start_time);
-        const profEndMins = timeToMinutes(profSlot.end_time);
+      const minPublicDuration = allPublicTypes?.length
+        ? Math.min(...allPublicTypes.map((t: any) => t.duration_minutes))
+        : serviceDuration;
 
-        for (const locSlot of locationSchedule) {
-          const locStartMins = timeToMinutes(locSlot.start_time);
-          const locEndMins = timeToMinutes(locSlot.end_time);
+      // Build free windows and generate scored slots
+      const freeWindows = buildFreeWindows(
+        profAvailability,
+        locationSchedule,
+        existingSessions,
+        calendarEvents,
+        centerTimezone
+      );
 
-          // Intersection of professional and location availability
-          const availStart = Math.max(profStartMins, locStartMins);
-          const availEnd = Math.min(profEndMins, locEndMins);
+      const scoredSlots = generateScoredSlots(freeWindows, serviceDuration, slotDuration, minPublicDuration);
 
-          if (availEnd <= availStart) continue;
-
-          // Generate slots
-          for (let slotStart = availStart; slotStart + serviceDuration <= availEnd; slotStart += slotDuration) {
-            const slotEnd = slotStart + serviceDuration;
-
-            // Check session conflicts
-            const hasSessionConflict = existingSessions?.some(s => {
-              const sessionStart = timeToMinutes(s.start_time.substring(0, 5));
-              const sessionEnd = timeToMinutes(s.end_time.substring(0, 5));
-              return slotStart < sessionEnd && slotEnd > sessionStart;
-            });
-
-            if (hasSessionConflict) continue;
-
-            // Check calendar conflicts
-            const hasCalendarConflict = calendarEvents?.some(event => {
-              if (event.status === 'cancelled') return false;
-              if (event.all_day) return true;
-
-              const eventStartMinutes = getLocalTimeMinutes(event.start_at, centerTimezone);
-              const eventEndMinutes = getLocalTimeMinutes(event.end_at, centerTimezone);
-
-              return slotStart < eventEndMinutes && slotEnd > eventStartMinutes;
-            });
-
-            if (hasCalendarConflict) continue;
-
-            // Check if slot is in the past
-            const now = new Date();
-            const slotDateTime = new Date(`${date}T${minutesToTime(slotStart)}:00`);
-            if (slotDateTime <= now) continue;
-
-            slots.push({
-              startTime: minutesToTime(slotStart),
-              endTime: minutesToTime(slotEnd),
-            });
-          }
-        }
-      }
-
-      // Remove duplicates and sort
-      const uniqueSlots = slots.filter((slot, index, self) =>
-        index === self.findIndex(s => s.startTime === slot.startTime && s.endTime === slot.endTime)
-      ).sort((a, b) => a.startTime.localeCompare(b.startTime));
+      // Filter past slots
+      const now = new Date();
+      const futureSlots = scoredSlots.filter(s => {
+        const slotDateTime = new Date(`${date}T${s.startTime}:00`);
+        return slotDateTime > now;
+      });
 
       return new Response(
         JSON.stringify({ 
-          slots: uniqueSlots.map(s => s.startTime),
+          slots: futureSlots.map(s => s.startTime),
           serviceDuration,
           step: slotDuration
         }),
