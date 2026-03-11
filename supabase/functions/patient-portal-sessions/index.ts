@@ -859,6 +859,181 @@ serve(async (req) => {
       );
     }
 
+    if (action === "get-month-availability") {
+      const { month, professionalId: requestedProfId, sessionTypeId, locationId } = params;
+
+      if (!month || !sessionTypeId || !locationId) {
+        return new Response(
+          JSON.stringify({ error: "Mes, tipo de sesión y ubicación son requeridos" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Get center configuration
+      const { data: center } = await supabase
+        .from("centers")
+        .select("portal_default_professional_id, portal_allow_professional_selection, reschedule_slot_duration")
+        .eq("id", session.centerId)
+        .single();
+
+      let professionalId = requestedProfId;
+      if (!center?.portal_allow_professional_selection || !professionalId) {
+        professionalId = center?.portal_default_professional_id;
+      }
+
+      if (!professionalId) {
+        return new Response(
+          JSON.stringify({ error: "No hay profesional configurado" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const { data: sessionType } = await supabase
+        .from("session_types")
+        .select("duration_minutes")
+        .eq("id", sessionTypeId)
+        .single();
+
+      if (!sessionType) {
+        return new Response(
+          JSON.stringify({ error: "Tipo de sesión no válido" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const serviceDuration = sessionType.duration_minutes;
+      const slotDuration = center?.reschedule_slot_duration || 30;
+
+      // Get all professional availability (all days)
+      const { data: profAvailability } = await supabase
+        .from("availability")
+        .select("day_of_week, start_time, end_time")
+        .eq("professional_id", professionalId)
+        .eq("is_available", true);
+
+      // Get all location schedules (all days)
+      const { data: locationSchedule } = await supabase
+        .from("location_schedules")
+        .select("day_of_week, start_time, end_time")
+        .eq("location_id", locationId)
+        .eq("is_open", true);
+
+      if (!profAvailability?.length || !locationSchedule?.length) {
+        return new Response(
+          JSON.stringify({ availability: {} }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Build day-of-week lookup for quick access
+      const profByDay: Record<number, { start: number; end: number }[]> = {};
+      for (const slot of profAvailability) {
+        if (!profByDay[slot.day_of_week]) profByDay[slot.day_of_week] = [];
+        profByDay[slot.day_of_week].push({ start: timeToMinutes(slot.start_time), end: timeToMinutes(slot.end_time) });
+      }
+      const locByDay: Record<number, { start: number; end: number }[]> = {};
+      for (const slot of locationSchedule) {
+        if (!locByDay[slot.day_of_week]) locByDay[slot.day_of_week] = [];
+        locByDay[slot.day_of_week].push({ start: timeToMinutes(slot.start_time), end: timeToMinutes(slot.end_time) });
+      }
+
+      // Generate all dates in the month
+      const [yearStr, monthStr] = month.split("-");
+      const year = parseInt(yearStr);
+      const monthNum = parseInt(monthStr) - 1;
+      const firstDay = new Date(year, monthNum, 1);
+      const lastDay = new Date(year, monthNum + 1, 0);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      // Fetch all sessions for this professional in the month
+      const monthStartStr = `${month}-01`;
+      const monthEndStr = `${month}-${lastDay.getDate().toString().padStart(2, "0")}`;
+
+      const { data: existingSessions } = await supabase
+        .from("sessions")
+        .select("session_date, start_time, end_time")
+        .eq("professional_id", professionalId)
+        .gte("session_date", monthStartStr)
+        .lte("session_date", monthEndStr)
+        .not("status", "in", '("cancelled","no_show")');
+
+      // Fetch calendar events for the month
+      const { data: calendarEvents } = await supabase
+        .from("calendar_events")
+        .select("start_at, end_at, status, all_day")
+        .eq("professional_id", professionalId)
+        .eq("deleted", false)
+        .gte("start_at", `${monthStartStr}T00:00:00`)
+        .lte("start_at", `${monthEndStr}T23:59:59`);
+
+      const centerTimezone = 'Europe/Madrid';
+      const availability: Record<string, number> = {};
+
+      for (let d = new Date(firstDay); d <= lastDay; d.setDate(d.getDate() + 1)) {
+        if (d < today) continue;
+
+        const dateStr = `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, "0")}-${d.getDate().toString().padStart(2, "0")}`;
+        const dayOfWeek = d.getDay();
+
+        const profSlots = profByDay[dayOfWeek];
+        const locSlots = locByDay[dayOfWeek];
+        if (!profSlots || !locSlots) continue;
+
+        let slotCount = 0;
+        const daySessions = existingSessions?.filter(s => s.session_date === dateStr) || [];
+        const dayEvents = calendarEvents?.filter(e => {
+          const eventDate = new Date(e.start_at);
+          const formatter = new Intl.DateTimeFormat('en-CA', { timeZone: centerTimezone });
+          return formatter.format(eventDate) === dateStr;
+        }) || [];
+
+        for (const profSlot of profSlots) {
+          for (const locSlot of locSlots) {
+            const availStart = Math.max(profSlot.start, locSlot.start);
+            const availEnd = Math.min(profSlot.end, locSlot.end);
+            if (availEnd <= availStart) continue;
+
+            for (let slotStart = availStart; slotStart + serviceDuration <= availEnd; slotStart += slotDuration) {
+              const slotEnd = slotStart + serviceDuration;
+
+              const hasSessionConflict = daySessions.some(s => {
+                const sStart = timeToMinutes(s.start_time.substring(0, 5));
+                const sEnd = timeToMinutes(s.end_time.substring(0, 5));
+                return slotStart < sEnd && slotEnd > sStart;
+              });
+              if (hasSessionConflict) continue;
+
+              const hasCalendarConflict = dayEvents.some(event => {
+                if (event.status === 'cancelled') return false;
+                if (event.all_day) return true;
+                const eventStartMinutes = getLocalTimeMinutes(event.start_at, centerTimezone);
+                const eventEndMinutes = getLocalTimeMinutes(event.end_at, centerTimezone);
+                return slotStart < eventEndMinutes && slotEnd > eventStartMinutes;
+              });
+              if (hasCalendarConflict) continue;
+
+              // Check if slot is in the past (for today)
+              const now = new Date();
+              const slotDateTime = new Date(`${dateStr}T${minutesToTime(slotStart)}:00`);
+              if (slotDateTime <= now) continue;
+
+              slotCount++;
+            }
+          }
+        }
+
+        if (slotCount > 0) {
+          availability[dateStr] = slotCount;
+        }
+      }
+
+      return new Response(
+        JSON.stringify({ availability }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     if (action === "get-availability") {
       const { date, professionalId: requestedProfId, sessionTypeId, locationId } = params;
 
