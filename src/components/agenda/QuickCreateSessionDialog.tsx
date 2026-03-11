@@ -370,7 +370,7 @@ export function QuickCreateSessionDialog({
       // Reset user override so auto-selection runs for the new dialog
       setUserOverrodeLocation(false);
     }
-  }, [open, initialDate, initialStartTime, initialEndTime, user?.id, professionals, sessionTypes, form, center]);
+  }, [open, initialDate, initialStartTime, initialEndTime, user?.id, professionals, sessionTypes, form, center, locations, allSchedules, integrations?.default_video_provider]);
 
   // Auto-enable WhatsApp notification when center has automatic delivery
   useEffect(() => {
