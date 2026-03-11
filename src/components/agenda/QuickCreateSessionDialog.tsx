@@ -71,6 +71,8 @@ import { RecurrenceConfig } from '@/types/recurring';
 import { checkSessionConflicts, ConflictResult, SessionToCheck } from '@/lib/conflicts';
 import { ConflictsDialog } from './ConflictsDialog';
 import { useWhatsAppDelivery } from '@/hooks/useWhatsAppDelivery';
+import { useAllLocationSchedules } from '@/hooks/useLocationSchedules';
+import { getDefaultLocationForDate } from '@/lib/location-defaults';
 
 const quickSessionSchema = z.object({
   patient_id: z.string().uuid('Selecciona un contacto'),
@@ -216,11 +218,19 @@ export function QuickCreateSessionDialog({
   const watchSessionType = form.watch('session_type');
   const watchStartTime = form.watch('start_time');
   const watchProfessionalId = form.watch('professional_id');
+  const watchSessionDate = form.watch('session_date');
   
   // Use integrations for the selected professional (not necessarily the authenticated user)
   const { integrations, oauthConnections } = useProfessionalIntegrations(watchProfessionalId || undefined);
   
   const { data: patientBonos, refetch: refetchBonos } = usePatientActiveBonos(watchPatientId || undefined);
+
+  // Fetch all location schedules for smart auto-selection
+  const locationIds = locations?.map(l => l.id) || [];
+  const { data: allSchedules } = useAllLocationSchedules(locationIds);
+
+  // Track whether user has manually changed modality/location to avoid overriding
+  const [userOverrodeLocation, setUserOverrodeLocation] = useState(false);
 
   // Helper function to calculate end time based on start time and duration
   const calculateEndTime = (startTime: string, durationMinutes: number): string => {
@@ -269,17 +279,18 @@ export function QuickCreateSessionDialog({
     }
   }, [watchSessionType, watchStartTime, sessionTypes, form]);
 
-  // Auto-select "Consulta Eguilaz" location when modality is in_person
+  // Smart auto-select location/modality based on day-of-week schedules
   useEffect(() => {
-    if (sessionModality === 'in_person' && locations && locations.length > 0) {
-      const eguilazLocation = locations.find(loc => 
-        loc.name.toLowerCase().includes('eguilaz')
-      );
-      if (eguilazLocation) {
-        form.setValue('location_id', eguilazLocation.id);
+    if (!watchSessionDate || !locations || !allSchedules || userOverrodeLocation) return;
+    
+    const result = getDefaultLocationForDate(watchSessionDate, locations, allSchedules);
+    if (result) {
+      form.setValue('session_modality', result.modality);
+      if (!result.isOnline) {
+        form.setValue('location_id', result.locationId);
       }
     }
-  }, [sessionModality, locations, form]);
+  }, [watchSessionDate, locations, allSchedules, userOverrodeLocation, form]);
 
   useEffect(() => {
     if (open) {
@@ -342,6 +353,8 @@ export function QuickCreateSessionDialog({
       // Reset recurrence state
       setRecurrenceEnabled(false);
       setRecurrenceConfig(getDefaultRecurrenceConfig());
+      // Reset user override so auto-selection runs for the new dialog
+      setUserOverrodeLocation(false);
     }
   }, [open, initialDate, initialStartTime, initialEndTime, user?.id, professionals, sessionTypes, form, center]);
 
@@ -1115,7 +1128,7 @@ export function QuickCreateSessionDialog({
                     <Video className="h-4 w-4" />
                     Videollamada
                   </FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
+                  <Select onValueChange={(v) => { field.onChange(v); setUserOverrodeLocation(true); }} value={field.value}>
                     <SelectTrigger className="h-10">
                       <SelectValue />
                     </SelectTrigger>
@@ -1188,7 +1201,7 @@ export function QuickCreateSessionDialog({
                       Dirección
                     </FormLabel>
                     <div className="flex gap-2">
-                      <Select onValueChange={(v) => field.onChange(v === '__none__' ? '' : v)} value={field.value || '__none__'}>
+                      <Select onValueChange={(v) => { field.onChange(v === '__none__' ? '' : v); setUserOverrodeLocation(true); }} value={field.value || '__none__'}>
                         <SelectTrigger className="h-10 flex-1">
                           <SelectValue placeholder="Sin especificar" />
                         </SelectTrigger>
