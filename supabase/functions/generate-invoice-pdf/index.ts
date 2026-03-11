@@ -166,7 +166,7 @@ serve(async (req) => {
       .select(`
         *,
         patients (first_name, last_name, tax_id, address, city, postal_code, email),
-        centers (name, tax_id, address, city, postal_code, phone, email, invoice_logo_url, invoice_footer)
+        centers (name, tax_id, address, city, postal_code, phone, email, invoice_logo_url, invoice_footer, invoice_data_protection_text)
       `)
       .eq("id", invoice_id)
       .single();
