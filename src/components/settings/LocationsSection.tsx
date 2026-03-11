@@ -171,6 +171,13 @@ function LocationCard({ location, schedules, onDelete, onScheduleChange, onVisib
 
                       {isOpenDay && (
                         <div className="flex items-center gap-2 ml-auto">
+                          <div className="flex items-center gap-1.5 mr-2">
+                            <Switch
+                              checked={(schedule as any).is_default ?? false}
+                              onCheckedChange={(checked) => onScheduleChange(day, 'is_default', checked)}
+                            />
+                            <span className="text-xs text-muted-foreground whitespace-nowrap">Por defecto</span>
+                          </div>
                           <Input
                             type="time"
                             value={schedule.start_time?.slice(0, 5) || '09:00'}
