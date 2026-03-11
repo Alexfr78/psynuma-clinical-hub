@@ -31,6 +31,7 @@ export function InvoiceEditSection() {
     resolver: zodResolver(invoiceEditSchema),
     values: {
       invoice_footer: center?.invoice_footer || '',
+      invoice_data_protection_text: center?.invoice_data_protection_text || '',
     },
   });
 
