@@ -29,7 +29,7 @@ interface LocationCardProps {
   location: CenterLocation;
   schedules: LocationSchedule[];
   onDelete: () => void;
-  onScheduleChange: (day: number, field: 'is_open' | 'start_time' | 'end_time', value: boolean | string) => void;
+  onScheduleChange: (day: number, field: 'is_open' | 'start_time' | 'end_time' | 'is_default', value: boolean | string) => void;
   onVisibilityChange: (isPublic: boolean) => void;
   isUpdating: boolean;
 }
@@ -171,6 +171,13 @@ function LocationCard({ location, schedules, onDelete, onScheduleChange, onVisib
 
                       {isOpenDay && (
                         <div className="flex items-center gap-2 ml-auto">
+                          <div className="flex items-center gap-1.5 mr-2">
+                            <Switch
+                              checked={(schedule as any).is_default ?? false}
+                              onCheckedChange={(checked) => onScheduleChange(day, 'is_default', checked)}
+                            />
+                            <span className="text-xs text-muted-foreground whitespace-nowrap">Por defecto</span>
+                          </div>
                           <Input
                             type="time"
                             value={schedule.start_time?.slice(0, 5) || '09:00'}
@@ -436,7 +443,7 @@ export function LocationsSection() {
   const handleScheduleChange = async (
     locationId: string,
     day: number,
-    field: 'is_open' | 'start_time' | 'end_time',
+    field: 'is_open' | 'start_time' | 'end_time' | 'is_default',
     value: boolean | string
   ) => {
     setUpdatingLocation(locationId);
@@ -452,6 +459,7 @@ export function LocationsSection() {
         start_time: field === 'start_time' ? (value as string) : (currentSchedule?.start_time || '09:00'),
         end_time: field === 'end_time' ? (value as string) : (currentSchedule?.end_time || '21:00'),
         is_open: field === 'is_open' ? (value as boolean) : (currentSchedule?.is_open ?? true),
+        is_default: field === 'is_default' ? (value as boolean) : (currentSchedule?.is_default ?? false),
       });
     } catch (error) {
       toast.error('Error al actualizar el horario');

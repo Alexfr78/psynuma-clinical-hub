@@ -8,6 +8,7 @@ export interface LocationSchedule {
   start_time: string;
   end_time: string;
   is_open: boolean | null;
+  is_default: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -18,6 +19,7 @@ export interface ScheduleUpsert {
   start_time: string;
   end_time: string;
   is_open: boolean;
+  is_default?: boolean;
 }
 
 const DAYS_OF_WEEK = [0, 1, 2, 3, 4, 5, 6];
