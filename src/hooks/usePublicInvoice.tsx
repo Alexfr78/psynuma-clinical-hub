@@ -122,7 +122,7 @@ export function usePublicInvoice(token: string | undefined) {
       // Fetch center data with invoice token header
       const { data: center } = await supabase
         .from('centers')
-        .select('name, address, city, postal_code, province, tax_id, phone, email, invoice_logo_url, invoice_footer')
+        .select('name, address, city, postal_code, province, tax_id, phone, email, invoice_logo_url, invoice_footer, invoice_data_protection_text')
         .eq('id', invoice.center_id)
         .setHeader('x-invoice-token', token)
         .single();
