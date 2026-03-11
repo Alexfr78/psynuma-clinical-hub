@@ -1,40 +1,29 @@
 
 
-## Plan: Calendario mensual en Portal del Paciente
+## Problem
 
-### Problema
-El selector de fecha actual avanza semana a semana, obligando al paciente a navegar muchas veces para encontrar disponibilidad. La página pública de booking (`PublicBooking.tsx`) ya usa un calendario mensual con `getMonthAvailability`, pero el portal del paciente (`PortalBooking.tsx`) no.
+The `SessionDetailDrawer` has a `useEffect` that resets local state (`localDateTime`, `localStatus`, etc.) but its dependency array only watches `session?.id`, `session?.bono_id`, and `session?.price`. When the drawer is closed and reopened for the **same session**, or when session data is refetched with updated values, the local overrides (`localDateTime`, `localStatus`) are never cleared. This causes the drawer to show stale values from a previous edit.
 
-### Solución
-Reemplazar la vista semanal (líneas 539-651) por un calendario mensual con indicadores de disponibilidad en los días, y al pulsar un día, mostrar las horas disponibles debajo.
+In your case: you edited date/time at some point, `localDateTime` was set to `{date: '2026-03-10', startTime: '18:00', endTime: '19:00'}`, but the DB actually has `2026-03-04 at 20:00`. Reopening the drawer doesn't reset `localDateTime` because `session.id` hasn't changed.
 
-### Cambios en `src/components/portal/PortalBooking.tsx`
+## Fix
 
-1. **Nuevo endpoint de disponibilidad mensual**: La función `getAvailability` del portal solo devuelve slots de un día. Para no hacer 30 llamadas individuales, añadir una nueva prop `getMonthAvailability` al componente que devuelva los días con disponibilidad del mes. El componente padre (`PatientPortalDashboard.tsx`) ya llama a un edge function — se añadirá una nueva acción `get-month-availability` al edge function `patient-portal-sessions`.
+**File: `src/components/agenda/SessionDetailDrawer.tsx`**
 
-2. **Estado**: Reemplazar `weekStart` y `weekSlots` por:
-   - `currentMonth: Date` — mes visible en el calendario
-   - `monthAvailability: Record<string, number>` — mapa fecha→cantidad de slots
-   - `selectedDay: Date | null` — día seleccionado
-   - `daySlots: string[]` — slots del día seleccionado
-   - `daySlotsLoading: boolean`
+1. **Add the `open` prop to the reset effect's dependency array** — so that every time the drawer opens, all local overrides are cleared and the component reads fresh data from the `session` prop.
 
-3. **Calendario mensual** (usando `Calendar` de shadcn/DayPicker):
-   - `modifiers` para marcar días con disponibilidad (punto verde)
-   - `disabled` para días sin disponibilidad y días pasados
-   - Al cambiar de mes → cargar disponibilidad del nuevo mes
-   - Al pulsar un día → llamar `getAvailability` para ese día y mostrar slots debajo
+2. **Also add `session?.session_date`, `session?.start_time`, `session?.end_time`, and `session?.status`** to the dependency array so that when the query cache updates with new data, local overrides are cleared.
 
-4. **Slots del día seleccionado**: Debajo del calendario, mostrar los botones de hora (misma UI actual pero solo para el día seleccionado).
+The effect at line ~260 changes from:
+```typescript
+}, [session?.id, session?.bono_id, session?.price]);
+```
+to:
+```typescript
+}, [session?.id, session?.bono_id, session?.price, session?.session_date, session?.start_time, session?.end_time, session?.status, open]);
+```
 
-### Cambios en `src/pages/PatientPortalDashboard.tsx`
-- Pasar nueva prop `getMonthAvailability` al `PortalBooking`.
-
-### Cambio en edge function `supabase/functions/patient-portal-sessions/index.ts`
-- Añadir acción `get-month-availability` que itere los días del mes y devuelva cuáles tienen slots disponibles (reutilizando la lógica existente de availability).
-
-### Archivos afectados
-- `supabase/functions/patient-portal-sessions/index.ts` — nueva acción `get-month-availability`
-- `src/pages/PatientPortalDashboard.tsx` — pasar nueva prop
-- `src/components/portal/PortalBooking.tsx` — reemplazar vista semanal por calendario mensual + slots por día
+This ensures that:
+- Opening the drawer always shows the DB values (not stale local edits)
+- When the session query refetches with updated data, local overrides are discarded
 
