@@ -2174,6 +2174,7 @@ export type Database = {
           day_of_week: number
           end_time: string
           id: string
+          is_default: boolean
           is_open: boolean | null
           location_id: string
           start_time: string
@@ -2184,6 +2185,7 @@ export type Database = {
           day_of_week: number
           end_time?: string
           id?: string
+          is_default?: boolean
           is_open?: boolean | null
           location_id: string
           start_time?: string
@@ -2194,6 +2196,7 @@ export type Database = {
           day_of_week?: number
           end_time?: string
           id?: string
+          is_default?: boolean
           is_open?: boolean | null
           location_id?: string
           start_time?: string
