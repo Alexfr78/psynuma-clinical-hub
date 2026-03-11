@@ -112,7 +112,7 @@ export function InvoiceEditSection() {
       </CardHeader>
       <CardContent>
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full max-w-xs grid-cols-2">
+          <TabsList className="grid w-full max-w-md grid-cols-3">
             <TabsTrigger value="logo" className="flex items-center gap-2">
               <Image className="h-4 w-4" />
               Logo
@@ -120,6 +120,10 @@ export function InvoiceEditSection() {
             <TabsTrigger value="footer" className="flex items-center gap-2">
               <FileText className="h-4 w-4" />
               Pie de página
+            </TabsTrigger>
+            <TabsTrigger value="data-protection" className="flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4" />
+              RGPD
             </TabsTrigger>
           </TabsList>
 
