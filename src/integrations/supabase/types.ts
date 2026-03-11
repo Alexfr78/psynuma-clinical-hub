@@ -1039,6 +1039,7 @@ export type Database = {
           email: string | null
           id: string
           include_tax_in_price: boolean | null
+          invoice_data_protection_text: string | null
           invoice_footer: string | null
           invoice_logo_url: string | null
           invoice_next_number: number | null
@@ -1122,6 +1123,7 @@ export type Database = {
           email?: string | null
           id?: string
           include_tax_in_price?: boolean | null
+          invoice_data_protection_text?: string | null
           invoice_footer?: string | null
           invoice_logo_url?: string | null
           invoice_next_number?: number | null
@@ -1205,6 +1207,7 @@ export type Database = {
           email?: string | null
           id?: string
           include_tax_in_price?: boolean | null
+          invoice_data_protection_text?: string | null
           invoice_footer?: string | null
           invoice_logo_url?: string | null
           invoice_next_number?: number | null
