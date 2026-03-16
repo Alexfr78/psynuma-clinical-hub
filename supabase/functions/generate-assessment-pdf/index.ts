@@ -996,7 +996,7 @@ serve(async (req) => {
         <h4>Profesional</h4>
         <p><strong>${escapeHtml(professional?.first_name || '')} ${escapeHtml(professional?.last_name || '')}</strong></p>
         ${professional?.specialty ? `<p>${escapeHtml(professional.specialty)}</p>` : ''}
-        ${professional?.collegiate_number ? `<p>Nº Colegiado: ${escapeHtml(professional.collegiate_number)}</p>` : ''}
+        ${(professional as any)?.collegiate_number ? `<p>Nº Colegiado: ${escapeHtml((professional as any).collegiate_number)}</p>` : ''}
       </div>
     </div>
 
