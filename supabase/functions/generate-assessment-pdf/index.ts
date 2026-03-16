@@ -691,7 +691,9 @@ serve(async (req) => {
     const patient = assessment.patients;
     const professional = assessment.profiles;
     const template = assessment.assessment_templates;
-    const response = assessment.assessment_responses?.[0] || null;
+    const response = Array.isArray(assessment.assessment_responses)
+      ? assessment.assessment_responses[0]
+      : assessment.assessment_responses || null;
 
     const factorScores = (response?.factor_scores || {}) as Record<string, number>;
     const answers = (response?.answers || {}) as Record<string, any>;
