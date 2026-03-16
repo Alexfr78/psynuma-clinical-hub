@@ -52,13 +52,19 @@ export default function AssessmentResults() {
       if (error) throw error;
       if (!data?.html) throw new Error('No se pudo generar el PDF');
 
+      // Validate that the HTML contains actual clinical content (not just the cover page)
+      const sectionCount = (data.html.match(/class="section/g) || []).length;
+      if (sectionCount < 2) {
+        toast.error('El PDF generado parece incompleto. Contacta con soporte.');
+        console.warn('PDF content has only', sectionCount, 'sections');
+        return;
+      }
+
       // Open new window with HTML and trigger print
       const printWindow = window.open('', '_blank');
       if (printWindow) {
         printWindow.document.write(data.html);
         printWindow.document.close();
-        // Wait for content to fully render before printing
-        // Use longer delay and also wait for document ready state
         printWindow.onload = () => {
           setTimeout(() => {
             printWindow.print();
