@@ -669,7 +669,7 @@ serve(async (req) => {
       .select(`
         *,
         patients (first_name, last_name, date_of_birth, gender, email),
-        profiles:professional_id (first_name, last_name, specialty, collegiate_number),
+        profiles:professional_id (first_name, last_name, specialty),
         assessment_templates:template_id (name, code, flag_threshold, chart_full_mark, items, scoring, instructions),
         assessment_responses (answers, factor_scores, metadata, flags)
       `)
