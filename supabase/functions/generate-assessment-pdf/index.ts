@@ -695,7 +695,8 @@ serve(async (req) => {
       ? assessment.assessment_responses[0]
       : assessment.assessment_responses || null;
 
-    console.log(`[PDF] Raw response type: ${typeof rawResponse}, isNull: ${rawResponse === null}, keys: ${rawResponse ? Object.keys(rawResponse).join(',') : 'none'}`);
+    // Log raw response structure for debugging
+    if (!rawResponse) console.warn('[PDF] No assessment_responses found for this assessment');
 
     // Parse JSON fields that may come as strings from the REST API
     const parseJsonField = (val: any): any => {
