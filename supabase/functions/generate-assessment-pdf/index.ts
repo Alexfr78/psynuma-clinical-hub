@@ -691,15 +691,36 @@ serve(async (req) => {
     const patient = assessment.patients;
     const professional = assessment.profiles;
     const template = assessment.assessment_templates;
-    const response = assessment.assessment_responses?.[0] || null;
+    const rawResponse = Array.isArray(assessment.assessment_responses)
+      ? assessment.assessment_responses[0]
+      : assessment.assessment_responses || null;
 
-    const factorScores = (response?.factor_scores || {}) as Record<string, number>;
-    const answers = (response?.answers || {}) as Record<string, any>;
-    const metadata = (response?.metadata || {}) as any;
-    const flags = (response?.flags || {}) as any;
+    // Log raw response structure for debugging
+    if (!rawResponse) console.warn('[PDF] No assessment_responses found for this assessment');
+
+    // Parse JSON fields that may come as strings from the REST API
+    const parseJsonField = (val: any): any => {
+      if (val === null || val === undefined) return null;
+      if (typeof val === 'string') {
+        try { return JSON.parse(val); } catch { return val; }
+      }
+      return val;
+    };
+
+    const response = rawResponse ? {
+      answers: parseJsonField(rawResponse.answers) || {},
+      factor_scores: parseJsonField(rawResponse.factor_scores) || {},
+      metadata: parseJsonField(rawResponse.metadata) || null,
+      flags: parseJsonField(rawResponse.flags) || null,
+    } : { answers: {}, factor_scores: {}, metadata: null, flags: null };
+
+    const factorScores = response.factor_scores as Record<string, number>;
+    const answers = response.answers as Record<string, any>;
+    const metadata = response.metadata as any;
+    const flags = response.flags as any;
     const templateCode = template.code;
 
-    console.log(`[PDF] Template: ${templateCode}, answer keys: ${Object.keys(answers).length}, factor keys: ${Object.keys(factorScores).length}, has metadata: ${!!metadata && Object.keys(metadata).length > 0}`);
+    console.log(`[PDF] Template: ${templateCode}, answer keys: ${Object.keys(answers).length}, factor keys: ${Object.keys(factorScores).length}, has metadata: ${!!metadata && Object.keys(metadata || {}).length > 0}`);
 
     // Generate logo
     let logoBase64 = '';
