@@ -4624,6 +4624,7 @@ export type Database = {
         Args: { p_payment_id: string }
         Returns: Json
       }
+      generate_pending_debts_db: { Args: never; Returns: Json }
       get_assessment_token: { Args: never; Returns: string }
       get_autoregistro_token: { Args: never; Returns: string }
       get_bono_sessions: {
