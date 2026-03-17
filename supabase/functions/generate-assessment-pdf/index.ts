@@ -1114,10 +1114,29 @@ function generateDESHTML(factorScores: Record<string, number>, metadata: any, te
   if (absorptionScore >= 20) elevatedSubscales.push({ label: 'Absorción', score: absorptionScore });
   if (depersonScore >= 20) elevatedSubscales.push({ label: 'Despersonalización', score: depersonScore });
 
-  return `
+  const DES_ITEM_CATEGORIES: Record<number, string> = {
+    1: 'absorption', 2: 'absorption', 3: 'amnesia', 4: 'amnesia', 5: 'amnesia',
+    6: 'amnesia', 7: 'depersonalization', 8: 'amnesia', 9: 'amnesia', 10: 'amnesia',
+    11: 'depersonalization', 12: 'depersonalization', 13: 'depersonalization',
+    14: 'absorption', 15: 'absorption', 16: 'depersonalization', 17: 'absorption',
+    18: 'absorption', 19: 'other', 20: 'absorption', 21: 'other', 22: 'taxon',
+    23: 'other', 24: 'other', 25: 'amnesia', 26: 'amnesia', 27: 'taxon', 28: 'depersonalization',
+  };
+
+  const CATEGORY_LABELS: Record<string, string> = {
+    amnesia: 'Amnesia Disociativa',
+    depersonalization: 'Despersonalización/Desrealización',
+    absorption: 'Absorción/Imaginación',
+    taxon: 'Síntomas Disociativos Patológicos',
+    other: 'Otras Experiencias',
+  };
+
+  const CATEGORY_ORDER = ['amnesia', 'depersonalization', 'absorption', 'taxon', 'other'];
+
+  let sections = `
     <div class="section">
       <h3>Resultado DES - Escala de Experiencias Disociativas</h3>
-      ${isTaxonPositive ? `<div style="background: #fef2f2; border: 2px solid #dc2626; border-radius: 8px; padding: 12px; margin-bottom: 16px;"><p style="color: #dc2626; font-weight: bold;">⚠️ TAXÓN DISOCIATIVO POSITIVO</p><p style="font-size: 10px; color: #7f1d1d;">DES-T ≥ 20 sugiere disociación patológica.</p></div>` : ''}
+      ${isTaxonPositive ? `<div style="background: #fef2f2; border: 2px solid #dc2626; border-radius: 8px; padding: 12px; margin-bottom: 16px;"><p style="color: #dc2626; font-weight: bold;">⚠️ TAXÓN DISOCIATIVO POSITIVO</p><p style="font-size: 10px; color: #7f1d1d;">DES-T ≥ 20 sugiere disociación patológica. Se recomienda evaluación clínica más exhaustiva.</p></div>` : ''}
       <div class="global-indices" style="grid-template-columns: 1fr 1fr;">
         <div class="global-index" style="border-left: 4px solid ${levelColor};"><div class="index-value" style="color: ${levelColor};">${totalScore.toFixed(1)}%</div><div class="index-label">Puntuación Total</div><div class="index-desc">${levelLabel}</div></div>
         <div class="global-index" style="border-left: 4px solid ${isTaxonPositive ? '#dc2626' : '#16a34a'};"><div class="index-value" style="color: ${isTaxonPositive ? '#dc2626' : '#16a34a'};">${taxonScore.toFixed(1)}%</div><div class="index-label">Taxón Disociativo</div><div class="index-desc">${isTaxonPositive ? 'Positivo (≥20)' : 'Negativo (<20)'}</div></div>
@@ -1133,6 +1152,136 @@ function generateDESHTML(factorScores: Record<string, number>, metadata: any, te
       <p class="note" style="margin-top: 12px;">Puntos de corte: ≥30 Clínico, ≥20 Elevado. DES-T ≥20 indica taxón disociativo.</p>
     </div>
   `;
+
+  // Patient Examples & AI Analysis
+  const patientExamples = metadata?.examples as Record<string, string> | undefined;
+  const aiAnalysis = metadata?.aiAnalysis as any;
+  const hasAIAnalysis = aiAnalysis && Object.keys(aiAnalysis.itemAnalysis || {}).length > 0;
+
+  if (hasAIAnalysis) {
+    // AI Analysis section
+    let aiContent = '';
+
+    // Clinical Summary
+    if (aiAnalysis.clinicalSummary) {
+      aiContent += `<div style="background: #f8fafc; border-radius: 6px; padding: 12px; margin-bottom: 12px;"><p style="font-size: 10px;">${escapeHtml(aiAnalysis.clinicalSummary)}</p></div>`;
+    }
+
+    // Overall Patterns
+    if (aiAnalysis.overallPatterns && aiAnalysis.overallPatterns.length > 0) {
+      aiContent += `<div style="margin-bottom: 12px;"><h4 style="font-size: 11px; margin-bottom: 6px;">💡 Patrones Identificados</h4><ul style="margin-left: 16px; font-size: 10px;">`;
+      for (const pattern of aiAnalysis.overallPatterns) {
+        aiContent += `<li style="margin-bottom: 3px;">${escapeHtml(pattern)}</li>`;
+      }
+      aiContent += `</ul></div>`;
+    }
+
+    // Detailed Analysis by Category
+    const analysisByCategory: Record<string, any[]> = {};
+    if (aiAnalysis.itemAnalysis) {
+      for (const [index, analysis] of Object.entries(aiAnalysis.itemAnalysis)) {
+        const cat = (analysis as any).category || 'other';
+        if (!analysisByCategory[cat]) analysisByCategory[cat] = [];
+        analysisByCategory[cat].push(analysis);
+      }
+    }
+
+    for (const category of CATEGORY_ORDER) {
+      const items = analysisByCategory[category];
+      if (!items || items.length === 0) continue;
+
+      aiContent += `<div style="margin-bottom: 12px;"><h4 style="font-size: 11px; color: #475569; margin-bottom: 8px;">${escapeHtml(CATEGORY_LABELS[category] || category)} (${items.length} ejemplo${items.length > 1 ? 's' : ''})</h4>`;
+
+      for (const item of items) {
+        const relevanceColor = item.clinicalRelevance === 'high' ? '#dc2626' : item.clinicalRelevance === 'moderate' ? '#d97706' : '#16a34a';
+        const relevanceLabel = item.clinicalRelevance === 'high' ? 'Alta relevancia' : item.clinicalRelevance === 'moderate' ? 'Moderada' : 'Baja';
+
+        aiContent += `<div style="border-left: 2px solid #e2e8f0; padding-left: 12px; margin-bottom: 10px;">`;
+        // Patient example
+        aiContent += `<div style="background: #f1f5f9; border-radius: 4px; padding: 8px; margin-bottom: 6px;"><p style="font-size: 9px; color: #64748b; margin-bottom: 2px;">Frecuencia: ${item.frequency}%</p><p style="font-size: 10px; font-style: italic;">"${escapeHtml(item.example)}"</p></div>`;
+        // Interpretation
+        aiContent += `<div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;"><p style="font-size: 10px; flex: 1;">${escapeHtml(item.interpretation)}</p><span style="background: ${relevanceColor}15; color: ${relevanceColor}; padding: 2px 8px; border-radius: 10px; font-size: 9px; font-weight: 500; white-space: nowrap;">${relevanceLabel}</span></div>`;
+        // Suggested exploration
+        if (item.suggestedExploration && item.suggestedExploration.length > 0) {
+          aiContent += `<p style="font-size: 9px; color: #64748b; margin-top: 4px;"><strong>Explorar:</strong> ${item.suggestedExploration.map((s: string) => escapeHtml(s)).join(' • ')}</p>`;
+        }
+        aiContent += `</div>`;
+      }
+
+      aiContent += `</div>`;
+    }
+
+    if (aiAnalysis.analyzedAt) {
+      aiContent += `<p class="note">Análisis generado el ${new Date(aiAnalysis.analyzedAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>`;
+    }
+
+    sections += `
+      <div class="section">
+        <h3>✨ Análisis Profundo de Experiencias</h3>
+        ${aiContent}
+      </div>
+    `;
+  } else if (patientExamples && Object.keys(patientExamples).length > 0) {
+    // Show raw examples without AI analysis
+    const examplesByCategory: Record<string, Array<{ index: number; example: string }>> = {};
+    for (const [indexStr, example] of Object.entries(patientExamples)) {
+      if (!example || example.trim().length === 0) continue;
+      const index = parseInt(indexStr, 10);
+      const category = DES_ITEM_CATEGORIES[index] || 'other';
+      if (!examplesByCategory[category]) examplesByCategory[category] = [];
+      examplesByCategory[category].push({ index, example: example.trim() });
+    }
+
+    if (Object.keys(examplesByCategory).length > 0) {
+      let examplesContent = '';
+      for (const category of CATEGORY_ORDER) {
+        const items = examplesByCategory[category];
+        if (!items || items.length === 0) continue;
+
+        examplesContent += `<div style="margin-bottom: 12px;"><h4 style="font-size: 11px; color: #475569; margin-bottom: 6px;">${escapeHtml(CATEGORY_LABELS[category] || category)} (${items.length})</h4>`;
+        for (const item of items) {
+          examplesContent += `<div style="border-left: 2px solid #6366f1; padding-left: 10px; margin-bottom: 6px;"><p style="font-size: 9px; color: #64748b;">Ítem ${item.index}</p><p style="font-size: 10px; font-style: italic;">"${escapeHtml(item.example)}"</p></div>`;
+        }
+        examplesContent += `</div>`;
+      }
+
+      sections += `
+        <div class="section">
+          <h3>Ejemplos del Paciente</h3>
+          <p style="font-size: 10px; color: #64748b; margin-bottom: 12px;">Descripciones proporcionadas por el paciente sobre sus experiencias disociativas</p>
+          ${examplesContent}
+        </div>
+      `;
+    }
+  }
+
+  // Clinical Interpretation
+  let interpretationContent = '';
+  if (isClinical) {
+    interpretationContent = `<div style="border-left: 4px solid #dc2626; padding-left: 12px; padding: 10px 12px;"><p style="font-weight: 600; color: #dc2626; margin-bottom: 6px;">Nivel Clínico (≥30)</p><p style="font-size: 10px; color: #64748b;">La puntuación total indica una probabilidad significativa de trastorno disociativo. Se recomienda evaluación clínica estructurada (ej. SCID-D, DDIS) para confirmar diagnóstico. Estas experiencias pueden estar asociadas a historia de trauma.</p></div>`;
+  } else if (isElevated) {
+    interpretationContent = `<div style="border-left: 4px solid #d97706; padding-left: 12px; padding: 10px 12px;"><p style="font-weight: 600; color: #d97706; margin-bottom: 6px;">Nivel Elevado (≥20)</p><p style="font-size: 10px; color: #64748b;">La puntuación indica experiencias disociativas por encima de la media poblacional. Puede justificar exploración más detallada, especialmente si hay síntomas clínicos asociados o historia de trauma.</p></div>`;
+  } else if (elevatedSubscales.length > 0) {
+    const subscaleList = elevatedSubscales.map(s => `<strong>${escapeHtml(s.label)}</strong>: ${s.score.toFixed(1)}%`).join(', ');
+    interpretationContent = `<div style="border-left: 4px solid #d97706; padding-left: 12px; padding: 10px 12px;"><p style="font-weight: 600; color: #d97706; margin-bottom: 6px;">Atención: Subescalas Elevadas</p><p style="font-size: 10px; color: #64748b; margin-bottom: 6px;">Aunque la puntuación total está en el rango normal (${totalScore.toFixed(1)}), se observan puntuaciones elevadas (≥20%) en: ${subscaleList}.</p><p style="font-size: 10px; color: #64748b;">Estos valores clínicamente relevantes pueden indicar patrones específicos de disociación que merecen atención clínica.</p></div>`;
+  } else {
+    interpretationContent = `<div style="border-left: 4px solid #16a34a; padding-left: 12px; padding: 10px 12px;"><p style="font-weight: 600; color: #16a34a; margin-bottom: 6px;">Rango Normal (<20)</p><p style="font-size: 10px; color: #64748b;">La puntuación no indica niveles clínicamente significativos de experiencias disociativas. Las puntuaciones en este rango son comunes en la población general.</p></div>`;
+  }
+
+  if (isTaxonPositive && !isClinical) {
+    interpretationContent += `<div style="border-left: 4px solid #dc2626; padding-left: 12px; padding: 10px 12px; margin-top: 10px;"><p style="font-weight: 600; color: #dc2626; margin-bottom: 6px;">Nota sobre DES-Taxón</p><p style="font-size: 10px; color: #64748b;">Aunque la puntuación total está dentro del rango normal, el DES-T elevado (≥20) sugiere presencia de síntomas disociativos de tipo patológico (amnesia, despersonalización, desrealización severa). Se recomienda valoración adicional.</p></div>`;
+  }
+
+  sections += `
+    <div class="section">
+      <h3>Interpretación Clínica</h3>
+      ${interpretationContent}
+    </div>
+  `;
+
+  sections += `<p class="note">DES (Dissociative Experiences Scale) - Bernstein Carlson & Putnam. Puntos de corte: ≥30 probable trastorno disociativo, ≥20 experiencias elevadas (Carlson & Putnam, 1993). DES-T ≥20 indica taxón disociativo (Waller et al., 1996).</p>`;
+
+  return sections;
 }
 
 function generateSTAIHTML(factorScores: Record<string, number>): string {
