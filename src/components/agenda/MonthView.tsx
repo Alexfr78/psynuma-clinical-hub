@@ -88,6 +88,9 @@ export function MonthView({ currentDate, sessions, onSessionClick, onDayClick, o
           const dateKey = format(day, 'yyyy-MM-dd');
           const daySessions = sessionsByDay.get(dateKey) || [];
           const isCurrentMonth = isSameMonth(day, currentDate);
+          const dayExceptions = scheduleExceptions ? getExceptionsForDate(dateKey, selectedProfessional === 'all' ? null : selectedProfessional || null, scheduleExceptions) : [];
+          const hasException = dayExceptions.length > 0;
+          const isCenterBlock = hasException && dayExceptions[0].scope === 'center';
 
           return (
             <div
