@@ -232,6 +232,22 @@ export function DayView({ currentDate, sessions, onSessionClick, onSlotClick, on
         </div>
       </div>
 
+      {/* Schedule exception banner */}
+      {(() => {
+        const dayExceptions = scheduleExceptions ? getExceptionsForDate(dateKey, selectedProfessional === 'all' ? null : selectedProfessional || null, scheduleExceptions) : [];
+        if (dayExceptions.length === 0) return null;
+        const exc = dayExceptions[0];
+        const isCenterBlock = exc.scope === 'center';
+        return (
+          <div className={cn(
+            'px-4 py-2 text-xs font-medium border-b flex items-center gap-2',
+            isCenterBlock ? 'bg-destructive/10 text-destructive' : 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300'
+          )}>
+            {isCenterBlock ? '🔒 Centro cerrado' : '🚫 No disponible'} — {getReasonLabel(exc.reason_type, exc.reason_label)}
+          </div>
+        );
+      })()}
+
       {/* Time Grid */}
       <div className="flex-1 overflow-auto" ref={gridRef}>
         <div className="min-h-[600px] relative">

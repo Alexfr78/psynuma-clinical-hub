@@ -112,6 +112,15 @@ export function MonthView({ currentDate, sessions, onSessionClick, onDayClick, o
                 {format(day, 'd')}
               </div>
 
+              {hasException && (
+                <div className={cn(
+                  'text-[9px] font-medium px-1 py-0.5 rounded truncate mb-0.5',
+                  isCenterBlock ? 'bg-destructive/10 text-destructive' : 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300'
+                )}>
+                  {isCenterBlock ? '🔒 Cerrado' : '🚫'} {getReasonLabel(dayExceptions[0].reason_type, dayExceptions[0].reason_label)}
+                </div>
+              )}
+
               <div className="space-y-0.5">
                 {daySessions.slice(0, 3).map((session) => (
                   <div

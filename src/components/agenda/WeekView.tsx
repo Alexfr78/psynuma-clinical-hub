@@ -281,9 +281,17 @@ export function WeekView({ currentDate, sessions, onSessionClick, onSlotClick, o
               return (
                 <div
                   key={day.toISOString()}
-                  className={cn(
+                 className={cn(
                     'border-r relative min-w-0',
-                    isToday(day) && 'bg-primary/5'
+                    isToday(day) && 'bg-primary/5',
+                    (() => {
+                      const dayKey = format(day, 'yyyy-MM-dd');
+                      const dayExcs = scheduleExceptions ? getExceptionsForDate(dayKey, selectedProfessional === 'all' ? null : selectedProfessional || null, scheduleExceptions) : [];
+                      if (dayExcs.length > 0) {
+                        return dayExcs[0].scope === 'center' ? 'bg-destructive/5' : 'bg-amber-50 dark:bg-amber-950/20';
+                      }
+                      return '';
+                    })()
                   )}
                 >
                   {/* Hour rows with 15-min slots */}
