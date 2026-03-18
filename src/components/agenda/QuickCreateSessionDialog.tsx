@@ -698,6 +698,21 @@ export function QuickCreateSessionDialog({
       values.end_time = calculateEndTime(values.start_time, duration);
     }
     
+    // Check schedule exceptions (blocked dates)
+    if (scheduleExceptions && scheduleExceptions.length > 0) {
+      const dateStr = format(values.session_date, 'yyyy-MM-dd');
+      const blocked = isDateBlocked(dateStr, values.start_time, values.end_time, values.professional_id, scheduleExceptions);
+      if (blocked) {
+        const scopeLabel = blocked.scope === 'center' ? 'El centro está cerrado' : 'El profesional no está disponible';
+        toast({
+          title: 'Fecha bloqueada',
+          description: `${scopeLabel} ese día: ${blocked.reason}`,
+          variant: 'destructive',
+        });
+        return;
+      }
+    }
+
     const [startH, startM] = values.start_time.split(':').map(Number);
     const [endH, endM] = values.end_time.split(':').map(Number);
     const durationMinutes = (endH * 60 + endM) - (startH * 60 + startM);
