@@ -58,97 +58,107 @@ export function DynamicFormRenderer({ fields, onSubmit, isSubmitting }: DynamicF
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
-      {sorted.map((field) => (
-        <div key={field.label} className="space-y-1.5">
-          <Label className="text-sm font-medium">
-            {field.label}
-            {field.required && <span className="text-destructive ml-1">*</span>}
-          </Label>
+      {sorted.map((field) => {
+        const selectOptions = (field.options ?? []).filter(Boolean);
 
-          {field.type === 'text' && (
-            <Input
-              value={values[field.label] ?? ''}
-              onChange={(e) => setValue(field.label, e.target.value)}
-            />
-          )}
+        return (
+          <div key={field.label} className="space-y-1.5">
+            <Label className="text-sm font-medium">
+              {field.label}
+              {field.required && <span className="text-destructive ml-1">*</span>}
+            </Label>
 
-          {field.type === 'textarea' && (
-            <Textarea
-              value={values[field.label] ?? ''}
-              onChange={(e) => setValue(field.label, e.target.value)}
-              rows={3}
-            />
-          )}
-
-          {field.type === 'number' && (
-            <Input
-              type="number"
-              value={values[field.label] ?? ''}
-              onChange={(e) => setValue(field.label, e.target.value ? Number(e.target.value) : '')}
-            />
-          )}
-
-          {field.type === 'date' && (
-            <Input
-              type="date"
-              value={values[field.label] ?? ''}
-              onChange={(e) => setValue(field.label, e.target.value)}
-            />
-          )}
-
-          {field.type === 'time' && (
-            <Input
-              type="time"
-              value={values[field.label] ?? ''}
-              onChange={(e) => setValue(field.label, e.target.value)}
-            />
-          )}
-
-          {field.type === 'select' && (
-            <Select value={values[field.label] ?? ''} onValueChange={(v) => setValue(field.label, v)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Seleccionar..." />
-              </SelectTrigger>
-              <SelectContent>
-                {(field.options ?? []).map((opt) => (
-                  <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-
-          {field.type === 'checkbox' && (
-            <div className="flex items-center gap-2 pt-1">
-              <Checkbox
-                checked={!!values[field.label]}
-                onCheckedChange={(v) => setValue(field.label, !!v)}
+            {field.type === 'text' && (
+              <Input
+                value={values[field.label] ?? ''}
+                onChange={(e) => setValue(field.label, e.target.value)}
               />
-              <span className="text-sm text-muted-foreground">Sí</span>
-            </div>
-          )}
+            )}
 
-          {field.type === 'scale' && (
-            <div className="space-y-2 pt-1">
-              <Slider
-                min={0}
-                max={10}
-                step={1}
-                value={[values[field.label] ?? 5]}
-                onValueChange={([v]) => setValue(field.label, v)}
+            {field.type === 'textarea' && (
+              <Textarea
+                value={values[field.label] ?? ''}
+                onChange={(e) => setValue(field.label, e.target.value)}
+                rows={3}
               />
-              <div className="flex justify-between text-xs text-muted-foreground">
-                <span>0</span>
-                <span className="font-medium text-foreground">{values[field.label] ?? 5}</span>
-                <span>10</span>
+            )}
+
+            {field.type === 'number' && (
+              <Input
+                type="number"
+                value={values[field.label] ?? ''}
+                onChange={(e) => setValue(field.label, e.target.value ? Number(e.target.value) : '')}
+              />
+            )}
+
+            {field.type === 'date' && (
+              <Input
+                type="date"
+                value={values[field.label] ?? ''}
+                onChange={(e) => setValue(field.label, e.target.value)}
+              />
+            )}
+
+            {field.type === 'time' && (
+              <Input
+                type="time"
+                value={values[field.label] ?? ''}
+                onChange={(e) => setValue(field.label, e.target.value)}
+              />
+            )}
+
+            {field.type === 'select' && (
+              selectOptions.length > 0 ? (
+                <Select value={values[field.label] ?? ''} onValueChange={(v) => setValue(field.label, v)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccionar..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {selectOptions.map((opt) => (
+                      <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <div className="rounded-md border border-input bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+                  Este campo no tiene opciones configuradas todavía.
+                </div>
+              )
+            )}
+
+            {field.type === 'checkbox' && (
+              <div className="flex items-center gap-2 pt-1">
+                <Checkbox
+                  checked={!!values[field.label]}
+                  onCheckedChange={(v) => setValue(field.label, !!v)}
+                />
+                <span className="text-sm text-muted-foreground">Sí</span>
               </div>
-            </div>
-          )}
+            )}
 
-          {errors[field.label] && (
-            <p className="text-xs text-destructive">{errors[field.label]}</p>
-          )}
-        </div>
-      ))}
+            {field.type === 'scale' && (
+              <div className="space-y-2 pt-1">
+                <Slider
+                  min={0}
+                  max={10}
+                  step={1}
+                  value={[values[field.label] ?? 5]}
+                  onValueChange={([v]) => setValue(field.label, v)}
+                />
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>0</span>
+                  <span className="font-medium text-foreground">{values[field.label] ?? 5}</span>
+                  <span>10</span>
+                </div>
+              </div>
+            )}
+
+            {errors[field.label] && (
+              <p className="text-xs text-destructive">{errors[field.label]}</p>
+            )}
+          </div>
+        );
+      })}
 
       <Button type="submit" className="w-full" disabled={isSubmitting}>
         {isSubmitting ? 'Enviando...' : 'Enviar registro'}

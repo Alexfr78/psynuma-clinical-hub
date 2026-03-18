@@ -125,7 +125,7 @@ export function FieldBuilder({ fields, onChange }: FieldBuilderProps) {
               />
               <Select
                 value={field.type}
-                onValueChange={(v) => updateField(index, { type: v as AutoregistroField['type'], options: v === 'select' ? [''] : undefined })}
+                onValueChange={(v) => updateField(index, { type: v as AutoregistroField['type'], options: v === 'select' ? [] : undefined })}
               >
                 <SelectTrigger className="w-[140px]">
                   <SelectValue />

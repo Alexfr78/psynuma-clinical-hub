@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { toast } from 'sonner';
+import { normalizeAutoregistroFields } from '@/lib/autoregistro-fields';
 
 export interface AutoregistroField {
   label: string;
@@ -40,7 +41,9 @@ export function useAutoregistroTemplates() {
       if (error) throw error;
       return (data ?? []).map((t: any) => ({
         ...t,
-        fields: (typeof t.fields === 'string' ? JSON.parse(t.fields) : t.fields) as AutoregistroField[],
+        fields: normalizeAutoregistroFields(
+          (typeof t.fields === 'string' ? JSON.parse(t.fields) : t.fields) as AutoregistroField[]
+        ),
       })) as AutoregistroTemplate[];
     },
     enabled: !!centerId,
@@ -55,7 +58,7 @@ export function useAutoregistroTemplates() {
           professional_id: profile!.id,
           name: input.name,
           description: input.description || null,
-          fields: input.fields as any,
+          fields: normalizeAutoregistroFields(input.fields) as any,
           patient_feedback_enabled: input.patient_feedback_enabled ?? false,
         })
         .select()
@@ -75,7 +78,7 @@ export function useAutoregistroTemplates() {
       const updates: any = { updated_at: new Date().toISOString() };
       if (input.name !== undefined) updates.name = input.name;
       if (input.description !== undefined) updates.description = input.description;
-      if (input.fields !== undefined) updates.fields = input.fields;
+      if (input.fields !== undefined) updates.fields = normalizeAutoregistroFields(input.fields);
       if (input.is_active !== undefined) updates.is_active = input.is_active;
       if (input.patient_feedback_enabled !== undefined) updates.patient_feedback_enabled = input.patient_feedback_enabled;
       const { error } = await supabase.from('autoregistro_templates').update(updates).eq('id', input.id);
