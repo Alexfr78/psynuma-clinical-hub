@@ -170,6 +170,9 @@ export default function Agenda() {
   // Dynamic hours based on center/professional configuration and existing sessions
   const { hours, startHour } = useAgendaHours(selectedProfessional, currentDate, allSessions);
 
+  // Fetch schedule exceptions for the visible date range
+  const { data: scheduleExceptions } = useScheduleExceptions(center?.id, dateRange.start, dateRange.end);
+
   // Sync selectedSession with updated data from sessions query
   useEffect(() => {
     if (selectedSession && sessions) {
