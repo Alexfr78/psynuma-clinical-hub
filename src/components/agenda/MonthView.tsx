@@ -23,6 +23,8 @@ interface MonthViewProps {
   onDayClick: (date: Date) => void;
   onSwipeLeft?: () => void;
   onSwipeRight?: () => void;
+  scheduleExceptions?: ScheduleException[];
+  selectedProfessional?: string;
 }
 
 const WEEKDAYS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
