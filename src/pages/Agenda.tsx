@@ -24,6 +24,7 @@ import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useOfflineCache } from '@/hooks/useOfflineCache';
 import { useGoogleCalendarSync } from '@/hooks/useGoogleCalendarSync';
 import { supabase } from '@/integrations/supabase/client';
+import { useScheduleExceptions } from '@/hooks/useScheduleExceptions';
 
 export default function Agenda() {
   const isMobile = useIsMobile();
