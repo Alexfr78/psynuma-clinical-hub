@@ -851,6 +851,12 @@ serve(async (req) => {
           days.push({ date: dateStr, availableCount: 0 });
           continue;
         }
+
+        // Check if date is blocked by schedule exception
+        if (blockedDates.has(dateStr)) {
+          days.push({ date: dateStr, availableCount: 0 });
+          continue;
+        }
         
         const dateObj = new Date(year, monthNum - 1, d);
         const dayOfWeek = dateObj.getDay();
