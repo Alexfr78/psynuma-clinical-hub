@@ -10,6 +10,7 @@ export interface AutoregistroField {
   options?: string[];
   required: boolean;
   order: number;
+  showInChart?: boolean;
 }
 
 export interface AutoregistroTemplate {

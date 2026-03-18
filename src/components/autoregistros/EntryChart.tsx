@@ -14,7 +14,7 @@ interface EntryChartProps {
 const COLORS = ['hsl(var(--primary))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))', 'hsl(var(--chart-5))'];
 
 export function EntryChart({ entries, fields }: EntryChartProps) {
-  const numericFields = fields.filter((f) => f.type === 'number' || f.type === 'scale');
+  const numericFields = fields.filter((f) => (f.type === 'number' || f.type === 'scale') && f.showInChart !== false);
 
   const chartData = useMemo(() => {
     if (numericFields.length === 0) return [];
