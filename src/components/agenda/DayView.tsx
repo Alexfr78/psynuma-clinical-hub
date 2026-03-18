@@ -19,6 +19,8 @@ interface DayViewProps {
   startHour?: number;
   onSwipeLeft?: () => void;
   onSwipeRight?: () => void;
+  scheduleExceptions?: ScheduleException[];
+  selectedProfessional?: string;
 }
 
 const DEFAULT_HOURS = Array.from({ length: 13 }, (_, i) => i + 8);
