@@ -589,6 +589,20 @@ export default function Agenda() {
         onOpenChange={(open) => !open && setMoveSession(null)}
         onMove={handleSessionMove}
       />
+
+      {/* Drag-and-drop Conflicts Dialog */}
+      <ConflictsDialog
+        open={showDragConflictsDialog}
+        onOpenChange={setShowDragConflictsDialog}
+        conflicts={dragConflicts}
+        isRecurring={false}
+        totalSessions={1}
+        onCancel={() => {
+          setShowDragConflictsDialog(false);
+          setPendingDragMove(null);
+        }}
+        onForceCreate={executeForceDragMove}
+      />
     </div>
   );
 }
