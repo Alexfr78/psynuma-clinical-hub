@@ -6,6 +6,7 @@ import { PatientFeedbackPanel } from '@/components/autoregistros/PatientFeedback
 import { InstallBanner } from '@/components/autoregistros/InstallBanner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { CheckCircle2, AlertCircle } from 'lucide-react';
+import { sanitizeDescription } from '@/components/autoregistros/RichDescriptionEditor';
 
 export default function AutoregistroPublic() {
   const { token } = useParams<{ token: string }>();
@@ -68,7 +69,10 @@ export default function AutoregistroPublic() {
           <CardHeader>
             <CardTitle className="text-lg">{data.template.name}</CardTitle>
             {data.template.description && (
-              <p className="text-sm text-muted-foreground">{data.template.description}</p>
+              <div
+                className="text-sm text-muted-foreground [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5"
+                dangerouslySetInnerHTML={{ __html: sanitizeDescription(data.template.description) }}
+              />
             )}
           </CardHeader>
           <CardContent>

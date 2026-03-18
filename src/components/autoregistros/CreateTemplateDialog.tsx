@@ -6,8 +6,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { RichDescriptionEditor, sanitizeDescription } from './RichDescriptionEditor';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { FieldBuilder } from './FieldBuilder';
@@ -32,7 +32,7 @@ export function CreateTemplateDialog({ open, onOpenChange }: CreateTemplateDialo
     if (fields.some((f) => !f.label.trim())) return;
 
     createTemplate.mutate(
-      { name: name.trim(), description: description.trim() || undefined, fields, patient_feedback_enabled: feedbackEnabled },
+      { name: name.trim(), description: sanitizeDescription(description.trim()) || undefined, fields, patient_feedback_enabled: feedbackEnabled },
       {
         onSuccess: () => {
           onOpenChange(false);
@@ -60,7 +60,7 @@ export function CreateTemplateDialog({ open, onOpenChange }: CreateTemplateDialo
 
           <div className="space-y-1.5">
             <Label>Descripción (opcional)</Label>
-            <Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Instrucciones para el paciente..." rows={2} />
+            <RichDescriptionEditor value={description} onChange={setDescription} />
           </div>
 
           <div className="space-y-1.5">

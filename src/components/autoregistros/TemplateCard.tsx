@@ -3,6 +3,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Trash2, FileText, Pencil } from 'lucide-react';
 import type { AutoregistroTemplate } from '@/hooks/useAutoregistroTemplates';
+import { sanitizeDescription } from './RichDescriptionEditor';
 
 interface TemplateCardProps {
   template: AutoregistroTemplate;
@@ -42,7 +43,10 @@ export function TemplateCard({ template, onDelete, onEdit }: TemplateCardProps) 
       </CardHeader>
       <CardContent className="pt-0">
         {template.description && (
-          <p className="text-sm text-muted-foreground mb-2 line-clamp-2">{template.description}</p>
+          <div
+            className="text-sm text-muted-foreground mb-2 line-clamp-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5"
+            dangerouslySetInnerHTML={{ __html: sanitizeDescription(template.description) }}
+          />
         )}
         <div className="flex flex-wrap gap-1">
           {template.fields.map((f, i) => (
