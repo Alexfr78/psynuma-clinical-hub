@@ -11,10 +11,12 @@ import { ListView } from '@/components/agenda/ListView';
 import { QuickCreateSessionDialog } from '@/components/agenda/QuickCreateSessionDialog';
 import { SessionDetailDrawer } from '@/components/agenda/SessionDetailDrawer';
 import { MoveSessionDialog } from '@/components/agenda/MoveSessionDialog';
+import { ConflictsDialog } from '@/components/agenda/ConflictsDialog';
 import { AgendaFooter } from '@/components/agenda/AgendaFooter';
 import { PendingApprovalsPanel } from '@/components/agenda/PendingApprovalsPanel';
 import { NetworkStatusIndicator } from '@/components/agenda/NetworkStatusIndicator';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 import { useAgendaHours } from '@/hooks/useAgendaHours';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useGoogleCalendarUpdate } from '@/hooks/useGoogleCalendarUpdate';
@@ -25,10 +27,12 @@ import { useOfflineCache } from '@/hooks/useOfflineCache';
 import { useGoogleCalendarSync } from '@/hooks/useGoogleCalendarSync';
 import { supabase } from '@/integrations/supabase/client';
 import { useScheduleExceptions } from '@/hooks/useScheduleExceptions';
+import { checkSessionConflicts, ConflictResult } from '@/lib/conflicts';
 
 export default function Agenda() {
   const isMobile = useIsMobile();
   const { center } = useCenter();
+  const { profile } = useAuth();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState<CalendarView>('week');
   const [timezone, setTimezone] = useState('Europe/Madrid');
@@ -44,6 +48,11 @@ export default function Agenda() {
   const [initialDate, setInitialDate] = useState<Date | undefined>();
   const [initialStartTime, setInitialStartTime] = useState<string | undefined>();
   const [initialEndTime, setInitialEndTime] = useState<string | undefined>();
+  
+  // Drag-and-drop conflict state
+  const [dragConflicts, setDragConflicts] = useState<ConflictResult[]>([]);
+  const [showDragConflictsDialog, setShowDragConflictsDialog] = useState(false);
+  const [pendingDragMove, setPendingDragMove] = useState<{ sessionId: string; newDate: string; newStartTime: string; newEndTime: string; session: SessionWithRelations } | null>(null);
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -353,6 +362,32 @@ export default function Agenda() {
         });
         return;
       }
+
+      // Check for conflicts before moving
+      const centerId = profile?.center_id;
+      const professionalId = session.professional_id;
+      if (centerId && professionalId) {
+        try {
+          const start = new Date(`${newDate}T${newStartTime}`);
+          const end = new Date(`${newDate}T${newEndTime}`);
+          const conflictResults = await checkSessionConflicts({
+            centerId,
+            professionalId,
+            sessionsToCheck: [{ start, end }],
+            excludeSessionId: sessionId,
+          });
+          if (conflictResults.length > 0) {
+            // Store pending move and show conflicts dialog
+            setDragConflicts(conflictResults);
+            setPendingDragMove({ sessionId, newDate, newStartTime, newEndTime, session });
+            setShowDragConflictsDialog(true);
+            return;
+          }
+        } catch (err) {
+          console.error('Error checking drag conflicts:', err);
+          // Proceed if conflict check fails
+        }
+      }
       
       await updateSession.mutateAsync({
         id: sessionId,
@@ -399,6 +434,26 @@ export default function Agenda() {
         description: 'No se pudo mover la sesión',
         variant: 'destructive',
       });
+    }
+  };
+
+  const executeForceDragMove = async () => {
+    if (!pendingDragMove) return;
+    const { sessionId, newDate, newStartTime, newEndTime, session } = pendingDragMove;
+    setPendingDragMove(null);
+    try {
+      await updateSession.mutateAsync({
+        id: sessionId,
+        session_date: newDate,
+        start_time: newStartTime,
+        end_time: newEndTime,
+      });
+      try {
+        await syncMoveToGoogle(session, newDate, newStartTime, newEndTime);
+      } catch {}
+      toast({ title: 'Sesión movida', description: `Movida a ${newDate} ${newStartTime} (con conflicto)` });
+    } catch {
+      toast({ title: 'Error', description: 'No se pudo mover la sesión', variant: 'destructive' });
     }
   };
 
@@ -533,6 +588,20 @@ export default function Agenda() {
         open={!!moveSession}
         onOpenChange={(open) => !open && setMoveSession(null)}
         onMove={handleSessionMove}
+      />
+
+      {/* Drag-and-drop Conflicts Dialog */}
+      <ConflictsDialog
+        open={showDragConflictsDialog}
+        onOpenChange={setShowDragConflictsDialog}
+        conflicts={dragConflicts}
+        isRecurring={false}
+        totalSessions={1}
+        onCancel={() => {
+          setShowDragConflictsDialog(false);
+          setPendingDragMove(null);
+        }}
+        onForceCreate={executeForceDragMove}
       />
     </div>
   );

@@ -1,50 +1,29 @@
 
 
-## Root Cause Analysis
+## Problem
 
-The issue is a **critical gap in conflict detection** across multiple session movement paths:
+The `SessionDetailDrawer` has a `useEffect` that resets local state (`localDateTime`, `localStatus`, etc.) but its dependency array only watches `session?.id`, `session?.bono_id`, and `session?.price`. When the drawer is closed and reopened for the **same session**, or when session data is refetched with updated values, the local overrides (`localDateTime`, `localStatus`) are never cleared. This causes the drawer to show stale values from a previous edit.
 
-### Paths WITHOUT conflict detection (bugs):
-1. **`MoveSessionDialog.tsx`** — The internal "Move session" dialog has **zero conflict checking**. It directly calls `onMove` which updates the session without any overlap validation.
-2. **`Agenda.tsx` → `handleSessionMove`** (drag-and-drop in DayView/WeekView) — Also has **no conflict detection**. It calls `updateSession.mutateAsync` directly.
-3. **`public-session-reschedule` edge function** — Has availability-based slot generation (so only shows free slots), but has a **TOCTOU race condition**: between verifying the slot is available (line 217-226) and performing the update (line 245-255), another session could be created. No database-level lock or constraint prevents this.
+In your case: you edited date/time at some point, `localDateTime` was set to `{date: '2026-03-10', startTime: '18:00', endTime: '19:00'}`, but the DB actually has `2026-03-04 at 20:00`. Reopening the drawer doesn't reset `localDateTime` because `session.id` hasn't changed.
 
-### Paths WITH conflict detection (working correctly):
-- `QuickCreateSessionDialog.tsx` — Uses `checkSessionConflicts()` before creating
-- `SessionDetailDrawer.tsx` — Uses `checkSessionConflicts()` when editing date/time
+## Fix
 
-### The specific incident
-Jose Maria Pascual likely rescheduled via the public reschedule flow or the admin used drag-and-drop / MoveSessionDialog — all of which lack proper conflict guards.
+**File: `src/components/agenda/SessionDetailDrawer.tsx`**
 
----
+1. **Add the `open` prop to the reset effect's dependency array** — so that every time the drawer opens, all local overrides are cleared and the component reads fresh data from the `session` prop.
 
-## Plan
+2. **Also add `session?.session_date`, `session?.start_time`, `session?.end_time`, and `session?.status`** to the dependency array so that when the query cache updates with new data, local overrides are cleared.
 
-### 1. Add conflict detection to `MoveSessionDialog.tsx`
-- Import and call `checkSessionConflicts()` before executing `onMove`
-- Show a warning with conflicting session details if overlap detected
-- Allow the user to force-move (with explicit confirmation) or cancel
-- Display a `ConflictsDialog` similar to what `QuickCreateSessionDialog` uses
+The effect at line ~260 changes from:
+```typescript
+}, [session?.id, session?.bono_id, session?.price]);
+```
+to:
+```typescript
+}, [session?.id, session?.bono_id, session?.price, session?.session_date, session?.start_time, session?.end_time, session?.status, open]);
+```
 
-### 2. Add conflict detection to `handleSessionMove` in `Agenda.tsx` (drag-and-drop)
-- Before calling `updateSession.mutateAsync`, run `checkSessionConflicts()` 
-- If conflicts found, show a toast/dialog warning and abort the move
-- Alternatively, open the `MoveSessionDialog` pre-filled so the user sees the conflict warning
-
-### 3. Harden the public reschedule edge function against race conditions
-- In the `reschedule` action handler (`public-session-reschedule/index.ts`), add an explicit query for overlapping sessions **after** re-verifying availability and **just before** the update
-- Use a `SELECT ... FOR UPDATE` row lock on the professional's sessions for that date to prevent concurrent writes
-- If overlap is detected at this point, return a 409 error
-
-### 4. Add a database-level validation trigger (defense in depth)
-- Create a database trigger `validate_no_session_overlap` on the `sessions` table (INSERT and UPDATE)
-- The trigger checks if any other non-cancelled session for the same `professional_id` overlaps the new `session_date`/`start_time`/`end_time` range
-- If overlap found, raise an exception — this prevents double-booking even under race conditions
-- This is the ultimate safety net regardless of which code path creates/moves the session
-
-### Files to modify:
-- `src/components/agenda/MoveSessionDialog.tsx` — Add conflict check + warning UI
-- `src/pages/Agenda.tsx` — Add conflict check to `handleSessionMove`
-- `supabase/functions/public-session-reschedule/index.ts` — Add row-level locking before update
-- **New migration** — Database trigger `validate_no_session_overlap`
+This ensures that:
+- Opening the drawer always shows the DB values (not stale local edits)
+- When the session query refetches with updated data, local overrides are discarded
 
