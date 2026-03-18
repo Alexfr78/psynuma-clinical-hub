@@ -437,6 +437,26 @@ export default function Agenda() {
     }
   };
 
+  const executeForceDragMove = async () => {
+    if (!pendingDragMove) return;
+    const { sessionId, newDate, newStartTime, newEndTime, session } = pendingDragMove;
+    setPendingDragMove(null);
+    try {
+      await updateSession.mutateAsync({
+        id: sessionId,
+        session_date: newDate,
+        start_time: newStartTime,
+        end_time: newEndTime,
+      });
+      try {
+        await syncMoveToGoogle(session, newDate, newStartTime, newEndTime);
+      } catch {}
+      toast({ title: 'Sesión movida', description: `Movida a ${newDate} ${newStartTime} (con conflicto)` });
+    } catch {
+      toast({ title: 'Error', description: 'No se pudo mover la sesión', variant: 'destructive' });
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
