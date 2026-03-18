@@ -32,6 +32,7 @@ import { checkSessionConflicts, ConflictResult } from '@/lib/conflicts';
 export default function Agenda() {
   const isMobile = useIsMobile();
   const { center } = useCenter();
+  const { profile } = useAuth();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState<CalendarView>('week');
   const [timezone, setTimezone] = useState('Europe/Madrid');
@@ -47,6 +48,11 @@ export default function Agenda() {
   const [initialDate, setInitialDate] = useState<Date | undefined>();
   const [initialStartTime, setInitialStartTime] = useState<string | undefined>();
   const [initialEndTime, setInitialEndTime] = useState<string | undefined>();
+  
+  // Drag-and-drop conflict state
+  const [dragConflicts, setDragConflicts] = useState<ConflictResult[]>([]);
+  const [showDragConflictsDialog, setShowDragConflictsDialog] = useState(false);
+  const [pendingDragMove, setPendingDragMove] = useState<{ sessionId: string; newDate: string; newStartTime: string; newEndTime: string; session: SessionWithRelations } | null>(null);
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
