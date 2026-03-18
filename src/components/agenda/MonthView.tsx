@@ -12,6 +12,7 @@ import {
 } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { ScheduleException, getExceptionsForDate, getReasonLabel } from '@/lib/schedule-exceptions';
 import { SessionWithRelations } from '@/hooks/useSessions';
 import { useSwipeNavigation } from '@/hooks/useSwipeNavigation';
 
