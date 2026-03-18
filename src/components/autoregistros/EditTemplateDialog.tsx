@@ -65,7 +65,7 @@ export function EditTemplateDialog({ open, onOpenChange, template }: EditTemplat
 
           <div className="space-y-1.5">
             <Label>Descripción (opcional)</Label>
-            <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} />
+            <RichDescriptionEditor value={description} onChange={setDescription} />
           </div>
 
           <div className="space-y-1.5">
