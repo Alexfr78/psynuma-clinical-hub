@@ -97,7 +97,9 @@ export function MonthView({ currentDate, sessions, onSessionClick, onDayClick, o
               key={index}
               className={cn(
                 'min-h-[100px] border-b border-r p-1 transition-colors hover:bg-muted/50 cursor-pointer',
-                !isCurrentMonth && 'bg-muted/30 text-muted-foreground'
+                !isCurrentMonth && 'bg-muted/30 text-muted-foreground',
+                hasException && isCenterBlock && 'bg-destructive/5',
+                hasException && !isCenterBlock && 'bg-amber-50 dark:bg-amber-950/20'
               )}
               onClick={() => onDayClick(day)}
             >
