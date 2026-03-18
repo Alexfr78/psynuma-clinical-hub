@@ -69,7 +69,10 @@ export default function AutoregistroPublic() {
           <CardHeader>
             <CardTitle className="text-lg">{data.template.name}</CardTitle>
             {data.template.description && (
-              <p className="text-sm text-muted-foreground">{data.template.description}</p>
+              <div
+                className="text-sm text-muted-foreground [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5"
+                dangerouslySetInnerHTML={{ __html: sanitizeDescription(data.template.description) }}
+              />
             )}
           </CardHeader>
           <CardContent>
