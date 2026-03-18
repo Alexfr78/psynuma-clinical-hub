@@ -41,7 +41,7 @@ function minutesToTime(totalMinutes: number): string {
   return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
 }
 
-export function DayView({ currentDate, sessions, onSessionClick, onSlotClick, onSessionMove, onMoveRequest, hours, startHour, onSwipeLeft, onSwipeRight }: DayViewProps) {
+export function DayView({ currentDate, sessions, onSessionClick, onSlotClick, onSessionMove, onMoveRequest, hours, startHour, onSwipeLeft, onSwipeRight, scheduleExceptions, selectedProfessional }: DayViewProps) {
   const displayHours = hours || DEFAULT_HOURS;
   const gridStartHour = startHour ?? 8;
   const dateKey = format(currentDate, 'yyyy-MM-dd');
