@@ -476,6 +476,8 @@ export default function Agenda() {
               startHour={startHour}
               onSwipeLeft={navigateNext}
               onSwipeRight={navigatePrev}
+              scheduleExceptions={scheduleExceptions}
+              selectedProfessional={selectedProfessional}
             />
           )}
           {view === 'month' && (
