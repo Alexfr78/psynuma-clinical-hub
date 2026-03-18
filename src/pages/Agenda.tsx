@@ -11,10 +11,12 @@ import { ListView } from '@/components/agenda/ListView';
 import { QuickCreateSessionDialog } from '@/components/agenda/QuickCreateSessionDialog';
 import { SessionDetailDrawer } from '@/components/agenda/SessionDetailDrawer';
 import { MoveSessionDialog } from '@/components/agenda/MoveSessionDialog';
+import { ConflictsDialog } from '@/components/agenda/ConflictsDialog';
 import { AgendaFooter } from '@/components/agenda/AgendaFooter';
 import { PendingApprovalsPanel } from '@/components/agenda/PendingApprovalsPanel';
 import { NetworkStatusIndicator } from '@/components/agenda/NetworkStatusIndicator';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 import { useAgendaHours } from '@/hooks/useAgendaHours';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useGoogleCalendarUpdate } from '@/hooks/useGoogleCalendarUpdate';
@@ -25,6 +27,7 @@ import { useOfflineCache } from '@/hooks/useOfflineCache';
 import { useGoogleCalendarSync } from '@/hooks/useGoogleCalendarSync';
 import { supabase } from '@/integrations/supabase/client';
 import { useScheduleExceptions } from '@/hooks/useScheduleExceptions';
+import { checkSessionConflicts, ConflictResult } from '@/lib/conflicts';
 
 export default function Agenda() {
   const isMobile = useIsMobile();
