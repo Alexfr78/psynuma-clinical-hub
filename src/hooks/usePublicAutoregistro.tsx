@@ -1,5 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@supabase/supabase-js';
+import { normalizeAutoregistroFields } from '@/lib/autoregistro-fields';
+import type { AutoregistroField } from './useAutoregistroTemplates';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -25,7 +27,7 @@ export interface PublicAutoregistroData {
     id: string;
     name: string;
     description: string | null;
-    fields: any[];
+    fields: AutoregistroField[];
     patient_feedback_enabled: boolean;
   };
 }
@@ -66,7 +68,9 @@ export function usePublicAutoregistro(token: string) {
         link: { id: link.id, template_id: link.template_id, status: link.status, allow_multiple: link.allow_multiple, expires_at: link.expires_at },
         template: {
           ...template,
-          fields: typeof template.fields === 'string' ? JSON.parse(template.fields) : template.fields,
+          fields: normalizeAutoregistroFields(
+            typeof template.fields === 'string' ? JSON.parse(template.fields) : template.fields
+          ),
           patient_feedback_enabled: !!(template as any).patient_feedback_enabled,
         },
       };
