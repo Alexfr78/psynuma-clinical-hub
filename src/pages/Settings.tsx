@@ -136,6 +136,7 @@ const navItems: NavItem[] = [
   { id: 'centro-info', label: 'Datos del centro', icon: Building2, parent: 'Mi Centro' },
   { id: 'centro-ubicaciones', label: 'Ubicaciones', icon: MapPin, parent: 'Mi Centro' },
   { id: 'centro-agenda', label: 'Configuración de agenda', icon: CalendarDays, parent: 'Mi Centro' },
+  { id: 'centro-excepciones', label: 'Días no laborables', icon: Ban, parent: 'Mi Centro' },
   { id: 'sesiones-tipos', label: 'Tipos de cita', icon: Calendar, parent: 'Mi Centro' },
   
   // Portal de Contactos
