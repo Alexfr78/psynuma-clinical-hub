@@ -66,6 +66,7 @@ import { SessionNotificationSettings } from './SessionNotificationSettings';
 import { WhatsAppLinkDialog } from './WhatsAppLinkDialog';
 import { RecurrenceSettings, getDefaultRecurrenceConfig } from './RecurrenceSettings';
 import { useCreateRecurringSeries } from '@/hooks/useRecurringSeries';
+import { MobileSessionForm } from './MobileSessionForm';
 import { generateRecurrenceOccurrences } from '@/lib/recurrence-utils';
 import { RecurrenceConfig } from '@/types/recurring';
 import { checkSessionConflicts, ConflictResult, SessionToCheck } from '@/lib/conflicts';
