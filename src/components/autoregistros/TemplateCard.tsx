@@ -3,6 +3,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Trash2, FileText, Pencil } from 'lucide-react';
 import type { AutoregistroTemplate } from '@/hooks/useAutoregistroTemplates';
+import { sanitizeDescription } from './RichDescriptionEditor';
 
 interface TemplateCardProps {
   template: AutoregistroTemplate;
