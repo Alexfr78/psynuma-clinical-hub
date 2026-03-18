@@ -2,6 +2,7 @@ import { useMemo, useState, useCallback, useEffect } from 'react';
 import { format, startOfWeek, addDays, isToday } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { ScheduleException, getExceptionsForDate, getReasonLabel } from '@/lib/schedule-exceptions';
 import { SessionWithRelations } from '@/hooks/useSessions';
 import { SessionCard } from './SessionCard';
 import { calculateSessionPositions } from '@/lib/calculateSessionPositions';
