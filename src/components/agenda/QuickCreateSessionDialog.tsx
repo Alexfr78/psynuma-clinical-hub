@@ -164,6 +164,7 @@ export function QuickCreateSessionDialog({
   const deductBonoSession = useDeductBonoSession();
   
   const { center } = useCenter();
+  const { data: scheduleExceptions } = useScheduleExceptions(center?.id);
   const { isAutomatic } = useWhatsAppDelivery();
   const queryClient = useQueryClient();
   const { data: patients } = usePatients();
