@@ -84,6 +84,7 @@ type SettingsSection =
   | 'centro-info'
   | 'centro-ubicaciones'
   | 'centro-agenda'
+  | 'centro-excepciones'
   | 'centro-portal'
   
   | 'sesiones-tipos'
