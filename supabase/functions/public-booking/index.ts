@@ -596,6 +596,30 @@ serve(async (req) => {
         .gte("start_at", startOfDay)
         .lte("start_at", endOfDay);
 
+      // Check schedule exceptions (blocked dates)
+      const { data: scheduleExceptions } = await supabase
+        .from("schedule_exceptions")
+        .select("scope, start_date, end_date, all_day, start_time, end_time, reason_type, reason_label, affects_booking, professional_id")
+        .eq("center_id", center.id)
+        .eq("affects_booking", true)
+        .lte("start_date", date)
+        .gte("end_date", date);
+
+      if (scheduleExceptions?.length) {
+        // Check if any exception blocks this date for this professional
+        for (const exc of scheduleExceptions) {
+          if (exc.scope === 'professional' && exc.professional_id !== finalProfessionalId) continue;
+          // If all_day or the entire day is covered, return empty slots
+          if (exc.all_day) {
+            console.log(`[get-availability] date=${date} blocked by ${exc.scope} exception: ${exc.reason_type}`);
+            return new Response(
+              JSON.stringify({ slots: [], serviceDuration, blocked: true, blockReason: exc.reason_label || exc.reason_type }),
+              { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+        }
+      }
+
       // Build free windows and generate scored slots
       const freeWindows = buildFreeWindows(
         profAvailability,
@@ -794,6 +818,29 @@ serve(async (req) => {
         locationSchedulesByDow[l.day_of_week].push({ start_time: l.start_time, end_time: l.end_time });
       }
 
+      // Fetch schedule exceptions for the month
+      const { data: monthExceptions } = await supabase
+        .from("schedule_exceptions")
+        .select("scope, start_date, end_date, all_day, professional_id, affects_booking")
+        .eq("center_id", center.id)
+        .eq("affects_booking", true)
+        .lte("start_date", endStr)
+        .gte("end_date", startStr);
+
+      // Build a set of blocked dates for quick lookup
+      const blockedDates = new Set<string>();
+      for (const exc of monthExceptions || []) {
+        if (exc.scope === 'professional' && exc.professional_id !== finalProfessionalId) continue;
+        if (!exc.all_day) continue;
+        const excStart = new Date(exc.start_date + 'T12:00:00Z');
+        const excEnd = new Date(exc.end_date + 'T12:00:00Z');
+        let cur = new Date(excStart);
+        while (cur <= excEnd) {
+          blockedDates.add(formatDateLocal(cur.getUTCFullYear(), cur.getUTCMonth() + 1, cur.getUTCDate()));
+          cur.setUTCDate(cur.getUTCDate() + 1);
+        }
+      }
+
       // Calculate availability for each day using shared scoring logic
       const days: { date: string; availableCount: number }[] = [];
 
@@ -801,6 +848,12 @@ serve(async (req) => {
         const dateStr = formatDateLocal(year, monthNum, d);
         
         if (dateStr < todayStr || dateStr > maxDateStr) {
+          days.push({ date: dateStr, availableCount: 0 });
+          continue;
+        }
+
+        // Check if date is blocked by schedule exception
+        if (blockedDates.has(dateStr)) {
           days.push({ date: dateStr, availableCount: 0 });
           continue;
         }

@@ -25,7 +25,8 @@ import {
   Bell,
   Users,
   FileDown,
-  CalendarDays
+  CalendarDays,
+  Ban
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -65,6 +66,7 @@ import { OAuthCredentialsSection } from '@/components/settings/integrations/OAut
 import { AgendaSettingsSection } from '@/components/settings/AgendaSettingsSection';
 import { AdminAlertsSettingsSection } from '@/components/settings/AdminAlertsSettingsSection';
 import { SecuritySection } from '@/components/settings/SecuritySection';
+import { ScheduleExceptionsSection } from '@/components/settings/ScheduleExceptionsSection';
 
 const centerSchema = z.object({
   name: z.string().min(1, 'El nombre es obligatorio'),
@@ -82,6 +84,7 @@ type SettingsSection =
   | 'centro-info'
   | 'centro-ubicaciones'
   | 'centro-agenda'
+  | 'centro-excepciones'
   | 'centro-portal'
   
   | 'sesiones-tipos'
@@ -133,6 +136,7 @@ const navItems: NavItem[] = [
   { id: 'centro-info', label: 'Datos del centro', icon: Building2, parent: 'Mi Centro' },
   { id: 'centro-ubicaciones', label: 'Ubicaciones', icon: MapPin, parent: 'Mi Centro' },
   { id: 'centro-agenda', label: 'Configuración de agenda', icon: CalendarDays, parent: 'Mi Centro' },
+  { id: 'centro-excepciones', label: 'Días no laborables', icon: Ban, parent: 'Mi Centro' },
   { id: 'sesiones-tipos', label: 'Tipos de cita', icon: Calendar, parent: 'Mi Centro' },
   
   // Portal de Contactos
@@ -337,6 +341,8 @@ export default function Settings() {
         return <LocationsSection />;
       case 'centro-agenda':
         return <AgendaSettingsSection />;
+      case 'centro-excepciones':
+        return <ScheduleExceptionsSection />;
       case 'centro-portal':
         return <PortalSettingsSection />;
       case 'sesiones-tipos':

@@ -2,6 +2,7 @@ import { useMemo, useState, useCallback, useEffect } from 'react';
 import { format, startOfWeek, addDays, isToday } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { ScheduleException, getExceptionsForDate, getReasonLabel } from '@/lib/schedule-exceptions';
 import { SessionWithRelations } from '@/hooks/useSessions';
 import { SessionCard } from './SessionCard';
 import { calculateSessionPositions } from '@/lib/calculateSessionPositions';
@@ -19,6 +20,8 @@ interface WeekViewProps {
   onSwipeLeft?: () => void;
   onSwipeRight?: () => void;
   showWeekends?: boolean;
+  scheduleExceptions?: ScheduleException[];
+  selectedProfessional?: string;
 }
 
 const DEFAULT_HOURS = Array.from({ length: 13 }, (_, i) => i + 8);
@@ -42,7 +45,7 @@ function minutesToTime(totalMinutes: number): string {
   return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
 }
 
-export function WeekView({ currentDate, sessions, onSessionClick, onSlotClick, onSessionMove, hours, startHour, onSwipeLeft, onSwipeRight, showWeekends = true }: WeekViewProps) {
+export function WeekView({ currentDate, sessions, onSessionClick, onSlotClick, onSessionMove, hours, startHour, onSwipeLeft, onSwipeRight, showWeekends = true, scheduleExceptions, selectedProfessional }: WeekViewProps) {
   const isMobile = useIsMobile();
   const displayHours = hours || DEFAULT_HOURS;
   const gridStartHour = startHour ?? 8;
@@ -278,9 +281,17 @@ export function WeekView({ currentDate, sessions, onSessionClick, onSlotClick, o
               return (
                 <div
                   key={day.toISOString()}
-                  className={cn(
+                 className={cn(
                     'border-r relative min-w-0',
-                    isToday(day) && 'bg-primary/5'
+                    isToday(day) && 'bg-primary/5',
+                    (() => {
+                      const dayKey = format(day, 'yyyy-MM-dd');
+                      const dayExcs = scheduleExceptions ? getExceptionsForDate(dayKey, selectedProfessional === 'all' ? null : selectedProfessional || null, scheduleExceptions) : [];
+                      if (dayExcs.length > 0) {
+                        return dayExcs[0].scope === 'center' ? 'bg-destructive/5' : 'bg-amber-50 dark:bg-amber-950/20';
+                      }
+                      return '';
+                    })()
                   )}
                 >
                   {/* Hour rows with 15-min slots */}

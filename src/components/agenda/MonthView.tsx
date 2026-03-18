@@ -12,6 +12,7 @@ import {
 } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { ScheduleException, getExceptionsForDate, getReasonLabel } from '@/lib/schedule-exceptions';
 import { SessionWithRelations } from '@/hooks/useSessions';
 import { useSwipeNavigation } from '@/hooks/useSwipeNavigation';
 
@@ -22,11 +23,13 @@ interface MonthViewProps {
   onDayClick: (date: Date) => void;
   onSwipeLeft?: () => void;
   onSwipeRight?: () => void;
+  scheduleExceptions?: ScheduleException[];
+  selectedProfessional?: string;
 }
 
 const WEEKDAYS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 
-export function MonthView({ currentDate, sessions, onSessionClick, onDayClick, onSwipeLeft, onSwipeRight }: MonthViewProps) {
+export function MonthView({ currentDate, sessions, onSessionClick, onDayClick, onSwipeLeft, onSwipeRight, scheduleExceptions, selectedProfessional }: MonthViewProps) {
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(currentDate);
   const calendarStart = startOfWeek(monthStart, { weekStartsOn: 1 });
@@ -85,13 +88,18 @@ export function MonthView({ currentDate, sessions, onSessionClick, onDayClick, o
           const dateKey = format(day, 'yyyy-MM-dd');
           const daySessions = sessionsByDay.get(dateKey) || [];
           const isCurrentMonth = isSameMonth(day, currentDate);
+          const dayExceptions = scheduleExceptions ? getExceptionsForDate(dateKey, selectedProfessional === 'all' ? null : selectedProfessional || null, scheduleExceptions) : [];
+          const hasException = dayExceptions.length > 0;
+          const isCenterBlock = hasException && dayExceptions[0].scope === 'center';
 
           return (
             <div
               key={index}
               className={cn(
                 'min-h-[100px] border-b border-r p-1 transition-colors hover:bg-muted/50 cursor-pointer',
-                !isCurrentMonth && 'bg-muted/30 text-muted-foreground'
+                !isCurrentMonth && 'bg-muted/30 text-muted-foreground',
+                hasException && isCenterBlock && 'bg-destructive/5',
+                hasException && !isCenterBlock && 'bg-amber-50 dark:bg-amber-950/20'
               )}
               onClick={() => onDayClick(day)}
             >
@@ -103,6 +111,15 @@ export function MonthView({ currentDate, sessions, onSessionClick, onDayClick, o
               >
                 {format(day, 'd')}
               </div>
+
+              {hasException && (
+                <div className={cn(
+                  'text-[9px] font-medium px-1 py-0.5 rounded truncate mb-0.5',
+                  isCenterBlock ? 'bg-destructive/10 text-destructive' : 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300'
+                )}>
+                  {isCenterBlock ? '🔒 Cerrado' : '🚫'} {getReasonLabel(dayExceptions[0].reason_type, dayExceptions[0].reason_label)}
+                </div>
+              )}
 
               <div className="space-y-0.5">
                 {daySessions.slice(0, 3).map((session) => (

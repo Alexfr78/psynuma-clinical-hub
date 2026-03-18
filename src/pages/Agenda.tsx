@@ -24,6 +24,7 @@ import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useOfflineCache } from '@/hooks/useOfflineCache';
 import { useGoogleCalendarSync } from '@/hooks/useGoogleCalendarSync';
 import { supabase } from '@/integrations/supabase/client';
+import { useScheduleExceptions } from '@/hooks/useScheduleExceptions';
 
 export default function Agenda() {
   const isMobile = useIsMobile();
@@ -168,6 +169,9 @@ export default function Agenda() {
 
   // Dynamic hours based on center/professional configuration and existing sessions
   const { hours, startHour } = useAgendaHours(selectedProfessional, currentDate, allSessions);
+
+  // Fetch schedule exceptions for the visible date range
+  const { data: scheduleExceptions } = useScheduleExceptions(center?.id, dateRange.start, dateRange.end);
 
   // Sync selectedSession with updated data from sessions query
   useEffect(() => {
@@ -456,6 +460,8 @@ export default function Agenda() {
               onSwipeLeft={navigateNext}
               onSwipeRight={navigatePrev}
               showWeekends={showWeekends}
+              scheduleExceptions={scheduleExceptions}
+              selectedProfessional={selectedProfessional}
             />
           )}
           {view === 'day' && (
@@ -470,6 +476,8 @@ export default function Agenda() {
               startHour={startHour}
               onSwipeLeft={navigateNext}
               onSwipeRight={navigatePrev}
+              scheduleExceptions={scheduleExceptions}
+              selectedProfessional={selectedProfessional}
             />
           )}
           {view === 'month' && (
@@ -480,6 +488,8 @@ export default function Agenda() {
               onDayClick={handleDayClick}
               onSwipeLeft={navigateNext}
               onSwipeRight={navigatePrev}
+              scheduleExceptions={scheduleExceptions}
+              selectedProfessional={selectedProfessional}
             />
           )}
           {view === 'list' && (
