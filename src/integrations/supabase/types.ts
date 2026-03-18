@@ -3424,6 +3424,99 @@ export type Database = {
           },
         ]
       }
+      schedule_exceptions: {
+        Row: {
+          affects_booking: boolean
+          all_day: boolean
+          center_id: string
+          created_at: string | null
+          created_by: string | null
+          end_date: string
+          end_time: string | null
+          id: string
+          notes: string | null
+          professional_id: string | null
+          reason_label: string | null
+          reason_type: Database["public"]["Enums"]["schedule_exception_reason"]
+          scope: Database["public"]["Enums"]["schedule_exception_scope"]
+          start_date: string
+          start_time: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          affects_booking?: boolean
+          all_day?: boolean
+          center_id: string
+          created_at?: string | null
+          created_by?: string | null
+          end_date: string
+          end_time?: string | null
+          id?: string
+          notes?: string | null
+          professional_id?: string | null
+          reason_label?: string | null
+          reason_type?: Database["public"]["Enums"]["schedule_exception_reason"]
+          scope?: Database["public"]["Enums"]["schedule_exception_scope"]
+          start_date: string
+          start_time?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          affects_booking?: boolean
+          all_day?: boolean
+          center_id?: string
+          created_at?: string | null
+          created_by?: string | null
+          end_date?: string
+          end_time?: string | null
+          id?: string
+          notes?: string | null
+          professional_id?: string | null
+          reason_label?: string | null
+          reason_type?: Database["public"]["Enums"]["schedule_exception_reason"]
+          scope?: Database["public"]["Enums"]["schedule_exception_scope"]
+          start_date?: string
+          start_time?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "schedule_exceptions_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "schedule_exceptions_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "schedule_exceptions_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "portal_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "schedule_exceptions_professional_id_fkey"
+            columns: ["professional_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "schedule_exceptions_professional_id_fkey"
+            columns: ["professional_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       session_types: {
         Row: {
           center_id: string
@@ -4886,6 +4979,14 @@ export type Database = {
       notification_type: "email" | "sms" | "whatsapp"
       patient_status: "active" | "inactive" | "discharged"
       payment_status: "pending" | "paid" | "partial" | "refunded"
+      schedule_exception_reason:
+        | "holiday"
+        | "vacation"
+        | "sick_leave"
+        | "training"
+        | "closure"
+        | "other"
+      schedule_exception_scope: "center" | "professional"
       session_status:
         | "draft"
         | "scheduled"
@@ -5033,6 +5134,15 @@ export const Constants = {
       notification_type: ["email", "sms", "whatsapp"],
       patient_status: ["active", "inactive", "discharged"],
       payment_status: ["pending", "paid", "partial", "refunded"],
+      schedule_exception_reason: [
+        "holiday",
+        "vacation",
+        "sick_leave",
+        "training",
+        "closure",
+        "other",
+      ],
+      schedule_exception_scope: ["center", "professional"],
       session_status: [
         "draft",
         "scheduled",
