@@ -341,6 +341,8 @@ export default function Settings() {
         return <LocationsSection />;
       case 'centro-agenda':
         return <AgendaSettingsSection />;
+      case 'centro-excepciones':
+        return <ScheduleExceptionsSection />;
       case 'centro-portal':
         return <PortalSettingsSection />;
       case 'sesiones-tipos':
