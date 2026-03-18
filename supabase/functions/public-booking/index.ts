@@ -818,6 +818,29 @@ serve(async (req) => {
         locationSchedulesByDow[l.day_of_week].push({ start_time: l.start_time, end_time: l.end_time });
       }
 
+      // Fetch schedule exceptions for the month
+      const { data: monthExceptions } = await supabase
+        .from("schedule_exceptions")
+        .select("scope, start_date, end_date, all_day, professional_id, affects_booking")
+        .eq("center_id", center.id)
+        .eq("affects_booking", true)
+        .lte("start_date", endStr)
+        .gte("end_date", startStr);
+
+      // Build a set of blocked dates for quick lookup
+      const blockedDates = new Set<string>();
+      for (const exc of monthExceptions || []) {
+        if (exc.scope === 'professional' && exc.professional_id !== finalProfessionalId) continue;
+        if (!exc.all_day) continue;
+        const excStart = new Date(exc.start_date + 'T12:00:00Z');
+        const excEnd = new Date(exc.end_date + 'T12:00:00Z');
+        let cur = new Date(excStart);
+        while (cur <= excEnd) {
+          blockedDates.add(formatDateLocal(cur.getUTCFullYear(), cur.getUTCMonth() + 1, cur.getUTCDate()));
+          cur.setUTCDate(cur.getUTCDate() + 1);
+        }
+      }
+
       // Calculate availability for each day using shared scoring logic
       const days: { date: string; availableCount: number }[] = [];
 
