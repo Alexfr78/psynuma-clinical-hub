@@ -488,6 +488,8 @@ export default function Agenda() {
               onDayClick={handleDayClick}
               onSwipeLeft={navigateNext}
               onSwipeRight={navigatePrev}
+              scheduleExceptions={scheduleExceptions}
+              selectedProfessional={selectedProfessional}
             />
           )}
           {view === 'list' && (
