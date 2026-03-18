@@ -6,6 +6,7 @@ import { PatientFeedbackPanel } from '@/components/autoregistros/PatientFeedback
 import { InstallBanner } from '@/components/autoregistros/InstallBanner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { CheckCircle2, AlertCircle } from 'lucide-react';
+import { sanitizeDescription } from '@/components/autoregistros/RichDescriptionEditor';
 
 export default function AutoregistroPublic() {
   const { token } = useParams<{ token: string }>();
