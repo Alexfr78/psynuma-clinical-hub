@@ -66,6 +66,7 @@ import { OAuthCredentialsSection } from '@/components/settings/integrations/OAut
 import { AgendaSettingsSection } from '@/components/settings/AgendaSettingsSection';
 import { AdminAlertsSettingsSection } from '@/components/settings/AdminAlertsSettingsSection';
 import { SecuritySection } from '@/components/settings/SecuritySection';
+import { ScheduleExceptionsSection } from '@/components/settings/ScheduleExceptionsSection';
 
 const centerSchema = z.object({
   name: z.string().min(1, 'El nombre es obligatorio'),
