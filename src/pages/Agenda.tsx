@@ -362,6 +362,32 @@ export default function Agenda() {
         });
         return;
       }
+
+      // Check for conflicts before moving
+      const centerId = profile?.center_id;
+      const professionalId = session.professional_id;
+      if (centerId && professionalId) {
+        try {
+          const start = new Date(`${newDate}T${newStartTime}`);
+          const end = new Date(`${newDate}T${newEndTime}`);
+          const conflictResults = await checkSessionConflicts({
+            centerId,
+            professionalId,
+            sessionsToCheck: [{ start, end }],
+            excludeSessionId: sessionId,
+          });
+          if (conflictResults.length > 0) {
+            // Store pending move and show conflicts dialog
+            setDragConflicts(conflictResults);
+            setPendingDragMove({ sessionId, newDate, newStartTime, newEndTime, session });
+            setShowDragConflictsDialog(true);
+            return;
+          }
+        } catch (err) {
+          console.error('Error checking drag conflicts:', err);
+          // Proceed if conflict check fails
+        }
+      }
       
       await updateSession.mutateAsync({
         id: sessionId,
