@@ -460,6 +460,8 @@ export default function Agenda() {
               onSwipeLeft={navigateNext}
               onSwipeRight={navigatePrev}
               showWeekends={showWeekends}
+              scheduleExceptions={scheduleExceptions}
+              selectedProfessional={selectedProfessional}
             />
           )}
           {view === 'day' && (
