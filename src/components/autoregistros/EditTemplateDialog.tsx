@@ -41,7 +41,7 @@ export function EditTemplateDialog({ open, onOpenChange, template }: EditTemplat
     if (fields.some((f) => !f.label.trim())) return;
 
     updateTemplate.mutate(
-      { id: template.id, name: name.trim(), description: description.trim() || undefined, fields, patient_feedback_enabled: feedbackEnabled },
+      { id: template.id, name: name.trim(), description: sanitizeDescription(description.trim()) || undefined, fields, patient_feedback_enabled: feedbackEnabled },
       {
         onSuccess: () => {
           onOpenChange(false);
