@@ -20,6 +20,8 @@ interface WeekViewProps {
   onSwipeLeft?: () => void;
   onSwipeRight?: () => void;
   showWeekends?: boolean;
+  scheduleExceptions?: ScheduleException[];
+  selectedProfessional?: string;
 }
 
 const DEFAULT_HOURS = Array.from({ length: 13 }, (_, i) => i + 8);
