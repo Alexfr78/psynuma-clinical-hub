@@ -11,7 +11,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ArrowUp, ArrowDown, Trash2, Plus, GripVertical } from 'lucide-react';
+import { ArrowUp, ArrowDown, Trash2, Plus, GripVertical, BarChart3 } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import type { AutoregistroField } from '@/hooks/useAutoregistroTemplates';
 
 const FIELD_TYPES = [
@@ -158,13 +159,35 @@ export function FieldBuilder({ fields, onChange }: FieldBuilderProps) {
             )}
 
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Switch
-                  checked={field.required}
-                  onCheckedChange={(v) => updateField(index, { required: v })}
-                  id={`req-${index}`}
-                />
-                <Label htmlFor={`req-${index}`} className="text-sm">Obligatorio</Label>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <Switch
+                    checked={field.required}
+                    onCheckedChange={(v) => updateField(index, { required: v })}
+                    id={`req-${index}`}
+                  />
+                  <Label htmlFor={`req-${index}`} className="text-sm">Obligatorio</Label>
+                </div>
+                {(field.type === 'number' || field.type === 'scale') && (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="flex items-center gap-2">
+                          <Switch
+                            checked={field.showInChart !== false}
+                            onCheckedChange={(v) => updateField(index, { showInChart: v })}
+                            id={`chart-${index}`}
+                          />
+                          <Label htmlFor={`chart-${index}`} className="text-sm flex items-center gap-1">
+                            <BarChart3 className="h-3.5 w-3.5" />
+                            Gráfica
+                          </Label>
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent>Incluir en la gráfica de evolución</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
               </div>
               <div className="flex gap-1">
                 <Button variant="ghost" size="icon" onClick={() => moveField(index, -1)} disabled={index === 0}>
