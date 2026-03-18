@@ -66,6 +66,7 @@ import { SessionNotificationSettings } from './SessionNotificationSettings';
 import { WhatsAppLinkDialog } from './WhatsAppLinkDialog';
 import { RecurrenceSettings, getDefaultRecurrenceConfig } from './RecurrenceSettings';
 import { useCreateRecurringSeries } from '@/hooks/useRecurringSeries';
+import { MobileSessionForm } from './MobileSessionForm';
 import { generateRecurrenceOccurrences } from '@/lib/recurrence-utils';
 import { RecurrenceConfig } from '@/types/recurring';
 import { checkSessionConflicts, ConflictResult, SessionToCheck } from '@/lib/conflicts';
@@ -769,6 +770,101 @@ export function QuickCreateSessionDialog({
     setAllSessionsToCreate([]);
   };
 
+  const auxiliaryDialogs = (
+    <>
+      <QuickCreatePatientDialog
+        open={showQuickPatientDialog}
+        onOpenChange={setShowQuickPatientDialog}
+        onPatientCreated={(patientId) => {
+          form.setValue('patient_id', patientId);
+          setPatientSearch('');
+        }}
+        initialName={patientSearch}
+        defaultProfessionalId={form.watch('professional_id')}
+      />
+
+      <EditLocationsDialog
+        open={showLocationsDialog}
+        onOpenChange={setShowLocationsDialog}
+      />
+
+      <CreateBonoDialog
+        open={showCreateBonoDialog}
+        onOpenChange={(open) => {
+          setShowCreateBonoDialog(open);
+          if (!open) {
+            refetchBonos();
+          }
+        }}
+        preselectedPatientId={watchPatientId}
+        onSuccess={(bonoId, totalPrice) => {
+          form.setValue('bono_id', bonoId);
+          setNewlyCreatedBonoId(bonoId);
+          setNewlyCreatedBonoPrice(totalPrice);
+        }}
+      />
+
+      {whatsappDialogData && (
+        <WhatsAppLinkDialog
+          open={!!whatsappDialogData}
+          onOpenChange={(open) => !open && setWhatsappDialogData(null)}
+          phone={whatsappDialogData.phone}
+          message={whatsappDialogData.message}
+          patientName={whatsappDialogData.patientName}
+        />
+      )}
+
+      <ConflictsDialog
+        open={conflictsDialogOpen}
+        onOpenChange={setConflictsDialogOpen}
+        conflicts={detectedConflicts}
+        isRecurring={recurrenceEnabled}
+        totalSessions={allSessionsToCreate.length}
+        onCancel={handleConflictCancel}
+        onCreateNonConflicting={handleCreateNonConflicting}
+        onForceCreate={handleForceCreate}
+      />
+    </>
+  );
+
+  // ─── MOBILE: Full-screen sheet ───
+  if (isMobile) {
+    return (
+      <>
+        <MobileSessionForm
+          open={open}
+          onOpenChange={onOpenChange}
+          form={form}
+          patients={patients}
+          professionals={professionals}
+          sessionTypes={sessionTypes}
+          locations={locations}
+          patientBonos={patientBonos}
+          center={center}
+          integrations={integrations}
+          oauthConnections={oauthConnections}
+          recurrenceEnabled={recurrenceEnabled}
+          recurrenceConfig={recurrenceConfig}
+          onRecurrenceEnabledChange={setRecurrenceEnabled}
+          onRecurrenceConfigChange={setRecurrenceConfig}
+          userOverrodeLocation={userOverrodeLocation}
+          onUserOverrodeLocation={() => setUserOverrodeLocation(true)}
+          onSubmit={onSubmit}
+          isSubmitting={createSession.isPending || createRecurringSeries.isPending}
+          isCheckingConflicts={isCheckingConflicts}
+          onShowQuickPatient={(term) => {
+            setPatientSearch(term);
+            setShowQuickPatientDialog(true);
+          }}
+          onShowLocationsDialog={() => setShowLocationsDialog(true)}
+          onShowCreateBonoDialog={() => setShowCreateBonoDialog(true)}
+        />
+        {auxiliaryDialogs}
+      </>
+    );
+  }
+
+  // ─── DESKTOP: Existing Dialog (unchanged) ───
   return (
     <>
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -786,92 +882,6 @@ export function QuickCreateSessionDialog({
               render={({ field }) => (
                 <FormItem className="flex flex-col">
                   <FormLabel className="text-sm font-medium">Contacto</FormLabel>
-                  {isMobile ? (
-                    <>
-                      <FormControl>
-                        <Button
-                          variant="outline"
-                          role="combobox"
-                          type="button"
-                          className={cn(
-                            'w-full justify-between h-10',
-                            !field.value && 'text-muted-foreground'
-                          )}
-                          onClick={() => setPatientPopoverOpen(!patientPopoverOpen)}
-                        >
-                          {selectedPatient ? (
-                            <span className="flex items-center gap-2">
-                              <div className="h-6 w-6 rounded-full bg-muted flex items-center justify-center">
-                                <User className="h-3 w-3" />
-                              </div>
-                              {selectedPatient.first_name} {selectedPatient.last_name}
-                            </span>
-                          ) : (
-                            'Buscar paciente...'
-                          )}
-                          <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                        </Button>
-                      </FormControl>
-                      {patientPopoverOpen && (
-                        <div className="border rounded-md mt-1 bg-popover" data-vaul-no-drag>
-                          <Command>
-                            <CommandInput 
-                              autoFocus
-                              placeholder="Buscar contacto..." 
-                              value={patientSearch}
-                              onValueChange={setPatientSearch}
-                            />
-                            <CommandList>
-                              {filteredPatients && filteredPatients.length > 0 ? (
-                                <CommandGroup>
-                                  {filteredPatients.slice(0, 10).map((patient) => (
-                                    <CommandItem
-                                      key={patient.id}
-                                      value={`${patient.first_name} ${patient.last_name}`}
-                                      onSelect={() => {
-                                        field.onChange(patient.id);
-                                        setPatientPopoverOpen(false);
-                                      }}
-                                    >
-                                      <div className="flex items-center gap-2">
-                                        <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
-                                          <User className="h-4 w-4" />
-                                        </div>
-                                        <div>
-                                          <p className="font-medium">{patient.first_name} {patient.last_name}</p>
-                                          {patient.email && (
-                                            <p className="text-xs text-muted-foreground">{patient.email}</p>
-                                          )}
-                                        </div>
-                                      </div>
-                                    </CommandItem>
-                                  ))}
-                                </CommandGroup>
-                              ) : (
-                                <div className="py-6 px-4 text-center">
-                                  <p className="text-sm text-muted-foreground mb-3">
-                                    No se encontraron pacientes.
-                                  </p>
-                                  <Button 
-                                    variant="outline" 
-                                    size="sm"
-                                    type="button"
-                                    onClick={() => {
-                                      setPatientPopoverOpen(false);
-                                      setShowQuickPatientDialog(true);
-                                    }}
-                                  >
-                                    <Plus className="h-4 w-4 mr-2" />
-                                    Crear nueva ficha de paciente
-                                  </Button>
-                                </div>
-                              )}
-                            </CommandList>
-                          </Command>
-                        </div>
-                      )}
-                    </>
-                  ) : (
                     <Popover open={patientPopoverOpen} onOpenChange={setPatientPopoverOpen} modal={false}>
                       <PopoverTrigger asChild>
                         <FormControl>
@@ -957,7 +967,6 @@ export function QuickCreateSessionDialog({
                         </Command>
                       </PopoverContent>
                     </Popover>
-                  )}
                   <FormMessage />
                 </FormItem>
               )}
@@ -1424,59 +1433,7 @@ export function QuickCreateSessionDialog({
       </DialogContent>
     </Dialog>
 
-    <QuickCreatePatientDialog
-      open={showQuickPatientDialog}
-      onOpenChange={setShowQuickPatientDialog}
-      onPatientCreated={(patientId) => {
-        form.setValue('patient_id', patientId);
-        setPatientSearch('');
-      }}
-      initialName={patientSearch}
-      defaultProfessionalId={form.watch('professional_id')}
-    />
-
-    <EditLocationsDialog
-      open={showLocationsDialog}
-      onOpenChange={setShowLocationsDialog}
-    />
-
-    <CreateBonoDialog
-      open={showCreateBonoDialog}
-      onOpenChange={(open) => {
-        setShowCreateBonoDialog(open);
-        if (!open) {
-          refetchBonos();
-        }
-      }}
-      preselectedPatientId={watchPatientId}
-      onSuccess={(bonoId, totalPrice) => {
-        form.setValue('bono_id', bonoId);
-        // Track this as a newly created bono
-        setNewlyCreatedBonoId(bonoId);
-        setNewlyCreatedBonoPrice(totalPrice);
-      }}
-    />
-
-    {whatsappDialogData && (
-      <WhatsAppLinkDialog
-        open={!!whatsappDialogData}
-        onOpenChange={(open) => !open && setWhatsappDialogData(null)}
-        phone={whatsappDialogData.phone}
-        message={whatsappDialogData.message}
-        patientName={whatsappDialogData.patientName}
-      />
-    )}
-
-    <ConflictsDialog
-      open={conflictsDialogOpen}
-      onOpenChange={setConflictsDialogOpen}
-      conflicts={detectedConflicts}
-      isRecurring={recurrenceEnabled}
-      totalSessions={allSessionsToCreate.length}
-      onCancel={handleConflictCancel}
-      onCreateNonConflicting={handleCreateNonConflicting}
-      onForceCreate={handleForceCreate}
-    />
+    {auxiliaryDialogs}
   </>
   );
 }
