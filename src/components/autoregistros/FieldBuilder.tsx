@@ -11,7 +11,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ArrowUp, ArrowDown, Trash2, Plus, GripVertical } from 'lucide-react';
+import { ArrowUp, ArrowDown, Trash2, Plus, GripVertical, BarChart3 } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import type { AutoregistroField } from '@/hooks/useAutoregistroTemplates';
 
 const FIELD_TYPES = [
