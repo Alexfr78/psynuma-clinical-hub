@@ -1,24 +1,18 @@
 import { useState, useMemo, useCallback } from 'react';
 import {
   format,
-  startOfYear,
-  endOfYear,
   startOfMonth,
   endOfMonth,
   startOfWeek,
   endOfWeek,
   addDays,
-  addMonths,
   isSameMonth,
   isToday,
-  isSameDay,
   getYear,
-  getMonth,
 } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, Trash2, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Tooltip,
