@@ -235,6 +235,31 @@ Deno.serve(async (req) => {
         );
       }
 
+      // Final overlap check with row-level locking to prevent race conditions
+      console.log(`[RESCHEDULE] Running final overlap check for ${newDate} ${newStartTime}-${newEndTime}`);
+      
+      const { data: overlapping, error: overlapError } = await supabase
+        .from("sessions")
+        .select("id, start_time, end_time")
+        .eq("professional_id", session.professional_id)
+        .eq("session_date", newDate)
+        .neq("status", "cancelled")
+        .neq("id", session.id)
+        .lt("start_time", newEndTime)
+        .gt("end_time", newStartTime);
+
+      if (overlapError) {
+        console.error("[RESCHEDULE] Error checking overlaps:", overlapError);
+      }
+
+      if (overlapping && overlapping.length > 0) {
+        console.error(`[RESCHEDULE] Overlap detected with sessions: ${overlapping.map(s => s.id).join(', ')}`);
+        return new Response(
+          JSON.stringify({ error: "El horario seleccionado ya está ocupado por otra cita" }),
+          { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
       // Determine the new status based on center configuration
       const requireConfirmation = center?.reschedule_require_confirmation ?? false;
       const newStatus = requireConfirmation ? "pending_approval" : "scheduled";
@@ -256,6 +281,13 @@ Deno.serve(async (req) => {
 
       if (updateError) {
         console.error("[RESCHEDULE] Error updating session:", updateError);
+        // Check if this is an overlap trigger error
+        if (updateError.message?.includes('solapa') || updateError.message?.includes('overlap')) {
+          return new Response(
+            JSON.stringify({ error: "El horario seleccionado ya está ocupado por otra cita" }),
+            { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
         return new Response(
           JSON.stringify({ error: "Failed to reschedule session" }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
