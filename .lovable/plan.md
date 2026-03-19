@@ -1,29 +1,36 @@
 
 
-## Problem
+## Diagnóstico de la sincronización Google Calendar
 
-The `SessionDetailDrawer` has a `useEffect` that resets local state (`localDateTime`, `localStatus`, etc.) but its dependency array only watches `session?.id`, `session?.bono_id`, and `session?.price`. When the drawer is closed and reopened for the **same session**, or when session data is refetched with updated values, the local overrides (`localDateTime`, `localStatus`) are never cleared. This causes the drawer to show stale values from a previous edit.
+### Hallazgos
 
-In your case: you edited date/time at some point, `localDateTime` was set to `{date: '2026-03-10', startTime: '18:00', endTime: '19:00'}`, but the DB actually has `2026-03-04 at 20:00`. Reopening the drawer doesn't reset `localDateTime` because `session.id` hasn't changed.
+**1. La sincronización SÍ se ejecutó hoy a las 07:23 y reporta éxito** (40 eventos actualizados, 0 errores). Sin embargo, hay discrepancias visibles entre Psycma y Google Calendar.
 
-## Fix
+**2. Bug en formato de fecha/hora en `update-google-calendar-event`**
+Cuando la función recibe `start_time` del DB (formato `16:00:00`), le añade `:00`, produciendo `2026-03-26T16:00:00:00` — un formato ISO 8601 **inválido**. Google acepta la petición PATCH (200 OK) pero probablemente ignora los campos start/end malformados, por lo que el evento NO se mueve de fecha. Esto explica por qué Alejandro Macías aparece en jueves en Psycma pero sigue en martes en Google.
 
-**File: `src/components/agenda/SessionDetailDrawer.tsx`**
+La función de sincronización completa (`sync-google-calendar`) NO tiene este bug — usa el formato correcto. Pero si hay problemas de timing entre updates individuales y el sync completo, pueden quedar discrepancias.
 
-1. **Add the `open` prop to the reset effect's dependency array** — so that every time the drawer opens, all local overrides are cleared and the component reads fresh data from the `session` prop.
+**3. El trigger de anti-solapamiento puede bloquear silenciosamente actualizaciones Google→Psycma**
+En modo two-way sync, cuando Google es más reciente, el código actualiza la sesión en Psycma sin verificar si el trigger `validate_no_session_overlap` bloquea la operación. El error se ignora silenciosamente.
 
-2. **Also add `session?.session_date`, `session?.start_time`, `session?.end_time`, and `session?.status`** to the dependency array so that when the query cache updates with new data, local overrides are cleared.
+**4. Eventos externos de otros calendarios no se importan**
+El sync solo importa eventos del calendario configurado (`c598f...@group.calendar.google.com`). Los eventos que ves en Google (Rehabilitación, Criolisis, CARLOS LONDRES, etc.) están probablemente en tu calendario primario u otros, por lo que no aparecen como bloqueados en Psycma.
 
-The effect at line ~260 changes from:
-```typescript
-}, [session?.id, session?.bono_id, session?.price]);
-```
-to:
-```typescript
-}, [session?.id, session?.bono_id, session?.price, session?.session_date, session?.start_time, session?.end_time, session?.status, open]);
-```
+---
 
-This ensures that:
-- Opening the drawer always shows the DB values (not stale local edits)
-- When the session query refetches with updated data, local overrides are discarded
+## Plan de corrección
+
+### 1. Corregir formato de fecha/hora en `update-google-calendar-event`
+Detectar si `start_time` ya contiene segundos (`HH:MM:SS`) antes de añadir `:00`. Esto garantiza que los updates individuales (mover sesiones, drag-and-drop) envíen el formato correcto a Google.
+
+**Archivo**: `supabase/functions/update-google-calendar-event/index.ts`
+
+### 2. Manejar errores del trigger de solapamiento en el sync two-way
+En `sync-google-calendar`, capturar errores de la actualización Google→Psycma y registrarlos en lugar de ignorarlos silenciosamente.
+
+**Archivo**: `supabase/functions/sync-google-calendar/index.ts`
+
+### 3. Forzar re-sync inmediato
+Tras corregir el código, la próxima vez que hagas clic en "Sincronizar", los eventos se actualizarán correctamente en Google con las fechas correctas.
 
