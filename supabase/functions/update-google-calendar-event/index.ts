@@ -173,15 +173,18 @@ async function createGoogleEvent(
   let eventDescription = eventData.description || '';
   eventDescription = `${eventDescription}\n\n[PSYCMA_SESSION_ID:${eventData.psycma_session_id}]`;
   
+  // Ensure time has seconds (HH:MM -> HH:MM:00, HH:MM:SS stays as-is)
+  const formatTime = (t: string) => t.split(':').length === 3 ? t : `${t}:00`;
+
   const event = {
     summary: eventData.title || 'Sesión',
     description: eventDescription,
     start: {
-      dateTime: `${eventData.session_date}T${eventData.start_time}:00`,
+      dateTime: `${eventData.session_date}T${formatTime(eventData.start_time)}`,
       timeZone: 'Europe/Madrid',
     },
     end: {
-      dateTime: `${eventData.session_date}T${eventData.end_time}:00`,
+      dateTime: `${eventData.session_date}T${formatTime(eventData.end_time)}`,
       timeZone: 'Europe/Madrid',
     },
     extendedProperties: {
