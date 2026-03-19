@@ -1126,12 +1126,19 @@ async function syncProfessional(
             if (googleUpdatedAt > psycmaUpdatedAt + bufferMs) {
               // Google is newer - update Psycma
               console.log(`[SYNC:${correlationId}] Google is newer, updating Psycma`);
-              await supabase.from('sessions').update({
+              const { error: updateError } = await supabase.from('sessions').update({
                 session_date: parsedStart.date,
                 start_time: parsedStart.time,
                 end_time: parsedEnd.time,
               }).eq('id', session.id);
-              result.updated++;
+              
+              if (updateError) {
+                console.error(`[SYNC:${correlationId}] Error updating session ${session.id} from Google:`, updateError.message);
+                result.errors.push(`Google→Psycma update failed for session ${session.id}: ${updateError.message}`);
+                // If overlap trigger blocked it, log and continue without crashing
+              } else {
+                result.updated++;
+              }
               continue;
             } else {
               console.log(`[SYNC:${correlationId}] Psycma is newer or tie, updating Google`);

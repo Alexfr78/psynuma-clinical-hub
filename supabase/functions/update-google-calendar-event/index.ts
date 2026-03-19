@@ -413,12 +413,14 @@ serve(async (req) => {
     }
     
     if (session_date && start_time && end_time) {
+      // Ensure time has seconds (HH:MM -> HH:MM:00, HH:MM:SS stays as-is)
+      const fmtTime = (t: string) => t.split(':').length === 3 ? t : `${t}:00`;
       event.start = {
-        dateTime: `${session_date}T${start_time}:00`,
+        dateTime: `${session_date}T${fmtTime(start_time)}`,
         timeZone: 'Europe/Madrid',
       };
       event.end = {
-        dateTime: `${session_date}T${end_time}:00`,
+        dateTime: `${session_date}T${fmtTime(end_time)}`,
         timeZone: 'Europe/Madrid',
       };
     }
