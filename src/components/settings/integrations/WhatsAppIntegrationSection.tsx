@@ -64,6 +64,7 @@ export function WhatsAppIntegrationSection() {
   const [confirmBooking, setConfirmBooking] = useState(true);
   const [notifyCancellation, setNotifyCancellation] = useState(true);
   const [notifyReschedule, setNotifyReschedule] = useState(true);
+  const [confirmationReply, setConfirmationReply] = useState(true);
   const [emergencyStop, setEmergencyStop] = useState(false);
   
   // Test message
