@@ -116,6 +116,7 @@ export function WhatsAppIntegrationSection() {
         wasender_reminder_2h: reminder2h,
         wasender_confirm_booking: confirmBooking,
         wasender_notify_cancellation: notifyCancellation,
+        wasender_notify_reschedule: notifyReschedule,
       });
 
       // If API mode and access token is provided, save it encrypted
