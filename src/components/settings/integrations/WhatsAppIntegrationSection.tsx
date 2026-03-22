@@ -477,6 +477,20 @@ export function WhatsAppIntegrationSection() {
 
                     <div className="flex items-center justify-between p-3 border rounded-lg">
                       <div className="flex items-center gap-3">
+                        <RefreshCw className="h-4 w-4 text-muted-foreground" />
+                        <div>
+                          <p className="text-sm font-medium">Notificar cambio de cita</p>
+                          <p className="text-xs text-muted-foreground">Enviar mensaje cuando el paciente reprograme su cita</p>
+                        </div>
+                      </div>
+                      <Switch
+                        checked={notifyReschedule}
+                        onCheckedChange={setNotifyReschedule}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between p-3 border rounded-lg">
+                      <div className="flex items-center gap-3">
                         <XCircle className="h-4 w-4 text-muted-foreground" />
                         <div>
                           <p className="text-sm font-medium">Aviso de cancelación</p>

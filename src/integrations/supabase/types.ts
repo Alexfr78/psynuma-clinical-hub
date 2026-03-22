@@ -1094,6 +1094,7 @@ export type Database = {
           wasender_emergency_stop: boolean | null
           wasender_enabled: boolean | null
           wasender_notify_cancellation: boolean | null
+          wasender_notify_reschedule: boolean | null
           wasender_reminder_24h: boolean | null
           wasender_reminder_2h: boolean | null
           whatsapp_access_token: string | null
@@ -1178,6 +1179,7 @@ export type Database = {
           wasender_emergency_stop?: boolean | null
           wasender_enabled?: boolean | null
           wasender_notify_cancellation?: boolean | null
+          wasender_notify_reschedule?: boolean | null
           wasender_reminder_24h?: boolean | null
           wasender_reminder_2h?: boolean | null
           whatsapp_access_token?: string | null
@@ -1262,6 +1264,7 @@ export type Database = {
           wasender_emergency_stop?: boolean | null
           wasender_enabled?: boolean | null
           wasender_notify_cancellation?: boolean | null
+          wasender_notify_reschedule?: boolean | null
           wasender_reminder_24h?: boolean | null
           wasender_reminder_2h?: boolean | null
           whatsapp_access_token?: string | null

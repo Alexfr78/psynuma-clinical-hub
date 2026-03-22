@@ -101,6 +101,7 @@ export interface Center {
   wasender_reminder_2h: boolean | null;
   wasender_confirm_booking: boolean | null;
   wasender_notify_cancellation: boolean | null;
+  wasender_notify_reschedule: boolean | null;
   wasender_emergency_stop: boolean | null;
   wasender_auto_reminders: boolean | null;
   created_at: string;

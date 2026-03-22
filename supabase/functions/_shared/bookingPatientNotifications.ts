@@ -144,8 +144,10 @@ export async function queueAndSendPatientBookingNotification(args: BookingNotifi
 
     // Determine which toggle to check
     let useWhatsApp = false;
-    if (eventType === 'created' || eventType === 'rescheduled') {
+    if (eventType === 'created') {
       useWhatsApp = canAutoWhatsApp && !!patient.phone && (center.wasender_confirm_booking === true);
+    } else if (eventType === 'rescheduled') {
+      useWhatsApp = canAutoWhatsApp && !!patient.phone && (center.wasender_notify_reschedule === true);
     } else if (eventType === 'cancelled') {
       useWhatsApp = canAutoWhatsApp && !!patient.phone && (center.wasender_notify_cancellation === true);
     }
