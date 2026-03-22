@@ -93,6 +93,7 @@ export function WhatsAppIntegrationSection() {
       setReminder2h(center.wasender_reminder_2h ?? true);
       setConfirmBooking(center.wasender_confirm_booking ?? true);
       setNotifyCancellation(center.wasender_notify_cancellation ?? true);
+      setNotifyReschedule((center as any).wasender_notify_reschedule ?? true);
       setEmergencyStop(center.wasender_emergency_stop ?? false);
     }
   }, [integrations, center]);
