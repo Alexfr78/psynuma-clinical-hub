@@ -63,6 +63,7 @@ export function WhatsAppIntegrationSection() {
   const [reminder2h, setReminder2h] = useState(true);
   const [confirmBooking, setConfirmBooking] = useState(true);
   const [notifyCancellation, setNotifyCancellation] = useState(true);
+  const [notifyReschedule, setNotifyReschedule] = useState(true);
   const [emergencyStop, setEmergencyStop] = useState(false);
   
   // Test message
