@@ -65,6 +65,7 @@ export async function queueAndSendPatientBookingNotification(args: BookingNotifi
         id, name, portal_slug, custom_domain, public_domain,
         wasender_enabled, wasender_emergency_stop,
         wasender_confirm_booking, wasender_notify_cancellation,
+        wasender_notify_reschedule,
         whatsapp_send_method, whatsapp_access_token, whatsapp_phone_number_id
       `)
       .eq("id", centerId)
