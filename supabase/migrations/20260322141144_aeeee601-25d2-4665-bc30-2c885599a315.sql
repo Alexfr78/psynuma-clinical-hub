@@ -1,0 +1,1 @@
+ALTER TABLE centers ADD COLUMN IF NOT EXISTS wasender_notify_reschedule boolean DEFAULT true;

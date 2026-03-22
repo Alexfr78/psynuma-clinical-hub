@@ -63,6 +63,7 @@ export function WhatsAppIntegrationSection() {
   const [reminder2h, setReminder2h] = useState(true);
   const [confirmBooking, setConfirmBooking] = useState(true);
   const [notifyCancellation, setNotifyCancellation] = useState(true);
+  const [notifyReschedule, setNotifyReschedule] = useState(true);
   const [emergencyStop, setEmergencyStop] = useState(false);
   
   // Test message
@@ -92,6 +93,7 @@ export function WhatsAppIntegrationSection() {
       setReminder2h(center.wasender_reminder_2h ?? true);
       setConfirmBooking(center.wasender_confirm_booking ?? true);
       setNotifyCancellation(center.wasender_notify_cancellation ?? true);
+      setNotifyReschedule((center as any).wasender_notify_reschedule ?? true);
       setEmergencyStop(center.wasender_emergency_stop ?? false);
     }
   }, [integrations, center]);
@@ -114,6 +116,7 @@ export function WhatsAppIntegrationSection() {
         wasender_reminder_2h: reminder2h,
         wasender_confirm_booking: confirmBooking,
         wasender_notify_cancellation: notifyCancellation,
+        wasender_notify_reschedule: notifyReschedule,
       });
 
       // If API mode and access token is provided, save it encrypted
@@ -469,6 +472,20 @@ export function WhatsAppIntegrationSection() {
                       <Switch
                         checked={confirmBooking}
                         onCheckedChange={setConfirmBooking}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between p-3 border rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <RefreshCw className="h-4 w-4 text-muted-foreground" />
+                        <div>
+                          <p className="text-sm font-medium">Notificar cambio de cita</p>
+                          <p className="text-xs text-muted-foreground">Enviar mensaje cuando el paciente reprograme su cita</p>
+                        </div>
+                      </div>
+                      <Switch
+                        checked={notifyReschedule}
+                        onCheckedChange={setNotifyReschedule}
                       />
                     </div>
 
