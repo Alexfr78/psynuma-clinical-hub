@@ -504,6 +504,19 @@ export function WhatsAppIntegrationSection() {
                         checked={notifyCancellation}
                         onCheckedChange={setNotifyCancellation}
                       />
+                    <div className="flex items-center justify-between p-3 border rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
+                        <div>
+                          <p className="text-sm font-medium">Confirmación de asistencia por respuesta</p>
+                          <p className="text-xs text-muted-foreground">El recordatorio incluye "Responde SÍ para confirmar". La cita se marca automáticamente como confirmada.</p>
+                        </div>
+                      </div>
+                      <Switch
+                        checked={confirmationReply}
+                        onCheckedChange={setConfirmationReply}
+                      />
+                    </div>
                     </div>
                   </div>
                 </div>
