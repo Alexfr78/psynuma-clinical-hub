@@ -119,6 +119,7 @@ export function WhatsAppIntegrationSection() {
         wasender_confirm_booking: confirmBooking,
         wasender_notify_cancellation: notifyCancellation,
         wasender_notify_reschedule: notifyReschedule,
+        wasender_confirmation_reply: confirmationReply,
       });
 
       // If API mode and access token is provided, save it encrypted
