@@ -1091,6 +1091,7 @@ export type Database = {
           verifactu_software_version: string | null
           wasender_auto_reminders: boolean | null
           wasender_confirm_booking: boolean | null
+          wasender_confirmation_reply: boolean | null
           wasender_emergency_stop: boolean | null
           wasender_enabled: boolean | null
           wasender_notify_cancellation: boolean | null
@@ -1176,6 +1177,7 @@ export type Database = {
           verifactu_software_version?: string | null
           wasender_auto_reminders?: boolean | null
           wasender_confirm_booking?: boolean | null
+          wasender_confirmation_reply?: boolean | null
           wasender_emergency_stop?: boolean | null
           wasender_enabled?: boolean | null
           wasender_notify_cancellation?: boolean | null
@@ -1261,6 +1263,7 @@ export type Database = {
           verifactu_software_version?: string | null
           wasender_auto_reminders?: boolean | null
           wasender_confirm_booking?: boolean | null
+          wasender_confirmation_reply?: boolean | null
           wasender_emergency_stop?: boolean | null
           wasender_enabled?: boolean | null
           wasender_notify_cancellation?: boolean | null

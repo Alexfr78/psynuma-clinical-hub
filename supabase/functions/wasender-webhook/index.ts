@@ -118,9 +118,105 @@ serve(async (req) => {
 
       case "message.received":
       case "incoming_message": {
-        // Incoming message - log for reference
-        console.log("Incoming message received:", data);
-        // Could store in a separate table for chat functionality
+        console.log("Incoming message received:", JSON.stringify(data));
+
+        const messageText = (data.message?.text || data.text || data.body || "").trim().toLowerCase();
+        const fromPhone = data.from || data.sender || data.phone || "";
+
+        if (!messageText || !fromPhone) {
+          console.log("No text or phone in incoming message, skipping");
+          break;
+        }
+
+        // Check if message is a confirmation
+        const confirmationKeywords = ["sí", "si", "yes", "1", "confirmo", "confirmar", "ok", "vale"];
+        const isConfirmation = confirmationKeywords.some(kw => messageText === kw || messageText.startsWith(kw));
+
+        if (!isConfirmation) {
+          console.log(`Message "${messageText}" is not a confirmation, skipping`);
+          break;
+        }
+
+        // Normalize phone
+        let cleanPhone = fromPhone.replace(/\D/g, "");
+        if (cleanPhone.startsWith("34") && cleanPhone.length === 11) {
+          cleanPhone = cleanPhone.slice(2);
+        }
+
+        console.log(`Confirmation received from phone: ${cleanPhone}`);
+
+        const todayDate = new Date().toISOString().split("T")[0];
+        const in48h = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString().split("T")[0];
+
+        // Search patients by phone (try multiple formats)
+        const { data: patients } = await supabase
+          .from("patients")
+          .select("id")
+          .or(`phone.eq.${cleanPhone},phone.eq.+34${cleanPhone},phone.eq.34${cleanPhone}`);
+
+        if (!patients || patients.length === 0) {
+          console.log(`No patient found for phone ${cleanPhone}`);
+          break;
+        }
+
+        const patientIds = patients.map((p: { id: string }) => p.id);
+
+        // Find next scheduled session within 48h
+        const { data: sessions } = await supabase
+          .from("sessions")
+          .select("id, session_date, start_time, status, center_id, patient_id")
+          .in("patient_id", patientIds)
+          .eq("status", "scheduled")
+          .gte("session_date", todayDate)
+          .lte("session_date", in48h)
+          .order("session_date", { ascending: true })
+          .order("start_time", { ascending: true })
+          .limit(1);
+
+        if (!sessions || sessions.length === 0) {
+          console.log(`No upcoming scheduled session found for patient(s) ${patientIds.join(", ")}`);
+          break;
+        }
+
+        const targetSession = sessions[0];
+
+        // Check if center has confirmation reply enabled
+        const { data: centerData } = await supabase
+          .from("centers")
+          .select("wasender_confirmation_reply")
+          .eq("id", targetSession.center_id)
+          .single();
+
+        if (centerData && centerData.wasender_confirmation_reply === false) {
+          console.log("Confirmation reply disabled for this center, skipping");
+          break;
+        }
+
+        // Update session status to confirmed
+        const { error: updateError } = await supabase
+          .from("sessions")
+          .update({ status: "confirmed" })
+          .eq("id", targetSession.id);
+
+        if (updateError) {
+          console.error("Error confirming session:", updateError);
+          break;
+        }
+
+        console.log(`Session ${targetSession.id} confirmed by patient via WhatsApp`);
+
+        // Log the incoming message
+        await supabase.from("whatsapp_messages").insert({
+          center_id: targetSession.center_id,
+          phone: fromPhone,
+          content: messageText,
+          type: "text",
+          message_type: "incoming",
+          patient_id: targetSession.patient_id,
+          session_id: targetSession.id,
+          status: "delivered",
+        });
+
         break;
       }
 

@@ -64,6 +64,7 @@ export function WhatsAppIntegrationSection() {
   const [confirmBooking, setConfirmBooking] = useState(true);
   const [notifyCancellation, setNotifyCancellation] = useState(true);
   const [notifyReschedule, setNotifyReschedule] = useState(true);
+  const [confirmationReply, setConfirmationReply] = useState(true);
   const [emergencyStop, setEmergencyStop] = useState(false);
   
   // Test message
@@ -94,6 +95,7 @@ export function WhatsAppIntegrationSection() {
       setConfirmBooking(center.wasender_confirm_booking ?? true);
       setNotifyCancellation(center.wasender_notify_cancellation ?? true);
       setNotifyReschedule((center as any).wasender_notify_reschedule ?? true);
+      setConfirmationReply((center as any).wasender_confirmation_reply ?? true);
       setEmergencyStop(center.wasender_emergency_stop ?? false);
     }
   }, [integrations, center]);
@@ -117,6 +119,7 @@ export function WhatsAppIntegrationSection() {
         wasender_confirm_booking: confirmBooking,
         wasender_notify_cancellation: notifyCancellation,
         wasender_notify_reschedule: notifyReschedule,
+        wasender_confirmation_reply: confirmationReply,
       });
 
       // If API mode and access token is provided, save it encrypted
@@ -501,6 +504,19 @@ export function WhatsAppIntegrationSection() {
                         checked={notifyCancellation}
                         onCheckedChange={setNotifyCancellation}
                       />
+                    <div className="flex items-center justify-between p-3 border rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
+                        <div>
+                          <p className="text-sm font-medium">Confirmación de asistencia por respuesta</p>
+                          <p className="text-xs text-muted-foreground">El recordatorio incluye "Responde SÍ para confirmar". La cita se marca automáticamente como confirmada.</p>
+                        </div>
+                      </div>
+                      <Switch
+                        checked={confirmationReply}
+                        onCheckedChange={setConfirmationReply}
+                      />
+                    </div>
                     </div>
                   </div>
                 </div>

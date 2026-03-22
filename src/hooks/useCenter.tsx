@@ -104,6 +104,7 @@ export interface Center {
   wasender_notify_reschedule: boolean | null;
   wasender_emergency_stop: boolean | null;
   wasender_auto_reminders: boolean | null;
+  wasender_confirmation_reply: boolean | null;
   created_at: string;
   updated_at: string;
 }

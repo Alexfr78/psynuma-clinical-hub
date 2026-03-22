@@ -317,8 +317,9 @@ function buildReminderMessage(
   if (direccion) message += `📍 Lugar: ${direccion}\n`;
   if (videoCallLink) message += `\n🔗 Enlace de videollamada: ${videoCallLink}\n`;
   if (sessionLink) message += `\n🔗 Ver cita: ${sessionLink}\n`;
-  message += `\nSi necesitas cancelar o reprogramar tu cita, por favor contáctanos con la mayor antelación posible.\n\n`;
-  message += `Un saludo,\n${center.name}`;
+  message += `\nSi necesitas cancelar o reprogramar tu cita, por favor contáctanos con la mayor antelación posible.\n`;
+  message += `\n✅ Responde *SÍ* a este mensaje para confirmar tu asistencia.\n`;
+  message += `\nUn saludo,\n${center.name}`;
   return message;
 }
 
