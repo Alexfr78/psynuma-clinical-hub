@@ -98,13 +98,16 @@ export function TranscriptionAnalysisDialog({
             onChange={(e) => setTranscription(e.target.value)}
             disabled={isAnalyzing}
           />
-              <p className="text-xs text-muted-foreground">
-                {transcription.length > 0
-                  ? `${transcription.split(/\s+/).filter(Boolean).length} palabras`
-                  : 'Pega la transcripción para comenzar el análisis'}
-              </p>
-            </div>
+          <p className="text-xs text-muted-foreground">
+            {transcription.length > 0
+              ? `${transcription.split(/\s+/).filter(Boolean).length} palabras`
+              : 'Pega la transcripción para comenzar el análisis'}
+          </p>
+        </div>
 
+        {/* Scrollable results area */}
+        <ScrollArea className="flex-1 min-h-0 pr-2">
+          <div className="space-y-4 pb-4">
             {/* Layer 1 button */}
             {!baseAnalysis && (
               <Button
