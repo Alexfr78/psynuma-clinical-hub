@@ -2012,12 +2012,6 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
               </Button>
             </div>
 
-            <TranscriptionAnalysisDialog
-              open={showTranscriptionDialog}
-              onOpenChange={setShowTranscriptionDialog}
-              patientName={session.patient ? `${session.patient.first_name} ${session.patient.last_name}` : undefined}
-              sessionDate={session.session_date}
-            />
           </TabsContent>
 
           <TabsContent value="evaluaciones" className="mt-0 px-4 sm:px-6 py-4">
