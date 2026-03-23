@@ -68,6 +68,8 @@ export function TranscriptionAnalysisDialog({
         className="max-w-3xl max-h-[90vh] flex flex-col overflow-hidden"
         onOpenAutoFocus={(e) => e.preventDefault()}
         onInteractOutside={(e) => e.preventDefault()}
+        onPointerDownOutside={(e) => e.preventDefault()}
+        onFocusOutside={(e) => e.preventDefault()}
       >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
