@@ -256,7 +256,7 @@ export function TranscriptionAnalysisDialog({
               </Button>
             )}
           </div>
-        </ScrollArea>
+        </div>
       </div>
     </div>,
     document.body,
