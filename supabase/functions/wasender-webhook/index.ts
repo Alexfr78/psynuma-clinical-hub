@@ -108,12 +108,17 @@ serve(async (req) => {
         break;
       }
 
+      case "messages.received":
       case "message.received":
       case "incoming_message": {
         console.log("Incoming message received:", JSON.stringify(data));
 
-        const messageText = (data.message?.text || data.text || data.body || "").trim().toLowerCase();
-        const fromPhone = data.from || data.sender || data.phone || "";
+        // Wasender sends data.messages with messageBody and remoteJid
+        const msg = data.messages || data;
+        const messageText = (msg.messageBody || msg.message?.text || data.text || data.body || "").trim().toLowerCase();
+        const rawPhone = msg.remoteJid || msg.key?.remoteJid || data.from || data.sender || data.phone || "";
+        // Strip @s.whatsapp.net suffix if present
+        const fromPhone = rawPhone.replace(/@s\.whatsapp\.net$/, "");
 
         if (!messageText || !fromPhone) {
           console.log("No text or phone in incoming message, skipping");
