@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import {
@@ -15,6 +14,9 @@ import {
   CheckCircle2,
   ChevronRight,
   X,
+  Save,
+  MessageCircle,
+  Mail,
 } from 'lucide-react';
 import { useTranscriptionAnalysis } from '@/hooks/useTranscriptionAnalysis';
 
@@ -23,32 +25,55 @@ interface TranscriptionAnalysisDialogProps {
   onOpenChange: (open: boolean) => void;
   sessionId?: string;
   patientName?: string;
+  patientPhone?: string;
+  patientEmail?: string;
   sessionDate?: string;
 }
 
 export function TranscriptionAnalysisDialog({
   open,
   onOpenChange,
-  sessionId: _sessionId,
+  sessionId,
   patientName,
+  patientPhone,
+  patientEmail,
   sessionDate,
 }: TranscriptionAnalysisDialogProps) {
   const [transcription, setTranscription] = useState('');
+  const [editedClinical, setEditedClinical] = useState('');
+  const [editedPatient, setEditedPatient] = useState('');
   const modalRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
   const {
     baseAnalysis,
     clinicalReport,
     patientReport,
     isAnalyzing,
+    isSaving,
+    isSending,
     currentLayer,
     analyze,
+    saveClinicalReport,
+    savePatientReport,
+    sendPatientReport,
     downloadTxt,
     reset,
-  } = useTranscriptionAnalysis();
+  } = useTranscriptionAnalysis({ sessionId, patientPhone, patientEmail });
+
+  // Sync edited states when reports are generated
+  useEffect(() => {
+    if (clinicalReport) setEditedClinical(clinicalReport);
+  }, [clinicalReport]);
+
+  useEffect(() => {
+    if (patientReport) setEditedPatient(patientReport);
+  }, [patientReport]);
 
   const handleReset = () => {
     setTranscription('');
+    setEditedClinical('');
+    setEditedPatient('');
     reset();
   };
 
@@ -99,7 +124,8 @@ export function TranscriptionAnalysisDialog({
         onKeyDown={(e) => e.stopPropagation()}
         onWheel={(e) => e.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-4 border-b px-6 py-4">
+        {/* Fixed header */}
+        <div className="flex items-start justify-between gap-4 border-b px-6 py-4 shrink-0">
           <div className="space-y-1">
             <h2 id="transcription-analysis-title" className="flex items-center gap-2 text-lg font-semibold">
               <FileText className="h-5 w-5" />
@@ -121,6 +147,7 @@ export function TranscriptionAnalysisDialog({
           </Button>
         </div>
 
+        {/* Scrollable content */}
         <div className="flex-1 overflow-y-auto min-h-0 px-6 py-4 space-y-4">
           {/* Step indicators */}
           <div className="flex items-center gap-2 text-sm">
@@ -225,15 +252,26 @@ export function TranscriptionAnalysisDialog({
                 <h3 className="flex items-center gap-2 text-sm font-semibold">
                   <Stethoscope className="h-4 w-4 text-primary" />
                   Informe clínico para profesionales
+                  {sessionId && <Badge variant="outline" className="text-xs text-green-600">Guardado en sesión</Badge>}
                 </h3>
-                <Button variant="ghost" size="sm" onClick={() => downloadTxt(clinicalReport, `${filePrefix}_informe_clinico.txt`)}>
+                <Button variant="ghost" size="sm" onClick={() => downloadTxt(editedClinical || clinicalReport, `${filePrefix}_informe_clinico.txt`)}>
                   <Download className="mr-1 h-3 w-3" />
                   Descargar .txt
                 </Button>
               </div>
-              <div className="max-h-64 overflow-y-auto rounded-lg bg-muted/50 p-4 text-sm whitespace-pre-wrap">
-                {clinicalReport}
-              </div>
+              <Textarea
+                value={editedClinical}
+                onChange={(e) => setEditedClinical(e.target.value)}
+                className="min-h-[200px] text-sm font-mono"
+                onClick={(e) => e.stopPropagation()}
+                onKeyDown={(e) => e.stopPropagation()}
+              />
+              {sessionId && editedClinical !== clinicalReport && (
+                <Button size="sm" onClick={() => saveClinicalReport(editedClinical)} disabled={isSaving}>
+                  {isSaving ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Save className="h-4 w-4 mr-1" />}
+                  Guardar cambios
+                </Button>
+              )}
             </div>
           )}
 
@@ -243,15 +281,40 @@ export function TranscriptionAnalysisDialog({
               <div className="flex items-center justify-between">
                 <h3 className="flex items-center gap-2 text-sm font-semibold">
                   <User className="h-4 w-4 text-primary" />
-                  Informe de sesión para el paciente
+                  Informe de sesión para el contacto
+                  {sessionId && <Badge variant="outline" className="text-xs text-green-600">Guardado en sesión</Badge>}
                 </h3>
-                <Button variant="ghost" size="sm" onClick={() => downloadTxt(patientReport, `${filePrefix}_informe_paciente.txt`)}>
+                <Button variant="ghost" size="sm" onClick={() => downloadTxt(editedPatient || patientReport, `${filePrefix}_informe_paciente.txt`)}>
                   <Download className="mr-1 h-3 w-3" />
                   Descargar .txt
                 </Button>
               </div>
-              <div className="max-h-64 overflow-y-auto rounded-lg bg-muted/50 p-4 text-sm whitespace-pre-wrap">
-                {patientReport}
+              <Textarea
+                value={editedPatient}
+                onChange={(e) => setEditedPatient(e.target.value)}
+                className="min-h-[200px] text-sm"
+                onClick={(e) => e.stopPropagation()}
+                onKeyDown={(e) => e.stopPropagation()}
+              />
+              <div className="flex flex-wrap gap-2">
+                {sessionId && editedPatient !== patientReport && (
+                  <Button size="sm" onClick={() => savePatientReport(editedPatient)} disabled={isSaving}>
+                    {isSaving ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Save className="h-4 w-4 mr-1" />}
+                    Guardar cambios
+                  </Button>
+                )}
+                {patientPhone && (
+                  <Button size="sm" variant="outline" onClick={() => sendPatientReport('whatsapp')} disabled={isSending}>
+                    {isSending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <MessageCircle className="h-4 w-4 mr-1" />}
+                    Enviar por WhatsApp
+                  </Button>
+                )}
+                {patientEmail && (
+                  <Button size="sm" variant="outline" onClick={() => sendPatientReport('email')} disabled={isSending}>
+                    {isSending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Mail className="h-4 w-4 mr-1" />}
+                    Enviar por email
+                  </Button>
+                )}
               </div>
             </div>
           )}
