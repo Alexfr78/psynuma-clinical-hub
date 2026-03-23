@@ -132,7 +132,8 @@ import { PatientSessionHistory } from './PatientSessionHistory';
 import { PatientAutoregistros } from '@/components/patients/tabs/PatientAutoregistros';
 import { PatientInvoices } from '@/components/patients/tabs/PatientInvoices';
 import { InvoiceDetailDialog } from '@/components/invoices/InvoiceDetailDialog';
-import { Receipt } from 'lucide-react';
+import { Receipt, Brain } from 'lucide-react';
+import { TranscriptionAnalysisDialog } from './TranscriptionAnalysisDialog';
 
 interface SessionDetailDrawerProps {
   session: SessionWithRelations | null;
