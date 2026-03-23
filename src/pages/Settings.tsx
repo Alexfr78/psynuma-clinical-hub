@@ -174,6 +174,7 @@ const navItems: NavItem[] = [
   { id: 'integraciones-zoom', label: 'Zoom', icon: Video, parent: 'Conexiones Externas' },
   { id: 'integraciones-stripe', label: 'Stripe - Cobros online', icon: CreditCard, parent: 'Conexiones Externas' },
   { id: 'integraciones-credenciales', label: 'Configuración avanzada', icon: Settings2, parent: 'Conexiones Externas' },
+  { id: 'integraciones-ia', label: 'Inteligencia Artificial', icon: Brain, parent: 'Conexiones Externas' },
   
   // Seguridad
   { id: 'seguridad', label: 'Doble factor (2FA)', icon: Shield, parent: 'Seguridad' },
