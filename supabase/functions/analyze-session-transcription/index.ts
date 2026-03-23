@@ -1,4 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { decryptSecret } from "../_shared/crypto.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -130,10 +132,52 @@ Indica acciones, ejercicios, observaciones o pequeñas tareas que puedan ser út
 5. CIERRE DE LA SESIÓN
 Escribe un cierre breve, humano y respetuoso, que recoja el sentido del trabajo realizado y ayude al paciente a continuar el proceso.`;
 
-interface RequestBody {
-  transcription: string;
-  layer: 1 | 2 | 3;
-  baseAnalysis?: string;
+// ─── AI Router ───────────────────────────────────────────────────────────────
+async function callAI(
+  systemPrompt: string,
+  userPrompt: string,
+  provider: string,
+  model: string,
+  apiKey: string,
+): Promise<string> {
+
+  if (provider === 'gemini') {
+    const fullPrompt = `${systemPrompt}\n\n${userPrompt}`;
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: fullPrompt }] }],
+          generationConfig: { temperature: 0.3 },
+        }),
+      }
+    );
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error?.message || `Gemini API error: ${response.status}`);
+    return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  }
+
+  // Default: OpenAI-compatible
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+      temperature: 0.3,
+    }),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error?.message || `OpenAI API error: ${response.status}`);
+  return data.choices?.[0]?.message?.content || '';
 }
 
 serve(async (req) => {
@@ -142,7 +186,7 @@ serve(async (req) => {
   }
 
   try {
-    const { transcription, layer, baseAnalysis } = await req.json() as RequestBody;
+    const { transcription, layer, baseAnalysis, centerId } = await req.json();
 
     if (!transcription || !layer) {
       return new Response(
@@ -151,18 +195,74 @@ serve(async (req) => {
       );
     }
 
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
+    // ─── Load center AI configuration ────────────────────────────────────────
+    let provider = 'openai';
+    let model = 'gpt-4.1';
+    let apiKey = '';
+    let systemPrompt = SYSTEM_PROMPT;
+    let layer1Prompt = LAYER1_PROMPT;
+    let layer2Prompt = LAYER2_PROMPT;
+    let layer3Prompt = LAYER3_PROMPT;
+
+    if (centerId) {
+      const supabase = createClient(
+        Deno.env.get('SUPABASE_URL')!,
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+      );
+
+      const { data: center } = await supabase
+        .from('centers')
+        .select(`
+          ai_provider, openai_model, gemini_model,
+          openai_api_key_encrypted, gemini_api_key_encrypted,
+          ai_prompt_system, ai_prompt_layer1, ai_prompt_layer2, ai_prompt_layer3
+        `)
+        .eq('id', centerId)
+        .single();
+
+      if (center) {
+        provider = center.ai_provider || 'openai';
+
+        if (provider === 'gemini') {
+          model = center.gemini_model || 'gemini-2.5-pro';
+          if (!center.gemini_api_key_encrypted) {
+            return new Response(
+              JSON.stringify({ error: 'API key de Gemini no configurada. Ve a Ajustes → Inteligencia Artificial.' }),
+              { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+          apiKey = await decryptSecret(center.gemini_api_key_encrypted);
+        } else {
+          model = center.openai_model || 'gpt-4.1';
+          if (!center.openai_api_key_encrypted) {
+            return new Response(
+              JSON.stringify({ error: 'API key de OpenAI no configurada. Ve a Ajustes → Inteligencia Artificial.' }),
+              { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+          apiKey = await decryptSecret(center.openai_api_key_encrypted);
+        }
+
+        // Use custom prompts if provided
+        if (center.ai_prompt_system) systemPrompt = center.ai_prompt_system;
+        if (center.ai_prompt_layer1) layer1Prompt = center.ai_prompt_layer1;
+        if (center.ai_prompt_layer2) layer2Prompt = center.ai_prompt_layer2;
+        if (center.ai_prompt_layer3) layer3Prompt = center.ai_prompt_layer3;
+      }
+    }
+
+    if (!apiKey) {
       return new Response(
-        JSON.stringify({ error: 'Configuración de IA no disponible' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: 'API key no configurada. Ve a Ajustes → Inteligencia Artificial.' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
+    // ─── Build prompt for the requested layer ────────────────────────────────
     let userPrompt: string;
 
     if (layer === 1) {
-      userPrompt = `${LAYER1_PROMPT}\n\nTRANSCRIPCIÓN DE LA SESIÓN:\n\n${transcription}`;
+      userPrompt = `${layer1Prompt}\n\nTRANSCRIPCIÓN DE LA SESIÓN:\n\n${transcription}`;
     } else if (layer === 2) {
       if (!baseAnalysis) {
         return new Response(
@@ -170,7 +270,7 @@ serve(async (req) => {
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      userPrompt = `BASE CLÍNICA EXTRAÍDA (CAPA 1):\n\n${baseAnalysis}\n\nTRANSCRIPCIÓN ORIGINAL:\n\n${transcription}\n\n${LAYER2_PROMPT}`;
+      userPrompt = `BASE CLÍNICA EXTRAÍDA (CAPA 1):\n\n${baseAnalysis}\n\nTRANSCRIPCIÓN ORIGINAL:\n\n${transcription}\n\n${layer2Prompt}`;
     } else if (layer === 3) {
       if (!baseAnalysis) {
         return new Response(
@@ -178,7 +278,7 @@ serve(async (req) => {
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      userPrompt = `BASE CLÍNICA EXTRAÍDA (CAPA 1):\n\n${baseAnalysis}\n\nTRANSCRIPCIÓN ORIGINAL:\n\n${transcription}\n\n${LAYER3_PROMPT}`;
+      userPrompt = `BASE CLÍNICA EXTRAÍDA (CAPA 1):\n\n${baseAnalysis}\n\nTRANSCRIPCIÓN ORIGINAL:\n\n${transcription}\n\n${layer3Prompt}`;
     } else {
       return new Response(
         JSON.stringify({ error: 'Layer debe ser 1, 2 o 3' }),
@@ -186,58 +286,11 @@ serve(async (req) => {
       );
     }
 
-    console.log(`Analyzing session transcription - Layer ${layer}`);
+    console.log(`[analyze] Layer ${layer} | Provider: ${provider} | Model: ${model}`);
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-pro',
-        messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
-          { role: 'user', content: userPrompt },
-        ],
-        temperature: 0.3,
-      }),
-    });
+    const content = await callAI(systemPrompt, userPrompt, provider, model, apiKey);
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('AI Gateway error:', response.status, errorText);
-
-      if (response.status === 429) {
-        return new Response(
-          JSON.stringify({ error: 'Límite de solicitudes excedido. Intente más tarde.' }),
-          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: 'Créditos de IA agotados. Contacte al administrador.' }),
-          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      return new Response(
-        JSON.stringify({ error: 'Error al generar el análisis' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const aiResponse = await response.json();
-    const content = aiResponse.choices?.[0]?.message?.content;
-
-    if (!content) {
-      return new Response(
-        JSON.stringify({ error: 'Respuesta vacía del modelo de IA' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    console.log(`Layer ${layer} analysis completed successfully`);
+    console.log(`[analyze] Layer ${layer} completed — ${content.split(/\s+/).length} words`);
 
     return new Response(
       JSON.stringify({ success: true, content, layer }),
@@ -247,7 +300,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error in analyze-session-transcription:', error);
     return new Response(
-      JSON.stringify({ error: 'Error interno del servidor' }),
+      JSON.stringify({ error: error instanceof Error ? error.message : 'Error interno del servidor' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
