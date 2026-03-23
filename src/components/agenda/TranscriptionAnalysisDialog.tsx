@@ -64,7 +64,7 @@ export function TranscriptionAnalysisDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
+      <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
@@ -77,29 +77,27 @@ export function TranscriptionAnalysisDialog({
           )}
         </DialogHeader>
 
-        <ScrollArea className="flex-1 pr-2">
-          <div className="space-y-4 pb-4">
-            {/* Step indicators */}
-            <div className="flex items-center gap-2 text-sm">
-              <StepBadge n={1} done={!!baseAnalysis} active={currentLayer === 1} label="Extracción base" />
-              <ChevronRight className="h-4 w-4 text-muted-foreground" />
-              <StepBadge n={2} done={!!clinicalReport} active={currentLayer === 2} label="Informe clínico" />
-              <ChevronRight className="h-4 w-4 text-muted-foreground" />
-              <StepBadge n={3} done={!!patientReport} active={currentLayer === 3} label="Informe paciente" />
-            </div>
+        {/* Step indicators */}
+        <div className="flex items-center gap-2 text-sm">
+          <StepBadge n={1} done={!!baseAnalysis} active={currentLayer === 1} label="Extracción base" />
+          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          <StepBadge n={2} done={!!clinicalReport} active={currentLayer === 2} label="Informe clínico" />
+          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          <StepBadge n={3} done={!!patientReport} active={currentLayer === 3} label="Informe paciente" />
+        </div>
 
-            <Separator />
+        <Separator />
 
-            {/* Transcription input */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Transcripción de la sesión</label>
-              <Textarea
-                placeholder="Pega aquí la transcripción completa de la sesión..."
-                className="min-h-[160px] font-mono text-sm"
-                value={transcription}
-                onChange={(e) => setTranscription(e.target.value)}
-                disabled={isAnalyzing}
-              />
+        {/* Transcription input - outside ScrollArea so paste works */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Transcripción de la sesión</label>
+          <Textarea
+            placeholder="Pega aquí la transcripción completa de la sesión..."
+            className="min-h-[160px] max-h-[250px] font-mono text-sm"
+            value={transcription}
+            onChange={(e) => setTranscription(e.target.value)}
+            disabled={isAnalyzing}
+          />
               <p className="text-xs text-muted-foreground">
                 {transcription.length > 0
                   ? `${transcription.split(/\s+/).filter(Boolean).length} palabras`
