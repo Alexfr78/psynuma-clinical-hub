@@ -241,7 +241,7 @@ export function AISettingsSection() {
           <div className="flex items-center gap-2">
             <CardTitle>Google Gemini</CardTitle>
             {aiProvider === 'gemini' && <Badge>Activo</Badge>}
-            {geminiConfigured && <Badge variant="outline" className="text-green-600">✓ Configurado</Badge>}
+            {geminiConfigured && <Badge variant="outline" className="text-emerald-600 dark:text-emerald-400">✓ Configurado</Badge>}
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
