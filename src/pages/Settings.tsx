@@ -26,7 +26,8 @@ import {
   Users,
   FileDown,
   CalendarDays,
-  Ban
+  Ban,
+  Brain
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
