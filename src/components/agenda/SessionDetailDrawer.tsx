@@ -175,7 +175,7 @@ const cancellationLabels: Record<string, string> = {
   '72_hours': 'Hasta 72 horas antes',
 };
 
-export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDetailDrawerProps) {
+export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTranscription }: SessionDetailDrawerProps) {
   const navigate = useNavigate();
   const { toast } = useToast();
   const queryClient = useQueryClient();
