@@ -113,6 +113,7 @@ type SettingsSection =
   | 'integraciones-zoom'
   | 'integraciones-google'
   | 'integraciones-stripe'
+  | 'integraciones-ia'
   | 'seguridad';
 
 interface NavItem {
