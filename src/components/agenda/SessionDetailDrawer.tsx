@@ -245,9 +245,6 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
   const [showCreateConsentDialog, setShowCreateConsentDialog] = useState(false);
   const [sendConsentDialogData, setSendConsentDialogData] = useState<Consent | null>(null);
   
-  // Transcription analysis dialog
-  const [showTranscriptionDialog, setShowTranscriptionDialog] = useState(false);
-  
   // Local state for immediate UI update
   const [localBonoId, setLocalBonoId] = useState<string | null>(null);
   const [localPrice, setLocalPrice] = useState<number>(0);
