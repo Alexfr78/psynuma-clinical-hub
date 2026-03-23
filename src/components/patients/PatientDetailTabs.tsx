@@ -39,6 +39,7 @@ const tabOptions = [
   { value: 'consents', label: 'Consentimientos' },
   { value: 'assessments', label: 'Evaluaciones' },
   { value: 'autoregistros', label: 'Autorregistros' },
+  { value: 'ai-reports', label: 'Informes IA' },
 ];
 
 export function PatientDetailTabs({ patient }: PatientDetailTabsProps) {
