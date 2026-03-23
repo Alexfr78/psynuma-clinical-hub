@@ -480,6 +480,34 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
     }
   };
 
+  const handleSendAIReport = async (channel: 'whatsapp' | 'email') => {
+    if (!sessionData.ai_summary_patient || !session.center_id) return;
+    const recipient = channel === 'whatsapp' ? session.patient?.phone : session.patient?.email;
+    if (!recipient) return;
+    try {
+      const { data: notification } = await supabase
+        .from('notifications')
+        .insert({
+          center_id: session.center_id,
+          session_id: session.id,
+          patient_id: session.patient_id,
+          type: channel,
+          recipient,
+          subject: channel === 'email' ? 'Resumen de tu sesión' : undefined,
+          message: sessionData.ai_summary_patient,
+          status: 'pending',
+        })
+        .select('id')
+        .single();
+      if (notification) {
+        await supabase.functions.invoke('send-notification', { body: { notificationId: notification.id } });
+        toast({ title: `Informe enviado por ${channel === 'whatsapp' ? 'WhatsApp' : 'email'}` });
+      }
+    } catch {
+      toast({ title: 'Error al enviar el informe', variant: 'destructive' });
+    }
+  };
+
   const handleRoomSave = async (room: string) => {
     try {
       await updateSession.mutateAsync({
