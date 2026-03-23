@@ -183,7 +183,7 @@ export function AISettingsSection() {
           <div className="flex items-center gap-2">
             <CardTitle>OpenAI</CardTitle>
             {aiProvider === 'openai' && <Badge>Activo</Badge>}
-            {openaiConfigured && <Badge variant="outline" className="text-green-600">✓ Configurado</Badge>}
+            {openaiConfigured && <Badge variant="outline" className="text-emerald-600 dark:text-emerald-400">✓ Configurado</Badge>}
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
