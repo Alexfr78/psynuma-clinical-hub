@@ -45,6 +45,8 @@ export default function Agenda() {
   // No longer auto-switch to day view on mobile - week view is now responsive
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [selectedSession, setSelectedSession] = useState<SessionWithRelations | null>(null);
+  const [transcriptionSessionId, setTranscriptionSessionId] = useState<string | null>(null);
+  const [transcriptionOpen, setTranscriptionOpen] = useState(false);
   const [moveSession, setMoveSession] = useState<SessionWithRelations | null>(null);
   const [initialDate, setInitialDate] = useState<Date | undefined>();
   const [initialStartTime, setInitialStartTime] = useState<string | undefined>();
