@@ -64,7 +64,11 @@ export function TranscriptionAnalysisDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
+      <DialogContent 
+        className="max-w-3xl max-h-[90vh] flex flex-col overflow-hidden"
+        onOpenAutoFocus={(e) => e.preventDefault()}
+        onInteractOutside={(e) => e.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
