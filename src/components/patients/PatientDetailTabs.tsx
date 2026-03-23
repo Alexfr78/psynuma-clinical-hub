@@ -111,6 +111,10 @@ export function PatientDetailTabs({ patient }: PatientDetailTabsProps) {
       <TabsContent value="autoregistros">
         <PatientAutoregistros patientId={patient.id} />
       </TabsContent>
+
+      <TabsContent value="ai-reports">
+        <PatientAIReports patientId={patient.id} />
+      </TabsContent>
     </Tabs>
   );
 }
