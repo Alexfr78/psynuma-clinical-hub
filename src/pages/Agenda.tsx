@@ -179,6 +179,11 @@ export default function Agenda() {
     return [...baseSessions, ...uniqueGoogleEvents] as SessionWithRelations[];
   }, [effectiveSessions, googleCalendarEvents, showGoogleEvents]);
 
+  const transcriptionSession = useMemo(() => {
+    if (!transcriptionSessionId) return null;
+    return allSessions.find((session) => session.id === transcriptionSessionId) ?? null;
+  }, [allSessions, transcriptionSessionId]);
+
   // Dynamic hours based on center/professional configuration and existing sessions
   const { hours, startHour } = useAgendaHours(selectedProfessional, currentDate, allSessions);
 
