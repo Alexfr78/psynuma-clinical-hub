@@ -10,6 +10,7 @@ import { MonthView } from '@/components/agenda/MonthView';
 import { ListView } from '@/components/agenda/ListView';
 import { QuickCreateSessionDialog } from '@/components/agenda/QuickCreateSessionDialog';
 import { SessionDetailDrawer } from '@/components/agenda/SessionDetailDrawer';
+import { TranscriptionAnalysisDialog } from '@/components/agenda/TranscriptionAnalysisDialog';
 import { MoveSessionDialog } from '@/components/agenda/MoveSessionDialog';
 import { ConflictsDialog } from '@/components/agenda/ConflictsDialog';
 import { AgendaFooter } from '@/components/agenda/AgendaFooter';
@@ -44,6 +45,8 @@ export default function Agenda() {
   // No longer auto-switch to day view on mobile - week view is now responsive
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [selectedSession, setSelectedSession] = useState<SessionWithRelations | null>(null);
+  const [transcriptionSessionId, setTranscriptionSessionId] = useState<string | null>(null);
+  const [transcriptionOpen, setTranscriptionOpen] = useState(false);
   const [moveSession, setMoveSession] = useState<SessionWithRelations | null>(null);
   const [initialDate, setInitialDate] = useState<Date | undefined>();
   const [initialStartTime, setInitialStartTime] = useState<string | undefined>();
@@ -175,6 +178,11 @@ export default function Agenda() {
 
     return [...baseSessions, ...uniqueGoogleEvents] as SessionWithRelations[];
   }, [effectiveSessions, googleCalendarEvents, showGoogleEvents]);
+
+  const transcriptionSession = useMemo(() => {
+    if (!transcriptionSessionId) return null;
+    return allSessions.find((session) => session.id === transcriptionSessionId) ?? null;
+  }, [allSessions, transcriptionSessionId]);
 
   // Dynamic hours based on center/professional configuration and existing sessions
   const { hours, startHour } = useAgendaHours(selectedProfessional, currentDate, allSessions);
@@ -572,6 +580,21 @@ export default function Agenda() {
         session={selectedSession}
         open={!!selectedSession}
         onOpenChange={(open) => !open && setSelectedSession(null)}
+        onAnalyzeTranscription={(sessionId) => {
+          setTranscriptionSessionId(sessionId);
+          setTranscriptionOpen(true);
+        }}
+      />
+
+      <TranscriptionAnalysisDialog
+        open={transcriptionOpen}
+        onOpenChange={(open) => {
+          setTranscriptionOpen(open);
+          if (!open) setTranscriptionSessionId(null);
+        }}
+        sessionId={transcriptionSessionId ?? undefined}
+        patientName={transcriptionSession?.patient ? `${transcriptionSession.patient.first_name} ${transcriptionSession.patient.last_name}` : undefined}
+        sessionDate={transcriptionSession?.session_date}
       />
 
       {/* Agenda Footer with Legend, Timezone and Google Toggle */}

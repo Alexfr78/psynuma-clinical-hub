@@ -133,12 +133,12 @@ import { PatientAutoregistros } from '@/components/patients/tabs/PatientAutoregi
 import { PatientInvoices } from '@/components/patients/tabs/PatientInvoices';
 import { InvoiceDetailDialog } from '@/components/invoices/InvoiceDetailDialog';
 import { Receipt, Brain } from 'lucide-react';
-import { TranscriptionAnalysisDialog } from './TranscriptionAnalysisDialog';
 
 interface SessionDetailDrawerProps {
   session: SessionWithRelations | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onAnalyzeTranscription?: (sessionId: string) => void;
 }
 
 const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; className: string }> = {
@@ -175,7 +175,7 @@ const cancellationLabels: Record<string, string> = {
   '72_hours': 'Hasta 72 horas antes',
 };
 
-export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDetailDrawerProps) {
+export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTranscription }: SessionDetailDrawerProps) {
   const navigate = useNavigate();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -244,9 +244,6 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
   // Consent dialogs state
   const [showCreateConsentDialog, setShowCreateConsentDialog] = useState(false);
   const [sendConsentDialogData, setSendConsentDialogData] = useState<Consent | null>(null);
-  
-  // Transcription analysis dialog
-  const [showTranscriptionDialog, setShowTranscriptionDialog] = useState(false);
   
   // Local state for immediate UI update
   const [localBonoId, setLocalBonoId] = useState<string | null>(null);
@@ -2001,15 +1998,22 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
                 <FileText className="h-3 w-3 mr-1" />
                 Justificante de asistencia
               </Button>
-              <Button
-                variant="link"
-                size="sm"
-                className="h-auto p-0 text-xs"
-                onClick={() => setShowTranscriptionDialog(true)}
-              >
-                <Brain className="h-3 w-3 mr-1" />
-                Analizar transcripción
-              </Button>
+              {onAnalyzeTranscription && (
+                <Button
+                  variant="link"
+                  size="sm"
+                  className="h-auto p-0 text-xs"
+                  onClick={() => {
+                    onOpenChange(false);
+                    setTimeout(() => {
+                      onAnalyzeTranscription(session.id);
+                    }, 300);
+                  }}
+                >
+                  <Brain className="h-3 w-3 mr-1" />
+                  Analizar transcripción
+                </Button>
+              )}
             </div>
 
           </TabsContent>
@@ -2341,13 +2345,6 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
       invoiceId={selectedInvoiceId}
     />
 
-    {/* Transcription Analysis Dialog - outside Drawer to allow paste */}
-    <TranscriptionAnalysisDialog
-      open={showTranscriptionDialog}
-      onOpenChange={setShowTranscriptionDialog}
-      patientName={session?.patient ? `${session.patient.first_name} ${session.patient.last_name}` : undefined}
-      sessionDate={session?.session_date}
-    />
     </>
   );
 }

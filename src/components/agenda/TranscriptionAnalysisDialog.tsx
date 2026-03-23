@@ -21,6 +21,7 @@ import { useTranscriptionAnalysis } from '@/hooks/useTranscriptionAnalysis';
 interface TranscriptionAnalysisDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  sessionId?: string;
   patientName?: string;
   sessionDate?: string;
 }
@@ -28,6 +29,7 @@ interface TranscriptionAnalysisDialogProps {
 export function TranscriptionAnalysisDialog({
   open,
   onOpenChange,
+  sessionId: _sessionId,
   patientName,
   sessionDate,
 }: TranscriptionAnalysisDialogProps) {
