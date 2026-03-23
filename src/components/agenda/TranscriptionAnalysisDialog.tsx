@@ -1,10 +1,5 @@
 import { useState } from 'react';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -19,6 +14,7 @@ import {
   RotateCcw,
   CheckCircle2,
   ChevronRight,
+  X,
 } from 'lucide-react';
 import { useTranscriptionAnalysis } from '@/hooks/useTranscriptionAnalysis';
 
@@ -62,70 +58,89 @@ export function TranscriptionAnalysisDialog({
     sessionDate || new Date().toISOString().split('T')[0],
   ].join('_');
 
-  return (
-    <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent 
-        className="max-w-3xl max-h-[90vh] flex flex-col overflow-hidden"
-        onOpenAutoFocus={(e) => e.preventDefault()}
-        onInteractOutside={(e) => e.preventDefault()}
-        onPointerDownOutside={(e) => e.preventDefault()}
-        onFocusOutside={(e) => e.preventDefault()}
+  if (!open) return null;
+
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+      <div
+        className="absolute inset-0 bg-background/80 backdrop-blur-sm"
+        onClick={() => handleClose(false)}
+      />
+
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="transcription-analysis-title"
+        className="relative z-10 flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-lg border bg-background shadow-lg"
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
       >
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5" />
-            Análisis de transcripción de sesión
-          </DialogTitle>
-          {patientName && (
-            <p className="text-sm text-muted-foreground">
-              {patientName} — {sessionDate}
+        <div className="flex items-start justify-between gap-4 border-b px-6 py-4">
+          <div className="space-y-1">
+            <h2 id="transcription-analysis-title" className="flex items-center gap-2 text-lg font-semibold">
+              <FileText className="h-5 w-5" />
+              Análisis de transcripción de sesión
+            </h2>
+            {patientName && (
+              <p className="text-sm text-muted-foreground">
+                {patientName} — {sessionDate}
+              </p>
+            )}
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => handleClose(false)}
+            className="shrink-0"
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+
+        <div className="space-y-4 px-6 py-4">
+          <div className="flex items-center gap-2 text-sm">
+            <StepBadge n={1} done={!!baseAnalysis} active={currentLayer === 1} label="Extracción base" />
+            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+            <StepBadge n={2} done={!!clinicalReport} active={currentLayer === 2} label="Informe clínico" />
+            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+            <StepBadge n={3} done={!!patientReport} active={currentLayer === 3} label="Informe paciente" />
+          </div>
+
+          <Separator />
+
+          <div className="space-y-2">
+            <label htmlFor="transcription-input" className="text-sm font-medium">
+              Transcripción de la sesión
+            </label>
+            <Textarea
+              id="transcription-input"
+              placeholder="Pega aquí la transcripción completa de la sesión..."
+              className="min-h-[160px] max-h-[250px] font-mono text-sm"
+              value={transcription}
+              onChange={(e) => setTranscription(e.target.value)}
+              onPaste={(e) => {
+                e.stopPropagation();
+                const text = e.clipboardData.getData('text/plain');
+                if (text) {
+                  e.preventDefault();
+                  setTranscription((prev) => prev + text);
+                }
+              }}
+              onFocus={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
+              disabled={isAnalyzing}
+              autoFocus={false}
+            />
+            <p className="text-xs text-muted-foreground">
+              {transcription.length > 0
+                ? `${transcription.split(/\s+/).filter(Boolean).length} palabras`
+                : 'Pega la transcripción para comenzar el análisis'}
             </p>
-          )}
-        </DialogHeader>
-
-        {/* Step indicators */}
-        <div className="flex items-center gap-2 text-sm">
-          <StepBadge n={1} done={!!baseAnalysis} active={currentLayer === 1} label="Extracción base" />
-          <ChevronRight className="h-4 w-4 text-muted-foreground" />
-          <StepBadge n={2} done={!!clinicalReport} active={currentLayer === 2} label="Informe clínico" />
-          <ChevronRight className="h-4 w-4 text-muted-foreground" />
-          <StepBadge n={3} done={!!patientReport} active={currentLayer === 3} label="Informe paciente" />
+          </div>
         </div>
 
-        <Separator />
-
-        {/* Transcription input - outside ScrollArea so paste works */}
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Transcripción de la sesión</label>
-          <Textarea
-            placeholder="Pega aquí la transcripción completa de la sesión..."
-            className="min-h-[160px] max-h-[250px] font-mono text-sm"
-            value={transcription}
-            onChange={(e) => setTranscription(e.target.value)}
-            onPaste={(e) => {
-              e.stopPropagation();
-              const text = e.clipboardData.getData('text/plain');
-              if (text) {
-                e.preventDefault();
-                setTranscription((prev) => prev + text);
-              }
-            }}
-            onFocus={(e) => e.stopPropagation()}
-            onClick={(e) => e.stopPropagation()}
-            disabled={isAnalyzing}
-            autoFocus={false}
-          />
-          <p className="text-xs text-muted-foreground">
-            {transcription.length > 0
-              ? `${transcription.split(/\s+/).filter(Boolean).length} palabras`
-              : 'Pega la transcripción para comenzar el análisis'}
-          </p>
-        </div>
-
-        {/* Scrollable results area */}
-        <ScrollArea className="flex-1 min-h-0 pr-2">
-          <div className="space-y-4 pb-4">
-            {/* Layer 1 button */}
+        <ScrollArea className="flex-1 min-h-0 px-6 pb-6">
+          <div className="space-y-4 pb-2">
             {!baseAnalysis && (
               <Button
                 onClick={() => analyze(transcription, 1)}
@@ -146,12 +161,11 @@ export function TranscriptionAnalysisDialog({
               </Button>
             )}
 
-            {/* Base analysis result */}
             {baseAnalysis && (
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-semibold flex items-center gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-green-600" />
+                  <h3 className="flex items-center gap-2 text-sm font-semibold">
+                    <CheckCircle2 className="h-4 w-4 text-primary" />
                     Extracción clínica base
                   </h3>
                   <Button
@@ -159,17 +173,16 @@ export function TranscriptionAnalysisDialog({
                     size="sm"
                     onClick={() => downloadTxt(baseAnalysis, `${filePrefix}_base.txt`)}
                   >
-                    <Download className="h-3 w-3 mr-1" />
+                    <Download className="mr-1 h-3 w-3" />
                     Descargar
                   </Button>
                 </div>
-                <div className="bg-muted/50 rounded-lg p-4 text-sm whitespace-pre-wrap max-h-[300px] overflow-y-auto">
+                <div className="max-h-[300px] overflow-y-auto rounded-lg bg-muted/50 p-4 text-sm whitespace-pre-wrap">
                   {baseAnalysis}
                 </div>
 
                 <Separator />
 
-                {/* Layer 2 & 3 buttons */}
                 <div className="grid grid-cols-2 gap-3">
                   <Button
                     onClick={() => analyze(transcription, 2)}
@@ -210,11 +223,10 @@ export function TranscriptionAnalysisDialog({
               </div>
             )}
 
-            {/* Clinical report */}
             {clinicalReport && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-semibold flex items-center gap-2">
+                  <h3 className="flex items-center gap-2 text-sm font-semibold">
                     <Stethoscope className="h-4 w-4 text-primary" />
                     Informe clínico para profesionales
                   </h3>
@@ -223,21 +235,20 @@ export function TranscriptionAnalysisDialog({
                     size="sm"
                     onClick={() => downloadTxt(clinicalReport, `${filePrefix}_informe_clinico.txt`)}
                   >
-                    <Download className="h-3 w-3 mr-1" />
+                    <Download className="mr-1 h-3 w-3" />
                     Descargar .txt
                   </Button>
                 </div>
-                <div className="bg-muted/50 rounded-lg p-4 text-sm whitespace-pre-wrap max-h-[400px] overflow-y-auto">
+                <div className="max-h-[400px] overflow-y-auto rounded-lg bg-muted/50 p-4 text-sm whitespace-pre-wrap">
                   {clinicalReport}
                 </div>
               </div>
             )}
 
-            {/* Patient report */}
             {patientReport && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-semibold flex items-center gap-2">
+                  <h3 className="flex items-center gap-2 text-sm font-semibold">
                     <User className="h-4 w-4 text-primary" />
                     Informe de sesión para el paciente
                   </h3>
@@ -246,17 +257,16 @@ export function TranscriptionAnalysisDialog({
                     size="sm"
                     onClick={() => downloadTxt(patientReport, `${filePrefix}_informe_paciente.txt`)}
                   >
-                    <Download className="h-3 w-3 mr-1" />
+                    <Download className="mr-1 h-3 w-3" />
                     Descargar .txt
                   </Button>
                 </div>
-                <div className="bg-muted/50 rounded-lg p-4 text-sm whitespace-pre-wrap max-h-[400px] overflow-y-auto">
+                <div className="max-h-[400px] overflow-y-auto rounded-lg bg-muted/50 p-4 text-sm whitespace-pre-wrap">
                   {patientReport}
                 </div>
               </div>
             )}
 
-            {/* Reset */}
             {baseAnalysis && (
               <Button variant="ghost" size="sm" onClick={handleReset} className="w-full">
                 <RotateCcw className="mr-2 h-3 w-3" />
@@ -265,8 +275,9 @@ export function TranscriptionAnalysisDialog({
             )}
           </div>
         </ScrollArea>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -276,7 +287,7 @@ function StepBadge({ n, done, active, label }: { n: number; done: boolean; activ
       variant={done ? 'default' : active ? 'secondary' : 'outline'}
       className={`text-xs ${active ? 'animate-pulse' : ''}`}
     >
-      {done ? <CheckCircle2 className="h-3 w-3 mr-1" /> : null}
+      {done ? <CheckCircle2 className="mr-1 h-3 w-3" /> : null}
       {n}. {label}
     </Badge>
   );
