@@ -93,7 +93,7 @@ export function TranscriptionAnalysisDialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby="transcription-analysis-title"
-        className="relative z-10 flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-lg border bg-background shadow-lg"
+        className="relative z-10 flex max-h-[90vh] w-full max-w-3xl flex-col rounded-lg border bg-background shadow-lg"
         onPointerDown={(e) => e.stopPropagation()}
         onClick={(e) => e.stopPropagation()}
         onKeyDown={(e) => e.stopPropagation()}
@@ -121,50 +121,7 @@ export function TranscriptionAnalysisDialog({
           </Button>
         </div>
 
-        <div className="space-y-4 px-6 py-4">
-          <div className="flex items-center gap-2 text-sm">
-            <StepBadge n={1} done={!!baseAnalysis} active={currentLayer === 1} label="Extracción base" />
-            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-            <StepBadge n={2} done={!!clinicalReport} active={currentLayer === 2} label="Informe clínico" />
-            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-            <StepBadge n={3} done={!!patientReport} active={currentLayer === 3} label="Informe paciente" />
-          </div>
-
-          <Separator />
-
-          <div className="space-y-2">
-            <label htmlFor="transcription-input" className="text-sm font-medium">
-              Transcripción de la sesión
-            </label>
-            <Textarea
-              ref={textareaRef}
-              id="transcription-input"
-              placeholder="Pega aquí la transcripción completa de la sesión..."
-              className="min-h-[160px] max-h-[250px] font-mono text-sm"
-              value={transcription}
-              onChange={(e) => setTranscription(e.target.value)}
-              onPaste={(e) => {
-                e.stopPropagation();
-                const text = e.clipboardData.getData('text/plain');
-                if (text) {
-                  e.preventDefault();
-                  setTranscription((prev) => prev + text);
-                }
-              }}
-              onFocus={(e) => e.stopPropagation()}
-              onClick={(e) => e.stopPropagation()}
-              onKeyDown={(e) => e.stopPropagation()}
-              disabled={isAnalyzing}
-            />
-            <p className="text-xs text-muted-foreground">
-              {transcription.length > 0
-                ? `${transcription.split(/\s+/).filter(Boolean).length} palabras`
-                : 'Pega la transcripción para comenzar el análisis'}
-            </p>
-          </div>
-        </div>
-
-        <ScrollArea className="flex-1 min-h-0 px-6 pb-6">
+        <div className="flex-1 overflow-y-auto min-h-0 px-6 py-4 space-y-4">
           <div className="space-y-4 pb-2">
             {!baseAnalysis && (
               <Button
@@ -299,7 +256,7 @@ export function TranscriptionAnalysisDialog({
               </Button>
             )}
           </div>
-        </ScrollArea>
+        </div>
       </div>
     </div>,
     document.body,
