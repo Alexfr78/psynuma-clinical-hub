@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useCenter } from './useCenter';
 
 interface UseTranscriptionAnalysisOptions {
   sessionId?: string;
@@ -10,6 +11,7 @@ interface UseTranscriptionAnalysisOptions {
 
 export function useTranscriptionAnalysis(options: UseTranscriptionAnalysisOptions = {}) {
   const { sessionId, patientPhone, patientEmail } = options;
+  const { centerId } = useCenter();
   const [baseAnalysis, setBaseAnalysis] = useState<string | null>(null);
   const [clinicalReport, setClinicalReport] = useState<string | null>(null);
   const [patientReport, setPatientReport] = useState<string | null>(null);
@@ -23,7 +25,7 @@ export function useTranscriptionAnalysis(options: UseTranscriptionAnalysisOption
     setCurrentLayer(layer);
 
     try {
-      const body: Record<string, unknown> = { transcription, layer };
+      const body: Record<string, unknown> = { transcription, layer, centerId };
       if (layer === 2 || layer === 3) {
         if (!baseAnalysis) {
           toast.error('Primero debes generar la extracción clínica base (Capa 1)');

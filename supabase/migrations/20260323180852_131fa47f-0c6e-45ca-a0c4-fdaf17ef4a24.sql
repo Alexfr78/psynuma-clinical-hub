@@ -1,0 +1,10 @@
+ALTER TABLE centers ADD COLUMN IF NOT EXISTS ai_provider text DEFAULT 'openai';
+ALTER TABLE centers ADD COLUMN IF NOT EXISTS openai_api_key_encrypted text;
+ALTER TABLE centers ADD COLUMN IF NOT EXISTS openai_model text DEFAULT 'gpt-4.1';
+ALTER TABLE centers ADD COLUMN IF NOT EXISTS gemini_api_key_encrypted text;
+ALTER TABLE centers ADD COLUMN IF NOT EXISTS gemini_model text DEFAULT 'gemini-2.5-pro';
+ALTER TABLE centers ADD COLUMN IF NOT EXISTS ai_prompt_system text;
+ALTER TABLE centers ADD COLUMN IF NOT EXISTS ai_prompt_layer1 text;
+ALTER TABLE centers ADD COLUMN IF NOT EXISTS ai_prompt_layer2 text;
+ALTER TABLE centers ADD COLUMN IF NOT EXISTS ai_prompt_layer3 text;
+ALTER TABLE centers ADD COLUMN IF NOT EXISTS transcript_retention_days integer DEFAULT 7;

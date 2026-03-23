@@ -26,7 +26,8 @@ import {
   Users,
   FileDown,
   CalendarDays,
-  Ban
+  Ban,
+  Brain
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -67,6 +68,7 @@ import { AgendaSettingsSection } from '@/components/settings/AgendaSettingsSecti
 import { AdminAlertsSettingsSection } from '@/components/settings/AdminAlertsSettingsSection';
 import { SecuritySection } from '@/components/settings/SecuritySection';
 import { ScheduleExceptionsSection } from '@/components/settings/ScheduleExceptionsSection';
+import { AISettingsSection } from '@/components/settings/integrations/AISettingsSection';
 
 const centerSchema = z.object({
   name: z.string().min(1, 'El nombre es obligatorio'),
@@ -111,6 +113,7 @@ type SettingsSection =
   | 'integraciones-zoom'
   | 'integraciones-google'
   | 'integraciones-stripe'
+  | 'integraciones-ia'
   | 'seguridad';
 
 interface NavItem {
@@ -171,6 +174,7 @@ const navItems: NavItem[] = [
   { id: 'integraciones-zoom', label: 'Zoom', icon: Video, parent: 'Conexiones Externas' },
   { id: 'integraciones-stripe', label: 'Stripe - Cobros online', icon: CreditCard, parent: 'Conexiones Externas' },
   { id: 'integraciones-credenciales', label: 'Configuración avanzada', icon: Settings2, parent: 'Conexiones Externas' },
+  { id: 'integraciones-ia', label: 'Inteligencia Artificial', icon: Brain, parent: 'Conexiones Externas' },
   
   // Seguridad
   { id: 'seguridad', label: 'Doble factor (2FA)', icon: Shield, parent: 'Seguridad' },
@@ -391,6 +395,8 @@ export default function Settings() {
         return <GoogleIntegrationSection />;
       case 'integraciones-stripe':
         return <StripeIntegrationSection />;
+      case 'integraciones-ia':
+        return <AISettingsSection />;
       case 'seguridad':
         return <SecuritySection />;
       default:

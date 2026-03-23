@@ -121,6 +121,16 @@ serve(async (req) => {
           updateData['whatsapp_send_method'] = credentials.sendMethod || null;
         }
         break;
+      case 'openai':
+        if (credentials.apiKey) {
+          updateData['openai_api_key_encrypted'] = await encryptSecret(credentials.apiKey);
+        }
+        break;
+      case 'gemini':
+        if (credentials.apiKey) {
+          updateData['gemini_api_key_encrypted'] = await encryptSecret(credentials.apiKey);
+        }
+        break;
       default:
         return new Response(JSON.stringify({ error: 'Invalid provider' }), {
           status: 400,

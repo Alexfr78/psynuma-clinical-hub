@@ -1025,6 +1025,11 @@ export type Database = {
           admin_alerts_events: Json | null
           admin_alerts_include_professional: boolean | null
           agenda_show_weekends: boolean | null
+          ai_prompt_layer1: string | null
+          ai_prompt_layer2: string | null
+          ai_prompt_layer3: string | null
+          ai_prompt_system: string | null
+          ai_provider: string | null
           auto_invoicing_enabled: boolean | null
           bizum_phone: string | null
           city: string | null
@@ -1037,6 +1042,8 @@ export type Database = {
           default_tax_name: string | null
           default_tax_rate: number | null
           email: string | null
+          gemini_api_key_encrypted: string | null
+          gemini_model: string | null
           id: string
           include_tax_in_price: boolean | null
           invoice_data_protection_text: string | null
@@ -1054,6 +1061,8 @@ export type Database = {
           oauth_stripe_publishable_key: string | null
           oauth_zoom_client_id: string | null
           oauth_zoom_credentials: string | null
+          openai_api_key_encrypted: string | null
+          openai_model: string | null
           payment_reminder_enabled: boolean | null
           payment_reminder_hours_after: number | null
           payment_reminder_interval_hours: number | null
@@ -1079,6 +1088,7 @@ export type Database = {
           session_reminder_hours_before: number | null
           session_reminder_timing: string | null
           tax_id: string | null
+          transcript_retention_days: number | null
           updated_at: string
           verifactu_auto_enabled: boolean | null
           verifactu_certificate_base64: string | null
@@ -1111,6 +1121,11 @@ export type Database = {
           admin_alerts_events?: Json | null
           admin_alerts_include_professional?: boolean | null
           agenda_show_weekends?: boolean | null
+          ai_prompt_layer1?: string | null
+          ai_prompt_layer2?: string | null
+          ai_prompt_layer3?: string | null
+          ai_prompt_system?: string | null
+          ai_provider?: string | null
           auto_invoicing_enabled?: boolean | null
           bizum_phone?: string | null
           city?: string | null
@@ -1123,6 +1138,8 @@ export type Database = {
           default_tax_name?: string | null
           default_tax_rate?: number | null
           email?: string | null
+          gemini_api_key_encrypted?: string | null
+          gemini_model?: string | null
           id?: string
           include_tax_in_price?: boolean | null
           invoice_data_protection_text?: string | null
@@ -1140,6 +1157,8 @@ export type Database = {
           oauth_stripe_publishable_key?: string | null
           oauth_zoom_client_id?: string | null
           oauth_zoom_credentials?: string | null
+          openai_api_key_encrypted?: string | null
+          openai_model?: string | null
           payment_reminder_enabled?: boolean | null
           payment_reminder_hours_after?: number | null
           payment_reminder_interval_hours?: number | null
@@ -1165,6 +1184,7 @@ export type Database = {
           session_reminder_hours_before?: number | null
           session_reminder_timing?: string | null
           tax_id?: string | null
+          transcript_retention_days?: number | null
           updated_at?: string
           verifactu_auto_enabled?: boolean | null
           verifactu_certificate_base64?: string | null
@@ -1197,6 +1217,11 @@ export type Database = {
           admin_alerts_events?: Json | null
           admin_alerts_include_professional?: boolean | null
           agenda_show_weekends?: boolean | null
+          ai_prompt_layer1?: string | null
+          ai_prompt_layer2?: string | null
+          ai_prompt_layer3?: string | null
+          ai_prompt_system?: string | null
+          ai_provider?: string | null
           auto_invoicing_enabled?: boolean | null
           bizum_phone?: string | null
           city?: string | null
@@ -1209,6 +1234,8 @@ export type Database = {
           default_tax_name?: string | null
           default_tax_rate?: number | null
           email?: string | null
+          gemini_api_key_encrypted?: string | null
+          gemini_model?: string | null
           id?: string
           include_tax_in_price?: boolean | null
           invoice_data_protection_text?: string | null
@@ -1226,6 +1253,8 @@ export type Database = {
           oauth_stripe_publishable_key?: string | null
           oauth_zoom_client_id?: string | null
           oauth_zoom_credentials?: string | null
+          openai_api_key_encrypted?: string | null
+          openai_model?: string | null
           payment_reminder_enabled?: boolean | null
           payment_reminder_hours_after?: number | null
           payment_reminder_interval_hours?: number | null
@@ -1251,6 +1280,7 @@ export type Database = {
           session_reminder_hours_before?: number | null
           session_reminder_timing?: string | null
           tax_id?: string | null
+          transcript_retention_days?: number | null
           updated_at?: string
           verifactu_auto_enabled?: boolean | null
           verifactu_certificate_base64?: string | null

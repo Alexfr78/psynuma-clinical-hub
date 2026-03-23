@@ -2,7 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { useProfessionalIntegrations } from "@/hooks/useProfessionalIntegrations";
 import { useCenter } from "@/hooks/useCenter";
-import { MessageSquare, Video, Calendar, CreditCard, Mail, CheckCircle2, XCircle } from "lucide-react";
+import { MessageSquare, Video, Calendar, CreditCard, Mail, Brain, CheckCircle2, XCircle } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Label } from "@/components/ui/label";
 import {
@@ -143,6 +143,14 @@ export function IntegrationsOverview() {
           description="Cobros online"
           enabled={integrations?.stripe_enabled ?? false}
           connected={isProviderConnected('stripe')}
+        />
+        
+        <IntegrationStatus
+          icon={<Brain className="h-5 w-5" />}
+          name="Inteligencia Artificial"
+          description="Análisis de transcripciones y generación de informes"
+          enabled={!!((center as any)?.openai_api_key_encrypted || (center as any)?.gemini_api_key_encrypted)}
+          connected={!!((center as any)?.openai_api_key_encrypted || (center as any)?.gemini_api_key_encrypted)}
         />
 
         {bothVideoEnabled && (

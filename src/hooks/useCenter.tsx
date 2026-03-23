@@ -105,6 +105,17 @@ export interface Center {
   wasender_emergency_stop: boolean | null;
   wasender_auto_reminders: boolean | null;
   wasender_confirmation_reply: boolean | null;
+  // AI settings
+  ai_provider: string | null;
+  openai_api_key_encrypted: string | null;
+  openai_model: string | null;
+  gemini_api_key_encrypted: string | null;
+  gemini_model: string | null;
+  ai_prompt_system: string | null;
+  ai_prompt_layer1: string | null;
+  ai_prompt_layer2: string | null;
+  ai_prompt_layer3: string | null;
+  transcript_retention_days: number | null;
   created_at: string;
   updated_at: string;
 }
