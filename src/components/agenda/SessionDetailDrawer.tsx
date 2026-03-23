@@ -2002,7 +2002,12 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                 variant="link"
                 size="sm"
                 className="h-auto p-0 text-xs"
-                onClick={() => setShowTranscriptionDialog(true)}
+                onClick={() => {
+                  onOpenChange(false);
+                  setTimeout(() => {
+                    onAnalyzeTranscription?.(session.id);
+                  }, 300);
+                }}
               >
                 <Brain className="h-3 w-3 mr-1" />
                 Analizar transcripción
