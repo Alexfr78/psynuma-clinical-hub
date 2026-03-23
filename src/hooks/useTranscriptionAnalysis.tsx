@@ -25,7 +25,7 @@ export function useTranscriptionAnalysis(options: UseTranscriptionAnalysisOption
     setCurrentLayer(layer);
 
     try {
-      const body: Record<string, unknown> = { transcription, layer };
+      const body: Record<string, unknown> = { transcription, layer, centerId };
       if (layer === 2 || layer === 3) {
         if (!baseAnalysis) {
           toast.error('Primero debes generar la extracción clínica base (Capa 1)');
