@@ -32,6 +32,8 @@ export function TranscriptionAnalysisDialog({
   sessionDate,
 }: TranscriptionAnalysisDialogProps) {
   const [transcription, setTranscription] = useState('');
+  const modalRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const {
     baseAnalysis,
     clinicalReport,
