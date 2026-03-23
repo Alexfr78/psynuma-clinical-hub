@@ -135,6 +135,7 @@ export function TranscriptionAnalysisDialog({
               Transcripción de la sesión
             </label>
             <Textarea
+              ref={textareaRef}
               id="transcription-input"
               placeholder="Pega aquí la transcripción completa de la sesión..."
               className="min-h-[160px] max-h-[250px] font-mono text-sm"
@@ -150,8 +151,8 @@ export function TranscriptionAnalysisDialog({
               }}
               onFocus={(e) => e.stopPropagation()}
               onClick={(e) => e.stopPropagation()}
+              onKeyDown={(e) => e.stopPropagation()}
               disabled={isAnalyzing}
-              autoFocus={false}
             />
             <p className="text-xs text-muted-foreground">
               {transcription.length > 0
