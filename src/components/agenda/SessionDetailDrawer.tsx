@@ -2012,12 +2012,6 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
               </Button>
             </div>
 
-            <TranscriptionAnalysisDialog
-              open={showTranscriptionDialog}
-              onOpenChange={setShowTranscriptionDialog}
-              patientName={session.patient ? `${session.patient.first_name} ${session.patient.last_name}` : undefined}
-              sessionDate={session.session_date}
-            />
           </TabsContent>
 
           <TabsContent value="evaluaciones" className="mt-0 px-4 sm:px-6 py-4">
@@ -2345,6 +2339,14 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
       open={!!selectedInvoiceId}
       onOpenChange={(open) => { if (!open) setSelectedInvoiceId(null); }}
       invoiceId={selectedInvoiceId}
+    />
+
+    {/* Transcription Analysis Dialog - outside Drawer to allow paste */}
+    <TranscriptionAnalysisDialog
+      open={showTranscriptionDialog}
+      onOpenChange={setShowTranscriptionDialog}
+      patientName={session?.patient ? `${session.patient.first_name} ${session.patient.last_name}` : undefined}
+      sessionDate={session?.session_date}
     />
     </>
   );
