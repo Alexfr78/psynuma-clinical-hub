@@ -480,6 +480,34 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
     }
   };
 
+  const handleSendAIReport = async (channel: 'whatsapp' | 'email') => {
+    if (!sessionData.ai_summary_patient || !session.center_id) return;
+    const recipient = channel === 'whatsapp' ? session.patient?.phone : session.patient?.email;
+    if (!recipient) return;
+    try {
+      const { data: notification } = await supabase
+        .from('notifications')
+        .insert({
+          center_id: session.center_id,
+          session_id: session.id,
+          patient_id: session.patient_id,
+          type: channel,
+          recipient,
+          subject: channel === 'email' ? 'Resumen de tu sesión' : undefined,
+          message: sessionData.ai_summary_patient,
+          status: 'pending',
+        })
+        .select('id')
+        .single();
+      if (notification) {
+        await supabase.functions.invoke('send-notification', { body: { notificationId: notification.id } });
+        toast({ title: `Informe enviado por ${channel === 'whatsapp' ? 'WhatsApp' : 'email'}` });
+      }
+    } catch {
+      toast({ title: 'Error al enviar el informe', variant: 'destructive' });
+    }
+  };
+
   const handleRoomSave = async (room: string) => {
     try {
       await updateSession.mutateAsync({
@@ -1852,6 +1880,86 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                 )}
               </CollapsibleContent>
             </Collapsible>
+
+            {/* AI Reports Section */}
+            {(sessionData.ai_summary_clinical || sessionData.ai_summary_patient) && (
+              <>
+                <Separator />
+                <Collapsible>
+                  <CollapsibleTrigger asChild>
+                    <Button variant="ghost" className="w-full justify-between p-0 h-auto">
+                      <span className="flex items-center gap-2 font-medium text-sm">
+                        <Brain className="h-4 w-4 text-primary" />
+                        Informes IA generados
+                      </span>
+                      <ChevronDown className="h-4 w-4 transition-transform" />
+                    </Button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="pt-3 space-y-3">
+                    {sessionData.ai_summary_clinical && (
+                      <div className="space-y-1">
+                        <p className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
+                          <FileText className="h-3 w-3" />
+                          Informe clínico
+                        </p>
+                        <div className="rounded-md bg-muted p-3 text-sm whitespace-pre-wrap max-h-48 overflow-y-auto">
+                          {sessionData.ai_summary_clinical}
+                        </div>
+                      </div>
+                    )}
+
+                    {sessionData.ai_summary_patient && (
+                      <div className="space-y-2">
+                        <p className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
+                          <User className="h-3 w-3" />
+                          Informe para el paciente
+                        </p>
+                        <div className="rounded-md bg-muted p-3 text-sm whitespace-pre-wrap max-h-48 overflow-y-auto">
+                          {sessionData.ai_summary_patient}
+                        </div>
+                        <div className="flex gap-2">
+                          {session.patient?.phone && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleSendAIReport('whatsapp')}
+                            >
+                              <Phone className="h-3 w-3 mr-1" />
+                              WhatsApp
+                            </Button>
+                          )}
+                          {session.patient?.email && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleSendAIReport('email')}
+                            >
+                              <Mail className="h-3 w-3 mr-1" />
+                              Email
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {onAnalyzeTranscription && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full"
+                        onClick={() => {
+                          onOpenChange(false);
+                          setTimeout(() => onAnalyzeTranscription(session.id), 300);
+                        }}
+                      >
+                        <RefreshCw className="h-3 w-3 mr-1" />
+                        Regenerar informes
+                      </Button>
+                    )}
+                  </CollapsibleContent>
+                </Collapsible>
+              </>
+            )}
 
             <Separator />
 
