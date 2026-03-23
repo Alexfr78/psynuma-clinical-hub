@@ -2,7 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { useProfessionalIntegrations } from "@/hooks/useProfessionalIntegrations";
 import { useCenter } from "@/hooks/useCenter";
-import { MessageSquare, Video, Calendar, CreditCard, Mail, CheckCircle2, XCircle } from "lucide-react";
+import { MessageSquare, Video, Calendar, CreditCard, Mail, Brain, CheckCircle2, XCircle } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Label } from "@/components/ui/label";
 import {
