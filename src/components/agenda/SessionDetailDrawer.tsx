@@ -1998,20 +1998,22 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                 <FileText className="h-3 w-3 mr-1" />
                 Justificante de asistencia
               </Button>
-              <Button
-                variant="link"
-                size="sm"
-                className="h-auto p-0 text-xs"
-                onClick={() => {
-                  onOpenChange(false);
-                  setTimeout(() => {
-                    onAnalyzeTranscription?.(session.id);
-                  }, 300);
-                }}
-              >
-                <Brain className="h-3 w-3 mr-1" />
-                Analizar transcripción
-              </Button>
+              {onAnalyzeTranscription && (
+                <Button
+                  variant="link"
+                  size="sm"
+                  className="h-auto p-0 text-xs"
+                  onClick={() => {
+                    onOpenChange(false);
+                    setTimeout(() => {
+                      onAnalyzeTranscription(session.id);
+                    }, 300);
+                  }}
+                >
+                  <Brain className="h-3 w-3 mr-1" />
+                  Analizar transcripción
+                </Button>
+              )}
             </div>
 
           </TabsContent>
