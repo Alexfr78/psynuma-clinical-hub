@@ -132,7 +132,8 @@ import { PatientSessionHistory } from './PatientSessionHistory';
 import { PatientAutoregistros } from '@/components/patients/tabs/PatientAutoregistros';
 import { PatientInvoices } from '@/components/patients/tabs/PatientInvoices';
 import { InvoiceDetailDialog } from '@/components/invoices/InvoiceDetailDialog';
-import { Receipt } from 'lucide-react';
+import { Receipt, Brain } from 'lucide-react';
+import { TranscriptionAnalysisDialog } from './TranscriptionAnalysisDialog';
 
 interface SessionDetailDrawerProps {
   session: SessionWithRelations | null;
@@ -243,6 +244,9 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
   // Consent dialogs state
   const [showCreateConsentDialog, setShowCreateConsentDialog] = useState(false);
   const [sendConsentDialogData, setSendConsentDialogData] = useState<Consent | null>(null);
+  
+  // Transcription analysis dialog
+  const [showTranscriptionDialog, setShowTranscriptionDialog] = useState(false);
   
   // Local state for immediate UI update
   const [localBonoId, setLocalBonoId] = useState<string | null>(null);
@@ -1997,7 +2001,23 @@ export function SessionDetailDrawer({ session, open, onOpenChange }: SessionDeta
                 <FileText className="h-3 w-3 mr-1" />
                 Justificante de asistencia
               </Button>
+              <Button
+                variant="link"
+                size="sm"
+                className="h-auto p-0 text-xs"
+                onClick={() => setShowTranscriptionDialog(true)}
+              >
+                <Brain className="h-3 w-3 mr-1" />
+                Analizar transcripción
+              </Button>
             </div>
+
+            <TranscriptionAnalysisDialog
+              open={showTranscriptionDialog}
+              onOpenChange={setShowTranscriptionDialog}
+              patientName={session.patient ? `${session.patient.first_name} ${session.patient.last_name}` : undefined}
+              sessionDate={session.session_date}
+            />
           </TabsContent>
 
           <TabsContent value="evaluaciones" className="mt-0 px-4 sm:px-6 py-4">
