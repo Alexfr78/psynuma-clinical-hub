@@ -3611,6 +3611,8 @@ export type Database = {
       sessions: {
         Row: {
           access_token: string | null
+          ai_summary_clinical: string | null
+          ai_summary_patient: string | null
           bono_id: string | null
           cancellation_policy: string | null
           cancellation_reason: string | null
@@ -3645,6 +3647,7 @@ export type Database = {
           stripe_checkout_session_id: string | null
           stripe_payment_mode: string | null
           stripe_payment_status: string | null
+          transcript_processed_at: string | null
           updated_at: string
           video_call_link: string | null
           video_provider: string | null
@@ -3653,6 +3656,8 @@ export type Database = {
         }
         Insert: {
           access_token?: string | null
+          ai_summary_clinical?: string | null
+          ai_summary_patient?: string | null
           bono_id?: string | null
           cancellation_policy?: string | null
           cancellation_reason?: string | null
@@ -3687,6 +3692,7 @@ export type Database = {
           stripe_checkout_session_id?: string | null
           stripe_payment_mode?: string | null
           stripe_payment_status?: string | null
+          transcript_processed_at?: string | null
           updated_at?: string
           video_call_link?: string | null
           video_provider?: string | null
@@ -3695,6 +3701,8 @@ export type Database = {
         }
         Update: {
           access_token?: string | null
+          ai_summary_clinical?: string | null
+          ai_summary_patient?: string | null
           bono_id?: string | null
           cancellation_policy?: string | null
           cancellation_reason?: string | null
@@ -3729,6 +3737,7 @@ export type Database = {
           stripe_checkout_session_id?: string | null
           stripe_payment_mode?: string | null
           stripe_payment_status?: string | null
+          transcript_processed_at?: string | null
           updated_at?: string
           video_call_link?: string | null
           video_provider?: string | null

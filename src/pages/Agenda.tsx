@@ -592,9 +592,11 @@ export default function Agenda() {
           setTranscriptionOpen(open);
           if (!open) setTranscriptionSessionId(null);
         }}
-        sessionId={transcriptionSessionId ?? undefined}
-        patientName={transcriptionSession?.patient ? `${transcriptionSession.patient.first_name} ${transcriptionSession.patient.last_name}` : undefined}
-        sessionDate={transcriptionSession?.session_date}
+      sessionId={transcriptionSessionId ?? undefined}
+      patientName={transcriptionSession?.patient ? `${transcriptionSession.patient.first_name} ${transcriptionSession.patient.last_name}` : undefined}
+      patientPhone={transcriptionSession?.patient?.phone ?? undefined}
+      patientEmail={transcriptionSession?.patient?.email ?? undefined}
+      sessionDate={transcriptionSession?.session_date}
       />
 
       {/* Agenda Footer with Legend, Timezone and Google Toggle */}
