@@ -580,6 +580,21 @@ export default function Agenda() {
         session={selectedSession}
         open={!!selectedSession}
         onOpenChange={(open) => !open && setSelectedSession(null)}
+        onAnalyzeTranscription={(sessionId) => {
+          setTranscriptionSessionId(sessionId);
+          setTranscriptionOpen(true);
+        }}
+      />
+
+      <TranscriptionAnalysisDialog
+        open={transcriptionOpen}
+        onOpenChange={(open) => {
+          setTranscriptionOpen(open);
+          if (!open) setTranscriptionSessionId(null);
+        }}
+        sessionId={transcriptionSessionId ?? undefined}
+        patientName={transcriptionSession?.patient ? `${transcriptionSession.patient.first_name} ${transcriptionSession.patient.last_name}` : undefined}
+        sessionDate={transcriptionSession?.session_date}
       />
 
       {/* Agenda Footer with Legend, Timezone and Google Toggle */}

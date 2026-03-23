@@ -2343,13 +2343,6 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
       invoiceId={selectedInvoiceId}
     />
 
-    {/* Transcription Analysis Dialog - outside Drawer to allow paste */}
-    <TranscriptionAnalysisDialog
-      open={showTranscriptionDialog}
-      onOpenChange={setShowTranscriptionDialog}
-      patientName={session?.patient ? `${session.patient.first_name} ${session.patient.last_name}` : undefined}
-      sessionDate={session?.session_date}
-    />
     </>
   );
 }
