@@ -100,7 +100,18 @@ export function TranscriptionAnalysisDialog({
             className="min-h-[160px] max-h-[250px] font-mono text-sm"
             value={transcription}
             onChange={(e) => setTranscription(e.target.value)}
+            onPaste={(e) => {
+              e.stopPropagation();
+              const text = e.clipboardData.getData('text/plain');
+              if (text) {
+                e.preventDefault();
+                setTranscription((prev) => prev + text);
+              }
+            }}
+            onFocus={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
             disabled={isAnalyzing}
+            autoFocus={false}
           />
           <p className="text-xs text-muted-foreground">
             {transcription.length > 0
