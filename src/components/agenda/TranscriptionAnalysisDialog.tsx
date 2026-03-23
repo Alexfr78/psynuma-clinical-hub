@@ -122,140 +122,147 @@ export function TranscriptionAnalysisDialog({
         </div>
 
         <div className="flex-1 overflow-y-auto min-h-0 px-6 py-4 space-y-4">
-          <div className="space-y-4 pb-2">
-            {!baseAnalysis && (
-              <Button
-                onClick={() => analyze(transcription, 1)}
-                disabled={isAnalyzing || transcription.trim().length < 50}
-                className="w-full"
-              >
-                {isAnalyzing && currentLayer === 1 ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Analizando transcripción...
-                  </>
-                ) : (
-                  <>
-                    <Stethoscope className="mr-2 h-4 w-4" />
-                    Paso 1: Extracción clínica base
-                  </>
-                )}
-              </Button>
-            )}
-
-            {baseAnalysis && (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="flex items-center gap-2 text-sm font-semibold">
-                    <CheckCircle2 className="h-4 w-4 text-primary" />
-                    Extracción clínica base
-                  </h3>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => downloadTxt(baseAnalysis, `${filePrefix}_base.txt`)}
-                  >
-                    <Download className="mr-1 h-3 w-3" />
-                    Descargar
-                  </Button>
-                </div>
-                <div className="max-h-[300px] overflow-y-auto rounded-lg bg-muted/50 p-4 text-sm whitespace-pre-wrap">
-                  {baseAnalysis}
-                </div>
-
-                <Separator />
-
-                <div className="grid grid-cols-2 gap-3">
-                  <Button
-                    onClick={() => analyze(transcription, 2)}
-                    disabled={isAnalyzing}
-                    variant={clinicalReport ? 'outline' : 'default'}
-                  >
-                    {isAnalyzing && currentLayer === 2 ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Generando...
-                      </>
-                    ) : (
-                      <>
-                        <Stethoscope className="mr-2 h-4 w-4" />
-                        {clinicalReport ? 'Regenerar' : 'Informe clínico'}
-                      </>
-                    )}
-                  </Button>
-
-                  <Button
-                    onClick={() => analyze(transcription, 3)}
-                    disabled={isAnalyzing}
-                    variant={patientReport ? 'outline' : 'default'}
-                  >
-                    {isAnalyzing && currentLayer === 3 ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Generando...
-                      </>
-                    ) : (
-                      <>
-                        <User className="mr-2 h-4 w-4" />
-                        {patientReport ? 'Regenerar' : 'Informe paciente'}
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {clinicalReport && (
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <h3 className="flex items-center gap-2 text-sm font-semibold">
-                    <Stethoscope className="h-4 w-4 text-primary" />
-                    Informe clínico para profesionales
-                  </h3>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => downloadTxt(clinicalReport, `${filePrefix}_informe_clinico.txt`)}
-                  >
-                    <Download className="mr-1 h-3 w-3" />
-                    Descargar .txt
-                  </Button>
-                </div>
-                <div className="max-h-[400px] overflow-y-auto rounded-lg bg-muted/50 p-4 text-sm whitespace-pre-wrap">
-                  {clinicalReport}
-                </div>
-              </div>
-            )}
-
-            {patientReport && (
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <h3 className="flex items-center gap-2 text-sm font-semibold">
-                    <User className="h-4 w-4 text-primary" />
-                    Informe de sesión para el paciente
-                  </h3>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => downloadTxt(patientReport, `${filePrefix}_informe_paciente.txt`)}
-                  >
-                    <Download className="mr-1 h-3 w-3" />
-                    Descargar .txt
-                  </Button>
-                </div>
-                <div className="max-h-[400px] overflow-y-auto rounded-lg bg-muted/50 p-4 text-sm whitespace-pre-wrap">
-                  {patientReport}
-                </div>
-              </div>
-            )}
-
-            {baseAnalysis && (
-              <Button variant="ghost" size="sm" onClick={handleReset} className="w-full">
-                <RotateCcw className="mr-2 h-3 w-3" />
-                Nuevo análisis
-              </Button>
-            )}
+          {/* Step indicators */}
+          <div className="flex items-center gap-2 text-sm">
+            <StepBadge n={1} done={!!baseAnalysis} active={currentLayer === 1} label="Extracción base" />
+            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+            <StepBadge n={2} done={!!clinicalReport} active={currentLayer === 2} label="Informe clínico" />
+            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+            <StepBadge n={3} done={!!patientReport} active={currentLayer === 3} label="Informe paciente" />
           </div>
+
+          <Separator />
+
+          {/* Textarea — siempre visible */}
+          <div className="space-y-2">
+            <label htmlFor="transcription-input" className="text-sm font-medium">
+              Transcripción de la sesión
+            </label>
+            <Textarea
+              ref={textareaRef}
+              id="transcription-input"
+              placeholder="Pega aquí la transcripción completa de la sesión..."
+              className="min-h-[160px] max-h-[250px] font-mono text-sm"
+              value={transcription}
+              onChange={(e) => setTranscription(e.target.value)}
+              onPaste={(e) => {
+                e.stopPropagation();
+                const text = e.clipboardData.getData('text/plain');
+                if (text) {
+                  e.preventDefault();
+                  setTranscription((prev) => prev + text);
+                }
+              }}
+              onFocus={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
+              onKeyDown={(e) => e.stopPropagation()}
+              disabled={isAnalyzing}
+            />
+            <p className="text-xs text-muted-foreground">
+              {transcription.length > 0
+                ? `${transcription.split(/\s+/).filter(Boolean).length} palabras`
+                : 'Pega la transcripción para comenzar el análisis'}
+            </p>
+          </div>
+
+          {/* Botón Paso 1 */}
+          {!baseAnalysis && (
+            <Button
+              onClick={() => analyze(transcription, 1)}
+              disabled={isAnalyzing || transcription.trim().length < 50}
+              className="w-full"
+            >
+              {isAnalyzing && currentLayer === 1 ? (
+                <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Analizando transcripción...</>
+              ) : (
+                <><Stethoscope className="mr-2 h-4 w-4" />Paso 1: Extracción clínica base</>
+              )}
+            </Button>
+          )}
+
+          {/* Resultado Capa 1 + botones Capa 2 y 3 */}
+          {baseAnalysis && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="flex items-center gap-2 text-sm font-semibold">
+                  <CheckCircle2 className="h-4 w-4 text-primary" />
+                  Extracción clínica base
+                </h3>
+                <Button variant="ghost" size="sm" onClick={() => downloadTxt(baseAnalysis, `${filePrefix}_base.txt`)}>
+                  <Download className="mr-1 h-3 w-3" />
+                  Descargar
+                </Button>
+              </div>
+              <div className="max-h-48 overflow-y-auto rounded-lg bg-muted/50 p-4 text-sm whitespace-pre-wrap">
+                {baseAnalysis}
+              </div>
+
+              <Separator />
+
+              <div className="grid grid-cols-2 gap-3">
+                <Button onClick={() => analyze(transcription, 2)} disabled={isAnalyzing} variant={clinicalReport ? 'outline' : 'default'}>
+                  {isAnalyzing && currentLayer === 2 ? (
+                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Generando...</>
+                  ) : (
+                    <><Stethoscope className="mr-2 h-4 w-4" />{clinicalReport ? 'Regenerar' : 'Informe clínico'}</>
+                  )}
+                </Button>
+                <Button onClick={() => analyze(transcription, 3)} disabled={isAnalyzing} variant={patientReport ? 'outline' : 'default'}>
+                  {isAnalyzing && currentLayer === 3 ? (
+                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Generando...</>
+                  ) : (
+                    <><User className="mr-2 h-4 w-4" />{patientReport ? 'Regenerar' : 'Informe paciente'}</>
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Informe clínico */}
+          {clinicalReport && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <h3 className="flex items-center gap-2 text-sm font-semibold">
+                  <Stethoscope className="h-4 w-4 text-primary" />
+                  Informe clínico para profesionales
+                </h3>
+                <Button variant="ghost" size="sm" onClick={() => downloadTxt(clinicalReport, `${filePrefix}_informe_clinico.txt`)}>
+                  <Download className="mr-1 h-3 w-3" />
+                  Descargar .txt
+                </Button>
+              </div>
+              <div className="max-h-64 overflow-y-auto rounded-lg bg-muted/50 p-4 text-sm whitespace-pre-wrap">
+                {clinicalReport}
+              </div>
+            </div>
+          )}
+
+          {/* Informe paciente */}
+          {patientReport && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <h3 className="flex items-center gap-2 text-sm font-semibold">
+                  <User className="h-4 w-4 text-primary" />
+                  Informe de sesión para el paciente
+                </h3>
+                <Button variant="ghost" size="sm" onClick={() => downloadTxt(patientReport, `${filePrefix}_informe_paciente.txt`)}>
+                  <Download className="mr-1 h-3 w-3" />
+                  Descargar .txt
+                </Button>
+              </div>
+              <div className="max-h-64 overflow-y-auto rounded-lg bg-muted/50 p-4 text-sm whitespace-pre-wrap">
+                {patientReport}
+              </div>
+            </div>
+          )}
+
+          {/* Botón nuevo análisis */}
+          {baseAnalysis && (
+            <Button variant="outline" onClick={handleReset} className="w-full">
+              <RotateCcw className="mr-2 h-3 w-3" />
+              Nuevo análisis
+            </Button>
+          )}
         </div>
       </div>
     </div>,
