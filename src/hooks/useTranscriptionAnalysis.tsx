@@ -11,6 +11,7 @@ interface UseTranscriptionAnalysisOptions {
 
 export function useTranscriptionAnalysis(options: UseTranscriptionAnalysisOptions = {}) {
   const { sessionId, patientPhone, patientEmail } = options;
+  const { centerId } = useCenter();
   const [baseAnalysis, setBaseAnalysis] = useState<string | null>(null);
   const [clinicalReport, setClinicalReport] = useState<string | null>(null);
   const [patientReport, setPatientReport] = useState<string | null>(null);
