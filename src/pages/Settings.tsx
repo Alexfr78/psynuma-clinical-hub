@@ -395,6 +395,8 @@ export default function Settings() {
         return <GoogleIntegrationSection />;
       case 'integraciones-stripe':
         return <StripeIntegrationSection />;
+      case 'integraciones-ia':
+        return <AISettingsSection />;
       case 'seguridad':
         return <SecuritySection />;
       default:
