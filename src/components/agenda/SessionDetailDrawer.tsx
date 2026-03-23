@@ -133,12 +133,12 @@ import { PatientAutoregistros } from '@/components/patients/tabs/PatientAutoregi
 import { PatientInvoices } from '@/components/patients/tabs/PatientInvoices';
 import { InvoiceDetailDialog } from '@/components/invoices/InvoiceDetailDialog';
 import { Receipt, Brain } from 'lucide-react';
-import { TranscriptionAnalysisDialog } from './TranscriptionAnalysisDialog';
 
 interface SessionDetailDrawerProps {
   session: SessionWithRelations | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onAnalyzeTranscription?: (sessionId: string) => void;
 }
 
 const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; className: string }> = {

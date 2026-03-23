@@ -10,6 +10,7 @@ import { MonthView } from '@/components/agenda/MonthView';
 import { ListView } from '@/components/agenda/ListView';
 import { QuickCreateSessionDialog } from '@/components/agenda/QuickCreateSessionDialog';
 import { SessionDetailDrawer } from '@/components/agenda/SessionDetailDrawer';
+import { TranscriptionAnalysisDialog } from '@/components/agenda/TranscriptionAnalysisDialog';
 import { MoveSessionDialog } from '@/components/agenda/MoveSessionDialog';
 import { ConflictsDialog } from '@/components/agenda/ConflictsDialog';
 import { AgendaFooter } from '@/components/agenda/AgendaFooter';
