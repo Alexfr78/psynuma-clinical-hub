@@ -82,6 +82,7 @@ export function TranscriptionAnalysisDialog({
       <div
         className="absolute inset-0 bg-background/80 backdrop-blur-sm"
         onClick={() => handleClose(false)}
+        onWheel={(e) => e.preventDefault()}
       />
 
       <div
