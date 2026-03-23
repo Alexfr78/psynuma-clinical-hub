@@ -60,6 +60,21 @@ export function TranscriptionAnalysisDialog({
     sessionDate || new Date().toISOString().split('T')[0],
   ].join('_');
 
+  useEffect(() => {
+    if (open) {
+      document.body.style.overflow = 'hidden';
+      const timer = setTimeout(() => {
+        textareaRef.current?.focus();
+      }, 50);
+      return () => {
+        clearTimeout(timer);
+        document.body.style.overflow = '';
+      };
+    } else {
+      document.body.style.overflow = '';
+    }
+  }, [open]);
+
   if (!open) return null;
 
   return createPortal(
