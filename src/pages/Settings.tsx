@@ -68,6 +68,7 @@ import { AgendaSettingsSection } from '@/components/settings/AgendaSettingsSecti
 import { AdminAlertsSettingsSection } from '@/components/settings/AdminAlertsSettingsSection';
 import { SecuritySection } from '@/components/settings/SecuritySection';
 import { ScheduleExceptionsSection } from '@/components/settings/ScheduleExceptionsSection';
+import { AISettingsSection } from '@/components/settings/integrations/AISettingsSection';
 
 const centerSchema = z.object({
   name: z.string().min(1, 'El nombre es obligatorio'),
