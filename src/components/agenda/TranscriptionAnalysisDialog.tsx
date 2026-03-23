@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -32,6 +32,8 @@ export function TranscriptionAnalysisDialog({
   sessionDate,
 }: TranscriptionAnalysisDialogProps) {
   const [transcription, setTranscription] = useState('');
+  const modalRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const {
     baseAnalysis,
     clinicalReport,
@@ -58,6 +60,21 @@ export function TranscriptionAnalysisDialog({
     sessionDate || new Date().toISOString().split('T')[0],
   ].join('_');
 
+  useEffect(() => {
+    if (open) {
+      document.body.style.overflow = 'hidden';
+      const timer = setTimeout(() => {
+        textareaRef.current?.focus();
+      }, 50);
+      return () => {
+        clearTimeout(timer);
+        document.body.style.overflow = '';
+      };
+    } else {
+      document.body.style.overflow = '';
+    }
+  }, [open]);
+
   if (!open) return null;
 
   return createPortal(
@@ -65,15 +82,20 @@ export function TranscriptionAnalysisDialog({
       <div
         className="absolute inset-0 bg-background/80 backdrop-blur-sm"
         onClick={() => handleClose(false)}
+        onWheel={(e) => e.preventDefault()}
       />
 
       <div
+        ref={modalRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-labelledby="transcription-analysis-title"
         className="relative z-10 flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-lg border bg-background shadow-lg"
         onPointerDown={(e) => e.stopPropagation()}
         onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => e.stopPropagation()}
+        onWheel={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-4 border-b px-6 py-4">
           <div className="space-y-1">
@@ -113,6 +135,7 @@ export function TranscriptionAnalysisDialog({
               Transcripción de la sesión
             </label>
             <Textarea
+              ref={textareaRef}
               id="transcription-input"
               placeholder="Pega aquí la transcripción completa de la sesión..."
               className="min-h-[160px] max-h-[250px] font-mono text-sm"
@@ -128,8 +151,8 @@ export function TranscriptionAnalysisDialog({
               }}
               onFocus={(e) => e.stopPropagation()}
               onClick={(e) => e.stopPropagation()}
+              onKeyDown={(e) => e.stopPropagation()}
               disabled={isAnalyzing}
-              autoFocus={false}
             />
             <p className="text-xs text-muted-foreground">
               {transcription.length > 0
