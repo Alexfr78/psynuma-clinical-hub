@@ -38,6 +38,34 @@ export function AISettingsSection() {
   const [promptLayer3, setPromptLayer3] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [promptsOpen, setPromptsOpen] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [verifyResult, setVerifyResult] = useState<'ok' | 'error' | null>(null);
+  const [verifyError, setVerifyError] = useState<string | null>(null);
+
+  const { centerId } = useCenter();
+
+  const handleVerifyOpenAI = async () => {
+    setIsVerifying(true);
+    setVerifyResult(null);
+    setVerifyError(null);
+    try {
+      const { data, error } = await supabase.functions.invoke('analyze-session-transcription', {
+        body: { transcription: 'Test de conexión.', layer: 1, centerId },
+      });
+      if (error) throw new Error(error.message);
+      if (data?.success) {
+        setVerifyResult('ok');
+      } else {
+        setVerifyResult('error');
+        setVerifyError(data?.error || 'Error desconocido');
+      }
+    } catch (err) {
+      setVerifyResult('error');
+      setVerifyError(err instanceof Error ? err.message : 'Error desconocido');
+    } finally {
+      setIsVerifying(false);
+    }
+  };
 
   const openaiConfigured = !!(center as any)?.openai_api_key_encrypted;
   const geminiConfigured = !!(center as any)?.gemini_api_key_encrypted;
