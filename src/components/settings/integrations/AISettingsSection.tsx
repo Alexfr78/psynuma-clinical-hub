@@ -227,6 +227,22 @@ export function AISettingsSection() {
               <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" className="underline">platform.openai.com/api-keys</a>
               {openaiConfigured && !openaiApiKey && " · Deja vacío para mantener la key actual"}
             </p>
+            <div className="flex items-center gap-2 mt-2">
+              <Button size="sm" variant="outline" onClick={handleVerifyOpenAI} disabled={isVerifying || !openaiConfigured}>
+                {isVerifying ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : null}
+                Verificar conexión
+              </Button>
+              {verifyResult === 'ok' && (
+                <span className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                  <CheckCircle2 className="h-3 w-3" /> Conexión correcta — API key funcionando
+                </span>
+              )}
+              {verifyResult === 'error' && (
+                <span className="text-xs text-destructive flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3" /> Error: {verifyError}
+                </span>
+              )}
+            </div>
           </div>
 
           <div className="space-y-2">
