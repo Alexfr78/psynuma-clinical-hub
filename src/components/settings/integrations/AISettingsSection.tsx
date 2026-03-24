@@ -22,7 +22,7 @@ import {
 } from '@/lib/defaultPrompts';
 
 export function AISettingsSection() {
-  const { center, updateCenter } = useCenter();
+  const { center, updateCenter, centerId } = useCenter();
 
   const [aiProvider, setAiProvider] = useState('openai');
   const [openaiApiKey, setOpenaiApiKey] = useState('');
@@ -41,31 +41,6 @@ export function AISettingsSection() {
   const [isVerifying, setIsVerifying] = useState(false);
   const [verifyResult, setVerifyResult] = useState<'ok' | 'error' | null>(null);
   const [verifyError, setVerifyError] = useState<string | null>(null);
-
-  const { centerId } = useCenter();
-
-  const handleVerifyOpenAI = async () => {
-    setIsVerifying(true);
-    setVerifyResult(null);
-    setVerifyError(null);
-    try {
-      const { data, error } = await supabase.functions.invoke('analyze-session-transcription', {
-        body: { transcription: 'Test de conexión.', layer: 1, centerId },
-      });
-      if (error) throw new Error(error.message);
-      if (data?.success) {
-        setVerifyResult('ok');
-      } else {
-        setVerifyResult('error');
-        setVerifyError(data?.error || 'Error desconocido');
-      }
-    } catch (err) {
-      setVerifyResult('error');
-      setVerifyError(err instanceof Error ? err.message : 'Error desconocido');
-    } finally {
-      setIsVerifying(false);
-    }
-  };
 
   const openaiConfigured = !!(center as any)?.openai_api_key_encrypted;
   const geminiConfigured = !!(center as any)?.gemini_api_key_encrypted;
@@ -102,13 +77,49 @@ export function AISettingsSection() {
     }
   }, [center]);
 
+  const handleVerifyOpenAI = async () => {
+    // Si hay key en el campo pero no guardada, guardarla primero
+    if (openaiApiKey.trim()) {
+      const { error } = await supabase.functions.invoke('save-oauth-credentials', {
+        body: { provider: 'openai', credentials: { apiKey: openaiApiKey.trim() } },
+      });
+      if (error) {
+        setVerifyResult('error');
+        setVerifyError(`No se pudo guardar la key: ${error.message}`);
+        return;
+      }
+      setOpenaiApiKey('');
+    }
+
+    setIsVerifying(true);
+    setVerifyResult(null);
+    setVerifyError(null);
+    try {
+      const { data, error } = await supabase.functions.invoke('analyze-session-transcription', {
+        body: { transcription: 'Test de conexión.', layer: 1, centerId },
+      });
+      if (error) throw new Error(error.message);
+      if (data?.success) {
+        setVerifyResult('ok');
+      } else {
+        setVerifyResult('error');
+        setVerifyError(data?.error || 'Error desconocido');
+      }
+    } catch (err) {
+      setVerifyResult('error');
+      setVerifyError(err instanceof Error ? err.message : 'Error desconocido');
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
   const handleSave = async () => {
     setIsSaving(true);
     try {
       const finalOpenaiModel = openaiModelIsCustom ? customOpenaiModel : openaiModel;
       const finalGeminiModel = geminiModelIsCustom ? customGeminiModel : geminiModel;
 
-      const centerUpdates: Record<string, unknown> = {
+      await updateCenter.mutateAsync({
         ai_provider: aiProvider,
         openai_model: finalOpenaiModel || 'gpt-4.1',
         gemini_model: finalGeminiModel || 'gemini-2.5-pro',
@@ -117,26 +128,37 @@ export function AISettingsSection() {
         ai_prompt_layer1: promptLayer1 || null,
         ai_prompt_layer2: promptLayer2 || null,
         ai_prompt_layer3: promptLayer3 || null,
-      };
-      await updateCenter.mutateAsync(centerUpdates as any);
+      } as any);
 
-      // Save API keys via edge function (encrypted)
-      if (openaiApiKey) {
-        await supabase.functions.invoke('save-oauth-credentials', {
-          body: { provider: 'openai', credentials: { apiKey: openaiApiKey } },
+      if (openaiApiKey.trim()) {
+        const { error: openaiError } = await supabase.functions.invoke('save-oauth-credentials', {
+          body: { provider: 'openai', credentials: { apiKey: openaiApiKey.trim() } },
         });
+        if (openaiError) {
+          toast.error(`Error al guardar API key de OpenAI: ${openaiError.message}`);
+          return;
+        }
         setOpenaiApiKey('');
+        toast.success('API key de OpenAI guardada correctamente');
       }
-      if (geminiApiKey) {
-        await supabase.functions.invoke('save-oauth-credentials', {
-          body: { provider: 'gemini', credentials: { apiKey: geminiApiKey } },
+
+      if (geminiApiKey.trim()) {
+        const { error: geminiError } = await supabase.functions.invoke('save-oauth-credentials', {
+          body: { provider: 'gemini', credentials: { apiKey: geminiApiKey.trim() } },
         });
+        if (geminiError) {
+          toast.error(`Error al guardar API key de Gemini: ${geminiError.message}`);
+          return;
+        }
         setGeminiApiKey('');
+        toast.success('API key de Gemini guardada correctamente');
       }
 
       toast.success('Configuración de IA guardada');
-    } catch {
-      toast.error('Error al guardar la configuración');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Error desconocido';
+      toast.error(`Error al guardar: ${message}`);
+      console.error('Error saving AI config:', err);
     } finally {
       setIsSaving(false);
     }
