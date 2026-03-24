@@ -247,10 +247,21 @@ export function AISettingsSection() {
             />
             <p className="text-xs text-muted-foreground">
               <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" className="underline">platform.openai.com/api-keys</a>
-              {openaiConfigured && !openaiApiKey && " · Deja vacío para mantener la key actual"}
             </p>
+            {openaiConfigured && !openaiApiKey && (
+              <div className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400 mt-1">
+                <CheckCircle2 className="h-3 w-3" />
+                API key configurada y guardada. Deja vacío para mantener la actual.
+              </div>
+            )}
+            {!openaiConfigured && !openaiApiKey && (
+              <div className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400 mt-1">
+                <AlertCircle className="h-3 w-3" />
+                API key no configurada. Introduce tu key y guarda.
+              </div>
+            )}
             <div className="flex items-center gap-2 mt-2">
-              <Button size="sm" variant="outline" onClick={handleVerifyOpenAI} disabled={isVerifying || !openaiConfigured}>
+              <Button size="sm" variant="outline" onClick={handleVerifyOpenAI} disabled={isVerifying || (!openaiConfigured && !openaiApiKey)}>
                 {isVerifying ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : null}
                 Verificar conexión
               </Button>
