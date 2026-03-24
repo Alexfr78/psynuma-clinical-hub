@@ -9,7 +9,7 @@ import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Brain, Check, ChevronDown, Info, Loader2, Save, RotateCcw } from 'lucide-react';
+import { AlertCircle, Brain, Check, CheckCircle2, ChevronDown, Info, Loader2, Save, RotateCcw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useCenter } from '@/hooks/useCenter';
 import { supabase } from '@/integrations/supabase/client';
