@@ -9,7 +9,7 @@ import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Brain, Check, ChevronDown, Info, Loader2, Save, RotateCcw } from 'lucide-react';
+import { AlertCircle, Brain, Check, CheckCircle2, ChevronDown, Info, Loader2, Save, RotateCcw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useCenter } from '@/hooks/useCenter';
 import { supabase } from '@/integrations/supabase/client';
@@ -38,6 +38,34 @@ export function AISettingsSection() {
   const [promptLayer3, setPromptLayer3] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [promptsOpen, setPromptsOpen] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [verifyResult, setVerifyResult] = useState<'ok' | 'error' | null>(null);
+  const [verifyError, setVerifyError] = useState<string | null>(null);
+
+  const { centerId } = useCenter();
+
+  const handleVerifyOpenAI = async () => {
+    setIsVerifying(true);
+    setVerifyResult(null);
+    setVerifyError(null);
+    try {
+      const { data, error } = await supabase.functions.invoke('analyze-session-transcription', {
+        body: { transcription: 'Test de conexión.', layer: 1, centerId },
+      });
+      if (error) throw new Error(error.message);
+      if (data?.success) {
+        setVerifyResult('ok');
+      } else {
+        setVerifyResult('error');
+        setVerifyError(data?.error || 'Error desconocido');
+      }
+    } catch (err) {
+      setVerifyResult('error');
+      setVerifyError(err instanceof Error ? err.message : 'Error desconocido');
+    } finally {
+      setIsVerifying(false);
+    }
+  };
 
   const openaiConfigured = !!(center as any)?.openai_api_key_encrypted;
   const geminiConfigured = !!(center as any)?.gemini_api_key_encrypted;
@@ -199,6 +227,22 @@ export function AISettingsSection() {
               <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" className="underline">platform.openai.com/api-keys</a>
               {openaiConfigured && !openaiApiKey && " · Deja vacío para mantener la key actual"}
             </p>
+            <div className="flex items-center gap-2 mt-2">
+              <Button size="sm" variant="outline" onClick={handleVerifyOpenAI} disabled={isVerifying || !openaiConfigured}>
+                {isVerifying ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : null}
+                Verificar conexión
+              </Button>
+              {verifyResult === 'ok' && (
+                <span className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                  <CheckCircle2 className="h-3 w-3" /> Conexión correcta — API key funcionando
+                </span>
+              )}
+              {verifyResult === 'error' && (
+                <span className="text-xs text-destructive flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3" /> Error: {verifyError}
+                </span>
+              )}
+            </div>
           </div>
 
           <div className="space-y-2">
