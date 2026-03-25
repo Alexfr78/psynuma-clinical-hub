@@ -120,7 +120,7 @@ export function useTranscriptionAnalysis(options: UseTranscriptionAnalysisOption
   };
 
   const sendPatientReport = async (channel: 'whatsapp' | 'email') => {
-    if (!sessionId || !patientReport) return;
+    if (!sessionId || !patientReport || !centerId) return;
 
     const recipient = channel === 'whatsapp' ? patientPhone : patientEmail;
     if (!recipient) {
@@ -134,14 +134,32 @@ export function useTranscriptionAnalysis(options: UseTranscriptionAnalysisOption
 
     setIsSending(true);
     try {
-      await supabase.functions.invoke('send-notification', {
-        body: {
-          sessionId,
-          channel,
+      // First create a notification record, then invoke send-notification with notificationId
+      const { data: session } = await supabase
+        .from('sessions')
+        .select('patient_id')
+        .eq('id', sessionId)
+        .single();
+
+      const { data: notification, error: insertError } = await supabase
+        .from('notifications')
+        .insert({
+          center_id: centerId,
+          session_id: sessionId,
+          patient_id: session?.patient_id,
+          type: channel,
           recipient,
           subject: channel === 'email' ? 'Resumen de tu sesión' : undefined,
           message: patientReport,
-        },
+          status: 'pending' as const,
+        })
+        .select('id')
+        .single();
+
+      if (insertError || !notification) throw insertError || new Error('No se pudo crear la notificación');
+
+      await supabase.functions.invoke('send-notification', {
+        body: { notificationId: notification.id },
       });
       toast.success(`Informe enviado por ${channel === 'whatsapp' ? 'WhatsApp' : 'email'}`);
     } catch {
