@@ -92,7 +92,20 @@ export function TranscriptionAnalysisDialog({
     setEditedClinical('');
     setEditedPatient('');
     setAudioFileName(null);
+    setGenerateClinical(true);
+    setGeneratePatient(true);
     reset();
+  };
+
+  const handleFullAnalysis = async (text: string) => {
+    const base = await analyze(text, 1);
+    if (!base) return;
+    if (generateClinical) {
+      await analyze(text, 2, base);
+    }
+    if (generatePatient) {
+      await analyze(text, 3, base);
+    }
   };
 
   const handleClose = (val: boolean) => {
