@@ -266,7 +266,7 @@ export function TranscriptionAnalysisDialog({
                   <div className="flex flex-col items-center gap-2 text-center">
                     <Upload className="h-8 w-8 text-muted-foreground" />
                     <p className="text-sm font-medium">Arrastra el audio aquí o haz clic para seleccionar</p>
-                    <p className="text-xs text-muted-foreground">MP3, M4A, WAV, MP4, OGG · Máximo 25MB</p>
+                    <p className="text-xs text-muted-foreground">MP3, M4A, WAV, MP4, OGG · Hasta 200MB · archivos grandes se dividen automáticamente</p>
                     <p className="text-xs text-muted-foreground">~0.006$/min · Una sesión de 1h ≈ 0.36$</p>
                   </div>
                 )}
