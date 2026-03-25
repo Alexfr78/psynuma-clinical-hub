@@ -231,7 +231,7 @@ serve(async (req) => {
               { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
             );
           }
-          apiKey = (await decryptSecret(center.gemini_api_key_encrypted)).trim();
+          apiKey = (await decryptSecret(center.gemini_api_key_encrypted)).replace(/[^\x20-\x7E]/g, '').trim();
         } else {
           model = center.openai_model || 'gpt-4.1';
           if (!center.openai_api_key_encrypted) {
@@ -240,7 +240,7 @@ serve(async (req) => {
               { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
             );
           }
-          apiKey = (await decryptSecret(center.openai_api_key_encrypted)).trim();
+          apiKey = (await decryptSecret(center.openai_api_key_encrypted)).replace(/[^\x20-\x7E]/g, '').trim();
         }
 
         // Use custom prompts if provided
