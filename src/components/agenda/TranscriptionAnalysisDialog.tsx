@@ -54,6 +54,8 @@ export function TranscriptionAnalysisDialog({
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [audioFileName, setAudioFileName] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [generateClinical, setGenerateClinical] = useState(true);
+  const [generatePatient, setGeneratePatient] = useState(true);
   const modalRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
