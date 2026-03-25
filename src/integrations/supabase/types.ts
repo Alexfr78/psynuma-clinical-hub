@@ -1524,9 +1524,11 @@ export type Database = {
           revoked_at: string | null
           signed_at: string | null
           signed_pdf_url: string | null
+          source: string | null
           status: Database["public"]["Enums"]["consent_status"] | null
           template_id: string
           updated_at: string | null
+          uploaded_file_url: string | null
           verification_responses: Json | null
         }
         Insert: {
@@ -1543,9 +1545,11 @@ export type Database = {
           revoked_at?: string | null
           signed_at?: string | null
           signed_pdf_url?: string | null
+          source?: string | null
           status?: Database["public"]["Enums"]["consent_status"] | null
           template_id: string
           updated_at?: string | null
+          uploaded_file_url?: string | null
           verification_responses?: Json | null
         }
         Update: {
@@ -1562,9 +1566,11 @@ export type Database = {
           revoked_at?: string | null
           signed_at?: string | null
           signed_pdf_url?: string | null
+          source?: string | null
           status?: Database["public"]["Enums"]["consent_status"] | null
           template_id?: string
           updated_at?: string | null
+          uploaded_file_url?: string | null
           verification_responses?: Json | null
         }
         Relationships: [
