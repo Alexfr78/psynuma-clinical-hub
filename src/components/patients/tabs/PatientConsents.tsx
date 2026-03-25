@@ -1,10 +1,12 @@
 import { useState } from 'react';
-import { Plus, FileText, Loader2 } from 'lucide-react';
+import { Plus, FileText, Loader2, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useConsents } from '@/hooks/useConsents';
+import { useAuth } from '@/hooks/useAuth';
 import { ConsentCard } from '@/components/consents/ConsentCard';
 import { CreateConsentDialog } from '@/components/consents/CreateConsentDialog';
 import { SendConsentDialog } from '@/components/consents/SendConsentDialog';
+import { UploadConsentDialog } from '@/components/consents/UploadConsentDialog';
 import { Patient } from '@/hooks/usePatients';
 
 interface PatientConsentsProps {
@@ -14,11 +16,12 @@ interface PatientConsentsProps {
 
 export function PatientConsents({ patientId, patient }: PatientConsentsProps) {
   const { consents, isLoading } = useConsents(patientId);
+  const { profile } = useAuth();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [uploadOpen, setUploadOpen] = useState(false);
   const [sendDialogConsent, setSendDialogConsent] = useState<typeof consents[0] | null>(null);
 
   const handleConsentCreated = (consentId: string) => {
-    // Find the newly created consent and open send dialog
     const newConsent = consents.find((c) => c.id === consentId);
     if (newConsent) {
       setSendDialogConsent(newConsent);
@@ -39,10 +42,16 @@ export function PatientConsents({ patientId, patient }: PatientConsentsProps) {
         <h2 className="font-display text-lg font-semibold">
           Consentimientos informados
         </h2>
-        <Button size="sm" className="w-full sm:w-auto" onClick={() => setCreateDialogOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Nuevo
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" className="w-full sm:w-auto" onClick={() => setUploadOpen(true)}>
+            <Upload className="mr-2 h-4 w-4" />
+            Subir firmado
+          </Button>
+          <Button size="sm" className="w-full sm:w-auto" onClick={() => setCreateDialogOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Nuevo
+          </Button>
+        </div>
       </div>
 
       {consents.length === 0 ? (
@@ -73,6 +82,17 @@ export function PatientConsents({ patientId, patient }: PatientConsentsProps) {
         patient={patient}
         onSuccess={handleConsentCreated}
       />
+
+      {profile?.center_id && profile?.id && (
+        <UploadConsentDialog
+          open={uploadOpen}
+          onOpenChange={setUploadOpen}
+          patientId={patientId}
+          centerId={profile.center_id}
+          professionalId={profile.id}
+          onSuccess={() => {}}
+        />
+      )}
 
       {sendDialogConsent && (
         <SendConsentDialog
