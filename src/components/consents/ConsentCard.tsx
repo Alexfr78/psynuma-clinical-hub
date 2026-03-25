@@ -36,7 +36,26 @@ export function ConsentCard({ consent }: ConsentCardProps) {
   const [sendOpen, setSendOpen] = useState(false);
   const [generatingPdf, setGeneratingPdf] = useState(false);
 
+  const isUploaded = (consent as any).source === 'uploaded';
+
+  const handleViewUploadedFile = async () => {
+    const filePath = (consent as any).uploaded_file_url;
+    if (!filePath) return;
+    const { data, error } = await supabase.storage
+      .from('consent-documents')
+      .createSignedUrl(filePath, 3600);
+    if (error || !data?.signedUrl) {
+      toast.error('Error al obtener el documento');
+      return;
+    }
+    window.open(data.signedUrl, '_blank');
+  };
+
   const handleDownloadPdf = async () => {
+    if (isUploaded) {
+      await handleViewUploadedFile();
+      return;
+    }
     if (consent.signed_pdf_url) {
       window.open(consent.signed_pdf_url, '_blank');
       return;
