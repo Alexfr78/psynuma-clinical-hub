@@ -7,7 +7,8 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25MB Whisper limit
+const MAX_CHUNK_SIZE = 24 * 1024 * 1024; // 24MB per chunk
+const MAX_FILE_SIZE = 200 * 1024 * 1024; // 200MB total max
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -32,7 +33,7 @@ Deno.serve(async (req) => {
     if (audioFile.size > MAX_FILE_SIZE) {
       return new Response(
         JSON.stringify({
-          error: `El archivo supera el límite de 25MB (${(audioFile.size / 1024 / 1024).toFixed(1)}MB). Por favor comprime el audio antes de subirlo.`,
+          error: `El archivo supera el límite de 200MB (${(audioFile.size / 1024 / 1024).toFixed(1)}MB).`,
         }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
@@ -58,7 +59,7 @@ Deno.serve(async (req) => {
     if (center?.ai_provider === "gemini") {
       return new Response(
         JSON.stringify({
-          error: "La transcripción de audio con Whisper solo está disponible con OpenAI. Cambia el proveedor activo en Ajustes → Inteligencia Artificial.",
+          error: "La transcripción de audio con Whisper solo está disponible con OpenAI.",
         }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
@@ -72,33 +73,63 @@ Deno.serve(async (req) => {
     }
 
     const openaiKey = await decryptSecret(center.openai_api_key_encrypted);
+    const fileExtension = fileName.substring(fileName.lastIndexOf("."));
+    const mimeType = audioFile.type || "audio/mpeg";
 
-    const whisperFormData = new FormData();
-    whisperFormData.append("file", audioFile);
-    whisperFormData.append("model", "whisper-1");
-    whisperFormData.append("language", "es");
-    whisperFormData.append("response_format", "text");
-
-    console.log(`[transcribe] Enviando a Whisper: ${audioFile.name} (${(audioFile.size / 1024 / 1024).toFixed(1)}MB)`);
-
-    const whisperResponse = await fetch("https://api.openai.com/v1/audio/transcriptions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${openaiKey}` },
-      body: whisperFormData,
-    });
-
-    if (!whisperResponse.ok) {
-      const errorData = await whisperResponse.json();
-      console.error("[transcribe] Whisper error:", errorData);
-      return new Response(
-        JSON.stringify({ error: errorData.error?.message || "Error al transcribir el audio" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    const transcribeChunk = async (chunk: Blob, index: number, total: number): Promise<string> => {
+      const chunkFile = new File(
+        [chunk],
+        `chunk_${index + 1}${fileExtension}`,
+        { type: mimeType },
       );
+
+      const whisperFormData = new FormData();
+      whisperFormData.append("file", chunkFile);
+      whisperFormData.append("model", "whisper-1");
+      whisperFormData.append("language", "es");
+      whisperFormData.append("response_format", "text");
+
+      console.log(`[transcribe] Fragmento ${index + 1}/${total} (${(chunk.size / 1024 / 1024).toFixed(1)}MB)`);
+
+      const response = await fetch("https://api.openai.com/v1/audio/transcriptions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${openaiKey}` },
+        body: whisperFormData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error?.message || `Error Whisper en fragmento ${index + 1}: ${response.status}`);
+      }
+
+      return await response.text();
+    };
+
+    let transcription: string;
+
+    if (audioFile.size <= MAX_CHUNK_SIZE) {
+      console.log(`[transcribe] Archivo único: ${audioFile.name} (${(audioFile.size / 1024 / 1024).toFixed(1)}MB)`);
+      transcription = await transcribeChunk(audioFile, 0, 1);
+    } else {
+      const arrayBuffer = await audioFile.arrayBuffer();
+      const totalChunks = Math.ceil(arrayBuffer.byteLength / MAX_CHUNK_SIZE);
+
+      console.log(`[transcribe] Archivo grande (${(arrayBuffer.byteLength / 1024 / 1024).toFixed(1)}MB) → ${totalChunks} fragmentos`);
+
+      const transcriptions: string[] = [];
+
+      for (let i = 0; i < totalChunks; i++) {
+        const start = i * MAX_CHUNK_SIZE;
+        const end = Math.min(start + MAX_CHUNK_SIZE, arrayBuffer.byteLength);
+        const chunk = new Blob([arrayBuffer.slice(start, end)], { type: mimeType });
+        const chunkText = await transcribeChunk(chunk, i, totalChunks);
+        transcriptions.push(chunkText.trim());
+      }
+
+      transcription = transcriptions.join(" ");
     }
 
-    const transcription = await whisperResponse.text();
     const wordCount = transcription.split(/\s+/).filter(Boolean).length;
-
     console.log(`[transcribe] Completado: ${wordCount} palabras`);
 
     return new Response(
