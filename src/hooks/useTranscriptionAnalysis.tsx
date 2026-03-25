@@ -20,18 +20,23 @@ export function useTranscriptionAnalysis(options: UseTranscriptionAnalysisOption
   const [isSending, setIsSending] = useState(false);
   const [currentLayer, setCurrentLayer] = useState<number | null>(null);
 
-  const analyze = async (transcription: string, layer: 1 | 2 | 3) => {
+  const analyze = async (
+    transcription: string,
+    layer: 1 | 2 | 3,
+    baseOverride?: string,
+  ): Promise<string | null> => {
     setIsAnalyzing(true);
     setCurrentLayer(layer);
 
     try {
       const body: Record<string, unknown> = { transcription, layer, centerId };
       if (layer === 2 || layer === 3) {
-        if (!baseAnalysis) {
+        const base = baseOverride || baseAnalysis;
+        if (!base) {
           toast.error('Primero debes generar la extracción clínica base (Capa 1)');
-          return;
+          return null;
         }
-        body.baseAnalysis = baseAnalysis;
+        body.baseAnalysis = base;
       }
 
       const { data, error } = await supabase.functions.invoke('analyze-session-transcription', { body });
@@ -67,10 +72,13 @@ export function useTranscriptionAnalysis(options: UseTranscriptionAnalysisOption
             .eq('id', sessionId);
         }
       }
+
+      return content;
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Error al analizar la transcripción';
       toast.error(message);
       console.error('Transcription analysis error:', err);
+      return null;
     } finally {
       setIsAnalyzing(false);
       setCurrentLayer(null);
