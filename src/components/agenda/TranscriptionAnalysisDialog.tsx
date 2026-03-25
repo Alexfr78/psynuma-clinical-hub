@@ -20,7 +20,9 @@ import {
   Mic,
   AlertCircle,
   Upload,
+  Brain,
 } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useTranscriptionAnalysis } from '@/hooks/useTranscriptionAnalysis';
 import { useCenter } from '@/hooks/useCenter';
 import { supabase } from '@/integrations/supabase/client';
