@@ -167,6 +167,12 @@ export function ConsentCard({ consent }: ConsentCardProps) {
             >
               {displayStatus.label}
             </Badge>
+            {isUploaded && (
+              <Badge variant="outline" className="gap-1">
+                <Upload className="h-3 w-3" />
+                Subido
+              </Badge>
+            )}
             {consent.requires_guardian && (
               <Badge variant="outline">Multi-firma</Badge>
             )}
