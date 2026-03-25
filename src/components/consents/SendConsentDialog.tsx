@@ -1,18 +1,18 @@
-import { useState } from 'react';
+import { useState } from "react";
 import {
   ResponsiveDialog as Dialog,
   ResponsiveDialogContent as DialogContent,
   ResponsiveDialogHeader as DialogHeader,
   ResponsiveDialogTitle as DialogTitle,
-} from '@/components/ui/responsive-dialog';
-import { Button } from '@/components/ui/button';
-import { Consent } from '@/hooks/useConsents';
-import { Copy, MessageCircle, Check, Send, Loader2 } from 'lucide-react';
-import { toast } from 'sonner';
-import { useWhatsAppDelivery } from '@/hooks/useWhatsAppDelivery';
-import { useCenter } from '@/hooks/useCenter';
-import { WhatsAppLinkDialog } from '@/components/agenda/WhatsAppLinkDialog';
-import { Badge } from '@/components/ui/badge';
+} from "@/components/ui/responsive-dialog";
+import { Button } from "@/components/ui/button";
+import { Consent } from "@/hooks/useConsents";
+import { Copy, MessageCircle, Check, Send, Loader2 } from "lucide-react";
+import { toast } from "sonner";
+import { useWhatsAppDelivery } from "@/hooks/useWhatsAppDelivery";
+import { useCenter } from "@/hooks/useCenter";
+import { WhatsAppLinkDialog } from "@/components/agenda/WhatsAppLinkDialog";
+import { Badge } from "@/components/ui/badge";
 
 interface SendConsentDialogProps {
   consent: Consent;
@@ -21,26 +21,19 @@ interface SendConsentDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-export function SendConsentDialog({
-  consent,
-  patientPhone,
-  open,
-  onOpenChange,
-}: SendConsentDialogProps) {
+export function SendConsentDialog({ consent, patientPhone, open, onOpenChange }: SendConsentDialogProps) {
   const [copied, setCopied] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [whatsAppDialogOpen, setWhatsAppDialogOpen] = useState(false);
-  const [manualLink, setManualLink] = useState('');
-  
+  const [manualLink, setManualLink] = useState("");
+
   const { sendWhatsApp, deliveryMethod, isAutomatic, methodLabel } = useWhatsAppDelivery();
   const { center } = useCenter();
 
   const consentUrl = `${window.location.origin}/consentimiento/${consent.access_token}`;
-  const patientName = consent.patient
-    ? `${consent.patient.first_name}`
-    : '';
+  const patientName = consent.patient ? `${consent.patient.first_name}` : "";
 
-  const message = `Buenos días${patientName ? ` ${patientName}` : ''}, tal y como te comenté, te adjunto el acuerdo de consentimiento para la protección de datos. Al final de lectura verás que hay tres campos, es necesario que al menos a los dos primeros me des consentimiento.
+  const message = `Buenos días${patientName ? ` ${patientName}` : ""}, tal y como te comenté, te adjunto el acuerdo de consentimiento para la protección de datos. Al final de la lectura encontrás los campos para Autorizar o No el consentimiento.
 
 ${consentUrl}
 
@@ -49,19 +42,19 @@ Si tienes cualquier consulta, no dudes en avisarme.`;
   const handleCopyLink = () => {
     navigator.clipboard.writeText(consentUrl);
     setCopied(true);
-    toast.success('Enlace copiado');
+    toast.success("Enlace copiado");
     setTimeout(() => setCopied(false), 2000);
   };
 
   const handleCopyMessage = () => {
     navigator.clipboard.writeText(message);
-    toast.success('Mensaje copiado');
+    toast.success("Mensaje copiado");
   };
 
   const handleSendWhatsApp = async () => {
     if (!patientPhone) {
-      toast.error('Sin teléfono', {
-        description: 'El paciente no tiene número de teléfono registrado.',
+      toast.error("Sin teléfono", {
+        description: "El paciente no tiene número de teléfono registrado.",
       });
       return;
     }
@@ -74,9 +67,9 @@ Si tienes cualquier consulta, no dudes en avisarme.`;
         phone: patientPhone,
         message,
         patientId: consent.patient_id,
-        patientName: patientName || 'Contacto',
+        patientName: patientName || "Contacto",
         centerId: center.id,
-        messageType: 'consent',
+        messageType: "consent",
       });
 
       if (result.manualLink) {
@@ -109,11 +102,7 @@ Si tienes cualquier consulta, no dudes en avisarme.`;
                   {consentUrl}
                 </code>
                 <Button size="icon" variant="outline" className="shrink-0" onClick={handleCopyLink}>
-                  {copied ? (
-                    <Check className="h-4 w-4 text-green-500" />
-                  ) : (
-                    <Copy className="h-4 w-4" />
-                  )}
+                  {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
                 </Button>
               </div>
             </div>
@@ -126,7 +115,7 @@ Si tienes cualquier consulta, no dudes en avisarme.`;
                   {methodLabel}
                 </Badge>
               </div>
-              
+
               {patientPhone ? (
                 <Button
                   variant="outline"
@@ -139,15 +128,8 @@ Si tienes cualquier consulta, no dudes en avisarme.`;
                   ) : (
                     <MessageCircle className="h-4 w-4 text-green-500" />
                   )}
-                  {isSending 
-                    ? 'Enviando...' 
-                    : isAutomatic 
-                      ? 'Enviar WhatsApp automático'
-                      : 'Abrir WhatsApp'
-                  }
-                  {isAutomatic && !isSending && (
-                    <Send className="h-3 w-3 ml-auto opacity-50" />
-                  )}
+                  {isSending ? "Enviando..." : isAutomatic ? "Enviar WhatsApp automático" : "Abrir WhatsApp"}
+                  {isAutomatic && !isSending && <Send className="h-3 w-3 ml-auto opacity-50" />}
                 </Button>
               ) : (
                 <p className="text-sm text-muted-foreground p-3 bg-muted rounded-lg">
@@ -158,11 +140,7 @@ Si tienes cualquier consulta, no dudes en avisarme.`;
 
             {/* Copy Message */}
             <div className="space-y-2">
-              <Button
-                variant="outline"
-                className="w-full justify-start gap-3"
-                onClick={handleCopyMessage}
-              >
+              <Button variant="outline" className="w-full justify-start gap-3" onClick={handleCopyMessage}>
                 <Copy className="h-4 w-4" />
                 Copiar mensaje completo
               </Button>
@@ -189,9 +167,9 @@ Si tienes cualquier consulta, no dudes en avisarme.`;
       <WhatsAppLinkDialog
         open={whatsAppDialogOpen}
         onOpenChange={setWhatsAppDialogOpen}
-        phone={patientPhone || ''}
+        phone={patientPhone || ""}
         message={message}
-        patientName={patientName || 'Contacto'}
+        patientName={patientName || "Contacto"}
       />
     </>
   );
