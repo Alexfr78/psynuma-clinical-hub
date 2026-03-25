@@ -240,7 +240,7 @@ serve(async (req) => {
               { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
             );
           }
-          apiKey = await decryptSecret(center.openai_api_key_encrypted);
+          apiKey = (await decryptSecret(center.openai_api_key_encrypted)).trim();
         }
 
         // Use custom prompts if provided

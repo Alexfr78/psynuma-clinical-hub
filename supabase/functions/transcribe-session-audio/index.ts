@@ -72,7 +72,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const openaiKey = await decryptSecret(center.openai_api_key_encrypted);
+    const openaiKey = (await decryptSecret(center.openai_api_key_encrypted)).trim();
     const fileExtension = fileName.substring(fileName.lastIndexOf("."));
     const mimeType = audioFile.type || "audio/mpeg";
 
