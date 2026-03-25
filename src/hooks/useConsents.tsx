@@ -20,6 +20,8 @@ export interface Consent {
   revoked_at: string | null;
   revocation_reason: string | null;
   signed_pdf_url: string | null;
+  uploaded_file_url: string | null;
+  source: 'digital' | 'uploaded' | null;
   created_at: string;
   updated_at: string;
   template?: {
