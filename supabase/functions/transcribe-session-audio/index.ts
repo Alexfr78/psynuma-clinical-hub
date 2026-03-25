@@ -72,7 +72,17 @@ Deno.serve(async (req) => {
       );
     }
 
-    const openaiKey = (await decryptSecret(center.openai_api_key_encrypted)).trim();
+    const rawKey = await decryptSecret(center.openai_api_key_encrypted);
+    // Sanitize: keep only printable ASCII characters
+    const openaiKey = rawKey.replace(/[^\x20-\x7E]/g, '').trim();
+    
+    if (!openaiKey || !openaiKey.startsWith('sk-')) {
+      console.error(`[transcribe] Invalid key after decrypt: length=${rawKey.length}, printable=${openaiKey.length}, starts=${openaiKey.substring(0, 5)}`);
+      return new Response(
+        JSON.stringify({ error: "La API key de OpenAI almacenada parece corrupta. Ve a Ajustes → Inteligencia Artificial y vuelve a guardarla." }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
     const fileExtension = fileName.substring(fileName.lastIndexOf("."));
     const mimeType = audioFile.type || "audio/mpeg";
 
