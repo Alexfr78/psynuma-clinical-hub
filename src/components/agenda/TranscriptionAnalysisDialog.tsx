@@ -62,6 +62,8 @@ export function TranscriptionAnalysisDialog({
 
   const { centerId, center } = useCenter();
   const isOpenAI = (center as any)?.ai_provider !== 'gemini';
+  const analysisMode = (center as any)?.ai_analysis_mode || 'layered';
+  const isSingleMode = analysisMode === 'single';
 
   const {
     baseAnalysis,
@@ -98,13 +100,19 @@ export function TranscriptionAnalysisDialog({
   };
 
   const handleFullAnalysis = async (text: string) => {
-    const base = await analyze(text, 1);
-    if (!base) return;
-    if (generateClinical) {
-      await analyze(text, 2, base);
-    }
-    if (generatePatient) {
-      await analyze(text, 3, base);
+    if (isSingleMode) {
+      // Single mode: one call generates both reports
+      await analyze(text, 1);
+    } else {
+      // Layered mode: 3 sequential calls
+      const base = await analyze(text, 1);
+      if (!base) return;
+      if (generateClinical) {
+        await analyze(text, 2, base);
+      }
+      if (generatePatient) {
+        await analyze(text, 3, base);
+      }
     }
   };
 
