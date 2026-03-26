@@ -16,6 +16,7 @@ import { useProfessionals } from '@/hooks/usePatients';
 import { SessionCard } from '@/components/agenda/SessionCard';
 import { CreateSessionDialog } from '@/components/agenda/CreateSessionDialog';
 import { SessionDetailDialog } from '@/components/agenda/SessionDetailDialog';
+import { TranscriptionAnalysisDialog } from '@/components/agenda/TranscriptionAnalysisDialog';
 
 export default function Sessions() {
   const [search, setSearch] = useState('');
@@ -23,6 +24,8 @@ export default function Sessions() {
   const [professionalFilter, setProfessionalFilter] = useState('all');
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [selectedSession, setSelectedSession] = useState<SessionWithRelations | null>(null);
+  const [transcriptionSessionId, setTranscriptionSessionId] = useState<string | null>(null);
+  const [transcriptionOpen, setTranscriptionOpen] = useState(false);
 
   const { data: professionals } = useProfessionals();
   const { data: sessions, isLoading } = useSessions(undefined, undefined, professionalFilter);
@@ -161,7 +164,30 @@ export default function Sessions() {
         session={selectedSession}
         open={!!selectedSession}
         onOpenChange={(open) => !open && setSelectedSession(null)}
+        onAnalyzeTranscription={(id) => {
+          setTranscriptionSessionId(id);
+          setTimeout(() => setTranscriptionOpen(true), 300);
+        }}
       />
+
+      {transcriptionSessionId && (() => {
+        const s = sessions?.find(s => s.id === transcriptionSessionId);
+        const pName = s?.patient ? `${s.patient.first_name} ${s.patient.last_name}` : undefined;
+        return (
+          <TranscriptionAnalysisDialog
+            open={transcriptionOpen}
+            onOpenChange={(open) => {
+              setTranscriptionOpen(open);
+              if (!open) setTranscriptionSessionId(null);
+            }}
+            sessionId={transcriptionSessionId}
+            patientName={pName}
+            patientPhone={s?.patient?.phone}
+            patientEmail={s?.patient?.email}
+            sessionDate={s?.session_date}
+          />
+        );
+      })()}
     </div>
   );
 }

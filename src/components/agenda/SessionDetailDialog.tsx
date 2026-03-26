@@ -10,7 +10,8 @@ import {
   X,
   Check,
   XCircle,
-  Loader2
+  Loader2,
+  Brain,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -35,6 +36,7 @@ interface SessionDetailDialogProps {
   session: SessionWithRelations | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onAnalyzeTranscription?: (sessionId: string) => void;
 }
 
 const statusConfig = {
@@ -46,7 +48,7 @@ const statusConfig = {
   blocked: { label: 'Bloqueado', variant: 'outline' as const, color: 'bg-purple-500' },
 };
 
-export function SessionDetailDialog({ session, open, onOpenChange }: SessionDetailDialogProps) {
+export function SessionDetailDialog({ session, open, onOpenChange, onAnalyzeTranscription }: SessionDetailDialogProps) {
   const navigate = useNavigate();
   const { toast } = useToast();
   const updateSession = useUpdateSession();
@@ -224,6 +226,23 @@ export function SessionDetailDialog({ session, open, onOpenChange }: SessionDeta
                 </Button>
               ))}
             </div>
+          )}
+
+          {/* Analyze Transcription */}
+          {onAnalyzeTranscription && (
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => {
+                onOpenChange(false);
+                setTimeout(() => onAnalyzeTranscription(session.id), 300);
+              }}
+            >
+              <Brain className="mr-2 h-4 w-4" />
+              {(session as any).ai_summary_clinical || (session as any).ai_summary_patient
+                ? 'Ver / Regenerar informes'
+                : 'Analizar transcripción'}
+            </Button>
           )}
         </div>
       </DialogContent>
