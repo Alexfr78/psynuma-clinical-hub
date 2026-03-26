@@ -221,6 +221,7 @@ export function useTranscriptionAnalysis(options: UseTranscriptionAnalysisOption
     setBaseAnalysis(null);
     setClinicalReport(null);
     setPatientReport(null);
+    setIsLoaded(false);
   };
 
   return {
