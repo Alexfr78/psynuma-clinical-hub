@@ -422,7 +422,8 @@ export function TranscriptionAnalysisDialog({
           )}
 
           {/* Resultado Capa 1 + botones regenerar */}
-          {baseAnalysis && (
+          {/* Resultado Capa 1 — solo en modo layered */}
+          {baseAnalysis && !isSingleMode && (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <h3 className="flex items-center gap-2 text-sm font-semibold">
@@ -528,7 +529,7 @@ export function TranscriptionAnalysisDialog({
           )}
 
           {/* Botón nuevo análisis */}
-          {baseAnalysis && (
+          {(baseAnalysis || clinicalReport || patientReport) && (
             <Button variant="outline" onClick={handleReset} className="w-full">
               <RotateCcw className="mr-2 h-3 w-3" />
               Nuevo análisis
