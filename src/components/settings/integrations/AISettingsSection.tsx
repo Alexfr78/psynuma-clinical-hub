@@ -9,7 +9,9 @@ import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle, Brain, Check, CheckCircle2, ChevronDown, Info, Loader2, Save, RotateCcw } from 'lucide-react';
+import { AlertCircle, Brain, Check, CheckCircle2, ChevronDown, Info, Loader2, Save, RotateCcw, Thermometer } from 'lucide-react';
+import { Slider } from '@/components/ui/slider';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { cn } from '@/lib/utils';
 import { useCenter } from '@/hooks/useCenter';
 import { supabase } from '@/integrations/supabase/client';
@@ -32,6 +34,8 @@ export function AISettingsSection() {
   const [geminiModel, setGeminiModel] = useState('gemini-2.5-pro');
   const [customGeminiModel, setCustomGeminiModel] = useState('');
   const [retentionDays, setRetentionDays] = useState(7);
+  const [aiTemperature, setAiTemperature] = useState(0.3);
+  const [aiAnalysisMode, setAiAnalysisMode] = useState('layered');
   const [promptSystem, setPromptSystem] = useState('');
   const [promptLayer1, setPromptLayer1] = useState('');
   const [promptLayer2, setPromptLayer2] = useState('');
@@ -70,6 +74,8 @@ export function AISettingsSection() {
         setCustomGeminiModel(gm);
       }
       setRetentionDays(c.transcript_retention_days ?? 7);
+      setAiTemperature(c.ai_temperature ?? 0.3);
+      setAiAnalysisMode(c.ai_analysis_mode || 'layered');
       setPromptSystem(c.ai_prompt_system || '');
       setPromptLayer1(c.ai_prompt_layer1 || '');
       setPromptLayer2(c.ai_prompt_layer2 || '');
@@ -124,6 +130,8 @@ export function AISettingsSection() {
         openai_model: finalOpenaiModel || 'gpt-4.1',
         gemini_model: finalGeminiModel || 'gemini-2.5-pro',
         transcript_retention_days: retentionDays,
+        ai_temperature: aiTemperature,
+        ai_analysis_mode: aiAnalysisMode,
         ai_prompt_system: promptSystem || null,
         ai_prompt_layer1: promptLayer1 || null,
         ai_prompt_layer2: promptLayer2 || null,

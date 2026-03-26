@@ -115,6 +115,8 @@ export interface Center {
   ai_prompt_layer1: string | null;
   ai_prompt_layer2: string | null;
   ai_prompt_layer3: string | null;
+  ai_temperature: number | null;
+  ai_analysis_mode: string | null;
   transcript_retention_days: number | null;
   created_at: string;
   updated_at: string;
