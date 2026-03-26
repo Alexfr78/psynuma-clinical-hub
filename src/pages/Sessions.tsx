@@ -16,6 +16,7 @@ import { useProfessionals } from '@/hooks/usePatients';
 import { SessionCard } from '@/components/agenda/SessionCard';
 import { CreateSessionDialog } from '@/components/agenda/CreateSessionDialog';
 import { SessionDetailDialog } from '@/components/agenda/SessionDetailDialog';
+import { TranscriptionAnalysisDialog } from '@/components/agenda/TranscriptionAnalysisDialog';
 
 export default function Sessions() {
   const [search, setSearch] = useState('');

@@ -77,7 +77,7 @@ export function TranscriptionAnalysisDialog({
     sendPatientReport,
     downloadTxt,
     reset,
-  } = useTranscriptionAnalysis({ sessionId, patientPhone, patientEmail });
+  } = useTranscriptionAnalysis({ sessionId, patientPhone, patientEmail, isOpen: open });
 
   useEffect(() => {
     if (clinicalReport) setEditedClinical(clinicalReport);
