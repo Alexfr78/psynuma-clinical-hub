@@ -371,48 +371,50 @@ export function TranscriptionAnalysisDialog({
           </div>
 
           {/* Selección de informes y botón de inicio */}
-          {!baseAnalysis && (
+          {!baseAnalysis && !clinicalReport && !patientReport && (
             <div className="space-y-3">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Informes a generar</label>
-                <div className="flex flex-col gap-2">
-                  <label className="flex items-center gap-2 cursor-pointer select-none">
-                    <Checkbox
-                      checked={generateClinical}
-                      onCheckedChange={(v) => setGenerateClinical(!!v)}
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                    <div>
-                      <span className="text-sm font-medium">Informe clínico</span>
-                      <span className="text-xs text-muted-foreground ml-2">Para el profesional</span>
-                    </div>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer select-none">
-                    <Checkbox
-                      checked={generatePatient}
-                      onCheckedChange={(v) => setGeneratePatient(!!v)}
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                    <div>
-                      <span className="text-sm font-medium">Informe para el paciente</span>
-                      <span className="text-xs text-muted-foreground ml-2">En lenguaje accesible</span>
-                    </div>
-                  </label>
+              {!isSingleMode && (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Informes a generar</label>
+                  <div className="flex flex-col gap-2">
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <Checkbox
+                        checked={generateClinical}
+                        onCheckedChange={(v) => setGenerateClinical(!!v)}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                      <div>
+                        <span className="text-sm font-medium">Informe clínico</span>
+                        <span className="text-xs text-muted-foreground ml-2">Para el profesional</span>
+                      </div>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <Checkbox
+                        checked={generatePatient}
+                        onCheckedChange={(v) => setGeneratePatient(!!v)}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                      <div>
+                        <span className="text-sm font-medium">Informe para el paciente</span>
+                        <span className="text-xs text-muted-foreground ml-2">En lenguaje accesible</span>
+                      </div>
+                    </label>
+                  </div>
                 </div>
-              </div>
+              )}
 
               <Button
                 onClick={() => handleFullAnalysis(transcription)}
-                disabled={isAnalyzing || isTranscribing || transcription.trim().length < 50 || (!generateClinical && !generatePatient)}
+                disabled={isAnalyzing || isTranscribing || transcription.trim().length < 50 || (!isSingleMode && !generateClinical && !generatePatient)}
                 className="w-full"
               >
                 {isAnalyzing ? (
                   <><Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  {currentLayer === 1 ? 'Extrayendo base clínica...' : currentLayer === 2 ? 'Generando informe clínico...' : 'Generando informe paciente...'}
+                  {isSingleMode ? 'Generando informes...' : currentLayer === 1 ? 'Extrayendo base clínica...' : currentLayer === 2 ? 'Generando informe clínico...' : 'Generando informe paciente...'}
                   </>
                 ) : (
                   <><Brain className="h-4 w-4 mr-2" />
-                  Generar {generateClinical && generatePatient ? 'informes' : generateClinical ? 'informe clínico' : 'informe paciente'}
+                  Generar informes
                   </>
                 )}
               </Button>
