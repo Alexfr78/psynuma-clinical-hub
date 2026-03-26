@@ -9,7 +9,9 @@ import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle, Brain, Check, CheckCircle2, ChevronDown, Info, Loader2, Save, RotateCcw } from 'lucide-react';
+import { AlertCircle, Brain, Check, CheckCircle2, ChevronDown, Info, Loader2, Save, RotateCcw, Thermometer } from 'lucide-react';
+import { Slider } from '@/components/ui/slider';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { cn } from '@/lib/utils';
 import { useCenter } from '@/hooks/useCenter';
 import { supabase } from '@/integrations/supabase/client';
@@ -32,6 +34,8 @@ export function AISettingsSection() {
   const [geminiModel, setGeminiModel] = useState('gemini-2.5-pro');
   const [customGeminiModel, setCustomGeminiModel] = useState('');
   const [retentionDays, setRetentionDays] = useState(7);
+  const [aiTemperature, setAiTemperature] = useState(0.3);
+  const [aiAnalysisMode, setAiAnalysisMode] = useState('layered');
   const [promptSystem, setPromptSystem] = useState('');
   const [promptLayer1, setPromptLayer1] = useState('');
   const [promptLayer2, setPromptLayer2] = useState('');
@@ -70,6 +74,8 @@ export function AISettingsSection() {
         setCustomGeminiModel(gm);
       }
       setRetentionDays(c.transcript_retention_days ?? 7);
+      setAiTemperature(c.ai_temperature ?? 0.3);
+      setAiAnalysisMode(c.ai_analysis_mode || 'layered');
       setPromptSystem(c.ai_prompt_system || '');
       setPromptLayer1(c.ai_prompt_layer1 || '');
       setPromptLayer2(c.ai_prompt_layer2 || '');
@@ -124,6 +130,8 @@ export function AISettingsSection() {
         openai_model: finalOpenaiModel || 'gpt-4.1',
         gemini_model: finalGeminiModel || 'gemini-2.5-pro',
         transcript_retention_days: retentionDays,
+        ai_temperature: aiTemperature,
+        ai_analysis_mode: aiAnalysisMode,
         ai_prompt_system: promptSystem || null,
         ai_prompt_layer1: promptLayer1 || null,
         ai_prompt_layer2: promptLayer2 || null,
@@ -362,6 +370,60 @@ export function AISettingsSection() {
               />
             )}
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Temperature */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Thermometer className="h-5 w-5" />
+            Temperatura del modelo
+          </CardTitle>
+          <CardDescription>
+            Valores bajos (0.1-0.3) producen textos más precisos y predecibles. Valores altos (0.5-0.7) generan redacción más rica y variada. Recomendado para informes clínicos: 0.4-0.5
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-4">
+            <Slider
+              value={[aiTemperature]}
+              onValueChange={([v]) => setAiTemperature(v)}
+              min={0}
+              max={1}
+              step={0.1}
+              className="flex-1"
+            />
+            <span className="text-sm font-mono font-semibold w-10 text-right">{aiTemperature.toFixed(1)}</span>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Analysis mode */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Modo de análisis</CardTitle>
+          <CardDescription>
+            Elige cómo se generan los informes a partir de la transcripción.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <RadioGroup value={aiAnalysisMode} onValueChange={setAiAnalysisMode} className="space-y-3">
+            <label className="flex items-start gap-3 cursor-pointer">
+              <RadioGroupItem value="layered" className="mt-1" />
+              <div>
+                <p className="font-medium text-sm">Análisis en 3 capas</p>
+                <p className="text-xs text-muted-foreground">Extrae primero la base clínica y luego genera cada informe por separado. Mayor control, más lento.</p>
+              </div>
+            </label>
+            <label className="flex items-start gap-3 cursor-pointer">
+              <RadioGroupItem value="single" className="mt-1" />
+              <div>
+                <p className="font-medium text-sm">Análisis directo</p>
+                <p className="text-xs text-muted-foreground">Genera ambos informes en una sola llamada a partir de la transcripción completa. Más rápido, resultados más cohesionados.</p>
+              </div>
+            </label>
+          </RadioGroup>
         </CardContent>
       </Card>
 

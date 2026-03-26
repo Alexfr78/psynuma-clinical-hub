@@ -1025,11 +1025,13 @@ export type Database = {
           admin_alerts_events: Json | null
           admin_alerts_include_professional: boolean | null
           agenda_show_weekends: boolean | null
+          ai_analysis_mode: string | null
           ai_prompt_layer1: string | null
           ai_prompt_layer2: string | null
           ai_prompt_layer3: string | null
           ai_prompt_system: string | null
           ai_provider: string | null
+          ai_temperature: number | null
           auto_invoicing_enabled: boolean | null
           bizum_phone: string | null
           city: string | null
@@ -1121,11 +1123,13 @@ export type Database = {
           admin_alerts_events?: Json | null
           admin_alerts_include_professional?: boolean | null
           agenda_show_weekends?: boolean | null
+          ai_analysis_mode?: string | null
           ai_prompt_layer1?: string | null
           ai_prompt_layer2?: string | null
           ai_prompt_layer3?: string | null
           ai_prompt_system?: string | null
           ai_provider?: string | null
+          ai_temperature?: number | null
           auto_invoicing_enabled?: boolean | null
           bizum_phone?: string | null
           city?: string | null
@@ -1217,11 +1221,13 @@ export type Database = {
           admin_alerts_events?: Json | null
           admin_alerts_include_professional?: boolean | null
           agenda_show_weekends?: boolean | null
+          ai_analysis_mode?: string | null
           ai_prompt_layer1?: string | null
           ai_prompt_layer2?: string | null
           ai_prompt_layer3?: string | null
           ai_prompt_system?: string | null
           ai_provider?: string | null
+          ai_temperature?: number | null
           auto_invoicing_enabled?: boolean | null
           bizum_phone?: string | null
           city?: string | null

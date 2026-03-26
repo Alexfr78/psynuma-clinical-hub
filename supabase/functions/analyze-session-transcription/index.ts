@@ -139,6 +139,7 @@ async function callAI(
   provider: string,
   model: string,
   apiKey: string,
+  temperature = 0.3,
 ): Promise<string> {
 
   if (provider === 'gemini') {
@@ -150,7 +151,7 @@ async function callAI(
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [{ parts: [{ text: fullPrompt }] }],
-          generationConfig: { temperature: 0.3 },
+          generationConfig: { temperature },
         }),
       }
     );
@@ -172,7 +173,7 @@ async function callAI(
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
       ],
-      temperature: 0.3,
+      temperature,
     }),
   });
   const data = await response.json();
@@ -199,6 +200,8 @@ serve(async (req) => {
     let provider = 'openai';
     let model = 'gpt-4.1';
     let apiKey = '';
+    let temperature = 0.3;
+    let analysisMode = 'layered';
     let systemPrompt = SYSTEM_PROMPT;
     let layer1Prompt = LAYER1_PROMPT;
     let layer2Prompt = LAYER2_PROMPT;
@@ -215,13 +218,16 @@ serve(async (req) => {
         .select(`
           ai_provider, openai_model, gemini_model,
           openai_api_key_encrypted, gemini_api_key_encrypted,
-          ai_prompt_system, ai_prompt_layer1, ai_prompt_layer2, ai_prompt_layer3
+          ai_prompt_system, ai_prompt_layer1, ai_prompt_layer2, ai_prompt_layer3,
+          ai_temperature, ai_analysis_mode
         `)
         .eq('id', centerId)
         .single();
 
       if (center) {
         provider = center.ai_provider || 'openai';
+        temperature = center.ai_temperature ?? 0.3;
+        analysisMode = center.ai_analysis_mode || 'layered';
 
         if (provider === 'gemini') {
           model = center.gemini_model || 'gemini-2.5-pro';
@@ -258,7 +264,54 @@ serve(async (req) => {
       );
     }
 
-    // ─── Build prompt for the requested layer ────────────────────────────────
+    // ─── Single mode: generate both reports in one call ──────────────────────
+    if (analysisMode === 'single' && layer === 1) {
+      const singlePrompt = `A partir de la siguiente transcripción de sesión terapéutica, genera DOS informes en una sola respuesta.
+
+Devuelve tu respuesta EXCLUSIVAMENTE como un JSON válido con esta estructura exacta:
+{"clinical": "...", "patient": "..."}
+
+Donde:
+- "clinical" contiene el INFORME CLÍNICO PARA PROFESIONALES siguiendo estas instrucciones:
+${layer2Prompt}
+
+- "patient" contiene el INFORME DE SESIÓN PARA EL PACIENTE siguiendo estas instrucciones:
+${layer3Prompt}
+
+IMPORTANTE: Devuelve SOLO el JSON, sin markdown, sin bloques de código, sin texto adicional.
+
+TRANSCRIPCIÓN DE LA SESIÓN:
+
+${transcription}`;
+
+      console.log(`[analyze] Single mode | Provider: ${provider} | Model: ${model} | Temp: ${temperature}`);
+
+      const content = await callAI(systemPrompt, singlePrompt, provider, model, apiKey, temperature);
+
+      // Try to parse JSON from the response
+      let parsed: { clinical: string; patient: string };
+      try {
+        // Remove potential markdown code block wrapping
+        const cleaned = content.replace(/^```(?:json)?\s*/, '').replace(/\s*```$/, '').trim();
+        parsed = JSON.parse(cleaned);
+      } catch {
+        // If parsing fails, return as plain text
+        console.warn('[analyze] Single mode: failed to parse JSON, returning raw content');
+        return new Response(
+          JSON.stringify({ success: true, content, layer: 1, mode: 'single' }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      console.log(`[analyze] Single mode completed — clinical: ${parsed.clinical?.split(/\s+/).length} words, patient: ${parsed.patient?.split(/\s+/).length} words`);
+
+      return new Response(
+        JSON.stringify({ success: true, content: JSON.stringify(parsed), layer: 1, mode: 'single', clinical: parsed.clinical, patient: parsed.patient }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // ─── Layered mode: Build prompt for the requested layer ──────────────────
     let userPrompt: string;
 
     if (layer === 1) {
@@ -286,9 +339,9 @@ serve(async (req) => {
       );
     }
 
-    console.log(`[analyze] Layer ${layer} | Provider: ${provider} | Model: ${model}`);
+    console.log(`[analyze] Layer ${layer} | Provider: ${provider} | Model: ${model} | Temp: ${temperature}`);
 
-    const content = await callAI(systemPrompt, userPrompt, provider, model, apiKey);
+    const content = await callAI(systemPrompt, userPrompt, provider, model, apiKey, temperature);
 
     console.log(`[analyze] Layer ${layer} completed — ${content.split(/\s+/).length} words`);
 

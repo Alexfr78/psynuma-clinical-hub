@@ -62,6 +62,8 @@ export function TranscriptionAnalysisDialog({
 
   const { centerId, center } = useCenter();
   const isOpenAI = (center as any)?.ai_provider !== 'gemini';
+  const analysisMode = (center as any)?.ai_analysis_mode || 'layered';
+  const isSingleMode = analysisMode === 'single';
 
   const {
     baseAnalysis,
@@ -98,13 +100,19 @@ export function TranscriptionAnalysisDialog({
   };
 
   const handleFullAnalysis = async (text: string) => {
-    const base = await analyze(text, 1);
-    if (!base) return;
-    if (generateClinical) {
-      await analyze(text, 2, base);
-    }
-    if (generatePatient) {
-      await analyze(text, 3, base);
+    if (isSingleMode) {
+      // Single mode: one call generates both reports
+      await analyze(text, 1);
+    } else {
+      // Layered mode: 3 sequential calls
+      const base = await analyze(text, 1);
+      if (!base) return;
+      if (generateClinical) {
+        await analyze(text, 2, base);
+      }
+      if (generatePatient) {
+        await analyze(text, 3, base);
+      }
     }
   };
 
@@ -221,21 +229,37 @@ export function TranscriptionAnalysisDialog({
         {/* Scrollable content */}
         <div className="flex-1 overflow-y-auto min-h-0 px-6 py-4 space-y-4">
           {/* Step indicators */}
-          <div className="flex items-center gap-2 text-sm flex-wrap">
-            <StepBadge n={1} done={!!baseAnalysis} active={currentLayer === 1} label="Extracción base" />
-            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-            <StepBadge n={2} done={!!clinicalReport} active={currentLayer === 2} label="Informe clínico" />
-            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-            <StepBadge n={3} done={!!patientReport} active={currentLayer === 3} label="Informe paciente" />
-          </div>
+          {isSingleMode ? (
+            isAnalyzing ? (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 rounded px-3 py-2">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Generando ambos informes en una sola pasada...
+              </div>
+            ) : (clinicalReport || patientReport) ? (
+              <div className="flex items-center gap-2 text-xs bg-muted/50 rounded px-3 py-2">
+                <CheckCircle2 className="h-3 w-3 text-primary" />
+                Informes generados con análisis directo
+              </div>
+            ) : null
+          ) : (
+            <>
+              <div className="flex items-center gap-2 text-sm flex-wrap">
+                <StepBadge n={1} done={!!baseAnalysis} active={currentLayer === 1} label="Extracción base" />
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                <StepBadge n={2} done={!!clinicalReport} active={currentLayer === 2} label="Informe clínico" />
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                <StepBadge n={3} done={!!patientReport} active={currentLayer === 3} label="Informe paciente" />
+              </div>
 
-          {isAnalyzing && (
-            <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 rounded px-3 py-2">
-              <Loader2 className="h-3 w-3 animate-spin" />
-              {currentLayer === 1 && 'Paso 1 — Extrayendo base clínica...'}
-              {currentLayer === 2 && `Paso 2${generatePatient ? '/3' : '/2'} — Generando informe clínico...`}
-              {currentLayer === 3 && `Paso ${generateClinical ? '3/3' : '2/2'} — Generando informe para el paciente...`}
-            </div>
+              {isAnalyzing && (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 rounded px-3 py-2">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  {currentLayer === 1 && 'Paso 1 — Extrayendo base clínica...'}
+                  {currentLayer === 2 && `Paso 2${generatePatient ? '/3' : '/2'} — Generando informe clínico...`}
+                  {currentLayer === 3 && `Paso ${generateClinical ? '3/3' : '2/2'} — Generando informe para el paciente...`}
+                </div>
+              )}
+            </>
           )}
 
           <Separator />
@@ -347,48 +371,50 @@ export function TranscriptionAnalysisDialog({
           </div>
 
           {/* Selección de informes y botón de inicio */}
-          {!baseAnalysis && (
+          {!baseAnalysis && !clinicalReport && !patientReport && (
             <div className="space-y-3">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Informes a generar</label>
-                <div className="flex flex-col gap-2">
-                  <label className="flex items-center gap-2 cursor-pointer select-none">
-                    <Checkbox
-                      checked={generateClinical}
-                      onCheckedChange={(v) => setGenerateClinical(!!v)}
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                    <div>
-                      <span className="text-sm font-medium">Informe clínico</span>
-                      <span className="text-xs text-muted-foreground ml-2">Para el profesional</span>
-                    </div>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer select-none">
-                    <Checkbox
-                      checked={generatePatient}
-                      onCheckedChange={(v) => setGeneratePatient(!!v)}
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                    <div>
-                      <span className="text-sm font-medium">Informe para el paciente</span>
-                      <span className="text-xs text-muted-foreground ml-2">En lenguaje accesible</span>
-                    </div>
-                  </label>
+              {!isSingleMode && (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Informes a generar</label>
+                  <div className="flex flex-col gap-2">
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <Checkbox
+                        checked={generateClinical}
+                        onCheckedChange={(v) => setGenerateClinical(!!v)}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                      <div>
+                        <span className="text-sm font-medium">Informe clínico</span>
+                        <span className="text-xs text-muted-foreground ml-2">Para el profesional</span>
+                      </div>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <Checkbox
+                        checked={generatePatient}
+                        onCheckedChange={(v) => setGeneratePatient(!!v)}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                      <div>
+                        <span className="text-sm font-medium">Informe para el paciente</span>
+                        <span className="text-xs text-muted-foreground ml-2">En lenguaje accesible</span>
+                      </div>
+                    </label>
+                  </div>
                 </div>
-              </div>
+              )}
 
               <Button
                 onClick={() => handleFullAnalysis(transcription)}
-                disabled={isAnalyzing || isTranscribing || transcription.trim().length < 50 || (!generateClinical && !generatePatient)}
+                disabled={isAnalyzing || isTranscribing || transcription.trim().length < 50 || (!isSingleMode && !generateClinical && !generatePatient)}
                 className="w-full"
               >
                 {isAnalyzing ? (
                   <><Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  {currentLayer === 1 ? 'Extrayendo base clínica...' : currentLayer === 2 ? 'Generando informe clínico...' : 'Generando informe paciente...'}
+                  {isSingleMode ? 'Generando informes...' : currentLayer === 1 ? 'Extrayendo base clínica...' : currentLayer === 2 ? 'Generando informe clínico...' : 'Generando informe paciente...'}
                   </>
                 ) : (
                   <><Brain className="h-4 w-4 mr-2" />
-                  Generar {generateClinical && generatePatient ? 'informes' : generateClinical ? 'informe clínico' : 'informe paciente'}
+                  Generar informes
                   </>
                 )}
               </Button>
@@ -396,7 +422,8 @@ export function TranscriptionAnalysisDialog({
           )}
 
           {/* Resultado Capa 1 + botones regenerar */}
-          {baseAnalysis && (
+          {/* Resultado Capa 1 — solo en modo layered */}
+          {baseAnalysis && !isSingleMode && (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <h3 className="flex items-center gap-2 text-sm font-semibold">
@@ -502,7 +529,7 @@ export function TranscriptionAnalysisDialog({
           )}
 
           {/* Botón nuevo análisis */}
-          {baseAnalysis && (
+          {(baseAnalysis || clinicalReport || patientReport) && (
             <Button variant="outline" onClick={handleReset} className="w-full">
               <RotateCcw className="mr-2 h-3 w-3" />
               Nuevo análisis

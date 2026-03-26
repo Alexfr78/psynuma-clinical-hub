@@ -82,6 +82,25 @@ export function useTranscriptionAnalysis(options: UseTranscriptionAnalysisOption
       if (error) throw error;
       if (!data?.success) throw new Error(data?.error || 'Error al analizar');
 
+      // Handle single mode response
+      if (data.mode === 'single' && data.clinical && data.patient) {
+        setClinicalReport(data.clinical);
+        setPatientReport(data.patient);
+        toast.success('Informes generados');
+        if (sessionId) {
+          await supabase
+            .from('sessions')
+            .update({
+              notes: data.clinical,
+              ai_summary_clinical: data.clinical,
+              ai_summary_patient: data.patient,
+              transcript_processed_at: new Date().toISOString(),
+            } as any)
+            .eq('id', sessionId);
+        }
+        return data.clinical;
+      }
+
       const content = data.content as string;
 
       if (layer === 1) {
