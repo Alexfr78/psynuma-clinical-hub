@@ -10,7 +10,8 @@ import {
   X,
   Check,
   XCircle,
-  Loader2
+  Loader2,
+  Brain,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -35,6 +36,7 @@ interface SessionDetailDialogProps {
   session: SessionWithRelations | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onAnalyzeTranscription?: (sessionId: string) => void;
 }
 
 const statusConfig = {

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useCenter } from './useCenter';
@@ -7,14 +7,52 @@ interface UseTranscriptionAnalysisOptions {
   sessionId?: string;
   patientPhone?: string;
   patientEmail?: string;
+  isOpen?: boolean;
 }
 
 export function useTranscriptionAnalysis(options: UseTranscriptionAnalysisOptions = {}) {
-  const { sessionId, patientPhone, patientEmail } = options;
+  const { sessionId, patientPhone, patientEmail, isOpen } = options;
   const { centerId } = useCenter();
   const [baseAnalysis, setBaseAnalysis] = useState<string | null>(null);
   const [clinicalReport, setClinicalReport] = useState<string | null>(null);
   const [patientReport, setPatientReport] = useState<string | null>(null);
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  // Load existing reports from the session when dialog opens
+  useEffect(() => {
+    if (!isOpen || !sessionId) {
+      setIsLoaded(false);
+      return;
+    }
+
+    const loadExisting = async () => {
+      try {
+        const { data } = await supabase
+          .from('sessions')
+          .select('ai_summary_clinical, ai_summary_patient, transcript_processed_at')
+          .eq('id', sessionId)
+          .single();
+
+        if (data) {
+          const clinical = (data as any).ai_summary_clinical;
+          const patient = (data as any).ai_summary_patient;
+          if (clinical) {
+            setBaseAnalysis(clinical);
+            setClinicalReport(clinical);
+          }
+          if (patient) {
+            setPatientReport(patient);
+          }
+        }
+      } catch {
+        // Silently fail — user can still generate new reports
+      } finally {
+        setIsLoaded(true);
+      }
+    };
+
+    loadExisting();
+  }, [isOpen, sessionId]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isSending, setIsSending] = useState(false);
