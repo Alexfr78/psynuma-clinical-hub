@@ -382,7 +382,7 @@ export function TranscriptionAnalysisDialog({
           </div>
 
           {/* Selección de informes y botón de inicio */}
-          {!isAnalyzing && !baseAnalysis && !clinicalReport && !patientReport && (
+          {!isAnalyzing && !baseAnalysis && (
             <div className="space-y-3">
               {!isSingleMode && (
                 <div className="space-y-2">
