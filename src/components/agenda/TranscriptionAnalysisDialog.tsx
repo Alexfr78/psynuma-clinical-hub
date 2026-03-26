@@ -229,21 +229,37 @@ export function TranscriptionAnalysisDialog({
         {/* Scrollable content */}
         <div className="flex-1 overflow-y-auto min-h-0 px-6 py-4 space-y-4">
           {/* Step indicators */}
-          <div className="flex items-center gap-2 text-sm flex-wrap">
-            <StepBadge n={1} done={!!baseAnalysis} active={currentLayer === 1} label="Extracción base" />
-            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-            <StepBadge n={2} done={!!clinicalReport} active={currentLayer === 2} label="Informe clínico" />
-            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-            <StepBadge n={3} done={!!patientReport} active={currentLayer === 3} label="Informe paciente" />
-          </div>
+          {isSingleMode ? (
+            isAnalyzing ? (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 rounded px-3 py-2">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Generando ambos informes en una sola pasada...
+              </div>
+            ) : (clinicalReport || patientReport) ? (
+              <div className="flex items-center gap-2 text-xs bg-muted/50 rounded px-3 py-2">
+                <CheckCircle2 className="h-3 w-3 text-primary" />
+                Informes generados con análisis directo
+              </div>
+            ) : null
+          ) : (
+            <>
+              <div className="flex items-center gap-2 text-sm flex-wrap">
+                <StepBadge n={1} done={!!baseAnalysis} active={currentLayer === 1} label="Extracción base" />
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                <StepBadge n={2} done={!!clinicalReport} active={currentLayer === 2} label="Informe clínico" />
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                <StepBadge n={3} done={!!patientReport} active={currentLayer === 3} label="Informe paciente" />
+              </div>
 
-          {isAnalyzing && (
-            <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 rounded px-3 py-2">
-              <Loader2 className="h-3 w-3 animate-spin" />
-              {currentLayer === 1 && 'Paso 1 — Extrayendo base clínica...'}
-              {currentLayer === 2 && `Paso 2${generatePatient ? '/3' : '/2'} — Generando informe clínico...`}
-              {currentLayer === 3 && `Paso ${generateClinical ? '3/3' : '2/2'} — Generando informe para el paciente...`}
-            </div>
+              {isAnalyzing && (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 rounded px-3 py-2">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  {currentLayer === 1 && 'Paso 1 — Extrayendo base clínica...'}
+                  {currentLayer === 2 && `Paso 2${generatePatient ? '/3' : '/2'} — Generando informe clínico...`}
+                  {currentLayer === 3 && `Paso ${generateClinical ? '3/3' : '2/2'} — Generando informe para el paciente...`}
+                </div>
+              )}
+            </>
           )}
 
           <Separator />
