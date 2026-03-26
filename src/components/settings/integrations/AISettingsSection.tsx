@@ -373,6 +373,60 @@ export function AISettingsSection() {
         </CardContent>
       </Card>
 
+      {/* Temperature */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Thermometer className="h-5 w-5" />
+            Temperatura del modelo
+          </CardTitle>
+          <CardDescription>
+            Valores bajos (0.1-0.3) producen textos más precisos y predecibles. Valores altos (0.5-0.7) generan redacción más rica y variada. Recomendado para informes clínicos: 0.4-0.5
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-4">
+            <Slider
+              value={[aiTemperature]}
+              onValueChange={([v]) => setAiTemperature(v)}
+              min={0}
+              max={1}
+              step={0.1}
+              className="flex-1"
+            />
+            <span className="text-sm font-mono font-semibold w-10 text-right">{aiTemperature.toFixed(1)}</span>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Analysis mode */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Modo de análisis</CardTitle>
+          <CardDescription>
+            Elige cómo se generan los informes a partir de la transcripción.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <RadioGroup value={aiAnalysisMode} onValueChange={setAiAnalysisMode} className="space-y-3">
+            <label className="flex items-start gap-3 cursor-pointer">
+              <RadioGroupItem value="layered" className="mt-1" />
+              <div>
+                <p className="font-medium text-sm">Análisis en 3 capas</p>
+                <p className="text-xs text-muted-foreground">Extrae primero la base clínica y luego genera cada informe por separado. Mayor control, más lento.</p>
+              </div>
+            </label>
+            <label className="flex items-start gap-3 cursor-pointer">
+              <RadioGroupItem value="single" className="mt-1" />
+              <div>
+                <p className="font-medium text-sm">Análisis directo</p>
+                <p className="text-xs text-muted-foreground">Genera ambos informes en una sola llamada a partir de la transcripción completa. Más rápido, resultados más cohesionados.</p>
+              </div>
+            </label>
+          </RadioGroup>
+        </CardContent>
+      </Card>
+
       {/* Retention */}
       <Card>
         <CardHeader>

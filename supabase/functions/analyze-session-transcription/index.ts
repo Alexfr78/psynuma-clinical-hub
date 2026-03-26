@@ -139,6 +139,7 @@ async function callAI(
   provider: string,
   model: string,
   apiKey: string,
+  temperature = 0.3,
 ): Promise<string> {
 
   if (provider === 'gemini') {
@@ -150,7 +151,7 @@ async function callAI(
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [{ parts: [{ text: fullPrompt }] }],
-          generationConfig: { temperature: 0.3 },
+          generationConfig: { temperature },
         }),
       }
     );
@@ -172,7 +173,7 @@ async function callAI(
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
       ],
-      temperature: 0.3,
+      temperature,
     }),
   });
   const data = await response.json();
