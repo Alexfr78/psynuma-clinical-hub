@@ -1,9 +1,9 @@
-import { useState, useEffect, useRef } from 'react';
-import { createPortal } from 'react-dom';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
+import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 import {
   Loader2,
   FileText,
@@ -21,13 +21,13 @@ import {
   AlertCircle,
   Upload,
   Brain,
-} from 'lucide-react';
-import { Checkbox } from '@/components/ui/checkbox';
-import { useTranscriptionAnalysis } from '@/hooks/useTranscriptionAnalysis';
-import { useCenter } from '@/hooks/useCenter';
-import { supabase } from '@/integrations/supabase/client';
-import { cn } from '@/lib/utils';
-import { toast } from 'sonner';
+} from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { useTranscriptionAnalysis } from "@/hooks/useTranscriptionAnalysis";
+import { useCenter } from "@/hooks/useCenter";
+import { supabase } from "@/integrations/supabase/client";
+import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface TranscriptionAnalysisDialogProps {
   open: boolean;
@@ -48,9 +48,9 @@ export function TranscriptionAnalysisDialog({
   patientEmail,
   sessionDate,
 }: TranscriptionAnalysisDialogProps) {
-  const [transcription, setTranscription] = useState('');
-  const [editedClinical, setEditedClinical] = useState('');
-  const [editedPatient, setEditedPatient] = useState('');
+  const [transcription, setTranscription] = useState("");
+  const [editedClinical, setEditedClinical] = useState("");
+  const [editedPatient, setEditedPatient] = useState("");
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [audioFileName, setAudioFileName] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -61,9 +61,9 @@ export function TranscriptionAnalysisDialog({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { centerId, center } = useCenter();
-  const isOpenAI = (center as any)?.ai_provider !== 'gemini';
-  const analysisMode = (center as any)?.ai_analysis_mode || 'layered';
-  const isSingleMode = analysisMode === 'single';
+  const isOpenAI = (center as any)?.ai_provider !== "gemini";
+  const analysisMode = (center as any)?.ai_analysis_mode || "layered";
+  const isSingleMode = analysisMode === "single";
 
   const {
     baseAnalysis,
@@ -90,9 +90,9 @@ export function TranscriptionAnalysisDialog({
   }, [patientReport]);
 
   const handleReset = () => {
-    setTranscription('');
-    setEditedClinical('');
-    setEditedPatient('');
+    setTranscription("");
+    setEditedClinical("");
+    setEditedPatient("");
     setAudioFileName(null);
     setGenerateClinical(true);
     setGeneratePatient(true);
@@ -122,28 +122,28 @@ export function TranscriptionAnalysisDialog({
   };
 
   const filePrefix = [
-    patientName?.replace(/\s+/g, '_') || 'sesion',
-    sessionDate || new Date().toISOString().split('T')[0],
-  ].join('_');
+    patientName?.replace(/\s+/g, "_") || "sesion",
+    sessionDate || new Date().toISOString().split("T")[0],
+  ].join("_");
 
   useEffect(() => {
     if (open) {
-      document.body.style.overflow = 'hidden';
+      document.body.style.overflow = "hidden";
       const timer = setTimeout(() => {
         textareaRef.current?.focus();
       }, 50);
       return () => {
         clearTimeout(timer);
-        document.body.style.overflow = '';
+        document.body.style.overflow = "";
       };
     } else {
-      document.body.style.overflow = '';
+      document.body.style.overflow = "";
     }
   }, [open]);
 
   const handleAudioUpload = async (file: File) => {
     if (!centerId) {
-      toast.error('No se pudo determinar el centro');
+      toast.error("No se pudo determinar el centro");
       return;
     }
 
@@ -152,20 +152,20 @@ export function TranscriptionAnalysisDialog({
 
     try {
       const formData = new FormData();
-      formData.append('audio', file);
-      formData.append('centerId', centerId);
+      formData.append("audio", file);
+      formData.append("centerId", centerId);
 
-      const { data, error } = await supabase.functions.invoke('transcribe-session-audio', {
+      const { data, error } = await supabase.functions.invoke("transcribe-session-audio", {
         body: formData,
       });
 
       if (error) throw new Error(error.message);
-      if (!data?.success) throw new Error(data?.error || 'Error al transcribir');
+      if (!data?.success) throw new Error(data?.error || "Error al transcribir");
 
       setTranscription(data.transcription);
       toast.success(`Audio transcrito — ${data.wordCount} palabras`);
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Error al transcribir el audio';
+      const message = err instanceof Error ? err.message : "Error al transcribir el audio";
       toast.error(message);
       setAudioFileName(null);
     } finally {
@@ -216,12 +216,7 @@ export function TranscriptionAnalysisDialog({
               </p>
             )}
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => handleClose(false)}
-            className="shrink-0"
-          >
+          <Button variant="ghost" size="icon" onClick={() => handleClose(false)} className="shrink-0">
             <X className="h-4 w-4" />
           </Button>
         </div>
@@ -235,7 +230,7 @@ export function TranscriptionAnalysisDialog({
                 <Loader2 className="h-3 w-3 animate-spin" />
                 Generando ambos informes en una sola pasada...
               </div>
-            ) : (clinicalReport || patientReport) ? (
+            ) : clinicalReport || patientReport ? (
               <div className="flex items-center gap-2 text-xs bg-muted/50 rounded px-3 py-2">
                 <CheckCircle2 className="h-3 w-3 text-primary" />
                 Informes generados con análisis directo
@@ -254,9 +249,10 @@ export function TranscriptionAnalysisDialog({
               {isAnalyzing && (
                 <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 rounded px-3 py-2">
                   <Loader2 className="h-3 w-3 animate-spin" />
-                  {currentLayer === 1 && 'Paso 1 — Extrayendo base clínica...'}
-                  {currentLayer === 2 && `Paso 2${generatePatient ? '/3' : '/2'} — Generando informe clínico...`}
-                  {currentLayer === 3 && `Paso ${generateClinical ? '3/3' : '2/2'} — Generando informe para el paciente...`}
+                  {currentLayer === 1 && "Paso 1 — Extrayendo base clínica..."}
+                  {currentLayer === 2 && `Paso 2${generatePatient ? "/3" : "/2"} — Generando informe clínico...`}
+                  {currentLayer === 3 &&
+                    `Paso ${generateClinical ? "3/3" : "2/2"} — Generando informe para el paciente...`}
                 </div>
               )}
             </>
@@ -270,21 +266,33 @@ export function TranscriptionAnalysisDialog({
               <Mic className="h-4 w-4" />
               <span className="text-sm font-medium">Transcripción automática de audio</span>
               {!isOpenAI && (
-                <Badge variant="outline" className="text-xs">Requiere OpenAI</Badge>
+                <Badge variant="outline" className="text-xs">
+                  Requiere OpenAI
+                </Badge>
               )}
             </div>
 
             {isOpenAI ? (
               <div
                 className={cn(
-                  'relative flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed p-6 transition-colors',
-                  isDragOver ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50',
-                  isTranscribing && 'pointer-events-none opacity-70',
+                  "relative flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed p-6 transition-colors",
+                  isDragOver ? "border-primary bg-primary/5" : "border-border hover:border-primary/50",
+                  isTranscribing && "pointer-events-none opacity-70",
                 )}
-                onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setIsDragOver(true); }}
-                onDragLeave={(e) => { e.stopPropagation(); setIsDragOver(false); }}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setIsDragOver(true);
+                }}
+                onDragLeave={(e) => {
+                  e.stopPropagation();
+                  setIsDragOver(false);
+                }}
                 onDrop={handleFileDrop}
-                onClick={(e) => { e.stopPropagation(); if (!isTranscribing) fileInputRef.current?.click(); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (!isTranscribing) fileInputRef.current?.click();
+                }}
               >
                 <input
                   ref={fileInputRef}
@@ -294,7 +302,7 @@ export function TranscriptionAnalysisDialog({
                   onChange={(e) => {
                     const file = e.target.files?.[0];
                     if (file) handleAudioUpload(file);
-                    e.target.value = '';
+                    e.target.value = "";
                   }}
                 />
 
@@ -316,7 +324,9 @@ export function TranscriptionAnalysisDialog({
                   <div className="flex flex-col items-center gap-2 text-center">
                     <Upload className="h-8 w-8 text-muted-foreground" />
                     <p className="text-sm font-medium">Arrastra el audio aquí o haz clic para seleccionar</p>
-                    <p className="text-xs text-muted-foreground">MP3, M4A, WAV, MP4, OGG · Hasta 200MB · archivos grandes se dividen automáticamente</p>
+                    <p className="text-xs text-muted-foreground">
+                      MP3, M4A, WAV, MP4, OGG · Hasta 200MB · archivos grandes se dividen automáticamente
+                    </p>
                     <p className="text-xs text-muted-foreground">~0.006$/min · Una sesión de 1h ≈ 0.36$</p>
                   </div>
                 )}
@@ -325,7 +335,8 @@ export function TranscriptionAnalysisDialog({
               <div className="flex items-start gap-2 rounded-lg border border-border bg-muted/50 p-4">
                 <AlertCircle className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
                 <p className="text-sm text-muted-foreground">
-                  La transcripción de audio requiere OpenAI como proveedor activo. Cámbialo en Ajustes → Inteligencia Artificial.
+                  La transcripción de audio requiere OpenAI como proveedor activo. Cámbialo en Ajustes → Inteligencia
+                  Artificial.
                 </p>
               </div>
             )}
@@ -352,7 +363,7 @@ export function TranscriptionAnalysisDialog({
               onChange={(e) => setTranscription(e.target.value)}
               onPaste={(e) => {
                 e.stopPropagation();
-                const text = e.clipboardData.getData('text/plain');
+                const text = e.clipboardData.getData("text/plain");
                 if (text) {
                   e.preventDefault();
                   setTranscription((prev) => prev + text);
@@ -366,12 +377,12 @@ export function TranscriptionAnalysisDialog({
             <p className="text-xs text-muted-foreground">
               {transcription.length > 0
                 ? `${transcription.split(/\s+/).filter(Boolean).length} palabras`
-                : 'Pega la transcripción para comenzar el análisis'}
+                : "Pega la transcripción para comenzar el análisis"}
             </p>
           </div>
 
           {/* Selección de informes y botón de inicio */}
-          {!baseAnalysis && !clinicalReport && !patientReport && (
+          {!isAnalyzing && !baseAnalysis && (
             <div className="space-y-3">
               {!isSingleMode && (
                 <div className="space-y-2">
@@ -405,16 +416,29 @@ export function TranscriptionAnalysisDialog({
 
               <Button
                 onClick={() => handleFullAnalysis(transcription)}
-                disabled={isAnalyzing || isTranscribing || transcription.trim().length < 50 || (!isSingleMode && !generateClinical && !generatePatient)}
+                disabled={
+                  isAnalyzing ||
+                  isTranscribing ||
+                  transcription.trim().length < 50 ||
+                  (!isSingleMode && !generateClinical && !generatePatient)
+                }
                 className="w-full"
               >
                 {isAnalyzing ? (
-                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  {isSingleMode ? 'Generando informes...' : currentLayer === 1 ? 'Extrayendo base clínica...' : currentLayer === 2 ? 'Generando informe clínico...' : 'Generando informe paciente...'}
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    {isSingleMode
+                      ? "Generando informes..."
+                      : currentLayer === 1
+                        ? "Extrayendo base clínica..."
+                        : currentLayer === 2
+                          ? "Generando informe clínico..."
+                          : "Generando informe paciente..."}
                   </>
                 ) : (
-                  <><Brain className="h-4 w-4 mr-2" />
-                  Generar informes
+                  <>
+                    <Brain className="h-4 w-4 mr-2" />
+                    Generar informes
                   </>
                 )}
               </Button>
@@ -461,9 +485,17 @@ export function TranscriptionAnalysisDialog({
                 <h3 className="flex items-center gap-2 text-sm font-semibold">
                   <Stethoscope className="h-4 w-4 text-primary" />
                   Informe clínico para profesionales
-                  {sessionId && <Badge variant="outline" className="text-xs text-green-600">Guardado en sesión</Badge>}
+                  {sessionId && (
+                    <Badge variant="outline" className="text-xs text-green-600">
+                      Guardado en sesión
+                    </Badge>
+                  )}
                 </h3>
-                <Button variant="ghost" size="sm" onClick={() => downloadTxt(editedClinical || clinicalReport, `${filePrefix}_informe_clinico.txt`)}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => downloadTxt(editedClinical || clinicalReport, `${filePrefix}_informe_clinico.txt`)}
+                >
                   <Download className="mr-1 h-3 w-3" />
                   Descargar .txt
                 </Button>
@@ -491,9 +523,17 @@ export function TranscriptionAnalysisDialog({
                 <h3 className="flex items-center gap-2 text-sm font-semibold">
                   <User className="h-4 w-4 text-primary" />
                   Informe de sesión para el contacto
-                  {sessionId && <Badge variant="outline" className="text-xs text-green-600">Guardado en sesión</Badge>}
+                  {sessionId && (
+                    <Badge variant="outline" className="text-xs text-green-600">
+                      Guardado en sesión
+                    </Badge>
+                  )}
                 </h3>
-                <Button variant="ghost" size="sm" onClick={() => downloadTxt(editedPatient || patientReport, `${filePrefix}_informe_paciente.txt`)}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => downloadTxt(editedPatient || patientReport, `${filePrefix}_informe_paciente.txt`)}
+                >
                   <Download className="mr-1 h-3 w-3" />
                   Descargar .txt
                 </Button>
@@ -513,13 +553,22 @@ export function TranscriptionAnalysisDialog({
                   </Button>
                 )}
                 {patientPhone && (
-                  <Button size="sm" variant="outline" onClick={() => sendPatientReport('whatsapp')} disabled={isSending}>
-                    {isSending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <MessageCircle className="h-4 w-4 mr-1" />}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => sendPatientReport("whatsapp")}
+                    disabled={isSending}
+                  >
+                    {isSending ? (
+                      <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                    ) : (
+                      <MessageCircle className="h-4 w-4 mr-1" />
+                    )}
                     Enviar por WhatsApp
                   </Button>
                 )}
                 {patientEmail && (
-                  <Button size="sm" variant="outline" onClick={() => sendPatientReport('email')} disabled={isSending}>
+                  <Button size="sm" variant="outline" onClick={() => sendPatientReport("email")} disabled={isSending}>
                     {isSending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Mail className="h-4 w-4 mr-1" />}
                     Enviar por email
                   </Button>
@@ -545,8 +594,8 @@ export function TranscriptionAnalysisDialog({
 function StepBadge({ n, done, active, label }: { n: number; done: boolean; active: boolean; label: string }) {
   return (
     <Badge
-      variant={done ? 'default' : active ? 'secondary' : 'outline'}
-      className={`text-xs ${active ? 'animate-pulse' : ''}`}
+      variant={done ? "default" : active ? "secondary" : "outline"}
+      className={`text-xs ${active ? "animate-pulse" : ""}`}
     >
       {done ? <CheckCircle2 className="mr-1 h-3 w-3" /> : null}
       {n}. {label}
