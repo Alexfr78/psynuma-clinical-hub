@@ -12,7 +12,8 @@ interface UseTranscriptionAnalysisOptions {
 
 export function useTranscriptionAnalysis(options: UseTranscriptionAnalysisOptions = {}) {
   const { sessionId, patientPhone, patientEmail, isOpen } = options;
-  const { centerId } = useCenter();
+  const { centerId, center } = useCenter();
+  const analysisMode = center?.ai_analysis_mode || 'layered';
   const [baseAnalysis, setBaseAnalysis] = useState<string | null>(null);
   const [clinicalReport, setClinicalReport] = useState<string | null>(null);
   const [patientReport, setPatientReport] = useState<string | null>(null);
@@ -58,6 +59,45 @@ export function useTranscriptionAnalysis(options: UseTranscriptionAnalysisOption
   const [isSending, setIsSending] = useState(false);
   const [currentLayer, setCurrentLayer] = useState<number | null>(null);
 
+  const parseSingleModeReports = (payload: unknown): { clinical: string; patient: string } | null => {
+    if (!payload || typeof payload !== 'object') return null;
+
+    const record = payload as Record<string, unknown>;
+    if (typeof record.clinical === 'string' && typeof record.patient === 'string') {
+      return {
+        clinical: record.clinical.trim(),
+        patient: record.patient.trim(),
+      };
+    }
+
+    if (typeof record.content !== 'string') return null;
+
+    const cleaned = record.content.replace(/^```(?:json)?\s*/, '').replace(/\s*```$/, '').trim();
+    const candidates = [cleaned];
+    const firstBrace = cleaned.indexOf('{');
+    const lastBrace = cleaned.lastIndexOf('}');
+
+    if (firstBrace !== -1 && lastBrace > firstBrace) {
+      candidates.push(cleaned.slice(firstBrace, lastBrace + 1));
+    }
+
+    for (const candidate of candidates) {
+      try {
+        const parsed = JSON.parse(candidate) as Record<string, unknown>;
+        if (typeof parsed.clinical === 'string' && typeof parsed.patient === 'string') {
+          return {
+            clinical: parsed.clinical.trim(),
+            patient: parsed.patient.trim(),
+          };
+        }
+      } catch {
+        continue;
+      }
+    }
+
+    return null;
+  };
+
   const analyze = async (
     transcription: string,
     layer: 1 | 2 | 3,
@@ -82,23 +122,30 @@ export function useTranscriptionAnalysis(options: UseTranscriptionAnalysisOption
       if (error) throw error;
       if (!data?.success) throw new Error(data?.error || 'Error al analizar');
 
-      // Handle single mode response
-      if (data.mode === 'single' && data.clinical && data.patient) {
-        setClinicalReport(data.clinical);
-        setPatientReport(data.patient);
+      const singleModeRequested = analysisMode === 'single' && layer === 1;
+      const singleModeReports = singleModeRequested || data.mode === 'single' ? parseSingleModeReports(data) : null;
+
+      if (singleModeReports) {
+        setBaseAnalysis(null);
+        setClinicalReport(singleModeReports.clinical);
+        setPatientReport(singleModeReports.patient);
         toast.success('Informes generados');
         if (sessionId) {
           await supabase
             .from('sessions')
             .update({
-              notes: data.clinical,
-              ai_summary_clinical: data.clinical,
-              ai_summary_patient: data.patient,
+              notes: singleModeReports.clinical,
+              ai_summary_clinical: singleModeReports.clinical,
+              ai_summary_patient: singleModeReports.patient,
               transcript_processed_at: new Date().toISOString(),
             } as any)
             .eq('id', sessionId);
         }
-        return data.clinical;
+        return singleModeReports.clinical;
+      }
+
+      if (singleModeRequested || data.mode === 'single') {
+        throw new Error('La respuesta del análisis directo no se pudo interpretar correctamente.');
       }
 
       const content = data.content as string;
