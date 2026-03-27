@@ -225,9 +225,10 @@ serve(async (req) => {
         .single();
 
       if (center) {
-        provider = center.ai_provider || 'openai';
+        provider = (center.ai_provider || 'openai').toString().trim().toLowerCase();
         temperature = center.ai_temperature ?? 0.3;
-        analysisMode = center.ai_analysis_mode || 'layered';
+        analysisMode = (center.ai_analysis_mode || 'layered').toString().trim().toLowerCase();
+        console.log(`[analyze] Center config — provider: ${provider}, analysisMode: "${analysisMode}", raw: "${center.ai_analysis_mode}"`);
 
         if (provider === 'gemini') {
           model = center.gemini_model || 'gemini-2.5-pro';
@@ -291,14 +292,23 @@ ${transcription}`;
       // Try to parse JSON from the response
       let parsed: { clinical: string; patient: string };
       try {
-        // Remove potential markdown code block wrapping
-        const cleaned = content.replace(/^```(?:json)?\s*/, '').replace(/\s*```$/, '').trim();
+        // Remove potential markdown code block wrapping and find JSON
+        let cleaned = content.replace(/^```(?:json)?\s*/, '').replace(/\s*```$/, '').trim();
+        // If there's extra text before/after JSON, extract it
+        const firstBrace = cleaned.indexOf('{');
+        const lastBrace = cleaned.lastIndexOf('}');
+        if (firstBrace !== -1 && lastBrace > firstBrace) {
+          cleaned = cleaned.slice(firstBrace, lastBrace + 1);
+        }
         parsed = JSON.parse(cleaned);
-      } catch {
-        // If parsing fails, return as plain text
-        console.warn('[analyze] Single mode: failed to parse JSON, returning raw content');
+        if (!parsed.clinical || !parsed.patient) {
+          throw new Error('Missing clinical or patient keys in parsed JSON');
+        }
+      } catch (parseErr) {
+        // If parsing fails, return raw content as clinical report with explicit mode marker
+        console.warn('[analyze] Single mode: failed to parse JSON:', parseErr, 'Raw content length:', content.length);
         return new Response(
-          JSON.stringify({ success: true, content, layer: 1, mode: 'single' }),
+          JSON.stringify({ success: true, content, layer: 1, mode: 'single', clinical: content, patient: '' }),
           { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }

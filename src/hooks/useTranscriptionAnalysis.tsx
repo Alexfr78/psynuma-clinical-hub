@@ -122,30 +122,57 @@ export function useTranscriptionAnalysis(options: UseTranscriptionAnalysisOption
       if (error) throw error;
       if (!data?.success) throw new Error(data?.error || 'Error al analizar');
 
-      const singleModeRequested = analysisMode === 'single' && layer === 1;
-      const singleModeReports = singleModeRequested || data.mode === 'single' ? parseSingleModeReports(data) : null;
+      const isSingleResponse = data.mode === 'single' || (analysisMode === 'single' && layer === 1);
 
-      if (singleModeReports) {
-        setBaseAnalysis(null);
-        setClinicalReport(singleModeReports.clinical);
-        setPatientReport(singleModeReports.patient);
-        toast.success('Informes generados');
-        if (sessionId) {
-          await supabase
-            .from('sessions')
-            .update({
-              notes: singleModeReports.clinical,
-              ai_summary_clinical: singleModeReports.clinical,
-              ai_summary_patient: singleModeReports.patient,
-              transcript_processed_at: new Date().toISOString(),
-            } as any)
-            .eq('id', sessionId);
+      if (isSingleResponse) {
+        // Try to extract clinical/patient from the response in multiple ways
+        let clinical: string | null = null;
+        let patient: string | null = null;
+
+        // Method 1: top-level keys from edge function
+        if (typeof data.clinical === 'string' && data.clinical.trim()) {
+          clinical = data.clinical.trim();
         }
-        return singleModeReports.clinical;
-      }
+        if (typeof data.patient === 'string' && data.patient.trim()) {
+          patient = data.patient.trim();
+        }
 
-      if (singleModeRequested || data.mode === 'single') {
-        throw new Error('La respuesta del análisis directo no se pudo interpretar correctamente.');
+        // Method 2: parse from content field if top-level keys missing
+        if (!clinical && typeof data.content === 'string') {
+          const parsed = parseSingleModeReports(data);
+          if (parsed) {
+            clinical = parsed.clinical;
+            patient = parsed.patient;
+          }
+        }
+
+        // Method 3: if we only have content but couldn't parse JSON, use it as clinical
+        if (!clinical && typeof data.content === 'string' && data.content.trim()) {
+          console.warn('[transcription] Single mode: could not parse JSON, using raw content as clinical report');
+          clinical = data.content.trim();
+          patient = '';
+        }
+
+        if (clinical) {
+          setBaseAnalysis(null);
+          setClinicalReport(clinical);
+          setPatientReport(patient || '');
+          toast.success(patient ? 'Informes generados' : 'Informe clínico generado (el informe del paciente requiere regeneración)');
+          if (sessionId) {
+            await supabase
+              .from('sessions')
+              .update({
+                notes: clinical,
+                ai_summary_clinical: clinical,
+                ai_summary_patient: patient || null,
+                transcript_processed_at: new Date().toISOString(),
+              } as any)
+              .eq('id', sessionId);
+          }
+          return clinical;
+        }
+
+        throw new Error('La respuesta del análisis directo no contenía informes válidos.');
       }
 
       const content = data.content as string;
