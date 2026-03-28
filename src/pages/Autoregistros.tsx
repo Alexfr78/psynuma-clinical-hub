@@ -216,6 +216,19 @@ export default function Autoregistros() {
             </div>
           )}
         </TabsContent>
+
+        <TabsContent value="emocional">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+            <div>
+              <h2 className="text-lg font-semibold">Autoregistro emocional diario</h2>
+              <p className="text-sm text-muted-foreground">Registra y consulta el estado emocional de los pacientes</p>
+            </div>
+            <Button size="sm" onClick={() => navigate('/emotional-record/new')}>
+              <Plus className="h-4 w-4 mr-2" /> Nuevo registro
+            </Button>
+          </div>
+          <EmotionalRecordHistory />
+        </TabsContent>
       </Tabs>
 
       <CreateTemplateDialog open={createOpen} onOpenChange={setCreateOpen} />
