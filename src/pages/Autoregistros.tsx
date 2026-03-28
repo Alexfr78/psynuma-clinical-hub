@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
@@ -30,14 +31,17 @@ import type { AutoregistroField } from '@/hooks/useAutoregistroTemplates';
 import { formatFieldValue } from '@/lib/autoregistro-format';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import EmotionalRecordHistory from '@/pages/EmotionalRecordHistory';
 
 const tabOptions = [
   { value: 'templates', label: 'Plantillas' },
   { value: 'links', label: 'Envíos' },
   { value: 'entries', label: 'Registros' },
+  { value: 'emocional', label: 'Emocional' },
 ];
 
 export default function Autoregistros() {
+  const navigate = useNavigate();
   const [tab, setTab] = useState('templates');
   const [createOpen, setCreateOpen] = useState(false);
   const [sendOpen, setSendOpen] = useState(false);
