@@ -83,6 +83,7 @@ const App = () => (
             <Route path="/derivaciones/:centerSlug/registro" element={<PublicReferralRegister />} />
             <Route path="/registro/:token" element={<AutoregistroPublic />} />
             <Route path="/emotional-record/new" element={<EmotionalRecord />} />
+            <Route path="/emotional-record/history" element={<EmotionalRecordHistory />} />
             
             {/* Protected Routes */}
             <Route path="/dashboard" element={
