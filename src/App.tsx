@@ -42,6 +42,7 @@ import Referrals from "./pages/Referrals";
 import Autoregistros from "./pages/Autoregistros";
 import AutoregistroPublic from "./pages/AutoregistroPublic";
 import EmotionalRecord from "./pages/EmotionalRecord";
+import EmotionalRecordHistory from "./pages/EmotionalRecordHistory";
 
 const queryClient = new QueryClient();
 
