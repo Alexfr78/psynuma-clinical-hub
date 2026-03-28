@@ -81,6 +81,7 @@ const App = () => (
             <Route path="/pago-exitoso" element={<PaymentSuccess />} />
             <Route path="/derivaciones/:centerSlug/registro" element={<PublicReferralRegister />} />
             <Route path="/registro/:token" element={<AutoregistroPublic />} />
+            <Route path="/emotional-record/new" element={<EmotionalRecord />} />
             
             {/* Protected Routes */}
             <Route path="/dashboard" element={
