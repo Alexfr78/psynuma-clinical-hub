@@ -1752,6 +1752,96 @@ export type Database = {
           },
         ]
       }
+      emotional_records: {
+        Row: {
+          center_id: string
+          context: string | null
+          created_at: string
+          detailed_emotion: string | null
+          helpful_action: string | null
+          id: string
+          intensity: number
+          need: string | null
+          note: string | null
+          patient_id: string
+          primary_emotion: string
+          reaction: string | null
+          record_date: string
+          secondary_emotion: string
+          thought: string | null
+        }
+        Insert: {
+          center_id: string
+          context?: string | null
+          created_at?: string
+          detailed_emotion?: string | null
+          helpful_action?: string | null
+          id?: string
+          intensity: number
+          need?: string | null
+          note?: string | null
+          patient_id: string
+          primary_emotion: string
+          reaction?: string | null
+          record_date?: string
+          secondary_emotion: string
+          thought?: string | null
+        }
+        Update: {
+          center_id?: string
+          context?: string | null
+          created_at?: string
+          detailed_emotion?: string | null
+          helpful_action?: string | null
+          id?: string
+          intensity?: number
+          need?: string | null
+          note?: string | null
+          patient_id?: string
+          primary_emotion?: string
+          reaction?: string | null
+          record_date?: string
+          secondary_emotion?: string
+          thought?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "emotional_records_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "emotional_records_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "emotional_records_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "portal_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "emotional_records_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "emotional_records_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       google_calendar_channels: {
         Row: {
           calendar_id: string
