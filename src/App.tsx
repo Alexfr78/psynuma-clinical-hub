@@ -42,6 +42,7 @@ import Referrals from "./pages/Referrals";
 import Autoregistros from "./pages/Autoregistros";
 import AutoregistroPublic from "./pages/AutoregistroPublic";
 import EmotionalRecord from "./pages/EmotionalRecord";
+import EmotionalRecordHistory from "./pages/EmotionalRecordHistory";
 
 const queryClient = new QueryClient();
 
@@ -82,6 +83,7 @@ const App = () => (
             <Route path="/derivaciones/:centerSlug/registro" element={<PublicReferralRegister />} />
             <Route path="/registro/:token" element={<AutoregistroPublic />} />
             <Route path="/emotional-record/new" element={<EmotionalRecord />} />
+            <Route path="/emotional-record/history" element={<EmotionalRecordHistory />} />
             
             {/* Protected Routes */}
             <Route path="/dashboard" element={
