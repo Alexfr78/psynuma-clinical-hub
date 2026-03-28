@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
@@ -31,17 +30,14 @@ import type { AutoregistroField } from '@/hooks/useAutoregistroTemplates';
 import { formatFieldValue } from '@/lib/autoregistro-format';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import EmotionalRecordHistory from '@/pages/EmotionalRecordHistory';
 
 const tabOptions = [
   { value: 'templates', label: 'Plantillas' },
   { value: 'links', label: 'Envíos' },
   { value: 'entries', label: 'Registros' },
-  { value: 'emocional', label: 'Emocional' },
 ];
 
 export default function Autoregistros() {
-  const navigate = useNavigate();
   const [tab, setTab] = useState('templates');
   const [createOpen, setCreateOpen] = useState(false);
   const [sendOpen, setSendOpen] = useState(false);
@@ -215,19 +211,6 @@ export default function Autoregistros() {
               <p className="text-muted-foreground">No hay registros completados</p>
             </div>
           )}
-        </TabsContent>
-
-        <TabsContent value="emocional">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-            <div>
-              <h2 className="text-lg font-semibold">Autoregistro emocional diario</h2>
-              <p className="text-sm text-muted-foreground">Registra y consulta el estado emocional de los pacientes</p>
-            </div>
-            <Button size="sm" onClick={() => navigate('/emotional-record/new')}>
-              <Plus className="h-4 w-4 mr-2" /> Nuevo registro
-            </Button>
-          </div>
-          <EmotionalRecordHistory />
         </TabsContent>
       </Tabs>
 
