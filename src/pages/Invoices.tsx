@@ -468,6 +468,7 @@ export default function Invoices() {
                   onRetryVerifactu={() => handleRetryVerifactu(invoice.id)}
                   onSendInvoice={() => handleSendInvoice(invoice)}
                   onLinkPayments={() => handleLinkPayments(invoice)}
+                  onDeleteDraft={() => handleDeleteDraftClick(invoice)}
                 />
               ))}
             </div>
@@ -524,6 +525,27 @@ export default function Invoices() {
               <AlertDialogCancel>Cancelar</AlertDialogCancel>
               <AlertDialogAction onClick={handleCancelVerifactuConfirm} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
                 Anular en AEAT
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
+
+      {/* Confirmation dialog for deleting draft */}
+      {deleteDraftDialogOpen && (
+        <AlertDialog open={deleteDraftDialogOpen} onOpenChange={setDeleteDraftDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>¿Eliminar borrador?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Vas a eliminar el borrador <strong>{invoiceToDelete?.number}</strong>. 
+                Esta acción no se puede deshacer.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={handleConfirmDeleteDraft} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                Eliminar
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
