@@ -134,6 +134,18 @@ export default function Invoices() {
     await updateStatus.mutateAsync({ id, status });
   };
 
+  const handleDeleteDraftClick = (invoice: InvoiceWithPatient) => {
+    setInvoiceToDelete({ id: invoice.id, number: invoice.invoice_number });
+    setDeleteDraftDialogOpen(true);
+  };
+
+  const handleConfirmDeleteDraft = async () => {
+    if (!invoiceToDelete) return;
+    await deleteDraft.mutateAsync(invoiceToDelete.id);
+    setDeleteDraftDialogOpen(false);
+    setInvoiceToDelete(null);
+  };
+
   const handleGeneratePDF = async (invoiceId: string) => {
     try {
       toast.info('Generando PDF...');
