@@ -286,7 +286,7 @@ export function useTranscriptionAnalysis(options: UseTranscriptionAnalysisOption
           type: channel,
           recipient,
           subject: channel === 'email' ? 'Resumen de tu sesión' : undefined,
-          message: patientReport,
+          message: reportContent,
           status: 'pending' as const,
         })
         .select('id')
