@@ -185,9 +185,19 @@ export function InvoiceCard({
                     )}
 
                     {invoice.status === 'draft' && (
-                      <DropdownMenuItem onClick={() => { setMenuOpen(false); onStatusChange?.('issued'); }}>
-                        Emitir factura
-                      </DropdownMenuItem>
+                      <>
+                        <DropdownMenuItem onClick={() => { setMenuOpen(false); onStatusChange?.('issued'); }}>
+                          Emitir factura
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem 
+                          onClick={() => { setMenuOpen(false); onDeleteDraft?.(); }}
+                          className="text-destructive focus:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Eliminar borrador
+                        </DropdownMenuItem>
+                      </>
                     )}
 
                     {invoice.status === 'issued' && (
