@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { FileText, User, Download, MoreVertical, ShieldCheck, Search, FileX, FilePlus2, RefreshCw, Clock, Mail, Link2, AlertTriangle } from 'lucide-react';
+import { FileText, User, Download, MoreVertical, ShieldCheck, Search, FileX, FilePlus2, RefreshCw, Clock, Mail, Link2, AlertTriangle, Trash2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -27,6 +27,7 @@ interface InvoiceCardProps {
   onRetryVerifactu?: () => void;
   onSendInvoice?: () => void;
   onLinkPayments?: () => void;
+  onDeleteDraft?: () => void;
 }
 
 const statusConfig = {
@@ -47,7 +48,8 @@ export function InvoiceCard({
   onCreateRectificativa,
   onRetryVerifactu,
   onSendInvoice,
-  onLinkPayments
+  onLinkPayments,
+  onDeleteDraft
 }: InvoiceCardProps) {
   const status = statusConfig[invoice.status] || statusConfig.draft;
   const isSealed = !!invoice.verifactu_registration_id; // Use registration_id as it confirms AEAT acceptance
@@ -183,9 +185,19 @@ export function InvoiceCard({
                     )}
 
                     {invoice.status === 'draft' && (
-                      <DropdownMenuItem onClick={() => { setMenuOpen(false); onStatusChange?.('issued'); }}>
-                        Emitir factura
-                      </DropdownMenuItem>
+                      <>
+                        <DropdownMenuItem onClick={() => { setMenuOpen(false); onStatusChange?.('issued'); }}>
+                          Emitir factura
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem 
+                          onClick={() => { setMenuOpen(false); onDeleteDraft?.(); }}
+                          className="text-destructive focus:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Eliminar borrador
+                        </DropdownMenuItem>
+                      </>
                     )}
 
                     {invoice.status === 'issued' && (

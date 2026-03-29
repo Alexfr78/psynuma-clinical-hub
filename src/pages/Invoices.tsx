@@ -24,7 +24,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { useInvoices, useUpdateInvoiceStatus, useInvoiceStats, type InvoiceWithPatient, type InvoiceSortField, type SortDirection } from '@/hooks/useInvoices';
+import { useInvoices, useUpdateInvoiceStatus, useInvoiceStats, useDeleteDraftInvoice, type InvoiceWithPatient, type InvoiceSortField, type SortDirection } from '@/hooks/useInvoices';
 import { InvoiceCard } from '@/components/invoices/InvoiceCard';
 import { InvoiceDetailDialog } from '@/components/invoices/InvoiceDetailDialog';
 import { CreateSimpleInvoiceDialog } from '@/components/invoices/CreateSimpleInvoiceDialog';
@@ -109,6 +109,11 @@ export default function Invoices() {
   
   const { data: stats } = useInvoiceStats();
   const updateStatus = useUpdateInvoiceStatus();
+  const deleteDraft = useDeleteDraftInvoice();
+  
+  // Delete draft dialog state
+  const [deleteDraftDialogOpen, setDeleteDraftDialogOpen] = useState(false);
+  const [invoiceToDelete, setInvoiceToDelete] = useState<{ id: string; number: string } | null>(null);
   
   const handleSort = (field: InvoiceSortField) => {
     if (sortBy === field) {
@@ -127,6 +132,18 @@ export default function Invoices() {
 
   const handleStatusChange = async (id: string, status: 'draft' | 'issued' | 'paid' | 'cancelled') => {
     await updateStatus.mutateAsync({ id, status });
+  };
+
+  const handleDeleteDraftClick = (invoice: InvoiceWithPatient) => {
+    setInvoiceToDelete({ id: invoice.id, number: invoice.invoice_number });
+    setDeleteDraftDialogOpen(true);
+  };
+
+  const handleConfirmDeleteDraft = async () => {
+    if (!invoiceToDelete) return;
+    await deleteDraft.mutateAsync(invoiceToDelete.id);
+    setDeleteDraftDialogOpen(false);
+    setInvoiceToDelete(null);
   };
 
   const handleGeneratePDF = async (invoiceId: string) => {
@@ -451,6 +468,7 @@ export default function Invoices() {
                   onRetryVerifactu={() => handleRetryVerifactu(invoice.id)}
                   onSendInvoice={() => handleSendInvoice(invoice)}
                   onLinkPayments={() => handleLinkPayments(invoice)}
+                  onDeleteDraft={() => handleDeleteDraftClick(invoice)}
                 />
               ))}
             </div>
@@ -507,6 +525,27 @@ export default function Invoices() {
               <AlertDialogCancel>Cancelar</AlertDialogCancel>
               <AlertDialogAction onClick={handleCancelVerifactuConfirm} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
                 Anular en AEAT
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
+
+      {/* Confirmation dialog for deleting draft */}
+      {deleteDraftDialogOpen && (
+        <AlertDialog open={deleteDraftDialogOpen} onOpenChange={setDeleteDraftDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>¿Eliminar borrador?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Vas a eliminar el borrador <strong>{invoiceToDelete?.number}</strong>. 
+                Esta acción no se puede deshacer.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={handleConfirmDeleteDraft} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                Eliminar
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

@@ -620,6 +620,58 @@ export function useSessionInvoiceStatus(sessionId: string | undefined) {
   });
 }
 
+// Delete a draft invoice (only drafts allowed)
+export function useDeleteDraftInvoice() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (invoiceId: string) => {
+      // Verify invoice is draft before deleting
+      const { data: invoice, error: fetchError } = await supabase
+        .from('invoices')
+        .select('id, status')
+        .eq('id', invoiceId)
+        .single();
+
+      if (fetchError) throw fetchError;
+      if (!invoice) throw new Error('Factura no encontrada');
+      if (invoice.status !== 'draft') throw new Error('Solo se pueden eliminar facturas en borrador');
+
+      // Delete related invoice_items first
+      const { error: itemsError } = await supabase
+        .from('invoice_items')
+        .delete()
+        .eq('invoice_id', invoiceId);
+      if (itemsError) throw itemsError;
+
+      // Delete related debts
+      const { error: debtsError } = await supabase
+        .from('debts')
+        .delete()
+        .eq('invoice_id', invoiceId);
+      if (debtsError) throw debtsError;
+
+      // Delete the invoice
+      const { error } = await supabase
+        .from('invoices')
+        .delete()
+        .eq('id', invoiceId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      queryClient.invalidateQueries({ queryKey: ['invoice-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['session-invoice-status'] });
+      queryClient.invalidateQueries({ queryKey: ['billable-events'] });
+      queryClient.invalidateQueries({ queryKey: ['debts'] });
+      toast.success('Borrador eliminado');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Error al eliminar el borrador');
+    },
+  });
+}
+
 // Mark invoice as invalid (for rectifications)
 export function useInvalidateInvoice() {
   const queryClient = useQueryClient();
