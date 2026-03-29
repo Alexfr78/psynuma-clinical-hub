@@ -250,8 +250,13 @@ export function useTranscriptionAnalysis(options: UseTranscriptionAnalysisOption
     }
   };
 
-  const sendPatientReport = async (channel: 'whatsapp' | 'email') => {
-    if (!sessionId || !patientReport || !centerId) return;
+  const sendPatientReport = async (channel: 'whatsapp' | 'email', contentOverride?: string) => {
+    const reportContent = contentOverride || patientReport;
+    if (!sessionId || !reportContent || !centerId) {
+      console.warn('[sendPatientReport] Missing data:', { sessionId: !!sessionId, reportContent: !!reportContent, centerId: !!centerId });
+      toast.error('No hay informe del paciente para enviar');
+      return;
+    }
 
     const recipient = channel === 'whatsapp' ? patientPhone : patientEmail;
     if (!recipient) {
