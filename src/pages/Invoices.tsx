@@ -24,7 +24,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { useInvoices, useUpdateInvoiceStatus, useInvoiceStats, type InvoiceWithPatient, type InvoiceSortField, type SortDirection } from '@/hooks/useInvoices';
+import { useInvoices, useUpdateInvoiceStatus, useInvoiceStats, useDeleteDraftInvoice, type InvoiceWithPatient, type InvoiceSortField, type SortDirection } from '@/hooks/useInvoices';
 import { InvoiceCard } from '@/components/invoices/InvoiceCard';
 import { InvoiceDetailDialog } from '@/components/invoices/InvoiceDetailDialog';
 import { CreateSimpleInvoiceDialog } from '@/components/invoices/CreateSimpleInvoiceDialog';
@@ -109,6 +109,11 @@ export default function Invoices() {
   
   const { data: stats } = useInvoiceStats();
   const updateStatus = useUpdateInvoiceStatus();
+  const deleteDraft = useDeleteDraftInvoice();
+  
+  // Delete draft dialog state
+  const [deleteDraftDialogOpen, setDeleteDraftDialogOpen] = useState(false);
+  const [invoiceToDelete, setInvoiceToDelete] = useState<{ id: string; number: string } | null>(null);
   
   const handleSort = (field: InvoiceSortField) => {
     if (sortBy === field) {
