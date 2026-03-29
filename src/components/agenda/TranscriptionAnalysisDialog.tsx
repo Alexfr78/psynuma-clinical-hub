@@ -556,7 +556,7 @@ export function TranscriptionAnalysisDialog({
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => sendPatientReport("whatsapp")}
+                    onClick={() => sendPatientReport("whatsapp", editedPatient)}
                     disabled={isSending}
                   >
                     {isSending ? (
@@ -568,7 +568,7 @@ export function TranscriptionAnalysisDialog({
                   </Button>
                 )}
                 {patientEmail && (
-                  <Button size="sm" variant="outline" onClick={() => sendPatientReport("email")} disabled={isSending}>
+                  <Button size="sm" variant="outline" onClick={() => sendPatientReport("email", editedPatient)} disabled={isSending}>
                     {isSending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Mail className="h-4 w-4 mr-1" />}
                     Enviar por email
                   </Button>
