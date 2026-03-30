@@ -11,6 +11,17 @@ export interface AutoregistroField {
   required: boolean;
   order: number;
   showInChart?: boolean;
+  // Select: allow free-text "Other" option
+  allowCustomValue?: boolean;
+  customValueLabel?: string;
+  customValuePlaceholder?: string;
+  // Scale: configurable range
+  min?: number;
+  max?: number;
+  step?: number;
+  defaultValue?: number;
+  minLabel?: string;
+  maxLabel?: string;
 }
 
 export interface AutoregistroTemplate {

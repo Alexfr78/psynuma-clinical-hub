@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -23,7 +23,7 @@ const FIELD_TYPES = [
   { value: 'time', label: 'Hora' },
   { value: 'select', label: 'Selección' },
   { value: 'checkbox', label: 'Casilla' },
-  { value: 'scale', label: 'Escala (0-10)' },
+  { value: 'scale', label: 'Escala' },
 ] as const;
 
 interface FieldBuilderProps {
@@ -65,9 +65,7 @@ export function FieldBuilder({ fields, onChange }: FieldBuilderProps) {
     onChange(next.map((f, i) => ({ ...f, order: i })));
   };
 
-  const handleDragStart = (index: number) => {
-    setDragIndex(index);
-  };
+  const handleDragStart = (index: number) => setDragIndex(index);
 
   const handleDragOver = (e: React.DragEvent, index: number) => {
     e.preventDefault();
@@ -126,7 +124,26 @@ export function FieldBuilder({ fields, onChange }: FieldBuilderProps) {
               />
               <Select
                 value={field.type}
-                onValueChange={(v) => updateField(index, { type: v as AutoregistroField['type'], options: v === 'select' ? [] : undefined })}
+                onValueChange={(v) => {
+                  const typeUpdates: Partial<AutoregistroField> = {
+                    type: v as AutoregistroField['type'],
+                    options: v === 'select' ? [] : undefined,
+                  };
+                  if (v !== 'select') {
+                    typeUpdates.allowCustomValue = undefined;
+                    typeUpdates.customValueLabel = undefined;
+                    typeUpdates.customValuePlaceholder = undefined;
+                  }
+                  if (v !== 'scale') {
+                    typeUpdates.min = undefined;
+                    typeUpdates.max = undefined;
+                    typeUpdates.step = undefined;
+                    typeUpdates.defaultValue = undefined;
+                    typeUpdates.minLabel = undefined;
+                    typeUpdates.maxLabel = undefined;
+                  }
+                  updateField(index, typeUpdates);
+                }}
               >
                 <SelectTrigger className="w-[140px]">
                   <SelectValue />
@@ -139,23 +156,101 @@ export function FieldBuilder({ fields, onChange }: FieldBuilderProps) {
               </Select>
             </div>
 
+            {/* Select options */}
             {field.type === 'select' && (
-              <Input
-                placeholder="Opciones separadas por coma"
-                value={getOptionsText(index, field)}
-                onChange={(e) =>
-                  setOptionsTextMap((prev) => ({ ...prev, [index]: e.target.value }))
-                }
-                onBlur={() => {
-                  const raw = optionsTextMap[index];
-                  if (raw !== undefined) {
-                    updateField(index, {
-                      options: raw.split(',').map((s) => s.trim()).filter(Boolean),
-                    });
-                    setOptionsTextMap((prev) => { const n = { ...prev }; delete n[index]; return n; });
+              <div className="space-y-2">
+                <Input
+                  placeholder="Opciones separadas por coma"
+                  value={getOptionsText(index, field)}
+                  onChange={(e) =>
+                    setOptionsTextMap((prev) => ({ ...prev, [index]: e.target.value }))
                   }
-                }}
-              />
+                  onBlur={() => {
+                    const raw = optionsTextMap[index];
+                    if (raw !== undefined) {
+                      updateField(index, {
+                        options: raw.split(',').map((s) => s.trim()).filter(Boolean),
+                      });
+                      setOptionsTextMap((prev) => { const n = { ...prev }; delete n[index]; return n; });
+                    }
+                  }}
+                />
+                <div className="flex items-center gap-2">
+                  <Switch
+                    checked={!!field.allowCustomValue}
+                    onCheckedChange={(v) => updateField(index, { allowCustomValue: v })}
+                    id={`custom-${index}`}
+                  />
+                  <Label htmlFor={`custom-${index}`} className="text-sm">Permitir respuesta libre ("Otra")</Label>
+                </div>
+                {field.allowCustomValue && (
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input
+                      placeholder="Etiqueta (ej: Otra creencia)"
+                      value={field.customValueLabel ?? ''}
+                      onChange={(e) => updateField(index, { customValueLabel: e.target.value || undefined })}
+                    />
+                    <Input
+                      placeholder="Placeholder del input"
+                      value={field.customValuePlaceholder ?? ''}
+                      onChange={(e) => updateField(index, { customValuePlaceholder: e.target.value || undefined })}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Scale config */}
+            {field.type === 'scale' && (
+              <div className="space-y-2">
+                <div className="grid grid-cols-4 gap-2">
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Mínimo</Label>
+                    <Input
+                      type="number"
+                      value={field.min ?? 0}
+                      onChange={(e) => updateField(index, { min: e.target.value !== '' ? Number(e.target.value) : undefined })}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Máximo</Label>
+                    <Input
+                      type="number"
+                      value={field.max ?? 10}
+                      onChange={(e) => updateField(index, { max: e.target.value !== '' ? Number(e.target.value) : undefined })}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Paso</Label>
+                    <Input
+                      type="number"
+                      value={field.step ?? 1}
+                      min={0.1}
+                      onChange={(e) => updateField(index, { step: e.target.value !== '' ? Number(e.target.value) : undefined })}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Por defecto</Label>
+                    <Input
+                      type="number"
+                      value={field.defaultValue ?? Math.round(((field.min ?? 0) + (field.max ?? 10)) / 2)}
+                      onChange={(e) => updateField(index, { defaultValue: e.target.value !== '' ? Number(e.target.value) : undefined })}
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <Input
+                    placeholder="Etiqueta mínima (ej: Nada)"
+                    value={field.minLabel ?? ''}
+                    onChange={(e) => updateField(index, { minLabel: e.target.value || undefined })}
+                  />
+                  <Input
+                    placeholder="Etiqueta máxima (ej: Mucho)"
+                    value={field.maxLabel ?? ''}
+                    onChange={(e) => updateField(index, { maxLabel: e.target.value || undefined })}
+                  />
+                </div>
+              </div>
             )}
 
             <div className="flex items-center justify-between">
