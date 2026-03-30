@@ -9,6 +9,8 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import type { AutoregistroEntry } from '@/hooks/useAutoregistroEntries';
 import type { AutoregistroField } from '@/hooks/useAutoregistroTemplates';
+import { formatFieldValue } from '@/lib/autoregistro-format';
+import { getScaleMax } from '@/lib/autoregistro-fields';
 
 interface EntryDetailDialogProps {
   open: boolean;
@@ -21,12 +23,6 @@ export function EntryDetailDialog({ open, onOpenChange, entry }: EntryDetailDial
 
   const fields: AutoregistroField[] = (entry.template as any)?.fields ?? [];
   const sorted = [...fields].sort((a, b) => a.order - b.order);
-
-  const formatValue = (field: AutoregistroField, value: any): string => {
-    if (value === undefined || value === null) return '—';
-    if (field.type === 'checkbox') return value ? 'Sí' : 'No';
-    return String(value);
-  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -50,9 +46,9 @@ export function EntryDetailDialog({ open, onOpenChange, entry }: EntryDetailDial
               <span className="text-xs text-muted-foreground">{field.label}</span>
               <span className="text-sm font-medium">
                 {field.type === 'scale' ? (
-                  <Badge variant="outline">{entry.values[field.label] ?? '—'} / 10</Badge>
+                  <Badge variant="outline">{entry.values[field.label] ?? '—'} / {getScaleMax(field)}</Badge>
                 ) : (
-                  formatValue(field, entry.values[field.label])
+                  formatFieldValue(field, entry.values[field.label])
                 )}
               </span>
             </div>
