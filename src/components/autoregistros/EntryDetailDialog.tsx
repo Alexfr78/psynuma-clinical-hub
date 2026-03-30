@@ -10,7 +10,7 @@ import { es } from 'date-fns/locale';
 import type { AutoregistroEntry } from '@/hooks/useAutoregistroEntries';
 import type { AutoregistroField } from '@/hooks/useAutoregistroTemplates';
 import { formatFieldValue } from '@/lib/autoregistro-format';
-import { getScaleMax } from '@/lib/autoregistro-fields';
+import { normalizeAutoregistroFields, getScaleMax } from '@/lib/autoregistro-fields';
 
 interface EntryDetailDialogProps {
   open: boolean;
@@ -21,7 +21,8 @@ interface EntryDetailDialogProps {
 export function EntryDetailDialog({ open, onOpenChange, entry }: EntryDetailDialogProps) {
   if (!entry) return null;
 
-  const fields: AutoregistroField[] = (entry.template as any)?.fields ?? [];
+  const rawFields: AutoregistroField[] = (entry.template as any)?.fields ?? [];
+  const fields = normalizeAutoregistroFields(rawFields);
   const sorted = [...fields].sort((a, b) => a.order - b.order);
 
   return (
