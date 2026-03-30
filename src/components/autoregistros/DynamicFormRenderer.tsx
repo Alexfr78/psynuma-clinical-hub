@@ -13,7 +13,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import type { AutoregistroField } from '@/hooks/useAutoregistroTemplates';
-import { getScaleMin, getScaleMax, getScaleStep, getScaleDefault } from '@/lib/autoregistro-fields';
+import { normalizeAutoregistroFields, getScaleMin, getScaleMax, getScaleStep, getScaleDefault } from '@/lib/autoregistro-fields';
 
 const CUSTOM_VALUE_KEY = '__custom__';
 
@@ -21,22 +21,55 @@ interface DynamicFormRendererProps {
   fields: AutoregistroField[];
   onSubmit: (values: Record<string, any>) => void;
   isSubmitting?: boolean;
+  initialValues?: Record<string, any>;
 }
 
-export function DynamicFormRenderer({ fields, onSubmit, isSubmitting }: DynamicFormRendererProps) {
+export function DynamicFormRenderer({ fields, onSubmit, isSubmitting, initialValues }: DynamicFormRendererProps) {
+  const normalizedFields = normalizeAutoregistroFields(fields);
+
   const [values, setValues] = useState<Record<string, any>>(() => {
     const defaults: Record<string, any> = {};
-    for (const field of fields) {
+    for (const field of normalizedFields) {
       if (field.type === 'date') defaults[field.label] = new Date().toISOString().slice(0, 10);
       if (field.type === 'time') defaults[field.label] = new Date().toTimeString().slice(0, 5);
       if (field.type === 'scale') defaults[field.label] = getScaleDefault(field);
     }
+    // Overlay any initial values (e.g. when editing an existing entry)
+    if (initialValues) {
+      for (const field of normalizedFields) {
+        if (initialValues[field.label] !== undefined) {
+          // For custom-value selects: if the saved value isn't in options, mark as custom
+          if (field.type === 'select' && field.allowCustomValue) {
+            const opts = (field.options ?? []).filter(Boolean);
+            if (!opts.includes(initialValues[field.label])) {
+              defaults[field.label] = CUSTOM_VALUE_KEY;
+              continue; // customTexts handled below
+            }
+          }
+          defaults[field.label] = initialValues[field.label];
+        }
+      }
+    }
     return defaults;
   });
-  const [customTexts, setCustomTexts] = useState<Record<string, string>>({});
+
+  const [customTexts, setCustomTexts] = useState<Record<string, string>>(() => {
+    if (!initialValues) return {};
+    const ct: Record<string, string> = {};
+    for (const field of normalizeAutoregistroFields(fields)) {
+      if (field.type === 'select' && field.allowCustomValue && initialValues[field.label] !== undefined) {
+        const opts = (field.options ?? []).filter(Boolean);
+        if (!opts.includes(initialValues[field.label])) {
+          ct[field.label] = String(initialValues[field.label]);
+        }
+      }
+    }
+    return ct;
+  });
+
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const sorted = [...fields].sort((a, b) => a.order - b.order);
+  const sorted = [...normalizedFields].sort((a, b) => a.order - b.order);
 
   const setValue = (label: string, value: any) => {
     setValues((prev) => ({ ...prev, [label]: value }));
