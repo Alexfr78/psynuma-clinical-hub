@@ -24,6 +24,7 @@ const FIELD_TYPES = [
   { value: 'select', label: 'Selección' },
   { value: 'checkbox', label: 'Casilla' },
   { value: 'scale', label: 'Escala' },
+  { value: 'emotion_cards', label: 'Cartas emocionales' },
 ] as const;
 
 interface FieldBuilderProps {
