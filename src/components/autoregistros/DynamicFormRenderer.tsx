@@ -237,6 +237,14 @@ export function DynamicFormRenderer({ fields, onSubmit, isSubmitting, initialVal
               </div>
             )}
 
+            {field.type === 'emotion_cards' && (
+              <EmotionCardsField
+                options={field.emotionOptions ?? []}
+                value={values[field.label]}
+                onChange={(v) => setValue(field.label, v)}
+                allowDeselect={field.allowDeselect}
+              />
+            )}
             {errors[field.label] && (
               <p className="text-xs text-destructive">{errors[field.label]}</p>
             )}

@@ -260,6 +260,65 @@ export function FieldBuilder({ fields, onChange }: FieldBuilderProps) {
               </div>
             )}
 
+            {/* Emotion cards config */}
+            {field.type === 'emotion_cards' && (
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">Opciones de emociones</Label>
+                {(field.emotionOptions ?? []).map((opt, oi) => (
+                  <div key={oi} className="flex items-center gap-2">
+                    <Input
+                      placeholder="Nombre emoción"
+                      value={opt.label}
+                      onChange={(e) => {
+                        const next = [...(field.emotionOptions ?? [])];
+                        next[oi] = { ...next[oi], label: e.target.value };
+                        updateField(index, { emotionOptions: next });
+                      }}
+                      className="flex-1"
+                    />
+                    <Input
+                      placeholder="URL imagen"
+                      value={opt.imageUrl}
+                      onChange={(e) => {
+                        const next = [...(field.emotionOptions ?? [])];
+                        next[oi] = { ...next[oi], imageUrl: e.target.value };
+                        updateField(index, { emotionOptions: next });
+                      }}
+                      className="flex-1"
+                    />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => {
+                        const next = (field.emotionOptions ?? []).filter((_, i) => i !== oi);
+                        updateField(index, { emotionOptions: next });
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
+                ))}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const next = [...(field.emotionOptions ?? []), { label: '', imageUrl: '' }];
+                    updateField(index, { emotionOptions: next });
+                  }}
+                >
+                  <Plus className="h-3 w-3 mr-1" /> Añadir emoción
+                </Button>
+                <div className="flex items-center gap-2 pt-1">
+                  <Switch
+                    checked={!!field.allowDeselect}
+                    onCheckedChange={(v) => updateField(index, { allowDeselect: v })}
+                    id={`deselect-${index}`}
+                  />
+                  <Label htmlFor={`deselect-${index}`} className="text-sm">Permitir deseleccionar</Label>
+                </div>
+              </div>
+            )}
+
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="flex items-center gap-2">
