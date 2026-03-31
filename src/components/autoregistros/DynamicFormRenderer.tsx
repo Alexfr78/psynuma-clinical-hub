@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/select';
 import type { AutoregistroField } from '@/hooks/useAutoregistroTemplates';
 import { normalizeAutoregistroFields, getScaleMin, getScaleMax, getScaleStep, getScaleDefault } from '@/lib/autoregistro-fields';
+import { EmotionCardsField } from './EmotionCardsField';
 
 const CUSTOM_VALUE_KEY = '__custom__';
 
@@ -236,6 +237,14 @@ export function DynamicFormRenderer({ fields, onSubmit, isSubmitting, initialVal
               </div>
             )}
 
+            {field.type === 'emotion_cards' && (
+              <EmotionCardsField
+                options={field.emotionOptions ?? []}
+                value={values[field.label]}
+                onChange={(v) => setValue(field.label, v)}
+                allowDeselect={field.allowDeselect}
+              />
+            )}
             {errors[field.label] && (
               <p className="text-xs text-destructive">{errors[field.label]}</p>
             )}

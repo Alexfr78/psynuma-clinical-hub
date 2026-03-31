@@ -1,4 +1,4 @@
-import type { AutoregistroField } from '@/hooks/useAutoregistroTemplates';
+import type { AutoregistroField, EmotionOption } from '@/hooks/useAutoregistroTemplates';
 
 function normalizeSelectOptions(options?: string[]): string[] {
   return (options ?? [])
@@ -18,6 +18,16 @@ function normalizeScaleConfig(field: AutoregistroField): Partial<AutoregistroFie
   if (defaultValue > max) defaultValue = max;
 
   return { min, max, step, defaultValue };
+}
+
+function normalizeEmotionOptions(options?: EmotionOption[]): EmotionOption[] {
+  return (options ?? [])
+    .filter((o) => o && typeof o.label === 'string' && o.label.trim().length > 0)
+    .map((o) => ({
+      label: o.label.trim(),
+      imageUrl: (o.imageUrl ?? '').trim(),
+      ...(o.value ? { value: o.value.trim() } : {}),
+    }));
 }
 
 export function normalizeAutoregistroField(
@@ -40,12 +50,21 @@ export function normalizeAutoregistroField(
 
   if (normalizedBase.type === 'scale') {
     const scaleConfig = normalizeScaleConfig(normalizedBase);
-    const { options, ...fieldWithoutOptions } = normalizedBase;
-    return { ...fieldWithoutOptions, ...scaleConfig } as AutoregistroField;
+    const { options, emotionOptions, ...fieldWithoutExtras } = normalizedBase;
+    return { ...fieldWithoutExtras, ...scaleConfig } as AutoregistroField;
   }
 
-  const { options, ...fieldWithoutOptions } = normalizedBase;
-  return fieldWithoutOptions as AutoregistroField;
+  if (normalizedBase.type === 'emotion_cards') {
+    const { options, ...fieldWithoutOptions } = normalizedBase;
+    return {
+      ...fieldWithoutOptions,
+      emotionOptions: normalizeEmotionOptions(normalizedBase.emotionOptions),
+      allowDeselect: Boolean(normalizedBase.allowDeselect),
+    } as AutoregistroField;
+  }
+
+  const { options, emotionOptions, ...fieldWithoutExtras } = normalizedBase;
+  return fieldWithoutExtras as AutoregistroField;
 }
 
 export function normalizeAutoregistroFields(fields: AutoregistroField[] | null | undefined): AutoregistroField[] {
