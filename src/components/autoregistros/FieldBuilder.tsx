@@ -143,6 +143,12 @@ export function FieldBuilder({ fields, onChange }: FieldBuilderProps) {
                     typeUpdates.minLabel = undefined;
                     typeUpdates.maxLabel = undefined;
                   }
+                  if (v !== 'emotion_cards') {
+                    typeUpdates.emotionOptions = undefined;
+                    typeUpdates.allowDeselect = undefined;
+                  } else {
+                    typeUpdates.emotionOptions = [];
+                  }
                   updateField(index, typeUpdates);
                 }}
               >
