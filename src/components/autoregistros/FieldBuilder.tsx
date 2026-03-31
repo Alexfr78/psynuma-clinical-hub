@@ -15,6 +15,30 @@ import { ArrowUp, ArrowDown, Trash2, Plus, GripVertical, BarChart3, Upload, Imag
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import type { AutoregistroField } from '@/hooks/useAutoregistroTemplates';
 
+/** Resize an image file to a square base64 data-URL (max `size` px). */
+function resizeImageToBase64(file: File, size: number): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const s = Math.min(img.width, img.height, size);
+        canvas.width = s;
+        canvas.height = s;
+        const ctx = canvas.getContext('2d')!;
+        const sx = (img.width - s) / 2;
+        const sy = (img.height - s) / 2;
+        ctx.drawImage(img, sx, sy, s, s, 0, 0, s, s);
+        resolve(canvas.toDataURL('image/webp', 0.8));
+      };
+      img.onerror = reject;
+      img.src = reader.result as string;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
 const FIELD_TYPES = [
   { value: 'text', label: 'Texto corto' },
   { value: 'textarea', label: 'Texto largo' },
