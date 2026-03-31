@@ -262,33 +262,71 @@ export function FieldBuilder({ fields, onChange }: FieldBuilderProps) {
 
             {/* Emotion cards config */}
             {field.type === 'emotion_cards' && (
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <Label className="text-xs text-muted-foreground">Opciones de emociones</Label>
                 {(field.emotionOptions ?? []).map((opt, oi) => (
-                  <div key={oi} className="flex items-center gap-2">
-                    <Input
-                      placeholder="Nombre emoción"
-                      value={opt.label}
-                      onChange={(e) => {
-                        const next = [...(field.emotionOptions ?? [])];
-                        next[oi] = { ...next[oi], label: e.target.value };
-                        updateField(index, { emotionOptions: next });
-                      }}
-                      className="flex-1"
-                    />
-                    <Input
-                      placeholder="URL imagen"
-                      value={opt.imageUrl}
-                      onChange={(e) => {
-                        const next = [...(field.emotionOptions ?? [])];
-                        next[oi] = { ...next[oi], imageUrl: e.target.value };
-                        updateField(index, { emotionOptions: next });
-                      }}
-                      className="flex-1"
-                    />
+                  <div key={oi} className="flex items-start gap-2 rounded-md border border-border p-2">
+                    {/* Image preview / upload */}
+                    <div className="flex flex-col items-center gap-1">
+                      <div className="relative w-14 h-14 rounded-md overflow-hidden bg-muted/30 flex items-center justify-center border border-border">
+                        {opt.imageUrl ? (
+                          <>
+                            <img src={opt.imageUrl} alt={opt.label || 'Emoción'} className="w-full h-full object-cover" />
+                            <button
+                              type="button"
+                              className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground rounded-full p-0.5"
+                              onClick={() => {
+                                const next = [...(field.emotionOptions ?? [])];
+                                next[oi] = { ...next[oi], imageUrl: '' };
+                                updateField(index, { emotionOptions: next });
+                              }}
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </>
+                        ) : (
+                          <ImageIcon className="h-6 w-6 text-muted-foreground/40" />
+                        )}
+                      </div>
+                      <label className="cursor-pointer text-xs text-primary hover:underline flex items-center gap-0.5">
+                        <Upload className="h-3 w-3" />
+                        {opt.imageUrl ? 'Cambiar' : 'Subir'}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="sr-only"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            e.target.value = '';
+                            try {
+                              const dataUrl = await resizeImageToBase64(file, 200);
+                              const next = [...(field.emotionOptions ?? [])];
+                              next[oi] = { ...next[oi], imageUrl: dataUrl };
+                              updateField(index, { emotionOptions: next });
+                            } catch {
+                              /* silently ignore invalid files */
+                            }
+                          }}
+                        />
+                      </label>
+                    </div>
+                    {/* Label + delete */}
+                    <div className="flex-1 flex flex-col gap-1 pt-1">
+                      <Input
+                        placeholder="Nombre emoción"
+                        value={opt.label}
+                        onChange={(e) => {
+                          const next = [...(field.emotionOptions ?? [])];
+                          next[oi] = { ...next[oi], label: e.target.value };
+                          updateField(index, { emotionOptions: next });
+                        }}
+                      />
+                    </div>
                     <Button
                       variant="ghost"
                       size="icon"
+                      className="mt-1"
                       onClick={() => {
                         const next = (field.emotionOptions ?? []).filter((_, i) => i !== oi);
                         updateField(index, { emotionOptions: next });
