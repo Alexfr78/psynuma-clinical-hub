@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/select';
 import type { AutoregistroField } from '@/hooks/useAutoregistroTemplates';
 import { normalizeAutoregistroFields, getScaleMin, getScaleMax, getScaleStep, getScaleDefault } from '@/lib/autoregistro-fields';
+import { EmotionCardsField } from './EmotionCardsField';
 
 const CUSTOM_VALUE_KEY = '__custom__';
 
