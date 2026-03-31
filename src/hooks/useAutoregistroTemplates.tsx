@@ -4,9 +4,15 @@ import { useAuth } from './useAuth';
 import { toast } from 'sonner';
 import { normalizeAutoregistroFields } from '@/lib/autoregistro-fields';
 
+export interface EmotionOption {
+  label: string;
+  imageUrl: string;
+  value?: string;
+}
+
 export interface AutoregistroField {
   label: string;
-  type: 'text' | 'textarea' | 'number' | 'date' | 'time' | 'select' | 'checkbox' | 'scale';
+  type: 'text' | 'textarea' | 'number' | 'date' | 'time' | 'select' | 'checkbox' | 'scale' | 'emotion_cards';
   options?: string[];
   required: boolean;
   order: number;
@@ -22,6 +28,9 @@ export interface AutoregistroField {
   defaultValue?: number;
   minLabel?: string;
   maxLabel?: string;
+  // Emotion cards
+  emotionOptions?: EmotionOption[];
+  allowDeselect?: boolean;
 }
 
 export interface AutoregistroTemplate {
