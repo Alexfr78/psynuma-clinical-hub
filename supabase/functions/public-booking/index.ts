@@ -241,6 +241,28 @@ serve(async (req) => {
 
   try {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Rate limit POST requests
+    {
+      const ip = getClientIp(req);
+      const rl = await checkIpRateLimit(supabase, ip, 'public-booking', 10, 10);
+      if (!rl.allowed) {
+        return new Response(
+          JSON.stringify({
+            error: 'Demasiadas solicitudes. Inténtalo de nuevo en unos minutos.',
+          }),
+          {
+            status: 429,
+            headers: {
+              ...corsHeaders,
+              'Content-Type': 'application/json',
+              'Retry-After': String(rl.retryAfterSeconds),
+            },
+          }
+        );
+      }
+    }
+
     const { action, centerSlug, ...params } = await req.json();
 
     console.log(`[public-booking] action=${action} centerSlug=${centerSlug}`);
