@@ -116,7 +116,7 @@ serve(async (req) => {
       case "messages.received":
       case "message.received":
       case "incoming_message": {
-        console.log("Incoming message received:", JSON.stringify(data));
+        console.log("[wasender-webhook] Incoming message from:", data.messages?.remoteJid || data.from || "unknown");
 
         // Wasender sends data.messages with messageBody and remoteJid
         const msg = data.messages || data;
