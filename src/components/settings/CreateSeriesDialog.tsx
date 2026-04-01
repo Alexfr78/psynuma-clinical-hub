@@ -25,8 +25,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { useInvoiceSeries, InvoiceSeries } from '@/hooks/useInvoiceSeries';
 
 const seriesSchema = z.object({
-  name: z.string().min(1, 'El nombre es obligatorio'),
-  format: z.string().min(1, 'El formato es obligatorio'),
+  name: z.string().min(1, 'El nombre es obligatorio').max(200),
+  format: z.string().min(1, 'El formato es obligatorio').max(200),
   series_type: z.enum(['ordinary', 'rectifying']),
   invoice_type: z.enum(['simplified', 'complete']),
   next_number: z.coerce.number().min(1, 'El número debe ser mayor a 0'),

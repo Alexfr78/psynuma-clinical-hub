@@ -12,20 +12,20 @@ import { useCenter } from '@/hooks/useCenter';
 import { useAuth } from '@/hooks/useAuth';
 
 const invoicingInfoSchema = z.object({
-  name: z.string().min(1, 'El nombre es obligatorio'),
-  tax_id: z.string().optional(),
-  address: z.string().optional(),
-  address_details: z.string().optional(),
-  city: z.string().optional(),
-  postal_code: z.string().optional(),
-  country: z.string().optional(),
-  province: z.string().optional(),
-  default_tax_name: z.string().optional(),
+  name: z.string().min(1, 'El nombre es obligatorio').max(200),
+  tax_id: z.string().max(50).optional(),
+  address: z.string().max(300).optional(),
+  address_details: z.string().max(300).optional(),
+  city: z.string().max(300).optional(),
+  postal_code: z.string().max(20).optional(),
+  country: z.string().max(200).optional(),
+  province: z.string().max(200).optional(),
+  default_tax_name: z.string().max(200).optional(),
   default_tax_rate: z.coerce.number().min(0).max(100).optional(),
   include_tax_in_price: z.boolean().optional(),
-  retention_name: z.string().optional(),
+  retention_name: z.string().max(200).optional(),
   retention_rate: z.coerce.number().min(0).max(100).optional(),
-  custom_domain: z.string().optional(),
+  custom_domain: z.string().max(200).optional(),
 });
 
 type InvoicingInfoFormValues = z.infer<typeof invoicingInfoSchema>;

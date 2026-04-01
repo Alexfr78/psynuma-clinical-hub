@@ -52,8 +52,8 @@ const schema = z.object({
   start_time: z.string().optional(),
   end_time: z.string().optional(),
   reason_type: z.string().min(1),
-  reason_label: z.string().optional(),
-  notes: z.string().optional(),
+  reason_label: z.string().max(200).optional(),
+  notes: z.string().max(2000).optional(),
   affects_booking: z.boolean().default(true),
 }).refine((data) => {
   if (data.scope === 'professional' && !data.professional_id) return false;
