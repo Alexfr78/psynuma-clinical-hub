@@ -11,6 +11,22 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const cronSecret = req.headers.get('x-cron-secret');
+  const expectedSecret = Deno.env.get('CRON_SECRET');
+  if (!expectedSecret) {
+    console.error('[send-payment-reminders] CRON_SECRET not configured');
+    return new Response(
+      JSON.stringify({ error: 'Function not configured' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+  if (cronSecret !== expectedSecret) {
+    return new Response(
+      JSON.stringify({ error: 'Unauthorized' }),
+      { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;

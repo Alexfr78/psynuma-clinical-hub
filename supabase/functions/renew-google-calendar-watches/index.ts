@@ -276,24 +276,20 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // ==================== SECURITY CHECK ====================
-  // Validate cron secret to prevent unauthorized access
-  const cronSecret = Deno.env.get('CRON_SECRET');
-  const providedSecret = req.headers.get('x-cron-secret');
-  
-  // Security check - require valid secret
-  // Note: If CRON_SECRET is not set, we skip the check (allows initial testing)
-  if (cronSecret) {
-    if (providedSecret !== cronSecret) {
-      console.warn(`[CRON:RENEW:SECURITY] Unauthorized - secrets don't match`);
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-    console.log('[CRON:RENEW:SECURITY] Secret validated successfully');
-  } else {
-    console.warn('[CRON:RENEW:SECURITY] CRON_SECRET not set - skipping auth check (configure for production!)');
+  const cronSecret = req.headers.get('x-cron-secret');
+  const expectedSecret = Deno.env.get('CRON_SECRET');
+  if (!expectedSecret) {
+    console.error('[renew-google-calendar-watches] CRON_SECRET not configured');
+    return new Response(
+      JSON.stringify({ error: 'Function not configured' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+  if (cronSecret !== expectedSecret) {
+    return new Response(
+      JSON.stringify({ error: 'Unauthorized' }),
+      { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
   }
 
   const startTime = Date.now();

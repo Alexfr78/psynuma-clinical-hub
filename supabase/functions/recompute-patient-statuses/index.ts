@@ -10,6 +10,22 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const cronSecret = req.headers.get('x-cron-secret');
+  const expectedSecret = Deno.env.get('CRON_SECRET');
+  if (!expectedSecret) {
+    console.error('[recompute-patient-statuses] CRON_SECRET not configured');
+    return new Response(
+      JSON.stringify({ error: 'Function not configured' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+  if (cronSecret !== expectedSecret) {
+    return new Response(
+      JSON.stringify({ error: 'Unauthorized' }),
+      { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
   try {
     // This function is meant to be called by cron jobs or manually
     // No auth required since it only recalculates statuses based on existing data
