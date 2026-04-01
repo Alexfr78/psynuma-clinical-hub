@@ -1431,7 +1431,7 @@ serve(async (req) => {
   } catch (error) {
     console.error("Error in sign-invoice-verifactu:", error);
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : "Error interno" }),
+      JSON.stringify({ error: "Error interno del servidor" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
