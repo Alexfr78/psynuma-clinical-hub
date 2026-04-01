@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendAdminAlert, buildAlertMessage } from "../_shared/adminAlerts.ts";
 import { queueAndSendPatientBookingNotification } from "../_shared/bookingPatientNotifications.ts";
 import { isValidEmail, isValidDate, isValidTime, isValidName } from "../_shared/validation.ts";
+import { checkIpRateLimit, getClientIp } from "../_shared/rateLimiter.ts";
 import {
   buildFreeWindows,
   generateScoredSlots,

@@ -154,6 +154,26 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     const { action, ...params } = await req.json();
 
+    if (action === 'send-link') {
+      const ip = getClientIp(req);
+      const rl = await checkIpRateLimit(supabase, ip, 'portal-login', 5, 15);
+      if (!rl.allowed) {
+        return new Response(
+          JSON.stringify({
+            error: 'Demasiados intentos. Espera unos minutos antes de volver a intentarlo.',
+          }),
+          {
+            status: 429,
+            headers: {
+              ...corsHeaders,
+              'Content-Type': 'application/json',
+              'Retry-After': String(rl.retryAfterSeconds),
+            },
+          }
+        );
+      }
+    }
+
     if (action === "send-link") {
       const { email, centerSlug } = params;
 
