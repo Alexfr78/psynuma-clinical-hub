@@ -118,7 +118,11 @@ async function sendEmailViaResendAPI(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: `${fromName} <${Deno.env.get("RESEND_FROM_EMAIL") || "alejandro@psicologosexual.com"}>`,
+        from: `${fromName} <${(() => {
+    const v = Deno.env.get('RESEND_FROM_EMAIL');
+    if (!v) throw new Error('RESEND_FROM_EMAIL not configured');
+    return v;
+  })()}>`,
         to: [to],
         subject: subject,
         html: htmlContent,
@@ -280,7 +284,7 @@ serve(async (req) => {
         console.error("Failed to send magic link email:", emailResult.error);
         // Still return success for security (don't reveal if patient exists)
       } else {
-        console.log("Magic link email sent to:", email);
+        console.log("Magic link sent to patient:", patientData.id);
       }
 
       // Ensure consistent timing with the not-found path

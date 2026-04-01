@@ -340,7 +340,11 @@ Deno.serve(async (req) => {
           `;
 
           const emailResponse = await resend.emails.send({
-            from: `${center?.name || 'Psycma'} <${Deno.env.get("RESEND_FROM_EMAIL") || "alejandro@psicologosexual.com"}>`,
+            from: `${center?.name || 'Psycma'} <${(() => {
+    const v = Deno.env.get('RESEND_FROM_EMAIL');
+    if (!v) throw new Error('RESEND_FROM_EMAIL not configured');
+    return v;
+  })()}>`,
             to: [email],
             subject: `Factura ${invoiceNumber} - ${center?.name || 'Psycma'}`,
             html: emailHtml,

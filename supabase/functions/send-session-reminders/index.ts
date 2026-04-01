@@ -181,7 +181,11 @@ async function sendEmailViaResend(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: `${centerName || 'Psycma'} <${Deno.env.get("RESEND_FROM_EMAIL") || "alejandro@psicologosexual.com"}>`,
+        from: `${centerName || 'Psycma'} <${(() => {
+    const v = Deno.env.get('RESEND_FROM_EMAIL');
+    if (!v) throw new Error('RESEND_FROM_EMAIL not configured');
+    return v;
+  })()}>`,
         to: [to],
         subject: subject,
         html: htmlContent,
@@ -530,7 +534,7 @@ serve(async (req) => {
                 .replace(/\{nombre_paciente\}/g, patient.first_name)
                 .replace(/\{fecha\}/g, formatDate(session.session_date))
             : `Recordatorio de cita - ${formatDate(session.session_date)}`;
-          console.log(`Sending email reminder to ${patient.email} for session ${session.id}`);
+          console.log(`Sending email reminder to patient ${patient.id} for session ${session.id}`);
           const emailResult = await sendEmailViaResend(
             patient.email,
             emailSubject,
@@ -541,9 +545,9 @@ serve(async (req) => {
           
           if (emailResult.success) {
             reminderSent = true;
-            console.log(`Email sent successfully to ${patient.email}`);
+            console.log(`Email sent successfully for patient ${patient.id}`);
           } else {
-            console.error(`Email failed for ${patient.email}:`, emailResult.error);
+            console.error(`Email failed for patient ${patient.id}:`, emailResult.error);
             errors++;
           }
 
@@ -587,7 +591,7 @@ serve(async (req) => {
                   }
                 }
 
-                console.log(`Sending WhatsApp reminder via WasenderAPI to ${patient.phone} for session ${session.id}`);
+                console.log(`Sending WhatsApp reminder via WasenderAPI to patient ${patient.id} for session ${session.id}`);
                 let wasenderResult = await sendWhatsAppViaWasender(
                   patient.phone,
                   whatsappMessage,
@@ -599,7 +603,7 @@ serve(async (req) => {
 
                 // Retry once after 3 seconds if first attempt fails
                 if (!wasenderResult.success) {
-                  console.warn(`WasenderAPI attempt 1 failed for ${patient.phone}: ${wasenderResult.error}. Retrying in 3s...`);
+                  console.warn(`WasenderAPI attempt 1 failed for patient ${patient.id}: ${wasenderResult.error}. Retrying in 3s...`);
                   await new Promise(r => setTimeout(r, 3000));
                   wasenderResult = await sendWhatsAppViaWasender(
                     patient.phone,
@@ -614,9 +618,9 @@ serve(async (req) => {
                 if (wasenderResult.success) {
                   whatsappSentVia = 'wasender';
                   reminderSent = true;
-                  console.log(`WhatsApp sent via WasenderAPI to ${patient.phone}`);
+                  console.log(`WhatsApp sent via WasenderAPI for patient ${patient.id}`);
                 } else {
-                  console.error(`WasenderAPI failed definitively for ${patient.phone}: ${wasenderResult.error}`);
+                  console.error(`WasenderAPI failed definitively for patient ${patient.id}: ${wasenderResult.error}`);
                   whatsappError = `WasenderAPI: ${wasenderResult.error}`;
                   // Mark as failed - do NOT fall through to web mode
                   whatsappSentVia = 'wasender_failed';
@@ -632,7 +636,7 @@ serve(async (req) => {
             const sendMethod = center.whatsapp_send_method || 'web';
             
             if (sendMethod === 'api' && center.whatsapp_access_token && center.whatsapp_phone_number_id) {
-              console.log(`Sending WhatsApp reminder via Meta API to ${patient.phone} for session ${session.id}`);
+              console.log(`Sending WhatsApp reminder via Meta API to patient ${patient.id} for session ${session.id}`);
               const decryptedToken = await decryptSecret(center.whatsapp_access_token);
               const metaResult = await sendWhatsAppViaMetaAPI(
                 patient.phone,
@@ -644,9 +648,9 @@ serve(async (req) => {
               if (metaResult.success) {
                 whatsappSentVia = 'meta_api';
                 reminderSent = true;
-                console.log(`WhatsApp sent via Meta API to ${patient.phone}`);
+                console.log(`WhatsApp sent via Meta API for patient ${patient.id}`);
               } else {
-                console.error(`Meta API failed for ${patient.phone}: ${metaResult.error}, falling back to web`);
+                console.error(`Meta API failed for patient ${patient.id}: ${metaResult.error}, falling back to web`);
                 whatsappError = metaResult.error || null;
               }
             }
@@ -656,7 +660,7 @@ serve(async (req) => {
           if (!whatsappSentVia) {
             whatsappSentVia = 'web';
             reminderSent = true;
-            console.log(`Creating pending WhatsApp reminder for ${patient.phone} (web mode) for session ${session.id}`);
+            console.log(`Creating pending WhatsApp reminder for patient ${patient.id} (web mode) for session ${session.id}`);
           }
 
           // Create ONE notification record based on the final result

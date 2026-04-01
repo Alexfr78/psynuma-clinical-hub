@@ -85,7 +85,11 @@ serve(async (req) => {
     // Use center's public domain for URLs
     const baseUrl = center.public_domain 
       ? `https://${center.public_domain}` 
-      : 'https://psycma.psicologosexual.com';
+      : (() => {
+      const v = Deno.env.get('APP_BASE_URL');
+      if (!v) throw new Error('APP_BASE_URL not configured');
+      return v;
+    })();
     
     // Generate Stripe checkout link if needed
     let stripeCheckoutUrl = '';

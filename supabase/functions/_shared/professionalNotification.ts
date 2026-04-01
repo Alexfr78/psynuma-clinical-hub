@@ -31,11 +31,11 @@ export async function notifyProfessionalByEmail(params: NotifyProfessionalParams
 
     const email = professional.email.trim().toLowerCase();
     if (!email.includes("@") || !email.includes(".")) {
-      console.log(`[professionalNotification] Invalid email for professional: ${email}`);
+      console.log(`[professionalNotification] Invalid email format for professional ${professionalId}`);
       return;
     }
 
-    console.log(`[professionalNotification] Sending to ${email} for session ${sessionId}`);
+    console.log(`[professionalNotification] Sending notification for session ${sessionId}`);
 
     // 2. Insert notification
     const { data: notification, error: insertError } = await supabase
@@ -70,7 +70,7 @@ export async function notifyProfessionalByEmail(params: NotifyProfessionalParams
     }
 
     if (sendResult?.ok) {
-      console.log(`[professionalNotification] Sent successfully to ${email}`);
+      console.log(`[professionalNotification] Sent successfully for session ${sessionId}`);
     } else {
       console.error(`[professionalNotification] Send failed:`, sendResult);
     }

@@ -46,7 +46,11 @@ async function sendEmailViaResend(
   logoUrl?: string | null
 ): Promise<ResendEmailResult> {
   // Determine the from address
-  const fromEmail = RESEND_FROM_EMAIL || "alejandro@psicologosexual.com";
+  const fromEmail = (() => {
+    const v = RESEND_FROM_EMAIL;
+    if (!v) throw new Error('RESEND_FROM_EMAIL not configured');
+    return v;
+  })();
   const fromAddress = `${centerName || 'Psycma'} <${fromEmail}>`;
   
   console.log(`[send-notification] Preparing email:`, {
@@ -182,7 +186,7 @@ async function sendWhatsAppViaWasender(
   const WASENDER_API_URL = "https://www.wasenderapi.com/api";
 
   try {
-    console.log(`[send-notification] Sending WhatsApp via WasenderAPI to ${phone}`);
+    console.log(`[send-notification] Sending WhatsApp via WasenderAPI for notification ${notificationId || 'unknown'}`);
 
     // Get active Wasender session for this center (need api_key for /send-message endpoint)
     const { data: wsSession } = await supabase
