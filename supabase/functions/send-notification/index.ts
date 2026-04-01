@@ -186,7 +186,7 @@ async function sendWhatsAppViaWasender(
   const WASENDER_API_URL = "https://www.wasenderapi.com/api";
 
   try {
-    console.log(`[send-notification] Sending WhatsApp via WasenderAPI to ${phone}`);
+    console.log(`[send-notification] Sending WhatsApp via WasenderAPI for notification ${notificationId || 'unknown'}`);
 
     // Get active Wasender session for this center (need api_key for /send-message endpoint)
     const { data: wsSession } = await supabase
