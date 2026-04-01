@@ -14,8 +14,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 const invoiceEditSchema = z.object({
-  invoice_footer: z.string().optional(),
-  invoice_data_protection_text: z.string().optional(),
+  invoice_footer: z.string().max(2000).optional(),
+  invoice_data_protection_text: z.string().max(2000).optional(),
 });
 
 type InvoiceEditFormValues = z.infer<typeof invoiceEditSchema>;

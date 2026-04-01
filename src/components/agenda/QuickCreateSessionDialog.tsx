@@ -86,7 +86,7 @@ const quickSessionSchema = z.object({
   session_type: z.string().min(1, 'Selecciona un tipo de sesión'),
   cancellation_policy: z.string().default('24_hours'),
   session_modality: z.string().default('in_person'),
-  video_call_link: z.string().optional(),
+  video_call_link: z.string().max(500).optional(),
   location_id: z.string().optional(),
   bono_id: z.string().optional(),
   payment_mode: z.string().optional(),

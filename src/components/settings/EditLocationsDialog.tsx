@@ -31,12 +31,12 @@ import { useToast } from '@/hooks/use-toast';
 import { useLocations, useCreateLocation, useDeleteLocation } from '@/hooks/useLocations';
 
 const locationSchema = z.object({
-  country: z.string().default('España'),
-  street: z.string().min(1, 'La calle es obligatoria'),
-  number_details: z.string().optional(),
-  city: z.string().min(1, 'La ciudad es obligatoria'),
-  postal_code: z.string().optional(),
-  name: z.string().min(1, 'El nombre es obligatorio'),
+  country: z.string().max(200).default('España'),
+  street: z.string().min(1, 'La calle es obligatoria').max(300),
+  number_details: z.string().max(200).optional(),
+  city: z.string().min(1, 'La ciudad es obligatoria').max(300),
+  postal_code: z.string().max(20).optional(),
+  name: z.string().min(1, 'El nombre es obligatorio').max(200),
 });
 
 type LocationFormValues = z.infer<typeof locationSchema>;

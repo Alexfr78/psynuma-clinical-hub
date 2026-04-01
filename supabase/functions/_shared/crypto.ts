@@ -28,7 +28,10 @@ export async function encryptSecret(secret: string): Promise<string> {
   }
 
   const encoder = new TextEncoder();
-  const keyData = encoder.encode(encryptionKey.padEnd(32, '0').slice(0, 32));
+  if (encryptionKey.length < 32) {
+    throw new Error('CERTIFICATE_ENCRYPTION_KEY must be at least 32 characters');
+  }
+  const keyData = encoder.encode(encryptionKey.slice(0, 32));
   const key = await crypto.subtle.importKey(
     'raw',
     keyData,
@@ -70,7 +73,10 @@ export async function decryptSecret(encryptedSecret: string): Promise<string> {
 
   try {
     const encoder = new TextEncoder();
-    const keyData = encoder.encode(encryptionKey.padEnd(32, '0').slice(0, 32));
+    if (encryptionKey.length < 32) {
+      throw new Error('CERTIFICATE_ENCRYPTION_KEY must be at least 32 characters');
+    }
+    const keyData = encoder.encode(encryptionKey.slice(0, 32));
     const key = await crypto.subtle.importKey(
       'raw',
       keyData,

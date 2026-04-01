@@ -18,11 +18,11 @@ import { supabase } from '@/integrations/supabase/client';
 
 const verifactuSchema = z.object({
   verifactu_environment: z.enum(['test', 'production']),
-  verifactu_software_name: z.string().min(1, 'Nombre fiscal del desarrollador requerido'),
+  verifactu_software_name: z.string().min(1, 'Nombre fiscal del desarrollador requerido').max(200),
   verifactu_sistema_informatico: z.string().min(1, 'Nombre del sistema requerido').max(30, 'Máximo 30 caracteres'),
-  verifactu_software_version: z.string().min(1, 'Versión requerida'),
-  verifactu_software_nif: z.string().optional(),
-  verifactu_certificate_password: z.string().optional(),
+  verifactu_software_version: z.string().min(1, 'Versión requerida').max(50),
+  verifactu_software_nif: z.string().max(50).optional(),
+  verifactu_certificate_password: z.string().max(200).optional(),
 });
 
 type VerifactuFormValues = z.infer<typeof verifactuSchema>;
