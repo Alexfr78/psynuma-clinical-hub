@@ -166,7 +166,7 @@ export async function queueAndSendPatientBookingNotification(args: BookingNotifi
       return;
     }
 
-    console.log(`[patient-confirmation] Channel=${channel} recipient=${recipient} eventType=${eventType}`);
+    console.log(`[patient-confirmation] Channel=${channel} patient=${patientId} eventType=${eventType}`);
 
     // 5. Build subject and message
     const patientName = patient.first_name;
