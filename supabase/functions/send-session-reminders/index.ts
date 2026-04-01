@@ -181,7 +181,11 @@ async function sendEmailViaResend(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: `${centerName || 'Psycma'} <${Deno.env.get("RESEND_FROM_EMAIL") || "alejandro@psicologosexual.com"}>`,
+        from: `${centerName || 'Psycma'} <${(() => {
+    const v = Deno.env.get('RESEND_FROM_EMAIL');
+    if (!v) throw new Error('RESEND_FROM_EMAIL not configured');
+    return v;
+  })()}>`,
         to: [to],
         subject: subject,
         html: htmlContent,

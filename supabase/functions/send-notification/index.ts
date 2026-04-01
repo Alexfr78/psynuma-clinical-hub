@@ -46,7 +46,11 @@ async function sendEmailViaResend(
   logoUrl?: string | null
 ): Promise<ResendEmailResult> {
   // Determine the from address
-  const fromEmail = RESEND_FROM_EMAIL || "alejandro@psicologosexual.com";
+  const fromEmail = (() => {
+    const v = RESEND_FROM_EMAIL;
+    if (!v) throw new Error('RESEND_FROM_EMAIL not configured');
+    return v;
+  })();
   const fromAddress = `${centerName || 'Psycma'} <${fromEmail}>`;
   
   console.log(`[send-notification] Preparing email:`, {

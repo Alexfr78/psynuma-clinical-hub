@@ -93,7 +93,11 @@ serve(async (req) => {
     // Generate URLs using center's public domain
     const baseUrl = center.public_domain 
       ? `https://${center.public_domain}` 
-      : 'https://psycma.psicologosexual.com';
+      : (() => {
+      const v = Deno.env.get('APP_BASE_URL');
+      if (!v) throw new Error('APP_BASE_URL not configured');
+      return v;
+    })();
     const defaultSuccessUrl = `${baseUrl}/pago-exitoso?debt_id=${debt_id}`;
     const defaultCancelUrl = `${baseUrl}/pagar/${debt.access_token}`;
 
