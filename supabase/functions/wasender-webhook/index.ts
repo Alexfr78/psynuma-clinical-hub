@@ -16,23 +16,28 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const webhookSecret = Deno.env.get("WASENDER_WEBHOOK_SECRET");
 
-    if (webhookSecret) {
-      const receivedSecret = req.headers.get("x-webhook-secret");
-      if (receivedSecret !== webhookSecret) {
-        console.warn("Invalid webhook secret received");
-        return new Response(JSON.stringify({ error: "Invalid webhook secret" }), {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
+    if (!webhookSecret) {
+      console.error("[wasender-webhook] WASENDER_WEBHOOK_SECRET not configured");
+      return new Response(
+        JSON.stringify({ error: "Webhook not configured" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const receivedSecret = req.headers.get("x-webhook-secret");
+    if (receivedSecret !== webhookSecret) {
+      console.warn("[wasender-webhook] Invalid webhook secret");
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     const payload = await req.json();
-    console.log("Webhook payload:", JSON.stringify(payload));
-
     const eventType = payload.event || payload.type;
+    console.log("[wasender-webhook] Event received:", eventType);
     const data = payload.data || payload;
 
     switch (eventType) {
