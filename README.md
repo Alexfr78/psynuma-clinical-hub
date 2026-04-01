@@ -71,3 +71,16 @@ Yes, you can!
 To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
 
 Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+
+## Required Supabase Secrets
+
+The following environment variables must be configured as Supabase Secrets for the edge functions to operate correctly:
+
+| Secret | Description |
+|---|---|
+| `RESEND_API_KEY` | API key for Resend email service |
+| `RESEND_FROM_EMAIL` | Sender email address for transactional emails |
+| `APP_BASE_URL` | Base URL of the application (e.g. `https://yourdomain.com`) |
+| `CRON_SECRET` | Shared secret for authenticating cron-triggered edge functions |
+| `WASENDER_WEBHOOK_SECRET` | Webhook secret for WasenderAPI incoming events |
+| `CERTIFICATE_ENCRYPTION_KEY` | 32+ character key for encrypting stored certificates |
