@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendAdminAlert, buildAlertMessage } from "../_shared/adminAlerts.ts";
 import { queueAndSendPatientBookingNotification } from "../_shared/bookingPatientNotifications.ts";
 import { isValidEmail, isValidDate, isValidTime, isValidName } from "../_shared/validation.ts";
+import { checkIpRateLimit, getClientIp } from "../_shared/rateLimiter.ts";
 import {
   buildFreeWindows,
   generateScoredSlots,
@@ -240,6 +241,28 @@ serve(async (req) => {
 
   try {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Rate limit POST requests
+    {
+      const ip = getClientIp(req);
+      const rl = await checkIpRateLimit(supabase, ip, 'public-booking', 10, 10);
+      if (!rl.allowed) {
+        return new Response(
+          JSON.stringify({
+            error: 'Demasiadas solicitudes. Inténtalo de nuevo en unos minutos.',
+          }),
+          {
+            status: 429,
+            headers: {
+              ...corsHeaders,
+              'Content-Type': 'application/json',
+              'Retry-After': String(rl.retryAfterSeconds),
+            },
+          }
+        );
+      }
+    }
+
     const { action, centerSlug, ...params } = await req.json();
 
     console.log(`[public-booking] action=${action} centerSlug=${centerSlug}`);

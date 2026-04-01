@@ -3167,6 +3167,27 @@ export type Database = {
           },
         ]
       }
+      rate_limit_log: {
+        Row: {
+          action: string
+          created_at: string | null
+          id: string
+          ip: string
+        }
+        Insert: {
+          action: string
+          created_at?: string | null
+          id?: string
+          ip: string
+        }
+        Update: {
+          action?: string
+          created_at?: string | null
+          id?: string
+          ip?: string
+        }
+        Relationships: []
+      }
       recurring_series: {
         Row: {
           base_start_datetime: string
@@ -4815,6 +4836,7 @@ export type Database = {
         }
         Returns: string
       }
+      cleanup_old_rate_limit_entries: { Args: never; Returns: undefined }
       compute_patient_status: { Args: { p_patient_id: string }; Returns: Json }
       convert_calendar_event_to_session: {
         Args: {

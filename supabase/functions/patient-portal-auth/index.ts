@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { isValidEmail } from "../_shared/validation.ts";
+import { checkIpRateLimit, getClientIp } from "../_shared/rateLimiter.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -152,6 +153,26 @@ serve(async (req) => {
   try {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     const { action, ...params } = await req.json();
+
+    if (action === 'send-link') {
+      const ip = getClientIp(req);
+      const rl = await checkIpRateLimit(supabase, ip, 'portal-login', 5, 15);
+      if (!rl.allowed) {
+        return new Response(
+          JSON.stringify({
+            error: 'Demasiados intentos. Espera unos minutos antes de volver a intentarlo.',
+          }),
+          {
+            status: 429,
+            headers: {
+              ...corsHeaders,
+              'Content-Type': 'application/json',
+              'Retry-After': String(rl.retryAfterSeconds),
+            },
+          }
+        );
+      }
+    }
 
     if (action === "send-link") {
       const { email, centerSlug } = params;

@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { isValidEmail, isValidName } from "../_shared/validation.ts";
+import { checkIpRateLimit, getClientIp } from "../_shared/rateLimiter.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -13,6 +14,30 @@ Deno.serve(async (req) => {
   }
 
   try {
+    const supabaseAdmin = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+
+    // Rate limit
+    const ip = getClientIp(req);
+    const rl = await checkIpRateLimit(supabaseAdmin, ip, 'referral-register', 3, 60);
+    if (!rl.allowed) {
+      return new Response(
+        JSON.stringify({
+          error: 'Demasiadas solicitudes. Inténtalo de nuevo más tarde.',
+        }),
+        {
+          status: 429,
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json',
+            'Retry-After': String(rl.retryAfterSeconds),
+          },
+        }
+      );
+    }
+
     const body = await req.json();
     const {
       center_slug,
@@ -65,10 +90,8 @@ Deno.serve(async (req) => {
       );
     }
 
-    const supabaseAdmin = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
+
+
 
     // Resolve center_id from slug
     const { data: center, error: centerError } = await supabaseAdmin
