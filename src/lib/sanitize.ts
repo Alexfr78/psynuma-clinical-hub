@@ -12,6 +12,31 @@ const SANITIZE_CONFIG = {
   FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onfocus', 'onblur'],
 };
 
+const SAFE_STYLE_PROPS = [
+  'color', 'background-color', 'font-weight', 'font-style',
+  'text-decoration', 'text-align', 'font-size', 'margin', 'padding',
+];
+
+if (typeof window !== 'undefined') {
+  DOMPurify.addHook('afterSanitizeAttributes', (node) => {
+    if (node.hasAttribute('style')) {
+      const raw = node.getAttribute('style') || '';
+      const clean = raw
+        .split(';')
+        .map((r) => r.trim())
+        .filter((r) =>
+          SAFE_STYLE_PROPS.some((p) => r.toLowerCase().startsWith(p))
+        )
+        .join('; ');
+      if (clean) {
+        node.setAttribute('style', clean);
+      } else {
+        node.removeAttribute('style');
+      }
+    }
+  });
+}
+
 /**
  * Sanitize HTML content to prevent XSS attacks
  * Used for consent templates and document content
