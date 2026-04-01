@@ -603,7 +603,7 @@ serve(async (req) => {
 
                 // Retry once after 3 seconds if first attempt fails
                 if (!wasenderResult.success) {
-                  console.warn(`WasenderAPI attempt 1 failed for ${patient.phone}: ${wasenderResult.error}. Retrying in 3s...`);
+                  console.warn(`WasenderAPI attempt 1 failed for patient ${patient.id}: ${wasenderResult.error}. Retrying in 3s...`);
                   await new Promise(r => setTimeout(r, 3000));
                   wasenderResult = await sendWhatsAppViaWasender(
                     patient.phone,
