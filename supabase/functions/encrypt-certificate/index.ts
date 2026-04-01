@@ -114,9 +114,9 @@ serve(async (req) => {
 
   } catch (error: unknown) {
     console.error('Encryption error:', error);
-    const message = error instanceof Error ? error.message : 'Encryption failed';
+    console.error("[encrypt-certificate] Unhandled error:", error);
     return new Response(
-      JSON.stringify({ error: message }),
+      JSON.stringify({ error: "Error interno del servidor" }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

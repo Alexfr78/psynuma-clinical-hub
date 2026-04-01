@@ -363,7 +363,7 @@ ${transcription}`;
   } catch (error) {
     console.error('Error in analyze-session-transcription:', error);
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Error interno del servidor' }),
+      JSON.stringify({ error: "Error interno del servidor" }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

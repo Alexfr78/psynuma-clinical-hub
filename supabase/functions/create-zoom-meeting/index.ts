@@ -205,9 +205,9 @@ serve(async (req) => {
 
   } catch (error: unknown) {
     console.error('Error creating Zoom meeting:', error);
-    const message = error instanceof Error ? error.message : 'Unknown error';
+    console.error("[create-zoom-meeting] Unhandled error:", error);
     return new Response(
-      JSON.stringify({ error: message }),
+      JSON.stringify({ error: "Error interno del servidor" }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

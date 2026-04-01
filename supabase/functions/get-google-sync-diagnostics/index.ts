@@ -236,9 +236,9 @@ serve(async (req) => {
     );
   } catch (error: unknown) {
     console.error('[DIAGNOSTICS:ERROR]', error);
-    const message = error instanceof Error ? error.message : 'Internal error';
+    console.error("[get-google-sync-diagnostics] Unhandled error:", error);
     return new Response(
-      JSON.stringify({ error: message }),
+      JSON.stringify({ error: "Error interno del servidor" }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

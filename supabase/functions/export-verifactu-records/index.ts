@@ -250,9 +250,9 @@ serve(async (req) => {
 
   } catch (error) {
     console.error("Error exporting Verifactu records:", error);
-    const errorMessage = error instanceof Error ? error.message : "Error desconocido";
+    console.error("[export-verifactu-records] Unhandled error:", error);
     return new Response(
-      JSON.stringify({ error: errorMessage }),
+      JSON.stringify({ error: "Error interno del servidor" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }

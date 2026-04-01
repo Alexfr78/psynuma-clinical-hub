@@ -75,12 +75,10 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.error('[CRON] Fatal error:', error);
+    console.error("[recompute-patient-statuses] Unhandled error:", error);
     return new Response(
-      JSON.stringify({ error: errorMessage }),
-      { 
-        status: 500,
+      JSON.stringify({ error: "Error interno del servidor" }),
+      { status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
     );

@@ -422,9 +422,9 @@ Genera un análisis clínico COMPLETO y DETALLADO en formato JSON con estos camp
 
   } catch (error) {
     console.error("[EMO-INTERPRET] Error:", error);
-    const errorMessage = error instanceof Error ? error.message : "Error desconocido";
+    console.error("[interpret-emo-results] Unhandled error:", error);
     return new Response(
-      JSON.stringify({ error: errorMessage }),
+      JSON.stringify({ error: "Error interno del servidor" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }

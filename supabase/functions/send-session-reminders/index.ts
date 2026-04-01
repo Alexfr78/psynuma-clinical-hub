@@ -717,10 +717,9 @@ serve(async (req) => {
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
-    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-    console.error("Error processing session reminders:", error);
+    console.error("[send-session-reminders] Unhandled error:", error);
     return new Response(
-      JSON.stringify({ error: errorMsg }),
+      JSON.stringify({ error: "Error interno del servidor" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
