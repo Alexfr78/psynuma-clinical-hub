@@ -284,7 +284,7 @@ serve(async (req) => {
         console.error("Failed to send magic link email:", emailResult.error);
         // Still return success for security (don't reveal if patient exists)
       } else {
-        console.log("Magic link email sent to:", email);
+        console.log("Magic link sent to patient:", patientData.id);
       }
 
       // Ensure consistent timing with the not-found path
