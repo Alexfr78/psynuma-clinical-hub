@@ -316,6 +316,22 @@ ${transcription}`;
 
       console.log(`[analyze] Single mode completed — clinical: ${parsed.clinical?.split(/\s+/).length} words, patient: ${parsed.patient?.split(/\s+/).length} words`);
 
+      // Audit: transcription analysis (single mode)
+      if (centerId) {
+        const supabaseAudit = createClient(
+          Deno.env.get('SUPABASE_URL')!,
+          Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+        );
+        logAuditEvent({
+          supabase: supabaseAudit, req,
+          userId: null,
+          organizationId: centerId,
+          resourceType: 'clinical_notes', action: 'VIEW',
+          routeOrEndpoint: 'analyze-session-transcription',
+          metadata: { layer: 1, mode: 'single' },
+        });
+      }
+
       return new Response(
         JSON.stringify({ success: true, content: JSON.stringify(parsed), layer: 1, mode: 'single', clinical: parsed.clinical, patient: parsed.patient }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
