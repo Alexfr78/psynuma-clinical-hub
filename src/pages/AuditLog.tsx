@@ -189,6 +189,11 @@ export default function AuditLog() {
 
   const totalShown = page * PAGE_SIZE + logs.length;
 
+  if (!isAdmin) {
+    navigate('/dashboard');
+    return null;
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
