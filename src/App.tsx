@@ -147,7 +147,7 @@ const App = () => (
             } />
             <Route path="/auditoria" element={
               <ProtectedRoute requiredRoles={['admin']}>
-                <AppLayout><Audit /></AppLayout>
+                <AppLayout><AuditLog /></AppLayout>
               </ProtectedRoute>
             } />
             <Route path="/solicitudes" element={
