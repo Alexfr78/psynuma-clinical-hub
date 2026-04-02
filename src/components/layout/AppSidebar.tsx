@@ -18,6 +18,7 @@ import {
   Moon,
   Sun,
   Brain,
+  ShieldCheck,
 } from 'lucide-react';
 import {
   Sidebar,
