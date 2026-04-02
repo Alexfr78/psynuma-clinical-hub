@@ -78,6 +78,16 @@ serve(async (req) => {
         access_token: inv.access_token || undefined,
       }));
 
+      // Audit: patient viewed their invoices
+      logAuditEvent({
+        supabase, req,
+        userId: null, userRole: 'patient',
+        organizationId: session.centerId,
+        patientId: session.patientId,
+        resourceType: 'invoices', action: 'VIEW',
+        routeOrEndpoint: 'patient-portal-invoices/list',
+      });
+
       return new Response(
         JSON.stringify({ invoices: filtered }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }

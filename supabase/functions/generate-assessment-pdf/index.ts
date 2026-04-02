@@ -1033,6 +1033,17 @@ serve(async (req) => {
 </body>
 </html>`;
 
+    // Audit: assessment PDF downloaded
+    logAuditEvent({
+      supabase, req,
+      userId: null,
+      organizationId: assessment.center_id,
+      patientId: assessment.patient_id,
+      resourceType: 'assessments', resourceId: assessment_id,
+      action: 'DOWNLOAD',
+      routeOrEndpoint: 'generate-assessment-pdf',
+    });
+
     return new Response(
       JSON.stringify({ html, assessment: { id: assessment.id, patient: `${patient.first_name} ${patient.last_name}`, template: template.name, completed_at: assessment.completed_at } }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }

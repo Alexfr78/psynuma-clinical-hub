@@ -356,6 +356,22 @@ ${transcription}`;
 
     console.log(`[analyze] Layer ${layer} completed — ${content.split(/\s+/).length} words`);
 
+    // Audit: transcription analysis performed
+    if (centerId) {
+      const supabaseAudit = createClient(
+        Deno.env.get('SUPABASE_URL')!,
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+      );
+      logAuditEvent({
+        supabase: supabaseAudit, req,
+        userId: null,
+        organizationId: centerId,
+        resourceType: 'clinical_notes', action: 'VIEW',
+        routeOrEndpoint: 'analyze-session-transcription',
+        metadata: { layer, mode: 'layered' },
+      });
+    }
+
     return new Response(
       JSON.stringify({ success: true, content, layer }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
