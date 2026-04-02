@@ -562,6 +562,18 @@ serve(async (req) => {
         reason: reason || undefined,
       });
 
+      // Audit: patient cancelled a session
+      logAuditEvent({
+        supabase, req,
+        userId: null, userRole: 'patient',
+        organizationId: session.centerId,
+        patientId: session.patientId,
+        resourceType: 'sessions', resourceId: sessionId,
+        action: 'DELETE',
+        routeOrEndpoint: 'patient-portal-sessions/cancel',
+        metadata: { reason: reason || null },
+      });
+
       return new Response(
         JSON.stringify({ success: true, message: "Cita cancelada correctamente" }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
