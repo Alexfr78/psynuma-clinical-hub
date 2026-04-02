@@ -3,7 +3,7 @@ import {
   LayoutDashboard,
   Calendar,
   Users,
-  UserCog, FileText, FileSignature, ClipboardCheck, NotebookPen,
+  UserCog,
   FileText,
   FileSignature,
   ClipboardCheck,
