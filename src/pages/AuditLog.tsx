@@ -92,7 +92,7 @@ interface AuditEntry {
 export default function AuditLog() {
   const { isAdmin } = useAuth();
   const navigate = useNavigate();
-  const { professionals } = useProfessionals();
+  const { data: professionals } = useProfessionals();
   const { data: patients } = usePatients();
 
   // Filters
@@ -107,11 +107,6 @@ export default function AuditLog() {
   const [searchText, setSearchText] = useState('');
   const [page, setPage] = useState(0);
   const [selectedEntry, setSelectedEntry] = useState<AuditEntry | null>(null);
-
-  if (!isAdmin) {
-    navigate('/dashboard');
-    return null;
-  }
 
   const rpcParams = useMemo(() => ({
     p_from: fromDate.toISOString(),
