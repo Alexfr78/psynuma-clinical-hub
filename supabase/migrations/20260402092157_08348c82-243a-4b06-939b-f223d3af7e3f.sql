@@ -1,0 +1,1 @@
+ALTER VIEW public.centers_public SET (security_invoker = on);
