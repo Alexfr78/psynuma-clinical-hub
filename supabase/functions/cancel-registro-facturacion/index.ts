@@ -74,20 +74,15 @@ async function decryptCertificateData(
   const encryptionKey = Deno.env.get('CERTIFICATE_ENCRYPTION_KEY');
   
   if (!encryptionKey) {
-    console.log('No encryption key configured, using raw certificate data');
-    return { certificate: certificateBase64, password: certificatePassword };
+    console.error('[verifactu] CRITICAL: CERTIFICATE_ENCRYPTION_KEY not configured');
+    throw new Error('CERTIFICATE_ENCRYPTION_KEY not configured - cannot decrypt certificate data');
   }
   
   console.log('Decrypting certificate data...');
-  try {
-    const certificate = await decryptAES256GCM(certificateBase64, encryptionKey);
-    const password = await decryptAES256GCM(certificatePassword, encryptionKey);
-    console.log('Certificate data decrypted successfully');
-    return { certificate, password };
-  } catch (decryptError) {
-    console.log('Decryption failed, trying raw data (legacy):', decryptError);
-    return { certificate: certificateBase64, password: certificatePassword };
-  }
+  const certificate = await decryptAES256GCM(certificateBase64, encryptionKey);
+  const password = await decryptAES256GCM(certificatePassword, encryptionKey);
+  console.log('Certificate data decrypted successfully');
+  return { certificate, password };
 }
 // ============= End Decryption =============
 
