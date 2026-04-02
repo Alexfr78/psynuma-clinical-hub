@@ -253,6 +253,16 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
   const [localDateTime, setLocalDateTime] = useState<{ date: string; startTime: string; endTime: string } | null>(null);
   const [localStatus, setLocalStatus] = useState<string | null>(null);
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
+  const { logView } = useAuditLog();
+  const hasLoggedAudit = useRef(false);
+
+  useEffect(() => {
+    if (open && session && !hasLoggedAudit.current) {
+      hasLoggedAudit.current = true;
+      logView('sessions', session.id, session.patient_id || undefined);
+    }
+    if (!open) hasLoggedAudit.current = false;
+  }, [open, session, logView]);
 
   const { data: patientBonos, refetch: refetchBonos } = usePatientActiveBonos(session?.patient_id);
   const { data: currentBono } = useBono(session?.bono_id); // Fetch currently assigned bono even if exhausted

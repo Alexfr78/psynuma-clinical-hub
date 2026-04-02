@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { ResponsiveDialog as Dialog, ResponsiveDialogContent as DialogContent, ResponsiveDialogHeader as DialogHeader, ResponsiveDialogTitle as DialogTitle } from '@/components/ui/responsive-dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,6 +11,7 @@ import { PAIResultsView } from './PAIResultsView';
 import { PAIInterpretation } from '@/hooks/usePAIInterpretation';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { useAuditLog } from '@/hooks/useAuditLog';
 
 interface AssessmentDetailDialogProps {
   assessment: Assessment | null;
@@ -18,6 +20,16 @@ interface AssessmentDetailDialogProps {
 
 export function AssessmentDetailDialog({ assessment, onClose }: AssessmentDetailDialogProps) {
   const { templates, isLoading: templatesLoading } = useAssessmentTemplates();
+  const { logView } = useAuditLog();
+  const hasLogged = useRef(false);
+
+  useEffect(() => {
+    if (assessment && !hasLogged.current) {
+      hasLogged.current = true;
+      logView('assessments', assessment.id, assessment.patient_id);
+    }
+    if (!assessment) hasLogged.current = false;
+  }, [assessment, logView]);
   
   if (!assessment) return null;
 
