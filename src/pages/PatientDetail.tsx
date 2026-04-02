@@ -1,14 +1,24 @@
 import { useParams, useNavigate } from 'react-router-dom';
+import { useEffect, useRef } from 'react';
 import { ArrowLeft, Loader2, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { usePatient } from '@/hooks/usePatients';
 import { PatientDetailTabs } from '@/components/patients/PatientDetailTabs';
+import { useAuditLog } from '@/hooks/useAuditLog';
 
 export default function PatientDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { data: patient, isLoading, error } = usePatient(id);
+  const { logView } = useAuditLog();
+  const hasLogged = useRef(false);
 
+  useEffect(() => {
+    if (patient && !hasLogged.current) {
+      hasLogged.current = true;
+      logView('patients', patient.id);
+    }
+  }, [patient, logView]);
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">

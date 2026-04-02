@@ -18,6 +18,7 @@ import {
   Moon,
   Sun,
   Brain,
+  ShieldCheck,
 } from 'lucide-react';
 import {
   Sidebar,
@@ -61,7 +62,7 @@ const adminOnlyNavItems = [
   { title: 'Solicitudes', url: '/solicitudes', icon: ClipboardList },
   { title: 'Profesionales', url: '/profesionales', icon: UserCog },
   { title: 'Derivaciones', url: '/derivaciones', icon: Users },
-  { title: 'Auditoría', url: '/auditoria', icon: FileText },
+  { title: 'Auditoría', url: '/auditoria', icon: ShieldCheck },
 ];
 
 // Items visible to all users

@@ -10,12 +10,13 @@ import { Card } from '@/components/ui/card';
 import { Consent, useConsentSignatures } from '@/hooks/useConsents';
 import { Download, ExternalLink, Loader2, CheckCircle2, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { sanitizeHtml } from '@/lib/sanitize';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuditLog } from '@/hooks/useAuditLog';
 
 interface ConsentDetailDialogProps {
   consent: Consent;
@@ -103,9 +104,19 @@ export function ConsentDetailDialog({
 }: ConsentDetailDialogProps) {
   const { signatures, isLoading: signaturesLoading } = useConsentSignatures(consent.id);
   const { data: fullConsent } = useConsentDetail(consent.id);
+  const { logView } = useAuditLog();
+  const hasLogged = useRef(false);
   const status = statusConfig[consent.status] || statusConfig.pending;
   const isExpired = new Date(consent.expires_at) < new Date() && consent.status === 'pending';
   const [generatingPdf, setGeneratingPdf] = useState(false);
+
+  useEffect(() => {
+    if (open && consent && !hasLogged.current) {
+      hasLogged.current = true;
+      logView('consents', consent.id, consent.patient_id);
+    }
+    if (!open) hasLogged.current = false;
+  }, [open, consent, logView]);
 
   const handleDownloadPdf = async () => {
     if (consent.signed_pdf_url) {

@@ -1,66 +1,49 @@
-import { useQuery } from '@tanstack/react-query';
+import { useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from './useAuth';
-import { Json } from '@/integrations/supabase/types';
 
-export interface AuditLogEntry {
-  id: string;
-  user_id: string | null;
-  table_name: string;
-  action: string;
-  record_id: string | null;
-  old_values: Json | null;
-  new_values: Json | null;
-  ip_address: string | null;
-  user_agent: string | null;
-  created_at: string;
-}
+// Module-level debounce map: key -> timestamp of last log
+const lastLogTimes = new Map<string, number>();
+const DEBOUNCE_MS = 60_000; // 60 seconds
 
-interface UseAuditLogParams {
-  tableName?: string;
-  action?: string;
-  startDate?: string;
-  endDate?: string;
-  limit?: number;
-}
+export function useAuditLog() {
+  const logView = useCallback(
+    (resourceType: string, resourceId: string, patientId?: string) => {
+      const key = `${resourceType}:${resourceId}`;
+      const now = Date.now();
+      const last = lastLogTimes.get(key);
+      if (last && now - last < DEBOUNCE_MS) return;
+      lastLogTimes.set(key, now);
 
-export function useAuditLog(params: UseAuditLogParams = {}) {
-  const { isAdmin } = useAuth();
-  const { tableName, action, startDate, endDate, limit = 100 } = params;
+      // Fire-and-forget
+      (async () => {
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (!user) return;
 
-  const { data: logs, isLoading, refetch } = useQuery({
-    queryKey: ['audit-log', tableName, action, startDate, endDate, limit],
-    queryFn: async () => {
-      let query = supabase
-        .from('audit_log')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(limit);
-
-      if (tableName) {
-        query = query.eq('table_name', tableName);
-      }
-      if (action) {
-        query = query.eq('action', action);
-      }
-      if (startDate) {
-        query = query.gte('created_at', startDate);
-      }
-      if (endDate) {
-        query = query.lte('created_at', endDate);
-      }
-
-      const { data, error } = await query;
-
-      if (error) throw error;
-      return data as AuditLogEntry[];
+          await supabase.rpc('record_audit_event', {
+            p_user_id: user.id,
+            p_user_role: null,
+            p_organization_id: null,
+            p_patient_id: patientId ?? null,
+            p_resource_type: resourceType,
+            p_resource_id: resourceId,
+            p_action: 'VIEW',
+            p_status: 'success',
+            p_ip_address: null,
+            p_user_agent: navigator.userAgent,
+            p_session_id: null,
+            p_request_method: 'GET',
+            p_route_or_endpoint: window.location.pathname,
+            p_justification: null,
+            p_metadata: {},
+          });
+        } catch {
+          // Never propagate errors
+        }
+      })();
     },
-    enabled: isAdmin,
-  });
+    []
+  );
 
-  return {
-    logs: logs || [],
-    isLoading,
-    refetch,
-  };
+  return { logView };
 }
