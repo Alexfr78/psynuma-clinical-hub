@@ -1,8 +1,10 @@
 import { useParams, useNavigate } from 'react-router-dom';
+import { useEffect, useRef } from 'react';
 import { ArrowLeft, Loader2, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { usePatient } from '@/hooks/usePatients';
 import { PatientDetailTabs } from '@/components/patients/PatientDetailTabs';
+import { useAuditLog } from '@/hooks/useAuditLog';
 
 export default function PatientDetail() {
   const { id } = useParams<{ id: string }>();
