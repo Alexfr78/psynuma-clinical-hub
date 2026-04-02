@@ -10,7 +10,15 @@ export default function PatientDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { data: patient, isLoading, error } = usePatient(id);
+  const { logView } = useAuditLog();
+  const hasLogged = useRef(false);
 
+  useEffect(() => {
+    if (patient && !hasLogged.current) {
+      hasLogged.current = true;
+      logView('patients', patient.id);
+    }
+  }, [patient, logView]);
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">

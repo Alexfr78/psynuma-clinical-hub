@@ -133,6 +133,7 @@ import { PatientAutoregistros } from '@/components/patients/tabs/PatientAutoregi
 import { PatientInvoices } from '@/components/patients/tabs/PatientInvoices';
 import { InvoiceDetailDialog } from '@/components/invoices/InvoiceDetailDialog';
 import { Receipt, Brain } from 'lucide-react';
+import { useAuditLog } from '@/hooks/useAuditLog';
 
 interface SessionDetailDrawerProps {
   session: SessionWithRelations | null;
