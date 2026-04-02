@@ -410,6 +410,17 @@ serve(async (req) => {
         locationName: location.name,
       });
 
+      // Audit: patient created a session
+      logAuditEvent({
+        supabase, req,
+        userId: null, userRole: 'patient',
+        organizationId: session.centerId,
+        patientId: session.patientId,
+        resourceType: 'sessions', resourceId: newSession.id,
+        action: 'CREATE',
+        routeOrEndpoint: 'patient-portal-sessions/create',
+      });
+
       return new Response(
         JSON.stringify({ 
           success: true, 
