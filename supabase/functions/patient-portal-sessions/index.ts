@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendAdminAlert, buildAlertMessage, formatDateSpanish, formatTime } from "../_shared/adminAlerts.ts";
+import { logAuditEvent } from "../_shared/auditLogger.ts";
 import { queueAndSendPatientBookingNotification } from "../_shared/bookingPatientNotifications.ts";
 import { notifyProfessionalByEmail, buildProfessionalCancelMessage, buildProfessionalRescheduleMessage } from "../_shared/professionalNotification.ts";
 import {
@@ -145,6 +146,16 @@ serve(async (req) => {
       const today = new Date().toISOString().split("T")[0];
       const upcoming = sessions?.filter(s => s.session_date >= today && s.status !== 'cancelled') || [];
       const past = sessions?.filter(s => s.session_date < today || s.status === 'cancelled') || [];
+
+      // Audit: patient viewed their sessions
+      logAuditEvent({
+        supabase, req,
+        userId: null, userRole: 'patient',
+        organizationId: session.centerId,
+        patientId: session.patientId,
+        resourceType: 'sessions', action: 'VIEW',
+        routeOrEndpoint: 'patient-portal-sessions/list',
+      });
 
       return new Response(
         JSON.stringify({ upcoming: upcoming.reverse(), past }),
@@ -399,6 +410,17 @@ serve(async (req) => {
         locationName: location.name,
       });
 
+      // Audit: patient created a session
+      logAuditEvent({
+        supabase, req,
+        userId: null, userRole: 'patient',
+        organizationId: session.centerId,
+        patientId: session.patientId,
+        resourceType: 'sessions', resourceId: newSession.id,
+        action: 'CREATE',
+        routeOrEndpoint: 'patient-portal-sessions/create',
+      });
+
       return new Response(
         JSON.stringify({ 
           success: true, 
@@ -538,6 +560,18 @@ serve(async (req) => {
         sessionDate: existingSession.session_date,
         startTime: existingSession.start_time,
         reason: reason || undefined,
+      });
+
+      // Audit: patient cancelled a session
+      logAuditEvent({
+        supabase, req,
+        userId: null, userRole: 'patient',
+        organizationId: session.centerId,
+        patientId: session.patientId,
+        resourceType: 'sessions', resourceId: sessionId,
+        action: 'DELETE',
+        routeOrEndpoint: 'patient-portal-sessions/cancel',
+        metadata: { reason: reason || null },
       });
 
       return new Response(

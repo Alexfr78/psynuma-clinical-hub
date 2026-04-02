@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { encode as base64Encode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
+import { logAuditEvent } from "../_shared/auditLogger.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -1031,6 +1032,17 @@ serve(async (req) => {
   </div>
 </body>
 </html>`;
+
+    // Audit: assessment PDF downloaded
+    logAuditEvent({
+      supabase, req,
+      userId: null,
+      organizationId: assessment.center_id,
+      patientId: assessment.patient_id,
+      resourceType: 'assessments', resourceId: assessment_id,
+      action: 'DOWNLOAD',
+      routeOrEndpoint: 'generate-assessment-pdf',
+    });
 
     return new Response(
       JSON.stringify({ html, assessment: { id: assessment.id, patient: `${patient.first_name} ${patient.last_name}`, template: template.name, completed_at: assessment.completed_at } }),

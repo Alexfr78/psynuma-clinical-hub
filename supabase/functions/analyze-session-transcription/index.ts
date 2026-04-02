@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { decryptSecret } from "../_shared/crypto.ts";
+import { logAuditEvent } from "../_shared/auditLogger.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -315,6 +316,22 @@ ${transcription}`;
 
       console.log(`[analyze] Single mode completed — clinical: ${parsed.clinical?.split(/\s+/).length} words, patient: ${parsed.patient?.split(/\s+/).length} words`);
 
+      // Audit: transcription analysis (single mode)
+      if (centerId) {
+        const supabaseAudit = createClient(
+          Deno.env.get('SUPABASE_URL')!,
+          Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+        );
+        logAuditEvent({
+          supabase: supabaseAudit, req,
+          userId: null,
+          organizationId: centerId,
+          resourceType: 'clinical_notes', action: 'VIEW',
+          routeOrEndpoint: 'analyze-session-transcription',
+          metadata: { layer: 1, mode: 'single' },
+        });
+      }
+
       return new Response(
         JSON.stringify({ success: true, content: JSON.stringify(parsed), layer: 1, mode: 'single', clinical: parsed.clinical, patient: parsed.patient }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -354,6 +371,22 @@ ${transcription}`;
     const content = await callAI(systemPrompt, userPrompt, provider, model, apiKey, temperature);
 
     console.log(`[analyze] Layer ${layer} completed — ${content.split(/\s+/).length} words`);
+
+    // Audit: transcription analysis performed
+    if (centerId) {
+      const supabaseAudit = createClient(
+        Deno.env.get('SUPABASE_URL')!,
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+      );
+      logAuditEvent({
+        supabase: supabaseAudit, req,
+        userId: null,
+        organizationId: centerId,
+        resourceType: 'clinical_notes', action: 'VIEW',
+        routeOrEndpoint: 'analyze-session-transcription',
+        metadata: { layer, mode: 'layered' },
+      });
+    }
 
     return new Response(
       JSON.stringify({ success: true, content, layer }),

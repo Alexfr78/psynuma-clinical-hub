@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { encode as base64Encode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
+import { logAuditEvent } from "../_shared/auditLogger.ts";
 
 interface InvoiceSeries {
   id: string;
@@ -230,6 +231,17 @@ serve(async (req) => {
 
     // Generate HTML for PDF with unified label logic
     const html = generateInvoiceHTML(invoiceData, invoiceItems, rectifiedInvoice, qrBase64, logoBase64, series);
+
+    // Audit: invoice PDF downloaded
+    logAuditEvent({
+      supabase, req,
+      userId: null,
+      organizationId: invoice.center_id,
+      patientId: invoice.patient_id,
+      resourceType: 'invoices', resourceId: invoice_id,
+      action: 'DOWNLOAD',
+      routeOrEndpoint: 'generate-invoice-pdf',
+    });
 
     return new Response(
       JSON.stringify({
