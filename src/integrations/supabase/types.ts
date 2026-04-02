@@ -287,6 +287,131 @@ export type Database = {
         }
         Relationships: []
       }
+      audit_logs: {
+        Row: {
+          action: string
+          anomaly_reason: string | null
+          created_at: string
+          current_hash: string
+          id: string
+          ip_address: string | null
+          is_anomalous: boolean
+          justification: string | null
+          metadata: Json
+          organization_id: string | null
+          patient_id: string | null
+          previous_hash: string | null
+          request_method: string | null
+          resource_id: string | null
+          resource_type: string
+          route_or_endpoint: string | null
+          seq: number
+          session_id: string | null
+          status: string
+          user_agent: string | null
+          user_id: string | null
+          user_role: string | null
+        }
+        Insert: {
+          action: string
+          anomaly_reason?: string | null
+          created_at?: string
+          current_hash: string
+          id?: string
+          ip_address?: string | null
+          is_anomalous?: boolean
+          justification?: string | null
+          metadata?: Json
+          organization_id?: string | null
+          patient_id?: string | null
+          previous_hash?: string | null
+          request_method?: string | null
+          resource_id?: string | null
+          resource_type: string
+          route_or_endpoint?: string | null
+          seq?: never
+          session_id?: string | null
+          status?: string
+          user_agent?: string | null
+          user_id?: string | null
+          user_role?: string | null
+        }
+        Update: {
+          action?: string
+          anomaly_reason?: string | null
+          created_at?: string
+          current_hash?: string
+          id?: string
+          ip_address?: string | null
+          is_anomalous?: boolean
+          justification?: string | null
+          metadata?: Json
+          organization_id?: string | null
+          patient_id?: string | null
+          previous_hash?: string | null
+          request_method?: string | null
+          resource_id?: string | null
+          resource_type?: string
+          route_or_endpoint?: string | null
+          seq?: never
+          session_id?: string | null
+          status?: string
+          user_agent?: string | null
+          user_id?: string | null
+          user_role?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_logs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "audit_logs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "centers_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "audit_logs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "portal_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "audit_logs_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "audit_logs_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "audit_logs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "audit_logs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       autoregistro_entries: {
         Row: {
           center_id: string
@@ -4888,6 +5013,46 @@ export type Database = {
       }
       generate_pending_debts_db: { Args: never; Returns: Json }
       get_assessment_token: { Args: never; Returns: string }
+      get_audit_logs: {
+        Args: {
+          p_action?: string
+          p_anomalous_only?: boolean
+          p_from?: string
+          p_limit?: number
+          p_offset?: number
+          p_patient_id?: string
+          p_resource_type?: string
+          p_search?: string
+          p_status?: string
+          p_to?: string
+          p_user_id?: string
+        }
+        Returns: {
+          action: string
+          anomaly_reason: string
+          created_at: string
+          current_hash: string
+          id: string
+          ip_address: string
+          is_anomalous: boolean
+          justification: string
+          metadata: Json
+          organization_id: string
+          patient_first_name: string
+          patient_id: string
+          patient_last_name: string
+          previous_hash: string
+          resource_id: string
+          resource_type: string
+          seq: number
+          status: string
+          user_agent: string
+          user_first_name: string
+          user_id: string
+          user_last_name: string
+          user_role: string
+        }[]
+      }
       get_autoregistro_token: { Args: never; Returns: string }
       get_bono_sessions: {
         Args: { p_bono_id: string }
@@ -5040,6 +5205,26 @@ export type Database = {
         Returns: Json
       }
       recompute_debt_by_invoice: { Args: { p_debt_id: string }; Returns: Json }
+      record_audit_event: {
+        Args: {
+          p_action: string
+          p_ip_address?: string
+          p_justification?: string
+          p_metadata?: Json
+          p_organization_id: string
+          p_patient_id: string
+          p_request_method?: string
+          p_resource_id: string
+          p_resource_type: string
+          p_route_or_endpoint?: string
+          p_session_id?: string
+          p_status?: string
+          p_user_agent?: string
+          p_user_id: string
+          p_user_role: string
+        }
+        Returns: string
+      }
       release_google_sync_lock: {
         Args: { p_professional_id: string }
         Returns: undefined
