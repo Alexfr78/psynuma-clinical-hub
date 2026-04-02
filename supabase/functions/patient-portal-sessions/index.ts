@@ -147,6 +147,16 @@ serve(async (req) => {
       const upcoming = sessions?.filter(s => s.session_date >= today && s.status !== 'cancelled') || [];
       const past = sessions?.filter(s => s.session_date < today || s.status === 'cancelled') || [];
 
+      // Audit: patient viewed their sessions
+      logAuditEvent({
+        supabase, req,
+        userId: null, userRole: 'patient',
+        organizationId: session.centerId,
+        patientId: session.patientId,
+        resourceType: 'sessions', action: 'VIEW',
+        routeOrEndpoint: 'patient-portal-sessions/list',
+      });
+
       return new Response(
         JSON.stringify({ upcoming: upcoming.reverse(), past }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
