@@ -63,6 +63,7 @@ const adminOnlyNavItems = [
   { title: 'Profesionales', url: '/profesionales', icon: UserCog },
   { title: 'Derivaciones', url: '/derivaciones', icon: Users },
   { title: 'Auditoría', url: '/auditoria', icon: ShieldCheck },
+  { title: 'Auditoría Clínica', url: '/auditoria-clinica', icon: ShieldCheck },
 ];
 
 // Items visible to all users
