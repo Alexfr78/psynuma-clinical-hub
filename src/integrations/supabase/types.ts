@@ -4602,12 +4602,7 @@ export type Database = {
           city: string | null
           consent_expiration_days: number | null
           country: string | null
-          default_tax_name: string | null
-          default_tax_rate: number | null
           id: string | null
-          include_tax_in_price: boolean | null
-          invoice_footer: string | null
-          invoice_logo_url: string | null
           logo_url: string | null
           name: string | null
           portal_allow_professional_selection: boolean | null
@@ -4620,8 +4615,6 @@ export type Database = {
           reschedule_max_days: number | null
           reschedule_require_confirmation: boolean | null
           reschedule_slot_duration: number | null
-          retention_name: string | null
-          retention_rate: number | null
         }
         Insert: {
           address?: string | null
@@ -4629,12 +4622,7 @@ export type Database = {
           city?: string | null
           consent_expiration_days?: number | null
           country?: string | null
-          default_tax_name?: string | null
-          default_tax_rate?: number | null
           id?: string | null
-          include_tax_in_price?: boolean | null
-          invoice_footer?: string | null
-          invoice_logo_url?: string | null
           logo_url?: string | null
           name?: string | null
           portal_allow_professional_selection?: boolean | null
@@ -4647,8 +4635,6 @@ export type Database = {
           reschedule_max_days?: number | null
           reschedule_require_confirmation?: boolean | null
           reschedule_slot_duration?: number | null
-          retention_name?: string | null
-          retention_rate?: number | null
         }
         Update: {
           address?: string | null
@@ -4656,12 +4642,7 @@ export type Database = {
           city?: string | null
           consent_expiration_days?: number | null
           country?: string | null
-          default_tax_name?: string | null
-          default_tax_rate?: number | null
           id?: string | null
-          include_tax_in_price?: boolean | null
-          invoice_footer?: string | null
-          invoice_logo_url?: string | null
           logo_url?: string | null
           name?: string | null
           portal_allow_professional_selection?: boolean | null
@@ -4674,8 +4655,6 @@ export type Database = {
           reschedule_max_days?: number | null
           reschedule_require_confirmation?: boolean | null
           reschedule_slot_duration?: number | null
-          retention_name?: string | null
-          retention_rate?: number | null
         }
         Relationships: []
       }
