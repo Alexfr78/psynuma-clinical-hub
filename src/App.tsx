@@ -44,7 +44,7 @@ import AutoregistroPublic from "./pages/AutoregistroPublic";
 
 const queryClient = new QueryClient();
 
-// Placeholder pages for remaining phases
+// Placeholder for future sections
 const PlaceholderPage = ({ title }: { title: string }) => (
   <div className="flex flex-col items-center justify-center py-12">
     <h1 className="font-display text-2xl font-bold">{title}</h1>
