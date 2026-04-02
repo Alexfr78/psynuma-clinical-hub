@@ -104,9 +104,19 @@ export function ConsentDetailDialog({
 }: ConsentDetailDialogProps) {
   const { signatures, isLoading: signaturesLoading } = useConsentSignatures(consent.id);
   const { data: fullConsent } = useConsentDetail(consent.id);
+  const { logView } = useAuditLog();
+  const hasLogged = useRef(false);
   const status = statusConfig[consent.status] || statusConfig.pending;
   const isExpired = new Date(consent.expires_at) < new Date() && consent.status === 'pending';
   const [generatingPdf, setGeneratingPdf] = useState(false);
+
+  useEffect(() => {
+    if (open && consent && !hasLogged.current) {
+      hasLogged.current = true;
+      logView('consents', consent.id, consent.patient_id);
+    }
+    if (!open) hasLogged.current = false;
+  }, [open, consent, logView]);
 
   const handleDownloadPdf = async () => {
     if (consent.signed_pdf_url) {
