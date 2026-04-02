@@ -19,7 +19,7 @@ import Payments from "./pages/Payments";
 import Notifications from "./pages/Notifications";
 import Professionals from "./pages/Professionals";
 import Settings from "./pages/Settings";
-import Audit from "./pages/Audit";
+import AuditLog from "./pages/AuditLog";
 import IntakeRequests from "./pages/IntakeRequests";
 import NotFound from "./pages/NotFound";
 import SessionManagement from "./pages/SessionManagement";
