@@ -5215,6 +5215,24 @@ export type Database = {
         Args: { p_session_id: string }
         Returns: Json
       }
+      get_public_center_by_slug: {
+        Args: { p_slug: string }
+        Returns: {
+          address: string
+          city: string
+          email: string
+          id: string
+          logo_url: string
+          name: string
+          phone: string
+          portal_allow_professional_selection: boolean
+          portal_default_professional_id: string
+          portal_enabled: boolean
+          portal_require_approval: boolean
+          portal_slug: string
+          public_domain: string
+        }[]
+      }
       get_public_center_info: {
         Args: { p_center_id: string }
         Returns: {
@@ -5222,12 +5240,20 @@ export type Database = {
           city: string
           email: string
           id: string
+          invoice_data_protection_text: string
           invoice_footer: string
           invoice_logo_url: string
+          logo_url: string
           name: string
           phone: string
+          portal_allow_professional_selection: boolean
+          portal_default_professional_id: string
+          portal_enabled: boolean
+          portal_require_approval: boolean
+          portal_slug: string
           postal_code: string
           province: string
+          public_domain: string
         }[]
       }
       get_public_referral_specialties: {
