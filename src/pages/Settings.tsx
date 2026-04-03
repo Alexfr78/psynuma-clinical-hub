@@ -116,7 +116,8 @@ type SettingsSection =
   | 'integraciones-google'
   | 'integraciones-stripe'
   | 'integraciones-ia'
-  | 'seguridad';
+  | 'seguridad'
+  | 'versiones';
 
 interface NavItem {
   id: SettingsSection;
