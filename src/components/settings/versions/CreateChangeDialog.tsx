@@ -26,6 +26,14 @@ const changeTypes = [
   { value: 'ui', label: 'UI' },
 ];
 
+export interface ChangeFormValues {
+  title: string;
+  description?: string;
+  module: string;
+  change_type: string;
+  affects_verifactu: boolean;
+}
+
 const schema = z.object({
   title: z.string().min(1, 'Título obligatorio').max(200),
   description: z.string().max(2000).optional(),
@@ -33,8 +41,6 @@ const schema = z.object({
   change_type: z.string().min(1, 'Tipo obligatorio'),
   affects_verifactu: z.boolean(),
 });
-
-type FormValues = z.infer<typeof schema>;
 
 interface Props {
   open: boolean;
