@@ -119,13 +119,9 @@ export function usePublicInvoice(token: string | undefined) {
         .setHeader('x-invoice-token', token)
         .single();
 
-      // Fetch center data with invoice token header
+      // Fetch center data via safe RPC (no credentials exposed)
       const { data: center } = await supabase
-        .from('centers')
-        .select('name, address, city, postal_code, province, tax_id, phone, email, invoice_logo_url, invoice_footer, invoice_data_protection_text')
-        .eq('id', invoice.center_id)
-        .setHeader('x-invoice-token', token)
-        .single();
+        .rpc('get_center_for_invoice', { p_center_id: invoice.center_id });
 
       // Fetch invoice items with token header
       const { data: items } = await supabase

@@ -31,7 +31,7 @@ export default function PayDebt() {
   }, [showBonoOption, bonoTemplates, selectedBono]);
 
   const pendingAmount = debt ? Number(debt.amount) - Number(debt.paid_amount || 0) : 0;
-  const hasStripe = !!debt?.center.oauth_stripe_credentials;
+  const hasStripe = !!debt?.center.has_stripe;
   const hasBizum = !!debt?.center.bizum_phone;
 
   const handlePaySession = async () => {

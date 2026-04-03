@@ -80,18 +80,15 @@ export function usePublicDebt(token: string | undefined) {
         session = sessionData;
       }
 
-      // Fetch center
+      // Fetch center via safe RPC (no credentials exposed)
       const { data: center } = await supabase
-        .from('centers')
-        .select('id, name, bizum_phone, oauth_stripe_credentials')
-        .eq('id', debt.center_id)
-        .single();
+        .rpc('get_center_for_debt', { p_center_id: debt.center_id });
 
       return {
         ...debt,
         patient: patient || { first_name: '', last_name: '' },
         session,
-        center: center || { id: '', name: '', bizum_phone: null, oauth_stripe_credentials: null },
+        center: center || { id: '', name: '', bizum_phone: null, has_stripe: false },
       };
     },
     enabled: !!token,
