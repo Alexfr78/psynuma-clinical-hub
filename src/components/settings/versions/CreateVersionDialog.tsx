@@ -10,14 +10,19 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import type { AppChangeLog } from '@/hooks/useAppVersions';
 
+export interface VersionFormValues {
+  version_code: string;
+  version_name?: string;
+  description?: string;
+  applies_to_verifactu: boolean;
+}
+
 const schema = z.object({
   version_code: z.string().min(1, 'Código de versión obligatorio').max(50),
   version_name: z.string().max(200).optional(),
   description: z.string().max(2000).optional(),
   applies_to_verifactu: z.boolean(),
 });
-
-type FormValues = z.infer<typeof schema>;
 
 interface Props {
   open: boolean;
