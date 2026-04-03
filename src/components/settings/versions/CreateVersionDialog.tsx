@@ -10,7 +10,7 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import type { AppChangeLog } from '@/hooks/useAppVersions';
 
-export interface VersionFormValues {
+export interface VersionVersionFormValues {
   version_code: string;
   version_name?: string;
   description?: string;
@@ -28,11 +28,11 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   selectedChanges: AppChangeLog[];
-  onSave: (data: FormValues) => void;
+  onSave: (data: VersionFormValues) => void;
 }
 
 export function CreateVersionDialog({ open, onOpenChange, selectedChanges, onSave }: Props) {
-  const form = useForm<FormValues>({
+  const form = useForm<VersionFormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
       version_code: '',
@@ -42,7 +42,7 @@ export function CreateVersionDialog({ open, onOpenChange, selectedChanges, onSav
     },
   });
 
-  const handleSubmit = (data: FormValues) => {
+  const handleSubmit = (data: VersionFormValues) => {
     onSave(data);
     form.reset();
   };
