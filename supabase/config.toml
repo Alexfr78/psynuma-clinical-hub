@@ -164,3 +164,6 @@ verify_jwt = false
 
 [functions.patient-portal-invoices]
 verify_jwt = false
+
+[functions.process-email-queue]
+verify_jwt = true
