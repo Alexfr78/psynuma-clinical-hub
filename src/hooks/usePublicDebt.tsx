@@ -22,7 +22,7 @@ interface PublicDebt {
     id: string;
     name: string;
     bizum_phone: string | null;
-    oauth_stripe_credentials: string | null;
+    has_stripe: boolean;
   };
 }
 
