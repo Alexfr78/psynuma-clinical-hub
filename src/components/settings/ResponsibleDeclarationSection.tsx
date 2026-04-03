@@ -1,12 +1,15 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { FileCheck, Shield, Scale } from 'lucide-react';
+import { useCenter } from '@/hooks/useCenter';
 
 export function ResponsibleDeclarationSection() {
+  const { center } = useCenter();
+
   const softwareInfo = {
-    name: 'Psycma',
-    version: '1.0.0',
-    nif: 'B12345678', // This would come from center config
+    name: (center as any)?.verifactu_sistema_informatico || 'Psycma',
+    version: center?.verifactu_software_version || 'No configurada',
+    nif: center?.verifactu_software_nif || center?.tax_id || '—',
     modalidad: 'VeriFactu',
     fechaDeclaracion: new Date().toLocaleDateString('es-ES')
   };

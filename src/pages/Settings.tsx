@@ -27,7 +27,8 @@ import {
   FileDown,
   CalendarDays,
   Ban,
-  Brain
+  Brain,
+  GitBranch
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -69,6 +70,7 @@ import { AdminAlertsSettingsSection } from '@/components/settings/AdminAlertsSet
 import { SecuritySection } from '@/components/settings/SecuritySection';
 import { ScheduleExceptionsSection } from '@/components/settings/ScheduleExceptionsSection';
 import { AISettingsSection } from '@/components/settings/integrations/AISettingsSection';
+import { VersionManagementSection } from '@/components/settings/VersionManagementSection';
 
 const centerSchema = z.object({
   name: z.string().min(1, 'El nombre es obligatorio'),
@@ -114,7 +116,8 @@ type SettingsSection =
   | 'integraciones-google'
   | 'integraciones-stripe'
   | 'integraciones-ia'
-  | 'seguridad';
+  | 'seguridad'
+  | 'versiones';
 
 interface NavItem {
   id: SettingsSection;
@@ -132,6 +135,7 @@ const categoryIcons: Record<string, React.ComponentType<{ className?: string }>>
   'Comunicaciones': Mail,
   'Conexiones Externas': Plug,
   'Seguridad': Shield,
+  'Sistema': GitBranch,
 };
 
 const navItems: NavItem[] = [
@@ -178,10 +182,12 @@ const navItems: NavItem[] = [
   
   // Seguridad
   { id: 'seguridad', label: 'Doble factor (2FA)', icon: Shield, parent: 'Seguridad' },
+  
+  // Sistema
+  { id: 'versiones', label: 'Gestión de versiones', icon: GitBranch, parent: 'Sistema' },
 ];
 
-// Order of main categories
-const categoryOrder = ['Mi Centro', 'Portal de Contactos', 'Pagos y Facturación', 'Comunicaciones', 'Conexiones Externas', 'Seguridad'];
+const categoryOrder = ['Mi Centro', 'Portal de Contactos', 'Pagos y Facturación', 'Comunicaciones', 'Conexiones Externas', 'Seguridad', 'Sistema'];
 
 export default function Settings() {
   const { center, isLoading, updateCenter } = useCenter();
@@ -399,6 +405,8 @@ export default function Settings() {
         return <AISettingsSection />;
       case 'seguridad':
         return <SecuritySection />;
+      case 'versiones':
+        return <VersionManagementSection />;
       default:
         return null;
     }

@@ -14,6 +14,130 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_change_log: {
+        Row: {
+          affects_verifactu: boolean
+          change_type: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          module: string
+          status: string
+          title: string
+          updated_at: string
+          version_id: string | null
+        }
+        Insert: {
+          affects_verifactu?: boolean
+          change_type: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          module: string
+          status?: string
+          title: string
+          updated_at?: string
+          version_id?: string | null
+        }
+        Update: {
+          affects_verifactu?: boolean
+          change_type?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          module?: string
+          status?: string
+          title?: string
+          updated_at?: string
+          version_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "app_change_log_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "app_change_log_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "app_change_log_version_id_fkey"
+            columns: ["version_id"]
+            isOneToOne: false
+            referencedRelation: "app_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      app_versions: {
+        Row: {
+          applies_to_verifactu: boolean
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          is_current: boolean
+          published_at: string | null
+          status: string
+          updated_at: string
+          verifactu_synced_at: string | null
+          version_code: string
+          version_name: string | null
+        }
+        Insert: {
+          applies_to_verifactu?: boolean
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_current?: boolean
+          published_at?: string | null
+          status?: string
+          updated_at?: string
+          verifactu_synced_at?: string | null
+          version_code: string
+          version_name?: string | null
+        }
+        Update: {
+          applies_to_verifactu?: boolean
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_current?: boolean
+          published_at?: string | null
+          status?: string
+          updated_at?: string
+          verifactu_synced_at?: string | null
+          version_code?: string
+          version_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "app_versions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "app_versions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       assessment_responses: {
         Row: {
           answers: Json
