@@ -81,8 +81,9 @@ export function usePublicDebt(token: string | undefined) {
       }
 
       // Fetch center via safe RPC (no credentials exposed)
-      const { data: center } = await supabase
+      const { data: centerData } = await supabase
         .rpc('get_center_for_debt', { p_center_id: debt.center_id });
+      const center = centerData as unknown as { id: string; name: string; bizum_phone: string | null; has_stripe: boolean } | null;
 
       return {
         ...debt,
