@@ -368,7 +368,7 @@ export function VersionManagementSection() {
         open={changeDialogOpen}
         onOpenChange={setChangeDialogOpen}
         editingChange={editingChange}
-        onSave={(data) => {
+        onSave={(data: ChangeFormValues) => {
           if (editingChange) {
             updateChange.mutate({ id: editingChange.id, ...data });
           } else {
