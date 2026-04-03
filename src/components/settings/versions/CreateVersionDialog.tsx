@@ -10,7 +10,7 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import type { AppChangeLog } from '@/hooks/useAppVersions';
 
-export interface VersionVersionFormValues {
+export interface VersionFormValues {
   version_code: string;
   version_name?: string;
   description?: string;
