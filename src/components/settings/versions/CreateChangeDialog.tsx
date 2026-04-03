@@ -50,7 +50,7 @@ interface Props {
 }
 
 export function CreateChangeDialog({ open, onOpenChange, editingChange, onSave }: Props) {
-  const form = useForm<FormValues>({
+  const form = useForm<ChangeFormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
       title: '',
