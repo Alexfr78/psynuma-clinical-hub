@@ -405,6 +405,8 @@ export default function Settings() {
         return <AISettingsSection />;
       case 'seguridad':
         return <SecuritySection />;
+      case 'versiones':
+        return <VersionManagementSection />;
       default:
         return null;
     }
