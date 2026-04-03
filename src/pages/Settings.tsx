@@ -187,8 +187,7 @@ const navItems: NavItem[] = [
   { id: 'versiones', label: 'Gestión de versiones', icon: GitBranch, parent: 'Sistema' },
 ];
 
-// Order of main categories
-const categoryOrder = ['Mi Centro', 'Portal de Contactos', 'Pagos y Facturación', 'Comunicaciones', 'Conexiones Externas', 'Seguridad'];
+const categoryOrder = ['Mi Centro', 'Portal de Contactos', 'Pagos y Facturación', 'Comunicaciones', 'Conexiones Externas', 'Seguridad', 'Sistema'];
 
 export default function Settings() {
   const { center, isLoading, updateCenter } = useCenter();
