@@ -135,6 +135,7 @@ const categoryIcons: Record<string, React.ComponentType<{ className?: string }>>
   'Comunicaciones': Mail,
   'Conexiones Externas': Plug,
   'Seguridad': Shield,
+  'Sistema': GitBranch,
 };
 
 const navItems: NavItem[] = [
