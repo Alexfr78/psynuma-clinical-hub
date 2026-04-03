@@ -124,7 +124,7 @@ export function useAppVersions() {
   });
 
   const updateChange = useMutation({
-    mutationFn: async ({ id, ...updates }: Partial<AppChangeLog> & { id: string }) => {
+    mutationFn: async ({ id, ...updates }: { id: string; [key: string]: any }) => {
       const { error } = await supabase
         .from('app_change_log')
         .update(updates as any)
