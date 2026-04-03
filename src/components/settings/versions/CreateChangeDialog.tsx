@@ -46,7 +46,7 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   editingChange: AppChangeLog | null;
-  onSave: (data: FormValues) => void;
+  onSave: (data: ChangeFormValues) => void;
 }
 
 export function CreateChangeDialog({ open, onOpenChange, editingChange, onSave }: Props) {
