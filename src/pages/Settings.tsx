@@ -70,6 +70,7 @@ import { AdminAlertsSettingsSection } from '@/components/settings/AdminAlertsSet
 import { SecuritySection } from '@/components/settings/SecuritySection';
 import { ScheduleExceptionsSection } from '@/components/settings/ScheduleExceptionsSection';
 import { AISettingsSection } from '@/components/settings/integrations/AISettingsSection';
+import { VersionManagementSection } from '@/components/settings/VersionManagementSection';
 
 const centerSchema = z.object({
   name: z.string().min(1, 'El nombre es obligatorio'),
