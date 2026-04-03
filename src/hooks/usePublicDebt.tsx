@@ -22,7 +22,7 @@ interface PublicDebt {
     id: string;
     name: string;
     bizum_phone: string | null;
-    oauth_stripe_credentials: string | null;
+    has_stripe: boolean;
   };
 }
 
@@ -80,18 +80,16 @@ export function usePublicDebt(token: string | undefined) {
         session = sessionData;
       }
 
-      // Fetch center
-      const { data: center } = await supabase
-        .from('centers')
-        .select('id, name, bizum_phone, oauth_stripe_credentials')
-        .eq('id', debt.center_id)
-        .single();
+      // Fetch center via safe RPC (no credentials exposed)
+      const { data: centerData } = await supabase
+        .rpc('get_center_for_debt', { p_center_id: debt.center_id });
+      const center = centerData as unknown as { id: string; name: string; bizum_phone: string | null; has_stripe: boolean } | null;
 
       return {
         ...debt,
         patient: patient || { first_name: '', last_name: '' },
         session,
-        center: center || { id: '', name: '', bizum_phone: null, oauth_stripe_credentials: null },
+        center: center || { id: '', name: '', bizum_phone: null, has_stripe: false },
       };
     },
     enabled: !!token,
