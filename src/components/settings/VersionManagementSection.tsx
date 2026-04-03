@@ -14,7 +14,9 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useAppVersions, type AppVersion, type AppChangeLog } from '@/hooks/useAppVersions';
 import { CreateChangeDialog } from './versions/CreateChangeDialog';
+import { type ChangeFormValues } from './versions/CreateChangeDialog';
 import { CreateVersionDialog } from './versions/CreateVersionDialog';
+import { type VersionFormValues } from './versions/CreateVersionDialog';
 import { VersionDetailSheet } from './versions/VersionDetailSheet';
 import { VerifactuSyncDialog } from './versions/VerifactuSyncDialog';
 
