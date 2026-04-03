@@ -120,8 +120,14 @@ export function usePublicInvoice(token: string | undefined) {
         .single();
 
       // Fetch center data via safe RPC (no credentials exposed)
-      const { data: center } = await supabase
+      const { data: centerData } = await supabase
         .rpc('get_center_for_invoice', { p_center_id: invoice.center_id });
+      const center = centerData as unknown as {
+        name: string; address: string | null; city: string | null;
+        postal_code: string | null; province: string | null; tax_id: string | null;
+        phone: string | null; email: string | null; invoice_logo_url: string | null;
+        invoice_footer: string | null; invoice_data_protection_text: string | null;
+      } | null;
 
       // Fetch invoice items with token header
       const { data: items } = await supabase
