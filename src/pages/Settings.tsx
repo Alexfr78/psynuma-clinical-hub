@@ -182,6 +182,9 @@ const navItems: NavItem[] = [
   
   // Seguridad
   { id: 'seguridad', label: 'Doble factor (2FA)', icon: Shield, parent: 'Seguridad' },
+  
+  // Sistema
+  { id: 'versiones', label: 'Gestión de versiones', icon: GitBranch, parent: 'Sistema' },
 ];
 
 // Order of main categories
