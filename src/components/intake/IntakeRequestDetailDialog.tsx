@@ -68,7 +68,8 @@ export function IntakeRequestDetailDialog({
   const statusBadge = {
     pending: <Badge variant="outline" className="bg-warning/10 text-warning border-warning/30">Pendiente</Badge>,
     contacted: <Badge variant="outline" className="bg-primary/10 text-primary border-primary/30">Contactado</Badge>,
-    closed: <Badge variant="outline" className="bg-muted text-muted-foreground">Cerrado</Badge>,
+    converted: <Badge variant="outline" className="bg-success/10 text-success border-success/30">Convertido</Badge>,
+    cancelled: <Badge variant="outline" className="bg-muted text-muted-foreground">Cerrado</Badge>,
   };
 
   const typeBadge = request.request_type === 'waitlist' 
@@ -226,7 +227,7 @@ export function IntakeRequestDetailDialog({
                 Marcar contactado
               </Button>
             )}
-            {request.status !== 'closed' && (
+            {request.status !== 'cancelled' && (
               <Button 
                 variant="outline" 
                 onClick={handleMarkClosed} 

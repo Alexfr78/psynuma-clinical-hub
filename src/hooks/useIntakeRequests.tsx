@@ -15,7 +15,7 @@ export interface IntakeRequest {
   modality: string | null;
   city: string | null;
   notes: string | null;
-  status: 'pending' | 'contacted' | 'closed';
+  status: 'pending' | 'contacted' | 'converted' | 'cancelled';
   handled_by: string | null;
   handled_at: string | null;
   internal_notes: string | null;
@@ -30,7 +30,7 @@ export interface IntakeRequest {
   updated_at: string;
 }
 
-export type IntakeRequestStatus = 'pending' | 'contacted' | 'closed';
+export type IntakeRequestStatus = 'pending' | 'contacted' | 'converted' | 'cancelled';
 export type IntakeRequestType = 'waitlist' | 'referral';
 
 interface UseIntakeRequestsFilters {
@@ -120,7 +120,7 @@ export function useIntakeRequests(filters: UseIntakeRequestsFilters = {}) {
     await updateRequest.mutateAsync({
       id,
       updates: {
-        status: 'closed',
+        status: 'cancelled',
         handled_by: user?.id || null,
         handled_at: new Date().toISOString(),
       },

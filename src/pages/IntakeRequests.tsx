@@ -68,7 +68,9 @@ export default function IntakeRequests() {
         return <Badge variant="outline" className="bg-warning/10 text-warning border-warning/30">Pendiente</Badge>;
       case 'contacted':
         return <Badge variant="outline" className="bg-primary/10 text-primary border-primary/30">Contactado</Badge>;
-      case 'closed':
+      case 'converted':
+        return <Badge variant="outline" className="bg-success/10 text-success border-success/30">Convertido</Badge>;
+      case 'cancelled':
         return <Badge variant="outline" className="bg-muted text-muted-foreground">Cerrado</Badge>;
     }
   };
@@ -83,7 +85,7 @@ export default function IntakeRequests() {
   const stats = useMemo(() => {
     const pending = requests.filter(r => r.status === 'pending').length;
     const contacted = requests.filter(r => r.status === 'contacted').length;
-    const closed = requests.filter(r => r.status === 'closed').length;
+    const closed = requests.filter(r => r.status === 'cancelled').length;
     return { pending, contacted, closed, total: requests.length };
   }, [requests]);
 
@@ -163,7 +165,7 @@ export default function IntakeRequests() {
                   <SelectItem value="all">Todos</SelectItem>
                   <SelectItem value="pending">Pendiente</SelectItem>
                   <SelectItem value="contacted">Contactado</SelectItem>
-                  <SelectItem value="closed">Cerrado</SelectItem>
+                  <SelectItem value="cancelled">Cerrado</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -275,7 +277,7 @@ export default function IntakeRequests() {
                                   Contactado
                                 </span>
                               </SelectItem>
-                              <SelectItem value="closed">
+                              <SelectItem value="cancelled">
                                 <span className="flex items-center gap-1">
                                   <span className="h-2 w-2 rounded-full bg-muted-foreground" />
                                   Cerrado
