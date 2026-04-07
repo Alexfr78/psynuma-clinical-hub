@@ -69,6 +69,7 @@ export function MergePatientsDialog({ primaryPatientId, primaryPatientName, trig
 
   const { data: primaryPatient } = usePatient(primaryPatientId);
   const { data: secondaryPatient } = usePatient(secondaryId || undefined);
+  const { data: professionals } = useProfessionals();
 
   // Find conflicting fields
   const conflicts = useMemo(() => {
