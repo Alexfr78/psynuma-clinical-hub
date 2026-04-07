@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useProfessionals } from '@/hooks/useProfessionals';
 import { useNavigate } from 'react-router-dom';
 import { Merge, AlertTriangle, Loader2, ArrowRight, CheckCircle2, Info } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
