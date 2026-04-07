@@ -5427,6 +5427,14 @@ export type Database = {
         }
         Returns: string
       }
+      merge_patients: {
+        Args: {
+          p_primary_id: string
+          p_resolved_fields?: Json
+          p_secondary_id: string
+        }
+        Returns: Json
+      }
       move_to_dlq: {
         Args: {
           dlq_name: string
