@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useProfessionals } from '@/hooks/useProfessionals';
 import { useNavigate } from 'react-router-dom';
 import { Merge, AlertTriangle, Loader2, ArrowRight, CheckCircle2, Info } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -68,6 +69,7 @@ export function MergePatientsDialog({ primaryPatientId, primaryPatientName, trig
 
   const { data: primaryPatient } = usePatient(primaryPatientId);
   const { data: secondaryPatient } = usePatient(secondaryId || undefined);
+  const { data: professionals } = useProfessionals();
 
   // Find conflicting fields
   const conflicts = useMemo(() => {
@@ -219,9 +221,13 @@ export function MergePatientsDialog({ primaryPatientId, primaryPatientName, trig
     setHasVerifactu(false);
   };
 
-  const formatValue = (val: any): string => {
+  const formatValue = (val: any, key?: string): string => {
     if (val === null || val === undefined || val === '') return '—';
     if (typeof val === 'boolean') return val ? 'Sí' : 'No';
+    if (key === 'assigned_professional_id') {
+      const prof = professionals?.find(p => p.id === val);
+      return prof ? `${prof.first_name} ${prof.last_name}` : String(val);
+    }
     return String(val);
   };
 
@@ -331,8 +337,8 @@ export function MergePatientsDialog({ primaryPatientId, primaryPatientName, trig
                     Los siguientes campos tienen valores distintos. Elige cuál conservar:
                   </p>
                   {conflicts.map(({ key, label }) => {
-                    const pVal = formatValue((primaryPatient as any)[key]);
-                    const sVal = formatValue((secondaryPatient as any)[key]);
+                    const pVal = formatValue((primaryPatient as any)[key], key);
+                    const sVal = formatValue((secondaryPatient as any)[key], key);
                     return (
                       <div key={key} className="rounded-lg border p-3 space-y-2">
                         <Label className="text-sm font-medium">{label}</Label>
@@ -376,7 +382,7 @@ export function MergePatientsDialog({ primaryPatientId, primaryPatientName, trig
                       return (
                         <div key={key} className="flex items-center gap-2">
                           <CheckCircle2 className="h-3 w-3 text-green-500 shrink-0" />
-                          <span>{label}: <strong>{formatValue(val)}</strong> (del {source})</span>
+                          <span>{label}: <strong>{formatValue(val, key)}</strong> (del {source})</span>
                         </div>
                       );
                     })}
@@ -445,7 +451,7 @@ export function MergePatientsDialog({ primaryPatientId, primaryPatientName, trig
                       .filter(([, v]) => v === 'secondary')
                       .map(([key]) => {
                         const field = MERGE_FIELDS.find(f => f.key === key);
-                        const val = secondaryPatient ? formatValue((secondaryPatient as any)[key]) : '—';
+                        const val = secondaryPatient ? formatValue((secondaryPatient as any)[key], key) : '—';
                         return (
                           <div key={key} className="flex items-center gap-2">
                             <ArrowRight className="h-3 w-3 text-primary shrink-0" />
