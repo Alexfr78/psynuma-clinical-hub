@@ -5429,8 +5429,8 @@ export type Database = {
       }
       merge_patients: {
         Args: {
+          p_field_overrides?: Json
           p_primary_id: string
-          p_resolved_fields?: Json
           p_secondary_id: string
         }
         Returns: Json
