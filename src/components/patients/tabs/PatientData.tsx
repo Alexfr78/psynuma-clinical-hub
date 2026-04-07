@@ -580,6 +580,30 @@ export function PatientData({ patient }: PatientDataProps) {
           </CardContent>
         </Card>
 
+        {/* Merge */}
+        <Card className="border-primary/30">
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Merge className="h-4 w-4" />
+              Fusionar duplicados
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <p className="text-sm font-medium">Fusionar con otro contacto duplicado</p>
+                <p className="text-xs text-muted-foreground">
+                  Transfiere todos los datos clínicos de otro contacto a este y elimina el duplicado.
+                </p>
+              </div>
+              <MergePatientsDialog
+                primaryPatientId={patient.id}
+                primaryPatientName={`${patient.first_name} ${patient.last_name}`}
+              />
+            </div>
+          </CardContent>
+        </Card>
+
         {/* GDPR Danger Zone */}
         <Card className="border-destructive/30">
           <CardHeader>
