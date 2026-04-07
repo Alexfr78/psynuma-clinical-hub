@@ -187,7 +187,7 @@ export function MergePatientsDialog({ primaryPatientId, primaryPatientName, trig
       const { data, error } = await supabase.rpc('merge_patients', {
         p_primary_id: primaryPatientId,
         p_secondary_id: secondaryId,
-        p_resolved_fields: buildResolvedFieldsPayload(),
+        p_field_overrides: buildResolvedFieldsPayload(),
       });
 
       if (error) throw error;
