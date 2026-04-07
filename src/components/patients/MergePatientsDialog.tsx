@@ -338,7 +338,7 @@ export function MergePatientsDialog({ primaryPatientId, primaryPatientName, trig
                   </p>
                   {conflicts.map(({ key, label }) => {
                     const pVal = formatValue((primaryPatient as any)[key], key);
-                    const sVal = formatValue((secondaryPatient as any)[key]);
+                    const sVal = formatValue((secondaryPatient as any)[key], key);
                     return (
                       <div key={key} className="rounded-lg border p-3 space-y-2">
                         <Label className="text-sm font-medium">{label}</Label>
@@ -382,7 +382,7 @@ export function MergePatientsDialog({ primaryPatientId, primaryPatientName, trig
                       return (
                         <div key={key} className="flex items-center gap-2">
                           <CheckCircle2 className="h-3 w-3 text-green-500 shrink-0" />
-                          <span>{label}: <strong>{formatValue(val)}</strong> (del {source})</span>
+                          <span>{label}: <strong>{formatValue(val, key)}</strong> (del {source})</span>
                         </div>
                       );
                     })}
@@ -451,7 +451,7 @@ export function MergePatientsDialog({ primaryPatientId, primaryPatientName, trig
                       .filter(([, v]) => v === 'secondary')
                       .map(([key]) => {
                         const field = MERGE_FIELDS.find(f => f.key === key);
-                        const val = secondaryPatient ? formatValue((secondaryPatient as any)[key]) : '—';
+                        const val = secondaryPatient ? formatValue((secondaryPatient as any)[key], key) : '—';
                         return (
                           <div key={key} className="flex items-center gap-2">
                             <ArrowRight className="h-3 w-3 text-primary shrink-0" />
