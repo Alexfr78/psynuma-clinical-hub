@@ -337,7 +337,7 @@ export function MergePatientsDialog({ primaryPatientId, primaryPatientName, trig
                     Los siguientes campos tienen valores distintos. Elige cuál conservar:
                   </p>
                   {conflicts.map(({ key, label }) => {
-                    const pVal = formatValue((primaryPatient as any)[key]);
+                    const pVal = formatValue((primaryPatient as any)[key], key);
                     const sVal = formatValue((secondaryPatient as any)[key]);
                     return (
                       <div key={key} className="rounded-lg border p-3 space-y-2">
