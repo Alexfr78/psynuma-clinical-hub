@@ -214,7 +214,7 @@ serve(async (req) => {
     await supabase
       .from("patient_magic_links")
       .insert({
-        patient_id: patient.id,
+        patient_id: patientId,
         email: email.toLowerCase(),
         center_id: center.id,
         token,
