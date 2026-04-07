@@ -1152,25 +1152,42 @@ serve(async (req) => {
 
       // ===== Upsert patient =====
       const normalizedEmail = patient.email.toLowerCase().trim();
-      
-      // Try to find existing patient by email in this center
-      const { data: existingPatient } = await supabase
+      const normalizedPhone = (() => {
+        if (!patient.phone) return null;
+        let p = patient.phone.replace(/\s+/g, '').replace(/^\+34/, '');
+        return p.length >= 9 ? p : null;
+      })();
+
+      // 1. Try to find existing patient by email
+      const { data: existingByEmail } = await supabase
         .from("patients")
-        .select("id, first_name, last_name, phone")
+        .select("id, first_name, last_name, phone, email")
         .eq("center_id", center.id)
         .ilike("email", normalizedEmail)
-        .single();
+        .maybeSingle();
+
+      // 2. If no match by email and phone provided, try by phone (only if patient has no email)
+      let existingPatient = existingByEmail;
+      if (!existingPatient && normalizedPhone) {
+        const { data: existingByPhone } = await supabase
+          .from("patients")
+          .select("id, first_name, last_name, phone, email")
+          .eq("center_id", center.id)
+          .eq("phone", normalizedPhone)
+          .is("email", null)
+          .maybeSingle();
+        existingPatient = existingByPhone;
+      }
 
       let patientId: string;
 
       if (existingPatient) {
-        // Update patient if phone is missing
         patientId = existingPatient.id;
-        if (!existingPatient.phone && patient.phone) {
-          await supabase
-            .from("patients")
-            .update({ phone: patient.phone, updated_at: new Date().toISOString() })
-            .eq("id", patientId);
+        const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
+        if (!existingPatient.phone && normalizedPhone) updates.phone = normalizedPhone;
+        if (!existingPatient.email) updates.email = normalizedEmail;
+        if (Object.keys(updates).length > 1) {
+          await supabase.from("patients").update(updates).eq("id", patientId);
         }
       } else {
         // Create new patient
@@ -1181,7 +1198,7 @@ serve(async (req) => {
             first_name: patient.firstName.trim(),
             last_name: patient.lastName.trim(),
             email: normalizedEmail,
-            phone: patient.phone?.trim() || null,
+            phone: normalizedPhone || patient.phone?.trim() || null,
             status: 'active'
           })
           .select("id")

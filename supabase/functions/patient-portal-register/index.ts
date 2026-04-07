@@ -113,56 +113,98 @@ serve(async (req) => {
     }
 
     // Check if patient already exists
-    const { data: existingPatient } = await supabase
+    const normalizedEmail = email.toLowerCase().trim();
+    const normalizedPhone = (() => {
+      if (!phone) return null;
+      let p = phone.replace(/\s+/g, '').replace(/^\+34/, '');
+      return p.length >= 9 ? p : null;
+    })();
+
+    let patientId: string | null = null;
+
+    // 1. Search by email
+    const { data: existingByEmail } = await supabase
       .from("patients")
-      .select("id")
+      .select("id, email, phone")
       .eq("center_id", center.id)
-      .eq("email", email.toLowerCase())
-      .single();
+      .ilike("email", normalizedEmail)
+      .maybeSingle();
 
-    if (existingPatient) {
-      return new Response(
-        JSON.stringify({ error: "Ya existe una cuenta con este email. Usa la opción de acceso." }),
-        { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    if (existingByEmail) {
+      // Check if already has active portal account
+      const { data: existingPortal } = await supabase
+        .from("patient_portal_accounts")
+        .select("id, is_active")
+        .eq("patient_id", existingByEmail.id)
+        .maybeSingle();
+
+      if (existingPortal?.is_active) {
+        return new Response(
+          JSON.stringify({ error: "Ya existe una cuenta con este email. Usa la opción de acceso." }),
+          { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      patientId = existingByEmail.id;
     }
 
-    // Create patient
-    const { data: patient, error: patientError } = await supabase
-      .from("patients")
-      .insert({
-        center_id: center.id,
-        first_name: firstName.trim(),
-        last_name: lastName.trim(),
-        email: email.toLowerCase().trim(),
-        phone: phone?.trim() || null,
-        date_of_birth: dateOfBirth || null,
-        assigned_professional_id: center.portal_default_professional_id,
-        status: "active",
-      })
-      .select()
-      .single();
+    // 2. If no match by email and phone provided, try by phone (only if patient has no email)
+    if (!patientId && normalizedPhone) {
+      const { data: existingByPhone } = await supabase
+        .from("patients")
+        .select("id, email, phone")
+        .eq("center_id", center.id)
+        .eq("phone", normalizedPhone)
+        .is("email", null)
+        .maybeSingle();
 
-    if (patientError) {
-      console.error("Error creating patient:", patientError);
-      return new Response(
-        JSON.stringify({ error: "Error al crear la cuenta" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      if (existingByPhone) {
+        await supabase
+          .from("patients")
+          .update({ email: normalizedEmail, updated_at: new Date().toISOString() })
+          .eq("id", existingByPhone.id);
+        patientId = existingByPhone.id;
+      }
     }
 
-    // Create patient portal account
+    // 3. Create new patient if no existing match found
+    if (!patientId) {
+      const { data: newPatient, error: patientError } = await supabase
+        .from("patients")
+        .insert({
+          center_id: center.id,
+          first_name: firstName.trim(),
+          last_name: lastName.trim(),
+          email: normalizedEmail,
+          phone: normalizedPhone || phone?.trim() || null,
+          date_of_birth: dateOfBirth || null,
+          assigned_professional_id: center.portal_default_professional_id,
+          status: "active",
+        })
+        .select()
+        .single();
+
+      if (patientError) {
+        console.error("Error creating patient:", patientError);
+        return new Response(
+          JSON.stringify({ error: "Error al crear la cuenta" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      patientId = newPatient.id;
+    }
+
+    // Create patient portal account (if not already active)
     const { error: portalAccountError } = await supabase
       .from("patient_portal_accounts")
-      .insert({
-        patient_id: patient.id,
-        email: email.toLowerCase().trim(),
+      .upsert({
+        patient_id: patientId,
+        email: normalizedEmail,
         is_active: true,
-      });
+      }, { onConflict: 'patient_id' });
 
     if (portalAccountError) {
       console.error("Error creating portal account:", portalAccountError);
-      // Don't fail - patient was created successfully
+      // Don't fail - patient was created/found successfully
     }
 
     // Generate magic link for immediate access
