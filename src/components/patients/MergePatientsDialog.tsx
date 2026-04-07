@@ -221,9 +221,13 @@ export function MergePatientsDialog({ primaryPatientId, primaryPatientName, trig
     setHasVerifactu(false);
   };
 
-  const formatValue = (val: any): string => {
+  const formatValue = (val: any, key?: string): string => {
     if (val === null || val === undefined || val === '') return '—';
     if (typeof val === 'boolean') return val ? 'Sí' : 'No';
+    if (key === 'assigned_professional_id') {
+      const prof = professionals?.find(p => p.id === val);
+      return prof ? `${prof.first_name} ${prof.last_name}` : String(val);
+    }
     return String(val);
   };
 
