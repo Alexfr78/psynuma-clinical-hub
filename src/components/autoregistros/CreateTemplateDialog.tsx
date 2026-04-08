@@ -76,6 +76,12 @@ export function CreateTemplateDialog({ open, onOpenChange }: CreateTemplateDialo
             <Switch id="feedback-toggle" checked={feedbackEnabled} onCheckedChange={setFeedbackEnabled} />
           </div>
 
+          <div className="rounded-md border p-3 bg-muted/40">
+            <p className="text-xs text-muted-foreground">
+              Podrás configurar alertas de desregulación una vez guardada la plantilla.
+            </p>
+          </div>
+
           <Button
             onClick={handleSubmit}
             disabled={!name.trim() || fields.length === 0 || createTemplate.isPending}

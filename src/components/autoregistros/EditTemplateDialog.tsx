@@ -8,6 +8,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RichDescriptionEditor, sanitizeDescription } from './RichDescriptionEditor';
+import AlertRulesBuilder from './AlertRulesBuilder';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { FieldBuilder } from './FieldBuilder';
@@ -80,6 +81,16 @@ export function EditTemplateDialog({ open, onOpenChange, template }: EditTemplat
             </div>
             <Switch id="edit-feedback-toggle" checked={feedbackEnabled} onCheckedChange={setFeedbackEnabled} />
           </div>
+
+          {template && (
+            <div className="space-y-1.5 pt-3 border-t">
+              <Label className="text-sm font-medium">Alertas de desregulación</Label>
+              <p className="text-xs text-muted-foreground">
+                Define condiciones que, al cumplirse, envían una notificación automática al terapeuta.
+              </p>
+              <AlertRulesBuilder templateId={template.id} fields={fields} />
+            </div>
+          )}
 
           <Button
             onClick={handleSubmit}
