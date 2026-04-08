@@ -536,6 +536,166 @@ export type Database = {
           },
         ]
       }
+      autoregistro_alert_logs: {
+        Row: {
+          center_id: string
+          entry_id: string
+          error_message: string | null
+          fired_at: string
+          id: string
+          notification_method: string | null
+          patient_id: string
+          rule_id: string
+          severity: string | null
+          success: boolean
+        }
+        Insert: {
+          center_id: string
+          entry_id: string
+          error_message?: string | null
+          fired_at?: string
+          id?: string
+          notification_method?: string | null
+          patient_id: string
+          rule_id: string
+          severity?: string | null
+          success?: boolean
+        }
+        Update: {
+          center_id?: string
+          entry_id?: string
+          error_message?: string | null
+          fired_at?: string
+          id?: string
+          notification_method?: string | null
+          patient_id?: string
+          rule_id?: string
+          severity?: string | null
+          success?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "autoregistro_alert_logs_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "autoregistro_alert_logs_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "autoregistro_alert_logs_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "portal_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "autoregistro_alert_logs_entry_id_fkey"
+            columns: ["entry_id"]
+            isOneToOne: false
+            referencedRelation: "autoregistro_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "autoregistro_alert_logs_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "autoregistro_alert_logs_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "autoregistro_alert_logs_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "autoregistro_alert_rules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      autoregistro_alert_rules: {
+        Row: {
+          center_id: string
+          conditions: Json
+          consecutive_count: number
+          created_at: string
+          id: string
+          is_active: boolean
+          logic_operator: string
+          name: string
+          severity: string
+          template_id: string
+          updated_at: string
+        }
+        Insert: {
+          center_id: string
+          conditions?: Json
+          consecutive_count?: number
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          logic_operator?: string
+          name: string
+          severity?: string
+          template_id: string
+          updated_at?: string
+        }
+        Update: {
+          center_id?: string
+          conditions?: Json
+          consecutive_count?: number
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          logic_operator?: string
+          name?: string
+          severity?: string
+          template_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "autoregistro_alert_rules_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "autoregistro_alert_rules_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "autoregistro_alert_rules_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "portal_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "autoregistro_alert_rules_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "autoregistro_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       autoregistro_entries: {
         Row: {
           center_id: string
