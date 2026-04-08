@@ -13,6 +13,7 @@ export interface AutoregistroEntry {
   submitted_at: string;
   template?: { name: string; fields: any[] };
   patient?: { first_name: string; last_name: string | null };
+  alertSeverity?: 'critical' | 'warning' | null;
 }
 
 export function useAutoregistroEntries(opts?: { patientId?: string; templateId?: string }) {
@@ -31,13 +32,39 @@ export function useAutoregistroEntries(opts?: { patientId?: string; templateId?:
       if (opts?.templateId) q = q.eq('template_id', opts.templateId);
       const { data, error } = await q;
       if (error) throw error;
-      return (data ?? []).map((e: any) => ({
+
+      const entries = (data ?? []).map((e: any) => ({
         ...e,
         template: e.template ? {
           ...e.template,
           fields: typeof e.template.fields === 'string' ? JSON.parse(e.template.fields) : e.template.fields,
         } : undefined,
       })) as AutoregistroEntry[];
+
+      // Load alert severities
+      const entryIds = entries.map(e => e.id);
+      if (entryIds.length > 0) {
+        const { data: logs } = await supabase
+          .from('autoregistro_alert_logs')
+          .select('entry_id, severity')
+          .in('entry_id', entryIds)
+          .eq('success', true);
+
+        if (logs && logs.length > 0) {
+          const severityMap = new Map<string, 'critical' | 'warning'>();
+          for (const log of logs) {
+            const current = severityMap.get(log.entry_id);
+            if (log.severity === 'critical' || !current) {
+              severityMap.set(log.entry_id, log.severity as 'critical' | 'warning');
+            }
+          }
+          for (const entry of entries) {
+            entry.alertSeverity = severityMap.get(entry.id) ?? null;
+          }
+        }
+      }
+
+      return entries;
     },
     enabled: !!centerId,
   });
