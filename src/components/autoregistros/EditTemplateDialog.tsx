@@ -26,6 +26,7 @@ export function EditTemplateDialog({ open, onOpenChange, template }: EditTemplat
   const [description, setDescription] = useState('');
   const [fields, setFields] = useState<AutoregistroField[]>([]);
   const [feedbackEnabled, setFeedbackEnabled] = useState(false);
+  const [feedbackShowDate, setFeedbackShowDate] = useState(true);
   const { updateTemplate } = useAutoregistroTemplates();
 
   useEffect(() => {
@@ -34,6 +35,7 @@ export function EditTemplateDialog({ open, onOpenChange, template }: EditTemplat
       setDescription(template.description || '');
       setFields([...template.fields]);
       setFeedbackEnabled(template.patient_feedback_enabled ?? false);
+      setFeedbackShowDate((template as any).patient_feedback_show_date ?? true);
     }
   }, [template]);
 
@@ -42,7 +44,14 @@ export function EditTemplateDialog({ open, onOpenChange, template }: EditTemplat
     if (fields.some((f) => !f.label.trim())) return;
 
     updateTemplate.mutate(
-      { id: template.id, name: name.trim(), description: sanitizeDescription(description.trim()) || undefined, fields, patient_feedback_enabled: feedbackEnabled },
+      {
+        id: template.id,
+        name: name.trim(),
+        description: sanitizeDescription(description.trim()) || undefined,
+        fields,
+        patient_feedback_enabled: feedbackEnabled,
+        patient_feedback_show_date: feedbackShowDate,
+      },
       {
         onSuccess: () => {
           onOpenChange(false);
@@ -81,6 +90,39 @@ export function EditTemplateDialog({ open, onOpenChange, template }: EditTemplat
             </div>
             <Switch id="edit-feedback-toggle" checked={feedbackEnabled} onCheckedChange={setFeedbackEnabled} />
           </div>
+
+          {feedbackEnabled && fields.length > 0 && (
+            <div className="space-y-2 rounded-lg border p-3">
+              <div className="space-y-0.5">
+                <Label className="text-sm font-medium">Qué puede ver el paciente</Label>
+                <p className="text-xs text-muted-foreground">
+                  Selecciona qué campos se mostrarán en "Mis registros anteriores".
+                </p>
+              </div>
+              <div className="flex items-center justify-between gap-3 rounded-md border border-border/60 p-2">
+                <span className="text-sm">Mostrar fecha del registro</span>
+                <Switch checked={feedbackShowDate} onCheckedChange={setFeedbackShowDate} />
+              </div>
+              <div className="space-y-2">
+                {fields
+                  .map((f, originalIndex) => ({ f, originalIndex }))
+                  .sort((a, b) => a.f.order - b.f.order)
+                  .map(({ f, originalIndex }) => (
+                    <div key={`${originalIndex}-${f.label}`} className="flex items-center justify-between gap-3">
+                      <span className="text-sm truncate">{f.label || '(Sin nombre)'}</span>
+                      <Switch
+                        checked={f.patientVisible !== false}
+                        onCheckedChange={(v) =>
+                          setFields((prev) =>
+                            prev.map((pf, i) => (i === originalIndex ? { ...pf, patientVisible: v } : pf))
+                          )
+                        }
+                      />
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
 
           {template && (
             <div className="space-y-1.5 pt-3 border-t">

@@ -30,6 +30,7 @@ export interface PublicAutoregistroData {
     description: string | null;
     fields: AutoregistroField[];
     patient_feedback_enabled: boolean;
+    patient_feedback_show_date?: boolean;
   };
 }
 
@@ -58,11 +59,29 @@ export function usePublicAutoregistro(token: string) {
         throw new Error('Este enlace ha expirado');
       }
 
-      const { data: template, error: tError } = await client
-        .from('autoregistro_templates')
-        .select('id, name, description, fields, patient_feedback_enabled')
-        .eq('id', link.template_id)
-        .single();
+      // Backwards-compat: DB may not have patient_feedback_show_date yet
+      let template: any = null;
+      let tError: any = null;
+      {
+        const res = await client
+          .from('autoregistro_templates')
+          .select('id, name, description, fields, patient_feedback_enabled, patient_feedback_show_date')
+          .eq('id', link.template_id)
+          .single();
+        template = res.data;
+        tError = res.error;
+      }
+
+      if (tError && String(tError.message || '').toLowerCase().includes('patient_feedback_show_date')) {
+        const res2 = await client
+          .from('autoregistro_templates')
+          .select('id, name, description, fields, patient_feedback_enabled')
+          .eq('id', link.template_id)
+          .single();
+        template = res2.data;
+        tError = res2.error;
+      }
+
       if (tError || !template) throw new Error('Plantilla no encontrada');
 
       return {
@@ -73,6 +92,7 @@ export function usePublicAutoregistro(token: string) {
             typeof template.fields === 'string' ? JSON.parse(template.fields) : template.fields
           ),
           patient_feedback_enabled: !!(template as any).patient_feedback_enabled,
+          patient_feedback_show_date: (template as any).patient_feedback_show_date ?? true,
         },
       };
     },

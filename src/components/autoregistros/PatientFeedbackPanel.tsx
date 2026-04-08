@@ -12,12 +12,19 @@ import { BarChart3 } from 'lucide-react';
 interface PatientFeedbackPanelProps {
   entries: PublicAutoregistroEntry[];
   fields: AutoregistroField[];
+  showDate?: boolean;
 }
 
-export function PatientFeedbackPanel({ entries, fields }: PatientFeedbackPanelProps) {
-  const displayFields = useMemo(() => {
-    return fields.filter((f) => ['number', 'scale', 'select', 'text'].includes(f.type)).slice(0, 5);
+export function PatientFeedbackPanel({ entries, fields, showDate = true }: PatientFeedbackPanelProps) {
+  const patientFields = useMemo(() => {
+    return fields.filter((f) => f.patientVisible !== false);
   }, [fields]);
+
+  const displayFields = useMemo(() => {
+    return patientFields
+      .filter((f) => ['number', 'scale', 'select', 'emotion_cards', 'text'].includes(f.type))
+      .slice(0, 5);
+  }, [patientFields]);
 
   const chartEntries = useMemo(() => {
     return entries.map((e) => ({
@@ -37,7 +44,7 @@ export function PatientFeedbackPanel({ entries, fields }: PatientFeedbackPanelPr
         <span>Mis registros anteriores</span>
       </div>
 
-      <EntryChart entries={chartEntries as any} fields={fields} />
+      <EntryChart entries={chartEntries as any} fields={patientFields} />
 
       <Card>
         <CardHeader className="pb-2">
@@ -47,7 +54,7 @@ export function PatientFeedbackPanel({ entries, fields }: PatientFeedbackPanelPr
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="text-xs">Fecha</TableHead>
+                {showDate && <TableHead className="text-xs">Fecha</TableHead>}
                 {displayFields.map((f) => (
                   <TableHead key={f.label} className="text-xs">{f.label}</TableHead>
                 ))}
@@ -56,9 +63,11 @@ export function PatientFeedbackPanel({ entries, fields }: PatientFeedbackPanelPr
             <TableBody>
               {recentEntries.map((entry) => (
                 <TableRow key={entry.id}>
-                  <TableCell className="text-xs text-muted-foreground">
-                    {format(new Date(entry.submitted_at), 'dd MMM HH:mm', { locale: es })}
-                  </TableCell>
+                  {showDate && (
+                    <TableCell className="text-xs text-muted-foreground">
+                      {format(new Date(entry.submitted_at), 'dd MMM HH:mm', { locale: es })}
+                    </TableCell>
+                  )}
                   {displayFields.map((f) => (
                     <TableCell key={f.label} className="text-xs">
                       {formatFieldValue(f, entry.values[f.label])}

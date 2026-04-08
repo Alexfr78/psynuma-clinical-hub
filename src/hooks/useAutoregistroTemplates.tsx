@@ -17,6 +17,8 @@ export interface AutoregistroField {
   required: boolean;
   order: number;
   showInChart?: boolean;
+  /** If patient feedback is enabled, controls whether this field is shown to the patient in "mis registros". */
+  patientVisible?: boolean;
   // Select: allow free-text "Other" option
   allowCustomValue?: boolean;
   customValueLabel?: string;
@@ -42,6 +44,7 @@ export interface AutoregistroTemplate {
   fields: AutoregistroField[];
   is_active: boolean;
   patient_feedback_enabled: boolean;
+  patient_feedback_show_date?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -50,6 +53,16 @@ export function useAutoregistroTemplates() {
   const { profile } = useAuth();
   const queryClient = useQueryClient();
   const centerId = profile?.center_id;
+
+  const isMissingColumnError = (err: any, columnName: string) => {
+    const msg = String(err?.message || '').toLowerCase();
+    const details = String(err?.details || '').toLowerCase();
+    const hint = String(err?.hint || '').toLowerCase();
+    return (
+      (err?.code === '42703' || msg.includes('column') || details.includes('column') || hint.includes('column')) &&
+      (msg.includes(columnName.toLowerCase()) || details.includes(columnName.toLowerCase()) || hint.includes(columnName.toLowerCase()))
+    );
+  };
 
   const query = useQuery({
     queryKey: ['autoregistro-templates', centerId],
@@ -71,21 +84,37 @@ export function useAutoregistroTemplates() {
   });
 
   const createTemplate = useMutation({
-    mutationFn: async (input: { name: string; description?: string; fields: AutoregistroField[]; patient_feedback_enabled?: boolean }) => {
+    mutationFn: async (input: { name: string; description?: string; fields: AutoregistroField[]; patient_feedback_enabled?: boolean; patient_feedback_show_date?: boolean }) => {
+      const insertBase: any = {
+        center_id: centerId!,
+        professional_id: profile!.id,
+        name: input.name,
+        description: input.description || null,
+        fields: normalizeAutoregistroFields(input.fields) as any,
+        patient_feedback_enabled: input.patient_feedback_enabled ?? false,
+        patient_feedback_show_date: input.patient_feedback_show_date ?? true,
+      };
+
       const { data, error } = await supabase
         .from('autoregistro_templates')
-        .insert({
-          center_id: centerId!,
-          professional_id: profile!.id,
-          name: input.name,
-          description: input.description || null,
-          fields: normalizeAutoregistroFields(input.fields) as any,
-          patient_feedback_enabled: input.patient_feedback_enabled ?? false,
-        })
+        .insert(insertBase)
         .select()
         .single();
-      if (error) throw error;
-      return data;
+
+      if (!error) return data;
+
+      // Backwards-compat: DB may not have the new column yet
+      if (isMissingColumnError(error, 'patient_feedback_show_date')) {
+        const { data: data2, error: error2 } = await supabase
+          .from('autoregistro_templates')
+          .insert({ ...insertBase, patient_feedback_show_date: undefined })
+          .select()
+          .single();
+        if (error2) throw error2;
+        return data2;
+      }
+
+      throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['autoregistro-templates'] });
@@ -95,15 +124,27 @@ export function useAutoregistroTemplates() {
   });
 
   const updateTemplate = useMutation({
-    mutationFn: async (input: { id: string; name?: string; description?: string; fields?: AutoregistroField[]; is_active?: boolean; patient_feedback_enabled?: boolean }) => {
+    mutationFn: async (input: { id: string; name?: string; description?: string; fields?: AutoregistroField[]; is_active?: boolean; patient_feedback_enabled?: boolean; patient_feedback_show_date?: boolean }) => {
       const updates: any = { updated_at: new Date().toISOString() };
       if (input.name !== undefined) updates.name = input.name;
       if (input.description !== undefined) updates.description = input.description;
       if (input.fields !== undefined) updates.fields = normalizeAutoregistroFields(input.fields);
       if (input.is_active !== undefined) updates.is_active = input.is_active;
       if (input.patient_feedback_enabled !== undefined) updates.patient_feedback_enabled = input.patient_feedback_enabled;
+      if (input.patient_feedback_show_date !== undefined) updates.patient_feedback_show_date = input.patient_feedback_show_date;
+
       const { error } = await supabase.from('autoregistro_templates').update(updates).eq('id', input.id);
-      if (error) throw error;
+      if (!error) return;
+
+      // Backwards-compat: DB may not have the new column yet
+      if (isMissingColumnError(error, 'patient_feedback_show_date')) {
+        const { patient_feedback_show_date, ...updates2 } = updates;
+        const { error: error2 } = await supabase.from('autoregistro_templates').update(updates2).eq('id', input.id);
+        if (error2) throw error2;
+        return;
+      }
+
+      throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['autoregistro-templates'] });

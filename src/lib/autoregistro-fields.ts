@@ -39,6 +39,7 @@ export function normalizeAutoregistroField(
     label: field.label ?? '',
     required: Boolean(field.required),
     order: Number.isFinite(field.order) ? field.order : index,
+    patientVisible: field.patientVisible !== false,
   };
 
   if (normalizedBase.type === 'select') {

@@ -89,7 +89,11 @@ export default function AutoregistroPublic() {
         </Card>
 
         {feedbackEnabled && entries.length > 0 && (
-          <PatientFeedbackPanel entries={entries} fields={data.template.fields} />
+          <PatientFeedbackPanel
+            entries={entries}
+            fields={data.template.fields}
+            showDate={(data.template as any).patient_feedback_show_date ?? true}
+          />
         )}
       </div>
     </div>
