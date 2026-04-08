@@ -8,6 +8,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RichDescriptionEditor, sanitizeDescription } from './RichDescriptionEditor';
+import AlertRulesBuilder from './AlertRulesBuilder';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { FieldBuilder } from './FieldBuilder';
