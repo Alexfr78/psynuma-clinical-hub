@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@supabase/supabase-js';
+import { supabase } from '@/integrations/supabase/client';
 import { normalizeAutoregistroFields } from '@/lib/autoregistro-fields';
 import type { AutoregistroField } from './useAutoregistroTemplates';
 
@@ -106,7 +107,7 @@ export function usePublicAutoregistro(token: string) {
         .single();
       if (flError || !fullLink) throw new Error('Error al enviar');
 
-      const { error } = await client
+      const { data: newEntry, error } = await client
         .from('autoregistro_entries')
         .insert({
           link_id: link.id,
@@ -114,8 +115,20 @@ export function usePublicAutoregistro(token: string) {
           patient_id: fullLink.patient_id,
           template_id: fullLink.template_id,
           values: values as any,
-        });
+        })
+        .select('id')
+        .single();
       if (error) throw error;
+
+      try {
+        if (newEntry?.id) {
+          await supabase.functions.invoke('check-autoregistro-alerts', {
+            body: { entryId: newEntry.id },
+          });
+        }
+      } catch (alertError) {
+        console.warn('[autoregistro] Alert check failed (non-blocking):', alertError);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['public-autoregistro-entries', token] });

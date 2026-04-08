@@ -1,4 +1,5 @@
 import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import type { AutoregistroEntry } from '@/hooks/useAutoregistroEntries';
@@ -6,9 +7,11 @@ import type { AutoregistroEntry } from '@/hooks/useAutoregistroEntries';
 interface EntryCardProps {
   entry: AutoregistroEntry;
   onClick: () => void;
+  alertSeverity?: 'critical' | 'warning' | null;
 }
 
-export function EntryCard({ entry, onClick }: EntryCardProps) {
+export function EntryCard({ entry, onClick, alertSeverity }: EntryCardProps) {
+  const severity = alertSeverity ?? entry.alertSeverity;
   const fieldCount = Object.keys(entry.values || {}).length;
 
   return (
@@ -23,9 +26,17 @@ export function EntryCard({ entry, onClick }: EntryCardProps) {
               {(entry.template as any)?.name}
             </p>
           </div>
-          <p className="text-xs text-muted-foreground shrink-0">
-            {format(new Date(entry.submitted_at), 'dd MMM yyyy HH:mm', { locale: es })}
-          </p>
+          <div className="flex items-center gap-1.5 shrink-0">
+            {severity === 'critical' && (
+              <Badge className="bg-red-500 text-white text-xs hover:bg-red-500">Alerta</Badge>
+            )}
+            {severity === 'warning' && (
+              <Badge className="bg-amber-500 text-white text-xs hover:bg-amber-500">Aviso</Badge>
+            )}
+            <p className="text-xs text-muted-foreground">
+              {format(new Date(entry.submitted_at), 'dd MMM yyyy HH:mm', { locale: es })}
+            </p>
+          </div>
         </div>
         <p className="text-xs text-muted-foreground mt-1">
           {fieldCount} campo{fieldCount !== 1 ? 's' : ''} registrado{fieldCount !== 1 ? 's' : ''}
