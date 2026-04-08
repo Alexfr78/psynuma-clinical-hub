@@ -82,7 +82,7 @@ export default function AlertRulesBuilder({ templateId, fields }: Props) {
         .eq('template_id', templateId)
         .order('created_at', { ascending: false });
       if (error) throw error;
-      return (data ?? []) as AlertRule[];
+      return (data ?? []) as unknown as AlertRule[];
     },
   });
 
