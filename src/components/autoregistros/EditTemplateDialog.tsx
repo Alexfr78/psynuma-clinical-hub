@@ -82,6 +82,16 @@ export function EditTemplateDialog({ open, onOpenChange, template }: EditTemplat
             <Switch id="edit-feedback-toggle" checked={feedbackEnabled} onCheckedChange={setFeedbackEnabled} />
           </div>
 
+          {template && (
+            <div className="space-y-1.5 pt-3 border-t">
+              <Label className="text-sm font-medium">Alertas de desregulación</Label>
+              <p className="text-xs text-muted-foreground">
+                Define condiciones que, al cumplirse, envían una notificación automática al terapeuta.
+              </p>
+              <AlertRulesBuilder templateId={template.id} fields={fields} />
+            </div>
+          )}
+
           <Button
             onClick={handleSubmit}
             disabled={!name.trim() || fields.length === 0 || updateTemplate.isPending}
