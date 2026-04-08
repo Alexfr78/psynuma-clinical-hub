@@ -213,6 +213,34 @@ Deno.serve(async (req) => {
         );
       }
 
+      // Enforce cancellation/reschedule policy window (same rules apply to reschedule)
+      const policy = session.cancellation_policy || "24_hours";
+      const hoursUntilSession = (sessionDateTime.getTime() - new Date().getTime()) / (1000 * 60 * 60);
+      const policyHoursMap: Record<string, number> = {
+        "not_allowed": Infinity,
+        "until_start": 0,
+        "1_hour": 1,
+        "2_hours": 2,
+        "24_hours": 24,
+        "48_hours": 48,
+        "72_hours": 72,
+      };
+      const requiredHours = policyHoursMap[policy] ?? 24;
+
+      if (requiredHours === Infinity) {
+        return new Response(
+          JSON.stringify({ error: "Esta cita no se puede reprogramar" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      if (hoursUntilSession < requiredHours && requiredHours > 0) {
+        return new Response(
+          JSON.stringify({ error: `La cita debe reprogramarse con al menos ${requiredHours} horas de antelación` }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
       // Verify the slot is still available (anti-race-condition)
       const slots = await getAvailability(
         supabase,
