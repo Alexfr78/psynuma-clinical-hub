@@ -51,32 +51,34 @@ export function PatientFeedbackPanel({ entries, fields, showDate = true }: Patie
           <CardTitle className="text-sm">Últimos registros</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                {showDate && <TableHead className="text-xs">Fecha</TableHead>}
-                {displayFields.map((f) => (
-                  <TableHead key={f.label} className="text-xs">{f.label}</TableHead>
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {recentEntries.map((entry) => (
-                <TableRow key={entry.id}>
-                  {showDate && (
-                    <TableCell className="text-xs text-muted-foreground">
-                      {format(new Date(entry.submitted_at), 'dd MMM HH:mm', { locale: es })}
-                    </TableCell>
-                  )}
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  {showDate && <TableHead className="text-xs whitespace-nowrap">Fecha</TableHead>}
                   {displayFields.map((f) => (
-                    <TableCell key={f.label} className="text-xs">
-                      {formatFieldValue(f, entry.values[f.label])}
-                    </TableCell>
+                    <TableHead key={f.label} className="text-xs whitespace-nowrap">{f.label}</TableHead>
                   ))}
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {recentEntries.map((entry) => (
+                  <TableRow key={entry.id}>
+                    {showDate && (
+                      <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                        {format(new Date(entry.submitted_at), 'dd MMM HH:mm', { locale: es })}
+                      </TableCell>
+                    )}
+                    {displayFields.map((f) => (
+                      <TableCell key={f.label} className="text-xs">
+                        {formatFieldValue(f, entry.values[f.label])}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
     </div>
