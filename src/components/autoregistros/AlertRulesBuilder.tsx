@@ -17,6 +17,7 @@ interface AlertCondition {
   field: string;
   operator: string;
   value: string;
+  field_type?: string;
 }
 
 interface AlertRule {
@@ -68,7 +69,9 @@ export default function AlertRulesBuilder({ templateId, fields }: Props) {
   const [consecutiveCount, setConsecutiveCount] = useState(1);
   const [conditions, setConditions] = useState<AlertCondition[]>([]);
 
-  const eligibleFields = fields.filter(f => ['scale', 'number', 'select'].includes(f.type));
+  const eligibleFields = fields.filter(f =>
+    ['scale', 'number', 'select', 'emotion_cards'].includes(f.type)
+  );
 
   const getFieldByLabel = (label: string) => eligibleFields.find(f => f.label === label);
 
@@ -125,7 +128,10 @@ export default function AlertRulesBuilder({ templateId, fields }: Props) {
         logic_operator: logicOperator,
         severity,
         consecutive_count: consecutiveCount,
-        conditions: conditions as any,
+        conditions: conditions.map(c => ({
+          ...c,
+          field_type: eligibleFields.find(f => f.label === c.field)?.type || 'text',
+        })) as any,
       };
 
       if (editingRule) {
@@ -197,11 +203,32 @@ export default function AlertRulesBuilder({ templateId, fields }: Props) {
   function getOperatorsForField(fieldLabel: string) {
     const f = getFieldByLabel(fieldLabel);
     if (!f) return NUMERIC_OPERATORS;
-    return f.type === 'select' ? SELECT_OPERATORS : NUMERIC_OPERATORS;
+    if (f.type === 'select' || f.type === 'emotion_cards') return SELECT_OPERATORS;
+    return NUMERIC_OPERATORS;
   }
 
   function renderValueInput(condition: AlertCondition, idx: number) {
     const f = getFieldByLabel(condition.field);
+    if (f?.type === 'emotion_cards' && (f as any).emotionOptions && (f as any).emotionOptions.length > 0) {
+      const emotionOptions = (f as any).emotionOptions as { label: string; value?: string; imageUrl?: string }[];
+      return (
+        <Select value={String(condition.value)} onValueChange={v => updateCondition(idx, { value: v })}>
+          <SelectTrigger className="w-[200px]">
+            <SelectValue placeholder="Seleccionar emoción" />
+          </SelectTrigger>
+          <SelectContent>
+            {emotionOptions.map(opt => {
+              const val = opt.value?.trim() || opt.label;
+              return (
+                <SelectItem key={val} value={val}>
+                  {opt.label}
+                </SelectItem>
+              );
+            })}
+          </SelectContent>
+        </Select>
+      );
+    }
     if (f?.type === 'select' && f.options && f.options.length > 0) {
       return (
         <Select value={condition.value} onValueChange={v => updateCondition(idx, { value: v })}>
@@ -218,7 +245,7 @@ export default function AlertRulesBuilder({ templateId, fields }: Props) {
     }
     return (
       <Input
-        type={f?.type === 'select' ? 'text' : 'number'}
+        type={f?.type === 'scale' || f?.type === 'number' ? 'number' : 'text'}
         placeholder="Valor"
         className="w-[120px]"
         value={condition.value}

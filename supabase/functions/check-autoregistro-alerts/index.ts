@@ -10,6 +10,7 @@ interface AlertCondition {
   field: string;
   operator: string;
   value: string;
+  field_type?: string;
 }
 
 interface AlertRule {
@@ -39,17 +40,29 @@ function evaluateCondition(
   if (raw === undefined || raw === null) return false;
 
   const op = condition.operator;
+  const fieldType = condition.field_type || "text";
 
-  // Numeric operators
-  if (["lt", "lte", "gt", "gte", "eq", "neq"].includes(op)) {
+  // String/select operators (includes emotion_cards)
+  if (fieldType === "select" || fieldType === "emotion_cards") {
+    const a = String(raw).toLowerCase();
+    const b = String(condition.value).toLowerCase();
+    if (op === "eq") return a === b;
+    if (op === "neq") return a !== b;
+    if (op === "contains") return a.includes(b);
+    return false;
+  }
+
+  // Numeric operators only for scale/number
+  if ((fieldType === "scale" || fieldType === "number") && ["lt", "lte", "gt", "gte", "eq", "neq"].includes(op)) {
     const numVal = Number(raw);
     const numCond = Number(condition.value);
     if (Number.isNaN(numVal) || Number.isNaN(numCond)) {
       // Fallback to string comparison for eq/neq on non-numeric
-      const a = String(raw).toLowerCase();
-      const b = String(condition.value).toLowerCase();
-      if (op === "eq") return a === b;
-      if (op === "neq") return a !== b;
+      if (op === "eq" || op === "neq") {
+        const a = String(raw).toLowerCase();
+        const b = String(condition.value).toLowerCase();
+        return op === "eq" ? a === b : a !== b;
+      }
       return false;
     }
     switch (op) {
@@ -62,9 +75,15 @@ function evaluateCondition(
     }
   }
 
-  // String/select operators
+  // Default string contains for other field types (backward compatible)
   if (op === "contains") {
     return String(raw).toLowerCase().includes(String(condition.value).toLowerCase());
+  }
+
+  if (op === "eq" || op === "neq") {
+    const a = String(raw).toLowerCase();
+    const b = String(condition.value).toLowerCase();
+    return op === "eq" ? a === b : a !== b;
   }
 
   return false;
