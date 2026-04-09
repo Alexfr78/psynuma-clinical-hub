@@ -162,84 +162,134 @@ export function VersionManagementSection() {
               No hay cambios pendientes
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-10">
-                    <Checkbox
-                      checked={selectedChangeIds.length === pendingChanges.length && pendingChanges.length > 0}
-                      onCheckedChange={toggleAll}
-                    />
-                  </TableHead>
-                  <TableHead>Fecha</TableHead>
-                  <TableHead>Módulo</TableHead>
-                  <TableHead>Tipo</TableHead>
-                  <TableHead>Título</TableHead>
-                  <TableHead className="hidden md:table-cell">Descripción</TableHead>
-                  <TableHead className="w-10">VF</TableHead>
-                  <TableHead className="w-10"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            <>
+              {/* Mobile cards */}
+              <div className="space-y-3 sm:hidden">
                 {pendingChanges.map((change) => {
                   const typeBadge = changeTypeBadge[change.change_type] || changeTypeBadge.technical;
                   return (
-                    <TableRow key={change.id}>
-                      <TableCell>
-                        <Checkbox
-                          checked={selectedChangeIds.includes(change.id)}
-                          onCheckedChange={() => toggleChange(change.id)}
-                        />
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
-                        {format(new Date(change.created_at), 'dd/MM/yy')}
-                      </TableCell>
-                      <TableCell className="text-sm capitalize">{change.module}</TableCell>
-                      <TableCell>
-                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${typeBadge.className}`}>
-                          {typeBadge.label}
-                        </span>
-                      </TableCell>
-                      <TableCell className="font-medium text-sm max-w-[200px] truncate">{change.title}</TableCell>
-                      <TableCell className="hidden md:table-cell text-xs text-muted-foreground max-w-[200px] truncate">
-                        {change.description || '—'}
-                      </TableCell>
-                      <TableCell>
-                        {change.affects_verifactu && (
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger>
-                                <Shield className="h-4 w-4 text-orange-500" />
-                              </TooltipTrigger>
-                              <TooltipContent>Afecta VeriFactu</TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        )}
-                      </TableCell>
-                      <TableCell>
+                    <div key={change.id} className="border rounded-lg p-3 space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Checkbox
+                            checked={selectedChangeIds.includes(change.id)}
+                            onCheckedChange={() => toggleChange(change.id)}
+                          />
+                          <span className="font-medium text-sm truncate">{change.title}</span>
+                        </div>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0">
                               <MoreHorizontal className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem onClick={() => { setEditingChange(change); setChangeDialogOpen(true); }}>
-                              <Pencil className="mr-2 h-4 w-4" />
-                              Editar
+                              <Pencil className="mr-2 h-4 w-4" /> Editar
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => archiveChange.mutate(change.id)}>
-                              <Archive className="mr-2 h-4 w-4" />
-                              Archivar
+                              <Archive className="mr-2 h-4 w-4" /> Archivar
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-xs text-muted-foreground">
+                          {format(new Date(change.created_at), 'dd/MM/yy')}
+                        </span>
+                        <span className="text-xs capitalize text-muted-foreground">{change.module}</span>
+                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${typeBadge.className}`}>
+                          {typeBadge.label}
+                        </span>
+                        {change.affects_verifactu && <Shield className="h-3.5 w-3.5 text-orange-500" />}
+                      </div>
+                      {change.description && (
+                        <p className="text-xs text-muted-foreground line-clamp-2">{change.description}</p>
+                      )}
+                    </div>
                   );
                 })}
-              </TableBody>
-            </Table>
+              </div>
+              {/* Desktop table */}
+              <div className="hidden sm:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-10">
+                        <Checkbox
+                          checked={selectedChangeIds.length === pendingChanges.length && pendingChanges.length > 0}
+                          onCheckedChange={toggleAll}
+                        />
+                      </TableHead>
+                      <TableHead>Fecha</TableHead>
+                      <TableHead>Módulo</TableHead>
+                      <TableHead>Tipo</TableHead>
+                      <TableHead>Título</TableHead>
+                      <TableHead className="hidden md:table-cell">Descripción</TableHead>
+                      <TableHead className="w-10">VF</TableHead>
+                      <TableHead className="w-10"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {pendingChanges.map((change) => {
+                      const typeBadge = changeTypeBadge[change.change_type] || changeTypeBadge.technical;
+                      return (
+                        <TableRow key={change.id}>
+                          <TableCell>
+                            <Checkbox
+                              checked={selectedChangeIds.includes(change.id)}
+                              onCheckedChange={() => toggleChange(change.id)}
+                            />
+                          </TableCell>
+                          <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                            {format(new Date(change.created_at), 'dd/MM/yy')}
+                          </TableCell>
+                          <TableCell className="text-sm capitalize">{change.module}</TableCell>
+                          <TableCell>
+                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${typeBadge.className}`}>
+                              {typeBadge.label}
+                            </span>
+                          </TableCell>
+                          <TableCell className="font-medium text-sm max-w-[200px] truncate">{change.title}</TableCell>
+                          <TableCell className="hidden md:table-cell text-xs text-muted-foreground max-w-[200px] truncate">
+                            {change.description || '—'}
+                          </TableCell>
+                          <TableCell>
+                            {change.affects_verifactu && (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger>
+                                    <Shield className="h-4 w-4 text-orange-500" />
+                                  </TooltipTrigger>
+                                  <TooltipContent>Afecta VeriFactu</TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => { setEditingChange(change); setChangeDialogOpen(true); }}>
+                                  <Pencil className="mr-2 h-4 w-4" /> Editar
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => archiveChange.mutate(change.id)}>
+                                  <Archive className="mr-2 h-4 w-4" /> Archivar
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
