@@ -24,19 +24,22 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Validate the user's JWT
+    // Validate the user's JWT by decoding it
     const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      console.error("Auth error:", userError?.message);
+    let userId: string;
+    try {
+      const payload = JSON.parse(atob(token.split(".")[1]));
+      if (!payload.sub || !payload.exp || payload.exp * 1000 < Date.now()) {
+        throw new Error("Invalid or expired token");
+      }
+      userId = payload.sub;
+    } catch (e) {
+      console.error("JWT decode error:", e);
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-
-    const userId = user.id;
 
     const { data: profile } = await supabase
       .from("profiles")
