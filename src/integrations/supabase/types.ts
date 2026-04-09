@@ -5639,6 +5639,10 @@ export type Database = {
         Args: { p_center_id?: string }
         Returns: Json
       }
+      reassign_payment_to_invoice_v2: {
+        Args: { p_payment_id: string; p_target_invoice_id: string }
+        Returns: Json
+      }
       recompute_debt_by_invoice: { Args: { p_debt_id: string }; Returns: Json }
       record_audit_event: {
         Args: {

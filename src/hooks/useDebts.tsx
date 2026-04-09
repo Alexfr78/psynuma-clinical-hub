@@ -53,7 +53,7 @@ export function useDebts(filters?: { patientId?: string; status?: string }) {
         .select(`
           *,
           patients (id, first_name, last_name, phone, email),
-          invoices (id, invoice_number)
+          invoices (id, invoice_number, is_valid)
         `)
         .order('created_at', { ascending: false });
 
@@ -69,7 +69,19 @@ export function useDebts(filters?: { patientId?: string; status?: string }) {
 
       const { data, error } = await query;
       if (error) throw error;
-      return data as DebtWithRelations[];
+
+      // Exclude debts whose invoice has been invalidated by a rectificativa.
+      // These debts should have status='refunded' from the RPC, but as a safety
+      // net we also filter client-side to prevent stale data from showing up
+      // as operational pending debts.
+      const filtered = (data as any[]).filter((debt) => {
+        if (debt.invoices && debt.invoices.is_valid === false) {
+          return false;
+        }
+        return true;
+      });
+
+      return filtered as DebtWithRelations[];
     },
     enabled: !!profile?.center_id,
   });
@@ -141,25 +153,55 @@ export function useDebtStats() {
           .in('status', ['pending', 'partial']),
         supabase
           .from('invoices')
-          .select('id, total')
-          .eq('status', 'issued'),
+          .select('id, total, is_valid')
+          .eq('status', 'issued')
+          .eq('is_valid', true),
       ]);
 
       if (debtsRes.error) throw debtsRes.error;
+
+      // If debts have invoice_id, we need to verify those invoices are still valid.
+      // Collect invoice_ids from debts to check validity.
+      const debtInvoiceIds = new Set<string>();
+      const invoiceIdsToCheck = new Set<string>();
+      debtsRes.data.forEach((debt) => {
+        if (debt.invoice_id) {
+          debtInvoiceIds.add(debt.invoice_id);
+          invoiceIdsToCheck.add(debt.invoice_id);
+        }
+      });
+
+      // Fetch validity for debts' invoices
+      let invalidInvoiceIds = new Set<string>();
+      if (invoiceIdsToCheck.size > 0) {
+        const { data: invoiceValidity } = await supabase
+          .from('invoices')
+          .select('id, is_valid')
+          .in('id', Array.from(invoiceIdsToCheck))
+          .eq('is_valid', false);
+
+        if (invoiceValidity) {
+          invalidInvoiceIds = new Set(invoiceValidity.map(i => i.id));
+        }
+      }
 
       const now = new Date();
       const stats = {
         totalPending: 0,
         overdueAmount: 0,
         overdueCount: 0,
-        totalCount: debtsRes.data.length,
+        totalCount: 0,
       };
 
-      const debtInvoiceIds = new Set<string>();
+      // Exclude debts whose invoice is invalidated by rectificativa
       debtsRes.data.forEach((debt) => {
+        if (debt.invoice_id && invalidInvoiceIds.has(debt.invoice_id)) {
+          return; // Skip debts for invalidated invoices
+        }
+
         const remaining = Number(debt.amount) - Number(debt.paid_amount);
         stats.totalPending += remaining;
-        if (debt.invoice_id) debtInvoiceIds.add(debt.invoice_id);
+        stats.totalCount++;
 
         if (debt.due_date && new Date(debt.due_date) < now) {
           stats.overdueAmount += remaining;
@@ -167,7 +209,7 @@ export function useDebtStats() {
         }
       });
 
-      // Add issued invoices without a debt record
+      // Add issued valid invoices without a debt record
       if (issuedRes.data) {
         issuedRes.data
           .filter(inv => !debtInvoiceIds.has(inv.id))

@@ -86,6 +86,24 @@ export function useCreatePayment() {
 
   return useMutation({
     mutationFn: async (payment: PaymentInsert) => {
+      // If linking to an invoice, validate it is valid and not replaced by rectificativa
+      if (payment.invoice_id) {
+        const { data: targetInvoice, error: invErr } = await supabase
+          .from('invoices')
+          .select('id, is_valid, status')
+          .eq('id', payment.invoice_id)
+          .single();
+
+        if (invErr) throw invErr;
+        if (!targetInvoice) throw new Error('Factura no encontrada');
+        if (targetInvoice.is_valid === false) {
+          throw new Error('No se puede vincular un pago a una factura invalidada por rectificativa. Usa la factura rectificativa válida.');
+        }
+        if (targetInvoice.status === 'cancelled') {
+          throw new Error('No se puede vincular un pago a una factura cancelada.');
+        }
+      }
+
       const { data, error } = await supabase
         .from('payments')
         .insert({

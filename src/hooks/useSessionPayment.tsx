@@ -92,17 +92,24 @@ export function useCollectSessionPayment() {
         debtId = newDebt.id;
       }
 
-      // 2. If no invoice linked to debt, check if there's an invoice for this session via invoice_items
+      // 2. If no invoice linked to debt, find the current valid invoice for this session
+      // via invoice_items. Must prioritize valid invoices (is_valid=true) to avoid
+      // linking payments to invoices that were replaced by a rectificativa.
       if (!invoiceId) {
-        const { data: invoiceItem } = await supabase
+        const { data: invoiceItems } = await supabase
           .from('invoice_items')
-          .select('invoice_id')
-          .eq('session_id', params.sessionId)
-          .maybeSingle();
-        
-        if (invoiceItem?.invoice_id) {
-          invoiceId = invoiceItem.invoice_id;
-          // Link the debt to this invoice
+          .select('invoice_id, invoices!inner(id, is_valid, status)')
+          .eq('session_id', params.sessionId);
+
+        // Pick the valid, non-cancelled invoice; fall back to any if none valid
+        const validItem = invoiceItems?.find(
+          (item: any) => item.invoices?.is_valid === true && item.invoices?.status !== 'cancelled'
+        );
+        const bestItem = validItem || null;
+
+        if (bestItem?.invoice_id) {
+          invoiceId = bestItem.invoice_id;
+          // Link the debt to this valid invoice
           await supabase
             .from('debts')
             .update({ invoice_id: invoiceId })

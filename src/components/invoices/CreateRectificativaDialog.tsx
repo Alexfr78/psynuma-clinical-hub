@@ -255,16 +255,22 @@ export function CreateRectificativaDialog({
         // Don't throw - the rectificativa was created successfully
       }
 
-      // Handle payments linked to original invoice - unlink them for reassignment
+      // Handle payments linked to original invoice.
+      // The improved RPC auto-reassigns payments to the new rectificativa when possible,
+      // and marks the original invoice's debt as 'refunded' (closed) so it doesn't
+      // appear as a normal pending debt.
       const { data: paymentsResult, error: paymentsError } = await supabase
         .rpc('handle_rectificativa_payments', { p_original_invoice_id: originalInvoice.id });
 
       if (paymentsError) {
         console.error('Error handling payments:', paymentsError);
+        toast.warning('Factura rectificativa creada, pero hubo un error al gestionar los pagos previos. Revísalos manualmente.', { duration: 8000 });
       } else if (paymentsResult && typeof paymentsResult === 'object' && 'action' in paymentsResult) {
         const result = paymentsResult as { action: string; message: string };
-        if (result.action === 'payments_unlinked') {
+        if (result.action === 'payments_auto_reassigned') {
           toast.info(result.message, { duration: 6000 });
+        } else if (result.action === 'payments_unlinked') {
+          toast.warning(result.message + ' Reasígnalos desde la pantalla de cobros.', { duration: 8000 });
         }
       }
 
@@ -333,6 +339,10 @@ export function CreateRectificativaDialog({
       }
 
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      queryClient.invalidateQueries({ queryKey: ['debts'] });
+      queryClient.invalidateQueries({ queryKey: ['debt-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['payments'] });
+      queryClient.invalidateQueries({ queryKey: ['payment-stats'] });
       onOpenChange(false);
     } catch (error) {
       console.error('Error creating rectificativa:', error);

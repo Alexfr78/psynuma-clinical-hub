@@ -5,78 +5,33 @@ import { toast } from 'sonner';
 interface LinkPaymentParams {
   paymentId: string;
   invoiceId: string;
-  amount: number;
 }
 
 /**
- * Hook to link an existing payment to an invoice.
- * Updates the payment's invoice_id and recalculates the associated debt.
+ * Hook to reassign a payment to a (different) invoice.
+ *
+ * Uses the backend RPC `reassign_payment_to_invoice_v2` which atomically:
+ * - Validates that the target invoice is valid (is_valid=true, not cancelled/draft)
+ * - Blocks reassignment to invoices invalidated by a rectificativa
+ * - Moves the payment, recomputes debts and invoice statuses for both
+ *   the source and target invoices
+ * - Creates a debt record for the target invoice if one doesn't exist
+ *
+ * Business rule: payments must never be linked to an invoice that has been
+ * replaced by a total rectificativa (is_valid = false).
  */
 export function useLinkPaymentToInvoice() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ paymentId, invoiceId, amount }: LinkPaymentParams) => {
-      // Update the payment with the invoice_id
-      const { error: updateError } = await supabase
-        .from('payments')
-        .update({ invoice_id: invoiceId })
-        .eq('id', paymentId);
+    mutationFn: async ({ paymentId, invoiceId }: LinkPaymentParams) => {
+      const { data, error } = await supabase.rpc('reassign_payment_to_invoice_v2', {
+        p_payment_id: paymentId,
+        p_target_invoice_id: invoiceId,
+      });
 
-      if (updateError) throw updateError;
-
-      // Get invoice total to compare
-      const { data: invoice, error: invoiceError } = await supabase
-        .from('invoices')
-        .select('total')
-        .eq('id', invoiceId)
-        .single();
-
-      if (invoiceError) throw invoiceError;
-
-      // Get total payments linked to this invoice
-      const { data: paymentsSum, error: paymentsSumError } = await supabase
-        .from('payments')
-        .select('amount')
-        .eq('invoice_id', invoiceId);
-
-      if (paymentsSumError) throw paymentsSumError;
-
-      const totalPaid = paymentsSum?.reduce((sum, p) => sum + Number(p.amount), 0) || 0;
-      const invoiceTotal = Number(invoice.total);
-      const isFullyPaid = totalPaid >= invoiceTotal;
-
-      // Find the debt associated with this invoice and update it
-      const { data: debt, error: debtError } = await supabase
-        .from('debts')
-        .select('id, paid_amount, amount')
-        .eq('invoice_id', invoiceId)
-        .maybeSingle();
-
-      if (debtError) throw debtError;
-
-      if (debt) {
-        // Update debt with new total paid
-        const newStatus = totalPaid >= Number(debt.amount) ? 'paid' : (totalPaid > 0 ? 'partial' : 'pending');
-
-        await supabase
-          .from('debts')
-          .update({
-            paid_amount: totalPaid,
-            status: newStatus,
-          })
-          .eq('id', debt.id);
-      }
-
-      // Always update invoice status based on total payments
-      if (isFullyPaid) {
-        await supabase
-          .from('invoices')
-          .update({ status: 'paid' })
-          .eq('id', invoiceId);
-      }
-
-      return { paymentId, invoiceId };
+      if (error) throw error;
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['payments'] });

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FileText, Link2 } from 'lucide-react';
+import { FileText, Link2, AlertCircle, ArrowRight } from 'lucide-react';
 import {
   ResponsiveDialog as Dialog,
   ResponsiveDialogContent as DialogContent,
@@ -16,6 +16,8 @@ import {
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useInvoices } from '@/hooks/useInvoices';
 import { useLinkPaymentToInvoice } from '@/hooks/useLinkPaymentToInvoice';
 import type { PaymentWithRelations } from '@/hooks/usePayments';
@@ -26,28 +28,63 @@ interface LinkPaymentToInvoiceDialogProps {
   payment: PaymentWithRelations | null;
 }
 
+const STATUS_LABELS: Record<string, string> = {
+  issued: 'Emitida',
+  paid: 'Pagada',
+  draft: 'Borrador',
+  cancelled: 'Cancelada',
+};
+
 export function LinkPaymentToInvoiceDialog({
   open,
   onOpenChange,
   payment,
 }: LinkPaymentToInvoiceDialogProps) {
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string>('');
-  
-  // Get issued invoices for the same patient
-  const { data: invoices } = useInvoices({ status: 'issued' });
+
+  // Load all non-draft invoices (we filter client-side for validity)
+  const { data: allInvoices } = useInvoices();
   const linkPayment = useLinkPaymentToInvoice();
 
-  // Filter invoices by patient
-  const patientInvoices = invoices?.filter(
-    (inv) => payment && inv.patient_id === payment.patient_id
-  ) || [];
+  // Filter: only valid invoices for the same patient, issued or paid, not cancelled.
+  // Business rule: invoices invalidated by rectificativa (is_valid=false) must not
+  // appear as selectable targets.
+  const patientInvoices = (allInvoices || []).filter((inv) => {
+    if (!payment) return false;
+    if (inv.patient_id !== payment.patient_id) return false;
+    if (inv.is_valid === false) return false;
+    if (inv.status === 'cancelled' || inv.status === 'draft') return false;
+    // Don't show the invoice the payment is already linked to
+    if (payment.invoice_id && inv.id === payment.invoice_id) return false;
+    return true;
+  });
+
+  // Find if the payment's current invoice was rectified, and if so which rectificativa replaces it
+  const rectificativaForCurrent = payment?.invoice_id
+    ? (allInvoices || []).find(
+        (inv) =>
+          inv.rectified_invoice_id === payment.invoice_id &&
+          inv.is_valid === true &&
+          inv.status !== 'cancelled'
+      )
+    : null;
+
+  // Sort: prioritize rectificativa of the current invoice, then by issue_date desc
+  const sortedInvoices = [...patientInvoices].sort((a, b) => {
+    if (rectificativaForCurrent) {
+      if (a.id === rectificativaForCurrent.id) return -1;
+      if (b.id === rectificativaForCurrent.id) return 1;
+    }
+    return new Date(b.issue_date).getTime() - new Date(a.issue_date).getTime();
+  });
 
   // Reset selection when dialog opens
   useEffect(() => {
     if (open) {
-      setSelectedInvoiceId('');
+      // Auto-select rectificativa if available
+      setSelectedInvoiceId(rectificativaForCurrent?.id || '');
     }
-  }, [open]);
+  }, [open, rectificativaForCurrent?.id]);
 
   const handleLink = async () => {
     if (!payment || !selectedInvoiceId) return;
@@ -55,9 +92,8 @@ export function LinkPaymentToInvoiceDialog({
     await linkPayment.mutateAsync({
       paymentId: payment.id,
       invoiceId: selectedInvoiceId,
-      amount: payment.amount,
     });
-    
+
     onOpenChange(false);
   };
 
@@ -65,14 +101,14 @@ export function LinkPaymentToInvoiceDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[450px]">
+      <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Link2 className="h-5 w-5" />
             Vincular pago a factura
           </DialogTitle>
           <DialogDescription>
-            Asocia este pago de {Number(payment.amount).toFixed(2)}€ a una factura emitida.
+            Asocia este pago de {Number(payment.amount).toFixed(2)}&euro; a una factura v&aacute;lida.
           </DialogDescription>
         </DialogHeader>
 
@@ -82,16 +118,32 @@ export function LinkPaymentToInvoiceDialog({
               Contacto: {payment.patients.first_name} {payment.patients.last_name}
             </p>
             <p className="text-sm text-muted-foreground mt-1">
-              Importe: {Number(payment.amount).toFixed(2)}€
+              Importe: {Number(payment.amount).toFixed(2)}&euro;
             </p>
+            {payment.invoices && (
+              <p className="text-sm text-muted-foreground mt-1">
+                Factura actual: {payment.invoices.invoice_number}
+              </p>
+            )}
           </div>
+
+          {rectificativaForCurrent && (
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription className="flex items-center gap-1 text-sm">
+                La factura actual fue rectificada.
+                <ArrowRight className="h-3 w-3" />
+                Se sugiere reasignar a la rectificativa.
+              </AlertDescription>
+            </Alert>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="invoice-select">Seleccionar factura</Label>
-            {patientInvoices.length === 0 ? (
+            {sortedInvoices.length === 0 ? (
               <div className="text-sm text-muted-foreground p-3 border rounded-lg">
                 <FileText className="h-4 w-4 inline mr-2" />
-                No hay facturas emitidas para este contacto
+                No hay facturas v&aacute;lidas disponibles para este contacto
               </div>
             ) : (
               <Select
@@ -102,17 +154,35 @@ export function LinkPaymentToInvoiceDialog({
                   <SelectValue placeholder="Selecciona una factura" />
                 </SelectTrigger>
                 <SelectContent>
-                  {patientInvoices.map((invoice) => (
-                    <SelectItem key={invoice.id} value={invoice.id}>
-                      <div className="flex items-center gap-2">
-                        <FileText className="h-4 w-4" />
-                        <span>{invoice.invoice_number}</span>
-                        <span className="text-muted-foreground">
-                          - {Number(invoice.total).toFixed(2)}€
-                        </span>
-                      </div>
-                    </SelectItem>
-                  ))}
+                  {sortedInvoices.map((invoice) => {
+                    const isRectificativa = !!invoice.rectified_invoice_id;
+                    const isRecommended = rectificativaForCurrent?.id === invoice.id;
+
+                    return (
+                      <SelectItem key={invoice.id} value={invoice.id}>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <FileText className="h-4 w-4 shrink-0" />
+                          <span className="font-medium">{invoice.invoice_number}</span>
+                          <span className="text-muted-foreground">
+                            {Number(invoice.total).toFixed(2)}&euro;
+                          </span>
+                          <Badge variant="outline" className="text-xs">
+                            {STATUS_LABELS[invoice.status] || invoice.status}
+                          </Badge>
+                          {isRectificativa && (
+                            <Badge variant="secondary" className="text-xs">
+                              Rectificativa
+                            </Badge>
+                          )}
+                          {isRecommended && (
+                            <Badge className="text-xs bg-blue-100 text-blue-800 hover:bg-blue-100">
+                              Sugerida
+                            </Badge>
+                          )}
+                        </div>
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             )}
