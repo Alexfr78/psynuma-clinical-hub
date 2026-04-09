@@ -50,7 +50,7 @@ export function AppLayout({ children }: AppLayoutProps) {
     <SidebarProvider>
       <div className="flex min-h-screen w-full">
         <AppSidebar />
-        <SidebarInset className="flex flex-col">
+        <SidebarInset className="flex flex-col min-w-0 overflow-hidden">
           <header className="flex h-12 sm:h-14 shrink-0 items-center gap-2 border-b bg-card px-3 sm:px-4">
             <SidebarTrigger className="-ml-1" />
             <Separator orientation="vertical" className="mr-2 h-4" />
