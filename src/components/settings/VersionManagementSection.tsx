@@ -162,84 +162,134 @@ export function VersionManagementSection() {
               No hay cambios pendientes
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-10">
-                    <Checkbox
-                      checked={selectedChangeIds.length === pendingChanges.length && pendingChanges.length > 0}
-                      onCheckedChange={toggleAll}
-                    />
-                  </TableHead>
-                  <TableHead>Fecha</TableHead>
-                  <TableHead>Módulo</TableHead>
-                  <TableHead>Tipo</TableHead>
-                  <TableHead>Título</TableHead>
-                  <TableHead className="hidden md:table-cell">Descripción</TableHead>
-                  <TableHead className="w-10">VF</TableHead>
-                  <TableHead className="w-10"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            <>
+              {/* Mobile cards */}
+              <div className="space-y-3 sm:hidden">
                 {pendingChanges.map((change) => {
                   const typeBadge = changeTypeBadge[change.change_type] || changeTypeBadge.technical;
                   return (
-                    <TableRow key={change.id}>
-                      <TableCell>
-                        <Checkbox
-                          checked={selectedChangeIds.includes(change.id)}
-                          onCheckedChange={() => toggleChange(change.id)}
-                        />
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
-                        {format(new Date(change.created_at), 'dd/MM/yy')}
-                      </TableCell>
-                      <TableCell className="text-sm capitalize">{change.module}</TableCell>
-                      <TableCell>
-                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${typeBadge.className}`}>
-                          {typeBadge.label}
-                        </span>
-                      </TableCell>
-                      <TableCell className="font-medium text-sm max-w-[200px] truncate">{change.title}</TableCell>
-                      <TableCell className="hidden md:table-cell text-xs text-muted-foreground max-w-[200px] truncate">
-                        {change.description || '—'}
-                      </TableCell>
-                      <TableCell>
-                        {change.affects_verifactu && (
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger>
-                                <Shield className="h-4 w-4 text-orange-500" />
-                              </TooltipTrigger>
-                              <TooltipContent>Afecta VeriFactu</TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        )}
-                      </TableCell>
-                      <TableCell>
+                    <div key={change.id} className="border rounded-lg p-3 space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Checkbox
+                            checked={selectedChangeIds.includes(change.id)}
+                            onCheckedChange={() => toggleChange(change.id)}
+                          />
+                          <span className="font-medium text-sm truncate">{change.title}</span>
+                        </div>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0">
                               <MoreHorizontal className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem onClick={() => { setEditingChange(change); setChangeDialogOpen(true); }}>
-                              <Pencil className="mr-2 h-4 w-4" />
-                              Editar
+                              <Pencil className="mr-2 h-4 w-4" /> Editar
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => archiveChange.mutate(change.id)}>
-                              <Archive className="mr-2 h-4 w-4" />
-                              Archivar
+                              <Archive className="mr-2 h-4 w-4" /> Archivar
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-xs text-muted-foreground">
+                          {format(new Date(change.created_at), 'dd/MM/yy')}
+                        </span>
+                        <span className="text-xs capitalize text-muted-foreground">{change.module}</span>
+                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${typeBadge.className}`}>
+                          {typeBadge.label}
+                        </span>
+                        {change.affects_verifactu && <Shield className="h-3.5 w-3.5 text-orange-500" />}
+                      </div>
+                      {change.description && (
+                        <p className="text-xs text-muted-foreground line-clamp-2">{change.description}</p>
+                      )}
+                    </div>
                   );
                 })}
-              </TableBody>
-            </Table>
+              </div>
+              {/* Desktop table */}
+              <div className="hidden sm:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-10">
+                        <Checkbox
+                          checked={selectedChangeIds.length === pendingChanges.length && pendingChanges.length > 0}
+                          onCheckedChange={toggleAll}
+                        />
+                      </TableHead>
+                      <TableHead>Fecha</TableHead>
+                      <TableHead>Módulo</TableHead>
+                      <TableHead>Tipo</TableHead>
+                      <TableHead>Título</TableHead>
+                      <TableHead className="hidden md:table-cell">Descripción</TableHead>
+                      <TableHead className="w-10">VF</TableHead>
+                      <TableHead className="w-10"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {pendingChanges.map((change) => {
+                      const typeBadge = changeTypeBadge[change.change_type] || changeTypeBadge.technical;
+                      return (
+                        <TableRow key={change.id}>
+                          <TableCell>
+                            <Checkbox
+                              checked={selectedChangeIds.includes(change.id)}
+                              onCheckedChange={() => toggleChange(change.id)}
+                            />
+                          </TableCell>
+                          <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                            {format(new Date(change.created_at), 'dd/MM/yy')}
+                          </TableCell>
+                          <TableCell className="text-sm capitalize">{change.module}</TableCell>
+                          <TableCell>
+                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${typeBadge.className}`}>
+                              {typeBadge.label}
+                            </span>
+                          </TableCell>
+                          <TableCell className="font-medium text-sm max-w-[200px] truncate">{change.title}</TableCell>
+                          <TableCell className="hidden md:table-cell text-xs text-muted-foreground max-w-[200px] truncate">
+                            {change.description || '—'}
+                          </TableCell>
+                          <TableCell>
+                            {change.affects_verifactu && (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger>
+                                    <Shield className="h-4 w-4 text-orange-500" />
+                                  </TooltipTrigger>
+                                  <TooltipContent>Afecta VeriFactu</TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => { setEditingChange(change); setChangeDialogOpen(true); }}>
+                                  <Pencil className="mr-2 h-4 w-4" /> Editar
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => archiveChange.mutate(change.id)}>
+                                  <Archive className="mr-2 h-4 w-4" /> Archivar
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
@@ -258,107 +308,163 @@ export function VersionManagementSection() {
               No hay versiones registradas
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Versión</TableHead>
-                  <TableHead className="hidden md:table-cell">Nombre</TableHead>
-                  <TableHead>Fecha</TableHead>
-                  <TableHead>Estado</TableHead>
-                  <TableHead className="hidden md:table-cell">Cambios</TableHead>
-                  <TableHead className="w-10">VF</TableHead>
-                  <TableHead className="w-10"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            <>
+              {/* Mobile cards */}
+              <div className="space-y-3 sm:hidden">
                 {versions.map((v) => {
                   const sBadge = statusBadge[v.status] || statusBadge.draft;
                   return (
-                    <TableRow key={v.id}>
-                      <TableCell className="font-mono font-medium">
-                        {v.version_code}
-                        {v.is_current && (
-                          <Badge className="ml-2 bg-green-600 text-xs">Actual</Badge>
-                        )}
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
-                        {v.version_name || '—'}
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
-                        {format(new Date(v.created_at), 'dd/MM/yy')}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={sBadge.variant}>{sBadge.label}</Badge>
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell text-sm">
-                        {v.change_count}
-                      </TableCell>
-                      <TableCell>
-                        {v.applies_to_verifactu && (
-                          v.verifactu_synced_at ? (
-                            <CheckCircle2 className="h-4 w-4 text-green-600" />
-                          ) : (
-                            <AlertTriangle className="h-4 w-4 text-orange-500" />
-                          )
-                        )}
-                      </TableCell>
-                      <TableCell>
+                    <div
+                      key={v.id}
+                      className="border rounded-lg p-3 space-y-2 cursor-pointer hover:bg-muted/50 transition-colors"
+                      onClick={() => setDetailVersion(v)}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-mono font-medium">{v.version_code}</span>
+                          <Badge variant={sBadge.variant}>{sBadge.label}</Badge>
+                          {v.is_current && <Badge className="bg-green-600 text-xs">Actual</Badge>}
+                        </div>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={(e) => e.stopPropagation()}>
                               <MoreHorizontal className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem onClick={() => setDetailVersion(v)}>
-                              <Eye className="mr-2 h-4 w-4" />
-                              Ver detalle
+                              <Eye className="mr-2 h-4 w-4" /> Ver detalle
                             </DropdownMenuItem>
                             {v.status === 'draft' && (
                               <DropdownMenuItem onClick={() => publishVersion.mutate(v.id)}>
-                                <CheckCircle2 className="mr-2 h-4 w-4" />
-                                Publicar
+                                <CheckCircle2 className="mr-2 h-4 w-4" /> Publicar
                               </DropdownMenuItem>
                             )}
                             {v.status === 'published' && !v.is_current && (
                               <DropdownMenuItem onClick={() => setAsCurrent.mutate(v.id)}>
-                                <Package className="mr-2 h-4 w-4" />
-                                Marcar como actual
-                              </DropdownMenuItem>
-                            )}
-                            {(v.status === 'published' || v.is_current) && v.applies_to_verifactu && !v.verifactu_synced_at && (
-                              <DropdownMenuItem onClick={() => setSyncVersion(v)}>
-                                <Shield className="mr-2 h-4 w-4" />
-                                Sincronizar con VeriFactu
+                                <Package className="mr-2 h-4 w-4" /> Marcar como actual
                               </DropdownMenuItem>
                             )}
                             {v.status !== 'archived' && !v.is_current && (
                               <DropdownMenuItem onClick={() => archiveVersion.mutate(v.id)}>
-                                <Archive className="mr-2 h-4 w-4" />
-                                Archivar
+                                <Archive className="mr-2 h-4 w-4" /> Archivar
                               </DropdownMenuItem>
-                            )}
-                            {v.is_current && v.status !== 'archived' && (
-                              <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <DropdownMenuItem disabled>
-                                      <Archive className="mr-2 h-4 w-4" />
-                                      Archivar
-                                    </DropdownMenuItem>
-                                  </TooltipTrigger>
-                                  <TooltipContent>No puedes archivar la versión activa</TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
                             )}
                           </DropdownMenuContent>
                         </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                        {v.version_name && <span>{v.version_name}</span>}
+                        <span>{format(new Date(v.created_at), 'dd/MM/yy')}</span>
+                        {v.applies_to_verifactu && (
+                          v.verifactu_synced_at
+                            ? <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
+                            : <AlertTriangle className="h-3.5 w-3.5 text-orange-500" />
+                        )}
+                      </div>
+                    </div>
                   );
                 })}
-              </TableBody>
-            </Table>
+              </div>
+              {/* Desktop table */}
+              <div className="hidden sm:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Versión</TableHead>
+                      <TableHead className="hidden md:table-cell">Nombre</TableHead>
+                      <TableHead>Fecha</TableHead>
+                      <TableHead>Estado</TableHead>
+                      <TableHead className="hidden md:table-cell">Cambios</TableHead>
+                      <TableHead className="w-10">VF</TableHead>
+                      <TableHead className="w-10"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {versions.map((v) => {
+                      const sBadge = statusBadge[v.status] || statusBadge.draft;
+                      return (
+                        <TableRow key={v.id}>
+                          <TableCell className="font-mono font-medium">
+                            {v.version_code}
+                            {v.is_current && (
+                              <Badge className="ml-2 bg-green-600 text-xs">Actual</Badge>
+                            )}
+                          </TableCell>
+                          <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
+                            {v.version_name || '—'}
+                          </TableCell>
+                          <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                            {format(new Date(v.created_at), 'dd/MM/yy')}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={sBadge.variant}>{sBadge.label}</Badge>
+                          </TableCell>
+                          <TableCell className="hidden md:table-cell text-sm">
+                            {v.change_count}
+                          </TableCell>
+                          <TableCell>
+                            {v.applies_to_verifactu && (
+                              v.verifactu_synced_at ? (
+                                <CheckCircle2 className="h-4 w-4 text-green-600" />
+                              ) : (
+                                <AlertTriangle className="h-4 w-4 text-orange-500" />
+                              )
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => setDetailVersion(v)}>
+                                  <Eye className="mr-2 h-4 w-4" /> Ver detalle
+                                </DropdownMenuItem>
+                                {v.status === 'draft' && (
+                                  <DropdownMenuItem onClick={() => publishVersion.mutate(v.id)}>
+                                    <CheckCircle2 className="mr-2 h-4 w-4" /> Publicar
+                                  </DropdownMenuItem>
+                                )}
+                                {v.status === 'published' && !v.is_current && (
+                                  <DropdownMenuItem onClick={() => setAsCurrent.mutate(v.id)}>
+                                    <Package className="mr-2 h-4 w-4" /> Marcar como actual
+                                  </DropdownMenuItem>
+                                )}
+                                {(v.status === 'published' || v.is_current) && v.applies_to_verifactu && !v.verifactu_synced_at && (
+                                  <DropdownMenuItem onClick={() => setSyncVersion(v)}>
+                                    <Shield className="mr-2 h-4 w-4" /> Sincronizar con VeriFactu
+                                  </DropdownMenuItem>
+                                )}
+                                {v.status !== 'archived' && !v.is_current && (
+                                  <DropdownMenuItem onClick={() => archiveVersion.mutate(v.id)}>
+                                    <Archive className="mr-2 h-4 w-4" /> Archivar
+                                  </DropdownMenuItem>
+                                )}
+                                {v.is_current && v.status !== 'archived' && (
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <DropdownMenuItem disabled>
+                                          <Archive className="mr-2 h-4 w-4" /> Archivar
+                                        </DropdownMenuItem>
+                                      </TooltipTrigger>
+                                      <TooltipContent>No puedes archivar la versión activa</TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                )}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
