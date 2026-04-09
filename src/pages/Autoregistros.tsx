@@ -175,36 +175,58 @@ export default function Autoregistros() {
           ) : entries && entries.length > 0 ? (() => {
             const dynamicFields: AutoregistroField[] = [...(entries[0]?.template?.fields ?? [])].sort((a, b) => a.order - b.order);
             return (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
+              <>
+                {/* Mobile cards */}
+                <div className="space-y-3 sm:hidden">
+                  {entries.map((e) => (
+                    <div
+                      key={e.id}
+                      className="border rounded-lg p-3 space-y-2 cursor-pointer hover:bg-muted/50 transition-colors"
+                      onClick={() => setSelectedEntry(e)}
+                    >
                       {dynamicFields.map((f) => (
-                        <TableHead key={f.label}>{f.label}</TableHead>
-                      ))}
-                      <TableHead className="w-10"></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {entries.map((e) => (
-                      <TableRow
-                        key={e.id}
-                        className="cursor-pointer"
-                        onClick={() => setSelectedEntry(e)}
-                      >
-                        {dynamicFields.map((f) => (
-                          <TableCell key={f.label}>
+                        <div key={f.label} className="flex justify-between items-baseline gap-2">
+                          <span className="text-xs text-muted-foreground shrink-0">{f.label}</span>
+                          <span className="text-sm font-medium text-right truncate">
                             {formatFieldValue(f, e.values?.[f.label])}
-                          </TableCell>
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+                {/* Desktop table */}
+                <div className="overflow-x-auto hidden sm:block">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        {dynamicFields.map((f) => (
+                          <TableHead key={f.label}>{f.label}</TableHead>
                         ))}
-                        <TableCell>
-                          <Eye className="h-4 w-4 text-muted-foreground" />
-                        </TableCell>
+                        <TableHead className="w-10"></TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+                    </TableHeader>
+                    <TableBody>
+                      {entries.map((e) => (
+                        <TableRow
+                          key={e.id}
+                          className="cursor-pointer"
+                          onClick={() => setSelectedEntry(e)}
+                        >
+                          {dynamicFields.map((f) => (
+                            <TableCell key={f.label}>
+                              {formatFieldValue(f, e.values?.[f.label])}
+                            </TableCell>
+                          ))}
+                          <TableCell>
+                            <Eye className="h-4 w-4 text-muted-foreground" />
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </>
             );
           })() : (
             <div className="text-center py-12">
