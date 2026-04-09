@@ -176,8 +176,27 @@ export default function Autoregistros() {
             const dynamicFields: AutoregistroField[] = [...(entries[0]?.template?.fields ?? [])].sort((a, b) => a.order - b.order);
             return (
               <>
-                {/* Desktop Table */}
-                <div className="hidden sm:block overflow-x-auto">
+                {/* Mobile cards */}
+                <div className="space-y-3 sm:hidden">
+                  {entries.map((e) => (
+                    <div
+                      key={e.id}
+                      className="border rounded-lg p-3 space-y-2 cursor-pointer hover:bg-muted/50 transition-colors"
+                      onClick={() => setSelectedEntry(e)}
+                    >
+                      {dynamicFields.map((f) => (
+                        <div key={f.label} className="flex justify-between items-baseline gap-2">
+                          <span className="text-xs text-muted-foreground shrink-0">{f.label}</span>
+                          <span className="text-sm font-medium text-right truncate">
+                            {formatFieldValue(f, e.values?.[f.label])}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+                {/* Desktop table */}
+                <div className="overflow-x-auto hidden sm:block">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -206,27 +225,6 @@ export default function Autoregistros() {
                       ))}
                     </TableBody>
                   </Table>
-                </div>
-
-                {/* Mobile Cards */}
-                <div className="sm:hidden space-y-3">
-                  {entries.map((e) => (
-                    <div
-                      key={e.id}
-                      className="border rounded-lg p-4 space-y-3 cursor-pointer hover:bg-accent/50 transition-colors"
-                      onClick={() => setSelectedEntry(e)}
-                    >
-                      {dynamicFields.map((f) => (
-                        <div key={f.label} className="flex justify-between items-start gap-2">
-                          <span className="text-xs font-medium text-muted-foreground">{f.label}</span>
-                          <span className="text-sm font-medium text-right flex-1">{formatFieldValue(f, e.values?.[f.label])}</span>
-                        </div>
-                      ))}
-                      <div className="pt-2 border-t flex justify-end">
-                        <Eye className="h-4 w-4 text-muted-foreground" />
-                      </div>
-                    </div>
-                  ))}
                 </div>
               </>
             );

@@ -77,27 +77,27 @@ export function VersionManagementSection() {
     <div className="space-y-6">
       {/* Block A - Current Version */}
       <Card>
-        <CardHeader>
+        <CardHeader className="space-y-1.5">
           <div className="flex items-center gap-2">
-            <Package className="h-5 w-5 text-primary" />
-            <CardTitle>Versión Actual</CardTitle>
+            <Package className="h-5 w-5 text-primary shrink-0" />
+            <CardTitle className="text-base sm:text-lg">Versión Actual</CardTitle>
           </div>
         </CardHeader>
         <CardContent>
           {currentVersion ? (
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-2xl font-bold">{currentVersion.version_code}</span>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 min-w-0">
+              <div className="space-y-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xl sm:text-2xl font-bold">{currentVersion.version_code}</span>
                   {currentVersion.version_name && (
-                    <span className="text-muted-foreground">— {currentVersion.version_name}</span>
+                    <span className="text-muted-foreground text-sm sm:text-base">— {currentVersion.version_name}</span>
                   )}
                   <Badge className="bg-green-600">Actual</Badge>
                 </div>
                 {currentVersion.description && (
-                  <p className="text-sm text-muted-foreground">{currentVersion.description}</p>
+                  <p className="text-sm text-muted-foreground break-words">{currentVersion.description}</p>
                 )}
-                <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
                   {currentVersion.published_at && (
                     <span>Publicada: {format(new Date(currentVersion.published_at), 'dd MMM yyyy', { locale: es })}</span>
                   )}
@@ -131,26 +131,25 @@ export function VersionManagementSection() {
       {/* Block B - Pending Changes */}
       <Card>
         <CardHeader>
-          <div className="space-y-4 sm:space-y-0">
+          <div className="flex flex-col gap-2">
             <div>
               <div className="flex items-center gap-2">
-                <GitBranch className="h-5 w-5 text-primary" />
-                <CardTitle>Cambios Pendientes</CardTitle>
+                <GitBranch className="h-5 w-5 text-primary shrink-0" />
+                <CardTitle className="text-base sm:text-lg">Cambios Pendientes</CardTitle>
               </div>
-              <CardDescription>Cambios registrados que aún no se han incluido en una versión</CardDescription>
+              <CardDescription className="mt-1">Cambios registrados que aún no se han incluido en una versión</CardDescription>
             </div>
-            <div className="flex flex-col sm:flex-row gap-2">
+            <div className="flex flex-wrap gap-2">
               <Button
                 variant="outline"
                 size="sm"
                 disabled={selectedChangeIds.length === 0}
                 onClick={() => setVersionDialogOpen(true)}
-                className="w-full sm:w-auto"
               >
                 <Package className="mr-2 h-4 w-4" />
                 Crear versión ({selectedChangeIds.length})
               </Button>
-              <Button size="sm" onClick={() => { setEditingChange(null); setChangeDialogOpen(true); }} className="w-full sm:w-auto">
+              <Button size="sm" onClick={() => { setEditingChange(null); setChangeDialogOpen(true); }}>
                 <Plus className="mr-2 h-4 w-4" />
                 Añadir cambio
               </Button>
@@ -164,8 +163,55 @@ export function VersionManagementSection() {
             </div>
           ) : (
             <>
-              {/* Desktop Table */}
-              <div className="hidden sm:block overflow-x-auto">
+              {/* Mobile cards */}
+              <div className="space-y-3 sm:hidden">
+                {pendingChanges.map((change) => {
+                  const typeBadge = changeTypeBadge[change.change_type] || changeTypeBadge.technical;
+                  return (
+                    <div key={change.id} className="border rounded-lg p-3 space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Checkbox
+                            checked={selectedChangeIds.includes(change.id)}
+                            onCheckedChange={() => toggleChange(change.id)}
+                          />
+                          <span className="font-medium text-sm truncate">{change.title}</span>
+                        </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => { setEditingChange(change); setChangeDialogOpen(true); }}>
+                              <Pencil className="mr-2 h-4 w-4" /> Editar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => archiveChange.mutate(change.id)}>
+                              <Archive className="mr-2 h-4 w-4" /> Archivar
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-xs text-muted-foreground">
+                          {format(new Date(change.created_at), 'dd/MM/yy')}
+                        </span>
+                        <span className="text-xs capitalize text-muted-foreground">{change.module}</span>
+                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${typeBadge.className}`}>
+                          {typeBadge.label}
+                        </span>
+                        {change.affects_verifactu && <Shield className="h-3.5 w-3.5 text-orange-500" />}
+                      </div>
+                      {change.description && (
+                        <p className="text-xs text-muted-foreground line-clamp-2">{change.description}</p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              {/* Desktop table */}
+              <div className="hidden sm:block">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -229,12 +275,10 @@ export function VersionManagementSection() {
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
                                 <DropdownMenuItem onClick={() => { setEditingChange(change); setChangeDialogOpen(true); }}>
-                                  <Pencil className="mr-2 h-4 w-4" />
-                                  Editar
+                                  <Pencil className="mr-2 h-4 w-4" /> Editar
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => archiveChange.mutate(change.id)}>
-                                  <Archive className="mr-2 h-4 w-4" />
-                                  Archivar
+                                  <Archive className="mr-2 h-4 w-4" /> Archivar
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
@@ -244,77 +288,6 @@ export function VersionManagementSection() {
                     })}
                   </TableBody>
                 </Table>
-              </div>
-
-              {/* Mobile Cards */}
-              <div className="sm:hidden space-y-3">
-                <div className="flex items-center gap-2 pb-3 border-b">
-                  <Checkbox
-                    checked={selectedChangeIds.length === pendingChanges.length && pendingChanges.length > 0}
-                    onCheckedChange={toggleAll}
-                  />
-                  <span className="text-xs font-medium text-muted-foreground">
-                    {selectedChangeIds.length === 0 ? 'Seleccionar todos' : `${selectedChangeIds.length} seleccionados`}
-                  </span>
-                </div>
-                {pendingChanges.map((change) => {
-                  const typeBadge = changeTypeBadge[change.change_type] || changeTypeBadge.technical;
-                  return (
-                    <div key={change.id} className="border rounded-lg p-4 space-y-3">
-                      <div className="flex items-start gap-3">
-                        <Checkbox
-                          checked={selectedChangeIds.includes(change.id)}
-                          onCheckedChange={() => toggleChange(change.id)}
-                          className="mt-1"
-                        />
-                        <div className="flex-1 space-y-2">
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="flex-1">
-                              <p className="font-medium text-sm">{change.title}</p>
-                              <p className="text-xs text-muted-foreground mt-1">
-                                {format(new Date(change.created_at), 'dd/MM/yy')}
-                              </p>
-                            </div>
-                            {change.affects_verifactu && (
-                              <Shield className="h-4 w-4 text-orange-500 flex-shrink-0 mt-0.5" />
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${typeBadge.className}`}>
-                              {typeBadge.label}
-                            </span>
-                            <span className="text-xs text-muted-foreground capitalize bg-muted px-2 py-0.5 rounded">
-                              {change.module}
-                            </span>
-                          </div>
-                          {change.description && (
-                            <p className="text-xs text-muted-foreground">{change.description}</p>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex gap-2 pt-2 border-t">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="flex-1 text-xs"
-                          onClick={() => { setEditingChange(change); setChangeDialogOpen(true); }}
-                        >
-                          <Pencil className="h-3 w-3 mr-1" />
-                          Editar
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="flex-1 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
-                          onClick={() => archiveChange.mutate(change.id)}
-                        >
-                          <Archive className="h-3 w-3 mr-1" />
-                          Archivar
-                        </Button>
-                      </div>
-                    </div>
-                  );
-                })}
               </div>
             </>
           )}
@@ -336,8 +309,65 @@ export function VersionManagementSection() {
             </div>
           ) : (
             <>
-              {/* Desktop Table */}
-              <div className="hidden sm:block overflow-x-auto">
+              {/* Mobile cards */}
+              <div className="space-y-3 sm:hidden">
+                {versions.map((v) => {
+                  const sBadge = statusBadge[v.status] || statusBadge.draft;
+                  return (
+                    <div
+                      key={v.id}
+                      className="border rounded-lg p-3 space-y-2 cursor-pointer hover:bg-muted/50 transition-colors"
+                      onClick={() => setDetailVersion(v)}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-mono font-medium">{v.version_code}</span>
+                          <Badge variant={sBadge.variant}>{sBadge.label}</Badge>
+                          {v.is_current && <Badge className="bg-green-600 text-xs">Actual</Badge>}
+                        </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={(e) => e.stopPropagation()}>
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => setDetailVersion(v)}>
+                              <Eye className="mr-2 h-4 w-4" /> Ver detalle
+                            </DropdownMenuItem>
+                            {v.status === 'draft' && (
+                              <DropdownMenuItem onClick={() => publishVersion.mutate(v.id)}>
+                                <CheckCircle2 className="mr-2 h-4 w-4" /> Publicar
+                              </DropdownMenuItem>
+                            )}
+                            {v.status === 'published' && !v.is_current && (
+                              <DropdownMenuItem onClick={() => setAsCurrent.mutate(v.id)}>
+                                <Package className="mr-2 h-4 w-4" /> Marcar como actual
+                              </DropdownMenuItem>
+                            )}
+                            {v.status !== 'archived' && !v.is_current && (
+                              <DropdownMenuItem onClick={() => archiveVersion.mutate(v.id)}>
+                                <Archive className="mr-2 h-4 w-4" /> Archivar
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                        {v.version_name && <span>{v.version_name}</span>}
+                        <span>{format(new Date(v.created_at), 'dd/MM/yy')}</span>
+                        {v.applies_to_verifactu && (
+                          v.verifactu_synced_at
+                            ? <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
+                            : <AlertTriangle className="h-3.5 w-3.5 text-orange-500" />
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              {/* Desktop table */}
+              <div className="hidden sm:block">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -391,31 +421,26 @@ export function VersionManagementSection() {
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
                                 <DropdownMenuItem onClick={() => setDetailVersion(v)}>
-                                  <Eye className="mr-2 h-4 w-4" />
-                                  Ver detalle
+                                  <Eye className="mr-2 h-4 w-4" /> Ver detalle
                                 </DropdownMenuItem>
                                 {v.status === 'draft' && (
                                   <DropdownMenuItem onClick={() => publishVersion.mutate(v.id)}>
-                                    <CheckCircle2 className="mr-2 h-4 w-4" />
-                                    Publicar
+                                    <CheckCircle2 className="mr-2 h-4 w-4" /> Publicar
                                   </DropdownMenuItem>
                                 )}
                                 {v.status === 'published' && !v.is_current && (
                                   <DropdownMenuItem onClick={() => setAsCurrent.mutate(v.id)}>
-                                    <Package className="mr-2 h-4 w-4" />
-                                    Marcar como actual
+                                    <Package className="mr-2 h-4 w-4" /> Marcar como actual
                                   </DropdownMenuItem>
                                 )}
                                 {(v.status === 'published' || v.is_current) && v.applies_to_verifactu && !v.verifactu_synced_at && (
                                   <DropdownMenuItem onClick={() => setSyncVersion(v)}>
-                                    <Shield className="mr-2 h-4 w-4" />
-                                    Sincronizar con VeriFactu
+                                    <Shield className="mr-2 h-4 w-4" /> Sincronizar con VeriFactu
                                   </DropdownMenuItem>
                                 )}
                                 {v.status !== 'archived' && !v.is_current && (
                                   <DropdownMenuItem onClick={() => archiveVersion.mutate(v.id)}>
-                                    <Archive className="mr-2 h-4 w-4" />
-                                    Archivar
+                                    <Archive className="mr-2 h-4 w-4" /> Archivar
                                   </DropdownMenuItem>
                                 )}
                                 {v.is_current && v.status !== 'archived' && (
@@ -423,8 +448,7 @@ export function VersionManagementSection() {
                                     <Tooltip>
                                       <TooltipTrigger asChild>
                                         <DropdownMenuItem disabled>
-                                          <Archive className="mr-2 h-4 w-4" />
-                                          Archivar
+                                          <Archive className="mr-2 h-4 w-4" /> Archivar
                                         </DropdownMenuItem>
                                       </TooltipTrigger>
                                       <TooltipContent>No puedes archivar la versión activa</TooltipContent>
@@ -439,103 +463,6 @@ export function VersionManagementSection() {
                     })}
                   </TableBody>
                 </Table>
-              </div>
-
-              {/* Mobile Cards */}
-              <div className="sm:hidden space-y-3">
-                {versions.map((v) => {
-                  const sBadge = statusBadge[v.status] || statusBadge.draft;
-                  return (
-                    <div key={v.id} className="border rounded-lg p-4 space-y-3">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="font-mono font-bold text-lg">{v.version_code}</span>
-                            {v.is_current && (
-                              <Badge className="bg-green-600 text-xs">Actual</Badge>
-                            )}
-                          </div>
-                          {v.version_name && (
-                            <p className="text-xs text-muted-foreground mt-1">{v.version_name}</p>
-                          )}
-                        </div>
-                        {v.applies_to_verifactu && (
-                          v.verifactu_synced_at ? (
-                            <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0" />
-                          ) : (
-                            <AlertTriangle className="h-5 w-5 text-orange-500 flex-shrink-0" />
-                          )
-                        )}
-                      </div>
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex gap-2">
-                          <Badge variant={sBadge.variant}>{sBadge.label}</Badge>
-                          <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
-                            {v.change_count} cambios
-                          </span>
-                        </div>
-                        <span className="text-xs text-muted-foreground">
-                          {format(new Date(v.created_at), 'dd/MM/yy')}
-                        </span>
-                      </div>
-                      <div className="flex gap-2 pt-2 border-t">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="flex-1 text-xs"
-                          onClick={() => setDetailVersion(v)}
-                        >
-                          <Eye className="h-3 w-3 mr-1" />
-                          Detalle
-                        </Button>
-                        {v.status === 'draft' && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="flex-1 text-xs"
-                            onClick={() => publishVersion.mutate(v.id)}
-                          >
-                            <CheckCircle2 className="h-3 w-3 mr-1" />
-                            Publicar
-                          </Button>
-                        )}
-                        {v.status === 'published' && !v.is_current && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="flex-1 text-xs"
-                            onClick={() => setAsCurrent.mutate(v.id)}
-                          >
-                            <Package className="h-3 w-3 mr-1" />
-                            Actual
-                          </Button>
-                        )}
-                        {(v.status === 'published' || v.is_current) && v.applies_to_verifactu && !v.verifactu_synced_at && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="flex-1 text-xs"
-                            onClick={() => setSyncVersion(v)}
-                          >
-                            <Shield className="h-3 w-3 mr-1" />
-                            Sync
-                          </Button>
-                        )}
-                        {v.status !== 'archived' && !v.is_current && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="flex-1 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
-                            onClick={() => archiveVersion.mutate(v.id)}
-                          >
-                            <Archive className="h-3 w-3 mr-1" />
-                            Archivar
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
               </div>
             </>
           )}
