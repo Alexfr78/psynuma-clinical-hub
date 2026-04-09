@@ -85,19 +85,19 @@ export function VersionManagementSection() {
         </CardHeader>
         <CardContent>
           {currentVersion ? (
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-2xl font-bold">{currentVersion.version_code}</span>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 min-w-0">
+              <div className="space-y-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xl sm:text-2xl font-bold">{currentVersion.version_code}</span>
                   {currentVersion.version_name && (
-                    <span className="text-muted-foreground">— {currentVersion.version_name}</span>
+                    <span className="text-muted-foreground text-sm sm:text-base">— {currentVersion.version_name}</span>
                   )}
                   <Badge className="bg-green-600">Actual</Badge>
                 </div>
                 {currentVersion.description && (
-                  <p className="text-sm text-muted-foreground">{currentVersion.description}</p>
+                  <p className="text-sm text-muted-foreground break-words">{currentVersion.description}</p>
                 )}
-                <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
                   {currentVersion.published_at && (
                     <span>Publicada: {format(new Date(currentVersion.published_at), 'dd MMM yyyy', { locale: es })}</span>
                   )}
