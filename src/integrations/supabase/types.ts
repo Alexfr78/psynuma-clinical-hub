@@ -5379,6 +5379,18 @@ export type Database = {
         }
         Returns: string
       }
+      collect_session_payment_v2: {
+        Args: {
+          p_session_id: string
+          p_patient_id: string
+          p_amount: number
+          p_payment_method: string
+          p_payment_date?: string
+          p_reference?: string
+          p_notes?: string
+        }
+        Returns: Json
+      }
       delete_bono_safely: { Args: { p_bono_id: string }; Returns: Json }
       delete_email: {
         Args: { message_id: number; queue_name: string }

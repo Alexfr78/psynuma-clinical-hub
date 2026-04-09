@@ -1,38 +1,141 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from './useAuth';
 import { toast } from 'sonner';
 
+/**
+ * Session payment status — resolves the *real* outstanding balance for a session
+ * by finding the current valid invoice and the active (non-refunded) debt.
+ *
+ * Key improvement over the old hook: excludes debts with status='refunded' and
+ * debts linked to invoices with is_valid=false (replaced by rectificativa).
+ * This prevents the UI from offering to collect on already-closed positions.
+ */
 export interface SessionPaymentStatus {
   hasPendingPayment: boolean;
   isPaid: boolean;
   isPartial: boolean;
-  debt: {
+  /** True only when there is a real outstanding balance > 0.01 */
+  isCollectable: boolean;
+  remainingAmount: number;
+  activeDebt: {
     id: string;
     amount: number;
     paid_amount: number;
     status: string;
     invoice_id: string | null;
   } | null;
+  validInvoiceId: string | null;
+  validInvoiceStatus: string | null;
+  // Legacy aliases kept for backward compat with existing UI code
+  debt: SessionPaymentStatus['activeDebt'];
 }
 
 export function useSessionPaymentStatus(sessionId: string | undefined) {
   return useQuery({
     queryKey: ['session-payment-status', sessionId],
     queryFn: async (): Promise<SessionPaymentStatus> => {
-      const { data: debt, error } = await supabase
+      // 1. Find the current valid invoice for this session via invoice_items
+      const { data: invoiceItems } = await supabase
+        .from('invoice_items')
+        .select('invoice_id, invoices!inner(id, is_valid, status, total)')
+        .or(`session_id.eq.${sessionId},billable_event_id.in.(select id from billable_events where session_id='${sessionId}')`)
+
+      // Pick the valid, non-cancelled invoice
+      let validInvoice: { id: string; status: string; total: number } | null = null;
+      if (invoiceItems) {
+        for (const item of invoiceItems) {
+          const inv = item.invoices as any;
+          if (inv && inv.is_valid === true && inv.status !== 'cancelled') {
+            validInvoice = { id: inv.id, status: inv.status, total: Number(inv.total) };
+            break;
+          }
+        }
+      }
+
+      // Fallback: also try via billable_events if the .or() filter didn't work
+      // (PostgREST subquery syntax may not be supported in all versions)
+      if (!validInvoice) {
+        const { data: beItems } = await supabase
+          .from('billable_events')
+          .select('id')
+          .eq('session_id', sessionId!);
+
+        if (beItems && beItems.length > 0) {
+          const beIds = beItems.map(be => be.id);
+          const { data: beInvoiceItems } = await supabase
+            .from('invoice_items')
+            .select('invoice_id, invoices!inner(id, is_valid, status, total)')
+            .in('billable_event_id', beIds);
+
+          if (beInvoiceItems) {
+            for (const item of beInvoiceItems) {
+              const inv = item.invoices as any;
+              if (inv && inv.is_valid === true && inv.status !== 'cancelled') {
+                validInvoice = { id: inv.id, status: inv.status, total: Number(inv.total) };
+                break;
+              }
+            }
+          }
+        }
+      }
+
+      // 2. Find the active debt for this session, excluding refunded and invalid-invoice debts
+      const { data: debts, error: debtsError } = await supabase
         .from('debts')
         .select('id, amount, paid_amount, status, invoice_id')
         .eq('session_id', sessionId!)
-        .maybeSingle();
+        .not('status', 'eq', 'refunded');
 
-      if (error) throw error;
+      if (debtsError) throw debtsError;
+
+      // Filter out debts whose invoice has is_valid=false
+      let activeDebt: SessionPaymentStatus['activeDebt'] = null;
+      if (debts && debts.length > 0) {
+        // If we know the valid invoice, prefer the debt linked to it
+        const preferredDebt = validInvoice
+          ? debts.find(d => d.invoice_id === validInvoice!.id)
+          : null;
+
+        if (preferredDebt) {
+          activeDebt = preferredDebt as SessionPaymentStatus['activeDebt'];
+        } else {
+          // Check each debt's invoice validity
+          for (const d of debts) {
+            if (d.invoice_id) {
+              const { data: inv } = await supabase
+                .from('invoices')
+                .select('is_valid')
+                .eq('id', d.invoice_id)
+                .single();
+              if (inv && inv.is_valid === false) continue; // skip
+            }
+            activeDebt = d as SessionPaymentStatus['activeDebt'];
+            break;
+          }
+        }
+      }
+
+      // 3. Calculate real remaining
+      const debtAmount = activeDebt ? Number(activeDebt.amount) : 0;
+      const paidAmount = activeDebt ? Number(activeDebt.paid_amount) : 0;
+      const remainingAmount = Math.max(debtAmount - paidAmount, 0);
+
+      const isPaid = activeDebt?.status === 'paid' || (debtAmount > 0 && remainingAmount < 0.01);
+      const isPartial = activeDebt?.status === 'partial' || (paidAmount > 0 && remainingAmount >= 0.01);
+      const hasPendingPayment = activeDebt ? activeDebt.status !== 'paid' : false;
+      const isCollectable = remainingAmount > 0.01;
 
       return {
-        hasPendingPayment: debt ? debt.status !== 'paid' : false,
-        isPaid: debt?.status === 'paid',
-        isPartial: debt?.status === 'partial',
-        debt: debt as SessionPaymentStatus['debt'],
+        hasPendingPayment,
+        isPaid,
+        isPartial,
+        isCollectable,
+        remainingAmount,
+        activeDebt,
+        validInvoiceId: validInvoice?.id || null,
+        validInvoiceStatus: validInvoice?.status || null,
+        // Legacy alias
+        debt: activeDebt,
       };
     },
     enabled: !!sessionId,
@@ -49,122 +152,50 @@ export interface CollectSessionPaymentParams {
   notes?: string;
 }
 
+/**
+ * Collect payment for a session using the backend RPC collect_session_payment_v2.
+ *
+ * The RPC atomically:
+ * - Resolves the current valid invoice for the session
+ * - Finds/creates the active debt (excluding refunded/invalid)
+ * - Checks the real outstanding balance from actual payment records
+ * - Blocks if already fully paid or if amount > remaining
+ * - Inserts payment, recomputes debt, syncs invoice status
+ * - Uses FOR UPDATE to prevent concurrent double-charges
+ */
 export function useCollectSessionPayment() {
   const queryClient = useQueryClient();
-  const { profile } = useAuth();
 
   return useMutation({
     mutationFn: async (params: CollectSessionPaymentParams) => {
-      const centerId = profile!.center_id!;
+      const { data, error } = await supabase.rpc('collect_session_payment_v2', {
+        p_session_id: params.sessionId,
+        p_patient_id: params.patientId,
+        p_amount: params.amount,
+        p_payment_method: params.paymentMethod,
+        p_payment_date: params.paymentDate || new Date().toISOString().split('T')[0],
+        p_reference: params.reference || null,
+        p_notes: params.notes || null,
+      });
 
-      // 1. Check if debt exists for this session
-      const { data: existingDebt } = await supabase
-        .from('debts')
-        .select('id, amount, paid_amount, invoice_id')
-        .eq('session_id', params.sessionId)
-        .maybeSingle();
-
-      let debtId: string;
-      let invoiceId: string | null = null;
-      let debtAmount: number = params.amount;
-
-      if (existingDebt) {
-        // Update existing debt
-        debtId = existingDebt.id;
-        debtAmount = Number(existingDebt.amount);
-        invoiceId = existingDebt.invoice_id;
-      } else {
-        // Create new debt for session
-        const { data: newDebt, error: debtError } = await supabase
-          .from('debts')
-          .insert({
-            session_id: params.sessionId,
-            patient_id: params.patientId,
-            center_id: centerId,
-            amount: params.amount,
-            paid_amount: 0,
-            status: 'pending',
-          })
-          .select()
-          .single();
-
-        if (debtError) throw debtError;
-        debtId = newDebt.id;
-      }
-
-      // 2. If no invoice linked to debt, find the current valid invoice for this session
-      // via invoice_items. Must prioritize valid invoices (is_valid=true) to avoid
-      // linking payments to invoices that were replaced by a rectificativa.
-      if (!invoiceId) {
-        const { data: invoiceItems } = await supabase
-          .from('invoice_items')
-          .select('invoice_id, invoices!inner(id, is_valid, status)')
-          .eq('session_id', params.sessionId);
-
-        // Pick the valid, non-cancelled invoice; fall back to any if none valid
-        const validItem = invoiceItems?.find(
-          (item: any) => item.invoices?.is_valid === true && item.invoices?.status !== 'cancelled'
-        );
-        const bestItem = validItem || null;
-
-        if (bestItem?.invoice_id) {
-          invoiceId = bestItem.invoice_id;
-          // Link the debt to this valid invoice
-          await supabase
-            .from('debts')
-            .update({ invoice_id: invoiceId })
-            .eq('id', debtId);
-        }
-      }
-
-      // 3. Create the payment
-      const { data: payment, error: paymentError } = await supabase
-        .from('payments')
-        .insert({
-          session_id: params.sessionId,
-          patient_id: params.patientId,
-          center_id: centerId,
-          amount: params.amount,
-          payment_method: params.paymentMethod,
-          payment_date: params.paymentDate || new Date().toISOString().split('T')[0],
-          reference: params.reference || null,
-          notes: params.notes || null,
-          invoice_id: invoiceId,
-        })
-        .select()
-        .single();
-
-      if (paymentError) throw paymentError;
-
-      // 4. Calculate new paid amount and status (support partial payments)
-      const currentPaidAmount = existingDebt ? Number(existingDebt.paid_amount) : 0;
-      const newPaidAmount = currentPaidAmount + params.amount;
-      const newStatus = newPaidAmount >= debtAmount ? 'paid' : 'partial';
-
-      // 5. Update debt
-      const { error: updateError } = await supabase
-        .from('debts')
-        .update({
-          paid_amount: newPaidAmount,
-          status: newStatus,
-        })
-        .eq('id', debtId);
-
-      if (updateError) throw updateError;
-
-      // 6. If invoice exists and debt is now paid, update invoice status
-      if (invoiceId && newStatus === 'paid') {
-        await supabase
-          .from('invoices')
-          .update({ status: 'paid' })
-          .eq('id', invoiceId);
-      }
-
-      return { payment, debtId, invoiceId };
+      if (error) throw error;
+      return data as {
+        success: boolean;
+        payment_id: string;
+        debt_id: string;
+        invoice_id: string | null;
+        amount_paid: number;
+        total_paid: number;
+        debt_amount: number;
+        remaining: number;
+        status: string;
+      };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['payments'] });
+      queryClient.invalidateQueries({ queryKey: ['payment-stats'] });
       queryClient.invalidateQueries({ queryKey: ['debts'] });
+      queryClient.invalidateQueries({ queryKey: ['debt-stats'] });
       queryClient.invalidateQueries({ queryKey: ['session-payment-status'] });
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
       toast.success('Pago registrado correctamente');

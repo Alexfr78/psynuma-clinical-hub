@@ -165,8 +165,13 @@ export function CollectSessionPaymentDialog({
 
   const handlePaymentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Collect the payment first
+
+    // The backend RPC (collect_session_payment_v2) will atomically:
+    // - Resolve the valid invoice/debt for the session
+    // - Block if already fully paid (remaining <= 0.01)
+    // - Block if amount > remaining
+    // - Insert payment and recompute everything
+    // This prevents double-charging even on concurrent/repeated clicks.
     await collectPayment.mutateAsync({
       sessionId,
       patientId,

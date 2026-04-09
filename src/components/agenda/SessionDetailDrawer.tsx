@@ -1601,15 +1601,19 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                   </Button>
                 )}
                 
-                {!paymentStatus?.isPaid && !localBonoId && !session.bono_id && (
-                  <Button 
-                    size="sm" 
+                {/* Show "Cobrar sesión" only when there is real outstanding balance.
+                    Uses isCollectable from the improved useSessionPaymentStatus which
+                    excludes refunded debts and debts from invalidated invoices. */}
+                {paymentStatus?.isCollectable && !localBonoId && !session.bono_id && localPrice > 0 && (
+                  <Button
+                    size="sm"
                     variant="outline"
-                    disabled={localPrice === 0}
                     onClick={() => setShowPaymentDialog(true)}
                   >
                     <CreditCard className="h-4 w-4 mr-1" />
-                    Cobrar sesión
+                    {paymentStatus?.isPartial
+                      ? `Cobrar pendiente (${paymentStatus.remainingAmount.toFixed(2)}€)`
+                      : 'Cobrar sesión'}
                   </Button>
                 )}
               </div>
@@ -1617,7 +1621,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
               {/* Paid Session Info */}
               {paymentStatus?.isPaid && !localBonoId && (
                 <p className="text-xs text-muted-foreground">
-                  El pago de esta sesión se puede editar o eliminar desde{' '}
+                  Sesión liquidada. El pago se puede gestionar desde{' '}
                   <Button
                     variant="link"
                     className="h-auto p-0 text-xs"
@@ -1632,7 +1636,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
               )}
 
               {/* Payment Link */}
-              {!paymentStatus?.isPaid && localPrice > 0 && !localBonoId && (
+              {paymentStatus?.isCollectable && localPrice > 0 && !localBonoId && (
                 <div className="flex items-center gap-2 text-sm">
                   <LinkIcon className="h-4 w-4 text-muted-foreground" />
                   <span className="text-muted-foreground">Link de pago:</span>
@@ -2293,7 +2297,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
         patientName={patientName}
         patientEmail={session.patient?.email}
         patientPhone={session.patient?.phone}
-        amount={localPrice}
+        amount={paymentStatus?.isCollectable ? paymentStatus.remainingAmount : localPrice}
         sessionDate={session.session_date}
         sessionType={session.session_type}
         onSuccess={(invoiceData) => {
