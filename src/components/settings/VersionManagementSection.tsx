@@ -77,27 +77,27 @@ export function VersionManagementSection() {
     <div className="space-y-6">
       {/* Block A - Current Version */}
       <Card>
-        <CardHeader>
+        <CardHeader className="space-y-1.5">
           <div className="flex items-center gap-2">
-            <Package className="h-5 w-5 text-primary" />
-            <CardTitle>Versión Actual</CardTitle>
+            <Package className="h-5 w-5 text-primary shrink-0" />
+            <CardTitle className="text-base sm:text-lg">Versión Actual</CardTitle>
           </div>
         </CardHeader>
         <CardContent>
           {currentVersion ? (
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-2xl font-bold">{currentVersion.version_code}</span>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 min-w-0">
+              <div className="space-y-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xl sm:text-2xl font-bold">{currentVersion.version_code}</span>
                   {currentVersion.version_name && (
-                    <span className="text-muted-foreground">— {currentVersion.version_name}</span>
+                    <span className="text-muted-foreground text-sm sm:text-base">— {currentVersion.version_name}</span>
                   )}
                   <Badge className="bg-green-600">Actual</Badge>
                 </div>
                 {currentVersion.description && (
-                  <p className="text-sm text-muted-foreground">{currentVersion.description}</p>
+                  <p className="text-sm text-muted-foreground break-words">{currentVersion.description}</p>
                 )}
-                <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
                   {currentVersion.published_at && (
                     <span>Publicada: {format(new Date(currentVersion.published_at), 'dd MMM yyyy', { locale: es })}</span>
                   )}
@@ -131,15 +131,15 @@ export function VersionManagementSection() {
       {/* Block B - Pending Changes */}
       <Card>
         <CardHeader>
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+          <div className="flex flex-col gap-2">
             <div>
               <div className="flex items-center gap-2">
-                <GitBranch className="h-5 w-5 text-primary" />
-                <CardTitle>Cambios Pendientes</CardTitle>
+                <GitBranch className="h-5 w-5 text-primary shrink-0" />
+                <CardTitle className="text-base sm:text-lg">Cambios Pendientes</CardTitle>
               </div>
-              <CardDescription>Cambios registrados que aún no se han incluido en una versión</CardDescription>
+              <CardDescription className="mt-1">Cambios registrados que aún no se han incluido en una versión</CardDescription>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Button
                 variant="outline"
                 size="sm"
