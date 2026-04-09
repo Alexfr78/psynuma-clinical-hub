@@ -77,10 +77,10 @@ export function VersionManagementSection() {
     <div className="space-y-6">
       {/* Block A - Current Version */}
       <Card>
-        <CardHeader>
+        <CardHeader className="space-y-1.5">
           <div className="flex items-center gap-2">
-            <Package className="h-5 w-5 text-primary" />
-            <CardTitle>Versión Actual</CardTitle>
+            <Package className="h-5 w-5 text-primary shrink-0" />
+            <CardTitle className="text-base sm:text-lg">Versión Actual</CardTitle>
           </div>
         </CardHeader>
         <CardContent>
@@ -131,15 +131,15 @@ export function VersionManagementSection() {
       {/* Block B - Pending Changes */}
       <Card>
         <CardHeader>
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+          <div className="flex flex-col gap-2">
             <div>
               <div className="flex items-center gap-2">
-                <GitBranch className="h-5 w-5 text-primary" />
-                <CardTitle>Cambios Pendientes</CardTitle>
+                <GitBranch className="h-5 w-5 text-primary shrink-0" />
+                <CardTitle className="text-base sm:text-lg">Cambios Pendientes</CardTitle>
               </div>
-              <CardDescription>Cambios registrados que aún no se han incluido en una versión</CardDescription>
+              <CardDescription className="mt-1">Cambios registrados que aún no se han incluido en una versión</CardDescription>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Button
                 variant="outline"
                 size="sm"
