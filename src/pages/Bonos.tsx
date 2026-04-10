@@ -93,6 +93,68 @@ export default function Bonos() {
         </div>
       </div>
 
+      {/* Patient filter */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <Popover open={patientSearchOpen} onOpenChange={setPatientSearchOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              role="combobox"
+              aria-expanded={patientSearchOpen}
+              className="w-full sm:w-[300px] justify-between"
+            >
+              {selectedPatientId ? (
+                <div className="flex items-center gap-2">
+                  <User className="h-4 w-4 text-primary" />
+                  <span className="truncate">{selectedPatientName}</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <User className="h-4 w-4" />
+                  <span>Filtrar por contacto...</span>
+                </div>
+              )}
+              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-[300px] p-0 z-[9999]" align="start">
+            <Command shouldFilter={false}>
+              <CommandInput
+                placeholder="Buscar por nombre..."
+                value={patientSearchValue}
+                onValueChange={setPatientSearchValue}
+              />
+              <CommandList>
+                <CommandEmpty>
+                  {patientsLoading ? 'Buscando...' : 'No se encontraron contactos.'}
+                </CommandEmpty>
+                <CommandGroup>
+                  {searchPatients?.map((patient) => (
+                    <CommandItem
+                      key={patient.id}
+                      value={patient.id}
+                      onSelect={() => handleSelectPatient(patient.id, `${patient.first_name} ${patient.last_name}`)}
+                      className="flex items-center gap-2 py-2"
+                    >
+                      <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                        <User className="h-3.5 w-3.5 text-primary" />
+                      </div>
+                      <span className="truncate">{patient.first_name} {patient.last_name}</span>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
+        {selectedPatientId && (
+          <Button variant="ghost" size="sm" onClick={handleClearPatient} className="gap-1">
+            <X className="h-4 w-4" />
+            Limpiar
+          </Button>
+        )}
+      </div>
+
       <div className="grid gap-3 sm:gap-4 grid-cols-2 md:grid-cols-4">
         <Card>
           <CardHeader className="pb-1 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
