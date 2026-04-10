@@ -1,10 +1,25 @@
 import { useState } from 'react';
-import { Package, Plus, Settings } from 'lucide-react';
+import { Package, Plus, Settings, User, X, ChevronsUpDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Badge } from '@/components/ui/badge';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
 import { useBonos, BonoWithPatient } from '@/hooks/useBonos';
+import { usePatients } from '@/hooks/usePatients';
 import { BonoCard } from '@/components/bonos/BonoCard';
 import { CreateBonoDialog } from '@/components/bonos/CreateBonoDialog';
 import { BonoTemplatesDialog } from '@/components/bonos/BonoTemplatesDialog';
@@ -16,8 +31,31 @@ export default function Bonos() {
   const [statusFilter, setStatusFilter] = useState<string>('active');
   const [selectedBono, setSelectedBono] = useState<BonoWithPatient | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [selectedPatientId, setSelectedPatientId] = useState<string | undefined>();
+  const [selectedPatientName, setSelectedPatientName] = useState<string>('');
+  const [patientSearchOpen, setPatientSearchOpen] = useState(false);
+  const [patientSearchValue, setPatientSearchValue] = useState('');
 
-  const { data: bonos, isLoading } = useBonos({ status: statusFilter === 'all' ? undefined : statusFilter });
+  const { data: searchPatients, isLoading: patientsLoading } = usePatients({ search: patientSearchValue });
+
+  const { data: bonos, isLoading } = useBonos({
+    status: selectedPatientId ? (statusFilter === 'all' ? undefined : statusFilter) : (statusFilter === 'all' ? undefined : statusFilter),
+    patientId: selectedPatientId,
+  });
+
+  const handleSelectPatient = (patientId: string, name: string) => {
+    setSelectedPatientId(patientId);
+    setSelectedPatientName(name);
+    setStatusFilter('all');
+    setPatientSearchOpen(false);
+    setPatientSearchValue('');
+  };
+
+  const handleClearPatient = () => {
+    setSelectedPatientId(undefined);
+    setSelectedPatientName('');
+    setStatusFilter('active');
+  };
 
   const stats = {
     active: bonos?.filter(b => b.status === 'active').length || 0,
