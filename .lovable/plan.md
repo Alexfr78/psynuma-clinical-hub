@@ -1,38 +1,28 @@
 
-Objetivo: corregir por qué en modo “análisis directo” el botón termina y el diálogo vuelve al estado inicial sin mostrar informes.
 
-1. Corregir la causa real en la Edge Function
-- Revisaré `supabase/functions/analyze-session-transcription/index.ts` para asegurar que el modo `single` se detecta de forma fiable.
-- Ahora mismo los logs demuestran que está entrando en la rama normal de `Layer 1` en vez de la rama `single`, aunque el centro tiene `ai_analysis_mode = 'single'`.
-- Haré el ajuste para normalizar el valor (`trim`/lowercase) y añadir logs explícitos del `analysisMode` cargado para evitar falsos positivos por espacios, mayúsculas o datos inconsistentes.
-- También endureceré la respuesta del modo directo para que siempre devuelva `mode: 'single'` y las claves `clinical` y `patient` en el payload top-level.
+## Plan: Add patient filter to Bonos page
 
-2. Hacer el parsing del cliente más tolerante
-- En `src/hooks/useTranscriptionAnalysis.tsx` reforzaré `parseSingleModeReports` para aceptar más formatos de respuesta sin romper el flujo:
-  - `clinical`/`patient` en top-level
-  - JSON serializado en `content`
-  - bloques markdown con texto extra antes o después
-- Si el centro está en `single` pero llega una respuesta no parseable, dejaré trazas más claras para distinguir si falló el backend o el parsing.
+### What changes
+Add a patient search input to the Bonos page header so users can filter bonos by a specific patient. When a patient is selected, show all their bonos across all statuses (overriding the status tab filter).
 
-3. Evitar que la UI “vuelva al inicio” cuando el backend responde en formato inesperado
-- En `src/components/agenda/TranscriptionAnalysisDialog.tsx` mantendré visible un estado de error útil cuando falle el parseo del modo directo, en vez de dejar solo la pantalla inicial.
-- Así el profesional verá que la generación falló por formato de respuesta y no parecerá que “no ha pasado nada”.
+### Implementation
 
-4. Verificar consistencia entre configuración y ejecución
-- Revisaré el flujo de `useCenter` / `AISettingsSection` / diálogo para asegurar que todos leen el mismo valor de `ai_analysis_mode` y no hay discrepancias entre cache del cliente y configuración en backend.
-- Si detecto dependencia frágil del estado local del centro, propondré que la Edge Function use exclusivamente la configuración almacenada del centro, que ya es la fuente de verdad.
+**1. Bonos.tsx — Add patient search filter**
+- Add a search input + combobox (similar to PatientSelector pattern) above the tabs
+- Add state `selectedPatientId: string | undefined`
+- Pass `selectedPatientId` as `patientId` filter to `useBonos`
+- When a patient is selected, switch to "all" status tab automatically so the user sees every bono for that patient
+- Show a clear button to reset the patient filter
 
-5. Validación final
-- Comprobaré que el flujo esperado quede así:
-  - pulsar “Generar informes”
-  - la función entra en modo `single`
-  - devuelve ambos informes
-  - el hook rellena `clinicalReport` y `patientReport`
-  - el modal muestra ambos bloques y el botón “Nuevo análisis”
-- También revisaré que el modo de 3 capas siga intacto.
+**2. useBonos hook — Already supports `patientId` filter**
+The `useBonos` hook at line 80 already accepts `{ patientId?: string; status?: string }` and correctly applies both filters. No changes needed here.
 
-Detalles técnicos encontrados
-- El frontend sí está pasando `isOpen: open` al hook.
-- El diálogo sí oculta la UI inicial cuando existen `clinicalReport` o `patientReport`.
-- El fallo observado está antes: la función `analyze-session-transcription` está registrando `Layer 1 completed` en lugar de ejecutar la rama `Single mode`.
-- La base de datos confirma que el centro actual tiene `ai_analysis_mode = 'single'`, así que el problema es de ejecución/normalización en backend, no de configuración guardada.
+### Technical details
+- Reuse the existing patient fetching pattern (query `patients` table with search)
+- Use a Popover + Command (combobox) component from shadcn/ui, consistent with `PatientSelector.tsx`
+- The patient search will be a simple text input that filters by name
+- Pass both `patientId` and `status` to `useBonos` — when patient is selected and status is "all", only `patientId` is sent
+
+### Files to modify
+- `src/pages/Bonos.tsx` — Add patient filter UI and state
+
