@@ -5379,18 +5379,6 @@ export type Database = {
         }
         Returns: string
       }
-      collect_session_payment_v2: {
-        Args: {
-          p_session_id: string
-          p_patient_id: string
-          p_amount: number
-          p_payment_method: string
-          p_payment_date?: string
-          p_reference?: string
-          p_notes?: string
-        }
-        Returns: Json
-      }
       delete_bono_safely: { Args: { p_bono_id: string }; Returns: Json }
       delete_email: {
         Args: { message_id: number; queue_name: string }
@@ -5649,10 +5637,6 @@ export type Database = {
       }
       recompute_all_patient_statuses: {
         Args: { p_center_id?: string }
-        Returns: Json
-      }
-      reassign_payment_to_invoice_v2: {
-        Args: { p_payment_id: string; p_target_invoice_id: string }
         Returns: Json
       }
       recompute_debt_by_invoice: { Args: { p_debt_id: string }; Returns: Json }
