@@ -1,28 +1,38 @@
 
 
-## Plan: Add patient filter to Bonos page
+## Plan: Fix merge failing on Verifactu-signed invoices
 
-### What changes
-Add a patient search input to the Bonos page header so users can filter bonos by a specific patient. When a patient is selected, show all their bonos across all statuses (overriding the status tab filter).
+### Problem
+The `prevent_signed_invoice_modification_trigger` on the `invoices` table blocks **any** change to `patient_id` on Verifactu-signed invoices. The `merge_patients` function correctly updates only `patient_id` (without touching `updated_at`), but the trigger still rejects it because `patient_id` is listed as a critical field.
+
+### Solution
+Update the trigger function to allow `patient_id` changes **when called from `merge_patients`** (i.e., when only `patient_id` changes and no other critical fields are modified). This preserves VeriFactu integrity since the XML hash, amounts, and invoice number remain untouched.
 
 ### Implementation
 
-**1. Bonos.tsx — Add patient search filter**
-- Add a search input + combobox (similar to PatientSelector pattern) above the tabs
-- Add state `selectedPatientId: string | undefined`
-- Pass `selectedPatientId` as `patientId` filter to `useBonos`
-- When a patient is selected, switch to "all" status tab automatically so the user sees every bono for that patient
-- Show a clear button to reset the patient filter
+**1. Database migration — Update trigger function**
 
-**2. useBonos hook — Already supports `patientId` filter**
-The `useBonos` hook at line 80 already accepts `{ patientId?: string; status?: string }` and correctly applies both filters. No changes needed here.
+Modify the `prevent_signed_invoice_modification` function to add a new allowed condition: if **only** `patient_id` changes (and `invoice_number`, `issue_date`, `subtotal`, `tax_amount`, `total` remain the same), permit the update. This is safe because VeriFactu XML records the patient's NIF at signing time and the hash is not recalculated.
 
-### Technical details
-- Reuse the existing patient fetching pattern (query `patients` table with search)
-- Use a Popover + Command (combobox) component from shadcn/ui, consistent with `PatientSelector.tsx`
-- The patient search will be a simple text input that filters by name
-- Pass both `patientId` and `status` to `useBonos` — when patient is selected and status is "all", only `patientId` is sent
+```sql
+-- In the critical fields check, remove patient_id from the block list
+-- and add a separate early-return for patient_id-only changes
+IF (
+  NEW.patient_id IS DISTINCT FROM OLD.patient_id AND
+  NEW.invoice_number IS NOT DISTINCT FROM OLD.invoice_number AND
+  NEW.issue_date IS NOT DISTINCT FROM OLD.issue_date AND
+  NEW.subtotal IS NOT DISTINCT FROM OLD.subtotal AND
+  NEW.tax_amount IS NOT DISTINCT FROM OLD.tax_amount AND
+  NEW.total IS NOT DISTINCT FROM OLD.total
+) THEN
+  -- Allow patient_id reassignment (merge) without touching financial data
+  RETURN NEW;
+END IF;
+```
 
 ### Files to modify
-- `src/pages/Bonos.tsx` — Add patient filter UI and state
+- New database migration (SQL) to replace the trigger function
+
+### No frontend changes needed
+The merge dialog and RPC call already handle Verifactu invoices correctly. Only the trigger is blocking the operation.
 
