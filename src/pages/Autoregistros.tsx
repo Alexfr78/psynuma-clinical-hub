@@ -25,6 +25,7 @@ import { EditTemplateDialog } from '@/components/autoregistros/EditTemplateDialo
 import { CreateTemplateDialog } from '@/components/autoregistros/CreateTemplateDialog';
 import { SendAutoregistroDialog } from '@/components/autoregistros/SendAutoregistroDialog';
 import { LinkCard } from '@/components/autoregistros/LinkCard';
+import { ActivityFeed } from '@/components/autoregistros/ActivityFeed';
 import { ClinicalSummaryHeader } from '@/components/autoregistros/registros/ClinicalSummaryHeader';
 import { ClinicalTable } from '@/components/autoregistros/registros/ClinicalTable';
 import { MobileEntryCards } from '@/components/autoregistros/registros/MobileEntryCards';
@@ -43,6 +44,7 @@ import {
 const tabOptions = [
   { value: 'templates', label: 'Plantillas' },
   { value: 'links', label: 'Envíos' },
+  { value: 'activity', label: 'Actividad' },
   { value: 'entries', label: 'Registros' },
 ];
 
@@ -248,6 +250,10 @@ export default function Autoregistros() {
               </Button>
             </div>
           )}
+        </TabsContent>
+
+        <TabsContent value="activity">
+          <ActivityFeed />
         </TabsContent>
 
         <TabsContent value="entries" className="space-y-4">
