@@ -631,10 +631,16 @@ export type Database = {
           conditions: Json
           consecutive_count: number
           created_at: string
+          frequency_condition_field: string | null
+          frequency_condition_operator: string | null
+          frequency_condition_value: string | null
+          frequency_threshold: number | null
+          frequency_window_hours: number | null
           id: string
           is_active: boolean
           logic_operator: string
           name: string
+          rule_type: string
           severity: string
           template_id: string
           updated_at: string
@@ -644,10 +650,16 @@ export type Database = {
           conditions?: Json
           consecutive_count?: number
           created_at?: string
+          frequency_condition_field?: string | null
+          frequency_condition_operator?: string | null
+          frequency_condition_value?: string | null
+          frequency_threshold?: number | null
+          frequency_window_hours?: number | null
           id?: string
           is_active?: boolean
           logic_operator?: string
           name: string
+          rule_type?: string
           severity?: string
           template_id: string
           updated_at?: string
@@ -657,10 +669,16 @@ export type Database = {
           conditions?: Json
           consecutive_count?: number
           created_at?: string
+          frequency_condition_field?: string | null
+          frequency_condition_operator?: string | null
+          frequency_condition_value?: string | null
+          frequency_threshold?: number | null
+          frequency_window_hours?: number | null
           id?: string
           is_active?: boolean
           logic_operator?: string
           name?: string
+          rule_type?: string
           severity?: string
           template_id?: string
           updated_at?: string

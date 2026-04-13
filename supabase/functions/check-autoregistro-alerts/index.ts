@@ -16,10 +16,16 @@ interface AlertCondition {
 interface AlertRule {
   id: string;
   name: string;
+  rule_type: "condition" | "frequency";
   conditions: AlertCondition[];
   logic_operator: "AND" | "OR";
   consecutive_count: number;
   severity: "warning" | "critical";
+  frequency_threshold: number | null;
+  frequency_window_hours: number | null;
+  frequency_condition_field: string | null;
+  frequency_condition_operator: string | null;
+  frequency_condition_value: string | null;
 }
 
 const OPERATOR_LABELS: Record<string, string> = {
@@ -162,28 +168,75 @@ serve(async (req) => {
     const firedRules: AlertRule[] = [];
 
     for (const rule of rules as AlertRule[]) {
-      if (!evaluateRule(rule, entryValues)) continue;
+      const ruleType = rule.rule_type || "condition";
 
-      if (rule.consecutive_count > 1) {
-        const needed = rule.consecutive_count - 1;
-        const { data: prevEntries } = await supabase
+      if (ruleType === "frequency") {
+        // Frequency-based rule: count entries within the time window
+        const threshold = rule.frequency_threshold ?? 1;
+        const windowHours = rule.frequency_window_hours ?? 24;
+        const windowStart = new Date(
+          new Date(entry.submitted_at).getTime() - windowHours * 60 * 60 * 1000,
+        ).toISOString();
+
+        const { data: windowEntries } = await supabase
           .from("autoregistro_entries")
           .select("values")
           .eq("patient_id", entry.patient_id)
           .eq("template_id", entry.template_id)
-          .lt("submitted_at", entry.submitted_at)
-          .order("submitted_at", { ascending: false })
-          .limit(needed);
+          .gte("submitted_at", windowStart)
+          .lte("submitted_at", entry.submitted_at);
 
-        if (!prevEntries || prevEntries.length < needed) continue;
+        if (!windowEntries) continue;
 
-        const allMatch = prevEntries.every((prev: { values: Record<string, unknown> }) =>
-          evaluateRule(rule, (prev.values || {}) as Record<string, unknown>)
-        );
-        if (!allMatch) continue;
+        // Apply optional field filter
+        let matchingCount = windowEntries.length;
+        if (rule.frequency_condition_field && rule.frequency_condition_operator) {
+          const filterCondition: AlertCondition = {
+            field: rule.frequency_condition_field,
+            operator: rule.frequency_condition_operator,
+            value: rule.frequency_condition_value || "",
+            field_type: undefined,
+          };
+          // Determine field_type from template fields
+          const templateFields = template.fields as { label: string; type: string }[];
+          const matchedField = templateFields?.find(
+            (f) => f.label === rule.frequency_condition_field,
+          );
+          if (matchedField) {
+            filterCondition.field_type = matchedField.type;
+          }
+          matchingCount = windowEntries.filter((e: { values: Record<string, unknown> }) =>
+            evaluateCondition(filterCondition, (e.values || {}) as Record<string, unknown>),
+          ).length;
+        }
+
+        if (matchingCount < threshold) continue;
+        firedRules.push(rule);
+      } else {
+        // Condition-based rule (original logic)
+        if (!evaluateRule(rule, entryValues)) continue;
+
+        if (rule.consecutive_count > 1) {
+          const needed = rule.consecutive_count - 1;
+          const { data: prevEntries } = await supabase
+            .from("autoregistro_entries")
+            .select("values")
+            .eq("patient_id", entry.patient_id)
+            .eq("template_id", entry.template_id)
+            .lt("submitted_at", entry.submitted_at)
+            .order("submitted_at", { ascending: false })
+            .limit(needed);
+
+          if (!prevEntries || prevEntries.length < needed) continue;
+
+          const allMatch = prevEntries.every((prev: { values: Record<string, unknown> }) =>
+            evaluateRule(rule, (prev.values || {}) as Record<string, unknown>),
+          );
+          if (!allMatch) continue;
+        }
+
+        firedRules.push(rule);
       }
-
-      firedRules.push(rule);
     }
 
     // STEP 5
@@ -276,6 +329,15 @@ serve(async (req) => {
     });
 
     const ruleLines = firedRules.map((rule) => {
+      const rType = rule.rule_type || "condition";
+      if (rType === "frequency") {
+        let desc = `${rule.frequency_threshold}+ registros en ${rule.frequency_window_hours}h`;
+        if (rule.frequency_condition_field) {
+          const opLabel = OPERATOR_LABELS[rule.frequency_condition_operator || ""] || rule.frequency_condition_operator;
+          desc += ` (filtro: ${rule.frequency_condition_field} ${opLabel} ${rule.frequency_condition_value})`;
+        }
+        return `- ${rule.name}: ${desc}`;
+      }
       const condDetails = rule.conditions.map((c) => {
         const opLabel = OPERATOR_LABELS[c.operator] || c.operator;
         const actual = entryValues[c.field] ?? "N/A";
