@@ -75,7 +75,6 @@ export function LinkPaymentsToInvoiceDialog({
           await linkPayment.mutateAsync({
             paymentId: payment.id,
             invoiceId: invoice.id,
-            amount: Number(payment.amount),
           });
         }
       }

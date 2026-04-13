@@ -1,38 +1,38 @@
 
-Objetivo: corregir por qué en modo “análisis directo” el botón termina y el diálogo vuelve al estado inicial sin mostrar informes.
 
-1. Corregir la causa real en la Edge Function
-- Revisaré `supabase/functions/analyze-session-transcription/index.ts` para asegurar que el modo `single` se detecta de forma fiable.
-- Ahora mismo los logs demuestran que está entrando en la rama normal de `Layer 1` en vez de la rama `single`, aunque el centro tiene `ai_analysis_mode = 'single'`.
-- Haré el ajuste para normalizar el valor (`trim`/lowercase) y añadir logs explícitos del `analysisMode` cargado para evitar falsos positivos por espacios, mayúsculas o datos inconsistentes.
-- También endureceré la respuesta del modo directo para que siempre devuelva `mode: 'single'` y las claves `clinical` y `patient` en el payload top-level.
+## Plan: Fix merge failing on Verifactu-signed invoices
 
-2. Hacer el parsing del cliente más tolerante
-- En `src/hooks/useTranscriptionAnalysis.tsx` reforzaré `parseSingleModeReports` para aceptar más formatos de respuesta sin romper el flujo:
-  - `clinical`/`patient` en top-level
-  - JSON serializado en `content`
-  - bloques markdown con texto extra antes o después
-- Si el centro está en `single` pero llega una respuesta no parseable, dejaré trazas más claras para distinguir si falló el backend o el parsing.
+### Problem
+The `prevent_signed_invoice_modification_trigger` on the `invoices` table blocks **any** change to `patient_id` on Verifactu-signed invoices. The `merge_patients` function correctly updates only `patient_id` (without touching `updated_at`), but the trigger still rejects it because `patient_id` is listed as a critical field.
 
-3. Evitar que la UI “vuelva al inicio” cuando el backend responde en formato inesperado
-- En `src/components/agenda/TranscriptionAnalysisDialog.tsx` mantendré visible un estado de error útil cuando falle el parseo del modo directo, en vez de dejar solo la pantalla inicial.
-- Así el profesional verá que la generación falló por formato de respuesta y no parecerá que “no ha pasado nada”.
+### Solution
+Update the trigger function to allow `patient_id` changes **when called from `merge_patients`** (i.e., when only `patient_id` changes and no other critical fields are modified). This preserves VeriFactu integrity since the XML hash, amounts, and invoice number remain untouched.
 
-4. Verificar consistencia entre configuración y ejecución
-- Revisaré el flujo de `useCenter` / `AISettingsSection` / diálogo para asegurar que todos leen el mismo valor de `ai_analysis_mode` y no hay discrepancias entre cache del cliente y configuración en backend.
-- Si detecto dependencia frágil del estado local del centro, propondré que la Edge Function use exclusivamente la configuración almacenada del centro, que ya es la fuente de verdad.
+### Implementation
 
-5. Validación final
-- Comprobaré que el flujo esperado quede así:
-  - pulsar “Generar informes”
-  - la función entra en modo `single`
-  - devuelve ambos informes
-  - el hook rellena `clinicalReport` y `patientReport`
-  - el modal muestra ambos bloques y el botón “Nuevo análisis”
-- También revisaré que el modo de 3 capas siga intacto.
+**1. Database migration — Update trigger function**
 
-Detalles técnicos encontrados
-- El frontend sí está pasando `isOpen: open` al hook.
-- El diálogo sí oculta la UI inicial cuando existen `clinicalReport` o `patientReport`.
-- El fallo observado está antes: la función `analyze-session-transcription` está registrando `Layer 1 completed` en lugar de ejecutar la rama `Single mode`.
-- La base de datos confirma que el centro actual tiene `ai_analysis_mode = 'single'`, así que el problema es de ejecución/normalización en backend, no de configuración guardada.
+Modify the `prevent_signed_invoice_modification` function to add a new allowed condition: if **only** `patient_id` changes (and `invoice_number`, `issue_date`, `subtotal`, `tax_amount`, `total` remain the same), permit the update. This is safe because VeriFactu XML records the patient's NIF at signing time and the hash is not recalculated.
+
+```sql
+-- In the critical fields check, remove patient_id from the block list
+-- and add a separate early-return for patient_id-only changes
+IF (
+  NEW.patient_id IS DISTINCT FROM OLD.patient_id AND
+  NEW.invoice_number IS NOT DISTINCT FROM OLD.invoice_number AND
+  NEW.issue_date IS NOT DISTINCT FROM OLD.issue_date AND
+  NEW.subtotal IS NOT DISTINCT FROM OLD.subtotal AND
+  NEW.tax_amount IS NOT DISTINCT FROM OLD.tax_amount AND
+  NEW.total IS NOT DISTINCT FROM OLD.total
+) THEN
+  -- Allow patient_id reassignment (merge) without touching financial data
+  RETURN NEW;
+END IF;
+```
+
+### Files to modify
+- New database migration (SQL) to replace the trigger function
+
+### No frontend changes needed
+The merge dialog and RPC call already handle Verifactu invoices correctly. Only the trigger is blocking the operation.
+

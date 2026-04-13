@@ -168,7 +168,7 @@ export function useCollectSessionPayment() {
 
   return useMutation({
     mutationFn: async (params: CollectSessionPaymentParams) => {
-      const { data, error } = await supabase.rpc('collect_session_payment_v2', {
+      const { data, error } = await (supabase.rpc as any)('collect_session_payment_v2', {
         p_session_id: params.sessionId,
         p_patient_id: params.patientId,
         p_amount: params.amount,
@@ -179,7 +179,7 @@ export function useCollectSessionPayment() {
       });
 
       if (error) throw error;
-      return data as {
+      return data as unknown as {
         success: boolean;
         payment_id: string;
         debt_id: string;

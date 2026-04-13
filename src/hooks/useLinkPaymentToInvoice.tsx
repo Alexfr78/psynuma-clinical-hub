@@ -25,7 +25,7 @@ export function useLinkPaymentToInvoice() {
 
   return useMutation({
     mutationFn: async ({ paymentId, invoiceId }: LinkPaymentParams) => {
-      const { data, error } = await supabase.rpc('reassign_payment_to_invoice_v2', {
+      const { data, error } = await (supabase.rpc as any)('reassign_payment_to_invoice_v2', {
         p_payment_id: paymentId,
         p_target_invoice_id: invoiceId,
       });

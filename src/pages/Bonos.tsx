@@ -1,10 +1,25 @@
 import { useState } from 'react';
-import { Package, Plus, Settings } from 'lucide-react';
+import { Package, Plus, Settings, User, X, ChevronsUpDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Badge } from '@/components/ui/badge';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
 import { useBonos, BonoWithPatient } from '@/hooks/useBonos';
+import { usePatients } from '@/hooks/usePatients';
 import { BonoCard } from '@/components/bonos/BonoCard';
 import { CreateBonoDialog } from '@/components/bonos/CreateBonoDialog';
 import { BonoTemplatesDialog } from '@/components/bonos/BonoTemplatesDialog';
@@ -16,8 +31,31 @@ export default function Bonos() {
   const [statusFilter, setStatusFilter] = useState<string>('active');
   const [selectedBono, setSelectedBono] = useState<BonoWithPatient | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [selectedPatientId, setSelectedPatientId] = useState<string | undefined>();
+  const [selectedPatientName, setSelectedPatientName] = useState<string>('');
+  const [patientSearchOpen, setPatientSearchOpen] = useState(false);
+  const [patientSearchValue, setPatientSearchValue] = useState('');
 
-  const { data: bonos, isLoading } = useBonos({ status: statusFilter === 'all' ? undefined : statusFilter });
+  const { data: searchPatients, isLoading: patientsLoading } = usePatients({ search: patientSearchValue });
+
+  const { data: bonos, isLoading } = useBonos({
+    status: selectedPatientId ? (statusFilter === 'all' ? undefined : statusFilter) : (statusFilter === 'all' ? undefined : statusFilter),
+    patientId: selectedPatientId,
+  });
+
+  const handleSelectPatient = (patientId: string, name: string) => {
+    setSelectedPatientId(patientId);
+    setSelectedPatientName(name);
+    setStatusFilter('all');
+    setPatientSearchOpen(false);
+    setPatientSearchValue('');
+  };
+
+  const handleClearPatient = () => {
+    setSelectedPatientId(undefined);
+    setSelectedPatientName('');
+    setStatusFilter('active');
+  };
 
   const stats = {
     active: bonos?.filter(b => b.status === 'active').length || 0,
@@ -53,6 +91,68 @@ export default function Bonos() {
             Nuevo bono
           </Button>
         </div>
+      </div>
+
+      {/* Patient filter */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <Popover open={patientSearchOpen} onOpenChange={setPatientSearchOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              role="combobox"
+              aria-expanded={patientSearchOpen}
+              className="w-full sm:w-[300px] justify-between"
+            >
+              {selectedPatientId ? (
+                <div className="flex items-center gap-2">
+                  <User className="h-4 w-4 text-primary" />
+                  <span className="truncate">{selectedPatientName}</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <User className="h-4 w-4" />
+                  <span>Filtrar por contacto...</span>
+                </div>
+              )}
+              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-[300px] p-0 z-[9999]" align="start">
+            <Command shouldFilter={false}>
+              <CommandInput
+                placeholder="Buscar por nombre..."
+                value={patientSearchValue}
+                onValueChange={setPatientSearchValue}
+              />
+              <CommandList>
+                <CommandEmpty>
+                  {patientsLoading ? 'Buscando...' : 'No se encontraron contactos.'}
+                </CommandEmpty>
+                <CommandGroup>
+                  {searchPatients?.map((patient) => (
+                    <CommandItem
+                      key={patient.id}
+                      value={patient.id}
+                      onSelect={() => handleSelectPatient(patient.id, `${patient.first_name} ${patient.last_name}`)}
+                      className="flex items-center gap-2 py-2"
+                    >
+                      <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                        <User className="h-3.5 w-3.5 text-primary" />
+                      </div>
+                      <span className="truncate">{patient.first_name} {patient.last_name}</span>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
+        {selectedPatientId && (
+          <Button variant="ghost" size="sm" onClick={handleClearPatient} className="gap-1">
+            <X className="h-4 w-4" />
+            Limpiar
+          </Button>
+        )}
       </div>
 
       <div className="grid gap-3 sm:gap-4 grid-cols-2 md:grid-cols-4">
