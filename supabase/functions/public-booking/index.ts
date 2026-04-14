@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendAdminAlert, buildAlertMessage } from "../_shared/adminAlerts.ts";
 import { queueAndSendPatientBookingNotification } from "../_shared/bookingPatientNotifications.ts";
+import { notifyProfessionalBooking } from "../_shared/professionalNotification.ts";
 import { isValidEmail, isValidDate, isValidTime, isValidName } from "../_shared/validation.ts";
 import { checkIpRateLimit, getClientIp } from "../_shared/rateLimiter.ts";
 import {
@@ -1308,6 +1309,23 @@ serve(async (req) => {
         manageUrl,
       });
 
+      // Notify professional (email or WhatsApp depending on center config)
+      if (finalProfessionalId) {
+        await notifyProfessionalBooking({
+          supabase,
+          centerId: center.id,
+          professionalId: finalProfessionalId,
+          patientId,
+          sessionId: newSession.id,
+          eventType: 'created',
+          sessionDate,
+          startTime,
+          sessionType: sessionType.name,
+          sessionModality,
+          locationName,
+        });
+      }
+
       return new Response(
         JSON.stringify({
           success: true,
@@ -1500,6 +1518,21 @@ serve(async (req) => {
         startTime: session.start_time,
         reason: reason || undefined,
       });
+
+      // Notify professional (email or WhatsApp depending on center config)
+      if (sessionFull?.professional_id) {
+        await notifyProfessionalBooking({
+          supabase,
+          centerId: sessionFull.center_id || tokenData.centerId!,
+          professionalId: sessionFull.professional_id,
+          patientId: session.patient_id,
+          sessionId: session.id,
+          eventType: 'cancelled',
+          sessionDate: session.session_date,
+          startTime: session.start_time,
+          reason: reason || undefined,
+        });
+      }
 
       return new Response(
         JSON.stringify({ success: true, message: "Cita cancelada correctamente" }),
@@ -1755,6 +1788,22 @@ serve(async (req) => {
         oldDate: session.session_date,
         oldTime: session.start_time,
       });
+
+      // Notify professional (email or WhatsApp depending on center config)
+      if (session.professional_id) {
+        await notifyProfessionalBooking({
+          supabase,
+          centerId: tokenData.centerId!,
+          professionalId: session.professional_id,
+          patientId: session.patient_id,
+          sessionId: session.id,
+          eventType: 'rescheduled',
+          sessionDate: newDate,
+          startTime: newStartTime,
+          oldDate: session.session_date,
+          oldTime: session.start_time,
+        });
+      }
 
       return new Response(
         JSON.stringify({ success: true, message: "Cita reprogramada correctamente" }),

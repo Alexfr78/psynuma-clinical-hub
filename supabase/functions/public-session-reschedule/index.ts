@@ -1,7 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendAdminAlert, buildAlertMessage, formatDateSpanish, formatTime } from "../_shared/adminAlerts.ts";
 import { queueAndSendPatientBookingNotification } from "../_shared/bookingPatientNotifications.ts";
-import { notifyProfessionalByEmail, buildProfessionalCancelMessage, buildProfessionalRescheduleMessage } from "../_shared/professionalNotification.ts";
+import { notifyProfessionalBooking } from "../_shared/professionalNotification.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -404,21 +404,21 @@ Deno.serve(async (req) => {
         // Don't fail the reschedule if alert fails
       }
 
-      // Send direct email to professional (independent of admin alerts)
-      await notifyProfessionalByEmail({
+      // Notify professional (email or WhatsApp depending on center config)
+      await notifyProfessionalBooking({
         supabase,
         centerId: session.center_id,
         professionalId: session.professional_id,
         patientId: session.patient_id,
         sessionId: session.id,
-        subject: `Cita reprogramada - ${patientName} - ${newDate}`,
-        message: buildProfessionalRescheduleMessage({
-          patientName,
-          oldDate: session.session_date,
-          oldTime: session.start_time,
-          newDate,
-          newTime: newStartTime,
-        }),
+        eventType: 'rescheduled',
+        sessionDate: newDate,
+        startTime: newStartTime,
+        sessionType: session.session_type,
+        sessionModality: session.session_modality,
+        locationName: locationName || undefined,
+        oldDate: session.session_date,
+        oldTime: session.start_time,
       });
 
       // Send patient reschedule notification
@@ -560,20 +560,20 @@ Deno.serve(async (req) => {
         // Don't fail the cancellation if alert fails
       }
 
-      // Send direct email to professional (independent of admin alerts)
-      await notifyProfessionalByEmail({
+      // Notify professional (email or WhatsApp depending on center config)
+      await notifyProfessionalBooking({
         supabase,
         centerId: session.center_id,
         professionalId: session.professional_id,
         patientId: session.patient_id,
         sessionId: session.id,
-        subject: `Cita cancelada - ${patientName} - ${session.session_date}`,
-        message: buildProfessionalCancelMessage({
-          patientName,
-          sessionDate: session.session_date,
-          sessionTime: session.start_time,
-          reason: cancellation_reason || undefined,
-        }),
+        eventType: 'cancelled',
+        sessionDate: session.session_date,
+        startTime: session.start_time,
+        sessionType: session.session_type,
+        sessionModality: session.session_modality,
+        locationName: locationName || undefined,
+        reason: cancellation_reason || undefined,
       });
 
       // Send patient cancellation notification

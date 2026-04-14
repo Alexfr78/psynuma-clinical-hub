@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendAdminAlert, buildAlertMessage, formatDateSpanish, formatTime } from "../_shared/adminAlerts.ts";
 import { logAuditEvent } from "../_shared/auditLogger.ts";
 import { queueAndSendPatientBookingNotification } from "../_shared/bookingPatientNotifications.ts";
-import { notifyProfessionalByEmail, buildProfessionalCancelMessage, buildProfessionalRescheduleMessage } from "../_shared/professionalNotification.ts";
+import { notifyProfessionalBooking } from "../_shared/professionalNotification.ts";
 import {
   buildFreeWindows,
   generateScoredSlots,
@@ -410,6 +410,23 @@ serve(async (req) => {
         locationName: location.name,
       });
 
+      // Notify professional (email or WhatsApp depending on center config)
+      if (finalProfessionalId) {
+        await notifyProfessionalBooking({
+          supabase,
+          centerId: session.centerId!,
+          professionalId: finalProfessionalId,
+          patientId: session.patientId!,
+          sessionId: newSession.id,
+          eventType: 'created',
+          sessionDate,
+          startTime,
+          sessionType: sessionType.name,
+          sessionModality,
+          locationName: location.name,
+        });
+      }
+
       // Audit: patient created a session
       logAuditEvent({
         supabase, req,
@@ -531,21 +548,18 @@ serve(async (req) => {
           professionalId: existingSession.professional_id,
         });
 
-        // Send direct email to professional (independent of admin alerts)
+        // Notify professional (email or WhatsApp depending on center config)
         if (existingSession.professional_id) {
-          await notifyProfessionalByEmail({
+          await notifyProfessionalBooking({
             supabase,
             centerId: session.centerId,
             professionalId: existingSession.professional_id,
             patientId: session.patientId,
             sessionId,
-            subject: `Cita cancelada - ${patientData.first_name} ${patientData.last_name} - ${existingSession.session_date}`,
-            message: buildProfessionalCancelMessage({
-              patientName: `${patientData.first_name} ${patientData.last_name}`,
-              sessionDate: existingSession.session_date,
-              sessionTime: existingSession.start_time,
-              reason: reason || undefined,
-            }),
+            eventType: 'cancelled',
+            sessionDate: existingSession.session_date,
+            startTime: existingSession.start_time,
+            reason: reason || undefined,
           });
         }
       }
@@ -851,22 +865,22 @@ serve(async (req) => {
           professionalId: existingSession.professional_id,
         });
 
-        // Send direct email to professional (independent of admin alerts)
+        // Notify professional (email or WhatsApp depending on center config)
         if (existingSession.professional_id) {
-          await notifyProfessionalByEmail({
+          await notifyProfessionalBooking({
             supabase,
             centerId: session.centerId,
             professionalId: existingSession.professional_id,
             patientId: session.patientId,
             sessionId,
-            subject: `Cita reprogramada - ${patientData.first_name} ${patientData.last_name} - ${newDate}`,
-            message: buildProfessionalRescheduleMessage({
-              patientName: `${patientData.first_name} ${patientData.last_name}`,
-              oldDate,
-              oldTime,
-              newDate,
-              newTime: newStartTime,
-            }),
+            eventType: 'rescheduled',
+            sessionDate: newDate,
+            startTime: newStartTime,
+            sessionType: existingSession.session_type,
+            sessionModality: existingSession.session_modality,
+            locationName,
+            oldDate,
+            oldTime,
           });
         }
       }
