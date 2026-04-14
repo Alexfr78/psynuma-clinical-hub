@@ -164,12 +164,23 @@ async function sendEmailViaResend(
   }
 }
 
+// Normalize a phone to digits-only E.164 (without leading '+').
+// Assumes Spain (+34) if no country code is provided.
+// - Accepts inputs like "619102294", "+34 619 10 22 94", "34619102294", "+34619102294"
+// - Returns "34619102294" for all of the above
+// - Returns JIDs unchanged (caller is responsible for detecting them beforehand)
+function normalizePhoneES(phone: string): string {
+  const digits = phone.replace(/\D/g, '');
+  // Spanish mobile (9 digits starting with 6 or 7) or fixed (9 digits starting with 8 or 9)
+  if (digits.length === 9 && /^[6789]/.test(digits)) {
+    return '34' + digits;
+  }
+  return digits;
+}
+
 // Generate WhatsApp Web link
 function generateWhatsAppWebLink(phone: string, message: string): string {
-  let cleanPhone = phone.replace(/\D/g, '');
-  if (cleanPhone.length === 9 && /^[67]/.test(cleanPhone)) {
-    cleanPhone = '34' + cleanPhone;
-  }
+  const cleanPhone = normalizePhoneES(phone);
   const encodedMessage = encodeURIComponent(message);
   return `https://wa.me/${cleanPhone}?text=${encodedMessage}`;
 }
@@ -225,11 +236,12 @@ async function sendWhatsAppViaWasender(
       return { success: false, error: "No WasenderAPI session API key available" };
     }
 
-    // Normalize phone to E.164
+    // Normalize phone to E.164 (Spain-aware: adds 34 prefix if missing)
     const trimmedPhone = phone.trim();
     const isJid = trimmedPhone.includes("@");
-    const normalized = trimmedPhone.replace(/[\s\-()]/g, "");
-    const to = isJid ? normalized : normalized.startsWith("+") ? normalized : `+${normalized}`;
+    const to = isJid
+      ? trimmedPhone.replace(/[\s\-()]/g, "")
+      : `+${normalizePhoneES(trimmedPhone)}`;
 
     // Record message in whatsapp_messages
     const { data: messageRecord } = await supabase
@@ -305,10 +317,7 @@ async function sendWhatsAppViaMetaAPI(
   phoneNumberId: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    let cleanPhone = phone.replace(/\D/g, '');
-    if (cleanPhone.length === 9 && /^[67]/.test(cleanPhone)) {
-      cleanPhone = '34' + cleanPhone;
-    }
+    const cleanPhone = normalizePhoneES(phone);
 
     console.log(`[send-notification] Sending WhatsApp via Meta API to ${cleanPhone}`);
 
@@ -481,7 +490,10 @@ serve(async (req) => {
             });
 
             // PRIORITY 1: WasenderAPI (if enabled AND connected AND not emergency stopped)
+            let wasenderAttempted = false;
+            let wasenderError: string | null = null;
             if (centerConfig?.wasender_enabled && wasenderConnected && !centerConfig?.wasender_emergency_stop) {
+              wasenderAttempted = true;
               console.log('[send-notification] Using WasenderAPI (Priority 1)');
               const wasenderResult = await sendWhatsAppViaWasender(
                 supabase,
@@ -491,14 +503,15 @@ serve(async (req) => {
                 notification.patient_id,
                 notification.session_id
               );
-              
+
               if (wasenderResult.success) {
                 success = true;
                 break;
               }
-              
-              // WasenderAPI failed - fallback to Meta API or web
-              console.warn('[send-notification] WasenderAPI failed, trying fallback:', wasenderResult.error);
+
+              // WasenderAPI failed - try Meta API fallback if configured, otherwise surface the error
+              wasenderError = wasenderResult.error || 'Unknown WasenderAPI error';
+              console.warn('[send-notification] WasenderAPI failed, trying fallback:', wasenderError);
             }
 
             // PRIORITY 2: Meta API (if configured)
@@ -525,8 +538,14 @@ serve(async (req) => {
 
               success = apiResult.success;
               errorMessage = apiResult.error || null;
+            } else if (wasenderAttempted) {
+              // Wasender was the configured active method and it failed.
+              // Do NOT silently fall back to the manual web link — surface the error
+              // so the caller can fix it (e.g. invalid phone format).
+              errorMessage = `WasenderAPI falló: ${wasenderError}`;
+              console.error(`[send-notification] ${errorMessage}`);
             } else {
-              // PRIORITY 3: Manual web link
+              // PRIORITY 3: Manual web link (only when no API method was available/attempted)
               whatsappWebLink = generateWhatsAppWebLink(
                 notification.recipient,
                 notification.message
