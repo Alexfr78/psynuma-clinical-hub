@@ -426,13 +426,13 @@ function generateEMOHTML(answers: Record<string, any>, factorScores: Record<stri
     const figureRelation = figure.figure_relation || '';
 
     // Relational indicators for this figure
-    const figInd = indicators.relational.find(r => r.figureId === figure.id);
-    const detectedRelational = figInd?.indicators.filter(i => i.detected) || [];
+    const figInd = indicators.relational.find((r: any) => r.figureId === figure.id);
+    const detectedRelational = figInd?.indicators.filter((i: any) => i.detected) || [];
 
     if (detectedRelational.length > 0) {
       content += `<div style="background: #fffbeb; border: 1px solid #f59e0b; border-radius: 6px; padding: 8px 12px; margin-bottom: 12px;">
         <p style="font-weight: 600; color: #92400e; margin-bottom: 4px;">⚠️ Indicadores relacionales detectados</p>
-        ${renderBadgeList(detectedRelational.map(d => d.label), 'badge-amber')}
+        ${renderBadgeList(detectedRelational.map((d: any) => d.label), 'badge-amber')}
       </div>`;
     }
 
