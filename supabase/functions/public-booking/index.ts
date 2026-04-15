@@ -1309,6 +1309,9 @@ serve(async (req) => {
         manageUrl,
       });
 
+      // Wait 6s to respect WasenderAPI rate limit (1 msg per 5s)
+      await new Promise(resolve => setTimeout(resolve, 6000));
+
       // Notify professional (email or WhatsApp depending on center config)
       if (finalProfessionalId) {
         await notifyProfessionalBooking({
@@ -1518,6 +1521,9 @@ serve(async (req) => {
         startTime: session.start_time,
         reason: reason || undefined,
       });
+
+      // Wait 6s to respect WasenderAPI rate limit (1 msg per 5s)
+      await new Promise(resolve => setTimeout(resolve, 6000));
 
       // Notify professional (email or WhatsApp depending on center config)
       if (sessionFull?.professional_id) {
@@ -1788,6 +1794,9 @@ serve(async (req) => {
         oldDate: session.session_date,
         oldTime: session.start_time,
       });
+
+      // Wait 6s to respect WasenderAPI rate limit (1 msg per 5s)
+      await new Promise(resolve => setTimeout(resolve, 6000));
 
       // Notify professional (email or WhatsApp depending on center config)
       if (session.professional_id) {
