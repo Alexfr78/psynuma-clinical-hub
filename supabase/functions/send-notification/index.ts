@@ -187,7 +187,8 @@ function generateWhatsAppWebLink(phone: string, message: string): string {
 
 // Send WhatsApp via WasenderAPI (direct HTTP call to avoid auth issues in server-to-server context)
 async function sendWhatsAppViaWasender(
-  supabase: ReturnType<typeof createClient>,
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
   centerId: string,
   phone: string,
   message: string,
@@ -197,7 +198,7 @@ async function sendWhatsAppViaWasender(
   const WASENDER_API_URL = "https://www.wasenderapi.com/api";
 
   try {
-    console.log(`[send-notification] Sending WhatsApp via WasenderAPI for notification ${notificationId || 'unknown'}`);
+    console.log(`[send-notification] Sending WhatsApp via WasenderAPI`);
 
     // Get active Wasender session for this center (need api_key for /send-message endpoint)
     const { data: wsSession } = await supabase
@@ -369,7 +370,8 @@ serve(async (req) => {
   }
 
   try {
-    const supabase = createClient(
+    // deno-lint-ignore no-explicit-any
+    const supabase: any = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );

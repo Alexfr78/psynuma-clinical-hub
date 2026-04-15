@@ -17,7 +17,8 @@ interface RequestBody {
 
 // Send WhatsApp via WasenderAPI (direct HTTP fetch to bypass JWT restrictions)
 async function sendWhatsAppViaWasender(
-  supabase: ReturnType<typeof createClient>,
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
   centerId: string,
   phone: string,
   message: string,
@@ -215,7 +216,8 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const supabase = createClient(
+    // deno-lint-ignore no-explicit-any
+    const supabase: any = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
