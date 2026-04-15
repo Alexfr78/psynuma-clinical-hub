@@ -311,7 +311,7 @@ serve(async (req) => {
 
       return new Response(JSON.stringify({
         success: false,
-        error: sendError.message,
+        error: (sendError as Error).message,
         message_id: messageRecord.id,
       }), {
         status: 500,
