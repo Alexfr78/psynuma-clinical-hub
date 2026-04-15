@@ -305,13 +305,13 @@ serve(async (req) => {
         .from("whatsapp_messages")
         .update({
           status: "failed",
-          error_message: sendError.message,
+          error_message: (sendError as Error).message,
         })
         .eq("id", messageRecord.id);
 
       return new Response(JSON.stringify({
         success: false,
-        error: sendError.message,
+        error: (sendError as Error).message,
         message_id: messageRecord.id,
       }), {
         status: 500,
