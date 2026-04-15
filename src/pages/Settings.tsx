@@ -165,14 +165,20 @@ const navItems: NavItem[] = [
   { id: 'facturacion-verifactu-declaracion', label: 'Declaración responsable', icon: FileText, parent: 'Pagos y Facturación', subgroup: 'Verifactu (AEAT)' },
   { id: 'facturacion-verifactu-exportar', label: 'Exportar registros', icon: FileDown, parent: 'Pagos y Facturación', subgroup: 'Verifactu (AEAT)' },
   
-  // Comunicaciones
-  { id: 'comunicaciones-recordatorios', label: 'Recordatorios de cita', icon: Bell, parent: 'Comunicaciones' },
-  { id: 'comunicaciones-recordatorios-pago', label: 'Recordatorios de pago', icon: Wallet, parent: 'Comunicaciones' },
-  { id: 'comunicaciones-alertas-admin', label: 'Alertas al profesional', icon: Bell, parent: 'Comunicaciones' },
-  { id: 'comunicaciones-confirmaciones-cita', label: 'Confirmaciones de cita', icon: CalendarCheck2, parent: 'Comunicaciones' },
-  { id: 'comunicaciones-email', label: 'Plantillas de email', icon: Mail, parent: 'Comunicaciones' },
-  { id: 'comunicaciones-whatsapp', label: 'Plantillas de WhatsApp', icon: MessageCircle, parent: 'Comunicaciones' },
-  { id: 'comunicaciones-sms', label: 'Plantillas de SMS', icon: Smartphone, parent: 'Comunicaciones' },
+  // Comunicaciones — Eventos de cita (creación/reprogramación/cancelación + recordatorios)
+  { id: 'comunicaciones-confirmaciones-cita', label: 'Confirmaciones de cita', icon: CalendarCheck2, parent: 'Comunicaciones', subgroup: 'Eventos de cita' },
+  { id: 'comunicaciones-recordatorios', label: 'Recordatorios de cita', icon: Bell, parent: 'Comunicaciones', subgroup: 'Eventos de cita' },
+
+  // Comunicaciones — Plantillas generales por canal
+  { id: 'comunicaciones-email', label: 'Plantillas de email', icon: Mail, parent: 'Comunicaciones', subgroup: 'Plantillas por canal' },
+  { id: 'comunicaciones-whatsapp', label: 'Plantillas de WhatsApp', icon: MessageCircle, parent: 'Comunicaciones', subgroup: 'Plantillas por canal' },
+  { id: 'comunicaciones-sms', label: 'Plantillas de SMS', icon: Smartphone, parent: 'Comunicaciones', subgroup: 'Plantillas por canal' },
+
+  // Comunicaciones — Cobros
+  { id: 'comunicaciones-recordatorios-pago', label: 'Recordatorios de pago', icon: Wallet, parent: 'Comunicaciones', subgroup: 'Cobros' },
+
+  // Comunicaciones — Alertas internas
+  { id: 'comunicaciones-alertas-admin', label: 'Alertas al profesional', icon: Bell, parent: 'Comunicaciones', subgroup: 'Alertas internas' },
   
   // Conexiones Externas
   { id: 'integraciones-resumen', label: 'Estado de conexiones', icon: Plug, parent: 'Conexiones Externas' },
