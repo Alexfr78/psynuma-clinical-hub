@@ -17,7 +17,8 @@ interface RequestBody {
 
 // Send WhatsApp via WasenderAPI (direct HTTP fetch to bypass JWT restrictions)
 async function sendWhatsAppViaWasender(
-  supabase: ReturnType<typeof createClient>,
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
   centerId: string,
   phone: string,
   message: string,
