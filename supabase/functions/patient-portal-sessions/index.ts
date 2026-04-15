@@ -396,6 +396,9 @@ serve(async (req) => {
         });
       }
 
+      // Wait 6s to respect WasenderAPI rate limit (1 msg per 5s)
+      await new Promise(resolve => setTimeout(resolve, 6000));
+
       // Send patient confirmation notification
       await queueAndSendPatientBookingNotification({
         supabase,
@@ -563,6 +566,9 @@ serve(async (req) => {
           });
         }
       }
+
+      // Wait 6s to respect WasenderAPI rate limit (1 msg per 5s)
+      await new Promise(resolve => setTimeout(resolve, 6000));
 
       // Send patient cancellation notification
       await queueAndSendPatientBookingNotification({
@@ -884,6 +890,9 @@ serve(async (req) => {
           });
         }
       }
+
+      // Wait 6s to respect WasenderAPI rate limit (1 msg per 5s)
+      await new Promise(resolve => setTimeout(resolve, 6000));
 
       // Send patient reschedule notification
       await queueAndSendPatientBookingNotification({
