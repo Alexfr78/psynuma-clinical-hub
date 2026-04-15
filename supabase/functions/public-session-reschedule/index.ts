@@ -421,6 +421,9 @@ Deno.serve(async (req) => {
         oldTime: session.start_time,
       });
 
+      // Wait 6s to respect WasenderAPI rate limit (1 msg per 5s)
+      await new Promise(resolve => setTimeout(resolve, 6000));
+
       // Send patient reschedule notification
       await queueAndSendPatientBookingNotification({
         supabase,
@@ -575,6 +578,9 @@ Deno.serve(async (req) => {
         locationName: locationName || undefined,
         reason: cancellation_reason || undefined,
       });
+
+      // Wait 6s to respect WasenderAPI rate limit (1 msg per 5s)
+      await new Promise(resolve => setTimeout(resolve, 6000));
 
       // Send patient cancellation notification
       await queueAndSendPatientBookingNotification({
