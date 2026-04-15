@@ -3,7 +3,13 @@
     "allow": [
       "Bash(echo \"---EXIT $?---\")",
       "Read(//tmp/**)",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m ':*)",
+      "Bash(git push:*)",
+      "Bash(git pull:*)",
+      "Bash(git stash:*)",
+      "Bash(grep -l \"CREATE TABLE communication_templates\" /c/Users/aleja/Cursor/psynuma-clinical-hub/supabase/migrations/*.sql)"
     ]
   }
 }

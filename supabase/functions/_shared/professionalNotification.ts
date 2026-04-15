@@ -3,6 +3,7 @@
 // (email and/or WhatsApp via Wasender or Meta API).
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { renderBookingTemplate } from "./bookingTemplates.ts";
 
 // deno-lint-ignore no-explicit-any
 type SupabaseClient = any;
@@ -180,62 +181,34 @@ export async function notifyProfessionalBooking(args: ProfessionalNotificationAr
 
     console.log(`[professional-notification] Channel=${channel} eventType=${eventType}`);
 
-    // 6. Build subject + message
+    // 6. Build subject + message via template
     const dateFormatted = sessionDate ? formatDateSpanish(sessionDate) : '';
     const timeFormatted = startTime ? formatTime(startTime) : '';
     const modalityText = translateModality(sessionModality);
-    const greetingName = professional.first_name || '';
 
-    let subject: string;
-    let message: string;
+    const rendered = await renderBookingTemplate(
+      supabase,
+      centerId,
+      eventType,
+      'professional',
+      channel,
+      {
+        nombre_paciente: patientName,
+        profesional_nombre: professional.first_name || '',
+        centro_nombre: center.name || '',
+        fecha: dateFormatted,
+        hora: timeFormatted,
+        fecha_anterior: args.oldDate ? formatDateSpanish(args.oldDate) : '',
+        hora_anterior: args.oldTime ? formatTime(args.oldTime) : '',
+        sesion_tipo: sessionType || '',
+        modalidad: modalityText,
+        ubicacion: locationName || '',
+        motivo: args.reason || '',
+      },
+    );
 
-    switch (eventType) {
-      case 'created': {
-        subject = `Nueva cita — ${patientName} — ${sessionDate || ''} ${timeFormatted}`;
-        const lines = [
-          `Hola ${greetingName},`.trim(),
-          ``,
-          `Se ha registrado una nueva cita con ${patientName}.`,
-          `📅 Fecha: ${dateFormatted} a las ${timeFormatted}`,
-        ];
-        if (sessionType) lines.push(`📋 Tipo: ${sessionType}`);
-        if (modalityText) lines.push(`📍 Modalidad: ${modalityText}`);
-        if (locationName) lines.push(`🏢 Ubicación: ${locationName}`);
-        message = lines.join('\n');
-        break;
-      }
-
-      case 'rescheduled': {
-        const oldDateFormatted = args.oldDate ? formatDateSpanish(args.oldDate) : '';
-        const oldTimeFormatted = args.oldTime ? formatTime(args.oldTime) : '';
-        subject = `Cita reprogramada — ${patientName} — ${sessionDate || ''} ${timeFormatted}`;
-        const lines = [
-          `Hola ${greetingName},`.trim(),
-          ``,
-          `${patientName} ha reprogramado su cita.`,
-          ``,
-          `❌ Antes: ${oldDateFormatted} a las ${oldTimeFormatted}`,
-          `✅ Ahora: ${dateFormatted} a las ${timeFormatted}`,
-        ];
-        if (sessionType) lines.push(`📋 Tipo: ${sessionType}`);
-        if (modalityText) lines.push(`📍 Modalidad: ${modalityText}`);
-        if (locationName) lines.push(`🏢 Ubicación: ${locationName}`);
-        message = lines.join('\n');
-        break;
-      }
-
-      case 'cancelled': {
-        subject = `Cita cancelada — ${patientName} — ${sessionDate || ''} ${timeFormatted}`;
-        const lines = [
-          `Hola ${greetingName},`.trim(),
-          ``,
-          `${patientName} ha cancelado su cita del ${dateFormatted} a las ${timeFormatted}.`,
-        ];
-        if (args.reason) lines.push(`Motivo: ${args.reason}`);
-        message = lines.join('\n');
-        break;
-      }
-    }
+    const subject = rendered.subject || '';
+    const message = rendered.message;
 
     // 7. Insert notification
     const { data: notification, error: insertError } = await supabase

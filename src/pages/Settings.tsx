@@ -26,6 +26,7 @@ import {
   Users,
   FileDown,
   CalendarDays,
+  CalendarCheck2,
   Ban,
   Brain,
   GitBranch
@@ -50,6 +51,7 @@ import { PaymentSettingsSection } from '@/components/settings/PaymentSettingsSec
 import { EmailTemplateEditor } from '@/components/settings/communications/EmailTemplateEditor';
 import { WhatsAppTemplateEditor } from '@/components/settings/communications/WhatsAppTemplateEditor';
 import { SmsTemplateEditor } from '@/components/settings/communications/SmsTemplateEditor';
+import { BookingTemplatesEditor } from '@/components/settings/communications/BookingTemplatesEditor';
 import { PaymentReminderTemplateEditor } from '@/components/settings/communications/PaymentReminderTemplateEditor';
 import { SessionReminderSettingsSection } from '@/components/settings/SessionReminderSettingsSection';
 import { VerifactuConfigSection } from '@/components/settings/VerifactuConfigSection';
@@ -107,6 +109,7 @@ type SettingsSection =
   | 'comunicaciones-recordatorios'
   | 'comunicaciones-recordatorios-pago'
   | 'comunicaciones-alertas-admin'
+  | 'comunicaciones-confirmaciones-cita'
   | 'integraciones-resumen'
   | 'integraciones-credenciales'
   | 'integraciones-email'
@@ -166,6 +169,7 @@ const navItems: NavItem[] = [
   { id: 'comunicaciones-recordatorios', label: 'Recordatorios de cita', icon: Bell, parent: 'Comunicaciones' },
   { id: 'comunicaciones-recordatorios-pago', label: 'Recordatorios de pago', icon: Wallet, parent: 'Comunicaciones' },
   { id: 'comunicaciones-alertas-admin', label: 'Alertas al profesional', icon: Bell, parent: 'Comunicaciones' },
+  { id: 'comunicaciones-confirmaciones-cita', label: 'Confirmaciones de cita', icon: CalendarCheck2, parent: 'Comunicaciones' },
   { id: 'comunicaciones-email', label: 'Plantillas de email', icon: Mail, parent: 'Comunicaciones' },
   { id: 'comunicaciones-whatsapp', label: 'Plantillas de WhatsApp', icon: MessageCircle, parent: 'Comunicaciones' },
   { id: 'comunicaciones-sms', label: 'Plantillas de SMS', icon: Smartphone, parent: 'Comunicaciones' },
@@ -387,6 +391,8 @@ export default function Settings() {
         return <PaymentReminderTemplateEditor />;
       case 'comunicaciones-alertas-admin':
         return <AdminAlertsSettingsSection />;
+      case 'comunicaciones-confirmaciones-cita':
+        return <BookingTemplatesEditor />;
       case 'integraciones-resumen':
         return <IntegrationsOverview />;
       case 'integraciones-email':

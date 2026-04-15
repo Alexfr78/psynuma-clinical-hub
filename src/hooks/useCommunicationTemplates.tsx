@@ -4,7 +4,23 @@ import { useCenter } from './useCenter';
 import { toast } from 'sonner';
 
 export type TemplateChannel = 'email' | 'whatsapp' | 'sms';
-export type TemplateType = 'notification' | 'reminder' | 'payment_reminder';
+export type TemplateType =
+  | 'notification'
+  | 'reminder'
+  | 'payment_reminder'
+  | 'booking_created_patient'
+  | 'booking_created_professional'
+  | 'booking_rescheduled_patient'
+  | 'booking_rescheduled_professional'
+  | 'booking_cancelled_patient'
+  | 'booking_cancelled_professional';
+
+export type BookingAudience = 'patient' | 'professional';
+export type BookingEvent = 'created' | 'rescheduled' | 'cancelled';
+
+export function bookingTemplateType(event: BookingEvent, audience: BookingAudience): TemplateType {
+  return `booking_${event}_${audience}` as TemplateType;
+}
 
 export interface CommunicationTemplate {
   id: string;
@@ -44,9 +60,94 @@ export interface UpsertTemplateData {
   is_active?: boolean;
 }
 
+// Booking default subjects/messages — email uses email_subject + email_initial_text as body
+const BOOKING_EMAIL_DEFAULTS: Record<BookingEvent, Record<BookingAudience, { email_subject: string; email_initial_text: string; email_footer: string }>> = {
+  created: {
+    patient: {
+      email_subject: 'Confirmación de cita — {fecha} {hora}',
+      email_initial_text:
+        'Hola {nombre_paciente},\n\nTu cita en {centro_nombre} ha quedado registrada.\n📅 Fecha: {fecha} a las {hora}\n📋 Tipo: {sesion_tipo}\n📍 Modalidad: {modalidad}\n🏢 Ubicación: {ubicacion}\n\nPuedes gestionar tu cita aquí: {link_sesion}',
+      email_footer: 'Gracias,\n{centro_nombre}',
+    },
+    professional: {
+      email_subject: 'Nueva cita — {nombre_paciente} — {fecha} {hora}',
+      email_initial_text:
+        'Hola {profesional_nombre},\n\nSe ha registrado una nueva cita con {nombre_paciente}.\n📅 Fecha: {fecha} a las {hora}\n📋 Tipo: {sesion_tipo}\n📍 Modalidad: {modalidad}\n🏢 Ubicación: {ubicacion}',
+      email_footer: '{centro_nombre}',
+    },
+  },
+  rescheduled: {
+    patient: {
+      email_subject: 'Cita reprogramada — {fecha} {hora}',
+      email_initial_text:
+        'Hola {nombre_paciente},\n\nTu cita en {centro_nombre} ha sido reprogramada.\n\n❌ Antes: {fecha_anterior} a las {hora_anterior}\n✅ Ahora: {fecha} a las {hora}\n📋 Tipo: {sesion_tipo}\n📍 Modalidad: {modalidad}\n🏢 Ubicación: {ubicacion}\n\nPuedes gestionar tu cita aquí: {link_sesion}',
+      email_footer: 'Gracias,\n{centro_nombre}',
+    },
+    professional: {
+      email_subject: 'Cita reprogramada — {nombre_paciente} — {fecha} {hora}',
+      email_initial_text:
+        'Hola {profesional_nombre},\n\n{nombre_paciente} ha reprogramado su cita.\n\n❌ Antes: {fecha_anterior} a las {hora_anterior}\n✅ Ahora: {fecha} a las {hora}\n📋 Tipo: {sesion_tipo}\n📍 Modalidad: {modalidad}\n🏢 Ubicación: {ubicacion}',
+      email_footer: '{centro_nombre}',
+    },
+  },
+  cancelled: {
+    patient: {
+      email_subject: 'Cita cancelada — {fecha} {hora}',
+      email_initial_text:
+        'Hola {nombre_paciente},\n\nTu cita en {centro_nombre} del {fecha} a las {hora} ha sido cancelada.\nMotivo: {motivo}',
+      email_footer: 'Gracias,\n{centro_nombre}',
+    },
+    professional: {
+      email_subject: 'Cita cancelada — {nombre_paciente} — {fecha} {hora}',
+      email_initial_text:
+        'Hola {profesional_nombre},\n\n{nombre_paciente} ha cancelado su cita del {fecha} a las {hora}.\nMotivo: {motivo}',
+      email_footer: '{centro_nombre}',
+    },
+  },
+};
+
+const BOOKING_WHATSAPP_DEFAULTS: Record<BookingEvent, Record<BookingAudience, string>> = {
+  created: {
+    patient:
+      'Hola {nombre_paciente}, tu cita en {centro_nombre} ha quedado registrada para el {fecha} a las {hora} ({modalidad}). Puedes gestionarla aquí: {link_sesion}',
+    professional:
+      'Hola {profesional_nombre}, se ha registrado una nueva cita con {nombre_paciente} el {fecha} a las {hora} ({modalidad}).',
+  },
+  rescheduled: {
+    patient:
+      'Hola {nombre_paciente}, tu cita en {centro_nombre} se ha reprogramado.\n❌ Antes: {fecha_anterior} {hora_anterior}\n✅ Ahora: {fecha} {hora}\nGestionar: {link_sesion}',
+    professional:
+      'Hola {profesional_nombre}, {nombre_paciente} ha reprogramado su cita.\n❌ Antes: {fecha_anterior} {hora_anterior}\n✅ Ahora: {fecha} {hora}',
+  },
+  cancelled: {
+    patient:
+      'Hola {nombre_paciente}, tu cita en {centro_nombre} del {fecha} a las {hora} ha sido cancelada. Motivo: {motivo}',
+    professional:
+      'Hola {profesional_nombre}, {nombre_paciente} ha cancelado su cita del {fecha} a las {hora}. Motivo: {motivo}',
+  },
+};
+
+function buildBookingDefaults(channel: 'email' | 'whatsapp' | 'sms'): Record<TemplateType, Partial<UpsertTemplateData>> {
+  const out: Partial<Record<TemplateType, Partial<UpsertTemplateData>>> = {};
+  (['created', 'rescheduled', 'cancelled'] as BookingEvent[]).forEach((event) => {
+    (['patient', 'professional'] as BookingAudience[]).forEach((audience) => {
+      const key = bookingTemplateType(event, audience);
+      if (channel === 'email') {
+        out[key] = BOOKING_EMAIL_DEFAULTS[event][audience];
+      } else if (channel === 'whatsapp') {
+        out[key] = { whatsapp_message: BOOKING_WHATSAPP_DEFAULTS[event][audience] };
+      } else {
+        out[key] = { sms_message: BOOKING_WHATSAPP_DEFAULTS[event][audience] };
+      }
+    });
+  });
+  return out as Record<TemplateType, Partial<UpsertTemplateData>>;
+}
+
 // Default templates
 export const DEFAULT_TEMPLATES: Record<TemplateChannel, Record<TemplateType, Partial<UpsertTemplateData>>> = {
   email: {
+    ...buildBookingDefaults('email'),
     notification: {
       email_subject: 'Nueva cita programada - {fecha}',
       email_initial_text: 'Hola {nombre_paciente},\n\nTienes una nueva sesión {sesion_tipo} con {profesional_nombre} el {fecha} a las {zona_horaria}.',
@@ -76,6 +177,7 @@ export const DEFAULT_TEMPLATES: Record<TemplateChannel, Record<TemplateType, Par
     },
   },
   whatsapp: {
+    ...buildBookingDefaults('whatsapp'),
     notification: {
       whatsapp_message: 'Hola {nombre_paciente}, tienes una nueva sesión con {profesional_nombre} el día {fecha} a las {zona_horaria}. Para ver más información puedes acceder a este link: {link_sesion}. Este es un mensaje automático.',
     },
@@ -90,6 +192,7 @@ export const DEFAULT_TEMPLATES: Record<TemplateChannel, Record<TemplateType, Par
     },
   },
   sms: {
+    ...buildBookingDefaults('sms'),
     notification: {
       sms_message: 'Nueva sesión {sesion_tipo} con {profesional_nombre} el {fecha} a las {zona_horaria}. Info: {link_sesion}',
     },
@@ -118,6 +221,22 @@ export const TEMPLATE_VARIABLES = [
   { key: '{link_sesion}', label: 'Link de la sesión', example: 'https://...' },
   { key: '{link_confirmar}', label: 'Link para confirmar', example: 'https://...' },
   { key: '{link_videollamada}', label: 'Link de videollamada', example: 'https://meet.google.com/...' },
+];
+
+// Booking-specific variables (creation / reschedule / cancellation)
+export const BOOKING_TEMPLATE_VARIABLES = [
+  { key: '{nombre_paciente}', label: 'Nombre del paciente', example: 'Juan' },
+  { key: '{profesional_nombre}', label: 'Nombre del profesional', example: 'María' },
+  { key: '{fecha}', label: 'Fecha de la cita', example: 'lunes, 15 de enero de 2026' },
+  { key: '{hora}', label: 'Hora de la cita', example: '10:00' },
+  { key: '{fecha_anterior}', label: 'Fecha anterior (reprogramación)', example: 'lunes, 8 de enero de 2026' },
+  { key: '{hora_anterior}', label: 'Hora anterior (reprogramación)', example: '09:30' },
+  { key: '{sesion_tipo}', label: 'Tipo de sesión', example: 'Individual' },
+  { key: '{modalidad}', label: 'Modalidad', example: 'Presencial' },
+  { key: '{ubicacion}', label: 'Ubicación', example: 'Consulta Madrid Centro' },
+  { key: '{motivo}', label: 'Motivo (cancelación)', example: 'Imprevisto del paciente' },
+  { key: '{centro_nombre}', label: 'Nombre del centro', example: 'Centro Psynuma' },
+  { key: '{link_sesion}', label: 'Link para gestionar la cita', example: 'https://...' },
 ];
 
 // Payment reminder specific variables

@@ -2,13 +2,21 @@ import { Badge } from '@/components/ui/badge';
 import { TEMPLATE_VARIABLES } from '@/hooks/useCommunicationTemplates';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
+interface VariableDef {
+  key: string;
+  label: string;
+  example: string;
+}
+
 interface TemplateVariableBadgesProps {
   onVariableClick?: (variable: string) => void;
   showAll?: boolean;
+  variables?: VariableDef[];
 }
 
-export function TemplateVariableBadges({ onVariableClick, showAll = false }: TemplateVariableBadgesProps) {
-  const displayVariables = showAll ? TEMPLATE_VARIABLES : TEMPLATE_VARIABLES.slice(0, 8);
+export function TemplateVariableBadges({ onVariableClick, showAll = false, variables }: TemplateVariableBadgesProps) {
+  const source = variables ?? TEMPLATE_VARIABLES;
+  const displayVariables = showAll || variables ? source : source.slice(0, 8);
 
   return (
     <div className="space-y-2">

@@ -2,6 +2,7 @@
 // Used by: public-booking, patient-portal-sessions, public-session-reschedule
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { renderBookingTemplate } from "./bookingTemplates.ts";
 
 // deno-lint-ignore no-explicit-any
 type SupabaseClient = any;
@@ -169,17 +170,11 @@ export async function queueAndSendPatientBookingNotification(args: BookingNotifi
 
     console.log(`[patient-confirmation] Channel=${channel} patient=${patientId} eventType=${eventType}`);
 
-    // 5. Build subject and message
-    const patientName = patient.first_name;
-    const centerName = center.name;
+    // 5. Build subject and message via template
     const dateFormatted = sessionDate ? formatDateSpanish(sessionDate) : '';
     const timeFormatted = startTime ? formatTime(startTime) : '';
     const modalityText = translateModality(sessionModality);
 
-    let subject: string;
-    let message: string;
-
-    // Build manage URL if provided
     let fullManageUrl = '';
     if (args.manageUrl) {
       const baseDomain = center.custom_domain || center.public_domain || '';
@@ -188,73 +183,29 @@ export async function queueAndSendPatientBookingNotification(args: BookingNotifi
       }
     }
 
-    switch (eventType) {
-      case 'created': {
-        subject = `Confirmación de cita — ${sessionDate || ''} ${timeFormatted}`;
-        const lines = [
-          `Hola ${patientName},`,
-          ``,
-          `Tu cita en ${centerName} ha quedado registrada.`,
-          `📅 Fecha: ${dateFormatted} a las ${timeFormatted}`,
-        ];
-        if (sessionType) lines.push(`📋 Tipo: ${sessionType}`);
-        if (modalityText) lines.push(`📍 Modalidad: ${modalityText}`);
-        if (locationName) lines.push(`🏢 Ubicación: ${locationName}`);
-        if (fullManageUrl) {
-          lines.push(``);
-          lines.push(`Puedes gestionar tu cita aquí: ${fullManageUrl}`);
-        }
-        lines.push(``);
-        lines.push(`Gracias.`);
-        message = lines.join('\n');
-        break;
-      }
+    const rendered = await renderBookingTemplate(
+      supabase,
+      centerId,
+      eventType,
+      'patient',
+      channel,
+      {
+        nombre_paciente: patient.first_name || 'Paciente',
+        centro_nombre: center.name || '',
+        fecha: dateFormatted,
+        hora: timeFormatted,
+        fecha_anterior: args.oldDate ? formatDateSpanish(args.oldDate) : '',
+        hora_anterior: args.oldTime ? formatTime(args.oldTime) : '',
+        sesion_tipo: sessionType || '',
+        modalidad: modalityText,
+        ubicacion: locationName || '',
+        motivo: args.reason || '',
+        link_sesion: fullManageUrl,
+      },
+    );
 
-      case 'rescheduled': {
-        const newDate = sessionDate ? formatDateSpanish(sessionDate) : '';
-        const newTime = timeFormatted;
-        const oldDateFormatted = args.oldDate ? formatDateSpanish(args.oldDate) : '';
-        const oldTimeFormatted = args.oldTime ? formatTime(args.oldTime) : '';
-
-        subject = `Cita reprogramada — ${sessionDate || ''} ${newTime}`;
-        const lines = [
-          `Hola ${patientName},`,
-          ``,
-          `Tu cita en ${centerName} ha sido reprogramada.`,
-          ``,
-          `❌ Antes: ${oldDateFormatted} a las ${oldTimeFormatted}`,
-          `✅ Ahora: ${newDate} a las ${newTime}`,
-        ];
-        if (sessionType) lines.push(`📋 Tipo: ${sessionType}`);
-        if (modalityText) lines.push(`📍 Modalidad: ${modalityText}`);
-        if (locationName) lines.push(`🏢 Ubicación: ${locationName}`);
-        if (fullManageUrl) {
-          lines.push(``);
-          lines.push(`Puedes gestionar tu cita aquí: ${fullManageUrl}`);
-        }
-        lines.push(``);
-        lines.push(`Gracias.`);
-        message = lines.join('\n');
-        break;
-      }
-
-      case 'cancelled': {
-        subject = `Cita cancelada — ${sessionDate || ''} ${timeFormatted}`;
-        const lines = [
-          `Hola ${patientName},`,
-          ``,
-          `Tu cita en ${centerName} del ${dateFormatted} a las ${timeFormatted} ha sido cancelada.`,
-        ];
-        if (args.reason) {
-          lines.push(`Motivo: ${args.reason}`);
-        }
-        if (sessionType) lines.push(`📋 Tipo: ${sessionType}`);
-        lines.push(``);
-        lines.push(`Gracias.`);
-        message = lines.join('\n');
-        break;
-      }
-    }
+    const subject = rendered.subject || '';
+    const message = rendered.message;
 
     // 6. Insert into notifications table
     const { data: notification, error: insertError } = await supabase
