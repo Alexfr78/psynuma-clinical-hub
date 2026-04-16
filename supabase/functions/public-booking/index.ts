@@ -656,7 +656,7 @@ serve(async (req) => {
         isOptimal: s.isOptimal,
       }));
 
-      console.log(`[get-availability] date=${date} slots=${slots.length} (optimal=${slots.filter(s => s.isOptimal).length}) dayInput=${JSON.stringify(dayInput)}`);
+      console.log(`[get-availability] date=${date} slots=${slots.length} (optimal=${slots.filter(s => s.isOptimal).length}) DEBUG dayInput=${JSON.stringify(dayInput).slice(0,500)}`);
 
       return new Response(
         JSON.stringify({ slots, serviceDuration }),
