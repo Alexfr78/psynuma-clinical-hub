@@ -42,6 +42,16 @@ import {
   type SpecialDayType,
 } from '@/lib/special-days';
 
+
+interface SessionConflict {
+  id: string;
+  session_date: string;
+  start_time: string;
+  end_time: string;
+}
+
+const ACTIVE_SESSION_STATUSES = ['scheduled', 'confirmed', 'pending_approval'] as const;
+
 const timeRegex = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 const slotSchema = z.object({
