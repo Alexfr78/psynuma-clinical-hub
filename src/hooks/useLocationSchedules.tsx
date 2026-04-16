@@ -14,6 +14,7 @@ export interface LocationSchedule {
 }
 
 export interface ScheduleUpsert {
+  id?: string;
   location_id: string;
   day_of_week: number;
   start_time: string;

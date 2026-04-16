@@ -6064,6 +6064,8 @@ export const Constants = {
         "pending_approval",
         "reschedule_requested",
       ],
+      special_day_scope: ["center", "professional"],
+      special_day_type: ["closed", "custom", "extended"],
     },
   },
 } as const

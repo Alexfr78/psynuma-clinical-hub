@@ -27,6 +27,7 @@ import {
   Popover, PopoverContent, PopoverTrigger,
 } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useCenter } from '@/hooks/useCenter';
 import { useProfessionals } from '@/hooks/usePatients';
@@ -40,6 +41,16 @@ import {
   type SpecialDay,
   type SpecialDayType,
 } from '@/lib/special-days';
+
+
+interface SessionConflict {
+  id: string;
+  session_date: string;
+  start_time: string;
+  end_time: string;
+}
+
+const ACTIVE_SESSION_STATUSES = ['scheduled', 'confirmed', 'pending_approval'] as const;
 
 const timeRegex = /^([01]\d|2[0-3]):[0-5]\d$/;
 
@@ -86,6 +97,8 @@ export function CreateSpecialDayDialog({ open, onOpenChange, editSpecialDay }: P
   const createSpecialDay = useCreateSpecialDay();
   const updateSpecialDay = useUpdateSpecialDay();
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [conflictWarning, setConflictWarning] = useState<{ total: number; samples: SessionConflict[] } | null>(null);
+  const [isCheckingConflicts, setIsCheckingConflicts] = useState(false);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -151,7 +164,7 @@ export function CreateSpecialDayDialog({ open, onOpenChange, editSpecialDay }: P
       .eq('center_id', center!.id)
       .gte('session_date', startStr)
       .lte('session_date', endStr)
-      .in('status', ACTIVE_SESSION_STATUSES as unknown as string[]);
+      .in('status', [...ACTIVE_SESSION_STATUSES]);
 
     if (values.scope === 'professional' && values.professional_id) {
       query = query.eq('professional_id', values.professional_id);
