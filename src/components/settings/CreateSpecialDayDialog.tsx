@@ -164,7 +164,7 @@ export function CreateSpecialDayDialog({ open, onOpenChange, editSpecialDay }: P
       .eq('center_id', center!.id)
       .gte('session_date', startStr)
       .lte('session_date', endStr)
-      .in('status', ACTIVE_SESSION_STATUSES as unknown as string[]);
+      .in('status', [...ACTIVE_SESSION_STATUSES]);
 
     if (values.scope === 'professional' && values.professional_id) {
       query = query.eq('professional_id', values.professional_id);
