@@ -460,6 +460,7 @@ export function LocationsSection() {
         );
         for (const other of otherDefaults) {
           await upsertSchedule.mutateAsync({
+            id: other.id,
             location_id: other.location_id,
             day_of_week: day,
             start_time: other.start_time,
@@ -471,6 +472,7 @@ export function LocationsSection() {
       }
 
       await upsertSchedule.mutateAsync({
+        id: currentSchedule?.id,
         location_id: locationId,
         day_of_week: day,
         start_time: field === 'start_time' ? (value as string) : (currentSchedule?.start_time || '09:00'),
