@@ -87,6 +87,8 @@ export function CreateSpecialDayDialog({ open, onOpenChange, editSpecialDay }: P
   const createSpecialDay = useCreateSpecialDay();
   const updateSpecialDay = useUpdateSpecialDay();
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [conflictWarning, setConflictWarning] = useState<{ total: number; samples: SessionConflict[] } | null>(null);
+  const [isCheckingConflicts, setIsCheckingConflicts] = useState(false);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
