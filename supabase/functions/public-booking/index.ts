@@ -5,14 +5,12 @@ import { queueAndSendPatientBookingNotification } from "../_shared/bookingPatien
 import { notifyProfessionalBooking } from "../_shared/professionalNotification.ts";
 import { isValidEmail, isValidDate, isValidTime, isValidName } from "../_shared/validation.ts";
 import { checkIpRateLimit, getClientIp } from "../_shared/rateLimiter.ts";
+import { resolveDayAvailability } from "../_shared/availability-core.ts";
 import {
-  buildFreeWindows,
-  generateScoredSlots,
-  countOptimalSlots,
-  timeToMinutes as ttm,
-  minutesToTime as mtt,
-  getLocalTimeMinutes as gltm,
-} from "../_shared/availability.ts";
+  buildDayScheduleInput,
+  minutesToTime as coreMinutesToTime,
+  APP_TZ,
+} from "../_shared/special-days-adapter.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -567,7 +565,8 @@ serve(async (req) => {
         ? Math.min(...allPublicTypes.map((t: any) => t.duration_minutes))
         : serviceDuration;
 
-      // Get professional's availability
+      // Weekly availability (puede estar vacío: un special_day custom/extended
+      // puede generar slots aunque no haya horario semanal para ese day_of_week).
       const { data: profAvailability } = await supabase
         .from("availability")
         .select("start_time, end_time")
@@ -575,62 +574,53 @@ serve(async (req) => {
         .eq("day_of_week", dayOfWeek)
         .eq("is_available", true);
 
-      if (!profAvailability?.length) {
-        return new Response(
-          JSON.stringify({ slots: [], serviceDuration }),
-          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      // Get location schedule
+      // Location schedule (límite duro: si no hay registro abierto, sin slots).
       const { data: locationSchedules } = await supabase
         .from("location_schedules")
-        .select("start_time, end_time")
+        .select("start_time, end_time, is_open")
         .eq("location_id", locationId)
-        .eq("day_of_week", dayOfWeek)
-        .eq("is_open", true);
+        .eq("day_of_week", dayOfWeek);
 
-      if (!locationSchedules?.length) {
-        return new Response(
-          JSON.stringify({ slots: [], serviceDuration }),
-          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      // Get existing sessions
       const { data: existingSessions } = await supabase
         .from("sessions")
-        .select("start_time, end_time")
+        .select("id, start_time, end_time")
         .eq("professional_id", finalProfessionalId)
         .eq("session_date", date)
         .not("status", "in", '("cancelled","no_show")');
 
-      // Get calendar events (Google Calendar)
       const startOfDay = `${date}T00:00:00`;
       const endOfDay = `${date}T23:59:59`;
 
       const { data: calendarEvents } = await supabase
         .from("calendar_events")
-        .select("start_at, end_at, status, all_day")
+        .select("id, start_at, end_at, status, all_day, is_converted, deleted")
         .eq("professional_id", finalProfessionalId)
         .eq("deleted", false)
+        .eq("is_converted", false)
         .gte("start_at", startOfDay)
         .lte("start_at", endOfDay);
 
-      // Check schedule exceptions (blocked dates)
       const { data: scheduleExceptions } = await supabase
         .from("schedule_exceptions")
-        .select("scope, start_date, end_date, all_day, start_time, end_time, reason_type, reason_label, affects_booking, professional_id")
+        .select("id, scope, start_date, end_date, all_day, start_time, end_time, reason_type, reason_label, affects_booking, professional_id")
         .eq("center_id", center.id)
         .eq("affects_booking", true)
         .lte("start_date", date)
         .gte("end_date", date);
 
+      // Special days (overrides del horario base con prioridad prof > centro).
+      const { data: specialDays } = await supabase
+        .from("special_days")
+        .select("id, scope, professional_id, type, start_date, end_date, affects_public_booking, created_at, special_day_slots(start_time, end_time)")
+        .eq("center_id", center.id)
+        .eq("affects_public_booking", true)
+        .lte("start_date", date)
+        .gte("end_date", date);
+
+      // Mantener el blockReason de schedule_exceptions all_day para la UI actual.
       if (scheduleExceptions?.length) {
-        // Check if any exception blocks this date for this professional
         for (const exc of scheduleExceptions) {
           if (exc.scope === 'professional' && exc.professional_id !== finalProfessionalId) continue;
-          // If all_day or the entire day is covered, return empty slots
           if (exc.all_day) {
             console.log(`[get-availability] date=${date} blocked by ${exc.scope} exception: ${exc.reason_type}`);
             return new Response(
@@ -641,21 +631,28 @@ serve(async (req) => {
         }
       }
 
-      // Build free windows and generate scored slots
-      const freeWindows = buildFreeWindows(
-        profAvailability,
-        locationSchedules,
-        existingSessions,
-        calendarEvents,
-        centerTimezone
-      );
+      const dayInput = buildDayScheduleInput({
+        date,
+        professionalId: finalProfessionalId,
+        isPublicContext: true,
+        weeklyAvailability: profAvailability ?? [],
+        locationSchedules: locationSchedules ?? [],
+        specialDays: (specialDays as any) ?? [],
+        scheduleExceptions: (scheduleExceptions as any) ?? [],
+        sessions: (existingSessions as any) ?? [],
+        calendarEvents: (calendarEvents as any) ?? [],
+        timezone: centerTimezone,
+      });
 
-      const scoredSlots = generateScoredSlots(freeWindows, serviceDuration, step, minPublicDuration);
+      const resolved = resolveDayAvailability(dayInput, {
+        durationMin: serviceDuration,
+        stepMin: step,
+        minPublicDurationMin: minPublicDuration,
+      });
 
-      // Map to response format (include isOptimal flag)
-      const slots = scoredSlots.map(s => ({
-        startTime: s.startTime,
-        endTime: s.endTime,
+      const slots = resolved.map((s) => ({
+        startTime: coreMinutesToTime(s.startMin),
+        endTime: coreMinutesToTime(s.endMin),
         isOptimal: s.isOptimal,
       }));
 
@@ -795,15 +792,15 @@ serve(async (req) => {
         .or(`end_at.is.null,end_at.gte.${startStr}T00:00:00`)
         .lt("start_at", `${endStr}T00:00:00`);
 
-      // Pre-index sessions by date
-      const sessionsByDate: Record<string, typeof monthSessions> = {};
+      // Pre-index sessions by date.
+      const sessionsByDate: Record<string, any[]> = {};
       for (const s of monthSessions || []) {
         if (!sessionsByDate[s.session_date]) sessionsByDate[s.session_date] = [];
         sessionsByDate[s.session_date]!.push(s);
       }
 
-      // Pre-index events by date (expand multi-day events)
-      const eventsByDate: Record<string, (typeof monthEvents)> = {};
+      // Pre-index events by date (expand multi-day events).
+      const eventsByDate: Record<string, any[]> = {};
       for (const e of monthEvents || []) {
         if (e.status === 'cancelled') continue;
         const affectedDates = expandEventToDates(e, startStr, endStr, centerTimezone);
@@ -813,9 +810,9 @@ serve(async (req) => {
         }
       }
 
-      // Cache availability and location_schedules by day of week
+      // Cache de availability/location_schedules por day_of_week.
       const availabilityByDow: Record<number, { start_time: string; end_time: string }[]> = {};
-      const locationSchedulesByDow: Record<number, { start_time: string; end_time: string }[]> = {};
+      const locationSchedulesByDow: Record<number, { start_time: string; end_time: string; is_open: boolean | null }[]> = {};
 
       const { data: allAvailability } = await supabase
         .from("availability")
@@ -830,79 +827,70 @@ serve(async (req) => {
 
       const { data: allLocationSchedules } = await supabase
         .from("location_schedules")
-        .select("day_of_week, start_time, end_time")
-        .eq("location_id", locationId)
-        .eq("is_open", true);
+        .select("day_of_week, start_time, end_time, is_open")
+        .eq("location_id", locationId);
 
       for (const l of allLocationSchedules || []) {
         if (!locationSchedulesByDow[l.day_of_week]) locationSchedulesByDow[l.day_of_week] = [];
-        locationSchedulesByDow[l.day_of_week].push({ start_time: l.start_time, end_time: l.end_time });
+        locationSchedulesByDow[l.day_of_week].push({
+          start_time: l.start_time,
+          end_time: l.end_time,
+          is_open: l.is_open,
+        });
       }
 
-      // Fetch schedule exceptions for the month
+      // Schedule exceptions del mes (afectan a booking).
       const { data: monthExceptions } = await supabase
         .from("schedule_exceptions")
-        .select("scope, start_date, end_date, all_day, professional_id, affects_booking")
+        .select("id, scope, start_date, end_date, all_day, start_time, end_time, professional_id, affects_booking")
         .eq("center_id", center.id)
         .eq("affects_booking", true)
         .lte("start_date", endStr)
         .gte("end_date", startStr);
 
-      // Build a set of blocked dates for quick lookup
-      const blockedDates = new Set<string>();
-      for (const exc of monthExceptions || []) {
-        if (exc.scope === 'professional' && exc.professional_id !== finalProfessionalId) continue;
-        if (!exc.all_day) continue;
-        const excStart = new Date(exc.start_date + 'T12:00:00Z');
-        const excEnd = new Date(exc.end_date + 'T12:00:00Z');
-        let cur = new Date(excStart);
-        while (cur <= excEnd) {
-          blockedDates.add(formatDateLocal(cur.getUTCFullYear(), cur.getUTCMonth() + 1, cur.getUTCDate()));
-          cur.setUTCDate(cur.getUTCDate() + 1);
-        }
-      }
+      // Special days del mes con sus slots anidados.
+      const { data: monthSpecialDays } = await supabase
+        .from("special_days")
+        .select("id, scope, professional_id, type, start_date, end_date, affects_public_booking, created_at, special_day_slots(start_time, end_time)")
+        .eq("center_id", center.id)
+        .eq("affects_public_booking", true)
+        .lte("start_date", endStr)
+        .gte("end_date", startStr);
 
-      // Calculate availability for each day using shared scoring logic
+      // Mismo resolver que get-availability, día a día.
       const days: { date: string; availableCount: number }[] = [];
 
       for (let d = 1; d <= daysInMonth; d++) {
         const dateStr = formatDateLocal(year, monthNum, d);
-        
+
         if (dateStr < todayStr || dateStr > maxDateStr) {
           days.push({ date: dateStr, availableCount: 0 });
           continue;
         }
 
-        // Check if date is blocked by schedule exception
-        if (blockedDates.has(dateStr)) {
-          days.push({ date: dateStr, availableCount: 0 });
-          continue;
-        }
-        
         const dateObj = new Date(year, monthNum - 1, d);
         const dayOfWeek = dateObj.getDay();
 
-        const profAvailability = availabilityByDow[dayOfWeek] || [];
-        const locationSchedules = locationSchedulesByDow[dayOfWeek] || [];
+        const dayInput = buildDayScheduleInput({
+          date: dateStr,
+          professionalId: finalProfessionalId,
+          isPublicContext: true,
+          weeklyAvailability: availabilityByDow[dayOfWeek] || [],
+          locationSchedules: locationSchedulesByDow[dayOfWeek] || [],
+          specialDays: (monthSpecialDays as any) ?? [],
+          scheduleExceptions: (monthExceptions as any) ?? [],
+          sessions: sessionsByDate[dateStr] || [],
+          calendarEvents: eventsByDate[dateStr] || [],
+          timezone: centerTimezone,
+        });
 
-        if (profAvailability.length === 0 || locationSchedules.length === 0) {
-          days.push({ date: dateStr, availableCount: 0 });
-          continue;
-        }
+        const resolved = resolveDayAvailability(dayInput, {
+          durationMin: serviceDuration,
+          stepMin: step,
+          minPublicDurationMin: minPublicDuration,
+        });
 
-        const daySessions = sessionsByDate[dateStr] || [];
-        const dayEvents = eventsByDate[dateStr] || [];
-
-        // Build free windows using shared helper
-        const freeWindows = buildFreeWindows(
-          profAvailability,
-          locationSchedules,
-          daySessions,
-          dayEvents,
-          centerTimezone
-        );
-
-        const availableCount = countOptimalSlots(freeWindows, serviceDuration, step, minPublicDuration);
+        const availableCount = resolved.filter((s) => s.isOptimal).length;
         days.push({ date: dateStr, availableCount });
       }
 

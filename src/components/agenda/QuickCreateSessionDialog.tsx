@@ -8,6 +8,8 @@ import { es } from 'date-fns/locale';
 import { CalendarIcon, User, Globe, ChevronDown, Plus, Video, MapPin, Ban, Settings2, Package, CreditCard, AlertCircle } from 'lucide-react';
 import { isDateBlocked, ScheduleException } from '@/lib/schedule-exceptions';
 import { useScheduleExceptions } from '@/hooks/useScheduleExceptions';
+import { useSpecialDays } from '@/hooks/useSpecialDays';
+import { isDateBlockedBySpecialDay } from '@/lib/special-days-helpers';
 import { Calendar } from '@/components/ui/calendar';
 import { Link } from 'react-router-dom';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -165,6 +167,7 @@ export function QuickCreateSessionDialog({
   
   const { center } = useCenter();
   const { data: scheduleExceptions } = useScheduleExceptions(center?.id);
+  const { data: specialDays } = useSpecialDays(center?.id);
   const { isAutomatic } = useWhatsAppDelivery();
   const queryClient = useQueryClient();
   const { data: patients } = usePatients();
@@ -699,14 +702,28 @@ export function QuickCreateSessionDialog({
     }
     
     // Check schedule exceptions (blocked dates)
+    const dateStr = format(values.session_date, 'yyyy-MM-dd');
     if (scheduleExceptions && scheduleExceptions.length > 0) {
-      const dateStr = format(values.session_date, 'yyyy-MM-dd');
       const blocked = isDateBlocked(dateStr, values.start_time, values.end_time, values.professional_id, scheduleExceptions);
       if (blocked) {
         const scopeLabel = blocked.scope === 'center' ? 'El centro está cerrado' : 'El profesional no está disponible';
         toast({
           title: 'Fecha bloqueada',
           description: `${scopeLabel} ese día: ${blocked.reason}`,
+          variant: 'destructive',
+        });
+        return;
+      }
+    }
+
+    // Check special days (closed or custom schedule outside slots)
+    if (specialDays && specialDays.length > 0) {
+      const blocked = isDateBlockedBySpecialDay(dateStr, values.start_time, values.end_time, values.professional_id, specialDays);
+      if (blocked) {
+        const scopeLabel = blocked.scope === 'center' ? 'Día especial del centro' : 'Día especial del profesional';
+        toast({
+          title: 'Horario no disponible',
+          description: `${scopeLabel}: ${blocked.reason}. Ajusta la hora o elimina el día especial.`,
           variant: 'destructive',
         });
         return;

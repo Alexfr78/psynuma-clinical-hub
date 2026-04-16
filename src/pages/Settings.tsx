@@ -27,6 +27,7 @@ import {
   FileDown,
   CalendarDays,
   CalendarCheck2,
+  CalendarRange,
   Ban,
   Brain,
   GitBranch
@@ -71,6 +72,7 @@ import { AgendaSettingsSection } from '@/components/settings/AgendaSettingsSecti
 import { AdminAlertsSettingsSection } from '@/components/settings/AdminAlertsSettingsSection';
 import { SecuritySection } from '@/components/settings/SecuritySection';
 import { ScheduleExceptionsSection } from '@/components/settings/ScheduleExceptionsSection';
+import { SpecialDaysSection } from '@/components/settings/SpecialDaysSection';
 import { AISettingsSection } from '@/components/settings/integrations/AISettingsSection';
 import { VersionManagementSection } from '@/components/settings/VersionManagementSection';
 
@@ -91,6 +93,7 @@ type SettingsSection =
   | 'centro-ubicaciones'
   | 'centro-agenda'
   | 'centro-excepciones'
+  | 'centro-dias-especiales'
   | 'centro-portal'
   
   | 'sesiones-tipos'
@@ -147,6 +150,7 @@ const navItems: NavItem[] = [
   { id: 'centro-ubicaciones', label: 'Ubicaciones', icon: MapPin, parent: 'Mi Centro' },
   { id: 'centro-agenda', label: 'Configuración de agenda', icon: CalendarDays, parent: 'Mi Centro' },
   { id: 'centro-excepciones', label: 'Días no laborables', icon: Ban, parent: 'Mi Centro' },
+  { id: 'centro-dias-especiales', label: 'Días especiales', icon: CalendarRange, parent: 'Mi Centro' },
   { id: 'sesiones-tipos', label: 'Tipos de cita', icon: Calendar, parent: 'Mi Centro' },
   
   // Portal de Contactos
@@ -363,6 +367,8 @@ export default function Settings() {
         return <AgendaSettingsSection />;
       case 'centro-excepciones':
         return <ScheduleExceptionsSection />;
+      case 'centro-dias-especiales':
+        return <SpecialDaysSection />;
       case 'centro-portal':
         return <PortalSettingsSection />;
       case 'sesiones-tipos':

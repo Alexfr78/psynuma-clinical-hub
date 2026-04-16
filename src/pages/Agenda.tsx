@@ -28,6 +28,7 @@ import { useOfflineCache } from '@/hooks/useOfflineCache';
 import { useGoogleCalendarSync } from '@/hooks/useGoogleCalendarSync';
 import { supabase } from '@/integrations/supabase/client';
 import { useScheduleExceptions } from '@/hooks/useScheduleExceptions';
+import { useSpecialDays } from '@/hooks/useSpecialDays';
 import { checkSessionConflicts, ConflictResult } from '@/lib/conflicts';
 
 export default function Agenda() {
@@ -189,6 +190,9 @@ export default function Agenda() {
 
   // Fetch schedule exceptions for the visible date range
   const { data: scheduleExceptions } = useScheduleExceptions(center?.id, dateRange.start, dateRange.end);
+
+  // Fetch special days (not date-scoped; filtered client-side in views)
+  const { data: specialDays } = useSpecialDays(center?.id);
 
   // Sync selectedSession with updated data from sessions query
   useEffect(() => {
@@ -524,6 +528,7 @@ export default function Agenda() {
               onSwipeRight={navigatePrev}
               showWeekends={showWeekends}
               scheduleExceptions={scheduleExceptions}
+              specialDays={specialDays}
               selectedProfessional={selectedProfessional}
             />
           )}
@@ -540,6 +545,7 @@ export default function Agenda() {
               onSwipeLeft={navigateNext}
               onSwipeRight={navigatePrev}
               scheduleExceptions={scheduleExceptions}
+              specialDays={specialDays}
               selectedProfessional={selectedProfessional}
             />
           )}
@@ -552,6 +558,7 @@ export default function Agenda() {
               onSwipeLeft={navigateNext}
               onSwipeRight={navigatePrev}
               scheduleExceptions={scheduleExceptions}
+              specialDays={specialDays}
               selectedProfessional={selectedProfessional}
             />
           )}

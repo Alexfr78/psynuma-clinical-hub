@@ -2,6 +2,12 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendAdminAlert, buildAlertMessage, formatDateSpanish, formatTime } from "../_shared/adminAlerts.ts";
 import { queueAndSendPatientBookingNotification } from "../_shared/bookingPatientNotifications.ts";
 import { notifyProfessionalBooking } from "../_shared/professionalNotification.ts";
+import { resolveDayAvailability } from "../_shared/availability-core.ts";
+import {
+  buildDayScheduleInput,
+  minutesToTime as coreMinutesToTime,
+  APP_TZ,
+} from "../_shared/special-days-adapter.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -167,7 +173,8 @@ Deno.serve(async (req) => {
           effectiveLocationId,
           dateStr,
           sessionDuration,
-          session.id // Exclude current session when checking availability
+          session.id, // Exclude current session when checking availability
+          session.center_id,
         );
 
         if (hasAvailability) {
@@ -619,6 +626,83 @@ Deno.serve(async (req) => {
   }
 });
 
+// Carga datos crudos para resolver disponibilidad de un día concreto.
+// Reutilizado por getAvailability (devuelve slots) y checkDayHasAvailability
+// (devuelve boolean), garantizando consistencia entre ambos caminos.
+async function loadDayData(
+  supabase: any,
+  professionalId: string,
+  locationId: string | null,
+  centerId: string,
+  date: string,
+  excludeSessionId?: string,
+) {
+  const dayOfWeek = new Date(date).getDay();
+
+  const { data: availability } = await supabase
+    .from("availability")
+    .select("start_time, end_time")
+    .eq("professional_id", professionalId)
+    .eq("day_of_week", dayOfWeek)
+    .eq("is_available", true);
+
+  let locationSchedules: { start_time: string; end_time: string; is_open: boolean | null }[] | null = null;
+  if (locationId) {
+    const { data: schedules } = await supabase
+      .from("location_schedules")
+      .select("start_time, end_time, is_open")
+      .eq("location_id", locationId)
+      .eq("day_of_week", dayOfWeek);
+    locationSchedules = schedules ?? [];
+  }
+
+  let sessionsQuery = supabase
+    .from("sessions")
+    .select("id, start_time, end_time")
+    .eq("professional_id", professionalId)
+    .eq("session_date", date)
+    .not("status", "in", '("cancelled","no_show")');
+  if (excludeSessionId) sessionsQuery = sessionsQuery.neq("id", excludeSessionId);
+  const { data: sessions } = await sessionsQuery;
+
+  const dateStartIso = `${date}T00:00:00`;
+  const dateEndIso = `${date}T23:59:59`;
+
+  const { data: calendarEvents } = await supabase
+    .from("calendar_events")
+    .select("id, start_at, end_at, status, all_day, is_converted, deleted")
+    .eq("professional_id", professionalId)
+    .eq("is_converted", false)
+    .eq("deleted", false)
+    .lte("start_at", dateEndIso)
+    .gte("end_at", dateStartIso);
+
+  const { data: scheduleExceptions } = await supabase
+    .from("schedule_exceptions")
+    .select("id, scope, start_date, end_date, all_day, start_time, end_time, professional_id, affects_booking")
+    .eq("center_id", centerId)
+    .eq("affects_booking", true)
+    .lte("start_date", date)
+    .gte("end_date", date);
+
+  const { data: specialDays } = await supabase
+    .from("special_days")
+    .select("id, scope, professional_id, type, start_date, end_date, affects_public_booking, created_at, special_day_slots(start_time, end_time)")
+    .eq("center_id", centerId)
+    .eq("affects_public_booking", true)
+    .lte("start_date", date)
+    .gte("end_date", date);
+
+  return {
+    weeklyAvailability: availability ?? [],
+    locationSchedules,
+    sessions: sessions ?? [],
+    calendarEvents: calendarEvents ?? [],
+    scheduleExceptions: scheduleExceptions ?? [],
+    specialDays: specialDays ?? [],
+  };
+}
+
 async function getAvailability(
   supabase: any,
   professionalId: string,
@@ -628,270 +712,79 @@ async function getAvailability(
   excludeSessionId: string,
   slotDuration: number
 ): Promise<AvailabilitySlot[]> {
-  const dayOfWeek = new Date(date).getDay();
+  const data = await loadDayData(supabase, professionalId, locationId, centerId, date, excludeSessionId);
 
-  // Get professional availability for this day
-  const { data: availability } = await supabase
-    .from("availability")
-    .select("start_time, end_time")
-    .eq("professional_id", professionalId)
-    .eq("day_of_week", dayOfWeek)
-    .eq("is_available", true);
+  const dayInput = buildDayScheduleInput({
+    date,
+    professionalId,
+    isPublicContext: true,
+    weeklyAvailability: data.weeklyAvailability,
+    locationSchedules: data.locationSchedules,
+    specialDays: data.specialDays as any,
+    scheduleExceptions: data.scheduleExceptions as any,
+    sessions: data.sessions as any,
+    calendarEvents: data.calendarEvents as any,
+    timezone: APP_TZ,
+  });
 
-  if (!availability || availability.length === 0) {
-    return [];
-  }
+  const resolved = resolveDayAvailability(dayInput, {
+    durationMin: slotDuration,
+    stepMin: slotDuration,
+    minPublicDurationMin: slotDuration,
+  });
 
-  // Get location schedule if location exists
-  let locationSchedule: { start_time: string; end_time: string } | null = null;
-  if (locationId) {
-    const { data: schedule } = await supabase
-      .from("location_schedules")
-      .select("start_time, end_time")
-      .eq("location_id", locationId)
-      .eq("day_of_week", dayOfWeek)
-      .eq("is_open", true)
-      .maybeSingle();
-    locationSchedule = schedule;
-
-    // If location exists but is closed on this day, return no slots
-    if (!schedule) {
-      return [];
-    }
-  }
-
-  // Get existing sessions for this professional on this date (excluding current session)
-  const { data: existingSessions } = await supabase
-    .from("sessions")
-    .select("start_time, end_time")
-    .eq("professional_id", professionalId)
-    .eq("session_date", date)
-    .neq("id", excludeSessionId)
-    .not("status", "in", '("cancelled","no_show")');
-
-  const bookedSlots: BookedSlot[] = (existingSessions || []).map((s: { start_time: string; end_time: string }) => ({
-    start: s.start_time,
-    end: s.end_time,
-  }));
-
-  // Get calendar events (Google Calendar blocks) for this day
-  const dateStartIso = `${date}T00:00:00`;
-  const dateEndIso = `${date}T23:59:59`;
-
-  const { data: calendarEvents } = await supabase
-    .from("calendar_events")
-    .select("start_at, end_at, all_day")
-    .eq("professional_id", professionalId)
-    .eq("is_converted", false)
-    .eq("deleted", false)
-    .lte("start_at", dateEndIso)
-    .gte("end_at", dateStartIso);
-
-  for (const evt of (calendarEvents || [])) {
-    if (evt.all_day) {
-      bookedSlots.push({ start: "00:00:00", end: "23:59:59" });
-    } else if (evt.start_at && evt.end_at) {
-      const evtStart = new Date(evt.start_at);
-      const evtEnd = new Date(evt.end_at);
-      const startLocal = evtStart.toLocaleTimeString('en-GB', { timeZone: 'Europe/Madrid', hour12: false });
-      const endLocal = evtEnd.toLocaleTimeString('en-GB', { timeZone: 'Europe/Madrid', hour12: false });
-      bookedSlots.push({ start: startLocal, end: endLocal });
-    }
-  }
-
-  // Generate available slots
-  const slots: AvailabilitySlot[] = [];
+  // Filtro de "futuro" para hoy.
   const now = new Date();
   const isToday = date === now.toISOString().split("T")[0];
-
-  for (const avail of availability as { start_time: string; end_time: string }[]) {
-    let startTime = avail.start_time;
-    let endTime = avail.end_time;
-
-    // Intersect with location schedule if available
-    if (locationSchedule) {
-      if (locationSchedule.start_time > startTime) {
-        startTime = locationSchedule.start_time;
-      }
-      if (locationSchedule.end_time < endTime) {
-        endTime = locationSchedule.end_time;
-      }
-    }
-
-    // Generate slots within this availability window
-    let currentStart = startTime;
-    while (currentStart < endTime) {
-      const [hours, minutes] = currentStart.split(":").map(Number);
-      const slotStartMinutes = hours * 60 + minutes;
-      const slotEndMinutes = slotStartMinutes + slotDuration;
-      const slotEnd = `${Math.floor(slotEndMinutes / 60).toString().padStart(2, "0")}:${(slotEndMinutes % 60).toString().padStart(2, "0")}:00`;
-
-      // Check if slot end is within availability
-      if (slotEnd > endTime) break;
-
-      // Check if slot is not booked
-      const isBooked = bookedSlots.some((booked) => {
-        const bookedStart = booked.start;
-        const bookedEnd = booked.end;
-        return currentStart < bookedEnd && slotEnd > bookedStart;
-      });
-
-      // Check if slot is in the future (for today)
-      let isInFuture = true;
-      if (isToday) {
-        const slotDateTime = new Date(`${date}T${currentStart}`);
-        isInFuture = slotDateTime > now;
-      }
-
-      if (!isBooked && isInFuture) {
-        slots.push({
-          startTime: currentStart,
-          endTime: slotEnd,
+  const nowMinutesLocal = isToday
+    ? (() => {
+        const fmt = new Intl.DateTimeFormat("en-GB", {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false,
+          timeZone: APP_TZ,
         });
-      }
+        const parts = fmt.formatToParts(now);
+        const h = parseInt(parts.find((p) => p.type === "hour")?.value || "0", 10);
+        const m = parseInt(parts.find((p) => p.type === "minute")?.value || "0", 10);
+        return h * 60 + m;
+      })()
+    : -1;
 
-      // Move to next slot
-      const nextMinutes = slotStartMinutes + slotDuration;
-      currentStart = `${Math.floor(nextMinutes / 60).toString().padStart(2, "0")}:${(nextMinutes % 60).toString().padStart(2, "0")}:00`;
-    }
+  const slots: AvailabilitySlot[] = [];
+  for (const s of resolved) {
+    if (isToday && s.startMin <= nowMinutesLocal) continue;
+    slots.push({
+      startTime: `${coreMinutesToTime(s.startMin)}:00`,
+      endTime: `${coreMinutesToTime(s.endMin)}:00`,
+    });
   }
-
-  return slots.sort((a, b) => a.startTime.localeCompare(b.startTime));
+  return slots;
 }
 
-// Helper function to check if a day has any actual availability (including existing sessions check)
 async function checkDayHasAvailability(
   supabase: any,
   professionalId: string,
   locationId: string | null,
   date: string,
   sessionDuration: number,
-  excludeSessionId?: string
+  excludeSessionId?: string,
+  centerId?: string,
 ): Promise<boolean> {
-  const dayOfWeek = new Date(date).getDay();
-  const now = new Date();
-  const isToday = date === now.toISOString().split("T")[0];
-
-  // Check professional availability for this day
-  const { data: availability } = await supabase
-    .from("availability")
-    .select("start_time, end_time")
-    .eq("professional_id", professionalId)
-    .eq("day_of_week", dayOfWeek)
-    .eq("is_available", true);
-
-  if (!availability || availability.length === 0) {
-    return false;
+  // Sin centerId no podemos consultar special_days/exceptions; se asume llamadas
+  // siempre con centerId desde Fase 3b en adelante. Si falta, fallback conservador.
+  if (!centerId) {
+    console.warn("[checkDayHasAvailability] missing centerId — skipping special_days/exceptions");
   }
 
-  // Check location schedule if location exists
-  let locationSchedule: { start_time: string; end_time: string } | null = null;
-  if (locationId) {
-    const { data: schedule } = await supabase
-      .from("location_schedules")
-      .select("start_time, end_time")
-      .eq("location_id", locationId)
-      .eq("day_of_week", dayOfWeek)
-      .eq("is_open", true)
-      .maybeSingle();
-
-    if (!schedule) {
-      return false;
-    }
-    locationSchedule = schedule;
-  }
-
-  // Get existing sessions for this day to check for conflicts
-  let sessionsQuery = supabase
-    .from("sessions")
-    .select("start_time, end_time")
-    .eq("professional_id", professionalId)
-    .eq("session_date", date)
-    .not("status", "in", '("cancelled","no_show")');
-
-  if (excludeSessionId) {
-    sessionsQuery = sessionsQuery.neq("id", excludeSessionId);
-  }
-
-  const { data: existingSessions } = await sessionsQuery;
-
-  const bookedSlots = (existingSessions || []).map((s: { start_time: string; end_time: string }) => ({
-    start: s.start_time,
-    end: s.end_time,
-  }));
-
-  // Get calendar events (Google Calendar blocks) for this day
-  const dateStartIso = `${date}T00:00:00`;
-  const dateEndIso = `${date}T23:59:59`;
-
-  const { data: calendarEvents } = await supabase
-    .from("calendar_events")
-    .select("start_at, end_at, all_day")
-    .eq("professional_id", professionalId)
-    .eq("is_converted", false)
-    .eq("deleted", false)
-    .lte("start_at", dateEndIso)
-    .gte("end_at", dateStartIso);
-
-  for (const evt of (calendarEvents || [])) {
-    if (evt.all_day) {
-      bookedSlots.push({ start: "00:00:00", end: "23:59:59" });
-    } else if (evt.start_at && evt.end_at) {
-      const evtStart = new Date(evt.start_at);
-      const evtEnd = new Date(evt.end_at);
-      const startLocal = evtStart.toLocaleTimeString('en-GB', { timeZone: 'Europe/Madrid', hour12: false });
-      const endLocal = evtEnd.toLocaleTimeString('en-GB', { timeZone: 'Europe/Madrid', hour12: false });
-      bookedSlots.push({ start: startLocal, end: endLocal });
-    }
-  }
-
-  // Check if there's at least one slot available
-  for (const avail of availability as { start_time: string; end_time: string }[]) {
-    let startTime = avail.start_time;
-    let endTime = avail.end_time;
-
-    // Intersect with location schedule if available
-    if (locationSchedule) {
-      if (locationSchedule.start_time > startTime) {
-        startTime = locationSchedule.start_time;
-      }
-      if (locationSchedule.end_time < endTime) {
-        endTime = locationSchedule.end_time;
-      }
-    }
-
-    // Try to find at least one available slot
-    let currentStart = startTime;
-    while (currentStart < endTime) {
-      const [hours, minutes] = currentStart.split(":").map(Number);
-      const slotStartMinutes = hours * 60 + minutes;
-      const slotEndMinutes = slotStartMinutes + sessionDuration;
-      const slotEnd = `${Math.floor(slotEndMinutes / 60).toString().padStart(2, "0")}:${(slotEndMinutes % 60).toString().padStart(2, "0")}:00`;
-
-      // Check if slot end is within availability
-      if (slotEnd > endTime) break;
-
-      // Check if slot is not booked
-      const isBooked = bookedSlots.some((booked: { start: string; end: string }) => {
-        return currentStart < booked.end && slotEnd > booked.start;
-      });
-
-      // Check if slot is in the future (for today)
-      let isInFuture = true;
-      if (isToday) {
-        const slotDateTime = new Date(`${date}T${currentStart}`);
-        isInFuture = slotDateTime > now;
-      }
-
-      if (!isBooked && isInFuture) {
-        return true; // Found at least one available slot
-      }
-
-      // Move to next slot
-      const nextMinutes = slotStartMinutes + sessionDuration;
-      currentStart = `${Math.floor(nextMinutes / 60).toString().padStart(2, "0")}:${(nextMinutes % 60).toString().padStart(2, "0")}:00`;
-    }
-  }
-
-  return false;
+  const slots = await getAvailability(
+    supabase,
+    professionalId,
+    locationId,
+    centerId ?? "",
+    date,
+    excludeSessionId ?? "",
+    sessionDuration,
+  );
+  return slots.length > 0;
 }

@@ -3,6 +3,11 @@ import { format, startOfWeek, addDays, isToday } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { ScheduleException, getExceptionsForDate, getReasonLabel } from '@/lib/schedule-exceptions';
+import {
+  pickApplicableSpecialDay,
+  getSpecialDayLabel,
+} from '@/lib/special-days-helpers';
+import type { SpecialDay, SpecialDayType } from '@/lib/special-days';
 import { SessionWithRelations } from '@/hooks/useSessions';
 import { SessionCard } from './SessionCard';
 import { calculateSessionPositions } from '@/lib/calculateSessionPositions';
@@ -21,8 +26,27 @@ interface WeekViewProps {
   onSwipeRight?: () => void;
   showWeekends?: boolean;
   scheduleExceptions?: ScheduleException[];
+  specialDays?: SpecialDay[];
   selectedProfessional?: string;
 }
+
+const SPECIAL_DAY_BG: Record<SpecialDayType, string> = {
+  closed: 'bg-destructive/5',
+  custom: 'bg-primary/5',
+  extended: 'bg-emerald-50 dark:bg-emerald-950/20',
+};
+
+const SPECIAL_DAY_BADGE: Record<SpecialDayType, string> = {
+  closed: 'bg-destructive/10 text-destructive',
+  custom: 'bg-primary/10 text-primary',
+  extended: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300',
+};
+
+const SPECIAL_DAY_ICON: Record<SpecialDayType, string> = {
+  closed: '🔒',
+  custom: '🕒',
+  extended: '➕',
+};
 
 const DEFAULT_HOURS = Array.from({ length: 13 }, (_, i) => i + 8);
 const QUARTER_HOURS = [0, 15, 30, 45];
@@ -45,7 +69,7 @@ function minutesToTime(totalMinutes: number): string {
   return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
 }
 
-export function WeekView({ currentDate, sessions, onSessionClick, onSlotClick, onSessionMove, hours, startHour, onSwipeLeft, onSwipeRight, showWeekends = true, scheduleExceptions, selectedProfessional }: WeekViewProps) {
+export function WeekView({ currentDate, sessions, onSessionClick, onSlotClick, onSessionMove, hours, startHour, onSwipeLeft, onSwipeRight, showWeekends = true, scheduleExceptions, specialDays, selectedProfessional }: WeekViewProps) {
   const isMobile = useIsMobile();
   const displayHours = hours || DEFAULT_HOURS;
   const gridStartHour = startHour ?? 8;
@@ -286,10 +310,13 @@ export function WeekView({ currentDate, sessions, onSessionClick, onSlotClick, o
                     isToday(day) && 'bg-primary/5',
                     (() => {
                       const dayKey = format(day, 'yyyy-MM-dd');
-                      const dayExcs = scheduleExceptions ? getExceptionsForDate(dayKey, selectedProfessional === 'all' ? null : selectedProfessional || null, scheduleExceptions) : [];
+                      const professionalFilter = selectedProfessional === 'all' ? null : selectedProfessional || null;
+                      const dayExcs = scheduleExceptions ? getExceptionsForDate(dayKey, professionalFilter, scheduleExceptions) : [];
                       if (dayExcs.length > 0) {
                         return dayExcs[0].scope === 'center' ? 'bg-destructive/5' : 'bg-amber-50 dark:bg-amber-950/20';
                       }
+                      const sd = specialDays ? pickApplicableSpecialDay(dayKey, professionalFilter, specialDays) : null;
+                      if (sd) return SPECIAL_DAY_BG[sd.type];
                       return '';
                     })()
                   )}

@@ -3,6 +3,11 @@ import { format, isToday } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { ScheduleException, getExceptionsForDate, getReasonLabel } from '@/lib/schedule-exceptions';
+import {
+  pickApplicableSpecialDay,
+  getSpecialDayLabel,
+} from '@/lib/special-days-helpers';
+import type { SpecialDay, SpecialDayType } from '@/lib/special-days';
 import { SessionWithRelations } from '@/hooks/useSessions';
 import { SessionCard } from './SessionCard';
 import { calculateSessionPositions } from '@/lib/calculateSessionPositions';
@@ -20,8 +25,21 @@ interface DayViewProps {
   onSwipeLeft?: () => void;
   onSwipeRight?: () => void;
   scheduleExceptions?: ScheduleException[];
+  specialDays?: SpecialDay[];
   selectedProfessional?: string;
 }
+
+const SPECIAL_DAY_BANNER: Record<SpecialDayType, string> = {
+  closed: 'bg-destructive/10 text-destructive',
+  custom: 'bg-primary/10 text-primary',
+  extended: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300',
+};
+
+const SPECIAL_DAY_ICON: Record<SpecialDayType, string> = {
+  closed: '🔒',
+  custom: '🕒',
+  extended: '➕',
+};
 
 const DEFAULT_HOURS = Array.from({ length: 13 }, (_, i) => i + 8);
 const QUARTER_HOURS = [0, 15, 30, 45];
@@ -41,7 +59,7 @@ function minutesToTime(totalMinutes: number): string {
   return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
 }
 
-export function DayView({ currentDate, sessions, onSessionClick, onSlotClick, onSessionMove, onMoveRequest, hours, startHour, onSwipeLeft, onSwipeRight, scheduleExceptions, selectedProfessional }: DayViewProps) {
+export function DayView({ currentDate, sessions, onSessionClick, onSlotClick, onSessionMove, onMoveRequest, hours, startHour, onSwipeLeft, onSwipeRight, scheduleExceptions, specialDays, selectedProfessional }: DayViewProps) {
   const displayHours = hours || DEFAULT_HOURS;
   const gridStartHour = startHour ?? 8;
   const dateKey = format(currentDate, 'yyyy-MM-dd');
@@ -234,7 +252,8 @@ export function DayView({ currentDate, sessions, onSessionClick, onSlotClick, on
 
       {/* Schedule exception banner */}
       {(() => {
-        const dayExceptions = scheduleExceptions ? getExceptionsForDate(dateKey, selectedProfessional === 'all' ? null : selectedProfessional || null, scheduleExceptions) : [];
+        const professionalFilter = selectedProfessional === 'all' ? null : selectedProfessional || null;
+        const dayExceptions = scheduleExceptions ? getExceptionsForDate(dateKey, professionalFilter, scheduleExceptions) : [];
         if (dayExceptions.length === 0) return null;
         const exc = dayExceptions[0];
         const isCenterBlock = exc.scope === 'center';
@@ -244,6 +263,27 @@ export function DayView({ currentDate, sessions, onSessionClick, onSlotClick, on
             isCenterBlock ? 'bg-destructive/10 text-destructive' : 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300'
           )}>
             {isCenterBlock ? '🔒 Centro cerrado' : '🚫 No disponible'} — {getReasonLabel(exc.reason_type, exc.reason_label)}
+          </div>
+        );
+      })()}
+
+      {/* Special day banner */}
+      {(() => {
+        const professionalFilter = selectedProfessional === 'all' ? null : selectedProfessional || null;
+        const sd = specialDays ? pickApplicableSpecialDay(dateKey, professionalFilter, specialDays) : null;
+        if (!sd) return null;
+        const slots = sd.special_day_slots || [];
+        const slotsText =
+          sd.type !== 'closed' && slots.length > 0
+            ? ` · ${slots.map((s) => `${s.start_time.slice(0, 5)}–${s.end_time.slice(0, 5)}`).join(' · ')}`
+            : '';
+        return (
+          <div className={cn(
+            'px-4 py-2 text-xs font-medium border-b flex items-center gap-2',
+            SPECIAL_DAY_BANNER[sd.type],
+          )}>
+            <span>{SPECIAL_DAY_ICON[sd.type]}</span>
+            <span>{getSpecialDayLabel(sd)}{slotsText}</span>
           </div>
         );
       })()}

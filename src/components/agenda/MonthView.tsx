@@ -13,6 +13,12 @@ import {
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { ScheduleException, getExceptionsForDate, getReasonLabel } from '@/lib/schedule-exceptions';
+import {
+  getSpecialDaysForDate,
+  pickApplicableSpecialDay,
+  getSpecialDayLabel,
+} from '@/lib/special-days-helpers';
+import type { SpecialDay, SpecialDayType } from '@/lib/special-days';
 import { SessionWithRelations } from '@/hooks/useSessions';
 import { useSwipeNavigation } from '@/hooks/useSwipeNavigation';
 
@@ -24,12 +30,31 @@ interface MonthViewProps {
   onSwipeLeft?: () => void;
   onSwipeRight?: () => void;
   scheduleExceptions?: ScheduleException[];
+  specialDays?: SpecialDay[];
   selectedProfessional?: string;
 }
 
 const WEEKDAYS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 
-export function MonthView({ currentDate, sessions, onSessionClick, onDayClick, onSwipeLeft, onSwipeRight, scheduleExceptions, selectedProfessional }: MonthViewProps) {
+const SPECIAL_DAY_BG: Record<SpecialDayType, string> = {
+  closed: 'bg-destructive/5',
+  custom: 'bg-primary/5',
+  extended: 'bg-emerald-50 dark:bg-emerald-950/20',
+};
+
+const SPECIAL_DAY_BADGE: Record<SpecialDayType, string> = {
+  closed: 'bg-destructive/10 text-destructive',
+  custom: 'bg-primary/10 text-primary',
+  extended: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300',
+};
+
+const SPECIAL_DAY_ICON: Record<SpecialDayType, string> = {
+  closed: '🔒',
+  custom: '🕒',
+  extended: '➕',
+};
+
+export function MonthView({ currentDate, sessions, onSessionClick, onDayClick, onSwipeLeft, onSwipeRight, scheduleExceptions, specialDays, selectedProfessional }: MonthViewProps) {
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(currentDate);
   const calendarStart = startOfWeek(monthStart, { weekStartsOn: 1 });
@@ -88,9 +113,11 @@ export function MonthView({ currentDate, sessions, onSessionClick, onDayClick, o
           const dateKey = format(day, 'yyyy-MM-dd');
           const daySessions = sessionsByDay.get(dateKey) || [];
           const isCurrentMonth = isSameMonth(day, currentDate);
-          const dayExceptions = scheduleExceptions ? getExceptionsForDate(dateKey, selectedProfessional === 'all' ? null : selectedProfessional || null, scheduleExceptions) : [];
+          const professionalFilter = selectedProfessional === 'all' ? null : selectedProfessional || null;
+          const dayExceptions = scheduleExceptions ? getExceptionsForDate(dateKey, professionalFilter, scheduleExceptions) : [];
           const hasException = dayExceptions.length > 0;
           const isCenterBlock = hasException && dayExceptions[0].scope === 'center';
+          const applicableSpecialDay = specialDays ? pickApplicableSpecialDay(dateKey, professionalFilter, specialDays) : null;
 
           return (
             <div
@@ -99,7 +126,8 @@ export function MonthView({ currentDate, sessions, onSessionClick, onDayClick, o
                 'min-h-[100px] border-b border-r p-1 transition-colors hover:bg-muted/50 cursor-pointer',
                 !isCurrentMonth && 'bg-muted/30 text-muted-foreground',
                 hasException && isCenterBlock && 'bg-destructive/5',
-                hasException && !isCenterBlock && 'bg-amber-50 dark:bg-amber-950/20'
+                hasException && !isCenterBlock && 'bg-amber-50 dark:bg-amber-950/20',
+                !hasException && applicableSpecialDay && SPECIAL_DAY_BG[applicableSpecialDay.type],
               )}
               onClick={() => onDayClick(day)}
             >
@@ -118,6 +146,15 @@ export function MonthView({ currentDate, sessions, onSessionClick, onDayClick, o
                   isCenterBlock ? 'bg-destructive/10 text-destructive' : 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300'
                 )}>
                   {isCenterBlock ? '🔒 Cerrado' : '🚫'} {getReasonLabel(dayExceptions[0].reason_type, dayExceptions[0].reason_label)}
+                </div>
+              )}
+
+              {applicableSpecialDay && (
+                <div className={cn(
+                  'text-[9px] font-medium px-1 py-0.5 rounded truncate mb-0.5',
+                  SPECIAL_DAY_BADGE[applicableSpecialDay.type],
+                )}>
+                  {SPECIAL_DAY_ICON[applicableSpecialDay.type]} {getSpecialDayLabel(applicableSpecialDay)}
                 </div>
               )}
 

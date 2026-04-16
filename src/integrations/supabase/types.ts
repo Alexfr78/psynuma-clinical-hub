@@ -4466,6 +4466,125 @@ export type Database = {
           },
         ]
       }
+      special_day_slots: {
+        Row: {
+          created_at: string
+          end_time: string
+          id: string
+          special_day_id: string
+          start_time: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          end_time: string
+          id?: string
+          special_day_id: string
+          start_time: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          end_time?: string
+          id?: string
+          special_day_id?: string
+          start_time?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "special_day_slots_special_day_id_fkey"
+            columns: ["special_day_id"]
+            isOneToOne: false
+            referencedRelation: "special_days"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      special_days: {
+        Row: {
+          affects_public_booking: boolean
+          center_id: string
+          created_at: string
+          created_by: string | null
+          end_date: string
+          id: string
+          label: string | null
+          notes: string | null
+          professional_id: string | null
+          scope: Database["public"]["Enums"]["special_day_scope"]
+          start_date: string
+          type: Database["public"]["Enums"]["special_day_type"]
+          updated_at: string
+        }
+        Insert: {
+          affects_public_booking?: boolean
+          center_id: string
+          created_at?: string
+          created_by?: string | null
+          end_date: string
+          id?: string
+          label?: string | null
+          notes?: string | null
+          professional_id?: string | null
+          scope: Database["public"]["Enums"]["special_day_scope"]
+          start_date: string
+          type: Database["public"]["Enums"]["special_day_type"]
+          updated_at?: string
+        }
+        Update: {
+          affects_public_booking?: boolean
+          center_id?: string
+          created_at?: string
+          created_by?: string | null
+          end_date?: string
+          id?: string
+          label?: string | null
+          notes?: string | null
+          professional_id?: string | null
+          scope?: Database["public"]["Enums"]["special_day_scope"]
+          start_date?: string
+          type?: Database["public"]["Enums"]["special_day_type"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "special_days_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "special_days_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "special_days_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "portal_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "special_days_professional_id_fkey"
+            columns: ["professional_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "special_days_professional_id_fkey"
+            columns: ["professional_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       suppressed_emails: {
         Row: {
           created_at: string
@@ -5786,6 +5905,8 @@ export type Database = {
         | "blocked"
         | "pending_approval"
         | "reschedule_requested"
+      special_day_scope: "center" | "professional"
+      special_day_type: "closed" | "custom" | "extended"
     }
     CompositeTypes: {
       [_ in never]: never
