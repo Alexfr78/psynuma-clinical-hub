@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { usePublicBooking } from '@/hooks/usePublicBooking';
 import { Button } from '@/components/ui/button';
@@ -11,7 +11,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { toast } from 'sonner';
 import { format, addDays, isBefore, startOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Loader2, MapPin, Video, Clock, User, CheckCircle, ArrowLeft, ArrowRight, Copy } from 'lucide-react';
+import { Loader2, MapPin, Video, Clock, User, CheckCircle, ArrowLeft, ArrowRight, Copy, AlertCircle, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ClosedAgendaScreen } from '@/components/booking/ClosedAgendaScreen';
 
@@ -24,8 +24,8 @@ export default function PublicBooking() {
   
   const {
     config, services, locations, professionals, allowProfessionalSelection,
-    loading, error, disabled, fetchConfig, fetchServices, fetchLocations,
-    fetchProfessionals, getAvailability, getMonthAvailability, createBooking,
+    loading, error, disabled, bootstrap,
+    getAvailability, getMonthAvailability, createBooking,
     submitIntakeRequest, listReferralFilters, getReferralRecommendations
   } = usePublicBooking(centerSlug || '');
 
@@ -48,18 +48,17 @@ export default function PublicBooking() {
   const [notes, setNotes] = useState('');
   
   const [bookingResult, setBookingResult] = useState<any>(null);
+  const [bootstrapAttempted, setBootstrapAttempted] = useState(false);
+
+  const loadInitial = useCallback(() => {
+    if (!centerSlug) return;
+    setBootstrapAttempted(false);
+    bootstrap().finally(() => setBootstrapAttempted(true));
+  }, [centerSlug, bootstrap]);
 
   useEffect(() => {
-    if (centerSlug) {
-      fetchConfig().then(cfg => {
-        if (cfg) {
-          fetchServices();
-          fetchLocations();
-          fetchProfessionals();
-        }
-      });
-    }
-  }, [centerSlug]);
+    loadInitial();
+  }, [loadInitial]);
 
   // Load month availability when entering datetime step or changing month
   useEffect(() => {
@@ -165,6 +164,32 @@ export default function PublicBooking() {
     );
   }
 
+  // Explicit error state when initial bootstrap failed (no config loaded).
+  if (bootstrapAttempted && !config && error) {
+    const isRateLimited = /demasiadas solicitudes|rate/i.test(error);
+    return (
+      <div className={cn("min-h-screen flex items-center justify-center bg-background", isEmbed && "p-4")}>
+        <Card className="max-w-md w-full">
+          <CardHeader className="text-center">
+            <AlertCircle className="h-10 w-10 text-destructive mx-auto mb-2" />
+            <CardTitle>No se pudo cargar la reserva</CardTitle>
+            <CardDescription>
+              {isRateLimited
+                ? 'Hemos recibido demasiadas solicitudes. Espera un minuto y vuelve a intentarlo.'
+                : error}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex justify-center">
+            <Button onClick={loadInitial} disabled={loading}>
+              <RefreshCw className={cn('h-4 w-4 mr-2', loading && 'animate-spin')} />
+              Reintentar
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   // Show closed agenda screen if agenda is closed
   if (config?.agendaClosed) {
     return (
@@ -178,6 +203,33 @@ export default function PublicBooking() {
           onGetRecommendations={getReferralRecommendations}
           loading={loading}
         />
+      </div>
+    );
+  }
+
+  // Explicit empty state when bootstrap loaded but center has no public services / locations.
+  if (config && bootstrapAttempted && (services.length === 0 || locations.length === 0)) {
+    const missing =
+      services.length === 0 && locations.length === 0
+        ? 'No hay servicios ni ubicaciones públicas configuradas todavía.'
+        : services.length === 0
+          ? 'Este centro aún no ha publicado servicios disponibles para reserva online.'
+          : 'Este centro aún no ha publicado ubicaciones disponibles para reserva online.';
+    return (
+      <div className={cn("min-h-screen flex items-center justify-center bg-background", isEmbed ? "p-4" : "py-8 px-4")}>
+        <Card className="max-w-md w-full">
+          <CardHeader className="text-center">
+            {config.logoUrl && <img src={config.logoUrl} alt={config.name} className="h-12 mx-auto mb-3" />}
+            <CardTitle>{config.name}</CardTitle>
+            <CardDescription>{missing}</CardDescription>
+          </CardHeader>
+          <CardContent className="flex justify-center">
+            <Button variant="outline" onClick={loadInitial} disabled={loading}>
+              <RefreshCw className={cn('h-4 w-4 mr-2', loading && 'animate-spin')} />
+              Reintentar
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }
