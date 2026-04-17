@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { usePublicBooking } from '@/hooks/usePublicBooking';
 import { Button } from '@/components/ui/button';
@@ -11,7 +11,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { toast } from 'sonner';
 import { format, addDays, isBefore, startOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Loader2, MapPin, Video, Clock, User, CheckCircle, ArrowLeft, ArrowRight, Copy } from 'lucide-react';
+import { Loader2, MapPin, Video, Clock, User, CheckCircle, ArrowLeft, ArrowRight, Copy, AlertCircle, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ClosedAgendaScreen } from '@/components/booking/ClosedAgendaScreen';
 
@@ -24,8 +24,8 @@ export default function PublicBooking() {
   
   const {
     config, services, locations, professionals, allowProfessionalSelection,
-    loading, error, disabled, fetchConfig, fetchServices, fetchLocations,
-    fetchProfessionals, getAvailability, getMonthAvailability, createBooking,
+    loading, error, disabled, bootstrap,
+    getAvailability, getMonthAvailability, createBooking,
     submitIntakeRequest, listReferralFilters, getReferralRecommendations
   } = usePublicBooking(centerSlug || '');
 
@@ -48,18 +48,17 @@ export default function PublicBooking() {
   const [notes, setNotes] = useState('');
   
   const [bookingResult, setBookingResult] = useState<any>(null);
+  const [bootstrapAttempted, setBootstrapAttempted] = useState(false);
+
+  const loadInitial = useCallback(() => {
+    if (!centerSlug) return;
+    setBootstrapAttempted(false);
+    bootstrap().finally(() => setBootstrapAttempted(true));
+  }, [centerSlug, bootstrap]);
 
   useEffect(() => {
-    if (centerSlug) {
-      fetchConfig().then(cfg => {
-        if (cfg) {
-          fetchServices();
-          fetchLocations();
-          fetchProfessionals();
-        }
-      });
-    }
-  }, [centerSlug]);
+    loadInitial();
+  }, [loadInitial]);
 
   // Load month availability when entering datetime step or changing month
   useEffect(() => {
