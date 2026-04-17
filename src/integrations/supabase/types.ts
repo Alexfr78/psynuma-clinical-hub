@@ -1176,42 +1176,54 @@ export type Database = {
       }
       bonos: {
         Row: {
+          base_price_snapshot: number | null
           center_id: string
           created_at: string
+          custom_price_id: string | null
           expires_at: string | null
           id: string
           name: string
           patient_id: string
           price_per_session: number
+          pricing_source: string | null
           status: Database["public"]["Enums"]["bono_status"] | null
+          template_id: string | null
           total_price: number
           total_sessions: number
           updated_at: string
           used_sessions: number | null
         }
         Insert: {
+          base_price_snapshot?: number | null
           center_id: string
           created_at?: string
+          custom_price_id?: string | null
           expires_at?: string | null
           id?: string
           name: string
           patient_id: string
           price_per_session: number
+          pricing_source?: string | null
           status?: Database["public"]["Enums"]["bono_status"] | null
+          template_id?: string | null
           total_price: number
           total_sessions: number
           updated_at?: string
           used_sessions?: number | null
         }
         Update: {
+          base_price_snapshot?: number | null
           center_id?: string
           created_at?: string
+          custom_price_id?: string | null
           expires_at?: string | null
           id?: string
           name?: string
           patient_id?: string
           price_per_session?: number
+          pricing_source?: string | null
           status?: Database["public"]["Enums"]["bono_status"] | null
+          template_id?: string | null
           total_price?: number
           total_sessions?: number
           updated_at?: string
@@ -1240,6 +1252,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "bonos_custom_price_id_fkey"
+            columns: ["custom_price_id"]
+            isOneToOne: false
+            referencedRelation: "patient_custom_prices"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "bonos_patient_id_fkey"
             columns: ["patient_id"]
             isOneToOne: false
@@ -1251,6 +1270,13 @@ export type Database = {
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "patients_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bonos_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "bono_templates"
             referencedColumns: ["id"]
           },
         ]
@@ -3048,6 +3074,180 @@ export type Database = {
           },
         ]
       }
+      patient_custom_price_history: {
+        Row: {
+          center_id: string
+          change_type: string
+          changed_at: string
+          changed_by: string
+          id: string
+          new_end_date: string | null
+          new_price: number
+          new_start_date: string
+          old_end_date: string | null
+          old_price: number | null
+          old_start_date: string | null
+          patient_custom_price_id: string
+          patient_id: string
+          target_id: string
+          target_type: string
+        }
+        Insert: {
+          center_id: string
+          change_type: string
+          changed_at?: string
+          changed_by: string
+          id?: string
+          new_end_date?: string | null
+          new_price: number
+          new_start_date: string
+          old_end_date?: string | null
+          old_price?: number | null
+          old_start_date?: string | null
+          patient_custom_price_id: string
+          patient_id: string
+          target_id: string
+          target_type: string
+        }
+        Update: {
+          center_id?: string
+          change_type?: string
+          changed_at?: string
+          changed_by?: string
+          id?: string
+          new_end_date?: string | null
+          new_price?: number
+          new_start_date?: string
+          old_end_date?: string | null
+          old_price?: number | null
+          old_start_date?: string | null
+          patient_custom_price_id?: string
+          patient_id?: string
+          target_id?: string
+          target_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_custom_price_history_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_custom_price_history_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_custom_price_history_patient_custom_price_id_fkey"
+            columns: ["patient_custom_price_id"]
+            isOneToOne: false
+            referencedRelation: "patient_custom_prices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      patient_custom_prices: {
+        Row: {
+          center_id: string
+          created_at: string
+          created_by: string
+          custom_price: number
+          end_date: string | null
+          id: string
+          is_active: boolean
+          notes: string | null
+          patient_id: string
+          start_date: string
+          target_id: string
+          target_type: string
+          updated_at: string
+        }
+        Insert: {
+          center_id: string
+          created_at?: string
+          created_by: string
+          custom_price: number
+          end_date?: string | null
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          patient_id: string
+          start_date?: string
+          target_id: string
+          target_type: string
+          updated_at?: string
+        }
+        Update: {
+          center_id?: string
+          created_at?: string
+          created_by?: string
+          custom_price?: number
+          end_date?: string | null
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          patient_id?: string
+          start_date?: string
+          target_id?: string
+          target_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_custom_prices_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_custom_prices_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_custom_prices_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "portal_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_custom_prices_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_custom_prices_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_custom_prices_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_custom_prices_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       patient_magic_links: {
         Row: {
           center_id: string
@@ -4262,11 +4462,13 @@ export type Database = {
           access_token: string | null
           ai_summary_clinical: string | null
           ai_summary_patient: string | null
+          base_price_snapshot: number | null
           bono_id: string | null
           cancellation_policy: string | null
           cancellation_reason: string | null
           center_id: string
           created_at: string
+          custom_price_id: string | null
           end_time: string
           google_calendar_event_id: string | null
           id: string
@@ -4281,6 +4483,7 @@ export type Database = {
           payment_reminder_count: number | null
           payment_status: string | null
           price: number
+          pricing_source: string | null
           professional_id: string
           recurring_series_id: string | null
           reminder_sent_at: string | null
@@ -4291,6 +4494,7 @@ export type Database = {
           session_date: string
           session_modality: string | null
           session_type: string | null
+          session_type_id: string | null
           start_time: string
           status: Database["public"]["Enums"]["session_status"] | null
           stripe_checkout_session_id: string | null
@@ -4307,11 +4511,13 @@ export type Database = {
           access_token?: string | null
           ai_summary_clinical?: string | null
           ai_summary_patient?: string | null
+          base_price_snapshot?: number | null
           bono_id?: string | null
           cancellation_policy?: string | null
           cancellation_reason?: string | null
           center_id: string
           created_at?: string
+          custom_price_id?: string | null
           end_time: string
           google_calendar_event_id?: string | null
           id?: string
@@ -4326,6 +4532,7 @@ export type Database = {
           payment_reminder_count?: number | null
           payment_status?: string | null
           price?: number
+          pricing_source?: string | null
           professional_id: string
           recurring_series_id?: string | null
           reminder_sent_at?: string | null
@@ -4336,6 +4543,7 @@ export type Database = {
           session_date: string
           session_modality?: string | null
           session_type?: string | null
+          session_type_id?: string | null
           start_time: string
           status?: Database["public"]["Enums"]["session_status"] | null
           stripe_checkout_session_id?: string | null
@@ -4352,11 +4560,13 @@ export type Database = {
           access_token?: string | null
           ai_summary_clinical?: string | null
           ai_summary_patient?: string | null
+          base_price_snapshot?: number | null
           bono_id?: string | null
           cancellation_policy?: string | null
           cancellation_reason?: string | null
           center_id?: string
           created_at?: string
+          custom_price_id?: string | null
           end_time?: string
           google_calendar_event_id?: string | null
           id?: string
@@ -4371,6 +4581,7 @@ export type Database = {
           payment_reminder_count?: number | null
           payment_status?: string | null
           price?: number
+          pricing_source?: string | null
           professional_id?: string
           recurring_series_id?: string | null
           reminder_sent_at?: string | null
@@ -4381,6 +4592,7 @@ export type Database = {
           session_date?: string
           session_modality?: string | null
           session_type?: string | null
+          session_type_id?: string | null
           start_time?: string
           status?: Database["public"]["Enums"]["session_status"] | null
           stripe_checkout_session_id?: string | null
@@ -4423,6 +4635,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "sessions_custom_price_id_fkey"
+            columns: ["custom_price_id"]
+            isOneToOne: false
+            referencedRelation: "patient_custom_prices"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "sessions_location_id_fkey"
             columns: ["location_id"]
             isOneToOne: false
@@ -4462,6 +4681,13 @@ export type Database = {
             columns: ["recurring_series_id"]
             isOneToOne: false
             referencedRelation: "recurring_series"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_session_type_id_fkey"
+            columns: ["session_type_id"]
+            isOneToOne: false
+            referencedRelation: "session_types"
             referencedColumns: ["id"]
           },
         ]
@@ -5801,6 +6027,15 @@ export type Database = {
       }
       reorder_session_types: {
         Args: { p_center_id: string; p_ordered_ids: string[] }
+        Returns: Json
+      }
+      resolve_applicable_price: {
+        Args: {
+          p_patient_id: string
+          p_reference_date?: string
+          p_target_id: string
+          p_target_type: string
+        }
         Returns: Json
       }
       sanitize_error_payload: { Args: { payload: Json }; Returns: Json }
