@@ -179,7 +179,7 @@ export function useResolvedPrice(
         p_reference_date: referenceDate || new Date().toISOString().split('T')[0],
       });
       if (error) throw error;
-      return data as ResolvedPrice;
+      return data as unknown as ResolvedPrice;
     },
     enabled: !!patientId && !!targetType && !!targetId,
   });

@@ -98,15 +98,6 @@ export function CreateBonoDialog({ open, onOpenChange, preselectedPatientId, onS
   const [isCustom, setIsCustom] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | undefined>();
-
-  const watchPatientId = form.watch('patient_id');
-
-  // Resolver precio personalizado cuando hay paciente + plantilla seleccionados
-  const { data: resolvedPrice } = useResolvedPrice(
-    watchPatientId || undefined,
-    'bono_template',
-    selectedTemplateId,
-  );
   const [showSendInvoiceDialog, setShowSendInvoiceDialog] = useState(false);
   const [showInvoiceConfirmation, setShowInvoiceConfirmation] = useState(false);
   const [pendingSubmitValues, setPendingSubmitValues] = useState<FormValues | null>(null);
@@ -135,6 +126,15 @@ export function CreateBonoDialog({ open, onOpenChange, preselectedPatientId, onS
       payment_method: 'cash',
     },
   });
+
+  const watchPatientId = form.watch('patient_id');
+
+  // Resolver precio personalizado cuando hay paciente + plantilla seleccionados
+  const { data: resolvedPrice } = useResolvedPrice(
+    watchPatientId || undefined,
+    'bono_template',
+    selectedTemplateId,
+  );
 
   useEffect(() => {
     if (preselectedPatientId) {
@@ -210,14 +210,23 @@ export function CreateBonoDialog({ open, onOpenChange, preselectedPatientId, onS
         price_per_session: values.price_per_session,
         total_price: values.total_price,
         expires_at: values.expires_at?.toISOString() || null,
-        template_id: selectedTemplateId || null,
-        base_price_snapshot: resolvedPrice?.base_price ?? values.total_price,
-        pricing_source: resolvedPrice?.pricing_source ?? 'base',
-        custom_price_id: resolvedPrice?.custom_price_id ?? null,
       });
 
       const bonoId = result.bono_id;
       const debtId = result.debt_id;
+
+      // Persistir snapshots de pricing y plantilla en el bono creado
+      if (bonoId) {
+        await supabase
+          .from('bonos')
+          .update({
+            template_id: selectedTemplateId || null,
+            base_price_snapshot: resolvedPrice?.base_price ?? values.total_price,
+            pricing_source: resolvedPrice?.pricing_source ?? 'base',
+            custom_price_id: resolvedPrice?.custom_price_id ?? null,
+          } as never)
+          .eq('id', bonoId);
+      }
 
       if (bonoId && values.total_price > 0 && debtId) {
         // 2. Create DRAFT invoice and link to debt (only if shouldCreateInvoice)
