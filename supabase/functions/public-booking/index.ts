@@ -238,14 +238,32 @@ serve(async (req) => {
   try {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Rate limit POST requests
+    const { action, centerSlug, ...params } = await req.json();
+
+    console.log(`[public-booking] action=${action} centerSlug=${centerSlug}`);
+
+    // Per-action rate limiting: strict for write/sensitive, generous for read.
+    // Keys are scoped per action so reads don't starve writes and vice-versa.
     {
       const ip = getClientIp(req);
-      const rl = await checkIpRateLimit(supabase, ip, 'public-booking', 10, 10);
+      const writeActions = new Set([
+        'create-booking',
+        'submit-intake-request',
+        'cancel-booking',
+        'reschedule-booking',
+        'get-referral-recommendations',
+      ]);
+      const isWrite = writeActions.has(action);
+      const rlAction = `public-booking:${isWrite ? 'write' : 'read'}`;
+      // reads: 120 / 10min, writes: 10 / 10min
+      const maxReq = isWrite ? 10 : 120;
+      const rl = await checkIpRateLimit(supabase, ip, rlAction, maxReq, 10);
       if (!rl.allowed) {
+        console.warn(`[public-booking] rate-limit hit ip=${ip} action=${action} bucket=${rlAction}`);
         return new Response(
           JSON.stringify({
             error: 'Demasiadas solicitudes. Inténtalo de nuevo en unos minutos.',
+            rateLimited: true,
           }),
           {
             status: 429,
@@ -259,9 +277,112 @@ serve(async (req) => {
       }
     }
 
-    const { action, centerSlug, ...params } = await req.json();
+    // ===== BOOTSTRAP (single call returning config + services + locations + professionals) =====
+    if (action === "bootstrap") {
+      if (!centerSlug) {
+        return new Response(
+          JSON.stringify({ error: "centerSlug es requerido" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
 
-    console.log(`[public-booking] action=${action} centerSlug=${centerSlug}`);
+      const { data: center, error: centerErr } = await supabase
+        .from("centers")
+        .select(`
+          id, name, logo_url,
+          public_booking_enabled, portal_require_approval,
+          portal_allow_professional_selection, portal_default_professional_id,
+          reschedule_slot_duration, reschedule_max_days, portal_agenda_closed
+        `)
+        .eq("portal_slug", centerSlug)
+        .single();
+
+      if (centerErr || !center) {
+        console.warn(`[public-booking:bootstrap] center not found slug=${centerSlug}`);
+        return new Response(
+          JSON.stringify({ error: "Centro no encontrado" }),
+          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      if (!center.public_booking_enabled) {
+        return new Response(
+          JSON.stringify({ error: "Reservas públicas no habilitadas para este centro", disabled: true }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const config = {
+        centerId: center.id,
+        name: center.name,
+        logoUrl: center.logo_url,
+        timezone: "Europe/Madrid",
+        requireApproval: center.portal_require_approval,
+        allowProfessionalSelection: center.portal_allow_professional_selection,
+        defaultProfessionalId: center.portal_default_professional_id,
+        slotDuration: center.reschedule_slot_duration || 30,
+        maxDaysAhead: center.reschedule_max_days ?? 90,
+        agendaClosed: center.portal_agenda_closed ?? false,
+      };
+
+      // If agenda is closed we don't need to load the rest — frontend will show ClosedAgendaScreen
+      if (config.agendaClosed) {
+        return new Response(
+          JSON.stringify({
+            config,
+            services: [],
+            locations: [],
+            professionals: [],
+            allowProfessionalSelection: !!center.portal_allow_professional_selection,
+          }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const [servicesRes, locationsRes, professionalsRes] = await Promise.all([
+        supabase
+          .from("session_types")
+          .select("id, name, duration_minutes, default_price, color, is_first_consultation")
+          .eq("center_id", center.id)
+          .eq("is_active", true)
+          .eq("is_public", true)
+          .order("display_order", { ascending: true })
+          .order("name", { ascending: true }),
+        supabase
+          .from("center_locations")
+          .select("id, name, location_type, street, city")
+          .eq("center_id", center.id)
+          .eq("is_public", true)
+          .eq("is_active", true)
+          .order("name"),
+        supabase
+          .from("profiles")
+          .select("id, first_name, last_name, specialty, avatar_url")
+          .eq("center_id", center.id)
+          .eq("is_active", true)
+          .order("first_name"),
+      ]);
+
+      if (servicesRes.error) console.error("[bootstrap] services error:", servicesRes.error);
+      if (locationsRes.error) console.error("[bootstrap] locations error:", locationsRes.error);
+      if (professionalsRes.error) console.error("[bootstrap] professionals error:", professionalsRes.error);
+
+      console.log(
+        `[public-booking:bootstrap] slug=${centerSlug} services=${servicesRes.data?.length ?? 0} ` +
+        `locations=${locationsRes.data?.length ?? 0} professionals=${professionalsRes.data?.length ?? 0}`
+      );
+
+      return new Response(
+        JSON.stringify({
+          config,
+          services: servicesRes.data || [],
+          locations: locationsRes.data || [],
+          professionals: professionalsRes.data || [],
+          allowProfessionalSelection: !!center.portal_allow_professional_selection,
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     // ===== GET-CONFIG =====
     if (action === "get-config") {

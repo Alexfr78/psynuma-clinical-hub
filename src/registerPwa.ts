@@ -2,8 +2,62 @@ import { registerSW } from "virtual:pwa-register";
 
 let hasControllerChanged = false;
 
+/**
+ * Detect contexts where registering a Service Worker would cause stale
+ * content or break embedded usage:
+ *  - Lovable preview / sandbox hosts
+ *  - Inside an iframe (e.g. embedded public booking widget)
+ *  - Public embed routes (?embed=1 or /reservas|/book)
+ */
+function shouldSkipServiceWorker(): boolean {
+  if (typeof window === "undefined") return true;
+
+  // Inside an iframe (cross-origin throws → assume iframe)
+  let inIframe = false;
+  try {
+    inIframe = window.self !== window.top;
+  } catch {
+    inIframe = true;
+  }
+  if (inIframe) return true;
+
+  const host = window.location.hostname;
+  if (
+    host.includes("id-preview--") ||
+    host.includes("lovableproject.com") ||
+    host.includes("lovable.app") === false &&
+      (host.includes("lovable.dev") || host.endsWith(".lovable.host"))
+  ) {
+    // Skip on Lovable preview/sandbox domains; keep on the published custom domain
+    return true;
+  }
+
+  const search = window.location.search || "";
+  const path = window.location.pathname || "";
+  if (search.includes("embed=1")) return true;
+  if (path.startsWith("/reservas") || path.startsWith("/book")) return true;
+
+  return false;
+}
+
+async function unregisterExistingWorkers() {
+  if (!("serviceWorker" in navigator)) return;
+  try {
+    const regs = await navigator.serviceWorker.getRegistrations();
+    await Promise.all(regs.map((r) => r.unregister().catch(() => undefined)));
+  } catch {
+    // ignore
+  }
+}
+
 export function registerPwa() {
   if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
+
+  if (shouldSkipServiceWorker()) {
+    // Make sure no stale worker keeps serving cached bundles in iframe/preview/embed.
+    void unregisterExistingWorkers();
+    return;
+  }
 
   const updateSW = registerSW({
     immediate: true,

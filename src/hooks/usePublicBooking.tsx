@@ -149,6 +149,30 @@ export function usePublicBooking(centerSlug: string) {
     }
   }, [invoke]);
 
+  /**
+   * Single bootstrap call: returns config + services + locations + professionals.
+   * Use this on initial mount instead of 4 separate calls — avoids partial UI states
+   * and reduces rate-limit pressure.
+   */
+  const bootstrap = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await invoke('bootstrap');
+      if (data?.config) setConfig(data.config);
+      setServices(data?.services || []);
+      setLocations(data?.locations || []);
+      setProfessionals(data?.professionals || []);
+      setAllowProfessionalSelection(!!data?.allowProfessionalSelection);
+      return data;
+    } catch (err: any) {
+      setError(err.message);
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }, [invoke]);
+
   const fetchServices = useCallback(async () => {
     try {
       const data = await invoke('list-services');
@@ -365,6 +389,7 @@ export function usePublicBooking(centerSlug: string) {
     loading,
     error,
     disabled,
+    bootstrap,
     fetchConfig,
     fetchServices,
     fetchLocations,
