@@ -164,6 +164,32 @@ export default function PublicBooking() {
     );
   }
 
+  // Explicit error state when initial bootstrap failed (no config loaded).
+  if (bootstrapAttempted && !config && error) {
+    const isRateLimited = /demasiadas solicitudes|rate/i.test(error);
+    return (
+      <div className={cn("min-h-screen flex items-center justify-center bg-background", isEmbed && "p-4")}>
+        <Card className="max-w-md w-full">
+          <CardHeader className="text-center">
+            <AlertCircle className="h-10 w-10 text-destructive mx-auto mb-2" />
+            <CardTitle>No se pudo cargar la reserva</CardTitle>
+            <CardDescription>
+              {isRateLimited
+                ? 'Hemos recibido demasiadas solicitudes. Espera un minuto y vuelve a intentarlo.'
+                : error}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex justify-center">
+            <Button onClick={loadInitial} disabled={loading}>
+              <RefreshCw className={cn('h-4 w-4 mr-2', loading && 'animate-spin')} />
+              Reintentar
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   // Show closed agenda screen if agenda is closed
   if (config?.agendaClosed) {
     return (
@@ -177,6 +203,33 @@ export default function PublicBooking() {
           onGetRecommendations={getReferralRecommendations}
           loading={loading}
         />
+      </div>
+    );
+  }
+
+  // Explicit empty state when bootstrap loaded but center has no public services / locations.
+  if (config && bootstrapAttempted && (services.length === 0 || locations.length === 0)) {
+    const missing =
+      services.length === 0 && locations.length === 0
+        ? 'No hay servicios ni ubicaciones públicas configuradas todavía.'
+        : services.length === 0
+          ? 'Este centro aún no ha publicado servicios disponibles para reserva online.'
+          : 'Este centro aún no ha publicado ubicaciones disponibles para reserva online.';
+    return (
+      <div className={cn("min-h-screen flex items-center justify-center bg-background", isEmbed ? "p-4" : "py-8 px-4")}>
+        <Card className="max-w-md w-full">
+          <CardHeader className="text-center">
+            {config.logoUrl && <img src={config.logoUrl} alt={config.name} className="h-12 mx-auto mb-3" />}
+            <CardTitle>{config.name}</CardTitle>
+            <CardDescription>{missing}</CardDescription>
+          </CardHeader>
+          <CardContent className="flex justify-center">
+            <Button variant="outline" onClick={loadInitial} disabled={loading}>
+              <RefreshCw className={cn('h-4 w-4 mr-2', loading && 'animate-spin')} />
+              Reintentar
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }
