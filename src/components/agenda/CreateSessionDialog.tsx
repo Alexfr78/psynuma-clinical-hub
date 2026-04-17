@@ -46,6 +46,9 @@ import { useQueryClient } from '@tanstack/react-query';
 import { usePatients, useProfessionals } from '@/hooks/usePatients';
 import { useAuth } from '@/hooks/useAuth';
 import { usePatientActiveBonos, useDeductBonoSession } from '@/hooks/useBonos';
+import { useSessionTypes } from '@/hooks/useSessionTypes';
+import { useResolvedPrice } from '@/hooks/useCustomPrices';
+import { PriceBadge } from '@/components/pricing/PriceBadge';
 
 import { sendSessionNotificationDirect, WhatsAppDialogData } from '@/hooks/useSendSessionNotification';
 import { CreateBonoDialog } from '@/components/bonos/CreateBonoDialog';
@@ -69,6 +72,7 @@ const sessionSchema = z.object({
   start_time: z.string().min(1, 'Selecciona hora de inicio'),
   end_time: z.string().min(1, 'Selecciona hora de fin'),
   session_type: z.string().optional(),
+  session_type_id: z.string().optional(),
   price: z.coerce.number().min(0, 'El precio debe ser positivo'),
   notes: z.string().max(1000).optional(),
   status: z.string().default('scheduled'),
@@ -119,6 +123,7 @@ export function CreateSessionDialog({
   
   const { data: patients } = usePatients();
   const { data: professionals } = useProfessionals();
+  const { data: sessionTypes } = useSessionTypes();
   const { center } = useCenter();
   const { isAutomatic } = useWhatsAppDelivery();
   const queryClient = useQueryClient();
@@ -154,6 +159,14 @@ export function CreateSessionDialog({
 
   const watchPatientId = form.watch('patient_id');
   const watchBonoId = form.watch('bono_id');
+  const watchSessionTypeId = form.watch('session_type_id');
+
+  // Resolver precio automáticamente cuando cambia paciente + tipo de sesión
+  const { data: resolvedPrice } = useResolvedPrice(
+    watchPatientId || undefined,
+    'session_type',
+    watchSessionTypeId || undefined,
+  );
   const { data: patientBonos, refetch: refetchBonos } = usePatientActiveBonos(watchPatientId || undefined);
 
   // Bono selection no longer changes session price - bono is billed separately
@@ -177,6 +190,13 @@ export function CreateSessionDialog({
       setNewlyCreatedBonoPrice(null);
     }
   }, [watchBonoId, newlyCreatedBonoId]);
+
+  // Auto-aplicar precio resuelto cuando cambia paciente o tipo de sesión
+  useEffect(() => {
+    if (resolvedPrice && (!watchBonoId || watchBonoId === 'none')) {
+      form.setValue('price', resolvedPrice.applied_price);
+    }
+  }, [resolvedPrice, watchBonoId, form]);
 
   useEffect(() => {
     if (initialDate) {
@@ -203,14 +223,23 @@ export function CreateSessionDialog({
 
   const onSubmit = async (values: SessionFormValues) => {
     try {
+      // Determinar nombre del tipo de sesión
+      const sessionTypeName = values.session_type_id
+        ? (sessionTypes?.find(st => st.id === values.session_type_id)?.name ?? values.session_type ?? 'individual')
+        : (values.session_type ?? 'individual');
+
       const sessionData = {
         patient_id: values.patient_id,
         professional_id: values.professional_id,
         session_date: format(values.session_date, 'yyyy-MM-dd'),
         start_time: values.start_time,
         end_time: values.end_time,
-        session_type: values.session_type || 'individual',
+        session_type: sessionTypeName,
+        session_type_id: values.session_type_id || null,
         price: values.price,
+        base_price_snapshot: resolvedPrice?.base_price ?? values.price,
+        pricing_source: resolvedPrice?.pricing_source ?? 'base',
+        custom_price_id: resolvedPrice?.custom_price_id ?? null,
         notes: values.notes || null,
         status: values.status as 'scheduled' | 'confirmed' | 'completed' | 'cancelled' | 'no_show',
         bono_id: values.bono_id && values.bono_id !== 'none' ? values.bono_id : null,
@@ -498,46 +527,89 @@ export function CreateSessionDialog({
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-              <FormField
-                control={form.control}
-                name="session_type"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Tipo de sesión</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="individual">Individual</SelectItem>
-                        <SelectItem value="pareja">Pareja</SelectItem>
-                        <SelectItem value="familia">Familia</SelectItem>
-                        <SelectItem value="grupo">Grupo</SelectItem>
-                        <SelectItem value="online">Online</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              {/* Tipo de sesión: usa session_types del DB si hay, si no mantiene hardcoded */}
+              {sessionTypes && sessionTypes.length > 0 ? (
+                <FormField
+                  control={form.control}
+                  name="session_type_id"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Tipo de sesión</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value ?? ''}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Seleccionar tipo..." />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {sessionTypes
+                            .filter(st => st.is_active !== false)
+                            .map(st => (
+                              <SelectItem key={st.id} value={st.id}>
+                                <span className="flex items-center justify-between w-full gap-4">
+                                  <span>{st.name}</span>
+                                  <span className="text-muted-foreground text-xs">{st.default_price.toFixed(2)} €</span>
+                                </span>
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              ) : (
+                <FormField
+                  control={form.control}
+                  name="session_type"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Tipo de sesión</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="individual">Individual</SelectItem>
+                          <SelectItem value="pareja">Pareja</SelectItem>
+                          <SelectItem value="familia">Familia</SelectItem>
+                          <SelectItem value="grupo">Grupo</SelectItem>
+                          <SelectItem value="online">Online</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
 
               <FormField
                 control={form.control}
                 name="price"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Precio (€) *</FormLabel>
+                    <FormLabel className="flex items-center gap-2">
+                      Precio (€) *
+                      {resolvedPrice && watchSessionTypeId && (
+                        <PriceBadge resolvedPrice={resolvedPrice} compact />
+                      )}
+                    </FormLabel>
                     <FormControl>
-                      <Input 
-                        type="number" 
-                        min={0} 
-                        step={0.01} 
-                        {...field} 
+                      <Input
+                        type="number"
+                        min={0}
+                        step={0.01}
+                        {...field}
                         disabled={watchBonoId && watchBonoId !== 'none'}
                       />
                     </FormControl>
+                    {resolvedPrice?.pricing_source === 'custom' && (
+                      <p className="text-xs text-muted-foreground">
+                        Tarifa general: {resolvedPrice.base_price.toFixed(2)} €
+                      </p>
+                    )}
                     <FormMessage />
                   </FormItem>
                 )}

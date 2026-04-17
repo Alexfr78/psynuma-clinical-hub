@@ -56,6 +56,8 @@ import { usePatients } from '@/hooks/usePatients';
 import { useBonoTemplates, useCreateBonoWithDebt } from '@/hooks/useBonos';
 import { useAuth } from '@/hooks/useAuth';
 import { useCenter } from '@/hooks/useCenter';
+import { useResolvedPrice } from '@/hooks/useCustomPrices';
+import { PriceBadge } from '@/components/pricing/PriceBadge';
 import { useCreateSignedInvoice } from '@/hooks/useCreateSignedInvoice';
 import { useIssueInvoice } from '@/hooks/useIssueInvoice';
 import { supabase } from '@/integrations/supabase/client';
@@ -95,6 +97,16 @@ export function CreateBonoDialog({ open, onOpenChange, preselectedPatientId, onS
   const { center } = useCenter();
   const [isCustom, setIsCustom] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | undefined>();
+
+  const watchPatientId = form.watch('patient_id');
+
+  // Resolver precio personalizado cuando hay paciente + plantilla seleccionados
+  const { data: resolvedPrice } = useResolvedPrice(
+    watchPatientId || undefined,
+    'bono_template',
+    selectedTemplateId,
+  );
   const [showSendInvoiceDialog, setShowSendInvoiceDialog] = useState(false);
   const [showInvoiceConfirmation, setShowInvoiceConfirmation] = useState(false);
   const [pendingSubmitValues, setPendingSubmitValues] = useState<FormValues | null>(null);
@@ -144,6 +156,7 @@ export function CreateBonoDialog({ open, onOpenChange, preselectedPatientId, onS
   const handleTemplateSelect = (templateId: string) => {
     if (templateId === 'custom') {
       setIsCustom(true);
+      setSelectedTemplateId(undefined);
       form.setValue('template_id', undefined);
       form.setValue('name', '');
       form.setValue('total_sessions', 10);
@@ -152,6 +165,7 @@ export function CreateBonoDialog({ open, onOpenChange, preselectedPatientId, onS
       form.setValue('expires_at', undefined);
     } else {
       setIsCustom(false);
+      setSelectedTemplateId(templateId);
       const template = templates?.find(t => t.id === templateId);
       if (template) {
         form.setValue('template_id', templateId);
@@ -165,6 +179,18 @@ export function CreateBonoDialog({ open, onOpenChange, preselectedPatientId, onS
       }
     }
   };
+
+  // Auto-aplicar precio personalizado cuando se resuelve
+  useEffect(() => {
+    if (resolvedPrice && !isCustom && selectedTemplateId) {
+      const template = templates?.find(t => t.id === selectedTemplateId);
+      if (!template) return;
+      const sessions = Number(template.total_sessions);
+      const appliedTotal = resolvedPrice.applied_price;
+      form.setValue('total_price', appliedTotal);
+      form.setValue('price_per_session', sessions > 0 ? appliedTotal / sessions : 0);
+    }
+  }, [resolvedPrice, isCustom, selectedTemplateId, templates, form]);
 
   // Main logic for creating bono (optionally with invoice)
   const executeBonoCreation = async (values: FormValues, shouldCreateInvoice: boolean) => {
@@ -184,6 +210,10 @@ export function CreateBonoDialog({ open, onOpenChange, preselectedPatientId, onS
         price_per_session: values.price_per_session,
         total_price: values.total_price,
         expires_at: values.expires_at?.toISOString() || null,
+        template_id: selectedTemplateId || null,
+        base_price_snapshot: resolvedPrice?.base_price ?? values.total_price,
+        pricing_source: resolvedPrice?.pricing_source ?? 'base',
+        custom_price_id: resolvedPrice?.custom_price_id ?? null,
       });
 
       const bonoId = result.bono_id;
@@ -392,6 +422,17 @@ export function CreateBonoDialog({ open, onOpenChange, preselectedPatientId, onS
               </SelectItem>
             </SelectContent>
           </Select>
+          {/* Mostrar tarifa resuelta cuando hay plantilla y paciente */}
+          {resolvedPrice && selectedTemplateId && (
+            <div className="flex items-center gap-2 mt-1">
+              <PriceBadge resolvedPrice={resolvedPrice} compact />
+              {resolvedPrice.pricing_source === 'custom' && (
+                <span className="text-xs text-muted-foreground">
+                  Tarifa general: {resolvedPrice.base_price.toFixed(2)} €
+                </span>
+              )}
+            </div>
+          )}
         </FormItem>
 
         <FormField

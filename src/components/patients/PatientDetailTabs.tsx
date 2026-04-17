@@ -16,6 +16,7 @@ import { PatientConsents } from './tabs/PatientConsents';
 import { PatientAssessments } from './tabs/PatientAssessments';
 import { PatientAutoregistros } from './tabs/PatientAutoregistros';
 import { PatientAIReports } from './tabs/PatientAIReports';
+import { PatientCustomPrices } from './tabs/PatientCustomPrices';
 import { Patient } from '@/hooks/usePatients';
 
 interface PatientDetailTabsProps {
@@ -40,6 +41,7 @@ const tabOptions = [
   { value: 'assessments', label: 'Evaluaciones' },
   { value: 'autoregistros', label: 'Autorregistros' },
   { value: 'ai-reports', label: 'Informes IA' },
+  { value: 'pricing', label: 'Tarifas' },
 ];
 
 export function PatientDetailTabs({ patient }: PatientDetailTabsProps) {
@@ -114,6 +116,10 @@ export function PatientDetailTabs({ patient }: PatientDetailTabsProps) {
 
       <TabsContent value="ai-reports">
         <PatientAIReports patientId={patient.id} />
+      </TabsContent>
+
+      <TabsContent value="pricing">
+        <PatientCustomPrices patientId={patient.id} />
       </TabsContent>
     </Tabs>
   );
