@@ -1187,6 +1187,8 @@ export type Database = {
           price_per_session: number
           pricing_source: string | null
           status: Database["public"]["Enums"]["bono_status"] | null
+          tariff_plan_assignment_id_snapshot: string | null
+          tariff_plan_id_snapshot: string | null
           template_id: string | null
           total_price: number
           total_sessions: number
@@ -1205,6 +1207,8 @@ export type Database = {
           price_per_session: number
           pricing_source?: string | null
           status?: Database["public"]["Enums"]["bono_status"] | null
+          tariff_plan_assignment_id_snapshot?: string | null
+          tariff_plan_id_snapshot?: string | null
           template_id?: string | null
           total_price: number
           total_sessions: number
@@ -1223,6 +1227,8 @@ export type Database = {
           price_per_session?: number
           pricing_source?: string | null
           status?: Database["public"]["Enums"]["bono_status"] | null
+          tariff_plan_assignment_id_snapshot?: string | null
+          tariff_plan_id_snapshot?: string | null
           template_id?: string | null
           total_price?: number
           total_sessions?: number
@@ -3365,6 +3371,105 @@ export type Database = {
           },
         ]
       }
+      patient_tariff_plan_assignments: {
+        Row: {
+          center_id: string
+          created_at: string
+          created_by: string | null
+          end_date: string | null
+          id: string
+          is_active: boolean
+          notes: string | null
+          patient_id: string
+          start_date: string
+          tariff_plan_id: string
+          updated_at: string
+        }
+        Insert: {
+          center_id: string
+          created_at?: string
+          created_by?: string | null
+          end_date?: string | null
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          patient_id: string
+          start_date?: string
+          tariff_plan_id: string
+          updated_at?: string
+        }
+        Update: {
+          center_id?: string
+          created_at?: string
+          created_by?: string | null
+          end_date?: string | null
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          patient_id?: string
+          start_date?: string
+          tariff_plan_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_tariff_plan_assignments_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_tariff_plan_assignments_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_tariff_plan_assignments_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "portal_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_tariff_plan_assignments_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_tariff_plan_assignments_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_tariff_plan_assignments_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_tariff_plan_assignments_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_tariff_plan_assignments_tariff_plan_id_fkey"
+            columns: ["tariff_plan_id"]
+            isOneToOne: false
+            referencedRelation: "tariff_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       patients: {
         Row: {
           address: string | null
@@ -4500,6 +4605,8 @@ export type Database = {
           stripe_checkout_session_id: string | null
           stripe_payment_mode: string | null
           stripe_payment_status: string | null
+          tariff_plan_assignment_id_snapshot: string | null
+          tariff_plan_id_snapshot: string | null
           transcript_processed_at: string | null
           updated_at: string
           video_call_link: string | null
@@ -4549,6 +4656,8 @@ export type Database = {
           stripe_checkout_session_id?: string | null
           stripe_payment_mode?: string | null
           stripe_payment_status?: string | null
+          tariff_plan_assignment_id_snapshot?: string | null
+          tariff_plan_id_snapshot?: string | null
           transcript_processed_at?: string | null
           updated_at?: string
           video_call_link?: string | null
@@ -4598,6 +4707,8 @@ export type Database = {
           stripe_checkout_session_id?: string | null
           stripe_payment_mode?: string | null
           stripe_payment_status?: string | null
+          tariff_plan_assignment_id_snapshot?: string | null
+          tariff_plan_id_snapshot?: string | null
           transcript_processed_at?: string | null
           updated_at?: string
           video_call_link?: string | null
@@ -4834,6 +4945,116 @@ export type Database = {
           reason?: string
         }
         Relationships: []
+      }
+      tariff_plan_items: {
+        Row: {
+          created_at: string
+          id: string
+          price: number
+          target_id: string
+          target_type: string
+          tariff_plan_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          price: number
+          target_id: string
+          target_type: string
+          tariff_plan_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          price?: number
+          target_id?: string
+          target_type?: string
+          tariff_plan_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tariff_plan_items_tariff_plan_id_fkey"
+            columns: ["tariff_plan_id"]
+            isOneToOne: false
+            referencedRelation: "tariff_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tariff_plans: {
+        Row: {
+          center_id: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          is_active: boolean
+          is_default: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          center_id: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          center_id?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tariff_plans_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tariff_plans_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tariff_plans_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "portal_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tariff_plans_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tariff_plans_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
@@ -6030,6 +6251,15 @@ export type Database = {
         Returns: Json
       }
       resolve_applicable_price: {
+        Args: {
+          p_patient_id: string
+          p_reference_date?: string
+          p_target_id: string
+          p_target_type: string
+        }
+        Returns: Json
+      }
+      resolve_effective_price: {
         Args: {
           p_patient_id: string
           p_reference_date?: string

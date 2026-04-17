@@ -81,7 +81,11 @@ function PlanFormDialog({
     if (existing) {
       await updatePlan.mutateAsync({ id: existing.id, ...values, description: values.description || null });
     } else {
-      await createPlan.mutateAsync({ ...values, description: values.description || undefined });
+      await createPlan.mutateAsync({
+        name: values.name,
+        is_default: values.is_default,
+        description: values.description || undefined,
+      });
     }
     onOpenChange(false);
     form.reset();
