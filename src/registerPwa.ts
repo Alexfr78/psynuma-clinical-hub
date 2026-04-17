@@ -22,13 +22,15 @@ function shouldSkipServiceWorker(): boolean {
   if (inIframe) return true;
 
   const host = window.location.hostname;
+  // Skip on Lovable preview/sandbox/dev hosts. Keep enabled on the published
+  // *.lovable.app domain and on user custom domains.
   if (
     host.includes("id-preview--") ||
-    host.includes("lovableproject.com") ||
-    host.includes("lovable.app") === false &&
-      (host.includes("lovable.dev") || host.endsWith(".lovable.host"))
+    host.endsWith(".lovableproject.com") ||
+    host.endsWith(".lovable.dev") ||
+    host === "localhost" ||
+    host === "127.0.0.1"
   ) {
-    // Skip on Lovable preview/sandbox domains; keep on the published custom domain
     return true;
   }
 
