@@ -1,5 +1,5 @@
 import { Badge } from '@/components/ui/badge';
-import { Clock, Tag, CheckCircle, AlertCircle } from 'lucide-react';
+import { Clock, Tag, CheckCircle, AlertCircle, Layers } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ResolvedPrice } from '@/hooks/useCustomPrices';
 
@@ -13,12 +13,12 @@ interface PriceBadgeProps {
 export function PriceBadge({ resolvedPrice, compact = false, className }: PriceBadgeProps) {
   if (!resolvedPrice) return null;
 
-  const { pricing_source, is_temporary, valid_to } = resolvedPrice;
+  const { pricing_source, is_temporary, valid_to, tariff_plan_name } = resolvedPrice;
 
-  // Determinar si la tarifa ha caducado
   const today = new Date().toISOString().split('T')[0];
   const isExpired = valid_to != null && valid_to < today;
 
+  // ── Tarifa general (base) ──────────────────────────────────
   if (pricing_source === 'base') {
     return (
       <Badge
@@ -31,6 +31,7 @@ export function PriceBadge({ resolvedPrice, compact = false, className }: PriceB
     );
   }
 
+  // ── Caducada ───────────────────────────────────────────────
   if (isExpired) {
     return (
       <Badge
@@ -43,30 +44,57 @@ export function PriceBadge({ resolvedPrice, compact = false, className }: PriceB
     );
   }
 
+  // ── Plan tarifario asignado ────────────────────────────────
+  if (pricing_source === 'tariff_plan') {
+    if (is_temporary) {
+      return (
+        <Badge
+          variant="outline"
+          className={cn('gap-1 font-normal text-xs border-violet-300 text-violet-700 bg-violet-50', className)}
+        >
+          <Clock className="h-3 w-3" />
+          {compact
+            ? (tariff_plan_name ?? 'Tarifa asignada')
+            : `${tariff_plan_name ?? 'Tarifa asignada'} · hasta ${formatDate(valid_to)}`}
+        </Badge>
+      );
+    }
+    return (
+      <Badge
+        variant="outline"
+        className={cn('gap-1 font-normal text-xs border-violet-300 text-violet-700 bg-violet-50', className)}
+      >
+        <Layers className="h-3 w-3" />
+        {tariff_plan_name ?? 'Tarifa asignada'}
+      </Badge>
+    );
+  }
+
+  // ── Excepción manual (custom) ──────────────────────────────
   if (is_temporary) {
     return (
       <Badge
-        className={cn('gap-1 font-normal text-xs bg-blue-100 text-blue-700 border-blue-200 hover:bg-blue-100', className)}
         variant="outline"
+        className={cn('gap-1 font-normal text-xs border-blue-300 text-blue-700 bg-blue-50', className)}
       >
         <Clock className="h-3 w-3" />
-        {compact ? 'Temporal' : `Temporal · hasta ${formatDate(valid_to)}`}
+        {compact ? 'Exc. temporal' : `Excepción · hasta ${formatDate(valid_to)}`}
       </Badge>
     );
   }
 
   return (
     <Badge
-      className={cn('gap-1 font-normal text-xs bg-emerald-100 text-emerald-700 border-emerald-200 hover:bg-emerald-100', className)}
       variant="outline"
+      className={cn('gap-1 font-normal text-xs border-emerald-300 text-emerald-700 bg-emerald-50', className)}
     >
       <Tag className="h-3 w-3" />
-      Tarifa personalizada
+      Excepción manual
     </Badge>
   );
 }
 
-/** Badge compacto que solo muestra el importe con su fuente de precio */
+/** Badge + precio aplicado con tachado del precio base si difiere */
 interface PriceDisplayProps {
   resolvedPrice: ResolvedPrice | null | undefined;
   className?: string;
@@ -80,7 +108,7 @@ export function PriceDisplay({ resolvedPrice, className }: PriceDisplayProps) {
   return (
     <div className={cn('flex items-center gap-2', className)}>
       <span className="font-semibold">{applied_price.toFixed(2)} €</span>
-      {pricing_source === 'custom' && (
+      {pricing_source !== 'base' && base_price != null && applied_price !== base_price && (
         <span className="text-xs text-muted-foreground line-through">{base_price.toFixed(2)} €</span>
       )}
       <PriceBadge resolvedPrice={resolvedPrice} compact />

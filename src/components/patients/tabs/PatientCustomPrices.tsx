@@ -53,6 +53,7 @@ import {
 } from '@/hooks/useCustomPrices';
 import { CustomPriceDialog } from '@/components/pricing/CustomPriceDialog';
 import { PriceBadge } from '@/components/pricing/PriceBadge';
+import { PatientTariffAssignment } from '@/components/patients/PatientTariffAssignment';
 import { useAuth } from '@/hooks/useAuth';
 
 // ── Helper ─────────────────────────────────────────────────────────────────────
@@ -194,8 +195,11 @@ export function PatientCustomPrices({ patientId }: PatientCustomPricesProps) {
   };
 
   return (
-    <div className="space-y-4">
-      {/* Header */}
+    <div className="space-y-6">
+      {/* Bloque de tarifa asignada */}
+      <PatientTariffAssignment patientId={patientId} />
+
+      {/* Header excepciones manuales */}
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-base font-semibold flex items-center gap-2">

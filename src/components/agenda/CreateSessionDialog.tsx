@@ -240,6 +240,8 @@ export function CreateSessionDialog({
         base_price_snapshot: resolvedPrice?.base_price ?? values.price,
         pricing_source: resolvedPrice?.pricing_source ?? 'base',
         custom_price_id: resolvedPrice?.custom_price_id ?? null,
+        tariff_plan_id_snapshot: resolvedPrice?.tariff_plan_id ?? null,
+        tariff_plan_assignment_id_snapshot: resolvedPrice?.tariff_plan_assignment_id ?? null,
         notes: values.notes || null,
         status: values.status as 'scheduled' | 'confirmed' | 'completed' | 'cancelled' | 'no_show',
         bono_id: values.bono_id && values.bono_id !== 'none' ? values.bono_id : null,

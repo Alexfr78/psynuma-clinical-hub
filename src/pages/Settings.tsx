@@ -75,6 +75,8 @@ import { ScheduleExceptionsSection } from '@/components/settings/ScheduleExcepti
 import { SpecialDaysSection } from '@/components/settings/SpecialDaysSection';
 import { AISettingsSection } from '@/components/settings/integrations/AISettingsSection';
 import { VersionManagementSection } from '@/components/settings/VersionManagementSection';
+import { TariffPlansSection } from '@/components/settings/TariffPlansSection';
+import { Layers } from 'lucide-react';
 
 const centerSchema = z.object({
   name: z.string().min(1, 'El nombre es obligatorio'),
@@ -88,7 +90,8 @@ const centerSchema = z.object({
 
 type CenterFormValues = z.infer<typeof centerSchema>;
 
-type SettingsSection = 
+type SettingsSection =
+  | 'tarifas'
   | 'centro-info'
   | 'centro-ubicaciones'
   | 'centro-agenda'
@@ -159,6 +162,7 @@ const navItems: NavItem[] = [
   { id: 'consentimientos-config', label: 'Consentimientos informados', icon: FileText, parent: 'Portal de Contactos' },
   
   // Pagos y Facturación
+  { id: 'tarifas', label: 'Planes tarifarios', icon: Layers, parent: 'Pagos y Facturación' },
   { id: 'pagos-config', label: 'Métodos de cobro', icon: Wallet, parent: 'Pagos y Facturación' },
   { id: 'facturacion-info', label: 'Datos fiscales', icon: Receipt, parent: 'Pagos y Facturación' },
   { id: 'facturacion-editar', label: 'Personalizar facturas', icon: Pencil, parent: 'Pagos y Facturación' },
@@ -373,6 +377,8 @@ export default function Settings() {
         return <PortalSettingsSection />;
       case 'sesiones-tipos':
         return <SessionTypesSection />;
+      case 'tarifas':
+        return <TariffPlansSection />;
       case 'pagos-config':
         return <PaymentSettingsSection />;
       case 'consentimientos-config':

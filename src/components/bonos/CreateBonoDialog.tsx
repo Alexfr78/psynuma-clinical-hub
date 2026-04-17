@@ -212,6 +212,18 @@ export function CreateBonoDialog({ open, onOpenChange, preselectedPatientId, onS
         expires_at: values.expires_at?.toISOString() || null,
       });
 
+      // 1b. Guardar snapshots de tarifa (post-creation)
+      if (result.bono_id && (resolvedPrice || selectedTemplateId)) {
+        await supabase.from('bonos').update({
+          template_id: selectedTemplateId || null,
+          base_price_snapshot: resolvedPrice?.base_price ?? values.total_price,
+          pricing_source: resolvedPrice?.pricing_source ?? 'base',
+          custom_price_id: resolvedPrice?.custom_price_id ?? null,
+          tariff_plan_id_snapshot: resolvedPrice?.tariff_plan_id ?? null,
+          tariff_plan_assignment_id_snapshot: resolvedPrice?.tariff_plan_assignment_id ?? null,
+        }).eq('id', result.bono_id);
+      }
+
       const bonoId = result.bono_id;
       const debtId = result.debt_id;
 

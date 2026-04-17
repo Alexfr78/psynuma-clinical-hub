@@ -69,7 +69,11 @@ export interface UpdateCustomPriceInput {
 export interface ResolvedPrice {
   base_price: number;
   applied_price: number;
-  pricing_source: 'base' | 'custom';
+  /** 'base' | 'tariff_plan' | 'custom' */
+  pricing_source: 'base' | 'tariff_plan' | 'custom';
+  tariff_plan_id: string | null;
+  tariff_plan_name: string | null;
+  tariff_plan_assignment_id: string | null;
   custom_price_id: string | null;
   is_temporary: boolean;
   valid_from: string | null;
@@ -172,7 +176,7 @@ export function useResolvedPrice(
     queryKey: ['resolved-price', patientId, targetType, targetId, referenceDate],
     queryFn: async (): Promise<ResolvedPrice | null> => {
       if (!patientId || !targetType || !targetId) return null;
-      const { data, error } = await supabase.rpc('resolve_applicable_price', {
+      const { data, error } = await supabase.rpc('resolve_effective_price', {
         p_patient_id: patientId,
         p_target_type: targetType,
         p_target_id: targetId,
