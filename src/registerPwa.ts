@@ -66,13 +66,15 @@ export function registerPwa() {
     onRegisteredSW(_swUrl, registration) {
       if (!registration) return;
 
+      // Force update check immediately and frequently
       registration.update().catch(() => undefined);
 
       window.setInterval(() => {
         registration.update().catch(() => undefined);
-      }, 60 * 1000);
+      }, 10 * 1000); // 10 seconds for preview environments
     },
     onNeedRefresh() {
+      console.log('[PWA] New version available, forcing refresh...');
       void updateSW(true);
     },
     onOfflineReady() {},
@@ -81,6 +83,7 @@ export function registerPwa() {
   navigator.serviceWorker.addEventListener("controllerchange", () => {
     if (hasControllerChanged) return;
     hasControllerChanged = true;
+    console.log('[PWA] Controller changed, reloading...');
     window.location.reload();
   });
 }
