@@ -1,7 +1,7 @@
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
-import { Clock, CheckCircle2, XCircle, AlertCircle, MoreVertical, Send, Copy, Eye, Ban, Trash2, Download, Loader2 } from 'lucide-react';
+import { Clock, CheckCircle2, XCircle, AlertCircle, MoreVertical, Send, Copy, Eye, Ban, Trash2, Download, Loader2, CalendarClock } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -22,9 +22,18 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { Assessment } from '@/hooks/useAssessments';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Assessment, useAssessments } from '@/hooks/useAssessments';
 import { toast } from 'sonner';
 import { useState } from 'react';
 
@@ -38,8 +47,11 @@ interface AssessmentCardProps {
 
 export function AssessmentCard({ assessment, onView, onSend, onRevoke, onDelete }: AssessmentCardProps) {
   const navigate = useNavigate();
+  const { updateExpiration } = useAssessments();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [showExpirationDialog, setShowExpirationDialog] = useState(false);
+  const [newExpirationDate, setNewExpirationDate] = useState('');
 
   const handleDownloadPDF = async () => {
     setIsDownloading(true);
@@ -129,7 +141,32 @@ export function AssessmentCard({ assessment, onView, onSend, onRevoke, onDelete 
     setShowDeleteDialog(false);
   };
 
+  const openExpirationDialog = () => {
+    // Format current expiration as YYYY-MM-DD for date input
+    const d = new Date(assessment.expires_at);
+    const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    setNewExpirationDate(iso);
+    setShowExpirationDialog(true);
+  };
+
+  const handleSaveExpiration = async () => {
+    if (!newExpirationDate) {
+      toast.error('Selecciona una fecha válida');
+      return;
+    }
+    // Set to end of day so the assessment is valid for the full selected day
+    const expiresAt = new Date(`${newExpirationDate}T23:59:59`).toISOString();
+    try {
+      await updateExpiration.mutateAsync({ id: assessment.id, expires_at: expiresAt });
+      setShowExpirationDialog(false);
+    } catch {
+      // toast handled in hook
+    }
+  };
+
   const isPending = assessment.status === 'pending' && new Date(assessment.expires_at) > new Date();
+  const isExpired = assessment.status === 'expired' || (assessment.status === 'pending' && new Date(assessment.expires_at) < new Date());
+  const canEditExpiration = isPending || isExpired;
 
   return (
     <>
@@ -197,6 +234,12 @@ export function AssessmentCard({ assessment, onView, onSend, onRevoke, onDelete 
                     </DropdownMenuItem>
                   </>
                 )}
+                {canEditExpiration && (
+                  <DropdownMenuItem onClick={openExpirationDialog}>
+                    <CalendarClock className="h-4 w-4 mr-2" />
+                    Cambiar caducidad
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => setShowDeleteDialog(true)} className="text-destructive">
                   <Trash2 className="h-4 w-4 mr-2" />
@@ -224,6 +267,38 @@ export function AssessmentCard({ assessment, onView, onSend, onRevoke, onDelete 
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={showExpirationDialog} onOpenChange={setShowExpirationDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Cambiar fecha de caducidad</DialogTitle>
+            <DialogDescription>
+              Selecciona la nueva fecha hasta la que el contacto podrá completar la evaluación.
+              {isExpired && ' Si eliges una fecha futura, la evaluación volverá a estado pendiente.'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <Label htmlFor="new-expiration-date">Nueva fecha de caducidad</Label>
+            <Input
+              id="new-expiration-date"
+              type="date"
+              value={newExpirationDate}
+              min={new Date().toISOString().split('T')[0]}
+              onChange={(e) => setNewExpirationDate(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowExpirationDialog(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSaveExpiration} disabled={updateExpiration.isPending}>
+              {updateExpiration.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Guardar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
+

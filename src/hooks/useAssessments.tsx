@@ -179,6 +179,39 @@ export function useAssessments(patientId?: string) {
     },
   });
 
+  const updateExpiration = useMutation({
+    mutationFn: async ({ id, expires_at }: { id: string; expires_at: string }) => {
+      const updates: { expires_at: string; status?: 'pending' } = { expires_at };
+
+      // If new expiration is in the future and status is 'expired', reactivate to 'pending'
+      if (new Date(expires_at) > new Date()) {
+        const { data: current } = await supabase
+          .from('assessments')
+          .select('status')
+          .eq('id', id)
+          .single();
+        if (current?.status === 'expired') {
+          updates.status = 'pending';
+        }
+      }
+
+      const { error } = await supabase
+        .from('assessments')
+        .update(updates)
+        .eq('id', id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['assessments'] });
+      toast.success('Fecha de caducidad actualizada');
+    },
+    onError: (error) => {
+      toast.error('Error al actualizar la fecha de caducidad');
+      console.error(error);
+    },
+  });
+
   const resendAssessment = useMutation({
     mutationFn: async ({ id, sent_via, sent_to }: { id: string; sent_via: 'email' | 'whatsapp'; sent_to: string }) => {
       const { error } = await supabase
@@ -209,5 +242,6 @@ export function useAssessments(patientId?: string) {
     revokeAssessment,
     deleteAssessment,
     resendAssessment,
+    updateExpiration,
   };
 }
