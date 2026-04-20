@@ -106,6 +106,21 @@ export function CustomPriceDialog({
     },
   });
 
+  // Resetear formulario cuando se abre el diálogo o cambia el registro a editar
+  useEffect(() => {
+    if (open) {
+      form.reset({
+        target_type: (existingPrice?.target_type ?? defaultTargetType) || 'session_type',
+        target_id: existingPrice?.target_id ?? defaultTargetId ?? '',
+        custom_price: existingPrice?.custom_price ?? 0,
+        start_date: existingPrice?.start_date ? new Date(existingPrice.start_date + 'T00:00:00') : new Date(),
+        end_date: existingPrice?.end_date ? new Date(existingPrice.end_date + 'T00:00:00') : null,
+        notes: existingPrice?.notes ?? '',
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, existingPrice?.id]);
+
   const watchTargetType = form.watch('target_type');
   const watchTargetId = form.watch('target_id');
 
