@@ -234,6 +234,12 @@ export function AssessmentCard({ assessment, onView, onSend, onRevoke, onDelete 
                     </DropdownMenuItem>
                   </>
                 )}
+                {canEditExpiration && (
+                  <DropdownMenuItem onClick={openExpirationDialog}>
+                    <CalendarClock className="h-4 w-4 mr-2" />
+                    Cambiar caducidad
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => setShowDeleteDialog(true)} className="text-destructive">
                   <Trash2 className="h-4 w-4 mr-2" />
@@ -261,6 +267,38 @@ export function AssessmentCard({ assessment, onView, onSend, onRevoke, onDelete 
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={showExpirationDialog} onOpenChange={setShowExpirationDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Cambiar fecha de caducidad</DialogTitle>
+            <DialogDescription>
+              Selecciona la nueva fecha hasta la que el contacto podrá completar la evaluación.
+              {isExpired && ' Si eliges una fecha futura, la evaluación volverá a estado pendiente.'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <Label htmlFor="new-expiration-date">Nueva fecha de caducidad</Label>
+            <Input
+              id="new-expiration-date"
+              type="date"
+              value={newExpirationDate}
+              min={new Date().toISOString().split('T')[0]}
+              onChange={(e) => setNewExpirationDate(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowExpirationDialog(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSaveExpiration} disabled={updateExpiration.isPending}>
+              {updateExpiration.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Guardar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
+
