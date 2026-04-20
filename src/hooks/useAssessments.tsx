@@ -242,5 +242,6 @@ export function useAssessments(patientId?: string) {
     revokeAssessment,
     deleteAssessment,
     resendAssessment,
+    updateExpiration,
   };
 }
