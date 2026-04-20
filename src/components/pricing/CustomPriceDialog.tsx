@@ -209,7 +209,6 @@ export function CustomPriceDialog({
                   <Select
                     onValueChange={field.onChange}
                     value={field.value}
-                    disabled={isEditing}
                   >
                     <FormControl>
                       <SelectTrigger>
@@ -238,7 +237,6 @@ export function CustomPriceDialog({
                   <Select
                     onValueChange={field.onChange}
                     value={field.value}
-                    disabled={isEditing}
                   >
                     <FormControl>
                       <SelectTrigger>
