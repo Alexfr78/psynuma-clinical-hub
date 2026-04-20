@@ -719,6 +719,10 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
           google_calendar_event_id: data.event_id,
         });
 
+        setLocalModality(newModality);
+        setLocalVideoProvider('google_meet');
+        setLocalVideoLink(data.meet_link);
+
         toast({ title: 'Google Meet creado', description: 'Link de videollamada generado' });
       } else if (newModality === 'zoom') {
         // Check if Zoom is configured
@@ -753,6 +757,10 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
           video_call_link: data.join_url,
         });
 
+        setLocalModality(newModality);
+        setLocalVideoProvider('zoom');
+        setLocalVideoLink(data.join_url);
+
         toast({ title: 'Reunión Zoom creada', description: 'Link de videollamada generado' });
       } else if (newModality === 'in_person') {
         // Cancel existing video meeting if any
@@ -776,6 +784,10 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
           video_call_link: null,
         });
 
+        setLocalModality(newModality);
+        setLocalVideoProvider(null);
+        setLocalVideoLink(null);
+
         toast({ title: 'Modalidad actualizada a presencial' });
       } else if (newModality === 'custom_link') {
         // Cancel existing video meeting if Zoom
@@ -797,6 +809,9 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
           session_modality: newModality,
           video_provider: null,
         });
+
+        setLocalModality(newModality);
+        setLocalVideoProvider(null);
 
         toast({ title: 'Modalidad actualizada', description: 'Puedes añadir un link personalizado' });
       }
