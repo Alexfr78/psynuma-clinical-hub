@@ -62,6 +62,8 @@ export interface UpdateCustomPriceInput {
   start_date: string;
   end_date?: string | null;
   notes?: string | null;
+  target_type?: CustomPriceTargetType;
+  target_id?: string;
 }
 
 // ── Resolved Price ─────────────────────────────────────────────────────────────
@@ -240,15 +242,19 @@ export function useUpdateCustomPrice() {
     mutationFn: async (input: UpdateCustomPriceInput) => {
       if (!profile?.id) throw new Error('No hay sesión activa');
       // Pasar created_by al updated para que el trigger de historial lo use
+      const updatePayload: Record<string, unknown> = {
+        custom_price: input.custom_price,
+        start_date: input.start_date,
+        end_date: input.end_date || null,
+        notes: input.notes || null,
+        created_by: profile.id,
+      };
+      if (input.target_type) updatePayload.target_type = input.target_type;
+      if (input.target_id) updatePayload.target_id = input.target_id;
+
       const { data, error } = await supabase
         .from('patient_custom_prices')
-        .update({
-          custom_price: input.custom_price,
-          start_date: input.start_date,
-          end_date: input.end_date || null,
-          notes: input.notes || null,
-          created_by: profile.id,
-        })
+        .update(updatePayload)
         .eq('id', input.id)
         .select()
         .single();

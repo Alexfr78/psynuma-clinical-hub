@@ -146,6 +146,8 @@ export function CustomPriceDialog({
         start_date: startIso,
         end_date: endIso,
         notes: values.notes || null,
+        target_type: values.target_type,
+        target_id: values.target_id,
       });
     } else {
       await createPrice.mutateAsync({
@@ -209,7 +211,6 @@ export function CustomPriceDialog({
                   <Select
                     onValueChange={field.onChange}
                     value={field.value}
-                    disabled={isEditing}
                   >
                     <FormControl>
                       <SelectTrigger>
@@ -238,7 +239,6 @@ export function CustomPriceDialog({
                   <Select
                     onValueChange={field.onChange}
                     value={field.value}
-                    disabled={isEditing}
                   >
                     <FormControl>
                       <SelectTrigger>
