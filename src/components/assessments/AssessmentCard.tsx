@@ -47,8 +47,11 @@ interface AssessmentCardProps {
 
 export function AssessmentCard({ assessment, onView, onSend, onRevoke, onDelete }: AssessmentCardProps) {
   const navigate = useNavigate();
+  const { updateExpiration } = useAssessments();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [showExpirationDialog, setShowExpirationDialog] = useState(false);
+  const [newExpirationDate, setNewExpirationDate] = useState('');
 
   const handleDownloadPDF = async () => {
     setIsDownloading(true);
