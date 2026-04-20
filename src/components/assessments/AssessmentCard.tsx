@@ -1,7 +1,7 @@
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
-import { Clock, CheckCircle2, XCircle, AlertCircle, MoreVertical, Send, Copy, Eye, Ban, Trash2, Download, Loader2 } from 'lucide-react';
+import { Clock, CheckCircle2, XCircle, AlertCircle, MoreVertical, Send, Copy, Eye, Ban, Trash2, Download, Loader2, CalendarClock } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -22,9 +22,18 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { Assessment } from '@/hooks/useAssessments';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Assessment, useAssessments } from '@/hooks/useAssessments';
 import { toast } from 'sonner';
 import { useState } from 'react';
 
