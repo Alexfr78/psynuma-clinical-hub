@@ -141,7 +141,32 @@ export function AssessmentCard({ assessment, onView, onSend, onRevoke, onDelete 
     setShowDeleteDialog(false);
   };
 
+  const openExpirationDialog = () => {
+    // Format current expiration as YYYY-MM-DD for date input
+    const d = new Date(assessment.expires_at);
+    const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    setNewExpirationDate(iso);
+    setShowExpirationDialog(true);
+  };
+
+  const handleSaveExpiration = async () => {
+    if (!newExpirationDate) {
+      toast.error('Selecciona una fecha válida');
+      return;
+    }
+    // Set to end of day so the assessment is valid for the full selected day
+    const expiresAt = new Date(`${newExpirationDate}T23:59:59`).toISOString();
+    try {
+      await updateExpiration.mutateAsync({ id: assessment.id, expires_at: expiresAt });
+      setShowExpirationDialog(false);
+    } catch {
+      // toast handled in hook
+    }
+  };
+
   const isPending = assessment.status === 'pending' && new Date(assessment.expires_at) > new Date();
+  const isExpired = assessment.status === 'expired' || (assessment.status === 'pending' && new Date(assessment.expires_at) < new Date());
+  const canEditExpiration = isPending || isExpired;
 
   return (
     <>
