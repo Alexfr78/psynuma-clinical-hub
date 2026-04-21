@@ -71,7 +71,7 @@ export function PatientConsents({ patientId, patient }: PatientConsentsProps) {
       ) : (
         <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
           {consents.map((consent) => (
-            <ConsentCard key={consent.id} consent={consent} />
+            <ConsentCard key={consent.id} consent={consent} patientPhone={patient.phone} />
           ))}
         </div>
       )}
@@ -97,6 +97,7 @@ export function PatientConsents({ patientId, patient }: PatientConsentsProps) {
       {sendDialogConsent && (
         <SendConsentDialog
           consent={sendDialogConsent}
+          patientPhone={patient.phone}
           open={!!sendDialogConsent}
           onOpenChange={(open) => !open && setSendDialogConsent(null)}
         />
