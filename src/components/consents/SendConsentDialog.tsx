@@ -53,7 +53,7 @@ Si tienes cualquier consulta, no dudes en avisarme.`;
   };
 
   const handleSendWhatsApp = async () => {
-    if (!patientPhone) {
+    if (!phone) {
       toast.error("Sin teléfono", {
         description: "El paciente no tiene número de teléfono registrado.",
       });
@@ -65,7 +65,7 @@ Si tienes cualquier consulta, no dudes en avisarme.`;
     setIsSending(true);
     try {
       const result = await sendWhatsApp({
-        phone: patientPhone,
+        phone,
         message,
         patientId: consent.patient_id,
         patientName: patientName || "Contacto",
