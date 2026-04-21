@@ -117,7 +117,7 @@ Si tienes cualquier consulta, no dudes en avisarme.`;
                 </Badge>
               </div>
 
-              {patientPhone ? (
+              {phone ? (
                 <Button
                   variant="outline"
                   className="w-full justify-start gap-3"
