@@ -1628,10 +1628,9 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                   </Button>
                 )}
                 
-                {/* Show "Cobrar sesión" only when there is real outstanding balance.
-                    Uses isCollectable from the improved useSessionPaymentStatus which
-                    excludes refunded debts and debts from invalidated invoices. */}
-                {paymentStatus?.isCollectable && !localBonoId && !session.bono_id && localPrice > 0 && (
+                {/* Show "Cobrar sesión" whenever the session has an unpaid price and no bono.
+                    The RPC will create the debt on demand if it doesn't exist yet. */}
+                {!paymentStatus?.isPaid && !localBonoId && !session.bono_id && localPrice > 0 && (
                   <Button
                     size="sm"
                     variant="outline"
