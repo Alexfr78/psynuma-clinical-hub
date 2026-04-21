@@ -5902,6 +5902,18 @@ export type Database = {
         Returns: string
       }
       cleanup_old_rate_limit_entries: { Args: never; Returns: undefined }
+      collect_session_payment_v2: {
+        Args: {
+          p_amount: number
+          p_notes?: string
+          p_patient_id: string
+          p_payment_date?: string
+          p_payment_method: string
+          p_reference?: string
+          p_session_id: string
+        }
+        Returns: Json
+      }
       compute_patient_status: { Args: { p_patient_id: string }; Returns: Json }
       convert_calendar_event_to_session: {
         Args: {
