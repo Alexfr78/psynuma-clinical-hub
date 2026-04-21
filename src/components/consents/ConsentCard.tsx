@@ -21,6 +21,7 @@ import { supabase } from '@/integrations/supabase/client';
 
 interface ConsentCardProps {
   consent: Consent;
+  patientPhone?: string | null;
 }
 
 const statusConfig = {
@@ -30,7 +31,7 @@ const statusConfig = {
   expired: { label: 'Expirado', variant: 'secondary' as const, color: 'bg-gray-500' },
 };
 
-export function ConsentCard({ consent }: ConsentCardProps) {
+export function ConsentCard({ consent, patientPhone }: ConsentCardProps) {
   const [detailOpen, setDetailOpen] = useState(false);
   const [revokeOpen, setRevokeOpen] = useState(false);
   const [sendOpen, setSendOpen] = useState(false);
@@ -199,6 +200,7 @@ export function ConsentCard({ consent }: ConsentCardProps) {
 
       <SendConsentDialog
         consent={consent}
+        patientPhone={patientPhone}
         open={sendOpen}
         onOpenChange={setSendOpen}
       />
