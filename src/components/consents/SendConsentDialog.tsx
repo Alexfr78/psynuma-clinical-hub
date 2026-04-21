@@ -168,7 +168,7 @@ Si tienes cualquier consulta, no dudes en avisarme.`;
       <WhatsAppLinkDialog
         open={whatsAppDialogOpen}
         onOpenChange={setWhatsAppDialogOpen}
-        phone={patientPhone || ""}
+        phone={phone || ""}
         message={message}
         patientName={patientName || "Contacto"}
       />
