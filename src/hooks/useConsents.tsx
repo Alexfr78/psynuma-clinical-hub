@@ -30,6 +30,7 @@ export interface Consent {
   patient?: {
     first_name: string;
     last_name: string;
+    phone?: string | null;
   };
   professional?: {
     first_name: string | null;
@@ -64,7 +65,7 @@ export function useConsents(patientId?: string) {
         .select(`
           *,
           template:consent_templates(name),
-          patient:patients(first_name, last_name),
+          patient:patients(first_name, last_name, phone),
           professional:profiles(first_name, last_name)
         `)
         .eq('center_id', profile.center_id)

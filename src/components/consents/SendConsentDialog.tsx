@@ -32,6 +32,7 @@ export function SendConsentDialog({ consent, patientPhone, open, onOpenChange }:
 
   const consentUrl = `${window.location.origin}/consentimiento/${consent.access_token}`;
   const patientName = consent.patient ? `${consent.patient.first_name}` : "";
+  const phone = patientPhone ?? consent.patient?.phone ?? null;
 
   const message = `Buenos días${patientName ? ` ${patientName}` : ""}, tal y como te comenté, te adjunto el acuerdo de consentimiento para la protección de datos. Al final de la lectura encontrás los campos para Autorizar o No el consentimiento.
 
@@ -52,7 +53,7 @@ Si tienes cualquier consulta, no dudes en avisarme.`;
   };
 
   const handleSendWhatsApp = async () => {
-    if (!patientPhone) {
+    if (!phone) {
       toast.error("Sin teléfono", {
         description: "El paciente no tiene número de teléfono registrado.",
       });
@@ -64,7 +65,7 @@ Si tienes cualquier consulta, no dudes en avisarme.`;
     setIsSending(true);
     try {
       const result = await sendWhatsApp({
-        phone: patientPhone,
+        phone,
         message,
         patientId: consent.patient_id,
         patientName: patientName || "Contacto",
@@ -116,7 +117,7 @@ Si tienes cualquier consulta, no dudes en avisarme.`;
                 </Badge>
               </div>
 
-              {patientPhone ? (
+              {phone ? (
                 <Button
                   variant="outline"
                   className="w-full justify-start gap-3"
@@ -167,7 +168,7 @@ Si tienes cualquier consulta, no dudes en avisarme.`;
       <WhatsAppLinkDialog
         open={whatsAppDialogOpen}
         onOpenChange={setWhatsAppDialogOpen}
-        phone={patientPhone || ""}
+        phone={phone || ""}
         message={message}
         patientName={patientName || "Contacto"}
       />
