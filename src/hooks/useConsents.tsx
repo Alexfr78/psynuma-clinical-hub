@@ -30,6 +30,7 @@ export interface Consent {
   patient?: {
     first_name: string;
     last_name: string;
+    phone?: string | null;
   };
   professional?: {
     first_name: string | null;
