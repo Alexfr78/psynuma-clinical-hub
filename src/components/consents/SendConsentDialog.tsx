@@ -32,6 +32,7 @@ export function SendConsentDialog({ consent, patientPhone, open, onOpenChange }:
 
   const consentUrl = `${window.location.origin}/consentimiento/${consent.access_token}`;
   const patientName = consent.patient ? `${consent.patient.first_name}` : "";
+  const phone = patientPhone ?? consent.patient?.phone ?? null;
 
   const message = `Buenos días${patientName ? ` ${patientName}` : ""}, tal y como te comenté, te adjunto el acuerdo de consentimiento para la protección de datos. Al final de la lectura encontrás los campos para Autorizar o No el consentimiento.
 
