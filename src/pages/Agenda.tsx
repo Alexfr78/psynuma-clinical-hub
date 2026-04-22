@@ -180,13 +180,36 @@ export default function Agenda() {
     return [...baseSessions, ...uniqueGoogleEvents] as SessionWithRelations[];
   }, [effectiveSessions, googleCalendarEvents, showGoogleEvents]);
 
+  const visibleSessionsForHours = useMemo(() => {
+    if (view === 'day') {
+      const dayKey = format(currentDate, 'yyyy-MM-dd');
+      return allSessions.filter((session) => session.session_date === dayKey);
+    }
+
+    if (view === 'week' || view === 'list') {
+      const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
+      const weekEnd = showWeekends
+        ? endOfWeek(currentDate, { weekStartsOn: 1 })
+        : addDays(weekStart, 4);
+
+      const startKey = format(weekStart, 'yyyy-MM-dd');
+      const endKey = format(weekEnd, 'yyyy-MM-dd');
+
+      return allSessions.filter(
+        (session) => session.session_date >= startKey && session.session_date <= endKey
+      );
+    }
+
+    return allSessions;
+  }, [allSessions, currentDate, view, showWeekends]);
+
   const transcriptionSession = useMemo(() => {
     if (!transcriptionSessionId) return null;
     return allSessions.find((session) => session.id === transcriptionSessionId) ?? null;
   }, [allSessions, transcriptionSessionId]);
 
-  // Dynamic hours based on center/professional configuration and existing sessions
-  const { hours, startHour } = useAgendaHours(selectedProfessional, currentDate, allSessions);
+  // Dynamic hours based on center/professional configuration and visible sessions only
+  const { hours, startHour } = useAgendaHours(selectedProfessional, currentDate, visibleSessionsForHours);
 
   // Fetch schedule exceptions for the visible date range
   const { data: scheduleExceptions } = useScheduleExceptions(center?.id, dateRange.start, dateRange.end);
