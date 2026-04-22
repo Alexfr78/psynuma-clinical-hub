@@ -48,75 +48,79 @@ export function useAgendaHours(
 
   const config = useMemo((): AgendaHoursConfig => {
     const dayOfWeek = getDay(currentDate); // 0 = Sunday, 1 = Monday, etc.
-    
-    let minStart = DEFAULT_END;
-    let maxEnd = DEFAULT_START;
+
+    // Compute session-driven range (priority when there are sessions)
+    let sessionMin = 24;
+    let sessionMax = 0;
+    let hasSessions = false;
+    if (sessions && sessions.length > 0) {
+      sessions.forEach(session => {
+        const sH = timeToHour(session.start_time);
+        const eH = timeToEndHour(session.end_time);
+        if (sH < sessionMin) sessionMin = sH;
+        if (eH > sessionMax) sessionMax = eH;
+        hasSessions = true;
+      });
+    }
+
+    // Compute configured range from availability/location schedules
+    let configMin = DEFAULT_END;
+    let configMax = DEFAULT_START;
     let hasConfig = false;
 
-    // If a specific professional is selected, only use their availability
     if (selectedProfessionalId && selectedProfessionalId !== 'all') {
       const profAvailability = professionalAvailability?.filter(
         a => a.professional_id === selectedProfessionalId && a.is_available
       );
-
       if (profAvailability && profAvailability.length > 0) {
         profAvailability.forEach(slot => {
-          const startH = timeToHour(slot.start_time);
-          const endH = timeToHour(slot.end_time);
-          if (startH < minStart) minStart = startH;
-          if (endH > maxEnd) maxEnd = endH;
+          const sH = timeToHour(slot.start_time);
+          const eH = timeToHour(slot.end_time);
+          if (sH < configMin) configMin = sH;
+          if (eH > configMax) configMax = eH;
           hasConfig = true;
         });
       }
     } else {
-      // Use location schedules for the specific day
       const daySchedules = locationSchedules?.filter(
         s => s.day_of_week === dayOfWeek && s.is_open
       );
-
       if (daySchedules && daySchedules.length > 0) {
         daySchedules.forEach(schedule => {
-          const startH = timeToHour(schedule.start_time);
-          const endH = timeToHour(schedule.end_time);
-          if (startH < minStart) minStart = startH;
-          if (endH > maxEnd) maxEnd = endH;
+          const sH = timeToHour(schedule.start_time);
+          const eH = timeToHour(schedule.end_time);
+          if (sH < configMin) configMin = sH;
+          if (eH > configMax) configMax = eH;
           hasConfig = true;
         });
       }
-
-      // Also consider all professional availability
       if (professionalAvailability && professionalAvailability.length > 0) {
         professionalAvailability
           .filter(a => a.is_available)
           .forEach(slot => {
-            const startH = timeToHour(slot.start_time);
-            const endH = timeToHour(slot.end_time);
-            if (startH < minStart) minStart = startH;
-            if (endH > maxEnd) maxEnd = endH;
+            const sH = timeToHour(slot.start_time);
+            const eH = timeToHour(slot.end_time);
+            if (sH < configMin) configMin = sH;
+            if (eH > configMax) configMax = eH;
             hasConfig = true;
           });
       }
     }
 
-    // Use defaults if no configuration found
-    if (!hasConfig) {
+    let minStart: number;
+    let maxEnd: number;
+
+    if (hasSessions) {
+      // Center the view around the actual sessions with a 1h margin on each side.
+      // Don't expand all the way to availability bounds when there are no sessions there.
+      minStart = Math.max(0, sessionMin - 1);
+      maxEnd = Math.min(24, sessionMax + 1);
+    } else if (hasConfig) {
+      minStart = configMin;
+      maxEnd = configMax;
+    } else {
       minStart = DEFAULT_START;
       maxEnd = DEFAULT_END;
-    }
-
-    // Expand range to include sessions outside configured hours
-    if (sessions && sessions.length > 0) {
-      sessions.forEach(session => {
-        const sessionStartHour = timeToHour(session.start_time);
-        const sessionEndHour = timeToEndHour(session.end_time);
-        
-        if (sessionStartHour < minStart) {
-          minStart = sessionStartHour;
-        }
-        if (sessionEndHour > maxEnd) {
-          maxEnd = sessionEndHour;
-        }
-      });
     }
 
     // Ensure valid range
