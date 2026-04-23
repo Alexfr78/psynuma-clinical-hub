@@ -26,6 +26,7 @@ import {
   FileText,
   Eye,
   Activity,
+  ExternalLink,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -35,7 +36,11 @@ import { EntryDetailDrawer } from '@/components/autoregistros/registros/EntryDet
 import { buildFieldDisplayMetas } from '@/lib/autoregistro-field-display';
 import { normalizeAutoregistroFields } from '@/lib/autoregistro-fields';
 
-export function ActivityFeed() {
+interface ActivityFeedProps {
+  onOpenFullRegistro?: (entry: AutoregistroEntry) => void;
+}
+
+export function ActivityFeed({ onOpenFullRegistro }: ActivityFeedProps = {}) {
   const [searchText, setSearchText] = useState('');
   const [filterTemplateId, setFilterTemplateId] = useState<string>('all');
   const [filterAlerts, setFilterAlerts] = useState(false);
@@ -218,14 +223,28 @@ export function ActivityFeed() {
                       )}
                     </TableCell>
                     <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => setSelectedEntry(entry)}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => setSelectedEntry(entry)}
+                          title="Ver detalle del registro"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        {onOpenFullRegistro && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => onOpenFullRegistro(entry)}
+                            title="Ir al autoregistro completo"
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -243,7 +262,7 @@ export function ActivityFeed() {
               >
                 <CardContent className="py-3 px-4">
                   <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                       <p className="font-medium text-sm truncate">
                         {entry.patient?.first_name} {entry.patient?.last_name}
                       </p>
@@ -254,16 +273,32 @@ export function ActivityFeed() {
                         {format(new Date(entry.submitted_at), "d MMM yyyy, HH:mm", { locale: es })}
                       </p>
                     </div>
-                    {entry.alertSeverity === 'critical' && (
-                      <Badge variant="destructive" className="gap-1 shrink-0">
-                        <AlertTriangle className="h-3 w-3" />
-                      </Badge>
-                    )}
-                    {entry.alertSeverity === 'warning' && (
-                      <Badge variant="outline" className="gap-1 shrink-0 border-amber-400 text-amber-600">
-                        <AlertCircle className="h-3 w-3" />
-                      </Badge>
-                    )}
+                    <div className="flex items-center gap-1 shrink-0">
+                      {entry.alertSeverity === 'critical' && (
+                        <Badge variant="destructive" className="gap-1">
+                          <AlertTriangle className="h-3 w-3" />
+                        </Badge>
+                      )}
+                      {entry.alertSeverity === 'warning' && (
+                        <Badge variant="outline" className="gap-1 border-amber-400 text-amber-600">
+                          <AlertCircle className="h-3 w-3" />
+                        </Badge>
+                      )}
+                      {onOpenFullRegistro && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onOpenFullRegistro(entry);
+                          }}
+                          title="Ir al autoregistro completo"
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </CardContent>
               </Card>

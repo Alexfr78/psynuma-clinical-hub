@@ -253,7 +253,14 @@ export default function Autoregistros() {
         </TabsContent>
 
         <TabsContent value="activity">
-          <ActivityFeed />
+          <ActivityFeed
+            onOpenFullRegistro={(entry) => {
+              setFilterPatientId(entry.patient_id);
+              setFilterTemplateId(entry.template_id);
+              setSelectedIds(new Set());
+              setTab('entries');
+            }}
+          />
         </TabsContent>
 
         <TabsContent value="entries" className="space-y-4">
