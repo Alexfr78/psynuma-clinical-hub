@@ -1255,8 +1255,21 @@ async function syncProfessional(
                 });
 
                 result.errors.push(`Blocked large move from Google for session ${session.id} (${session.session_date} ${session.start_time} → ${parsedStart.date} ${parsedStart.time})`);
+
+                // Notify the professional (in-app + email + WhatsApp)
+                await alertProfessionalSyncChange(supabase, {
+                  professionalId,
+                  centerId: professional?.center_id,
+                  patientId: session.patient_id,
+                  sessionId: session.id,
+                  outcome: 'blocked_large_move',
+                  oldDate: session.session_date,
+                  oldTime: session.start_time,
+                  newDate: parsedStart.date,
+                  newTime: parsedStart.time,
+                  correlationId,
+                });
                 continue;
-              }
 
               // SAFETY GUARD #2: aunque el modo lo permita, comprobar solapamiento antes de aplicar.
               const { data: overlap } = await supabase
