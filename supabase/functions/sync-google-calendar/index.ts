@@ -1,6 +1,81 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { decryptSecret } from "../_shared/crypto.ts";
+import { notifyProfessionalBooking } from "../_shared/professionalNotification.ts";
+
+// ============================================================
+// SYNC ALERT — notifies the professional when Google→Psycma sync
+// applies or blocks a change on an existing session.
+// Uses the unified channel resolver (email + WhatsApp) and creates
+// an in-app notification so changes never go silent again.
+// ============================================================
+async function alertProfessionalSyncChange(
+  supabase: any,
+  params: {
+    professionalId: string;
+    centerId: string;
+    patientId: string;
+    sessionId: string;
+    outcome: 'applied' | 'blocked_large_move' | 'blocked_overlap';
+    oldDate: string;
+    oldTime: string;
+    newDate: string;
+    newTime: string;
+    correlationId: string;
+  }
+): Promise<void> {
+  const { professionalId, centerId, patientId, sessionId, outcome, oldDate, oldTime, newDate, newTime, correlationId } = params;
+
+  // 1. In-app notification (always, regardless of outcome)
+  try {
+    const title = outcome === 'applied'
+      ? '⚠️ Google Calendar movió una sesión'
+      : outcome === 'blocked_large_move'
+        ? '🛡️ Cambio grande bloqueado en Google Calendar'
+        : '🛡️ Solapamiento bloqueado en Google Calendar';
+
+    const body = outcome === 'applied'
+      ? `Una sesión se movió desde Google Calendar de ${oldDate} ${oldTime} a ${newDate} ${newTime}. Revisa la agenda.`
+      : `Se intentó mover una sesión desde Google Calendar de ${oldDate} ${oldTime} a ${newDate} ${newTime}. Bloqueado para proteger los datos. Revisa la agenda.`;
+
+    await supabase.from('notifications').insert({
+      center_id: centerId,
+      patient_id: patientId,
+      session_id: sessionId,
+      type: 'google_sync_conflict',
+      status: 'sent',
+      recipient: professionalId,
+      subject: title,
+      message: `${body} [sync_source=google_two_way outcome=${outcome} session=${sessionId} corr=${correlationId}]`,
+      sent_at: new Date().toISOString(),
+    });
+  } catch (e) {
+    console.error(`[SYNC:${correlationId}] Failed to insert in-app notification:`, e);
+  }
+
+  // 2. Email + WhatsApp via the unified channel (treats it as a 'rescheduled' event).
+  try {
+    await notifyProfessionalBooking({
+      supabase,
+      centerId,
+      professionalId,
+      patientId,
+      sessionId,
+      eventType: outcome === 'applied' ? 'rescheduled' : 'rescheduled',
+      sessionDate: newDate,
+      startTime: newTime,
+      oldDate,
+      oldTime,
+      reason: outcome === 'blocked_large_move'
+        ? 'Cambio bloqueado automáticamente (movimiento grande detectado en Google Calendar)'
+        : outcome === 'blocked_overlap'
+          ? 'Cambio bloqueado automáticamente (solapamiento con otra sesión)'
+          : 'Cambio aplicado desde Google Calendar (sincronización bidireccional)',
+    });
+  } catch (e) {
+    console.error(`[SYNC:${correlationId}] Failed to send professional notification:`, e);
+  }
+}
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -1176,8 +1251,21 @@ async function syncProfessional(
                 });
 
                 result.errors.push(`Blocked large move from Google for session ${session.id} (${session.session_date} ${session.start_time} → ${parsedStart.date} ${parsedStart.time})`);
+
+                // Notify the professional (in-app + email + WhatsApp)
+                await alertProfessionalSyncChange(supabase, {
+                  professionalId,
+                  centerId: professional?.center_id,
+                  patientId: session.patient_id,
+                  sessionId: session.id,
+                  outcome: 'blocked_large_move',
+                  oldDate: session.session_date,
+                  oldTime: session.start_time,
+                  newDate: parsedStart.date,
+                  newTime: parsedStart.time,
+                  correlationId,
+                });
                 continue;
-              }
 
               // SAFETY GUARD #2: aunque el modo lo permita, comprobar solapamiento antes de aplicar.
               const { data: overlap } = await supabase
@@ -1208,11 +1296,27 @@ async function syncProfessional(
                   attempted: { date: parsedStart.date, start: parsedStart.time, end: parsedEnd.time },
                 });
                 result.errors.push(`Overlap blocked Google→Psycma for session ${session.id}`);
+
+                // Notify the professional
+                await alertProfessionalSyncChange(supabase, {
+                  professionalId,
+                  centerId: professional?.center_id,
+                  patientId: session.patient_id,
+                  sessionId: session.id,
+                  outcome: 'blocked_overlap',
+                  oldDate: session.session_date,
+                  oldTime: session.start_time,
+                  newDate: parsedStart.date,
+                  newTime: parsedStart.time,
+                  correlationId,
+                });
                 continue;
               }
 
               // Aplicar cambio pequeño aprobado.
               console.log(`[SYNC:${correlationId}] Applying small Google→Psycma change for session ${session.id}`);
+              const oldDateBefore = session.session_date;
+              const oldTimeBefore = session.start_time;
               const { error: updateError } = await supabase.from('sessions').update({
                 session_date: parsedStart.date,
                 start_time: parsedStart.time,
@@ -1224,6 +1328,19 @@ async function syncProfessional(
                 result.errors.push(`Google→Psycma update failed for session ${session.id}: ${updateError.message}`);
               } else {
                 result.updated++;
+                // Notify the professional that Google moved their session
+                await alertProfessionalSyncChange(supabase, {
+                  professionalId,
+                  centerId: professional?.center_id,
+                  patientId: session.patient_id,
+                  sessionId: session.id,
+                  outcome: 'applied',
+                  oldDate: oldDateBefore,
+                  oldTime: oldTimeBefore,
+                  newDate: parsedStart.date,
+                  newTime: parsedStart.time,
+                  correlationId,
+                });
               }
               continue;
             } else {
