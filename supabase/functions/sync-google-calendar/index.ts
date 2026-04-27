@@ -1300,11 +1300,27 @@ async function syncProfessional(
                   attempted: { date: parsedStart.date, start: parsedStart.time, end: parsedEnd.time },
                 });
                 result.errors.push(`Overlap blocked Google→Psycma for session ${session.id}`);
+
+                // Notify the professional
+                await alertProfessionalSyncChange(supabase, {
+                  professionalId,
+                  centerId: professional?.center_id,
+                  patientId: session.patient_id,
+                  sessionId: session.id,
+                  outcome: 'blocked_overlap',
+                  oldDate: session.session_date,
+                  oldTime: session.start_time,
+                  newDate: parsedStart.date,
+                  newTime: parsedStart.time,
+                  correlationId,
+                });
                 continue;
               }
 
               // Aplicar cambio pequeño aprobado.
               console.log(`[SYNC:${correlationId}] Applying small Google→Psycma change for session ${session.id}`);
+              const oldDateBefore = session.session_date;
+              const oldTimeBefore = session.start_time;
               const { error: updateError } = await supabase.from('sessions').update({
                 session_date: parsedStart.date,
                 start_time: parsedStart.time,
@@ -1316,6 +1332,19 @@ async function syncProfessional(
                 result.errors.push(`Google→Psycma update failed for session ${session.id}: ${updateError.message}`);
               } else {
                 result.updated++;
+                // Notify the professional that Google moved their session
+                await alertProfessionalSyncChange(supabase, {
+                  professionalId,
+                  centerId: professional?.center_id,
+                  patientId: session.patient_id,
+                  sessionId: session.id,
+                  outcome: 'applied',
+                  oldDate: oldDateBefore,
+                  oldTime: oldTimeBefore,
+                  newDate: parsedStart.date,
+                  newTime: parsedStart.time,
+                  correlationId,
+                });
               }
               continue;
             } else {
