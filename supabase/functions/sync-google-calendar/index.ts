@@ -1202,20 +1202,11 @@ async function syncProfessional(
                 } catch (e) {
                   console.error(`[SYNC:${correlationId}] Failed to restore Google event:`, e);
                 }
-                try {
-                  await supabase.from('notifications').insert({
-                    user_id: professionalId,
-                    type: 'calendar_sync_conflict',
-                    title: 'Conflicto al sincronizar Google Calendar',
-                    message: `No se pudo aplicar un cambio desde Google porque solaparía con otra cita.`,
-                    metadata: {
-                      session_id: session.id,
-                      google_event_id: session.google_calendar_event_id,
-                      attempted: { date: parsedStart.date, start: parsedStart.time, end: parsedEnd.time },
-                      reason: 'overlap_blocked',
-                    },
-                  });
-                } catch {}
+                console.warn(`[SYNC:${correlationId}] CONFLICT overlap_blocked`, {
+                  session_id: session.id,
+                  google_event_id: session.google_calendar_event_id,
+                  attempted: { date: parsedStart.date, start: parsedStart.time, end: parsedEnd.time },
+                });
                 result.errors.push(`Overlap blocked Google→Psycma for session ${session.id}`);
                 continue;
               }
