@@ -1167,26 +1167,15 @@ async function syncProfessional(
                   console.error(`[SYNC:${correlationId}] Failed to restore Google event:`, e);
                 }
 
-                // Notificar al profesional para que revise.
-                try {
-                  await supabase.from('notifications').insert({
-                    user_id: professionalId,
-                    type: 'calendar_sync_conflict',
-                    title: 'Cambio rechazado en Google Calendar',
-                    message: `Se intentó mover una sesión desde Google (${session.session_date} ${session.start_time} → ${parsedStart.date} ${parsedStart.time}), pero el cambio fue rechazado por seguridad. Si era correcto, edita la cita desde Psycma.`,
-                    metadata: {
-                      session_id: session.id,
-                      google_event_id: session.google_calendar_event_id,
-                      original: { date: session.session_date, start: session.start_time, end: session.end_time },
-                      attempted: { date: parsedStart.date, start: parsedStart.time, end: parsedEnd.time },
-                      reason: 'large_move_blocked',
-                    },
-                  });
-                } catch (e) {
-                  console.error(`[SYNC:${correlationId}] Failed to insert notification:`, e);
-                }
+                // Registrar el conflicto en logs (la tabla notifications es solo para emails).
+                console.warn(`[SYNC:${correlationId}] CONFLICT large_move_blocked`, {
+                  session_id: session.id,
+                  google_event_id: session.google_calendar_event_id,
+                  original: { date: session.session_date, start: session.start_time, end: session.end_time },
+                  attempted: { date: parsedStart.date, start: parsedStart.time, end: parsedEnd.time },
+                });
 
-                result.errors.push(`Blocked large move from Google for session ${session.id}`);
+                result.errors.push(`Blocked large move from Google for session ${session.id} (${session.session_date} ${session.start_time} → ${parsedStart.date} ${parsedStart.time})`);
                 continue;
               }
 
