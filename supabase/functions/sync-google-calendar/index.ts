@@ -40,18 +40,14 @@ async function alertProfessionalSyncChange(
 
     await supabase.from('notifications').insert({
       center_id: centerId,
-      recipient_id: professionalId,
+      patient_id: patientId,
+      session_id: sessionId,
       type: 'google_sync_conflict',
-      title,
-      message: body,
-      metadata: {
-        sync_source: 'google_two_way',
-        outcome,
-        session_id: sessionId,
-        old: { date: oldDate, time: oldTime },
-        new: { date: newDate, time: newTime },
-        correlation_id: correlationId,
-      },
+      status: 'sent',
+      recipient: professionalId,
+      subject: title,
+      message: `${body} [sync_source=google_two_way outcome=${outcome} session=${sessionId} corr=${correlationId}]`,
+      sent_at: new Date().toISOString(),
     });
   } catch (e) {
     console.error(`[SYNC:${correlationId}] Failed to insert in-app notification:`, e);
