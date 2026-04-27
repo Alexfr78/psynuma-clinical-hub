@@ -1107,8 +1107,23 @@ async function syncProfessional(
           result.errors.push(`Failed to recreate event for session ${session.id}`);
         }
       } else if (googleEvent) {
-        // Check for two-way sync updates
-        if (integrations?.google_calendar_sync_mode === 'two_way' && googleEvent.start?.dateTime) {
+        // ============================================================
+        // CONFLICT RESOLUTION (two-way sync) — defensive logic
+        // ============================================================
+        // Aceptar cambios desde Google sin restricciones puede borrar
+        // citas existentes (caso real: una cita movida en Google a otra
+        // fecha sobrescribió la fila Psycma haciendo desaparecer la cita
+        // original sin ningún rastro). Este bloque protege los datos
+        // clínicos respetando la política configurada por el profesional.
+        // ============================================================
+        const conflictMode: 'psycma_wins' | 'safe_two_way' | 'google_wins_legacy' =
+          (integrations?.google_calendar_conflict_mode as any) || 'psycma_wins';
+
+        if (
+          integrations?.google_calendar_sync_mode === 'two_way' &&
+          googleEvent.start?.dateTime &&
+          conflictMode !== 'psycma_wins'
+        ) {
           const parsedStart = parseGoogleDateTimeToMadrid(googleEvent.start.dateTime);
           const parsedEnd = parseGoogleDateTimeToMadrid(googleEvent.end.dateTime);
 
@@ -1120,22 +1135,93 @@ async function syncProfessional(
             const psycmaUpdatedAt = session.updated_at ? new Date(session.updated_at).getTime() : 0;
             const googleUpdatedAt = googleEvent.updated ? new Date(googleEvent.updated).getTime() : 0;
             const bufferMs = 5000;
-            
-            console.log(`[SYNC:${correlationId}] Comparing session ${session.id}: Psycma=${psycmaUpdatedAt}, Google=${googleUpdatedAt}, diff=${Math.abs(psycmaUpdatedAt - googleUpdatedAt)}ms`);
-            
+
+            console.log(`[SYNC:${correlationId}] Comparing session ${session.id}: Psycma=${psycmaUpdatedAt}, Google=${googleUpdatedAt}, diff=${Math.abs(psycmaUpdatedAt - googleUpdatedAt)}ms, mode=${conflictMode}`);
+
             if (googleUpdatedAt > psycmaUpdatedAt + bufferMs) {
-              // Google is newer - update Psycma
-              console.log(`[SYNC:${correlationId}] Google is newer, updating Psycma`);
+              // Google is newer. Decide based on conflict mode and movement size.
+              const dayChanged = session.session_date !== parsedStart.date;
+              const timeDeltaMinutes = (() => {
+                try {
+                  const a = (session.start_time || '00:00').split(':').map(Number);
+                  const b = (parsedStart.time || '00:00').split(':').map(Number);
+                  return Math.abs((a[0] * 60 + a[1]) - (b[0] * 60 + b[1]));
+                } catch { return 9999; }
+              })();
+              const isLargeMove = dayChanged || timeDeltaMinutes > 120;
+
+              // SAFETY GUARD #1: large moves (cambio de día o > 2h) nunca se aplican automáticamente.
+              // Esto evita que un cambio en Google "trague" otra cita existente o mueva una sesión
+              // fuera de la ventana razonable sin intervención humana.
+              if (isLargeMove && conflictMode === 'safe_two_way') {
+                console.warn(`[SYNC:${correlationId}] BLOCKED large move from Google for session ${session.id}: ${session.session_date} ${session.start_time} → ${parsedStart.date} ${parsedStart.time} (dayChanged=${dayChanged}, deltaMin=${timeDeltaMinutes}). Restoring Google to match Psycma.`);
+
+                // Restaurar el evento Google a los valores Psycma (Psycma manda en cambios grandes).
+                try {
+                  await updateGoogleCalendarEvent(
+                    accessToken, calendarId, session.google_calendar_event_id, session,
+                    session.patient, professional, correlationId, titleFormat, descriptionFormat,
+                    session.location, session.bono
+                  );
+                } catch (e) {
+                  console.error(`[SYNC:${correlationId}] Failed to restore Google event:`, e);
+                }
+
+                // Registrar el conflicto en logs (la tabla notifications es solo para emails).
+                console.warn(`[SYNC:${correlationId}] CONFLICT large_move_blocked`, {
+                  session_id: session.id,
+                  google_event_id: session.google_calendar_event_id,
+                  original: { date: session.session_date, start: session.start_time, end: session.end_time },
+                  attempted: { date: parsedStart.date, start: parsedStart.time, end: parsedEnd.time },
+                });
+
+                result.errors.push(`Blocked large move from Google for session ${session.id} (${session.session_date} ${session.start_time} → ${parsedStart.date} ${parsedStart.time})`);
+                continue;
+              }
+
+              // SAFETY GUARD #2: aunque el modo lo permita, comprobar solapamiento antes de aplicar.
+              const { data: overlap } = await supabase
+                .from('sessions')
+                .select('id')
+                .eq('professional_id', professionalId)
+                .eq('session_date', parsedStart.date)
+                .neq('status', 'cancelled')
+                .neq('id', session.id)
+                .lt('start_time', parsedEnd.time)
+                .gt('end_time', parsedStart.time)
+                .limit(1);
+
+              if (overlap && overlap.length > 0) {
+                console.warn(`[SYNC:${correlationId}] BLOCKED Google→Psycma update for session ${session.id}: would overlap session ${overlap[0].id}`);
+                try {
+                  await updateGoogleCalendarEvent(
+                    accessToken, calendarId, session.google_calendar_event_id, session,
+                    session.patient, professional, correlationId, titleFormat, descriptionFormat,
+                    session.location, session.bono
+                  );
+                } catch (e) {
+                  console.error(`[SYNC:${correlationId}] Failed to restore Google event:`, e);
+                }
+                console.warn(`[SYNC:${correlationId}] CONFLICT overlap_blocked`, {
+                  session_id: session.id,
+                  google_event_id: session.google_calendar_event_id,
+                  attempted: { date: parsedStart.date, start: parsedStart.time, end: parsedEnd.time },
+                });
+                result.errors.push(`Overlap blocked Google→Psycma for session ${session.id}`);
+                continue;
+              }
+
+              // Aplicar cambio pequeño aprobado.
+              console.log(`[SYNC:${correlationId}] Applying small Google→Psycma change for session ${session.id}`);
               const { error: updateError } = await supabase.from('sessions').update({
                 session_date: parsedStart.date,
                 start_time: parsedStart.time,
                 end_time: parsedEnd.time,
               }).eq('id', session.id);
-              
+
               if (updateError) {
                 console.error(`[SYNC:${correlationId}] Error updating session ${session.id} from Google:`, updateError.message);
                 result.errors.push(`Google→Psycma update failed for session ${session.id}: ${updateError.message}`);
-                // If overlap trigger blocked it, log and continue without crashing
               } else {
                 result.updated++;
               }
@@ -1144,8 +1230,24 @@ async function syncProfessional(
               console.log(`[SYNC:${correlationId}] Psycma is newer or tie, updating Google`);
             }
           }
+        } else if (
+          integrations?.google_calendar_sync_mode === 'two_way' &&
+          googleEvent.start?.dateTime &&
+          conflictMode === 'psycma_wins'
+        ) {
+          // Modo seguro por defecto: Psycma siempre gana en fecha/hora.
+          // Si Google difiere, lo restauramos a los valores de Psycma.
+          const parsedStart = parseGoogleDateTimeToMadrid(googleEvent.start.dateTime);
+          const parsedEnd = parseGoogleDateTimeToMadrid(googleEvent.end.dateTime);
+          const hasDifferences = session.session_date !== parsedStart.date ||
+              session.start_time !== parsedStart.time ||
+              session.end_time !== parsedEnd.time;
+          if (hasDifferences) {
+            console.log(`[SYNC:${correlationId}] psycma_wins: restoring Google event ${session.google_calendar_event_id} to Psycma values`);
+          }
+          // Cae al updateGoogleCalendarEvent de abajo, que reescribe Google.
         }
-        
+
         // Update event in Google
         const updated = await updateGoogleCalendarEvent(
           accessToken, calendarId, session.google_calendar_event_id, session,

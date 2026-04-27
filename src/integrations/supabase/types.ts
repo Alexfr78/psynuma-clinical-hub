@@ -3812,6 +3812,7 @@ export type Database = {
         Row: {
           created_at: string | null
           default_video_provider: string | null
+          google_calendar_conflict_mode: string
           google_calendar_enabled: boolean | null
           google_calendar_sync_mode: string | null
           google_event_description_format: string | null
@@ -3836,6 +3837,7 @@ export type Database = {
         Insert: {
           created_at?: string | null
           default_video_provider?: string | null
+          google_calendar_conflict_mode?: string
           google_calendar_enabled?: boolean | null
           google_calendar_sync_mode?: string | null
           google_event_description_format?: string | null
@@ -3860,6 +3862,7 @@ export type Database = {
         Update: {
           created_at?: string | null
           default_video_provider?: string | null
+          google_calendar_conflict_mode?: string
           google_calendar_enabled?: boolean | null
           google_calendar_sync_mode?: string | null
           google_event_description_format?: string | null
