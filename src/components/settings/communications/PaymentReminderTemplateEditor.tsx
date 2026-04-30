@@ -194,7 +194,7 @@ export function PaymentReminderTemplateEditor() {
 
   // Separate general variables from payment-specific ones
   const generalVariables = PAYMENT_REMINDER_VARIABLES.filter(v => 
-    !['{link_pago_stripe}', '{bizum_numero}', '{link_comprar_bono}'].includes(v.key)
+    !['{link_pago_stripe}', '{bizum_numero}', '{link_comprar_bono}', '{datos_transferencia}'].includes(v.key)
   );
 
   return (
