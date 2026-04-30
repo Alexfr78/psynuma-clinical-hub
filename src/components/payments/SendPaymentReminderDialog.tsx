@@ -267,6 +267,25 @@ export function SendPaymentReminderDialog({
 
             <div className="flex items-center space-x-3 p-3 border rounded-lg">
               <Checkbox 
+                id="transfer" 
+                checked={includeTransfer} 
+                onCheckedChange={(checked) => setIncludeTransfer(!!checked)}
+              />
+              <div className="flex-1">
+                <Label htmlFor="transfer" className="flex items-center gap-2 cursor-pointer">
+                  <Building2 className="h-4 w-4 text-amber-600" />
+                  Transferencia bancaria
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  {(center as any)?.bank_transfer_info
+                    ? 'El contacto recibirá tus datos bancarios'
+                    : 'Configura tus datos bancarios en Configuración → Pagos'}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-3 p-3 border rounded-lg">
+              <Checkbox 
                 id="bono" 
                 checked={includeBonoOption} 
                 onCheckedChange={(checked) => setIncludeBonoOption(!!checked)}
