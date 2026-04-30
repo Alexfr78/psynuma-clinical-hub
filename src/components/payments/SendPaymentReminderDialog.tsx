@@ -161,6 +161,7 @@ export function SendPaymentReminderDialog({
           channel,
           include_stripe_link: includeStripeLink,
           include_bizum: includeBizum,
+          include_transfer: includeTransfer,
           include_bono_option: includeBonoOption,
         },
       });
