@@ -83,6 +83,7 @@ serve(async (req) => {
     // Calculate amounts
     const pendingAmount = Number(debt.amount) - Number(debt.paid_amount);
     const bizumNumber = center.bizum_phone || '609555514';
+    const transferInfo = (center as any).bank_transfer_info || '';
     
     // Use center's public domain for URLs
     const baseUrl = center.public_domain 
