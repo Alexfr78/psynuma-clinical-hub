@@ -76,6 +76,7 @@ export function PaymentReminderTemplateEditor() {
     setPaymentOptionStripe((template as any)?.payment_option_stripe ?? defaults.payment_option_stripe ?? '');
     setPaymentOptionBizum((template as any)?.payment_option_bizum ?? defaults.payment_option_bizum ?? '');
     setPaymentOptionBono((template as any)?.payment_option_bono ?? defaults.payment_option_bono ?? '');
+    setPaymentOptionTransfer((template as any)?.payment_option_transfer ?? (defaults as any).payment_option_transfer ?? '');
   }, [activeTab, emailTemplate, whatsappTemplate, smsTemplate]);
 
   const handleVariableClick = (variable: string) => {
