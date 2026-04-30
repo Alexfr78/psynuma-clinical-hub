@@ -541,6 +541,19 @@ export function PaymentReminderTemplateEditor() {
                 </div>
 
                 <div className="space-y-2 p-3 border rounded-lg">
+                  <Label htmlFor="sms_transfer" className="flex items-center gap-2">
+                    <Building2 className="h-4 w-4 text-amber-600" />
+                    Transferencia bancaria
+                  </Label>
+                  <Input
+                    id="sms_transfer"
+                    value={paymentOptionTransfer}
+                    onChange={(e) => setPaymentOptionTransfer(e.target.value)}
+                    placeholder="Transf: {datos_transferencia}"
+                  />
+                </div>
+
+                <div className="space-y-2 p-3 border rounded-lg">
                   <Label htmlFor="sms_bono" className="flex items-center gap-2">
                     <Wallet className="h-4 w-4 text-purple-600" />
                     Bono
