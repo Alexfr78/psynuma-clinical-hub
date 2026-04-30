@@ -43,6 +43,7 @@ export function SendPaymentReminderDialog({
   const [channel, setChannel] = useState<Channel>('whatsapp');
   const [includeStripeLink, setIncludeStripeLink] = useState(true);
   const [includeBizum, setIncludeBizum] = useState(true);
+  const [includeTransfer, setIncludeTransfer] = useState(false);
   const [includeBonoOption, setIncludeBonoOption] = useState(false);
   const [messagePreview, setMessagePreview] = useState('');
   const [isSending, setIsSending] = useState(false);
