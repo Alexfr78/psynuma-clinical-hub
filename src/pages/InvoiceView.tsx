@@ -11,6 +11,7 @@ import { getInvoiceDocumentType } from '@/lib/invoiceDocumentType';
 import { supabase } from '@/integrations/supabase/client';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { QRCodeSVG } from 'qrcode.react';
 
 export default function InvoiceView() {
   const { token } = useParams<{ token: string }>();
