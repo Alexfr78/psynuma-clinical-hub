@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Loader2, Mail, MessageCircle, Smartphone, CreditCard, Wallet } from 'lucide-react';
+import { Loader2, Mail, MessageCircle, Smartphone, CreditCard, Wallet, Building2 } from 'lucide-react';
 import {
   ResponsiveDialog as Dialog,
   ResponsiveDialogContent as DialogContent,
