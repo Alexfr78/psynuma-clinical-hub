@@ -58,6 +58,7 @@ export interface UpsertTemplateData {
   payment_option_stripe?: string | null;
   payment_option_bizum?: string | null;
   payment_option_bono?: string | null;
+  payment_option_transfer?: string | null;
   is_active?: boolean;
 }
 
