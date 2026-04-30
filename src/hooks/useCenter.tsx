@@ -95,6 +95,8 @@ export interface Center {
   public_domain: string | null;
   // Bizum phone
   bizum_phone: string | null;
+  // Bank transfer info (IBAN, holder, bank...)
+  bank_transfer_info: string | null;
   // WasenderAPI settings
   wasender_enabled: boolean | null;
   wasender_reminder_24h: boolean | null;
