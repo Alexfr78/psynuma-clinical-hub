@@ -192,6 +192,7 @@ export const DEFAULT_TEMPLATES: Record<TemplateChannel, Record<TemplateType, Par
       payment_option_stripe: '💳 Pagar por tarjeta: {link_pago_stripe}',
       payment_option_bizum: '📱 Bizum al {bizum_numero}',
       payment_option_bono: '🎫 ¿Prefieres un bono? {link_comprar_bono}',
+      payment_option_transfer: '🏦 Transferencia:\n{datos_transferencia}',
     },
   },
   sms: {
