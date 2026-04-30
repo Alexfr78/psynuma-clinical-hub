@@ -45,6 +45,8 @@ export function PaymentSettingsSection() {
   const [reminderMaxCount, setReminderMaxCount] = useState(3);
   const [reminderIntervalHours, setReminderIntervalHours] = useState(48);
   const [publicDomain, setPublicDomain] = useState('');
+  const [bizumPhone, setBizumPhone] = useState('');
+  const [bankTransferInfo, setBankTransferInfo] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
