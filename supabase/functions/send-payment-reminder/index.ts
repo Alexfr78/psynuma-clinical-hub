@@ -192,6 +192,10 @@ serve(async (req) => {
         const bizumText = template?.payment_option_bizum || channelDefaults.payment_option_bizum || '';
         if (bizumText) lines.push(replaceVariables(bizumText));
       }
+      if (include_transfer) {
+        const transferText = (template as any)?.payment_option_transfer || (channelDefaults as any).payment_option_transfer || '';
+        if (transferText) lines.push(replaceVariables(transferText));
+      }
       if (include_bono_option && bonoPurchaseUrl) {
         const bonoText = template?.payment_option_bono || channelDefaults.payment_option_bono || '';
         if (bonoText) lines.push(replaceVariables(bonoText));
