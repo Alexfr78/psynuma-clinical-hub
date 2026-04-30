@@ -36,6 +36,7 @@ export function PaymentReminderTemplateEditor() {
   const [paymentOptionStripe, setPaymentOptionStripe] = useState('');
   const [paymentOptionBizum, setPaymentOptionBizum] = useState('');
   const [paymentOptionBono, setPaymentOptionBono] = useState('');
+  const [paymentOptionTransfer, setPaymentOptionTransfer] = useState('');
   
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
