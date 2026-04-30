@@ -59,7 +59,7 @@ serve(async (req) => {
     // Get center info with public_domain
     const { data: center, error: centerError } = await supabase
       .from('centers')
-      .select('id, name, bizum_phone, oauth_stripe_credentials, public_domain')
+      .select('id, name, bizum_phone, bank_transfer_info, oauth_stripe_credentials, public_domain')
       .eq('id', debt.center_id)
       .single();
 
