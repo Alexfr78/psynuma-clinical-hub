@@ -83,6 +83,7 @@ export function SendPaymentReminderDialog({
     const stripeOptionText = currentTemplate?.payment_option_stripe ?? defaults.payment_option_stripe ?? '';
     const bizumOptionText = currentTemplate?.payment_option_bizum ?? defaults.payment_option_bizum ?? '';
     const bonoOptionText = currentTemplate?.payment_option_bono ?? defaults.payment_option_bono ?? '';
+    const transferOptionText = (currentTemplate as any)?.payment_option_transfer ?? (defaults as any).payment_option_transfer ?? '';
 
     // Build payment options array based on selections
     const paymentLines: string[] = [];
@@ -92,6 +93,9 @@ export function SendPaymentReminderDialog({
     }
     if (includeBizum && bizumOptionText) {
       paymentLines.push(bizumOptionText);
+    }
+    if (includeTransfer && transferOptionText) {
+      paymentLines.push(transferOptionText);
     }
     if (includeBonoOption && bonoOptionText) {
       paymentLines.push(bonoOptionText);
