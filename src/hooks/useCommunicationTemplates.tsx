@@ -326,6 +326,7 @@ export function useUpsertCommunicationTemplate() {
             payment_option_stripe: data.payment_option_stripe,
             payment_option_bizum: data.payment_option_bizum,
             payment_option_bono: data.payment_option_bono,
+            payment_option_transfer: data.payment_option_transfer,
             is_active: data.is_active ?? true,
           },
           {
