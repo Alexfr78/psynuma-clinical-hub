@@ -58,6 +58,8 @@ export function PaymentSettingsSection() {
       setReminderMaxCount(center.payment_reminder_max_count || 3);
       setReminderIntervalHours(center.payment_reminder_interval_hours || 48);
       setPublicDomain(center.public_domain || '');
+      setBizumPhone(center.bizum_phone || '');
+      setBankTransferInfo((center as any).bank_transfer_info || '');
     }
   }, [center]);
 
