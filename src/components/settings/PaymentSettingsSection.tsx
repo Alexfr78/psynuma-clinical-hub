@@ -74,7 +74,9 @@ export function PaymentSettingsSection() {
         payment_reminder_max_count: reminderMaxCount,
         payment_reminder_interval_hours: reminderIntervalHours,
         public_domain: publicDomain || null,
-      });
+        bizum_phone: bizumPhone || null,
+        bank_transfer_info: bankTransferInfo || null,
+      } as any);
       toast({
         title: 'Configuración guardada',
         description: 'Los ajustes de pago se han actualizado correctamente.',
