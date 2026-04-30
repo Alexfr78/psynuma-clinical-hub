@@ -11,6 +11,7 @@ interface PaymentReminderRequest {
   channel: 'email' | 'whatsapp' | 'sms';
   include_stripe_link: boolean;
   include_bizum: boolean;
+  include_transfer?: boolean;
   include_bono_option: boolean;
 }
 
