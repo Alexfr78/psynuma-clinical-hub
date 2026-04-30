@@ -38,6 +38,7 @@ export interface CommunicationTemplate {
   payment_option_stripe: string | null;
   payment_option_bizum: string | null;
   payment_option_bono: string | null;
+  payment_option_transfer: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
