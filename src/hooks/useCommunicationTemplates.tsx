@@ -208,6 +208,7 @@ export const DEFAULT_TEMPLATES: Record<TemplateChannel, Record<TemplateType, Par
       payment_option_stripe: 'Pagar: {link_pago_stripe}',
       payment_option_bizum: 'Bizum: {bizum_numero}',
       payment_option_bono: 'Bono: {link_comprar_bono}',
+      payment_option_transfer: 'Transf: {datos_transferencia}',
     },
   },
 };
