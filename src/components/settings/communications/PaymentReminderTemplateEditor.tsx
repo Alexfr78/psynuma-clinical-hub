@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Save, RotateCcw, Info, Wallet, Mail, MessageCircle, Smartphone, CreditCard } from 'lucide-react';
+import { Loader2, Save, RotateCcw, Info, Wallet, Mail, MessageCircle, Smartphone, CreditCard, Building2 } from 'lucide-react';
 import { useCenter } from '@/hooks/useCenter';
 import { 
   useCommunicationTemplate, 
