@@ -26,6 +26,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useInvoice, useInvoiceItems, type InvoiceWithPatient } from '@/hooks/useInvoices';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { QRCodeSVG } from 'qrcode.react';
 
 interface InvoiceDetailDialogProps {
   open: boolean;
@@ -231,11 +232,14 @@ export function InvoiceDetailDialog({ open, onOpenChange, invoiceId }: InvoiceDe
                       {/* QR Code */}
                       {invoice.verifactu_qr && (
                         <div className="flex-shrink-0">
-                          <img 
-                            src={`https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(invoice.verifactu_qr)}`}
-                            alt="QR Verifactu"
-                            className="w-24 h-24 rounded border bg-white p-1"
-                          />
+                          <div className="w-24 h-24 rounded border bg-white p-1 flex items-center justify-center">
+                            <QRCodeSVG
+                              value={invoice.verifactu_qr}
+                              size={88}
+                              level="M"
+                              includeMargin={false}
+                            />
+                          </div>
                         </div>
                       )}
                       
