@@ -127,6 +127,7 @@ export function SendPaymentReminderDialog({
       : 'N/A';
     
     const bizumPhone = center.bizum_phone || '609555514';
+    const transferInfo = (center as any).bank_transfer_info || '[Configura tus datos bancarios en Configuración → Pagos]';
     
     const preview = fullMessage
       .replace(/{nombre_paciente}/g, debt.patients.first_name)
@@ -135,12 +136,13 @@ export function SendPaymentReminderDialog({
       .replace(/{importe_total}/g, Number(debt.amount).toFixed(2))
       .replace(/{fecha_sesion}/g, sessionDate)
       .replace(/{bizum_numero}/g, bizumPhone)
+      .replace(/{datos_transferencia}/g, transferInfo)
       .replace(/{link_pago_stripe}/g, '[Link de pago]')
       .replace(/{link_comprar_bono}/g, '[Link de bono]');
 
     setMessagePreview(preview.trim());
   }, [debt, center, channel, emailTemplate, whatsappTemplate, smsTemplate, 
-      includeStripeLink, includeBizum, includeBonoOption, pendingAmount]);
+      includeStripeLink, includeBizum, includeTransfer, includeBonoOption, pendingAmount]);
 
   const handleSend = async () => {
     if (!debt || !center) return;
