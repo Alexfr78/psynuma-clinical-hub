@@ -123,6 +123,7 @@ export function PaymentReminderTemplateEditor() {
         payment_option_stripe: paymentOptionStripe,
         payment_option_bizum: paymentOptionBizum,
         payment_option_bono: paymentOptionBono,
+        payment_option_transfer: paymentOptionTransfer,
       });
     } else if (activeTab === 'whatsapp') {
       upsertMutation.mutate({
@@ -132,6 +133,7 @@ export function PaymentReminderTemplateEditor() {
         payment_option_stripe: paymentOptionStripe,
         payment_option_bizum: paymentOptionBizum,
         payment_option_bono: paymentOptionBono,
+        payment_option_transfer: paymentOptionTransfer,
       });
     } else {
       upsertMutation.mutate({
@@ -141,6 +143,7 @@ export function PaymentReminderTemplateEditor() {
         payment_option_stripe: paymentOptionStripe,
         payment_option_bizum: paymentOptionBizum,
         payment_option_bono: paymentOptionBono,
+        payment_option_transfer: paymentOptionTransfer,
       });
     }
   };
@@ -161,6 +164,7 @@ export function PaymentReminderTemplateEditor() {
     setPaymentOptionStripe(defaults.payment_option_stripe ?? '');
     setPaymentOptionBizum(defaults.payment_option_bizum ?? '');
     setPaymentOptionBono(defaults.payment_option_bono ?? '');
+    setPaymentOptionTransfer((defaults as any).payment_option_transfer ?? '');
   };
 
   const highlightVariables = (text: string) => {
