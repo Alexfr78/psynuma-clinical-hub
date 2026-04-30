@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Save, RotateCcw, Info, Wallet, Mail, MessageCircle, Smartphone, CreditCard } from 'lucide-react';
+import { Loader2, Save, RotateCcw, Info, Wallet, Mail, MessageCircle, Smartphone, CreditCard, Building2 } from 'lucide-react';
 import { useCenter } from '@/hooks/useCenter';
 import { 
   useCommunicationTemplate, 
@@ -36,6 +36,7 @@ export function PaymentReminderTemplateEditor() {
   const [paymentOptionStripe, setPaymentOptionStripe] = useState('');
   const [paymentOptionBizum, setPaymentOptionBizum] = useState('');
   const [paymentOptionBono, setPaymentOptionBono] = useState('');
+  const [paymentOptionTransfer, setPaymentOptionTransfer] = useState('');
   
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -75,6 +76,7 @@ export function PaymentReminderTemplateEditor() {
     setPaymentOptionStripe((template as any)?.payment_option_stripe ?? defaults.payment_option_stripe ?? '');
     setPaymentOptionBizum((template as any)?.payment_option_bizum ?? defaults.payment_option_bizum ?? '');
     setPaymentOptionBono((template as any)?.payment_option_bono ?? defaults.payment_option_bono ?? '');
+    setPaymentOptionTransfer((template as any)?.payment_option_transfer ?? (defaults as any).payment_option_transfer ?? '');
   }, [activeTab, emailTemplate, whatsappTemplate, smsTemplate]);
 
   const handleVariableClick = (variable: string) => {
@@ -121,6 +123,7 @@ export function PaymentReminderTemplateEditor() {
         payment_option_stripe: paymentOptionStripe,
         payment_option_bizum: paymentOptionBizum,
         payment_option_bono: paymentOptionBono,
+        payment_option_transfer: paymentOptionTransfer,
       });
     } else if (activeTab === 'whatsapp') {
       upsertMutation.mutate({
@@ -130,6 +133,7 @@ export function PaymentReminderTemplateEditor() {
         payment_option_stripe: paymentOptionStripe,
         payment_option_bizum: paymentOptionBizum,
         payment_option_bono: paymentOptionBono,
+        payment_option_transfer: paymentOptionTransfer,
       });
     } else {
       upsertMutation.mutate({
@@ -139,6 +143,7 @@ export function PaymentReminderTemplateEditor() {
         payment_option_stripe: paymentOptionStripe,
         payment_option_bizum: paymentOptionBizum,
         payment_option_bono: paymentOptionBono,
+        payment_option_transfer: paymentOptionTransfer,
       });
     }
   };
@@ -159,6 +164,7 @@ export function PaymentReminderTemplateEditor() {
     setPaymentOptionStripe(defaults.payment_option_stripe ?? '');
     setPaymentOptionBizum(defaults.payment_option_bizum ?? '');
     setPaymentOptionBono(defaults.payment_option_bono ?? '');
+    setPaymentOptionTransfer((defaults as any).payment_option_transfer ?? '');
   };
 
   const highlightVariables = (text: string) => {
@@ -188,7 +194,7 @@ export function PaymentReminderTemplateEditor() {
 
   // Separate general variables from payment-specific ones
   const generalVariables = PAYMENT_REMINDER_VARIABLES.filter(v => 
-    !['{link_pago_stripe}', '{bizum_numero}', '{link_comprar_bono}'].includes(v.key)
+    !['{link_pago_stripe}', '{bizum_numero}', '{link_comprar_bono}', '{datos_transferencia}'].includes(v.key)
   );
 
   return (
@@ -328,6 +334,23 @@ export function PaymentReminderTemplateEditor() {
                 </div>
 
                 <div className="space-y-2 p-3 border rounded-lg">
+                  <Label htmlFor="wa_transfer" className="flex items-center gap-2">
+                    <Building2 className="h-4 w-4 text-amber-600" />
+                    Transferencia bancaria
+                  </Label>
+                  <Textarea
+                    id="wa_transfer"
+                    value={paymentOptionTransfer}
+                    onChange={(e) => setPaymentOptionTransfer(e.target.value)}
+                    placeholder="🏦 Transferencia:\n{datos_transferencia}"
+                    rows={3}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Usa <code className="bg-muted px-1 rounded">{'{datos_transferencia}'}</code> para insertar tus datos bancarios (configurados más abajo)
+                  </p>
+                </div>
+
+                <div className="space-y-2 p-3 border rounded-lg">
                   <Label htmlFor="wa_bono" className="flex items-center gap-2">
                     <Wallet className="h-4 w-4 text-purple-600" />
                     Bono
@@ -431,6 +454,23 @@ export function PaymentReminderTemplateEditor() {
                 </div>
 
                 <div className="space-y-2 p-3 border rounded-lg">
+                  <Label htmlFor="email_transfer" className="flex items-center gap-2">
+                    <Building2 className="h-4 w-4 text-amber-600" />
+                    Transferencia bancaria
+                  </Label>
+                  <Textarea
+                    id="email_transfer"
+                    value={paymentOptionTransfer}
+                    onChange={(e) => setPaymentOptionTransfer(e.target.value)}
+                    placeholder="🏦 Transferencia bancaria:\n{datos_transferencia}"
+                    rows={3}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Usa <code className="bg-muted px-1 rounded">{'{datos_transferencia}'}</code> para insertar los datos bancarios configurados más abajo
+                  </p>
+                </div>
+
+                <div className="space-y-2 p-3 border rounded-lg">
                   <Label htmlFor="email_bono" className="flex items-center gap-2">
                     <Wallet className="h-4 w-4 text-purple-600" />
                     Bono
@@ -497,6 +537,19 @@ export function PaymentReminderTemplateEditor() {
                     value={paymentOptionBizum}
                     onChange={(e) => setPaymentOptionBizum(e.target.value)}
                     placeholder="Bizum: {bizum_numero}"
+                  />
+                </div>
+
+                <div className="space-y-2 p-3 border rounded-lg">
+                  <Label htmlFor="sms_transfer" className="flex items-center gap-2">
+                    <Building2 className="h-4 w-4 text-amber-600" />
+                    Transferencia bancaria
+                  </Label>
+                  <Input
+                    id="sms_transfer"
+                    value={paymentOptionTransfer}
+                    onChange={(e) => setPaymentOptionTransfer(e.target.value)}
+                    placeholder="Transf: {datos_transferencia}"
                   />
                 </div>
 

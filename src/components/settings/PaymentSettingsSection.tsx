@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Save, Loader2, CreditCard, Bell, Clock, Globe } from 'lucide-react';
+import { Save, Loader2, CreditCard, Bell, Clock, Globe, Landmark } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Separator } from '@/components/ui/separator';
 import { useCenter } from '@/hooks/useCenter';
@@ -44,6 +45,8 @@ export function PaymentSettingsSection() {
   const [reminderMaxCount, setReminderMaxCount] = useState(3);
   const [reminderIntervalHours, setReminderIntervalHours] = useState(48);
   const [publicDomain, setPublicDomain] = useState('');
+  const [bizumPhone, setBizumPhone] = useState('');
+  const [bankTransferInfo, setBankTransferInfo] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -55,6 +58,8 @@ export function PaymentSettingsSection() {
       setReminderMaxCount(center.payment_reminder_max_count || 3);
       setReminderIntervalHours(center.payment_reminder_interval_hours || 48);
       setPublicDomain(center.public_domain || '');
+      setBizumPhone(center.bizum_phone || '');
+      setBankTransferInfo((center as any).bank_transfer_info || '');
     }
   }, [center]);
 
@@ -69,7 +74,9 @@ export function PaymentSettingsSection() {
         payment_reminder_max_count: reminderMaxCount,
         payment_reminder_interval_hours: reminderIntervalHours,
         public_domain: publicDomain || null,
-      });
+        bizum_phone: bizumPhone || null,
+        bank_transfer_info: bankTransferInfo || null,
+      } as any);
       toast({
         title: 'Configuración guardada',
         description: 'Los ajustes de pago se han actualizado correctamente.',
@@ -110,6 +117,48 @@ export function PaymentSettingsSection() {
             <p className="text-sm text-muted-foreground">
               Este dominio se usará en los enlaces de WhatsApp, Email y SMS para pago.
               Debe coincidir con el dominio donde está publicada la aplicación.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Datos bancarios para cobros */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Landmark className="h-5 w-5" />
+            Datos para cobros
+          </CardTitle>
+          <CardDescription>
+            Información que se incluye en los recordatorios de pago enviados a los contactos
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="bizum-phone">Número de Bizum</Label>
+            <Input
+              id="bizum-phone"
+              type="tel"
+              value={bizumPhone}
+              onChange={(e) => setBizumPhone(e.target.value)}
+              placeholder="609555514"
+            />
+            <p className="text-xs text-muted-foreground">
+              Sustituye la variable <code className="bg-muted px-1 rounded">{'{bizum_numero}'}</code> de las plantillas.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="bank-transfer-info">Datos de transferencia bancaria</Label>
+            <Textarea
+              id="bank-transfer-info"
+              value={bankTransferInfo}
+              onChange={(e) => setBankTransferInfo(e.target.value)}
+              placeholder={'Titular: Tu Nombre\nIBAN: ES00 0000 0000 0000 0000 0000\nBanco: ...'}
+              rows={4}
+            />
+            <p className="text-xs text-muted-foreground">
+              Sustituye la variable <code className="bg-muted px-1 rounded">{'{datos_transferencia}'}</code> en las plantillas de recordatorio de pago.
             </p>
           </div>
         </CardContent>

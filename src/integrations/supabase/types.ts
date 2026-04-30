@@ -1474,6 +1474,7 @@ export type Database = {
           ai_provider: string | null
           ai_temperature: number | null
           auto_invoicing_enabled: boolean | null
+          bank_transfer_info: string | null
           bizum_phone: string | null
           city: string | null
           consent_expiration_days: number | null
@@ -1572,6 +1573,7 @@ export type Database = {
           ai_provider?: string | null
           ai_temperature?: number | null
           auto_invoicing_enabled?: boolean | null
+          bank_transfer_info?: string | null
           bizum_phone?: string | null
           city?: string | null
           consent_expiration_days?: number | null
@@ -1670,6 +1672,7 @@ export type Database = {
           ai_provider?: string | null
           ai_temperature?: number | null
           auto_invoicing_enabled?: boolean | null
+          bank_transfer_info?: string | null
           bizum_phone?: string | null
           city?: string | null
           consent_expiration_days?: number | null
@@ -1785,6 +1788,7 @@ export type Database = {
           payment_option_bizum: string | null
           payment_option_bono: string | null
           payment_option_stripe: string | null
+          payment_option_transfer: string | null
           sms_message: string | null
           template_type: string
           updated_at: string | null
@@ -1805,6 +1809,7 @@ export type Database = {
           payment_option_bizum?: string | null
           payment_option_bono?: string | null
           payment_option_stripe?: string | null
+          payment_option_transfer?: string | null
           sms_message?: string | null
           template_type: string
           updated_at?: string | null
@@ -1825,6 +1830,7 @@ export type Database = {
           payment_option_bizum?: string | null
           payment_option_bono?: string | null
           payment_option_stripe?: string | null
+          payment_option_transfer?: string | null
           sms_message?: string | null
           template_type?: string
           updated_at?: string | null

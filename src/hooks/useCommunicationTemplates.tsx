@@ -38,6 +38,7 @@ export interface CommunicationTemplate {
   payment_option_stripe: string | null;
   payment_option_bizum: string | null;
   payment_option_bono: string | null;
+  payment_option_transfer: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -57,6 +58,7 @@ export interface UpsertTemplateData {
   payment_option_stripe?: string | null;
   payment_option_bizum?: string | null;
   payment_option_bono?: string | null;
+  payment_option_transfer?: string | null;
   is_active?: boolean;
 }
 
@@ -174,6 +176,7 @@ export const DEFAULT_TEMPLATES: Record<TemplateChannel, Record<TemplateType, Par
       payment_option_stripe: '💳 Pagar con tarjeta: {link_pago_stripe}',
       payment_option_bizum: '📱 Bizum al número {bizum_numero}',
       payment_option_bono: '🎫 Adquirir un bono: {link_comprar_bono}',
+      payment_option_transfer: '🏦 Transferencia bancaria:\n{datos_transferencia}',
     },
   },
   whatsapp: {
@@ -189,6 +192,7 @@ export const DEFAULT_TEMPLATES: Record<TemplateChannel, Record<TemplateType, Par
       payment_option_stripe: '💳 Pagar por tarjeta: {link_pago_stripe}',
       payment_option_bizum: '📱 Bizum al {bizum_numero}',
       payment_option_bono: '🎫 ¿Prefieres un bono? {link_comprar_bono}',
+      payment_option_transfer: '🏦 Transferencia:\n{datos_transferencia}',
     },
   },
   sms: {
@@ -204,6 +208,7 @@ export const DEFAULT_TEMPLATES: Record<TemplateChannel, Record<TemplateType, Par
       payment_option_stripe: 'Pagar: {link_pago_stripe}',
       payment_option_bizum: 'Bizum: {bizum_numero}',
       payment_option_bono: 'Bono: {link_comprar_bono}',
+      payment_option_transfer: 'Transf: {datos_transferencia}',
     },
   },
 };
@@ -249,6 +254,7 @@ export const PAYMENT_REMINDER_VARIABLES = [
   { key: '{bizum_numero}', label: 'Número de Bizum', example: '609555514' },
   { key: '{link_pago_stripe}', label: 'Link de pago con tarjeta', example: 'https://...' },
   { key: '{link_comprar_bono}', label: 'Link para comprar bono', example: 'https://...' },
+  { key: '{datos_transferencia}', label: 'Datos de transferencia bancaria', example: 'IBAN: ES00 0000 ...' },
 ];
 
 export function useCommunicationTemplates() {
@@ -320,6 +326,7 @@ export function useUpsertCommunicationTemplate() {
             payment_option_stripe: data.payment_option_stripe,
             payment_option_bizum: data.payment_option_bizum,
             payment_option_bono: data.payment_option_bono,
+            payment_option_transfer: data.payment_option_transfer,
             is_active: data.is_active ?? true,
           },
           {

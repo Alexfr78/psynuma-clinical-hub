@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Loader2, Mail, MessageCircle, Smartphone, CreditCard, Wallet } from 'lucide-react';
+import { Loader2, Mail, MessageCircle, Smartphone, CreditCard, Wallet, Building2 } from 'lucide-react';
 import {
   ResponsiveDialog as Dialog,
   ResponsiveDialogContent as DialogContent,
@@ -43,6 +43,7 @@ export function SendPaymentReminderDialog({
   const [channel, setChannel] = useState<Channel>('whatsapp');
   const [includeStripeLink, setIncludeStripeLink] = useState(true);
   const [includeBizum, setIncludeBizum] = useState(true);
+  const [includeTransfer, setIncludeTransfer] = useState(false);
   const [includeBonoOption, setIncludeBonoOption] = useState(false);
   const [messagePreview, setMessagePreview] = useState('');
   const [isSending, setIsSending] = useState(false);
@@ -82,6 +83,7 @@ export function SendPaymentReminderDialog({
     const stripeOptionText = currentTemplate?.payment_option_stripe ?? defaults.payment_option_stripe ?? '';
     const bizumOptionText = currentTemplate?.payment_option_bizum ?? defaults.payment_option_bizum ?? '';
     const bonoOptionText = currentTemplate?.payment_option_bono ?? defaults.payment_option_bono ?? '';
+    const transferOptionText = (currentTemplate as any)?.payment_option_transfer ?? (defaults as any).payment_option_transfer ?? '';
 
     // Build payment options array based on selections
     const paymentLines: string[] = [];
@@ -91,6 +93,9 @@ export function SendPaymentReminderDialog({
     }
     if (includeBizum && bizumOptionText) {
       paymentLines.push(bizumOptionText);
+    }
+    if (includeTransfer && transferOptionText) {
+      paymentLines.push(transferOptionText);
     }
     if (includeBonoOption && bonoOptionText) {
       paymentLines.push(bonoOptionText);
@@ -122,6 +127,7 @@ export function SendPaymentReminderDialog({
       : 'N/A';
     
     const bizumPhone = center.bizum_phone || '609555514';
+    const transferInfo = (center as any).bank_transfer_info || '[Configura tus datos bancarios en Configuración → Pagos]';
     
     const preview = fullMessage
       .replace(/{nombre_paciente}/g, debt.patients.first_name)
@@ -130,12 +136,13 @@ export function SendPaymentReminderDialog({
       .replace(/{importe_total}/g, Number(debt.amount).toFixed(2))
       .replace(/{fecha_sesion}/g, sessionDate)
       .replace(/{bizum_numero}/g, bizumPhone)
+      .replace(/{datos_transferencia}/g, transferInfo)
       .replace(/{link_pago_stripe}/g, '[Link de pago]')
       .replace(/{link_comprar_bono}/g, '[Link de bono]');
 
     setMessagePreview(preview.trim());
   }, [debt, center, channel, emailTemplate, whatsappTemplate, smsTemplate, 
-      includeStripeLink, includeBizum, includeBonoOption, pendingAmount]);
+      includeStripeLink, includeBizum, includeTransfer, includeBonoOption, pendingAmount]);
 
   const handleSend = async () => {
     if (!debt || !center) return;
@@ -154,6 +161,7 @@ export function SendPaymentReminderDialog({
           channel,
           include_stripe_link: includeStripeLink,
           include_bizum: includeBizum,
+          include_transfer: includeTransfer,
           include_bono_option: includeBonoOption,
         },
       });
@@ -253,6 +261,25 @@ export function SendPaymentReminderDialog({
                 </Label>
                 <p className="text-xs text-muted-foreground">
                   El contacto puede enviar Bizum al número indicado
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-3 p-3 border rounded-lg">
+              <Checkbox 
+                id="transfer" 
+                checked={includeTransfer} 
+                onCheckedChange={(checked) => setIncludeTransfer(!!checked)}
+              />
+              <div className="flex-1">
+                <Label htmlFor="transfer" className="flex items-center gap-2 cursor-pointer">
+                  <Building2 className="h-4 w-4 text-amber-600" />
+                  Transferencia bancaria
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  {(center as any)?.bank_transfer_info
+                    ? 'El contacto recibirá tus datos bancarios'
+                    : 'Configura tus datos bancarios en Configuración → Pagos'}
                 </p>
               </div>
             </div>

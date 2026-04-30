@@ -11,6 +11,7 @@ interface PaymentReminderRequest {
   channel: 'email' | 'whatsapp' | 'sms';
   include_stripe_link: boolean;
   include_bizum: boolean;
+  include_transfer?: boolean;
   include_bono_option: boolean;
 }
 
@@ -30,6 +31,7 @@ serve(async (req) => {
       channel, 
       include_stripe_link, 
       include_bizum, 
+      include_transfer = false,
       include_bono_option 
     } = await req.json() as PaymentReminderRequest;
 
@@ -57,7 +59,7 @@ serve(async (req) => {
     // Get center info with public_domain
     const { data: center, error: centerError } = await supabase
       .from('centers')
-      .select('id, name, bizum_phone, oauth_stripe_credentials, public_domain')
+      .select('id, name, bizum_phone, bank_transfer_info, oauth_stripe_credentials, public_domain')
       .eq('id', debt.center_id)
       .single();
 
@@ -81,6 +83,7 @@ serve(async (req) => {
     // Calculate amounts
     const pendingAmount = Number(debt.amount) - Number(debt.paid_amount);
     const bizumNumber = center.bizum_phone || '609555514';
+    const transferInfo = (center as any).bank_transfer_info || '';
     
     // Use center's public domain for URLs
     const baseUrl = center.public_domain 
@@ -145,18 +148,21 @@ serve(async (req) => {
         payment_option_stripe: '💳 Pagar con tarjeta: {link_pago_stripe}',
         payment_option_bizum: '📱 Bizum al número {bizum_numero}',
         payment_option_bono: '🎫 Adquirir un bono: {link_comprar_bono}',
+        payment_option_transfer: '🏦 Transferencia bancaria:\n{datos_transferencia}',
       },
       whatsapp: {
         message: `Hola ${debt.patients.first_name}, te recordamos un pago pendiente de ${pendingAmount.toFixed(2)}€ de tu sesión del ${sessionDate}.\n\nGracias, ${center.name}`,
         payment_option_stripe: '💳 Pagar por tarjeta: {link_pago_stripe}',
         payment_option_bizum: '📱 Bizum al {bizum_numero}',
         payment_option_bono: '🎫 ¿Prefieres un bono? {link_comprar_bono}',
+        payment_option_transfer: '🏦 Transferencia:\n{datos_transferencia}',
       },
       sms: {
         message: `Pago pendiente de ${pendingAmount.toFixed(2)}€. ${center.name}`,
         payment_option_stripe: 'Pagar: {link_pago_stripe}',
         payment_option_bizum: 'Bizum: {bizum_numero}',
         payment_option_bono: 'Bono: {link_comprar_bono}',
+        payment_option_transfer: 'Transf: {datos_transferencia}',
       },
     };
 
@@ -169,6 +175,7 @@ serve(async (req) => {
         .replace(/{importe_total}/g, Number(debt.amount).toFixed(2))
         .replace(/{fecha_sesion}/g, sessionDate)
         .replace(/{bizum_numero}/g, bizumNumber)
+        .replace(/{datos_transferencia}/g, transferInfo || '[Datos bancarios no configurados]')
         .replace(/{link_pago_stripe}/g, stripeCheckoutUrl || '[No disponible]')
         .replace(/{link_comprar_bono}/g, bonoPurchaseUrl || '[No disponible]');
     };
@@ -184,6 +191,10 @@ serve(async (req) => {
       if (include_bizum) {
         const bizumText = template?.payment_option_bizum || channelDefaults.payment_option_bizum || '';
         if (bizumText) lines.push(replaceVariables(bizumText));
+      }
+      if (include_transfer) {
+        const transferText = (template as any)?.payment_option_transfer || (channelDefaults as any).payment_option_transfer || '';
+        if (transferText) lines.push(replaceVariables(transferText));
       }
       if (include_bono_option && bonoPurchaseUrl) {
         const bonoText = template?.payment_option_bono || channelDefaults.payment_option_bono || '';
