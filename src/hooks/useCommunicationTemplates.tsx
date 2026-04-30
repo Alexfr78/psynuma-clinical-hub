@@ -254,6 +254,7 @@ export const PAYMENT_REMINDER_VARIABLES = [
   { key: '{bizum_numero}', label: 'Número de Bizum', example: '609555514' },
   { key: '{link_pago_stripe}', label: 'Link de pago con tarjeta', example: 'https://...' },
   { key: '{link_comprar_bono}', label: 'Link para comprar bono', example: 'https://...' },
+  { key: '{datos_transferencia}', label: 'Datos de transferencia bancaria', example: 'IBAN: ES00 0000 ...' },
 ];
 
 export function useCommunicationTemplates() {
