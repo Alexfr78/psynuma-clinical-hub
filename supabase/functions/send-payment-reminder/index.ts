@@ -31,6 +31,7 @@ serve(async (req) => {
       channel, 
       include_stripe_link, 
       include_bizum, 
+      include_transfer = false,
       include_bono_option 
     } = await req.json() as PaymentReminderRequest;
 
