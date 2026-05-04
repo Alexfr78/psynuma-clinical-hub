@@ -1,42 +1,29 @@
-## Problema
+## Diagnóstico
 
-El día 7 (jueves) hay un horario personalizado (`special_day` tipo `custom`) asignado a Alejandro Fernández. La agenda ya pinta los días especiales en Mes/Semana/Día, pero solo cuando el filtro de profesional coincide:
+Revisé la ficha de Alejandro Macías (id `1cf0e000-…`) y la base de datos:
 
-- En `WeekView`, `DayView` y `MonthView` se hace `pickApplicableSpecialDay(dateKey, professionalFilter, specialDays)`.
-- `professionalFilter = selectedProfessional === 'all' ? null : selectedProfessional`.
-- En `special-days-helpers.ts > matchesScope`, si `professionalId == null` y el día especial es de scope `professional`, devuelve `false` → no se muestra.
+- En la tabla `sessions` tiene 30+ registros desde diciembre, muchos con `status = 'cancelled'` (toda la serie recurrente `a7e2156d…`, que ya está marcada `is_active = false`).
+- `useSessions` (que alimenta la agenda) filtra explícitamente `.neq('status','cancelled')`, así que esas sesiones canceladas no se ven en el calendario.
+- `PatientSessions.tsx` (pestaña Sesiones del contacto) **no filtra por estado**: trae todo, incluyendo las canceladas. Por eso "no se corresponden con las de la agenda".
 
-Resultado: cuando el usuario está viendo "Todos los profesionales" (vista por defecto), el día especial de Alejandro queda invisible.
+No es que se hayan eliminado del calendario sin borrarlas de la ficha: están como `cancelled` en BD. Es un desajuste de filtro entre las dos vistas.
 
 ## Solución
 
-Cuando el filtro es "todos", mostrar también los días especiales de scope `professional`, indicando a qué profesional pertenecen.
+Alinear la pestaña Sesiones del contacto con la agenda y dar control al usuario:
 
-### Cambios
+### `src/components/patients/tabs/PatientSessions.tsx`
 
-1. **`src/lib/special-days-helpers.ts`**
-   - Nueva función `getApplicableSpecialDaysForDisplay(date, professionalFilter, specialDays)`:
-     - Si `professionalFilter` es un id concreto → devuelve `[pickApplicableSpecialDay(...)]` (comportamiento actual, máximo uno).
-     - Si `professionalFilter` es `null` (vista "todos") → devuelve el día de scope `center` aplicable (si existe) + todos los de scope `professional` aplicables a esa fecha, ordenados.
-   - Mantener las funciones existentes intactas para no romper la lógica de bloqueo (`isDateBlockedBySpecialDay` sigue usando `pickApplicableSpecialDay`).
+1. Añadir un filtro de estado con tres opciones, usando `Tabs` arriba de la lista:
+   - **Activas** (por defecto): excluye `cancelled` — coincide con lo que se ve en la agenda.
+   - **Canceladas**: solo `cancelled`.
+   - **Todas**: sin filtro.
+2. Mostrar el contador de sesiones por filtro junto al título (p. ej. "Activas (12)").
+3. Aplicar el filtro en cliente sobre el resultado del query (sigue trayendo todo de una vez para los contadores).
+4. Ajustar el estado vacío al filtro seleccionado ("No hay sesiones activas", etc.).
 
-2. **`src/pages/Agenda.tsx`**
-   - Pasar a `WeekView`, `DayView` y `MonthView` un mapa `professionalNames: Record<string, string>` (id → "Alejandro F.") construido desde el hook ya existente `useProfessionals` o desde las sesiones cargadas. Esto permite mostrar el nombre del profesional en el badge sin nuevas queries.
+No se modifica ningún dato en BD: las sesiones canceladas siguen existiendo (necesarias para histórico, facturación previa, auditoría). Simplemente la ficha deja de mezclarlas con las activas por defecto.
 
-3. **`MonthView.tsx`**
-   - Reemplazar `pickApplicableSpecialDay` por el nuevo helper.
-   - Renderizar un badge por cada día especial aplicable (máx. 2 visibles + “+N”). Cada badge muestra `🕒 Personalizado · Alejandro F.` cuando es scope `professional` y el filtro es "todos".
-   - Si hay al menos uno, aplicar el `SPECIAL_DAY_BG` del primero como fondo (igual que ahora).
+### Por qué no borrarlas
 
-4. **`WeekView.tsx`**
-   - Mismo cambio: en cada columna de día, listar todos los días especiales aplicables como mini-badges apilados bajo el header del día (debajo del número), con icono + nombre del profesional cuando aplique.
-   - Mantener el tinte de fondo de la columna usando el primero de la lista.
-
-5. **`DayView.tsx`**
-   - Reemplazar el banner único por un banner por cada día especial aplicable (uno debajo del otro), incluyendo nombre del profesional cuando es scope `professional` y el filtro es "todos".
-
-### Notas
-
-- No se cambia la lógica de bloqueo de creación/movimiento de sesiones: sigue dependiendo del profesional seleccionado al crear la cita, lo cual es correcto.
-- No hay cambios de base de datos.
-- El cambio es puramente visual/UI; no afecta a edge functions ni a la disponibilidad pública.
+Borrar las `cancelled` automáticamente sería destructivo y rompería integridad con cobros/notificaciones/auditoría que pueden referenciarlas. Si quieres, en una segunda iteración puedo añadir un botón "Limpiar canceladas antiguas" con confirmación, pero lo razonable es ocultarlas por defecto.

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Calendar, Clock, User, FileText } from 'lucide-react';
@@ -7,12 +7,15 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SessionDetailDrawer } from '@/components/agenda/SessionDetailDrawer';
 import type { SessionWithRelations } from '@/hooks/useSessions';
 
 interface PatientSessionsProps {
   patientId: string;
 }
+
+type StatusFilter = 'active' | 'cancelled' | 'all';
 
 const statusConfig = {
   scheduled: { label: 'Programada', variant: 'secondary' as const },
