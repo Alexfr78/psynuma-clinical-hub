@@ -4,7 +4,7 @@ import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { ScheduleException, getExceptionsForDate, getReasonLabel } from '@/lib/schedule-exceptions';
 import {
-  pickApplicableSpecialDay,
+  getApplicableSpecialDaysForDisplay,
   getSpecialDayLabel,
 } from '@/lib/special-days-helpers';
 import type { SpecialDay, SpecialDayType } from '@/lib/special-days';
@@ -28,6 +28,7 @@ interface WeekViewProps {
   scheduleExceptions?: ScheduleException[];
   specialDays?: SpecialDay[];
   selectedProfessional?: string;
+  professionalNames?: Record<string, string>;
 }
 
 const SPECIAL_DAY_BG: Record<SpecialDayType, string> = {
@@ -69,7 +70,7 @@ function minutesToTime(totalMinutes: number): string {
   return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
 }
 
-export function WeekView({ currentDate, sessions, onSessionClick, onSlotClick, onSessionMove, hours, startHour, onSwipeLeft, onSwipeRight, showWeekends = true, scheduleExceptions, specialDays, selectedProfessional }: WeekViewProps) {
+export function WeekView({ currentDate, sessions, onSessionClick, onSlotClick, onSessionMove, hours, startHour, onSwipeLeft, onSwipeRight, showWeekends = true, scheduleExceptions, specialDays, selectedProfessional, professionalNames }: WeekViewProps) {
   const isMobile = useIsMobile();
   const displayHours = hours || DEFAULT_HOURS;
   const gridStartHour = startHour ?? 8;
