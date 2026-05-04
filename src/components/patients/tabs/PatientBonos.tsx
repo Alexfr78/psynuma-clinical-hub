@@ -22,6 +22,8 @@ const statusConfig = {
 };
 
 export function PatientBonos({ patientId }: PatientBonosProps) {
+  const [selectedBono, setSelectedBono] = useState<{ id: string; name: string; total: number } | null>(null);
+
   const { data: bonos, isLoading } = useQuery({
     queryKey: ['patient-bonos', patientId],
     queryFn: async () => {
