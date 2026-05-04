@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Ticket, Calendar, AlertCircle } from 'lucide-react';
@@ -7,6 +8,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
+import { BonoSessionsDialog } from '@/components/patients/BonoSessionsDialog';
 
 interface PatientBonosProps {
   patientId: string;
@@ -20,6 +22,8 @@ const statusConfig = {
 };
 
 export function PatientBonos({ patientId }: PatientBonosProps) {
+  const [selectedBono, setSelectedBono] = useState<{ id: string; name: string; total: number } | null>(null);
+
   const { data: bonos, isLoading } = useQuery({
     queryKey: ['patient-bonos', patientId],
     queryFn: async () => {
@@ -66,7 +70,19 @@ export function PatientBonos({ patientId }: PatientBonosProps) {
         const isExpiringSoon = bono.expires_at && new Date(bono.expires_at) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
         
         return (
-          <Card key={bono.id} className="transition-colors hover:bg-muted/50">
+          <Card
+            key={bono.id}
+            role="button"
+            tabIndex={0}
+            onClick={() => setSelectedBono({ id: bono.id, name: bono.name, total: bono.total_sessions })}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                setSelectedBono({ id: bono.id, name: bono.name, total: bono.total_sessions });
+              }
+            }}
+            className="cursor-pointer transition-colors hover:bg-muted/50 focus:outline-none focus:ring-2 focus:ring-ring"
+          >
             <CardContent className="p-4">
               <div className="space-y-4">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -123,6 +139,14 @@ export function PatientBonos({ patientId }: PatientBonosProps) {
           </Card>
         );
       })}
+
+      <BonoSessionsDialog
+        bonoId={selectedBono?.id ?? null}
+        bonoName={selectedBono?.name}
+        totalSessions={selectedBono?.total}
+        open={!!selectedBono}
+        onOpenChange={(open) => !open && setSelectedBono(null)}
+      />
     </div>
   );
 }
