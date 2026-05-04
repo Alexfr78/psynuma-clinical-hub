@@ -43,12 +43,14 @@ function shouldSkipServiceWorker(): boolean {
 }
 
 async function unregisterExistingWorkers() {
-  if (!("serviceWorker" in navigator)) return;
+  if (!("serviceWorker" in navigator)) return false;
   try {
     const regs = await navigator.serviceWorker.getRegistrations();
-    await Promise.all(regs.map((r) => r.unregister().catch(() => undefined)));
+    const results = await Promise.all(regs.map((r) => r.unregister().catch(() => false)));
+    return results.some(Boolean);
   } catch {
     // ignore
+    return false;
   }
 }
 
@@ -57,7 +59,13 @@ export function registerPwa() {
 
   if (shouldSkipServiceWorker()) {
     // Make sure no stale worker keeps serving cached bundles in iframe/preview/embed.
-    void unregisterExistingWorkers();
+    void unregisterExistingWorkers().then((removed) => {
+      const reloadKey = 'psycma-sw-clean-reloaded';
+      if ((removed || navigator.serviceWorker.controller) && !sessionStorage.getItem(reloadKey)) {
+        sessionStorage.setItem(reloadKey, '1');
+        window.location.reload();
+      }
+    });
     return;
   }
 
