@@ -31,9 +31,9 @@ export default function Sessions() {
   const { data: sessions, isLoading } = useSessions(undefined, undefined, professionalFilter);
 
   const filteredSessions = sessions?.filter((session) => {
-    const matchesSearch = !search || 
-      session.patient?.first_name?.toLowerCase().includes(search.toLowerCase()) ||
-      session.patient?.last_name?.toLowerCase().includes(search.toLowerCase());
+    const fullName = `${session.patient?.first_name ?? ''} ${session.patient?.last_name ?? ''}`.toLowerCase().trim();
+    const terms = search.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    const matchesSearch = terms.length === 0 || terms.every((term) => fullName.includes(term));
     
     const matchesStatus = statusFilter === 'all' || session.status === statusFilter;
     
