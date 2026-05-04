@@ -139,6 +139,14 @@ export function PatientBonos({ patientId }: PatientBonosProps) {
           </Card>
         );
       })}
+
+      <BonoSessionsDialog
+        bonoId={selectedBono?.id ?? null}
+        bonoName={selectedBono?.name}
+        totalSessions={selectedBono?.total}
+        open={!!selectedBono}
+        onOpenChange={(open) => !open && setSelectedBono(null)}
+      />
     </div>
   );
 }
