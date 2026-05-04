@@ -32,7 +32,14 @@ export function usePatients(filters?: PatientFilters) {
         .order('updated_at', { ascending: false });
 
       if (filters?.search) {
-        query = query.or(`first_name.ilike.%${filters.search}%,last_name.ilike.%${filters.search}%,email.ilike.%${filters.search}%`);
+        // Split by whitespace so "Pablo García" matches first_name="Pablo" + last_name="García"
+        const terms = filters.search.trim().split(/\s+/).filter(Boolean);
+        for (const term of terms) {
+          const escaped = term.replace(/[%,()]/g, ' ');
+          query = query.or(
+            `first_name.ilike.%${escaped}%,last_name.ilike.%${escaped}%,email.ilike.%${escaped}%`
+          );
+        }
       }
 
       if (filters?.status && filters.status !== 'all') {
