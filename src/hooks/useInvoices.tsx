@@ -476,8 +476,12 @@ export function useInvoiceStats() {
     queryKey: ['invoice-stats'],
     queryFn: async () => {
       const now = new Date();
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+      const y = now.getFullYear();
+      const m = now.getMonth();
+      const fmt = (d: Date) =>
+        `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      const startOfMonth = fmt(new Date(y, m, 1));
+      const endOfMonth = fmt(new Date(y, m + 1, 0));
 
       const { data, error } = await supabase
         .from('invoices')
