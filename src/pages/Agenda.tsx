@@ -29,6 +29,7 @@ import { useGoogleCalendarSync } from '@/hooks/useGoogleCalendarSync';
 import { supabase } from '@/integrations/supabase/client';
 import { useScheduleExceptions } from '@/hooks/useScheduleExceptions';
 import { useSpecialDays } from '@/hooks/useSpecialDays';
+import { useProfessionals } from '@/hooks/useProfessionals';
 import { checkSessionConflicts, ConflictResult } from '@/lib/conflicts';
 
 export default function Agenda() {
