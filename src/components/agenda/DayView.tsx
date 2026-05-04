@@ -4,7 +4,7 @@ import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { ScheduleException, getExceptionsForDate, getReasonLabel } from '@/lib/schedule-exceptions';
 import {
-  pickApplicableSpecialDay,
+  getApplicableSpecialDaysForDisplay,
   getSpecialDayLabel,
 } from '@/lib/special-days-helpers';
 import type { SpecialDay, SpecialDayType } from '@/lib/special-days';
@@ -27,6 +27,7 @@ interface DayViewProps {
   scheduleExceptions?: ScheduleException[];
   specialDays?: SpecialDay[];
   selectedProfessional?: string;
+  professionalNames?: Record<string, string>;
 }
 
 const SPECIAL_DAY_BANNER: Record<SpecialDayType, string> = {
@@ -59,7 +60,7 @@ function minutesToTime(totalMinutes: number): string {
   return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
 }
 
-export function DayView({ currentDate, sessions, onSessionClick, onSlotClick, onSessionMove, onMoveRequest, hours, startHour, onSwipeLeft, onSwipeRight, scheduleExceptions, specialDays, selectedProfessional }: DayViewProps) {
+export function DayView({ currentDate, sessions, onSessionClick, onSlotClick, onSessionMove, onMoveRequest, hours, startHour, onSwipeLeft, onSwipeRight, scheduleExceptions, specialDays, selectedProfessional, professionalNames }: DayViewProps) {
   const displayHours = hours || DEFAULT_HOURS;
   const gridStartHour = startHour ?? 8;
   const dateKey = format(currentDate, 'yyyy-MM-dd');
@@ -267,25 +268,34 @@ export function DayView({ currentDate, sessions, onSessionClick, onSlotClick, on
         );
       })()}
 
-      {/* Special day banner */}
+      {/* Special day banners (one per applicable special day) */}
       {(() => {
         const professionalFilter = selectedProfessional === 'all' ? null : selectedProfessional || null;
-        const sd = specialDays ? pickApplicableSpecialDay(dateKey, professionalFilter, specialDays) : null;
-        if (!sd) return null;
-        const slots = sd.special_day_slots || [];
-        const slotsText =
-          sd.type !== 'closed' && slots.length > 0
-            ? ` · ${slots.map((s) => `${s.start_time.slice(0, 5)}–${s.end_time.slice(0, 5)}`).join(' · ')}`
-            : '';
-        return (
-          <div className={cn(
-            'px-4 py-2 text-xs font-medium border-b flex items-center gap-2',
-            SPECIAL_DAY_BANNER[sd.type],
-          )}>
-            <span>{SPECIAL_DAY_ICON[sd.type]}</span>
-            <span>{getSpecialDayLabel(sd)}{slotsText}</span>
-          </div>
-        );
+        const sds = specialDays ? getApplicableSpecialDaysForDisplay(dateKey, professionalFilter, specialDays) : [];
+        if (sds.length === 0) return null;
+        return sds.map((sd) => {
+          const slots = sd.special_day_slots || [];
+          const slotsText =
+            sd.type !== 'closed' && slots.length > 0
+              ? ` · ${slots.map((s) => `${s.start_time.slice(0, 5)}–${s.end_time.slice(0, 5)}`).join(' · ')}`
+              : '';
+          const profName = sd.scope === 'professional' && sd.professional_id
+            ? professionalNames?.[sd.professional_id]
+            : null;
+          return (
+            <div key={sd.id} className={cn(
+              'px-4 py-2 text-xs font-medium border-b flex items-center gap-2',
+              SPECIAL_DAY_BANNER[sd.type],
+            )}>
+              <span>{SPECIAL_DAY_ICON[sd.type]}</span>
+              <span>
+                {getSpecialDayLabel(sd)}
+                {profName ? ` · ${profName}` : ''}
+                {slotsText}
+              </span>
+            </div>
+          );
+        });
       })()}
 
       {/* Time Grid */}
