@@ -347,8 +347,8 @@ export function WeekView({ currentDate, sessions, onSessionClick, onSlotClick, o
                       if (dayExcs.length > 0) {
                         return dayExcs[0].scope === 'center' ? 'bg-destructive/5' : 'bg-amber-50 dark:bg-amber-950/20';
                       }
-                      const sd = specialDays ? pickApplicableSpecialDay(dayKey, professionalFilter, specialDays) : null;
-                      if (sd) return SPECIAL_DAY_BG[sd.type];
+                      const sds = specialDays ? getApplicableSpecialDaysForDisplay(dayKey, professionalFilter, specialDays) : [];
+                      if (sds.length > 0) return SPECIAL_DAY_BG[sds[0].type];
                       return '';
                     })()
                   )}
