@@ -4,7 +4,7 @@ import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { ScheduleException, getExceptionsForDate, getReasonLabel } from '@/lib/schedule-exceptions';
 import {
-  pickApplicableSpecialDay,
+  getApplicableSpecialDaysForDisplay,
   getSpecialDayLabel,
 } from '@/lib/special-days-helpers';
 import type { SpecialDay, SpecialDayType } from '@/lib/special-days';
@@ -28,6 +28,7 @@ interface WeekViewProps {
   scheduleExceptions?: ScheduleException[];
   specialDays?: SpecialDay[];
   selectedProfessional?: string;
+  professionalNames?: Record<string, string>;
 }
 
 const SPECIAL_DAY_BG: Record<SpecialDayType, string> = {
@@ -69,7 +70,7 @@ function minutesToTime(totalMinutes: number): string {
   return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
 }
 
-export function WeekView({ currentDate, sessions, onSessionClick, onSlotClick, onSessionMove, hours, startHour, onSwipeLeft, onSwipeRight, showWeekends = true, scheduleExceptions, specialDays, selectedProfessional }: WeekViewProps) {
+export function WeekView({ currentDate, sessions, onSessionClick, onSlotClick, onSessionMove, hours, startHour, onSwipeLeft, onSwipeRight, showWeekends = true, scheduleExceptions, specialDays, selectedProfessional, professionalNames }: WeekViewProps) {
   const isMobile = useIsMobile();
   const displayHours = hours || DEFAULT_HOURS;
   const gridStartHour = startHour ?? 8;
@@ -258,27 +259,58 @@ export function WeekView({ currentDate, sessions, onSessionClick, onSlotClick, o
         <div className="p-0.5 sm:p-2 text-center text-[10px] sm:text-xs font-medium text-muted-foreground flex items-center justify-center">
           {isMobile ? '' : 'Hora'}
         </div>
-        {weekDays.map((day) => (
-          <div
-            key={day.toISOString()}
-            className={cn(
-              'p-0.5 sm:p-2 text-center min-w-0',
-              isToday(day) && 'bg-primary/10'
-            )}
-          >
-            <div className="text-[10px] sm:text-xs font-medium text-muted-foreground truncate">
-              {format(day, isMobile ? 'EEEEE' : 'EEE', { locale: es })}
-            </div>
+        {weekDays.map((day) => {
+          const dayKey = format(day, 'yyyy-MM-dd');
+          const professionalFilter = selectedProfessional === 'all' ? null : selectedProfessional || null;
+          const headerSpecialDays = specialDays ? getApplicableSpecialDaysForDisplay(dayKey, professionalFilter, specialDays) : [];
+          return (
             <div
+              key={day.toISOString()}
               className={cn(
-                'mt-0.5 inline-flex h-5 w-5 sm:h-7 sm:w-7 items-center justify-center rounded-full text-[10px] sm:text-sm font-semibold',
-                isToday(day) && 'bg-primary text-primary-foreground'
+                'p-0.5 sm:p-2 text-center min-w-0',
+                isToday(day) && 'bg-primary/10'
               )}
             >
-              {format(day, 'd')}
+              <div className="text-[10px] sm:text-xs font-medium text-muted-foreground truncate">
+                {format(day, isMobile ? 'EEEEE' : 'EEE', { locale: es })}
+              </div>
+              <div
+                className={cn(
+                  'mt-0.5 inline-flex h-5 w-5 sm:h-7 sm:w-7 items-center justify-center rounded-full text-[10px] sm:text-sm font-semibold',
+                  isToday(day) && 'bg-primary text-primary-foreground'
+                )}
+              >
+                {format(day, 'd')}
+              </div>
+              {headerSpecialDays.length > 0 && (
+                <div className="mt-1 flex flex-col gap-0.5 items-stretch px-0.5">
+                  {headerSpecialDays.slice(0, 2).map((sd) => {
+                    const profName = sd.scope === 'professional' && sd.professional_id
+                      ? professionalNames?.[sd.professional_id]
+                      : null;
+                    return (
+                      <div
+                        key={sd.id}
+                        className={cn(
+                          'text-[8px] sm:text-[9px] font-medium px-1 py-0.5 rounded truncate',
+                          SPECIAL_DAY_BADGE[sd.type],
+                        )}
+                        title={`${getSpecialDayLabel(sd)}${profName ? ` · ${profName}` : ''}`}
+                      >
+                        {SPECIAL_DAY_ICON[sd.type]} {profName || getSpecialDayLabel(sd)}
+                      </div>
+                    );
+                  })}
+                  {headerSpecialDays.length > 2 && (
+                    <div className="text-[8px] sm:text-[9px] text-muted-foreground">
+                      +{headerSpecialDays.length - 2}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Time Grid */}
@@ -315,8 +347,8 @@ export function WeekView({ currentDate, sessions, onSessionClick, onSlotClick, o
                       if (dayExcs.length > 0) {
                         return dayExcs[0].scope === 'center' ? 'bg-destructive/5' : 'bg-amber-50 dark:bg-amber-950/20';
                       }
-                      const sd = specialDays ? pickApplicableSpecialDay(dayKey, professionalFilter, specialDays) : null;
-                      if (sd) return SPECIAL_DAY_BG[sd.type];
+                      const sds = specialDays ? getApplicableSpecialDaysForDisplay(dayKey, professionalFilter, specialDays) : [];
+                      if (sds.length > 0) return SPECIAL_DAY_BG[sds[0].type];
                       return '';
                     })()
                   )}

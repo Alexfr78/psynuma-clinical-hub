@@ -14,8 +14,7 @@ import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { ScheduleException, getExceptionsForDate, getReasonLabel } from '@/lib/schedule-exceptions';
 import {
-  getSpecialDaysForDate,
-  pickApplicableSpecialDay,
+  getApplicableSpecialDaysForDisplay,
   getSpecialDayLabel,
 } from '@/lib/special-days-helpers';
 import type { SpecialDay, SpecialDayType } from '@/lib/special-days';
@@ -32,6 +31,7 @@ interface MonthViewProps {
   scheduleExceptions?: ScheduleException[];
   specialDays?: SpecialDay[];
   selectedProfessional?: string;
+  professionalNames?: Record<string, string>;
 }
 
 const WEEKDAYS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
@@ -54,7 +54,7 @@ const SPECIAL_DAY_ICON: Record<SpecialDayType, string> = {
   extended: '➕',
 };
 
-export function MonthView({ currentDate, sessions, onSessionClick, onDayClick, onSwipeLeft, onSwipeRight, scheduleExceptions, specialDays, selectedProfessional }: MonthViewProps) {
+export function MonthView({ currentDate, sessions, onSessionClick, onDayClick, onSwipeLeft, onSwipeRight, scheduleExceptions, specialDays, selectedProfessional, professionalNames }: MonthViewProps) {
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(currentDate);
   const calendarStart = startOfWeek(monthStart, { weekStartsOn: 1 });
@@ -117,7 +117,8 @@ export function MonthView({ currentDate, sessions, onSessionClick, onDayClick, o
           const dayExceptions = scheduleExceptions ? getExceptionsForDate(dateKey, professionalFilter, scheduleExceptions) : [];
           const hasException = dayExceptions.length > 0;
           const isCenterBlock = hasException && dayExceptions[0].scope === 'center';
-          const applicableSpecialDay = specialDays ? pickApplicableSpecialDay(dateKey, professionalFilter, specialDays) : null;
+          const applicableSpecialDays = specialDays ? getApplicableSpecialDaysForDisplay(dateKey, professionalFilter, specialDays) : [];
+          const primarySpecialDay = applicableSpecialDays[0] || null;
 
           return (
             <div
@@ -127,7 +128,7 @@ export function MonthView({ currentDate, sessions, onSessionClick, onDayClick, o
                 !isCurrentMonth && 'bg-muted/30 text-muted-foreground',
                 hasException && isCenterBlock && 'bg-destructive/5',
                 hasException && !isCenterBlock && 'bg-amber-50 dark:bg-amber-950/20',
-                !hasException && applicableSpecialDay && SPECIAL_DAY_BG[applicableSpecialDay.type],
+                !hasException && primarySpecialDay && SPECIAL_DAY_BG[primarySpecialDay.type],
               )}
               onClick={() => onDayClick(day)}
             >
@@ -149,12 +150,26 @@ export function MonthView({ currentDate, sessions, onSessionClick, onDayClick, o
                 </div>
               )}
 
-              {applicableSpecialDay && (
-                <div className={cn(
-                  'text-[9px] font-medium px-1 py-0.5 rounded truncate mb-0.5',
-                  SPECIAL_DAY_BADGE[applicableSpecialDay.type],
-                )}>
-                  {SPECIAL_DAY_ICON[applicableSpecialDay.type]} {getSpecialDayLabel(applicableSpecialDay)}
+              {applicableSpecialDays.slice(0, 2).map((sd) => {
+                const profName = sd.scope === 'professional' && sd.professional_id
+                  ? professionalNames?.[sd.professional_id]
+                  : null;
+                return (
+                  <div
+                    key={sd.id}
+                    className={cn(
+                      'text-[9px] font-medium px-1 py-0.5 rounded truncate mb-0.5',
+                      SPECIAL_DAY_BADGE[sd.type],
+                    )}
+                    title={`${getSpecialDayLabel(sd)}${profName ? ` · ${profName}` : ''}`}
+                  >
+                    {SPECIAL_DAY_ICON[sd.type]} {profName ? `${profName}` : getSpecialDayLabel(sd)}
+                  </div>
+                );
+              })}
+              {applicableSpecialDays.length > 2 && (
+                <div className="text-[9px] text-muted-foreground px-1 mb-0.5">
+                  +{applicableSpecialDays.length - 2} más
                 </div>
               )}
 

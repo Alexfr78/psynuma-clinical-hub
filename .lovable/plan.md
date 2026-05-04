@@ -1,43 +1,42 @@
 ## Problema
 
-En `/facturas` aparece **60€** en "Cobrado" y "Facturado" pese a que **no hay ninguna factura de mayo**. La factura SF260060 (fecha 30 de abril) se está colando en el cálculo del mes actual.
+El día 7 (jueves) hay un horario personalizado (`special_day` tipo `custom`) asignado a Alejandro Fernández. La agenda ya pinta los días especiales en Mes/Semana/Día, pero solo cuando el filtro de profesional coincide:
 
-## Causa raíz
+- En `WeekView`, `DayView` y `MonthView` se hace `pickApplicableSpecialDay(dateKey, professionalFilter, specialDays)`.
+- `professionalFilter = selectedProfessional === 'all' ? null : selectedProfessional`.
+- En `special-days-helpers.ts > matchesScope`, si `professionalId == null` y el día especial es de scope `professional`, devuelve `false` → no se muestra.
 
-En `src/hooks/useInvoices.tsx` (función `useInvoiceStats`, línea 478-480) el rango del mes se calcula así:
-
-```js
-const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-```
-
-`new Date(2026, 4, 1)` se construye en hora **local** (00:00 España). Al llamar `.toISOString()` se convierte a UTC y, en horario de verano (CEST, UTC+2), da `2026-04-30T22:00:00Z`. Tras `.split('T')[0]` queda **`'2026-04-30'`**, no `'2026-05-01'`.
-
-Resultado: la consulta `issue_date >= '2026-04-30'` incluye la factura SF260060 del 30 de abril.
+Resultado: cuando el usuario está viendo "Todos los profesionales" (vista por defecto), el día especial de Alejandro queda invisible.
 
 ## Solución
 
-Calcular `startOfMonth` y `endOfMonth` formateando la fecha **localmente** (sin pasar por UTC), de modo que el rango sea `2026-05-01` … `2026-05-31`.
+Cuando el filtro es "todos", mostrar también los días especiales de scope `professional`, indicando a qué profesional pertenecen.
 
-### Cambio único en `src/hooks/useInvoices.tsx`
+### Cambios
 
-Reemplazar las dos líneas afectadas por:
+1. **`src/lib/special-days-helpers.ts`**
+   - Nueva función `getApplicableSpecialDaysForDisplay(date, professionalFilter, specialDays)`:
+     - Si `professionalFilter` es un id concreto → devuelve `[pickApplicableSpecialDay(...)]` (comportamiento actual, máximo uno).
+     - Si `professionalFilter` es `null` (vista "todos") → devuelve el día de scope `center` aplicable (si existe) + todos los de scope `professional` aplicables a esa fecha, ordenados.
+   - Mantener las funciones existentes intactas para no romper la lógica de bloqueo (`isDateBlockedBySpecialDay` sigue usando `pickApplicableSpecialDay`).
 
-```ts
-const now = new Date();
-const y = now.getFullYear();
-const m = now.getMonth();
-const fmt = (d: Date) =>
-  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-const startOfMonth = fmt(new Date(y, m, 1));
-const endOfMonth = fmt(new Date(y, m + 1, 0));
-```
+2. **`src/pages/Agenda.tsx`**
+   - Pasar a `WeekView`, `DayView` y `MonthView` un mapa `professionalNames: Record<string, string>` (id → "Alejandro F.") construido desde el hook ya existente `useProfessionals` o desde las sesiones cargadas. Esto permite mostrar el nombre del profesional en el badge sin nuevas queries.
 
-## Resultado esperado
+3. **`MonthView.tsx`**
+   - Reemplazar `pickApplicableSpecialDay` por el nuevo helper.
+   - Renderizar un badge por cada día especial aplicable (máx. 2 visibles + “+N”). Cada badge muestra `🕒 Personalizado · Alejandro F.` cuando es scope `professional` y el filtro es "todos".
+   - Si hay al menos uno, aplicar el `SPECIAL_DAY_BG` del primero como fondo (igual que ahora).
 
-- En mayo (sin facturas): **Facturado 0€ · Cobrado 0€ · Pendiente 0€**.
-- Las tarjetas reflejarán solo facturas con `issue_date` realmente dentro del mes calendario local.
+4. **`WeekView.tsx`**
+   - Mismo cambio: en cada columna de día, listar todos los días especiales aplicables como mini-badges apilados bajo el header del día (debajo del número), con icono + nombre del profesional cuando aplique.
+   - Mantener el tinte de fondo de la columna usando el primero de la lista.
 
-## Notas
+5. **`DayView.tsx`**
+   - Reemplazar el banner único por un banner por cada día especial aplicable (uno debajo del otro), incluyendo nombre del profesional cuando es scope `professional` y el filtro es "todos".
 
-- El bug afecta cualquier zona horaria con offset positivo respecto a UTC (toda Europa continental). Por eso solo se nota el día 1 del mes y empeora durante el verano.
-- Mantengo los nombres actuales de las tarjetas ("Facturado este mes / Facturas pagadas / Pendiente de cobro") tal como quedaron en el cambio anterior.
+### Notas
+
+- No se cambia la lógica de bloqueo de creación/movimiento de sesiones: sigue dependiendo del profesional seleccionado al crear la cita, lo cual es correcto.
+- No hay cambios de base de datos.
+- El cambio es puramente visual/UI; no afecta a edge functions ni a la disponibilidad pública.

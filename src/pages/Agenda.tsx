@@ -29,6 +29,7 @@ import { useGoogleCalendarSync } from '@/hooks/useGoogleCalendarSync';
 import { supabase } from '@/integrations/supabase/client';
 import { useScheduleExceptions } from '@/hooks/useScheduleExceptions';
 import { useSpecialDays } from '@/hooks/useSpecialDays';
+import { useProfessionals } from '@/hooks/useProfessionals';
 import { checkSessionConflicts, ConflictResult } from '@/lib/conflicts';
 
 export default function Agenda() {
@@ -216,6 +217,19 @@ export default function Agenda() {
 
   // Fetch special days (not date-scoped; filtered client-side in views)
   const { data: specialDays } = useSpecialDays(center?.id);
+
+  // Map professional id -> short display name (for special-day badges in "all" view)
+  const { data: professionals } = useProfessionals();
+  const professionalNames = useMemo(() => {
+    const map: Record<string, string> = {};
+    (professionals || []).forEach((p: any) => {
+      const first = p.first_name || '';
+      const last = p.last_name || '';
+      const initial = last ? ` ${last.charAt(0)}.` : '';
+      map[p.id] = `${first}${initial}`.trim() || 'Profesional';
+    });
+    return map;
+  }, [professionals]);
 
   // Sync selectedSession with updated data from sessions query
   useEffect(() => {
@@ -553,6 +567,7 @@ export default function Agenda() {
               scheduleExceptions={scheduleExceptions}
               specialDays={specialDays}
               selectedProfessional={selectedProfessional}
+              professionalNames={professionalNames}
             />
           )}
           {view === 'day' && (
@@ -570,6 +585,7 @@ export default function Agenda() {
               scheduleExceptions={scheduleExceptions}
               specialDays={specialDays}
               selectedProfessional={selectedProfessional}
+              professionalNames={professionalNames}
             />
           )}
           {view === 'month' && (
@@ -583,6 +599,7 @@ export default function Agenda() {
               scheduleExceptions={scheduleExceptions}
               specialDays={specialDays}
               selectedProfessional={selectedProfessional}
+              professionalNames={professionalNames}
             />
           )}
           {view === 'list' && (
