@@ -350,7 +350,7 @@ export default function Invoices() {
       <div className="grid gap-3 grid-cols-1 sm:grid-cols-3">
         <Card>
           <CardHeader className="pb-1 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
-            <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">Facturado</CardTitle>
+            <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">Facturado este mes</CardTitle>
           </CardHeader>
           <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
             <p className="text-lg sm:text-2xl font-bold">{stats?.totalIssued.toFixed(0) || '0'}€</p>
@@ -358,7 +358,7 @@ export default function Invoices() {
         </Card>
         <Card>
           <CardHeader className="pb-1 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
-            <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">Cobrado</CardTitle>
+            <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">Facturas pagadas</CardTitle>
           </CardHeader>
           <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
             <p className="text-lg sm:text-2xl font-bold text-green-600">{stats?.totalPaid.toFixed(0) || '0'}€</p>
@@ -366,7 +366,7 @@ export default function Invoices() {
         </Card>
         <Card>
           <CardHeader className="pb-1 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
-            <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">Pendiente</CardTitle>
+            <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">Pendiente de cobro</CardTitle>
           </CardHeader>
           <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
             <p className="text-lg sm:text-2xl font-bold text-amber-600">{stats?.totalPending.toFixed(0) || '0'}€</p>
