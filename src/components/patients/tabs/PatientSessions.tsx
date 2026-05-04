@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Calendar, Clock, User, FileText } from 'lucide-react';
@@ -7,12 +7,15 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SessionDetailDrawer } from '@/components/agenda/SessionDetailDrawer';
 import type { SessionWithRelations } from '@/hooks/useSessions';
 
 interface PatientSessionsProps {
   patientId: string;
 }
+
+type StatusFilter = 'active' | 'cancelled' | 'all';
 
 const statusConfig = {
   scheduled: { label: 'Programada', variant: 'secondary' as const },
@@ -25,6 +28,7 @@ const statusConfig = {
 
 export function PatientSessions({ patientId }: PatientSessionsProps) {
   const [selectedSession, setSelectedSession] = useState<SessionWithRelations | null>(null);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('active');
 
   const { data: sessions, isLoading } = useQuery({
     queryKey: ['patient-sessions', patientId],
@@ -48,6 +52,19 @@ export function PatientSessions({ patientId }: PatientSessionsProps) {
     },
   });
 
+  const counts = useMemo(() => {
+    const all = sessions?.length ?? 0;
+    const cancelled = sessions?.filter((s) => s.status === 'cancelled').length ?? 0;
+    return { all, cancelled, active: all - cancelled };
+  }, [sessions]);
+
+  const filteredSessions = useMemo(() => {
+    if (!sessions) return [];
+    if (statusFilter === 'active') return sessions.filter((s) => s.status !== 'cancelled');
+    if (statusFilter === 'cancelled') return sessions.filter((s) => s.status === 'cancelled');
+    return sessions;
+  }, [sessions, statusFilter]);
+
   if (isLoading) {
     return (
       <div className="space-y-4">
@@ -58,21 +75,32 @@ export function PatientSessions({ patientId }: PatientSessionsProps) {
     );
   }
 
-  if (!sessions || sessions.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12 text-center">
-        <Calendar className="h-12 w-12 text-muted-foreground" />
-        <h3 className="mt-4 font-display text-lg font-semibold">Sin sesiones</h3>
-        <p className="mt-2 max-w-sm text-sm text-muted-foreground">
-          Este paciente aún no tiene sesiones registradas.
-        </p>
-      </div>
-    );
-  }
+  const emptyLabel =
+    statusFilter === 'active'
+      ? 'Este contacto no tiene sesiones activas.'
+      : statusFilter === 'cancelled'
+        ? 'Este contacto no tiene sesiones canceladas.'
+        : 'Este contacto aún no tiene sesiones registradas.';
 
   return (
     <div className="space-y-4">
-      {sessions.map((session) => {
+      <Tabs value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
+        <TabsList>
+          <TabsTrigger value="active">Activas ({counts.active})</TabsTrigger>
+          <TabsTrigger value="cancelled">Canceladas ({counts.cancelled})</TabsTrigger>
+          <TabsTrigger value="all">Todas ({counts.all})</TabsTrigger>
+        </TabsList>
+      </Tabs>
+
+      {filteredSessions.length === 0 ? (
+        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12 text-center">
+          <Calendar className="h-12 w-12 text-muted-foreground" />
+          <h3 className="mt-4 font-display text-lg font-semibold">Sin sesiones</h3>
+          <p className="mt-2 max-w-sm text-sm text-muted-foreground">{emptyLabel}</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+      {filteredSessions.map((session) => {
         const status = statusConfig[session.status as keyof typeof statusConfig] || statusConfig.scheduled;
         
         return (
@@ -130,6 +158,8 @@ export function PatientSessions({ patientId }: PatientSessionsProps) {
           </Card>
         );
       })}
+        </div>
+      )}
 
       <SessionDetailDrawer
         session={selectedSession}
