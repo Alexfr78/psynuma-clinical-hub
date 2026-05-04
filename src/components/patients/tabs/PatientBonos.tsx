@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Ticket, Calendar, AlertCircle } from 'lucide-react';
@@ -7,6 +8,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
+import { BonoSessionsDialog } from '@/components/patients/BonoSessionsDialog';
 
 interface PatientBonosProps {
   patientId: string;
