@@ -51,6 +51,29 @@ export function pickApplicableSpecialDay(
   return [...matches].sort(compareForPriority)[0];
 }
 
+/**
+ * For visual display in the agenda. When a specific professional is selected,
+ * behaves like pickApplicableSpecialDay (max 1). When professionalId is null
+ * ("all professionals" view), returns the applicable center-scoped day plus all
+ * professional-scoped days for that date, so each one can be shown in the UI.
+ */
+export function getApplicableSpecialDaysForDisplay(
+  date: string,
+  professionalId: string | null,
+  specialDays: SpecialDay[],
+): SpecialDay[] {
+  if (professionalId !== null) {
+    const single = pickApplicableSpecialDay(date, professionalId, specialDays);
+    return single ? [single] : [];
+  }
+  // "All professionals" view: include center scope + every professional scope match.
+  const inRange = specialDays.filter((sd) => isWithinRange(date, sd));
+  const out = inRange.filter(
+    (sd) => sd.scope === 'center' || sd.scope === 'professional',
+  );
+  return out.sort(compareForPriority);
+}
+
 function timeInsideAnySlot(
   startTime: string,
   endTime: string,
