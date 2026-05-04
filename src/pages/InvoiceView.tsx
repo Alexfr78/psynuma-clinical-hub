@@ -11,7 +11,7 @@ import { getInvoiceDocumentType } from '@/lib/invoiceDocumentType';
 import { supabase } from '@/integrations/supabase/client';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { QRCodeSVG } from 'qrcode.react';
+import { QRCodeCanvas } from 'qrcode.react';
 
 export default function InvoiceView() {
   const { token } = useParams<{ token: string }>();
@@ -293,11 +293,12 @@ export default function InvoiceView() {
             {invoice.verifactu_qr && (
               <div className="border-t pt-4 flex items-center gap-4">
                 <div className="w-24 h-24 bg-white p-1 rounded border flex items-center justify-center">
-                  <QRCodeSVG
+                  <QRCodeCanvas
                     value={invoice.verifactu_qr}
                     size={88}
                     level="M"
                     includeMargin={false}
+                    title="QR Verifactu"
                   />
                 </div>
                 <div className="text-xs text-muted-foreground">
