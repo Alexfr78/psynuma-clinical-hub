@@ -158,6 +158,8 @@ export function PatientSessions({ patientId }: PatientSessionsProps) {
           </Card>
         );
       })}
+        </div>
+      )}
 
       <SessionDetailDrawer
         session={selectedSession}
