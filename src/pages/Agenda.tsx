@@ -567,6 +567,7 @@ export default function Agenda() {
               scheduleExceptions={scheduleExceptions}
               specialDays={specialDays}
               selectedProfessional={selectedProfessional}
+              professionalNames={professionalNames}
             />
           )}
           {view === 'day' && (
@@ -584,6 +585,7 @@ export default function Agenda() {
               scheduleExceptions={scheduleExceptions}
               specialDays={specialDays}
               selectedProfessional={selectedProfessional}
+              professionalNames={professionalNames}
             />
           )}
           {view === 'month' && (
@@ -597,6 +599,7 @@ export default function Agenda() {
               scheduleExceptions={scheduleExceptions}
               specialDays={specialDays}
               selectedProfessional={selectedProfessional}
+              professionalNames={professionalNames}
             />
           )}
           {view === 'list' && (
