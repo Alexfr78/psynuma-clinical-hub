@@ -442,7 +442,16 @@ export function QuickCreateSessionDialog({
   ) => {
     const usesBono = values.bono_id && values.bono_id !== 'none' && values.bono_id !== '';
     const selectedSessionType = sessionTypes?.find(t => t.id === values.session_type);
-    const sessionPrice = selectedSessionType?.default_price ?? 0;
+    const basePrice = selectedSessionType?.default_price ?? 0;
+    const useResolved = !!resolvedPrice && !usesBono;
+    const sessionPrice = useResolved ? resolvedPrice!.applied_price : basePrice;
+    const pricingSnapshots = {
+      base_price_snapshot: resolvedPrice?.base_price ?? basePrice,
+      pricing_source: resolvedPrice?.pricing_source ?? 'base',
+      custom_price_id: resolvedPrice?.custom_price_id ?? null,
+      tariff_plan_id_snapshot: resolvedPrice?.tariff_plan_id ?? null,
+      tariff_plan_assignment_id_snapshot: resolvedPrice?.tariff_plan_assignment_id ?? null,
+    };
     
     let videoProvider: string | null = null;
     if (values.session_modality === 'zoom') {
