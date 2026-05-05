@@ -404,13 +404,16 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
         status: newStatus as any,
       });
       
-      // Sync status change to Google Calendar immediately (especially for cancellations)
-      if (newStatus === 'cancelled') {
-        try {
+      // Sync status change to Google Calendar immediately
+      try {
+        if (newStatus === 'cancelled') {
           await syncToGoogle(session, { status: 'cancelled' });
-        } catch (googleError) {
-          console.error('Error syncing cancellation to Google:', googleError);
+        } else {
+          // Reactivation or change between active states: update or recreate event in Google
+          await syncToGoogle(session, {});
         }
+      } catch (googleError) {
+        console.error('Error syncing status change to Google:', googleError);
       }
       
       setLocalStatus(newStatus);

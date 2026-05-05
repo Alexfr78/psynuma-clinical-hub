@@ -1,29 +1,51 @@
-## Diagnóstico
+## Problema
 
-Revisé la ficha de Alejandro Macías (id `1cf0e000-…`) y la base de datos:
+Al cambiar el estado de una sesión de **Cancelada → Confirmada** (u otro estado activo), el cambio no se sincroniza con Google Calendar, por lo que el evento sigue sin aparecer en el calendario aunque la cita esté reactivada en Psycma.
 
-- En la tabla `sessions` tiene 30+ registros desde diciembre, muchos con `status = 'cancelled'` (toda la serie recurrente `a7e2156d…`, que ya está marcada `is_active = false`).
-- `useSessions` (que alimenta la agenda) filtra explícitamente `.neq('status','cancelled')`, así que esas sesiones canceladas no se ven en el calendario.
-- `PatientSessions.tsx` (pestaña Sesiones del contacto) **no filtra por estado**: trae todo, incluyendo las canceladas. Por eso "no se corresponden con las de la agenda".
+### Causa raíz
 
-No es que se hayan eliminado del calendario sin borrarlas de la ficha: están como `cancelled` en BD. Es un desajuste de filtro entre las dos vistas.
+En `src/components/agenda/SessionDetailDrawer.tsx` (función `handleStatusChange`, líneas 399-414) y en `src/components/agenda/SessionDetailDialog.tsx` (líneas 64-83), el sync con Google Calendar **solo se ejecuta cuando `newStatus === 'cancelled'`**. No hay sincronización para el caso inverso (reactivación).
+
+Cuando la sesión se canceló originalmente, `syncToGoogle({ status: 'cancelled' })` borró el evento en Google, pero `sessions.google_calendar_event_id` se mantiene en BD. Al cambiar a "confirmada", no se llama a Google, por lo que:
+- No se actualiza el evento existente
+- No se recrea el evento borrado
+
+(He confirmado en BD que la sesión de hoy de Alejandro Macías está en `confirmed` con un `google_calendar_event_id` antiguo, sin actividad de sync reciente).
 
 ## Solución
 
-Alinear la pestaña Sesiones del contacto con la agenda y dar control al usuario:
+Llamar a `syncToGoogle` también cuando se reactiva una sesión. El hook `useGoogleCalendarUpdate` ya maneja correctamente el caso de evento borrado: si el `update-google-calendar-event` recibe 404/410, recrea el evento y guarda el nuevo `google_calendar_event_id`.
 
-### `src/components/patients/tabs/PatientSessions.tsx`
+### Cambios
 
-1. Añadir un filtro de estado con tres opciones, usando `Tabs` arriba de la lista:
-   - **Activas** (por defecto): excluye `cancelled` — coincide con lo que se ve en la agenda.
-   - **Canceladas**: solo `cancelled`.
-   - **Todas**: sin filtro.
-2. Mostrar el contador de sesiones por filtro junto al título (p. ej. "Activas (12)").
-3. Aplicar el filtro en cliente sobre el resultado del query (sigue trayendo todo de una vez para los contadores).
-4. Ajustar el estado vacío al filtro seleccionado ("No hay sesiones activas", etc.).
+**1. `src/components/agenda/SessionDetailDrawer.tsx`** (`handleStatusChange`)
 
-No se modifica ningún dato en BD: las sesiones canceladas siguen existiendo (necesarias para histórico, facturación previa, auditoría). Simplemente la ficha deja de mezclarlas con las activas por defecto.
+Ampliar el bloque de sync para cubrir los demás estados:
 
-### Por qué no borrarlas
+```ts
+if (newStatus === 'cancelled') {
+  await syncToGoogle(session, { status: 'cancelled' });
+} else if (session.status === 'cancelled' || !((session as any).google_calendar_event_id)) {
+  // Reactivación desde cancelada o sesión sin evento: crear/recrear en Google
+  await syncToGoogle(session, {});
+} else {
+  // Cambio entre estados activos: actualizar evento (mantiene título, etc.)
+  await syncToGoogle(session, {});
+}
+```
 
-Borrar las `cancelled` automáticamente sería destructivo y rompería integridad con cobros/notificaciones/auditoría que pueden referenciarlas. Si quieres, en una segunda iteración puedo añadir un botón "Limpiar canceladas antiguas" con confirmación, pero lo razonable es ocultarlas por defecto.
+En la práctica esto se puede simplificar a:
+- Si `newStatus === 'cancelled'` → `syncToGoogle(session, { status: 'cancelled' })`
+- En cualquier otro caso → `syncToGoogle(session, {})` (el hook se encarga de actualizar o recrear si el evento no existe).
+
+**2. `src/components/agenda/SessionDetailDialog.tsx`** (`handleStatusChange`)
+
+Actualmente no sincroniza con Google en absoluto. Añadir la misma lógica:
+- Importar `useGoogleCalendarUpdate` con `session.professional_id`
+- Tras `updateSession.mutateAsync`, llamar a `syncToGoogle` con la misma regla.
+
+**3. (Opcional, recomendado)** En `useGoogleCalendarUpdate.tsx`, cuando `syncToGoogle` recibe `status: 'cancelled'` y borra el evento, limpiar también `google_calendar_event_id` en BD para que futuras reactivaciones tomen el camino de "crear nuevo evento" sin depender del fallback 404. No es imprescindible (el fallback ya funciona), pero deja el estado más limpio.
+
+## Resultado esperado
+
+Al pasar una cita de **Cancelada → Confirmada/Programada/Completada**, el evento se vuelve a crear en Google Calendar (o se actualiza si nunca llegó a borrarse), y el `google_calendar_event_id` queda alineado.
