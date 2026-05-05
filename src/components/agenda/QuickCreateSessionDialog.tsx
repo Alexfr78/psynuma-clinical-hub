@@ -57,6 +57,7 @@ import { usePatients, useProfessionals } from '@/hooks/usePatients';
 import { useAuth } from '@/hooks/useAuth';
 import { useLocations } from '@/hooks/useLocations';
 import { usePatientActiveBonos, useDeductBonoSession } from '@/hooks/useBonos';
+import { useResolvedPrice } from '@/hooks/useCustomPrices';
 
 import { sendSessionNotificationDirect, WhatsAppDialogData } from '@/hooks/useSendSessionNotification';
 import { useSessionTypes } from '@/hooks/useSessionTypes';
