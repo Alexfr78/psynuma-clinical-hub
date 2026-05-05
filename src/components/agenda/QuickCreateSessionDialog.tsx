@@ -553,6 +553,7 @@ export function QuickCreateSessionDialog({
         send_reminder_whatsapp: values.send_reminder_whatsapp,
         send_reminder_email: values.send_reminder_email,
         send_reminder_sms: values.send_reminder_sms,
+        ...pricingSnapshots,
       });
 
       // Handle video/calendar integrations for non-draft sessions (non-critical)
