@@ -227,7 +227,16 @@ export function QuickCreateSessionDialog({
   const watchStartTime = form.watch('start_time');
   const watchProfessionalId = form.watch('professional_id');
   const watchSessionDate = form.watch('session_date');
-  
+
+  // Resolve effective price (custom price / tariff plan / base) for this patient + session type
+  const { data: resolvedPrice } = useResolvedPrice(
+    watchPatientId || undefined,
+    'session_type',
+    watchSessionType || undefined,
+    watchSessionDate ? format(watchSessionDate, 'yyyy-MM-dd') : undefined,
+  );
+
+
   // Use integrations for the selected professional (not necessarily the authenticated user)
   const { integrations, oauthConnections } = useProfessionalIntegrations(watchProfessionalId || undefined);
   
