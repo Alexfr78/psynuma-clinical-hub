@@ -57,6 +57,7 @@ import { usePatients, useProfessionals } from '@/hooks/usePatients';
 import { useAuth } from '@/hooks/useAuth';
 import { useLocations } from '@/hooks/useLocations';
 import { usePatientActiveBonos, useDeductBonoSession } from '@/hooks/useBonos';
+import { useResolvedPrice } from '@/hooks/useCustomPrices';
 
 import { sendSessionNotificationDirect, WhatsAppDialogData } from '@/hooks/useSendSessionNotification';
 import { useSessionTypes } from '@/hooks/useSessionTypes';
@@ -226,7 +227,16 @@ export function QuickCreateSessionDialog({
   const watchStartTime = form.watch('start_time');
   const watchProfessionalId = form.watch('professional_id');
   const watchSessionDate = form.watch('session_date');
-  
+
+  // Resolve effective price (custom price / tariff plan / base) for this patient + session type
+  const { data: resolvedPrice } = useResolvedPrice(
+    watchPatientId || undefined,
+    'session_type',
+    watchSessionType || undefined,
+    watchSessionDate ? format(watchSessionDate, 'yyyy-MM-dd') : undefined,
+  );
+
+
   // Use integrations for the selected professional (not necessarily the authenticated user)
   const { integrations, oauthConnections } = useProfessionalIntegrations(watchProfessionalId || undefined);
   
@@ -432,7 +442,16 @@ export function QuickCreateSessionDialog({
   ) => {
     const usesBono = values.bono_id && values.bono_id !== 'none' && values.bono_id !== '';
     const selectedSessionType = sessionTypes?.find(t => t.id === values.session_type);
-    const sessionPrice = selectedSessionType?.default_price ?? 0;
+    const basePrice = selectedSessionType?.default_price ?? 0;
+    const useResolved = !!resolvedPrice && !usesBono;
+    const sessionPrice = useResolved ? resolvedPrice!.applied_price : basePrice;
+    const pricingSnapshots = {
+      base_price_snapshot: resolvedPrice?.base_price ?? basePrice,
+      pricing_source: resolvedPrice?.pricing_source ?? 'base',
+      custom_price_id: resolvedPrice?.custom_price_id ?? null,
+      tariff_plan_id_snapshot: resolvedPrice?.tariff_plan_id ?? null,
+      tariff_plan_assignment_id_snapshot: resolvedPrice?.tariff_plan_assignment_id ?? null,
+    };
     
     let videoProvider: string | null = null;
     if (values.session_modality === 'zoom') {
@@ -534,6 +553,7 @@ export function QuickCreateSessionDialog({
         send_reminder_whatsapp: values.send_reminder_whatsapp,
         send_reminder_email: values.send_reminder_email,
         send_reminder_sms: values.send_reminder_sms,
+        ...pricingSnapshots,
       });
 
       // Handle video/calendar integrations for non-draft sessions (non-critical)
