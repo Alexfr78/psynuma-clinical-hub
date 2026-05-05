@@ -31,6 +31,7 @@ import {
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { SessionWithRelations, useUpdateSession } from '@/hooks/useSessions';
+import { useGoogleCalendarUpdate } from '@/hooks/useGoogleCalendarUpdate';
 
 interface SessionDetailDialogProps {
   session: SessionWithRelations | null;
@@ -52,6 +53,7 @@ export function SessionDetailDialog({ session, open, onOpenChange, onAnalyzeTran
   const navigate = useNavigate();
   const { toast } = useToast();
   const updateSession = useUpdateSession();
+  const { syncToGoogle } = useGoogleCalendarUpdate(session?.professional_id);
   const [isUpdating, setIsUpdating] = useState(false);
 
   if (!session) return null;
@@ -68,6 +70,15 @@ export function SessionDetailDialog({ session, open, onOpenChange, onAnalyzeTran
         id: session.id,
         status: newStatus as 'scheduled' | 'confirmed' | 'completed' | 'cancelled' | 'no_show',
       });
+      try {
+        if (newStatus === 'cancelled') {
+          await syncToGoogle(session, { status: 'cancelled' });
+        } else {
+          await syncToGoogle(session, {});
+        }
+      } catch (googleError) {
+        console.error('Error syncing status change to Google:', googleError);
+      }
       toast({
         title: 'Estado actualizado',
         description: 'El estado de la sesión se ha actualizado correctamente.',
