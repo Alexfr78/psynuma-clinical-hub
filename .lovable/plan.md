@@ -1,38 +1,51 @@
 ## Problema
 
-En la ficha de sesión (Drawer) se muestra el precio actualizado (p. ej. **1,00€**), pero al pulsar **"Cobrar sesión"** el diálogo abre con el importe antiguo (**75,00€**, ver captura). El cobro se registra por el importe equivocado.
+Ger Arribas tiene una **tarifa personalizada** para "Sesión Clínica" (1,00 € en vez de 75,00 €), pero al crear una sesión nueva desde la agenda se aplicó el precio base (75 €).
 
 ## Causa raíz
 
-`CollectSessionPaymentDialog` recibe `amount={paymentStatus?.isCollectable ? paymentStatus.remainingAmount : localPrice}` (`SessionDetailDrawer.tsx`, línea 2329).
+Existen **tres** caminos de creación de sesión y solo uno aplica las tarifas personalizadas:
 
-`paymentStatus` viene del hook `useSessionPaymentStatus` con queryKey `['session-payment-status', sessionId]`.
+| Componente | ¿Aplica `resolve_effective_price`? |
+|---|---|
+| `CreateSessionDialog.tsx` | Sí — usa `useResolvedPrice` y rellena `price`, `pricing_source`, `custom_price_id`, `tariff_plan_*_snapshot` |
+| `QuickCreateSessionDialog.tsx` | **No** — usa solo `selectedSessionType?.default_price` (línea 435) |
+| `MobileSessionForm.tsx` | **No** — solo lee `sessionTypes` |
 
-Cuando se edita el precio (`handlePriceSave` → `useUpdateSession`), el hook actualiza la deuda en BD pero en `onSuccess` solo invalida:
-- `['sessions']`
-- `['debts']`
-- `['billable-events']`
-
-**Nunca invalida `['session-payment-status']`**, así que `remainingAmount` queda cacheado con el valor antiguo (75€). Al cobrar, la RPC `collect_session_payment_v2` recibe ese importe stale; si la nueva deuda lo permite (p. ej. era mayor) registra un cobro incorrecto, y si no, lo rechaza silenciosamente.
+`QuickCreateSessionDialog` es el que se abre al pulsar un hueco de la agenda; por eso la sesión del 21 de mayo se creó con 75 €.
 
 ## Solución
 
-Añadir la invalidación de `session-payment-status` (y `session-invoice-status` por consistencia) en el `onSuccess` de `useUpdateSession`, para que cualquier cambio de precio refresque el importe pendiente que ve el diálogo de cobro.
+Replicar en `QuickCreateSessionDialog` (y en `MobileSessionForm`) la lógica de resolución de precio:
 
-### Cambio único
+1. Importar `useResolvedPrice` de `@/hooks/useCustomPrices`.
+2. Llamarlo con el `patient_id` y `session_type_id` actuales y la `session_date` como `referenceDate`.
+3. En `executeSessionCreation` (línea 432) y en la rama de serie recurrente, sustituir:
+   ```ts
+   const sessionPrice = selectedSessionType?.default_price ?? 0;
+   ```
+   por el precio resuelto cuando exista y no haya bono:
+   ```ts
+   const sessionPrice = (resolvedPrice && (!usesBono))
+     ? resolvedPrice.applied_price
+     : (selectedSessionType?.default_price ?? 0);
+   ```
+4. Añadir al payload de `createSession.mutateAsync` (y `createRecurringSeries`) los snapshots de pricing (consistentes con `CreateSessionDialog`):
+   ```ts
+   base_price_snapshot: resolvedPrice?.base_price ?? sessionPrice,
+   pricing_source: resolvedPrice?.pricing_source ?? 'base',
+   custom_price_id: resolvedPrice?.custom_price_id ?? null,
+   tariff_plan_id_snapshot: resolvedPrice?.tariff_plan_id ?? null,
+   tariff_plan_assignment_id_snapshot: resolvedPrice?.tariff_plan_assignment_id ?? null,
+   ```
+5. Aplicar el mismo patrón en `MobileSessionForm.tsx` para que la creación móvil también respete la tarifa.
 
-**`src/hooks/useSessions.tsx`** (~línea 160)
+## Corrección del dato existente
 
-```typescript
-onSuccess: () => {
-  queryClient.invalidateQueries({ queryKey: ['sessions'] });
-  queryClient.invalidateQueries({ queryKey: ['debts'] });
-  queryClient.invalidateQueries({ queryKey: ['billable-events'] });
-  queryClient.invalidateQueries({ queryKey: ['session-payment-status'] });
-  queryClient.invalidateQueries({ queryKey: ['session-invoice-status'] });
-},
-```
+La sesión ya creada del 21 de mayo de Ger Arribas seguirá con 75 €. Tras desplegar el fix, también actualizo manualmente esa sesión al precio resuelto (1,00 €) y su deuda asociada para que cuadre con la tarifa personalizada.
 
-## Resultado
+## Archivos a modificar
 
-Tras editar el precio, el botón "Cobrar pendiente" y el diálogo "Cobrar sesión" mostrarán siempre el importe correcto, y la RPC recibirá el valor real.
+- `src/components/agenda/QuickCreateSessionDialog.tsx`
+- `src/components/agenda/MobileSessionForm.tsx`
+- Migración / update directo para corregir la sesión del 21 may de Ger Arribas
