@@ -31,6 +31,7 @@ import {
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { SessionWithRelations, useUpdateSession } from '@/hooks/useSessions';
+import { useGoogleCalendarUpdate } from '@/hooks/useGoogleCalendarUpdate';
 
 interface SessionDetailDialogProps {
   session: SessionWithRelations | null;
