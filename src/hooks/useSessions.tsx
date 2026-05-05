@@ -161,6 +161,8 @@ export function useUpdateSession() {
       queryClient.invalidateQueries({ queryKey: ['sessions'] });
       queryClient.invalidateQueries({ queryKey: ['debts'] });
       queryClient.invalidateQueries({ queryKey: ['billable-events'] });
+      queryClient.invalidateQueries({ queryKey: ['session-payment-status'] });
+      queryClient.invalidateQueries({ queryKey: ['session-invoice-status'] });
     },
   });
 }
