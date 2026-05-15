@@ -31,6 +31,7 @@ interface PatientDetailTabsProps {
   };
 }
 
+// Tabs visibles en el detalle de contacto (incluye Tarifas).
 const tabOptions = [
   { value: 'summary', label: 'Resumen' },
   { value: 'data', label: 'Datos' },
