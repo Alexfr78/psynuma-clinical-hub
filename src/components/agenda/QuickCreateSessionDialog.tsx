@@ -520,6 +520,7 @@ export function QuickCreateSessionDialog({
             rrule_json: recurrenceConfig,
           },
           occurrences,
+          sessionTypeId: values.session_type,
         });
 
         if (omittedCount > 0) {
