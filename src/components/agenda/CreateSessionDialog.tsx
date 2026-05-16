@@ -72,7 +72,7 @@ const sessionSchema = z.object({
   start_time: z.string().min(1, 'Selecciona hora de inicio'),
   end_time: z.string().min(1, 'Selecciona hora de fin'),
   session_type: z.string().optional(),
-  session_type_id: z.string().optional(),
+  session_type_id: z.string().uuid({ message: 'Selecciona un tipo de sesión' }),
   price: z.coerce.number().min(0, 'El precio debe ser positivo'),
   notes: z.string().max(1000).optional(),
   status: z.string().default('scheduled'),
