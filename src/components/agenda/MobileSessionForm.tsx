@@ -279,7 +279,7 @@ export function MobileSessionForm({
                   name="session_type"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-sm font-medium">Tipo de sesión</FormLabel>
+                      <FormLabel className="text-sm font-medium">Tipo de sesión <span className="text-destructive">*</span></FormLabel>
                       <Select onValueChange={field.onChange} value={field.value}>
                         <SelectTrigger className="h-12 text-base">
                           <SelectValue>

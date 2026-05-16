@@ -72,7 +72,7 @@ const sessionSchema = z.object({
   start_time: z.string().min(1, 'Selecciona hora de inicio'),
   end_time: z.string().min(1, 'Selecciona hora de fin'),
   session_type: z.string().optional(),
-  session_type_id: z.string().optional(),
+  session_type_id: z.string().uuid({ message: 'Selecciona un tipo de sesión' }),
   price: z.coerce.number().min(0, 'El precio debe ser positivo'),
   notes: z.string().max(1000).optional(),
   status: z.string().default('scheduled'),
@@ -214,6 +214,14 @@ export function CreateSessionDialog({
       form.setValue('notify_whatsapp', true);
     }
   }, [open, isAutomatic, form]);
+
+  // Auto-seleccionar el primer tipo de sesión activo si no hay ninguno
+  useEffect(() => {
+    if (open && sessionTypes && sessionTypes.length > 0 && !form.getValues('session_type_id')) {
+      const firstActive = sessionTypes.find(st => st.is_active !== false);
+      if (firstActive) form.setValue('session_type_id', firstActive.id);
+    }
+  }, [open, sessionTypes, form]);
 
   function calculateEndTime(startTime: string): string {
     const [hours, minutes] = startTime.split(':').map(Number);
@@ -536,7 +544,7 @@ export function CreateSessionDialog({
                   name="session_type_id"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Tipo de sesión</FormLabel>
+                      <FormLabel>Tipo de sesión <span className="text-destructive">*</span></FormLabel>
                       <Select onValueChange={field.onChange} value={field.value ?? ''}>
                         <FormControl>
                           <SelectTrigger>

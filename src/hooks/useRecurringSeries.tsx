@@ -10,6 +10,7 @@ import { format } from 'date-fns';
 interface CreateRecurringSeriesParams {
   seriesData: Omit<RecurringSeriesInsert, 'center_id' | 'created_by'>;
   occurrences: Date[];
+  sessionTypeId?: string;
 }
 
 interface UpdateRecurringSessionParams {
@@ -54,7 +55,7 @@ export function useCreateRecurringSeries() {
   const { center } = useCenter();
 
   return useMutation({
-    mutationFn: async ({ seriesData, occurrences }: CreateRecurringSeriesParams) => {
+    mutationFn: async ({ seriesData, occurrences, sessionTypeId }: CreateRecurringSeriesParams) => {
       if (!center?.id || !user?.id) {
         throw new Error('No hay centro o usuario autenticado');
       }
@@ -86,6 +87,7 @@ export function useCreateRecurringSeries() {
         start_time: format(date, 'HH:mm:ss'),
         end_time: format(new Date(date.getTime() + seriesData.duration_minutes * 60000), 'HH:mm:ss'),
         session_type: seriesData.session_type,
+        ...(sessionTypeId ? { session_type_id: sessionTypeId } : {}),
         price: seriesData.price,
         session_modality: seriesData.session_modality,
         location_id: seriesData.location_id,

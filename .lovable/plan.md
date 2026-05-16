@@ -1,70 +1,44 @@
-## Diagnóstico
+## Contexto
 
-**1. Pestaña "Tarifas" no aparece en el preview de Lovable**
-- El código actual sí incluye la pestaña (`PatientDetailTabs.tsx` línea 44 con `value: 'pricing', label: 'Tarifas'`) y la importa desde `PatientCustomPrices`.
-- El preview muestra "Previewing last saved version" y el botón Publicar está deshabilitado → el bundle servido no contiene los últimos cambios. Es un problema de build/cache, no de código.
+La sesión de Prueba2 del 13/05/2026 19:00 se guardó con:
+- `session_type_id = NULL`
+- `price = 75 €`, `pricing_source = NULL` (el trigger no se aplicó porque exige `session_type_id`)
 
-**2. Precios de tarifa no se aplican al crear sesión (Zeus Lara)**
-- En BD Zeus Lara tiene `patient_custom_prices` = 10€ para `session_type a35dcb38…` (precio base 75€) desde 2026‑04‑17, sin fecha fin.
-- La función `resolve_effective_price(...)` devuelve correctamente `applied_price = 10`, `pricing_source = 'custom'`.
-- Los dos diálogos de creación (`CreateSessionDialog` y `QuickCreateSessionDialog`) llaman a `useResolvedPrice` y aplican el precio al insertar.
-- Sin embargo:
-  - `useCreateSession` (en `useSessions.tsx`) inserta lo que reciba sin validar nada → cualquier flujo que no pase por esos diálogos (reserva pública `public-booking`, conversión de eventos de Google Calendar, recurrencias, edición manual) entra al precio base.
-  - Hay condición de carrera: si el usuario envía antes de que la query `resolved-price` resuelva, se guarda el precio base.
+Estado actual en base de datos del precio personalizado de Prueba2 (`patient_custom_prices`):
+- Servicio: "Sesión Clínica" (base 75 €)
+- **Precio personalizado: 75 €** (no 10 €)
+- Inicio: **2026-05-15** (posterior a la sesión)
+- Único registro en histórico: `created` con 75 € el 2026-05-15
 
-## Plan
+Es decir, en BD no hay ni rastro de una tarifa de 10 € (ni registro `updated` que la hubiera cambiado). Por eso, aunque hubiera tenido `session_type_id`, `resolve_effective_price` habría devuelto 75 € (precio base) porque la tarifa empieza dos días después.
 
-### Paso 1 — Restaurar la pestaña Tarifas en preview
-- Forzar un commit/rebuild trivial (touch en `PatientDetailTabs.tsx` o reinicio del dev server) para que el preview sirva el bundle actualizado y el botón Publicar se habilite. Confirmar visualmente que aparece "Tarifas".
+## Cambios a implementar
 
-### Paso 2 — Blindar el precio en BD (corrección definitiva)
-Crear un trigger `BEFORE INSERT` en `sessions` que, **si `custom_price_id` y `tariff_plan_assignment_id_snapshot` vienen `NULL`**, llame a `resolve_effective_price(patient_id, 'session_type', session_type_id, session_date)` y:
-- Si `pricing_source != 'base'`: sobrescribe `price`, `base_price_snapshot`, `pricing_source`, `custom_price_id`, `tariff_plan_id_snapshot`, `tariff_plan_assignment_id_snapshot` con el resultado de la RPC.
-- Si `pricing_source = 'base'`: rellena `base_price_snapshot` y `pricing_source = 'base'` por trazabilidad.
+### 1. Tipo de sesión obligatorio al crear
 
-Esto garantiza que **cualquier** vía de inserción (UI desktop, móvil, reserva pública, sync de Google Calendar, recurrencias, edición masiva) aplique la tarifa correcta sin depender del frontend.
+Volver `session_type_id` requerido en los tres formularios de creación:
 
-### Paso 3 — Backfill puntual (opcional, solo si lo confirmas)
-Recalcular el precio de las sesiones de Zeus Lara creadas tras 2026‑04‑17 que aún tengan `pricing_source = 'base'` y no estén facturadas/cobradas, para corregir la deuda asociada. Solo lo aplico si me das luz verde, porque toca facturación.
+- `src/components/agenda/CreateSessionDialog.tsx` (línea 75): cambiar `z.string().optional()` por `z.string().uuid('Selecciona un tipo de sesión')`.
+- `src/components/agenda/QuickCreateSessionDialog.tsx`: aplicar la misma validación si existe el campo.
+- `src/components/agenda/MobileSessionForm.tsx`: misma validación.
 
-### Paso 4 — Verificación
-- Crear sesión de prueba para Zeus Lara → confirmar que el precio sale a 10€ aunque el formulario muestre otra cifra al pulsar Guardar.
-- Probar reserva pública y conversión de evento de Google Calendar para Zeus → confirmar que el trigger también las corrige.
+Añadir asterisco visible en la etiqueta del campo y mensaje de error claro. Mantener auto-selección si solo hay un tipo activo o si hay un tipo marcado como "Primera consulta" para nuevos contactos.
 
-## Detalles técnicos
+### 2. Corregir la tarifa de Prueba2 en BD
 
-```sql
-CREATE OR REPLACE FUNCTION public.apply_resolved_price_to_session()
-RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
-DECLARE r jsonb;
-BEGIN
-  IF NEW.session_type_id IS NULL OR NEW.patient_id IS NULL THEN
-    RETURN NEW;
-  END IF;
-  -- Solo si nadie ya marcó una fuente explícita
-  IF COALESCE(NEW.pricing_source,'') NOT IN ('custom','tariff_plan') THEN
-    SELECT resolve_effective_price(
-      NEW.patient_id, 'session_type', NEW.session_type_id, NEW.session_date::date
-    ) INTO r;
-    IF r IS NOT NULL THEN
-      NEW.base_price_snapshot := COALESCE(NEW.base_price_snapshot, (r->>'base_price')::numeric);
-      NEW.pricing_source      := COALESCE(r->>'pricing_source','base');
-      IF (r->>'pricing_source') <> 'base' THEN
-        NEW.price                              := (r->>'applied_price')::numeric;
-        NEW.custom_price_id                    := NULLIF(r->>'custom_price_id','')::uuid;
-        NEW.tariff_plan_id_snapshot            := NULLIF(r->>'tariff_plan_id','')::uuid;
-        NEW.tariff_plan_assignment_id_snapshot := NULLIF(r->>'tariff_plan_assignment_id','')::uuid;
-      END IF;
-    END IF;
-  END IF;
-  RETURN NEW;
-END;
-$$;
+Actualizar el registro existente de `patient_custom_prices` para Prueba2:
+- `custom_price`: 10 €
+- `start_date`: fecha que el usuario indique (probablemente anterior al 13/05/2026 para que aplique a esta sesión)
 
-DROP TRIGGER IF EXISTS trg_apply_resolved_price ON public.sessions;
-CREATE TRIGGER trg_apply_resolved_price
-BEFORE INSERT ON public.sessions
-FOR EACH ROW EXECUTE FUNCTION public.apply_resolved_price_to_session();
-```
+### 3. Recalcular la sesión del 13/05
 
-No se modifica el frontend en este paso — el trigger es la red de seguridad. Dejo intacta la lógica de `useResolvedPrice` para que la UI siga mostrando el precio correcto en vivo.
+Una vez corregida la tarifa y asignado el `session_type_id` ("Sesión Clínica"), forzar el recálculo de esa sesión llamando a `resolve_effective_price` y actualizando `price`, `pricing_source` y `custom_price_id`. También sincronizar la deuda asociada si existe.
+
+### 4. (Opcional) Auditoría rápida del CustomPriceDialog
+
+Revisar `src/components/pricing/CustomPriceDialog.tsx` (líneas 128-142): cuando cambia el target, hace `form.setValue('custom_price', st.default_price)` automáticamente. Si el usuario después de seleccionar el servicio no edita el campo, se guarda el precio base. Añadir un aviso visual ("Has dejado el precio igual al base — ¿seguro?") o vaciar el campo en vez de pre-rellenar con el base, para evitar guardar tarifas "fantasma" iguales al base.
+
+## Preguntas pendientes
+
+- ¿Desde qué fecha quieres que la tarifa de 10 € de Prueba2 sea válida?
+- ¿Quieres el cambio del punto 4 (no pre-rellenar con el precio base)?

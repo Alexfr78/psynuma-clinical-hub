@@ -520,6 +520,7 @@ export function QuickCreateSessionDialog({
             rrule_json: recurrenceConfig,
           },
           occurrences,
+          sessionTypeId: values.session_type,
         });
 
         if (omittedCount > 0) {
@@ -541,6 +542,7 @@ export function QuickCreateSessionDialog({
         start_time: values.start_time,
         end_time: values.end_time,
         session_type: selectedSessionType?.name?.toLowerCase() || 'individual',
+        session_type_id: values.session_type,
         price: sessionPrice,
         status: asDraft ? 'draft' : 'scheduled',
         cancellation_policy: values.cancellation_policy,
@@ -1126,7 +1128,7 @@ export function QuickCreateSessionDialog({
                 const selectedType = sessionTypes?.find(t => t.id === field.value);
                 return (
                   <FormItem>
-                    <FormLabel className="text-sm font-medium">Tipo de sesión</FormLabel>
+                    <FormLabel className="text-sm font-medium">Tipo de sesión <span className="text-destructive">*</span></FormLabel>
                     <Select onValueChange={field.onChange} value={field.value}>
                       <SelectTrigger className="h-10">
                         <SelectValue>
