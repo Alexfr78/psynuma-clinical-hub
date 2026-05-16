@@ -536,7 +536,7 @@ export function CreateSessionDialog({
                   name="session_type_id"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Tipo de sesión</FormLabel>
+                      <FormLabel>Tipo de sesión <span className="text-destructive">*</span></FormLabel>
                       <Select onValueChange={field.onChange} value={field.value ?? ''}>
                         <FormControl>
                           <SelectTrigger>
