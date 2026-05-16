@@ -55,7 +55,7 @@ export function useCreateRecurringSeries() {
   const { center } = useCenter();
 
   return useMutation({
-    mutationFn: async ({ seriesData, occurrences }: CreateRecurringSeriesParams) => {
+    mutationFn: async ({ seriesData, occurrences, sessionTypeId }: CreateRecurringSeriesParams) => {
       if (!center?.id || !user?.id) {
         throw new Error('No hay centro o usuario autenticado');
       }
