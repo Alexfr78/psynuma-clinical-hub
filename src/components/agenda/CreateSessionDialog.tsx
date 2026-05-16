@@ -215,6 +215,14 @@ export function CreateSessionDialog({
     }
   }, [open, isAutomatic, form]);
 
+  // Auto-seleccionar el primer tipo de sesión activo si no hay ninguno
+  useEffect(() => {
+    if (open && sessionTypes && sessionTypes.length > 0 && !form.getValues('session_type_id')) {
+      const firstActive = sessionTypes.find(st => st.is_active !== false);
+      if (firstActive) form.setValue('session_type_id', firstActive.id);
+    }
+  }, [open, sessionTypes, form]);
+
   function calculateEndTime(startTime: string): string {
     const [hours, minutes] = startTime.split(':').map(Number);
     const endHour = hours + 1;
