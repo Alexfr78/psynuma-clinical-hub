@@ -541,6 +541,7 @@ export function QuickCreateSessionDialog({
         start_time: values.start_time,
         end_time: values.end_time,
         session_type: selectedSessionType?.name?.toLowerCase() || 'individual',
+        session_type_id: values.session_type,
         price: sessionPrice,
         status: asDraft ? 'draft' : 'scheduled',
         cancellation_policy: values.cancellation_policy,
