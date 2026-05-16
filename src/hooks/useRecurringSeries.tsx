@@ -10,6 +10,7 @@ import { format } from 'date-fns';
 interface CreateRecurringSeriesParams {
   seriesData: Omit<RecurringSeriesInsert, 'center_id' | 'created_by'>;
   occurrences: Date[];
+  sessionTypeId?: string;
 }
 
 interface UpdateRecurringSessionParams {
