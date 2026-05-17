@@ -5924,19 +5924,34 @@ export type Database = {
         Returns: Json
       }
       compute_patient_status: { Args: { p_patient_id: string }; Returns: Json }
-      convert_calendar_event_to_session: {
-        Args: {
-          p_bono_id?: string
-          p_calendar_event_id: string
-          p_location_id?: string
-          p_notes?: string
-          p_patient_id: string
-          p_price: number
-          p_session_modality?: string
-          p_session_type: string
-        }
-        Returns: string
-      }
+      convert_calendar_event_to_session:
+        | {
+            Args: {
+              p_bono_id?: string
+              p_calendar_event_id: string
+              p_location_id?: string
+              p_notes?: string
+              p_patient_id: string
+              p_price: number
+              p_session_modality?: string
+              p_session_type: string
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_bono_id?: string
+              p_calendar_event_id: string
+              p_location_id?: string
+              p_notes?: string
+              p_patient_id: string
+              p_price: number
+              p_session_modality?: string
+              p_session_type: string
+              p_session_type_id?: string
+            }
+            Returns: string
+          }
       create_bono_with_debt: {
         Args: {
           p_center_id?: string
