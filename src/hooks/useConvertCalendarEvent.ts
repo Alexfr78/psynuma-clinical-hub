@@ -6,6 +6,7 @@ interface ConvertCalendarEventParams {
   calendarEventId: string;
   patientId: string;
   sessionType: string;
+  sessionTypeId?: string | null;
   price: number;
   sessionModality?: string;
   locationId?: string | null;
