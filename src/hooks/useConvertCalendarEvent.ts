@@ -6,6 +6,7 @@ interface ConvertCalendarEventParams {
   calendarEventId: string;
   patientId: string;
   sessionType: string;
+  sessionTypeId?: string | null;
   price: number;
   sessionModality?: string;
   locationId?: string | null;
@@ -26,6 +27,7 @@ export function useConvertCalendarEvent() {
       calendarEventId,
       patientId,
       sessionType,
+      sessionTypeId,
       price,
       sessionModality = 'in_person',
       locationId,
@@ -47,6 +49,7 @@ export function useConvertCalendarEvent() {
           p_location_id: locationId || null,
           p_notes: notes || null,
           p_bono_id: bonoId || null,
+          p_session_type_id: sessionTypeId || null,
         }
       );
 
