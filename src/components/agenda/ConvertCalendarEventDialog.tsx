@@ -110,6 +110,7 @@ export function ConvertCalendarEventDialog({
       calendarEventId: calendarEvent.id,
       patientId,
       sessionType: selectedType?.name || 'individual',
+      sessionTypeId: sessionTypeId || null,
       price,
       sessionModality,
       locationId: locationId || null,
