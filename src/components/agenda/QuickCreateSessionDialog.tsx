@@ -179,6 +179,20 @@ export function QuickCreateSessionDialog({
   const [patientPopoverOpen, setPatientPopoverOpen] = useState(false);
   const isMobile = useIsMobile();
   const [showQuickPatientDialog, setShowQuickPatientDialog] = useState(false);
+  // Suppress the mobile session sheet while the quick-patient drawer is open,
+  // and keep it suppressed briefly after to avoid Vaul stacked-drawer conflicts
+  // (the parent sheet gets dragged closed when nested drawer dismisses).
+  const [mobileSheetSuppressed, setMobileSheetSuppressed] = useState(false);
+  useEffect(() => {
+    if (showQuickPatientDialog) {
+      setMobileSheetSuppressed(true);
+      return;
+    }
+    if (mobileSheetSuppressed) {
+      const t = setTimeout(() => setMobileSheetSuppressed(false), 350);
+      return () => clearTimeout(t);
+    }
+  }, [showQuickPatientDialog]);
   const [showLocationsDialog, setShowLocationsDialog] = useState(false);
   const [showCreateBonoDialog, setShowCreateBonoDialog] = useState(false);
   // Track newly created bono and its price
