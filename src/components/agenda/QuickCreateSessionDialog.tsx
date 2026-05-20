@@ -903,8 +903,13 @@ export function QuickCreateSessionDialog({
     return (
       <>
         <MobileSessionForm
-          open={open}
-          onOpenChange={onOpenChange}
+          open={open && !mobileSheetSuppressed}
+          onOpenChange={(v) => {
+            // Ignore close events triggered while the quick-patient drawer is open
+            // (Vaul can fire spurious onOpenChange when a nested drawer dismisses).
+            if (mobileSheetSuppressed && !v) return;
+            onOpenChange(v);
+          }}
           form={form}
           patients={patients}
           professionals={professionals}
@@ -925,7 +930,10 @@ export function QuickCreateSessionDialog({
           isCheckingConflicts={isCheckingConflicts}
           onShowQuickPatient={(term) => {
             setPatientSearch(term);
-            setShowQuickPatientDialog(true);
+            // Delay opening so the inner MobilePatientSearch sheet finishes closing
+            // before the QuickCreatePatientDialog drawer opens (Vaul transition rule).
+            setMobileSheetSuppressed(true);
+            setTimeout(() => setShowQuickPatientDialog(true), 350);
           }}
           onShowLocationsDialog={() => setShowLocationsDialog(true)}
           onShowCreateBonoDialog={() => setShowCreateBonoDialog(true)}
