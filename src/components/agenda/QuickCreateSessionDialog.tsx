@@ -179,6 +179,20 @@ export function QuickCreateSessionDialog({
   const [patientPopoverOpen, setPatientPopoverOpen] = useState(false);
   const isMobile = useIsMobile();
   const [showQuickPatientDialog, setShowQuickPatientDialog] = useState(false);
+  // Suppress the mobile session sheet while the quick-patient drawer is open,
+  // and keep it suppressed briefly after to avoid Vaul stacked-drawer conflicts
+  // (the parent sheet gets dragged closed when nested drawer dismisses).
+  const [mobileSheetSuppressed, setMobileSheetSuppressed] = useState(false);
+  useEffect(() => {
+    if (showQuickPatientDialog) {
+      setMobileSheetSuppressed(true);
+      return;
+    }
+    if (mobileSheetSuppressed) {
+      const t = setTimeout(() => setMobileSheetSuppressed(false), 350);
+      return () => clearTimeout(t);
+    }
+  }, [showQuickPatientDialog]);
   const [showLocationsDialog, setShowLocationsDialog] = useState(false);
   const [showCreateBonoDialog, setShowCreateBonoDialog] = useState(false);
   // Track newly created bono and its price
@@ -889,8 +903,13 @@ export function QuickCreateSessionDialog({
     return (
       <>
         <MobileSessionForm
-          open={open}
-          onOpenChange={onOpenChange}
+          open={open && !mobileSheetSuppressed}
+          onOpenChange={(v) => {
+            // Ignore close events triggered while the quick-patient drawer is open
+            // (Vaul can fire spurious onOpenChange when a nested drawer dismisses).
+            if (mobileSheetSuppressed && !v) return;
+            onOpenChange(v);
+          }}
           form={form}
           patients={patients}
           professionals={professionals}
@@ -911,7 +930,10 @@ export function QuickCreateSessionDialog({
           isCheckingConflicts={isCheckingConflicts}
           onShowQuickPatient={(term) => {
             setPatientSearch(term);
-            setShowQuickPatientDialog(true);
+            // Delay opening so the inner MobilePatientSearch sheet finishes closing
+            // before the QuickCreatePatientDialog drawer opens (Vaul transition rule).
+            setMobileSheetSuppressed(true);
+            setTimeout(() => setShowQuickPatientDialog(true), 350);
           }}
           onShowLocationsDialog={() => setShowLocationsDialog(true)}
           onShowCreateBonoDialog={() => setShowCreateBonoDialog(true)}
