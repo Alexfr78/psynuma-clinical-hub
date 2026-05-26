@@ -516,14 +516,17 @@ Deno.serve(async (req) => {
         try {
           console.log(`[CANCEL] Syncing cancellation to Google Calendar event ${session.google_calendar_event_id}`);
           const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-          const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-          
+          const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+          const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
           const googleSyncResponse = await fetch(`${supabaseUrl}/functions/v1/update-google-calendar-event`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              "Authorization": `Bearer ${supabaseKey}`,
+              "Authorization": `Bearer ${anonKey}`,
+              "apikey": serviceKey,
             },
+
             body: JSON.stringify({
               professional_id: session.professional_id,
               event_id: session.google_calendar_event_id,
