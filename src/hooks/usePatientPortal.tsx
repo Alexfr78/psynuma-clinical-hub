@@ -285,14 +285,20 @@ export function usePatientPortal(centerSlug?: string) {
     }
   };
 
-  const rescheduleSession = async (sessionId: string, newDate: string, newStartTime: string, newEndTime: string): Promise<{ success: boolean; error?: string; message?: string }> => {
+  const rescheduleSession = async (
+    sessionId: string,
+    newDate: string,
+    newStartTime: string,
+    newEndTime: string,
+    newLocationId?: string,
+  ): Promise<{ success: boolean; error?: string; message?: string }> => {
     if (!state.sessionToken) {
       return { success: false, error: 'Sesión no válida' };
     }
 
     try {
       const { data, error } = await supabase.functions.invoke('patient-portal-sessions', {
-        body: { action: 'reschedule', sessionToken: state.sessionToken, sessionId, newDate, newStartTime, newEndTime },
+        body: { action: 'reschedule', sessionToken: state.sessionToken, sessionId, newDate, newStartTime, newEndTime, newLocationId },
       });
 
       if (error || !data?.success) {

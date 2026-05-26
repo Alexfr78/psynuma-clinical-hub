@@ -35,7 +35,17 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    const { action, token, date, newDate, newStartTime, newEndTime, cancellation_reason } = await req.json();
+    const {
+      action,
+      token,
+      date,
+      locationId: requestedLocationId,
+      newDate,
+      newStartTime,
+      newEndTime,
+      newLocationId,
+      cancellation_reason,
+    } = await req.json();
 
     if (!token) {
       return new Response(
@@ -157,6 +167,54 @@ Deno.serve(async (req) => {
     const patientName = patient ? `${patient.first_name} ${patient.last_name}` : "Paciente";
     const professionalName = professional ? `${professional.first_name} ${professional.last_name}` : undefined;
 
+    // Helper: resolve & validate a requested location id (must belong to the same
+    // center and be active+public). Returns the validated row or null on error.
+    async function resolveRequestedLocation(locId: string | null | undefined) {
+      if (!locId) return { row: null as any, error: null as string | null };
+      const { data: loc, error } = await supabase
+        .from("center_locations")
+        .select("id, name, location_type, street, number_details, city, postal_code, is_active, is_public, center_id")
+        .eq("id", locId)
+        .eq("center_id", session.center_id)
+        .maybeSingle();
+      if (error || !loc) return { row: null, error: "Ubicación no encontrada" };
+      if (!loc.is_active || !loc.is_public) return { row: null, error: "Ubicación no disponible" };
+      return { row: loc, error: null };
+    }
+
+    if (action === "get-locations") {
+      const { data: rows, error: locErr } = await supabase
+        .from("center_locations")
+        .select("id, name, location_type, street, number_details, city, postal_code")
+        .eq("center_id", session.center_id)
+        .eq("is_active", true)
+        .eq("is_public", true)
+        .order("name");
+      if (locErr) {
+        return new Response(
+          JSON.stringify({ error: "Error al obtener ubicaciones" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      return new Response(
+        JSON.stringify({ locations: rows ?? [], originalLocationId: session.location_id }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Resolve the location to use for availability/reschedule actions
+    let resolvedLocationId = effectiveLocationId;
+    if (requestedLocationId && requestedLocationId !== session.location_id) {
+      const { row, error: locErr } = await resolveRequestedLocation(requestedLocationId);
+      if (locErr) {
+        return new Response(
+          JSON.stringify({ error: locErr }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      resolvedLocationId = row.id;
+    }
+
     if (action === "get-available-days") {
       // Return list of dates that have at least some availability
       const today = new Date();
@@ -170,7 +228,7 @@ Deno.serve(async (req) => {
         const hasAvailability = await checkDayHasAvailability(
           supabase,
           session.professional_id,
-          effectiveLocationId,
+          resolvedLocationId,
           dateStr,
           sessionDuration,
           session.id, // Exclude current session when checking availability
@@ -199,7 +257,7 @@ Deno.serve(async (req) => {
       const slots = await getAvailability(
         supabase,
         session.professional_id,
-        effectiveLocationId,
+        resolvedLocationId,
         session.center_id,
         date,
         session.id,
@@ -218,6 +276,39 @@ Deno.serve(async (req) => {
           JSON.stringify({ error: "New date and times are required" }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
+      }
+
+      // Resolve target location (defaults to current). Validates same center + active + public.
+      let targetLocation: any = null;
+      let targetLocationId = effectiveLocationId;
+      if (newLocationId) {
+        const { row, error: locErr } = await resolveRequestedLocation(newLocationId);
+        if (locErr) {
+          return new Response(
+            JSON.stringify({ error: locErr }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        targetLocation = row;
+        targetLocationId = row.id;
+      } else if (effectiveLocationId) {
+        const { data: loc } = await supabase
+          .from("center_locations")
+          .select("id, name, location_type, street, number_details, city, postal_code")
+          .eq("id", effectiveLocationId)
+          .maybeSingle();
+        targetLocation = loc;
+      }
+
+      // Compute new modality, preserving zoom/google_meet sub-types if both old and new are online.
+      const prevModality = session.session_modality;
+      let newModality: string | null = session.session_modality;
+      if (targetLocation) {
+        if (targetLocation.location_type === 'online') {
+          newModality = (prevModality === 'zoom' || prevModality === 'google_meet') ? prevModality : 'online';
+        } else {
+          newModality = 'in_person';
+        }
       }
 
       // Enforce cancellation/reschedule policy window (same rules apply to reschedule)
@@ -248,11 +339,11 @@ Deno.serve(async (req) => {
         );
       }
 
-      // Verify the slot is still available (anti-race-condition)
+      // Verify the slot is still available (anti-race-condition) USING THE TARGET LOCATION
       const slots = await getAvailability(
         supabase,
         session.professional_id,
-        effectiveLocationId,
+        targetLocationId,
         session.center_id,
         newDate,
         session.id,
@@ -299,17 +390,21 @@ Deno.serve(async (req) => {
       const requireConfirmation = center?.reschedule_require_confirmation ?? false;
       const newStatus = requireConfirmation ? "pending_approval" : "scheduled";
 
-      // Update the session
-      console.log(`[RESCHEDULE] Attempting to update session ${session.id} from ${session.session_date} ${session.start_time} to ${newDate} ${newStartTime}`);
-      
+      // Update the session (date, time, status, location, modality)
+      console.log(`[RESCHEDULE] Attempting to update session ${session.id} from ${session.session_date} ${session.start_time} to ${newDate} ${newStartTime} (location ${session.location_id} -> ${targetLocationId})`);
+
+      const updatePayload: Record<string, any> = {
+        session_date: newDate,
+        start_time: newStartTime,
+        end_time: newEndTime,
+        status: newStatus,
+      };
+      if (targetLocationId) updatePayload.location_id = targetLocationId;
+      if (newModality) updatePayload.session_modality = newModality;
+
       const { data: updatedSession, error: updateError } = await supabase
         .from("sessions")
-        .update({
-          session_date: newDate,
-          start_time: newStartTime,
-          end_time: newEndTime,
-          status: newStatus,
-        })
+        .update(updatePayload)
         .eq("id", session.id)
         .select("id, session_date, start_time, status")
         .single();
@@ -330,6 +425,17 @@ Deno.serve(async (req) => {
       }
 
       console.log(`[RESCHEDULE] Session updated successfully:`, updatedSession);
+
+      // Build human-readable location string for the Google Calendar event
+      function buildGcalLocationString(loc: any): string | undefined {
+        if (!loc) return undefined;
+        if (loc.location_type === 'online') return 'Sesión online';
+        const street = loc.street ? `${loc.street}${loc.number_details ? ' ' + loc.number_details : ''}` : '';
+        const tail = [loc.postal_code, loc.city].filter(Boolean).join(' ');
+        const addr = [street, tail].filter(Boolean).join(', ');
+        return addr ? `${loc.name} — ${addr}` : loc.name;
+      }
+      const gcalLocation = buildGcalLocationString(targetLocation);
 
       // Sync the changes to Google Calendar if session has a Google event
       if (session.google_calendar_event_id) {
@@ -356,6 +462,7 @@ Deno.serve(async (req) => {
               start_time: newStartTime,
               end_time: newEndTime,
               title: `${session.session_type || 'Sesión'} - ${patientName}`,
+              location: gcalLocation,
               create_if_not_exists: true, // Create if somehow deleted from Google
             }),
           });
@@ -384,20 +491,28 @@ Deno.serve(async (req) => {
         console.log(`[RESCHEDULE] Session ${session.id} has no Google Calendar event, skipping sync`);
       }
 
+      const newLocationName = targetLocation?.name || locationName;
+      const locationChanged = !!newLocationId && newLocationId !== session.location_id;
+
       // Send admin alert about the reschedule using the helper
       try {
         const alertMessage = buildAlertMessage({
-          eventType: "Cita reprogramada por el paciente",
+          eventType: locationChanged
+            ? "Cita reprogramada por el paciente (cambio de ubicación)"
+            : "Cita reprogramada por el paciente",
           patientName,
           patientEmail: patient?.email,
           patientPhone: patient?.phone,
           professionalName,
-          modality: session.session_modality,
-          locationName,
+          modality: newModality || session.session_modality,
+          locationName: newLocationName,
           oldDate: session.session_date,
           oldTime: session.start_time,
           newDate,
           newTime: newStartTime,
+          details: locationChanged
+            ? `Ubicación anterior: ${locationName || 'N/D'}. Nueva ubicación: ${newLocationName || 'N/D'}.`
+            : undefined,
         });
 
         await sendAdminAlert({
@@ -426,8 +541,8 @@ Deno.serve(async (req) => {
         sessionDate: newDate,
         startTime: newStartTime,
         sessionType: session.session_type,
-        sessionModality: session.session_modality,
-        locationName: locationName || undefined,
+        sessionModality: newModality || session.session_modality,
+        locationName: newLocationName || undefined,
         oldDate: session.session_date,
         oldTime: session.start_time,
       });
@@ -445,8 +560,8 @@ Deno.serve(async (req) => {
         sessionDate: newDate,
         startTime: newStartTime,
         sessionType: session.session_type,
-        sessionModality: session.session_modality,
-        locationName: locationName || undefined,
+        sessionModality: newModality || session.session_modality,
+        locationName: newLocationName || undefined,
         oldDate: session.session_date,
         oldTime: session.start_time,
       });

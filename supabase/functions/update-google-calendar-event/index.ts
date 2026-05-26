@@ -231,6 +231,7 @@ serve(async (req) => {
       end_time, 
       title,
       description,
+      location, // optional: human-readable location string
       status, // 'cancelled' to cancel the event
       psycma_session_id, // For linking converted events
       create_if_not_exists, // If true and event_id is null, create new event
@@ -397,6 +398,7 @@ serve(async (req) => {
     const event: any = {};
     
     if (title) event.summary = title;
+    if (location !== undefined) event.location = location || '';
     
     // Handle description - preserve or add Psycma marker token
     if (description !== undefined) {
