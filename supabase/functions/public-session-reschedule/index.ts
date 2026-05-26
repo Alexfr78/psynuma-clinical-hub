@@ -167,6 +167,54 @@ Deno.serve(async (req) => {
     const patientName = patient ? `${patient.first_name} ${patient.last_name}` : "Paciente";
     const professionalName = professional ? `${professional.first_name} ${professional.last_name}` : undefined;
 
+    // Helper: resolve & validate a requested location id (must belong to the same
+    // center and be active+public). Returns the validated row or null on error.
+    async function resolveRequestedLocation(locId: string | null | undefined) {
+      if (!locId) return { row: null as any, error: null as string | null };
+      const { data: loc, error } = await supabase
+        .from("center_locations")
+        .select("id, name, location_type, street, number_details, city, postal_code, is_active, is_public, center_id")
+        .eq("id", locId)
+        .eq("center_id", session.center_id)
+        .maybeSingle();
+      if (error || !loc) return { row: null, error: "Ubicación no encontrada" };
+      if (!loc.is_active || !loc.is_public) return { row: null, error: "Ubicación no disponible" };
+      return { row: loc, error: null };
+    }
+
+    if (action === "get-locations") {
+      const { data: rows, error: locErr } = await supabase
+        .from("center_locations")
+        .select("id, name, location_type, street, number_details, city, postal_code")
+        .eq("center_id", session.center_id)
+        .eq("is_active", true)
+        .eq("is_public", true)
+        .order("name");
+      if (locErr) {
+        return new Response(
+          JSON.stringify({ error: "Error al obtener ubicaciones" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      return new Response(
+        JSON.stringify({ locations: rows ?? [], originalLocationId: session.location_id }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Resolve the location to use for availability/reschedule actions
+    let resolvedLocationId = effectiveLocationId;
+    if (requestedLocationId && requestedLocationId !== session.location_id) {
+      const { row, error: locErr } = await resolveRequestedLocation(requestedLocationId);
+      if (locErr) {
+        return new Response(
+          JSON.stringify({ error: locErr }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      resolvedLocationId = row.id;
+    }
+
     if (action === "get-available-days") {
       // Return list of dates that have at least some availability
       const today = new Date();
@@ -180,7 +228,7 @@ Deno.serve(async (req) => {
         const hasAvailability = await checkDayHasAvailability(
           supabase,
           session.professional_id,
-          effectiveLocationId,
+          resolvedLocationId,
           dateStr,
           sessionDuration,
           session.id, // Exclude current session when checking availability
@@ -209,7 +257,7 @@ Deno.serve(async (req) => {
       const slots = await getAvailability(
         supabase,
         session.professional_id,
-        effectiveLocationId,
+        resolvedLocationId,
         session.center_id,
         date,
         session.id,
