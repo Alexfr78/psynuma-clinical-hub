@@ -236,7 +236,6 @@ export default function SessionManagement() {
   if (mode === 'reschedule') {
     const today = new Date();
     const maxDate = addDays(today, maxDays);
-    const modalityLabel = modalityLabels[session.session_modality || 'in_person'];
 
     // Helper to check if a date has availability
     const hasAvailability = (date: Date) => {
@@ -255,6 +254,7 @@ export default function SessionManagement() {
                 setMode('view');
                 setSelectedDate(undefined);
                 setSelectedSlot(null);
+                setSelectedLocationId('');
               }}
               className="w-fit -ml-2 mb-2"
             >
