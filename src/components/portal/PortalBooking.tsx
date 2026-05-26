@@ -42,7 +42,7 @@ interface PortalBookingProps {
     sessionTypeId: string;
     locationId: string;
   }) => Promise<Record<string, number>>;
-  rescheduleSession?: (sessionId: string, newDate: string, newStartTime: string, newEndTime: string) => Promise<{ success: boolean; error?: string; message?: string }>;
+  rescheduleSession?: (sessionId: string, newDate: string, newStartTime: string, newEndTime: string, newLocationId?: string) => Promise<{ success: boolean; error?: string; message?: string }>;
   rescheduleTarget?: RescheduleTarget | null;
 }
 
