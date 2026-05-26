@@ -654,7 +654,7 @@ serve(async (req) => {
     }
 
     if (action === "reschedule") {
-      const { sessionId, newDate, newStartTime, newEndTime } = params;
+      const { sessionId, newDate, newStartTime, newEndTime, newLocationId } = params;
 
       if (!sessionId || !newDate || !newStartTime || !newEndTime) {
         return new Response(
@@ -719,6 +719,42 @@ serve(async (req) => {
         );
       }
 
+      // Resolve target location (defaults to existing). Validate same center + active + public.
+      const targetLocationId = newLocationId || existingSession.location_id;
+      let targetLocation: any = null;
+      if (targetLocationId) {
+        const { data: loc, error: locErr } = await supabase
+          .from("center_locations")
+          .select("id, name, location_type, street, number_details, city, postal_code, is_active, is_public, center_id")
+          .eq("id", targetLocationId)
+          .eq("center_id", session.centerId)
+          .maybeSingle();
+        if (locErr || !loc) {
+          return new Response(
+            JSON.stringify({ error: "Ubicación no encontrada" }),
+            { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        if (!loc.is_active || !loc.is_public) {
+          return new Response(
+            JSON.stringify({ error: "Ubicación no disponible para reservas del portal" }),
+            { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        targetLocation = loc;
+      }
+
+      // Compute new modality preserving zoom/google_meet sub-type when applicable
+      const prevModality = existingSession.session_modality;
+      let newModality: string | null = prevModality;
+      if (targetLocation) {
+        if (targetLocation.location_type === 'online') {
+          newModality = (prevModality === 'zoom' || prevModality === 'google_meet') ? prevModality : 'online';
+        } else {
+          newModality = 'in_person';
+        }
+      }
+
       // Validate new slot availability (anti-race-condition)
       const newSlotStart = timeToMinutes(newStartTime);
       const newSlotEnd = timeToMinutes(newEndTime);
@@ -741,6 +777,27 @@ serve(async (req) => {
           JSON.stringify({ error: "Ese horario ya no está disponible" }),
           { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
+      }
+
+      // Check the slot is open at the TARGET location
+      if (targetLocationId) {
+        const { data: locSched } = await supabase
+          .from("location_schedules")
+          .select("start_time, end_time")
+          .eq("location_id", targetLocationId)
+          .eq("day_of_week", newDayOfWeek)
+          .eq("is_open", true);
+        const locationOpen = locSched?.some(sl => {
+          const s = timeToMinutes(sl.start_time);
+          const e = timeToMinutes(sl.end_time);
+          return newSlotStart >= s && newSlotEnd <= e;
+        });
+        if (!locationOpen) {
+          return new Response(
+            JSON.stringify({ error: "La ubicación no está disponible en ese horario." }),
+            { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
       }
 
       // Check for conflicts with existing sessions (exclude current session)
@@ -777,16 +834,21 @@ serve(async (req) => {
       // Store old values for notification
       const oldDate = existingSession.session_date;
       const oldTime = existingSession.start_time;
+      const oldLocationId = existingSession.location_id;
 
-      // Update session
+      // Update session (incl. location + modality)
+      const updatePayload: Record<string, any> = {
+        session_date: newDate,
+        start_time: newStartTime,
+        end_time: newEndTime,
+        status: newStatus,
+      };
+      if (targetLocationId) updatePayload.location_id = targetLocationId;
+      if (newModality) updatePayload.session_modality = newModality;
+
       const { data: updatedSession, error: updateError } = await supabase
         .from("sessions")
-        .update({
-          session_date: newDate,
-          start_time: newStartTime,
-          end_time: newEndTime,
-          status: newStatus,
-        })
+        .update(updatePayload)
         .eq("id", sessionId)
         .select("id, session_date, start_time, status")
         .single();
@@ -798,6 +860,17 @@ serve(async (req) => {
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
+
+      // Build human-readable location string for Google Calendar
+      function buildGcalLocationString(loc: any): string | undefined {
+        if (!loc) return undefined;
+        if (loc.location_type === 'online') return 'Sesión online';
+        const street = loc.street ? `${loc.street}${loc.number_details ? ' ' + loc.number_details : ''}` : '';
+        const tail = [loc.postal_code, loc.city].filter(Boolean).join(' ');
+        const addr = [street, tail].filter(Boolean).join(', ');
+        return addr ? `${loc.name} — ${addr}` : loc.name;
+      }
+      const gcalLocation = buildGcalLocationString(targetLocation);
 
       // Sync to Google Calendar
       if (existingSession.google_calendar_event_id) {
@@ -825,6 +898,7 @@ serve(async (req) => {
               start_time: newStartTime,
               end_time: newEndTime,
               title: `${existingSession.session_type || 'Sesión'} - ${patientName}`,
+              location: gcalLocation,
               create_if_not_exists: true,
             }),
           });
@@ -833,16 +907,18 @@ serve(async (req) => {
         }
       }
 
-      // Get location name for notification
-      let locationName: string | undefined;
-      if (existingSession.location_id) {
-        const { data: loc } = await supabase
+      // Get location name for notification (use the *new* one)
+      let locationName: string | undefined = targetLocation?.name;
+      let oldLocationName: string | undefined;
+      if (oldLocationId && oldLocationId !== targetLocationId) {
+        const { data: oldLoc } = await supabase
           .from("center_locations")
           .select("name")
-          .eq("id", existingSession.location_id)
+          .eq("id", oldLocationId)
           .single();
-        locationName = loc?.name || undefined;
+        oldLocationName = oldLoc?.name || undefined;
       }
+      const locationChanged = !!newLocationId && newLocationId !== oldLocationId;
 
       // Send admin alert
       const { data: patientData } = await supabase
