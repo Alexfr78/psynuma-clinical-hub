@@ -814,7 +814,8 @@ serve(async (req) => {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              "Authorization": `Bearer ${supabaseServiceKey}`,
+              "Authorization": `Bearer ${supabaseAnonKey}`,
+              "apikey": supabaseServiceKey,
             },
             body: JSON.stringify({
               professional_id: existingSession.professional_id,
