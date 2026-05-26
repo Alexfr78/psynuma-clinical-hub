@@ -644,7 +644,19 @@ export function PortalBooking({
         <Button
           className="w-full"
           size="lg"
-          onClick={handleSubmit}
+          onClick={() => {
+            // In reschedule mode, ask for confirmation when the location changes
+            if (
+              isRescheduleMode &&
+              rescheduleTarget &&
+              selectedLocation &&
+              selectedLocation !== rescheduleTarget.locationId
+            ) {
+              setConfirmOpen(true);
+              return;
+            }
+            handleSubmit();
+          }}
           disabled={!selectedSlot || !selectedSessionType || !selectedLocation || submitting}
         >
           {submitting ? (
@@ -654,6 +666,54 @@ export function PortalBooking({
           )}
           {isRescheduleMode ? 'Reprogramar cita' : 'Solicitar cita'}
         </Button>
+
+        {/* Reschedule confirm dialog (only when location changes) */}
+        <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Confirmar cambio de ubicación</AlertDialogTitle>
+              <AlertDialogDescription asChild>
+                <div className="space-y-3 text-sm">
+                  <div>
+                    <div className="text-muted-foreground">Ubicación original</div>
+                    <div className="font-medium">
+                      {formatLocationLine(
+                        (locations.find((l) => l.id === rescheduleTarget?.locationId) ?? null) as RescheduleLocation | null,
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-muted-foreground">Nueva ubicación</div>
+                    <div className="font-medium">
+                      {formatLocationLine(
+                        (locations.find((l) => l.id === selectedLocation) ?? null) as RescheduleLocation | null,
+                      )}
+                    </div>
+                  </div>
+                  {selectedSlot && (
+                    <div className="text-xs text-muted-foreground">
+                      Nueva fecha: {format(new Date(selectedSlot.date), "EEEE d 'de' MMMM", { locale: es })} a las {selectedSlot.time}
+                    </div>
+                  )}
+                </div>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={submitting}>Volver</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={(e) => {
+                  e.preventDefault();
+                  setConfirmOpen(false);
+                  handleSubmit();
+                }}
+                disabled={submitting}
+              >
+                Sí, confirmar
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
       </CardContent>
     </Card>
   );
