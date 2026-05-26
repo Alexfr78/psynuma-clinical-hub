@@ -185,15 +185,19 @@ export default function SessionManagement() {
   const handleRescheduleConfirm = () => {
     if (!selectedDate || !selectedSlot) return;
     
+    const locationChanged = !!selectedLocationId && selectedLocationId !== originalLocationId;
     reschedule({
       newDate: format(selectedDate, 'yyyy-MM-dd'),
       newStartTime: selectedSlot.startTime,
       newEndTime: selectedSlot.endTime,
+      newLocationId: locationChanged ? selectedLocationId : undefined,
     }, {
       onSuccess: () => {
+        setConfirmOpen(false);
         setMode('view');
         setSelectedDate(undefined);
         setSelectedSlot(null);
+        setSelectedLocationId('');
       }
     });
   };
