@@ -929,13 +929,20 @@ serve(async (req) => {
 
       if (patientData && session.centerId) {
         const alertMessage = buildAlertMessage({
-          eventType: 'Cita reprogramada desde el portal del paciente',
+          eventType: locationChanged
+            ? 'Cita reprogramada desde el portal del paciente (cambio de ubicación)'
+            : 'Cita reprogramada desde el portal del paciente',
           patientName: `${patientData.first_name} ${patientData.last_name}`,
           patientEmail: patientData.email,
+          modality: newModality || existingSession.session_modality,
+          locationName,
           oldDate,
           oldTime,
           newDate,
           newTime: newStartTime,
+          details: locationChanged
+            ? `Ubicación anterior: ${oldLocationName || 'N/D'}. Nueva ubicación: ${locationName || 'N/D'}.`
+            : undefined,
         });
 
         await sendAdminAlert({
@@ -961,7 +968,7 @@ serve(async (req) => {
             sessionDate: newDate,
             startTime: newStartTime,
             sessionType: existingSession.session_type,
-            sessionModality: existingSession.session_modality,
+            sessionModality: newModality || existingSession.session_modality,
             locationName,
             oldDate,
             oldTime,
@@ -982,7 +989,7 @@ serve(async (req) => {
         sessionDate: newDate,
         startTime: newStartTime,
         sessionType: existingSession.session_type,
-        sessionModality: existingSession.session_modality,
+        sessionModality: newModality || existingSession.session_modality,
         locationName,
         oldDate,
         oldTime,
