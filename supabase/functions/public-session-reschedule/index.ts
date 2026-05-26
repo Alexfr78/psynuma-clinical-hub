@@ -35,7 +35,17 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    const { action, token, date, newDate, newStartTime, newEndTime, cancellation_reason } = await req.json();
+    const {
+      action,
+      token,
+      date,
+      locationId: requestedLocationId,
+      newDate,
+      newStartTime,
+      newEndTime,
+      newLocationId,
+      cancellation_reason,
+    } = await req.json();
 
     if (!token) {
       return new Response(
