@@ -398,6 +398,7 @@ serve(async (req) => {
     const event: any = {};
     
     if (title) event.summary = title;
+    if (location !== undefined) event.location = location || '';
     
     // Handle description - preserve or add Psycma marker token
     if (description !== undefined) {
