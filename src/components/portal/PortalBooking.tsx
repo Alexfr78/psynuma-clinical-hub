@@ -121,6 +121,8 @@ export function PortalBooking({
   const [daySlotsLoading, setDaySlotsLoading] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<{ date: string; time: string } | null>(null);
 
+  const [confirmOpen, setConfirmOpen] = useState(false);
+
   const isRescheduleMode = !!rescheduleTarget;
 
   useEffect(() => {
