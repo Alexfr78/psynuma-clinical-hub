@@ -203,6 +203,16 @@ export function canCancelSession(
 }
 
 // Hook for getting availability and rescheduling a session
+export interface PublicLocation {
+  id: string;
+  name: string;
+  location_type: 'in_person' | 'online' | null;
+  street: string | null;
+  number_details: string | null;
+  city: string | null;
+  postal_code: string | null;
+}
+
 export function usePublicSessionReschedule(token: string | undefined) {
   const queryClient = useQueryClient();
   const [slots, setSlots] = useState<AvailabilitySlot[]>([]);
@@ -211,14 +221,31 @@ export function usePublicSessionReschedule(token: string | undefined) {
   const [availableDaysLoading, setAvailableDaysLoading] = useState(false);
   const [maxDays, setMaxDays] = useState(30);
   const [slotDuration, setSlotDuration] = useState(60);
+  const [locations, setLocations] = useState<PublicLocation[]>([]);
+  const [originalLocationId, setOriginalLocationId] = useState<string | null>(null);
 
-  const getAvailableDays = useCallback(async () => {
+  const getLocations = useCallback(async () => {
     if (!token) return;
-    
+    try {
+      const { data, error } = await supabase.functions.invoke('public-session-reschedule', {
+        body: { action: 'get-locations', token }
+      });
+      if (error) throw error;
+      setLocations(data?.locations || []);
+      setOriginalLocationId(data?.originalLocationId || null);
+    } catch (error) {
+      console.error('Error fetching locations:', error);
+      setLocations([]);
+    }
+  }, [token]);
+
+  const getAvailableDays = useCallback(async (locationId?: string) => {
+    if (!token) return;
+
     setAvailableDaysLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke('public-session-reschedule', {
-        body: { action: 'get-available-days', token }
+        body: { action: 'get-available-days', token, locationId }
       });
 
       if (error) throw error;
@@ -234,13 +261,13 @@ export function usePublicSessionReschedule(token: string | undefined) {
     }
   }, [token]);
 
-  const getAvailability = useCallback(async (date: string) => {
+  const getAvailability = useCallback(async (date: string, locationId?: string) => {
     if (!token) return;
     
     setSlotsLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke('public-session-reschedule', {
-        body: { action: 'get-availability', token, date }
+        body: { action: 'get-availability', token, date, locationId }
       });
 
       if (error) throw error;
