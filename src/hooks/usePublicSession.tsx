@@ -288,11 +288,13 @@ export function usePublicSessionReschedule(token: string | undefined) {
     mutationFn: async ({ 
       newDate, 
       newStartTime, 
-      newEndTime 
+      newEndTime,
+      newLocationId,
     }: { 
       newDate: string; 
       newStartTime: string; 
       newEndTime: string;
+      newLocationId?: string;
     }) => {
       const { data, error } = await supabase.functions.invoke('public-session-reschedule', {
         body: { 
@@ -300,7 +302,8 @@ export function usePublicSessionReschedule(token: string | undefined) {
           token, 
           newDate, 
           newStartTime, 
-          newEndTime 
+          newEndTime,
+          newLocationId,
         }
       });
 
