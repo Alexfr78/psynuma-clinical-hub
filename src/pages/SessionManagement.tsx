@@ -71,6 +71,8 @@ export default function SessionManagement() {
   const [mode, setMode] = useState<'view' | 'reschedule'>('view');
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [selectedSlot, setSelectedSlot] = useState<{ startTime: string; endTime: string } | null>(null);
+  const [selectedLocationId, setSelectedLocationId] = useState<string>('');
+  const [confirmOpen, setConfirmOpen] = useState(false);
   
   const {
     slots,
@@ -78,6 +80,9 @@ export default function SessionManagement() {
     availableDays,
     availableDaysLoading,
     maxDays,
+    locations,
+    originalLocationId,
+    getLocations,
     getAvailableDays,
     getAvailability,
     reschedule,
@@ -86,21 +91,39 @@ export default function SessionManagement() {
     isCancelling
   } = usePublicSessionReschedule(token);
 
-  // Load available days when entering reschedule mode
+  // Load locations + initial availability when entering reschedule mode
   useEffect(() => {
     if (mode === 'reschedule') {
+      getLocations();
       getAvailableDays();
     }
-  }, [mode, getAvailableDays]);
+  }, [mode, getLocations, getAvailableDays]);
+
+  // Sync selectedLocationId with the original location once loaded
+  useEffect(() => {
+    if (mode === 'reschedule' && originalLocationId && !selectedLocationId) {
+      setSelectedLocationId(originalLocationId);
+    }
+  }, [mode, originalLocationId, selectedLocationId]);
+
+  // Reload availability whenever the chosen location changes
+  useEffect(() => {
+    if (mode === 'reschedule' && selectedLocationId) {
+      getAvailableDays(selectedLocationId);
+      setSelectedDate(undefined);
+      setSelectedSlot(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedLocationId]);
 
   // Load availability when date is selected
   useEffect(() => {
     if (selectedDate && mode === 'reschedule') {
       const dateStr = format(selectedDate, 'yyyy-MM-dd');
-      getAvailability(dateStr);
+      getAvailability(dateStr, selectedLocationId || undefined);
       setSelectedSlot(null);
     }
-  }, [selectedDate, mode, getAvailability]);
+  }, [selectedDate, mode, getAvailability, selectedLocationId]);
 
   if (isLoading) {
     return (
