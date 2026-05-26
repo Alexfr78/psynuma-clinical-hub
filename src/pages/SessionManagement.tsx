@@ -268,25 +268,49 @@ export default function SessionManagement() {
           </CardHeader>
 
           <CardContent className="space-y-6">
-            {/* Modality badge and current appointment info */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <Badge variant={isOnline ? "secondary" : "outline"} className="gap-1">
-                  {isOnline ? <Video className="h-3 w-3" /> : <MapPin className="h-3 w-3" />}
-                  {modalityLabel}
-                </Badge>
-                <span className="text-xs text-muted-foreground">
-                  Solo se muestran horarios para esta modalidad
-                </span>
+            {/* Current appointment info */}
+            <Alert className="bg-muted">
+              <CalendarIcon className="h-4 w-4" />
+              <AlertDescription>
+                <span className="font-medium">Cita actual:</span>{' '}
+                <span className="capitalize">{formattedDate}</span> a las {formattedTime.split(' - ')[0]}
+              </AlertDescription>
+            </Alert>
+
+            {/* Location selector */}
+            {locations.length > 0 && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Ubicación</label>
+                <Select value={selectedLocationId} onValueChange={setSelectedLocationId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona ubicación" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {locations.map((loc) => (
+                      <SelectItem key={loc.id} value={loc.id}>
+                        <span className="flex items-center gap-2">
+                          {isOnlineLocation(loc) ? (
+                            <Video className="h-3.5 w-3.5" />
+                          ) : (
+                            <MapPin className="h-3.5 w-3.5" />
+                          )}
+                          {loc.name}
+                          {loc.city ? ` · ${loc.city}` : ''}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {selectedLocationId && selectedLocationId !== originalLocationId && (
+                  <Alert className="bg-amber-50 border-amber-200 dark:bg-amber-950/20 dark:border-amber-900">
+                    <AlertCircle className="h-4 w-4 text-amber-600" />
+                    <AlertDescription className="text-amber-800 dark:text-amber-200 text-sm">
+                      Estás cambiando la ubicación de la cita. Revisa los detalles antes de confirmar.
+                    </AlertDescription>
+                  </Alert>
+                )}
               </div>
-              <Alert className="bg-muted">
-                <CalendarIcon className="h-4 w-4" />
-                <AlertDescription>
-                  <span className="font-medium">Cita actual:</span>{' '}
-                  <span className="capitalize">{formattedDate}</span> a las {formattedTime.split(' - ')[0]}
-                </AlertDescription>
-              </Alert>
-            </div>
+            )}
 
             {/* Calendar with availability indicators */}
             {availableDaysLoading ? (
@@ -303,7 +327,6 @@ export default function SessionManagement() {
                   disabled={(date) => {
                     const dateStr = format(date, 'yyyy-MM-dd');
                     const todayStr = format(today, 'yyyy-MM-dd');
-                    // Disable past dates, dates beyond max, and dates without availability
                     return dateStr < todayStr || date > maxDate || !hasAvailability(date);
                   }}
                   modifiers={{
@@ -360,7 +383,7 @@ export default function SessionManagement() {
 
             <Separator />
 
-            {/* Confirm button */}
+            {/* Confirm button (opens AlertDialog) */}
             <div className="flex gap-3">
               <Button
                 variant="outline"
@@ -369,6 +392,7 @@ export default function SessionManagement() {
                   setMode('view');
                   setSelectedDate(undefined);
                   setSelectedSlot(null);
+                  setSelectedLocationId('');
                 }}
               >
                 Cancelar
@@ -376,21 +400,79 @@ export default function SessionManagement() {
               <Button
                 className="flex-1"
                 disabled={!selectedDate || !selectedSlot || isRescheduling}
-                onClick={handleRescheduleConfirm}
+                onClick={() => setConfirmOpen(true)}
               >
-                {isRescheduling ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Reprogramando...
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle2 className="h-4 w-4 mr-2" />
-                    Confirmar cambio
-                  </>
-                )}
+                <CheckCircle2 className="h-4 w-4 mr-2" />
+                Confirmar cambio
               </Button>
             </div>
+
+            {/* Confirm AlertDialog */}
+            <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Confirmar cambio de cita</AlertDialogTitle>
+                  <AlertDialogDescription asChild>
+                    <div className="space-y-3 text-sm">
+                      <div>
+                        <div className="text-muted-foreground">Cita actual</div>
+                        <div className="font-medium capitalize">
+                          {formattedDate} · {formattedTime.split(' - ')[0]}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {formatLocationLine(
+                            (locations.find((l) => l.id === originalLocationId) ?? null) as RescheduleLocation | null
+                          )}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-muted-foreground">Nueva cita</div>
+                        <div className="font-medium capitalize">
+                          {selectedDate && format(selectedDate, "EEEE d 'de' MMMM yyyy", { locale: es })} ·{' '}
+                          {selectedSlot?.startTime.slice(0, 5)}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {formatLocationLine(
+                            (locations.find((l) => l.id === selectedLocationId) ?? null) as RescheduleLocation | null
+                          )}
+                        </div>
+                      </div>
+                      {(() => {
+                        const summary = summarizeLocationChange(
+                          (locations.find((l) => l.id === originalLocationId) ?? null) as RescheduleLocation | null,
+                          (locations.find((l) => l.id === selectedLocationId) ?? null) as RescheduleLocation | null,
+                        );
+                        if (!summary.changed) return null;
+                        return (
+                          <div className="rounded-md border border-amber-300 bg-amber-50 p-2 text-amber-800 dark:bg-amber-950/20 dark:text-amber-200">
+                            La ubicación cambia{summary.modalityChanged ? ' y la modalidad también' : ''}.
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel disabled={isRescheduling}>Volver</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handleRescheduleConfirm();
+                    }}
+                    disabled={isRescheduling}
+                  >
+                    {isRescheduling ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Reprogramando...
+                      </>
+                    ) : (
+                      'Sí, confirmar'
+                    )}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </CardContent>
         </Card>
       </div>
