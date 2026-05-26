@@ -334,11 +334,13 @@ export function PortalBooking({
     let result: { success: boolean; error?: string; message?: string };
 
     if (isRescheduleMode && rescheduleSession && rescheduleTarget) {
+      const locationChanged = selectedLocation && selectedLocation !== rescheduleTarget.locationId;
       result = await rescheduleSession(
         rescheduleTarget.sessionId,
         selectedSlot.date,
         selectedSlot.time,
-        endTime
+        endTime,
+        locationChanged ? selectedLocation : undefined,
       );
     } else {
       result = await createSession({
