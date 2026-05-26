@@ -16,6 +16,7 @@ import { getCorsHeaders } from "../_shared/cors.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 
 // Use SUPABASE_SERVICE_ROLE_KEY as HMAC secret for verifying tokens
 const TOKEN_SECRET = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -813,7 +814,8 @@ serve(async (req) => {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              "Authorization": `Bearer ${supabaseServiceKey}`,
+              "Authorization": `Bearer ${supabaseAnonKey}`,
+              "apikey": supabaseServiceKey,
             },
             body: JSON.stringify({
               professional_id: existingSession.professional_id,
