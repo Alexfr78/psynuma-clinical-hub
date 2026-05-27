@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { decryptSecret } from "../_shared/crypto.ts";
 import { logAuditEvent } from "../_shared/auditLogger.ts";
+import { hasAuthenticatedJWT, unauthorizedResponse } from "../_shared/authGuard.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -187,6 +188,18 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Require authenticated user and verify they belong to the requested center
+  const authHeader = req.headers.get('Authorization') || '';
+  const jwt = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+  if (!jwt) return unauthorizedResponse(corsHeaders);
+  const authClient = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!);
+  const { data: claimsData, error: claimsError } = await authClient.auth.getClaims(jwt);
+  const role = (claimsData?.claims as any)?.role;
+  const userId = (claimsData?.claims as any)?.sub as string | undefined;
+  if (claimsError || (role !== 'authenticated' && role !== 'service_role')) {
+    return unauthorizedResponse(corsHeaders);
+  }
+
   try {
     const { transcription, layer, baseAnalysis, centerId } = await req.json();
 
@@ -196,6 +209,19 @@ serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    // Validate caller belongs to requested center (skip for service_role)
+    if (role === 'authenticated' && centerId && userId) {
+      const svc = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+      const { data: prof } = await svc.from('profiles').select('center_id').eq('id', userId).maybeSingle();
+      if (!prof || (prof as any).center_id !== centerId) {
+        return new Response(
+          JSON.stringify({ error: 'Forbidden' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
 
     // ─── Load center AI configuration ────────────────────────────────────────
     let provider = 'openai';

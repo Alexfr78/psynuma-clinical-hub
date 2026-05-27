@@ -254,7 +254,10 @@ serve(async (req) => {
   }
 
   try {
-    const { consent_id } = await req.json();
+    const body = await req.json();
+    const { consent_id, access_token } = body;
+    const { hasAuthenticatedJWT, unauthorizedResponse } = await import("../_shared/authGuard.ts");
+    const isAuthed = await hasAuthenticatedJWT(req);
 
     if (!consent_id) {
       return new Response(
@@ -292,6 +295,10 @@ serve(async (req) => {
         JSON.stringify({ error: 'Consent not found' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+    }
+
+    if (!isAuthed && (!access_token || access_token !== (consent as any).access_token)) {
+      return unauthorizedResponse(corsHeaders);
     }
 
     // Fetch signatures
