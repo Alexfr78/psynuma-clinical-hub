@@ -297,6 +297,10 @@ serve(async (req) => {
       );
     }
 
+    if (!isAuthed && (!access_token || access_token !== (consent as any).access_token)) {
+      return unauthorizedResponse(corsHeaders);
+    }
+
     // Fetch signatures
     const { data: signatures, error: signaturesError } = await supabase
       .from('consent_signatures')
