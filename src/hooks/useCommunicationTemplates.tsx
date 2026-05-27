@@ -226,6 +226,7 @@ export const TEMPLATE_VARIABLES = [
   { key: '{link_sesion}', label: 'Link de la sesión', example: 'https://...' },
   { key: '{link_confirmar}', label: 'Link para confirmar', example: 'https://...' },
   { key: '{link_videollamada}', label: 'Link de videollamada', example: 'https://meet.google.com/...' },
+  { key: '{link_google_maps}', label: 'Link a Google Maps (solo presencial)', example: 'https://www.google.com/maps/...' },
 ];
 
 // Booking-specific variables (creation / reschedule / cancellation)

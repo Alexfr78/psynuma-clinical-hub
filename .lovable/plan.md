@@ -1,43 +1,34 @@
-# Reactivar el flujo de cambio de ubicación al reprogramar
+## Objetivo
+En el recordatorio de cita (enviado por email o WhatsApp), cuando la sesión sea de modalidad presencial (`in_person`), la dirección de la ubicación debe ser clickeable y abrir Google Maps.
 
-## Diagnóstico
+## Cambios necesarios
 
-- En `src/pages/SessionManagement.tsx` el selector de ubicación está condicionado a `locations.length > 0`. Si la lista llega vacía, no aparece ni el selector, ni la tarjeta de la ubicación actual, ni el aviso ámbar de "estás cambiando la ubicación".
-- En BBDD hay 2 ubicaciones públicas activas para el centro de pruebas (`Consulta Eguilaz` y `Consulta Online`), así que el dato existe.
-- Al invocar el edge function desplegado con `{"action":"get-locations","token":"fbe739ff…"}` responde **`{"error":"Invalid action"}`** con HTTP 400. Es decir, la versión en producción del edge function todavía no conoce la acción `get-locations` que añadimos en el último cambio: el deploy automático no se aplicó.
-- Lo mismo ocurre con `patient-portal-sessions` (mismo patrón de cambios añadidos en la misma tanda) y conviene comprobarlo también.
+### 1. Edge function `send-session-reminders/index.ts`
 
-El código local de los edge functions sí contiene la acción (`supabase/functions/public-session-reschedule/index.ts` línea 185 y `supabase/functions/patient-portal-sessions/index.ts`), por tanto **no hay nada que reescribir**: solo hay que forzar un redeploy.
+- **Añadir `session_modality`** al `select` de sesiones para poder detectar citas presenciales.
+- **Añadir `number_details` y `postal_code`** al `select` de `location` para construir la dirección completa.
+- **Actualizar `SessionToRemind` interface** con los nuevos campos.
+- **Crear función `buildGoogleMapsUrl(location)`** que construya `https://www.google.com/maps/search/?api=1&query=<dirección>` a partir de `street`, `number_details`, `city`, `postal_code`.
+- **Modificar `buildReminderMessage`**:
+  - Si `session_modality === 'in_person'` y hay dirección, generar un enlace a Google Maps.
+  - Para **email**: envolver la dirección en un `<a href="...">` clickeable (aprovechando la función `linkifyUrls` existente o añadiendo HTML directamente).
+  - Para **WhatsApp**: incluir el enlace como texto plano (WhatsApp detecta URLs automáticamente).
+  - Añadir nueva variable de template `{link_google_maps}` para que los usuarios puedan personalizar dónde aparece.
 
-## Cambios a realizar
+### 2. Frontend `src/hooks/useCommunicationTemplates.tsx`
 
-1. **Forzar redeploy de `public-session-reschedule`**
-   - Hacer una edición no-op (p.ej. añadir un comentario de versión `// v: location-selector`) en `supabase/functions/public-session-reschedule/index.ts` para que Lovable Cloud lo vuelva a desplegar.
-   - Verificar con `curl` a la función desplegada que `{"action":"get-locations","token":"fbe739ff…"}` devuelve `{"locations":[…2 items…], "originalLocationId":"…"}`.
+- Añadir `{link_google_maps}` a `BOOKING_TEMPLATE_VARIABLES` y `TEMPLATE_VARIABLES` con descripción apropiada.
+- Actualizar las plantillas por defecto de recordatorio (`reminder`) para incluir el enlace cuando aplique.
 
-2. **Forzar redeploy de `patient-portal-sessions`**
-   - Misma edición no-op en `supabase/functions/patient-portal-sessions/index.ts`.
-   - Verificar que la nueva acción `get-locations` (y la aceptación de `newLocationId` en `reschedule`) está activa.
+### 3. Deploy
+- Redeploy de `send-session-reminders` edge function.
 
-3. **Verificar `update-google-calendar-event`**
-   - Confirmar con un curl mínimo que acepta el nuevo parámetro `location`. Si la versión desplegada lo ignora, añadir el mismo marcador de versión y redeplegar.
+## Flujo resultante
+1. El cron envía recordatorios como siempre.
+2. Si la cita es presencial y tiene ubicación con dirección, el mensaje incluye un enlace a Google Maps.
+3. El paciente recibe el email/WhatsApp y puede pulsar/clickar la dirección para verla en Google Maps.
 
-4. **Verificación funcional en preview**
-   - Abrir el enlace de la cita de prueba (`/cita/fbe739ff5d56b6d651f872fa8c46816d`).
-   - Confirmar que en "Cambiar fecha" aparece:
-     - El selector de ubicación con las 2 ubicaciones públicas.
-     - La fila preseleccionada coincide con la ubicación original de la cita.
-     - Al cambiarla, se resetean fecha y hora y se muestra el aviso ámbar.
-     - El `AlertDialog` de confirmación final muestra original vs nueva ubicación.
-
-## Detalles técnicos
-
-- No se toca lógica frontend; el problema es 100 % de despliegue.
-- El marcador de versión es solo un comentario; basta para que el sistema detecte cambios y vuelva a empaquetar la función.
-- No se modifica `supabase/config.toml` ni se cambian permisos: las funciones siguen siendo públicas (sin JWT) como antes.
-- Tras el redeploy, los hooks `usePublicSessionReschedule` y `usePatientPortal` ya están preparados para consumir el nuevo `originalLocationId` y enviar `newLocationId`.
-
-## Riesgos
-
-- Ninguno funcional: solo se añade un comentario.
-- Si tras el redeploy `get-locations` sigue devolviendo "Invalid action", revisar los logs de deploy del edge function (posible fallo de bundling con `deno.lock` u otra dependencia) y, en ese caso, abordarlo en una segunda iteración.
+## Notas técnicas
+- El enlace se construye con `encodeURIComponent` sobre la dirección completa.
+- Para email, se mantiene compatible con `linkifyUrls` existente.
+- Para WhatsApp, las URLs son detectadas automáticamente por la app.
