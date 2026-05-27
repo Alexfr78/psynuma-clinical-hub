@@ -254,7 +254,10 @@ serve(async (req) => {
   }
 
   try {
-    const { consent_id } = await req.json();
+    const body = await req.json();
+    const { consent_id, access_token } = body;
+    const { hasAuthenticatedJWT, unauthorizedResponse } = await import("../_shared/authGuard.ts");
+    const isAuthed = await hasAuthenticatedJWT(req);
 
     if (!consent_id) {
       return new Response(

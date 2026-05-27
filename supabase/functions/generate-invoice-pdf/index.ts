@@ -145,7 +145,11 @@ serve(async (req) => {
   }
 
   try {
-    const { invoice_id } = await req.json();
+    const body = await req.json();
+    const invoice_id = body.invoice_id || body.invoiceId;
+    const access_token = body.access_token;
+    const { hasAuthenticatedJWT, unauthorizedResponse } = await import("../_shared/authGuard.ts");
+    const isAuthed = await hasAuthenticatedJWT(req);
 
     if (!invoice_id) {
       return new Response(
@@ -175,6 +179,10 @@ serve(async (req) => {
         JSON.stringify({ error: "Invoice not found" }),
         { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
+    }
+
+    if (!isAuthed && (!access_token || access_token !== (invoice as any).access_token)) {
+      return unauthorizedResponse(corsHeaders);
     }
 
     // Fetch series data if series_id exists

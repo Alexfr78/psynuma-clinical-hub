@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { encode as base64Encode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
 import { logAuditEvent } from "../_shared/auditLogger.ts";
+import { hasAuthenticatedJWT, unauthorizedResponse } from "../_shared/authGuard.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -652,7 +653,9 @@ serve(async (req) => {
   }
 
   try {
-    const { assessment_id } = await req.json();
+    const body = await req.json();
+    const { assessment_id, access_token } = body;
+    const isAuthed = await hasAuthenticatedJWT(req);
 
     if (!assessment_id) {
       return new Response(JSON.stringify({ error: "assessment_id is required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -680,6 +683,11 @@ serve(async (req) => {
     if (assessmentError || !assessment) {
       console.error("[PDF] Assessment fetch error:", assessmentError);
       return new Response(JSON.stringify({ error: "Assessment not found" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // Auth: require valid JWT OR matching access_token
+    if (!isAuthed && (!access_token || access_token !== (assessment as any).access_token)) {
+      return unauthorizedResponse(corsHeaders);
     }
 
     // Fetch center data

@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { decryptSecret } from "../_shared/crypto.ts";
+import { unauthorizedResponse } from "../_shared/authGuard.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -12,6 +13,18 @@ const MAX_FILE_SIZE = 200 * 1024 * 1024; // 200MB total max
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  // Require authenticated user JWT and verify center membership
+  const authHeader = req.headers.get("Authorization") || "";
+  const jwt = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
+  if (!jwt) return unauthorizedResponse(corsHeaders);
+  const authClient = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!);
+  const { data: claimsData, error: claimsError } = await authClient.auth.getClaims(jwt);
+  const role = (claimsData?.claims as any)?.role;
+  const userId = (claimsData?.claims as any)?.sub as string | undefined;
+  if (claimsError || (role !== "authenticated" && role !== "service_role")) {
+    return unauthorizedResponse(corsHeaders);
+  }
 
   try {
     const supabase = createClient(
@@ -28,6 +41,16 @@ Deno.serve(async (req) => {
         JSON.stringify({ error: "Audio y centerId son requeridos" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
+    }
+
+    if (role === "authenticated" && userId) {
+      const { data: prof } = await supabase.from("profiles").select("center_id").eq("id", userId).maybeSingle();
+      if (!prof || (prof as any).center_id !== centerId) {
+        return new Response(
+          JSON.stringify({ error: "Forbidden" }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
     }
 
     if (audioFile.size > MAX_FILE_SIZE) {
