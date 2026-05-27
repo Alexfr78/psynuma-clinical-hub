@@ -378,11 +378,11 @@ export function useUpdateInvoiceStatus() {
         // Check if center has Verifactu configured
         const { data: center } = await supabase
           .from('centers')
-          .select('verifactu_certificate_base64')
+          .select('verifactu_environment')
           .eq('id', profile!.center_id!)
           .single();
 
-        const hasVerifactu = !!center?.verifactu_certificate_base64;
+        const hasVerifactu = !!center?.verifactu_environment;
 
         if (hasVerifactu) {
           if (currentInvoice.verifactu_pending) {
