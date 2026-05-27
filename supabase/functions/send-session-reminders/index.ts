@@ -526,6 +526,7 @@ serve(async (req) => {
           price,
           notes,
           session_type,
+          session_modality,
           video_call_link,
           access_token,
           center_id,
@@ -536,7 +537,7 @@ serve(async (req) => {
             id, first_name, last_name
           ),
           location:center_locations!sessions_location_id_fkey(
-            name, street, city
+            name, street, number_details, city, postal_code
           )
         `)
         .eq("center_id", center.id)
