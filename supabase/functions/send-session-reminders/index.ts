@@ -304,12 +304,23 @@ function buildReminderMessage(
     : '';
   const videoCallLink = session.video_call_link || '';
   
-  // Build location/address string
+  // Build location/address string + Google Maps link (only for presencial)
   let direccion = '';
+  let mapsUrl = '';
+  const isInPerson = (session.session_modality || 'in_person') === 'in_person';
   if (session.location) {
     direccion = `${session.location.name}, ${session.location.street}, ${session.location.city}`;
+    if (isInPerson) {
+      mapsUrl = buildGoogleMapsUrl(session.location);
+    }
   }
   // If no location is assigned, leave direccion empty — don't fallback to center address
+
+  // For presencial sessions with a maps URL, replace {direccion} with a string
+  // that includes the maps URL so it becomes clickable (email: linkifyUrls; WhatsApp: auto-detect)
+  const direccionWithMaps = direccion && mapsUrl
+    ? `${direccion} (${mapsUrl})`
+    : direccion;
 
   // If we have a template, use it with variable replacement
   if (template) {
@@ -320,7 +331,8 @@ function buildReminderMessage(
       .replace(/\{fecha\}/g, formatDate(session.session_date))
       .replace(/\{zona_horaria\}/g, formatTime(session.start_time))
       .replace(/\{sesion_tipo\}/g, session.session_type || '')
-      .replace(/\{direccion\}/g, direccion)
+      .replace(/\{direccion\}/g, direccionWithMaps)
+      .replace(/\{link_google_maps\}/g, mapsUrl)
       .replace(/\{centro_nombre\}/g, center.name)
       .replace(/\{link_sesion\}/g, sessionLink)
       .replace(/\{link_confirmar\}/g, sessionLink ? `${sessionLink}?action=confirm` : '')
@@ -334,7 +346,10 @@ function buildReminderMessage(
   message += `🕐 Hora: ${formatTime(session.start_time)}\n`;
   message += `👤 Profesional: ${professionalName}\n`;
   if (session.session_type) message += `📋 Tipo: ${session.session_type}\n`;
-  if (direccion) message += `📍 Lugar: ${direccion}\n`;
+  if (direccion) {
+    message += `📍 Lugar: ${direccion}\n`;
+    if (mapsUrl) message += `🗺️ Ver en Google Maps: ${mapsUrl}\n`;
+  }
   if (videoCallLink) message += `\n🔗 Enlace de videollamada: ${videoCallLink}\n`;
   if (sessionLink) message += `\n🔗 Ver cita: ${sessionLink}\n`;
   message += `\nSi necesitas cancelar o reprogramar tu cita, por favor contáctanos con la mayor antelación posible.\n`;
