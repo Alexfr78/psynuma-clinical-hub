@@ -1,61 +1,43 @@
+# Reactivar el flujo de cambio de ubicación al reprogramar
 
-## Aclaración importante sobre archivos
+## Diagnóstico
 
-En el enunciado mencionas `src/pages/PublicBookingManage.tsx` como el flujo del enlace público con `public-session-reschedule`. Tras revisar el código:
+- En `src/pages/SessionManagement.tsx` el selector de ubicación está condicionado a `locations.length > 0`. Si la lista llega vacía, no aparece ni el selector, ni la tarjeta de la ubicación actual, ni el aviso ámbar de "estás cambiando la ubicación".
+- En BBDD hay 2 ubicaciones públicas activas para el centro de pruebas (`Consulta Eguilaz` y `Consulta Online`), así que el dato existe.
+- Al invocar el edge function desplegado con `{"action":"get-locations","token":"fbe739ff…"}` responde **`{"error":"Invalid action"}`** con HTTP 400. Es decir, la versión en producción del edge function todavía no conoce la acción `get-locations` que añadimos en el último cambio: el deploy automático no se aplicó.
+- Lo mismo ocurre con `patient-portal-sessions` (mismo patrón de cambios añadidos en la misma tanda) y conviene comprobarlo también.
 
-- **`PublicBookingManage.tsx`** usa `usePublicBooking` → edge function `public-booking` (gestión de citas creadas vía reserva pública del centro, `/book/:slug` con `?token=`).
-- **`SessionManagement.tsx`** (ruta `/cita/:token`) usa `usePublicSessionReschedule` → edge function `public-session-reschedule` (enlaces que se envían al paciente para cualquier cita del sistema).
+El código local de los edge functions sí contiene la acción (`supabase/functions/public-session-reschedule/index.ts` línea 185 y `supabase/functions/patient-portal-sessions/index.ts`), por tanto **no hay nada que reescribir**: solo hay que forzar un redeploy.
 
-Asumiré que el flujo objetivo es **`SessionManagement.tsx` + `public-session-reschedule`** porque coincide con la edge function que listas y es el canal "universal". Si también quieres aplicarlo en `PublicBookingManage.tsx`, dímelo y lo añado (la lógica sería análoga).
+## Cambios a realizar
 
-## Cambios planeados
+1. **Forzar redeploy de `public-session-reschedule`**
+   - Hacer una edición no-op (p.ej. añadir un comentario de versión `// v: location-selector`) en `supabase/functions/public-session-reschedule/index.ts` para que Lovable Cloud lo vuelva a desplegar.
+   - Verificar con `curl` a la función desplegada que `{"action":"get-locations","token":"fbe739ff…"}` devuelve `{"locations":[…2 items…], "originalLocationId":"…"}`.
 
-### 1. Backend — `public-session-reschedule/index.ts`
-- Nueva acción `get-locations`: devuelve ubicaciones activas del centro de la sesión (id, name, location_type, street, number_details, city, postal_code).
-- `get-available-days` y `get-availability`: aceptar `locationId?` opcional; si no llega, usar `session.location_id`. Validar que la ubicación pertenece al centro y está activa.
-- `reschedule`: aceptar `newLocationId?` opcional. Validar: existe, mismo `center_id`, `is_active`. Si `location_type === 'online'`, fijar `session_modality = 'online'`; si presencial, `session_modality = 'in_person'` (manteniendo `zoom`/`google_meet` sólo si la ubicación original ya era online y no cambia). Actualizar `sessions.location_id` además de fechas.
-- Tras update, llamar a `update-google-calendar-event` pasando también `locationId` para que el evento refleje la nueva dirección.
-- Notificación: extender payload para incluir ubicación anterior y nueva (dirección completa o "Sesión online").
+2. **Forzar redeploy de `patient-portal-sessions`**
+   - Misma edición no-op en `supabase/functions/patient-portal-sessions/index.ts`.
+   - Verificar que la nueva acción `get-locations` (y la aceptación de `newLocationId` en `reschedule`) está activa.
 
-### 2. Backend — `patient-portal-sessions/index.ts`
-- Acción `list-locations` ya existente o nueva (revisar): devolver ubicaciones del centro.
-- `get-availability` y `get-month-availability`: aceptar `locationId` (ya lo aceptan parcialmente).
-- `reschedule`: aceptar `newLocationId?`, mismas validaciones que arriba; actualizar `location_id` + `session_modality`; propagar a Google Calendar y notificación.
+3. **Verificar `update-google-calendar-event`**
+   - Confirmar con un curl mínimo que acepta el nuevo parámetro `location`. Si la versión desplegada lo ignora, añadir el mismo marcador de versión y redeplegar.
 
-### 3. Backend — `update-google-calendar-event/index.ts`
-- Aceptar opcional `locationId` o `locationOverride`. Si llega, buscar la ubicación y construir el string `location` del evento Google (`name, street number, city`) o "Online" si online. Hoy ya construye location desde `session.location_id` tras refetch; verificar que al cambiar `location_id` en DB antes de invocar, el evento se actualice correctamente. Ajustar si hace falta.
+4. **Verificación funcional en preview**
+   - Abrir el enlace de la cita de prueba (`/cita/fbe739ff5d56b6d651f872fa8c46816d`).
+   - Confirmar que en "Cambiar fecha" aparece:
+     - El selector de ubicación con las 2 ubicaciones públicas.
+     - La fila preseleccionada coincide con la ubicación original de la cita.
+     - Al cambiarla, se resetean fecha y hora y se muestra el aviso ámbar.
+     - El `AlertDialog` de confirmación final muestra original vs nueva ubicación.
 
-### 4. Frontend — `usePublicSession.tsx` (`usePublicSessionReschedule`)
-- Añadir `locations`, `getLocations()`, y estado `selectedLocationId`.
-- `getAvailability`/`getAvailableDays`/`reschedule` aceptan `locationId`.
+## Detalles técnicos
 
-### 5. Frontend — `usePatientPortal.tsx`
-- `getAvailability`/`getMonthAvailability` ya aceptan `locationId`. Añadir `rescheduleSession(..., newLocationId?)` y `getLocations()` (o reutilizar existente del portal).
+- No se toca lógica frontend; el problema es 100 % de despliegue.
+- El marcador de versión es solo un comentario; basta para que el sistema detecte cambios y vuelva a empaquetar la función.
+- No se modifica `supabase/config.toml` ni se cambian permisos: las funciones siguen siendo públicas (sin JWT) como antes.
+- Tras el redeploy, los hooks `usePublicSessionReschedule` y `usePatientPortal` ya están preparados para consumir el nuevo `originalLocationId` y enviar `newLocationId`.
 
-### 6. Frontend — `SessionManagement.tsx` (UI pública)
-- Al entrar en modo "reprogramar":
-  - Cargar lista de ubicaciones.
-  - Selector de ubicación (preseleccionada la original).
-  - Tarjeta informativa permanente con la ubicación seleccionada (nombre + dirección o "Sesión online").
-  - Aviso amarillo si difiere de la original.
-  - Al cambiar ubicación: `setSelectedDate(undefined)`, `setSelectedSlot(null)`, recargar días/slots con la nueva.
-- Al confirmar: si `selectedLocationId !== original.location_id`, mostrar `AlertDialog` con: ubicación original, ubicación nueva, dirección, cambio de modalidad si procede. Botones "Volver" / "Confirmar cambio de ubicación". Sólo entonces ejecutar `reschedule`.
+## Riesgos
 
-### 7. Frontend — `PortalBooking.tsx`
-- Misma UX: selector de ubicación visible en modo reprogramar, tarjeta informativa, limpieza de fecha/hora al cambiar, diálogo de confirmación si cambia ubicación.
-
-### 8. Lógica compartida
-- Crear `src/lib/reschedule-helpers.ts` con: `formatLocationLine(location)`, `getModalityFromLocation(location)`, tipos `RescheduleLocation`.
-
-## Modalidades del modelo
-
-Valores existentes en `session_modality`: `in_person`, `online`, `zoom`, `google_meet`. Regla:
-- Ubicación con `location_type === 'online'` → `online` (preservar `zoom`/`google_meet` si la cita original ya los tenía y la nueva ubicación también es online).
-- Ubicación presencial → `in_person`.
-
-## Criterios de aceptación cubiertos
-Los 6 casos del enunciado quedan cubiertos con la combinación de: selector de ubicación + limpieza de slots + diálogo de confirmación + validaciones de backend (centro + activa + slot pertenece a la ubicación) + propagación a Google Calendar y notificaciones.
-
-## Riesgos / fuera de alcance
-- No se modifica `PublicBookingManage.tsx` salvo que lo confirmes.
-- No se cambian las plantillas de WhatsApp/email; sólo se enriquece el payload pasado al sender con la ubicación nueva/anterior (si las plantillas no usan esos campos, no se mostrarán, pero el dato queda disponible para que lo añadas a la plantilla cuando quieras).
+- Ninguno funcional: solo se añade un comentario.
+- Si tras el redeploy `get-locations` sigue devolviendo "Invalid action", revisar los logs de deploy del edge function (posible fallo de bundling con `deno.lock` u otra dependencia) y, en ese caso, abordarlo en una segunda iteración.
