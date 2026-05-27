@@ -95,6 +95,7 @@ interface SessionToRemind {
   price: number;
   notes: string | null;
   session_type: string | null;
+  session_modality: string | null;
   video_call_link: string | null;
   access_token: string | null;
   center_id: string;
@@ -113,8 +114,23 @@ interface SessionToRemind {
   location: {
     name: string;
     street: string;
+    number_details: string | null;
     city: string;
+    postal_code: string | null;
   } | null;
+}
+
+// Build Google Maps URL from location data
+function buildGoogleMapsUrl(location: SessionToRemind['location']): string {
+  if (!location) return '';
+  const parts = [
+    location.street,
+    location.number_details,
+    location.postal_code,
+    location.city,
+  ].filter(Boolean).join(', ');
+  if (!parts) return '';
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(parts)}`;
 }
 
 // Convert plain text URLs to clickable hyperlinks
