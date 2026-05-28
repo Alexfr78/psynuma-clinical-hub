@@ -38,10 +38,17 @@ Deno.serve(async (req) => {
     // Get all past sessions with pending payment that don't have a debt yet
     // Exclude cancelled, no_show, blocked sessions and sessions with price = 0
     // Also exclude sessions that are linked to a bono (bono_id is not null)
+    // Only consider sessions that ended at least 24h ago. This leaves
+    // a window for same-day manual invoicing/payment so we don't create
+    // a duplicate pending debt that conflicts with the invoice flow.
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - 1);
+    const cutoffStr = cutoffDate.toISOString().split('T')[0];
+
     const { data: unpaidSessions, error: sessionsError } = await supabase
       .from('sessions')
       .select('id, patient_id, center_id, session_date, price, bono_id')
-      .lt('session_date', new Date().toISOString().split('T')[0])
+      .lt('session_date', cutoffStr)
       .eq('payment_status', 'pending')
       .not('status', 'in', '("cancelled","no_show","blocked")')
       .is('bono_id', null) // Exclude sessions linked to bonos

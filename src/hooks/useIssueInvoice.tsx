@@ -105,7 +105,7 @@ export function useIssueInvoice() {
       result.success = true;
       result.invoiceNumber = invoiceNumber;
 
-      // 5. Auto-create debt if none exists for this invoice
+      // 5. Auto-create / reuse debt for this invoice
       const { data: existingDebt } = await supabase
         .from('debts')
         .select('id')
@@ -113,23 +113,53 @@ export function useIssueInvoice() {
         .maybeSingle();
 
       if (!existingDebt) {
-        // Get patient_id and total from invoice
         const patientId = invoice.patient_id;
         const invoiceTotal = Number(invoice.total);
+        const sessionId = invoice.session_id || null;
 
         if (patientId && invoiceTotal > 0) {
-          await supabase
-            .from('debts')
-            .insert({
-              invoice_id: invoiceId,
-              patient_id: patientId,
-              center_id: center!.id,
-              amount: invoiceTotal,
-              paid_amount: 0,
-              status: 'pending' as const,
-              due_date: new Date().toISOString().split('T')[0],
-              session_id: invoice.session_id || null,
-            });
+          // If a session-level pending debt already exists (e.g. created by
+          // the daily generate-pending-debts cron before the invoice was
+          // issued), reuse it instead of inserting a duplicate.
+          let reusedDebtId: string | null = null;
+          if (sessionId) {
+            const { data: sessionDebt } = await supabase
+              .from('debts')
+              .select('id')
+              .eq('session_id', sessionId)
+              .is('invoice_id', null)
+              .neq('status', 'refunded')
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .maybeSingle();
+
+            if (sessionDebt?.id) {
+              reusedDebtId = sessionDebt.id;
+              await supabase
+                .from('debts')
+                .update({
+                  invoice_id: invoiceId,
+                  amount: invoiceTotal,
+                  updated_at: new Date().toISOString(),
+                })
+                .eq('id', sessionDebt.id);
+            }
+          }
+
+          if (!reusedDebtId) {
+            await supabase
+              .from('debts')
+              .insert({
+                invoice_id: invoiceId,
+                patient_id: patientId,
+                center_id: center!.id,
+                amount: invoiceTotal,
+                paid_amount: 0,
+                status: 'pending' as const,
+                due_date: new Date().toISOString().split('T')[0],
+                session_id: sessionId,
+              });
+          }
         }
       }
 
