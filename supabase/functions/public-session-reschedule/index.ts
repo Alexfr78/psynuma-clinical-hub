@@ -514,10 +514,8 @@ Deno.serve(async (req) => {
       if (session.google_calendar_event_id) {
         try {
           console.log(`[RESCHEDULE] Syncing reschedule to Google Calendar event ${session.google_calendar_event_id}`);
-          const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-          // Use ANON key for Authorization header (new signing-keys system: service-role key is not a JWT)
-          const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-          const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+
 
           const googleSyncResponse = await fetch(`${supabaseUrl}/functions/v1/update-google-calendar-event`, {
             method: "POST",
