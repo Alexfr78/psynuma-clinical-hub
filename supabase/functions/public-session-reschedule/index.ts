@@ -301,15 +301,34 @@ Deno.serve(async (req) => {
       }
 
       // Compute new modality, preserving zoom/google_meet sub-types if both old and new are online.
+      // If transitioning from in_person -> online, use the professional's default video provider.
       const prevModality = session.session_modality;
       let newModality: string | null = session.session_modality;
+      const wasOnline = prevModality === 'zoom' || prevModality === 'google_meet' || prevModality === 'online';
+
       if (targetLocation) {
         if (targetLocation.location_type === 'online') {
-          newModality = (prevModality === 'zoom' || prevModality === 'google_meet') ? prevModality : 'online';
+          if (prevModality === 'zoom' || prevModality === 'google_meet') {
+            newModality = prevModality;
+          } else {
+            // Resolve from professional's default provider
+            const { data: profIntegrations } = await supabase
+              .from('professional_integrations')
+              .select('default_video_provider, zoom_enabled, google_meet_enabled')
+              .eq('professional_id', session.professional_id)
+              .maybeSingle();
+            const def = profIntegrations?.default_video_provider;
+            if (def === 'zoom' && profIntegrations?.zoom_enabled) newModality = 'zoom';
+            else if (def === 'google_meet' && profIntegrations?.google_meet_enabled) newModality = 'google_meet';
+            else if (profIntegrations?.zoom_enabled) newModality = 'zoom';
+            else if (profIntegrations?.google_meet_enabled) newModality = 'google_meet';
+            else newModality = 'online';
+          }
         } else {
           newModality = 'in_person';
         }
       }
+      const willBeOnline = newModality === 'zoom' || newModality === 'google_meet' || newModality === 'online';
 
       // Enforce cancellation/reschedule policy window (same rules apply to reschedule)
       const policy = session.cancellation_policy || "24_hours";
