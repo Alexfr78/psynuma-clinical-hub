@@ -301,15 +301,34 @@ Deno.serve(async (req) => {
       }
 
       // Compute new modality, preserving zoom/google_meet sub-types if both old and new are online.
+      // If transitioning from in_person -> online, use the professional's default video provider.
       const prevModality = session.session_modality;
       let newModality: string | null = session.session_modality;
+      const wasOnline = prevModality === 'zoom' || prevModality === 'google_meet' || prevModality === 'online';
+
       if (targetLocation) {
         if (targetLocation.location_type === 'online') {
-          newModality = (prevModality === 'zoom' || prevModality === 'google_meet') ? prevModality : 'online';
+          if (prevModality === 'zoom' || prevModality === 'google_meet') {
+            newModality = prevModality;
+          } else {
+            // Resolve from professional's default provider
+            const { data: profIntegrations } = await supabase
+              .from('professional_integrations')
+              .select('default_video_provider, zoom_enabled, google_meet_enabled')
+              .eq('professional_id', session.professional_id)
+              .maybeSingle();
+            const def = profIntegrations?.default_video_provider;
+            if (def === 'zoom' && profIntegrations?.zoom_enabled) newModality = 'zoom';
+            else if (def === 'google_meet' && profIntegrations?.google_meet_enabled) newModality = 'google_meet';
+            else if (profIntegrations?.zoom_enabled) newModality = 'zoom';
+            else if (profIntegrations?.google_meet_enabled) newModality = 'google_meet';
+            else newModality = 'online';
+          }
         } else {
           newModality = 'in_person';
         }
       }
+      const willBeOnline = newModality === 'zoom' || newModality === 'google_meet' || newModality === 'online';
 
       // Enforce cancellation/reschedule policy window (same rules apply to reschedule)
       const policy = session.cancellation_policy || "24_hours";
@@ -426,6 +445,60 @@ Deno.serve(async (req) => {
 
       console.log(`[RESCHEDULE] Session updated successfully:`, updatedSession);
 
+      // Handle video meeting transitions
+      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+      const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+      const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+      // Case A: transition in_person -> online (zoom): create Zoom meeting
+      if (!wasOnline && willBeOnline && newModality === 'zoom') {
+        try {
+          console.log(`[RESCHEDULE] Creating Zoom meeting for newly-online session ${session.id}`);
+          const zoomResp = await fetch(`${supabaseUrl}/functions/v1/create-zoom-meeting`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${anonKey}`,
+              'apikey': serviceKey,
+            },
+            body: JSON.stringify({
+              professional_id: session.professional_id,
+              session_date: newDate,
+              start_time: newStartTime,
+              end_time: newEndTime,
+              topic: `Sesión de ${session.session_type || 'psicología'}`,
+              patient_name: patientName,
+            }),
+          });
+          const zoomData = await zoomResp.json();
+          if (zoomResp.ok && zoomData?.join_url) {
+            await supabase.from('sessions').update({
+              video_call_link: zoomData.join_url,
+              video_provider: 'zoom',
+              zoom_meeting_id: String(zoomData.meeting_id),
+              zoom_password: zoomData.password || null,
+            }).eq('id', session.id);
+            console.log(`[RESCHEDULE] Zoom meeting created: ${zoomData.meeting_id}`);
+          } else {
+            console.error(`[RESCHEDULE] Failed to create Zoom meeting:`, zoomData);
+          }
+        } catch (e) {
+          console.error('[RESCHEDULE] Error creating Zoom meeting:', e);
+        }
+      }
+
+      // Case B: transition online -> in_person: clear video fields (Google sync below will refresh event description)
+      if (wasOnline && !willBeOnline) {
+        await supabase.from('sessions').update({
+          video_call_link: null,
+          video_provider: null,
+          zoom_meeting_id: null,
+          zoom_password: null,
+        }).eq('id', session.id);
+        console.log(`[RESCHEDULE] Cleared video fields for in_person transition`);
+      }
+
+
       // Build human-readable location string for the Google Calendar event
       function buildGcalLocationString(loc: any): string | undefined {
         if (!loc) return undefined;
@@ -441,10 +514,8 @@ Deno.serve(async (req) => {
       if (session.google_calendar_event_id) {
         try {
           console.log(`[RESCHEDULE] Syncing reschedule to Google Calendar event ${session.google_calendar_event_id}`);
-          const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-          // Use ANON key for Authorization header (new signing-keys system: service-role key is not a JWT)
-          const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-          const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+
 
           const googleSyncResponse = await fetch(`${supabaseUrl}/functions/v1/update-google-calendar-event`, {
             method: "POST",
