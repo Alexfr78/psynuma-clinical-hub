@@ -44,29 +44,26 @@ export function PatientInvoices({ patientId, onInvoiceClick }: PatientInvoicesPr
     event.stopPropagation();
     setDownloadingId(invoiceId);
 
-    const printWindow = window.open('', '_blank');
-
     try {
       const { data, error } = await supabase.functions.invoke('generate-invoice-pdf', {
         body: { invoice_id: invoiceId },
       });
 
-      if (error || !data?.html) throw error || new Error('PDF sin contenido');
+      if (error) throw error;
+      if (!data?.html) throw new Error('PDF sin contenido');
 
-      if (printWindow) {
-        printWindow.document.write(data.html);
-        printWindow.document.close();
+      const blob = new Blob([data.html], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      const newWindow = window.open(url, '_blank');
 
-        setTimeout(() => {
-          printWindow.print();
-        }, 500);
-      } else {
-        toast.error('El navegador ha bloqueado la descarga. Permite ventanas emergentes e inténtalo de nuevo.');
+      if (!newWindow) {
+        toast.error('El navegador ha bloqueado la ventana. Permite ventanas emergentes e inténtalo de nuevo.');
       }
-    } catch (error) {
-      printWindow?.close();
-      console.error('Error generating PDF:', error);
-      toast.error('Error al generar el PDF');
+
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (err: any) {
+      console.error('Error generating PDF:', err);
+      toast.error(err?.message || 'Error al generar el PDF');
     } finally {
       setDownloadingId(null);
     }
