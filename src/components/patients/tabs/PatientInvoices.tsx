@@ -1,6 +1,6 @@
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { FileText, Download } from 'lucide-react';
+import { FileText, Download, Loader2 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
@@ -8,6 +8,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
+import { useState, type MouseEvent } from 'react';
+import { toast } from 'sonner';
 
 interface PatientInvoicesProps {
   patientId: string;
@@ -22,6 +24,8 @@ const statusConfig = {
 };
 
 export function PatientInvoices({ patientId, onInvoiceClick }: PatientInvoicesProps) {
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+
   const { data: invoices, isLoading } = useQuery({
     queryKey: ['patient-invoices', patientId],
     queryFn: async () => {
@@ -35,6 +39,38 @@ export function PatientInvoices({ patientId, onInvoiceClick }: PatientInvoicesPr
       return data;
     },
   });
+
+  const handleDownloadPDF = async (event: MouseEvent, invoiceId: string) => {
+    event.stopPropagation();
+    setDownloadingId(invoiceId);
+
+    const printWindow = window.open('', '_blank');
+
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-invoice-pdf', {
+        body: { invoice_id: invoiceId },
+      });
+
+      if (error || !data?.html) throw error || new Error('PDF sin contenido');
+
+      if (printWindow) {
+        printWindow.document.write(data.html);
+        printWindow.document.close();
+
+        setTimeout(() => {
+          printWindow.print();
+        }, 500);
+      } else {
+        toast.error('El navegador ha bloqueado la descarga. Permite ventanas emergentes e inténtalo de nuevo.');
+      }
+    } catch (error) {
+      printWindow?.close();
+      console.error('Error generating PDF:', error);
+      toast.error('Error al generar el PDF');
+    } finally {
+      setDownloadingId(null);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -104,8 +140,19 @@ export function PatientInvoices({ patientId, onInvoiceClick }: PatientInvoicesPr
                     </p>
                   </div>
                   
-                  <Button variant="ghost" size="icon" className="shrink-0">
-                    <Download className="h-4 w-4" />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="shrink-0"
+                    onClick={(event) => handleDownloadPDF(event, invoice.id)}
+                    disabled={downloadingId === invoice.id}
+                    title="Descargar PDF"
+                  >
+                    {downloadingId === invoice.id ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Download className="h-4 w-4" />
+                    )}
                   </Button>
                 </div>
               </div>
