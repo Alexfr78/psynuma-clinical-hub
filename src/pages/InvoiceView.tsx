@@ -28,7 +28,7 @@ export default function InvoiceView() {
     setDownloading(true);
     try {
       const { data, error } = await supabase.functions.invoke('generate-invoice-pdf', {
-        body: { invoice_id: invoice.id }
+        body: { invoice_id: invoice.id, access_token: token }
       });
 
       if (error) throw error;
