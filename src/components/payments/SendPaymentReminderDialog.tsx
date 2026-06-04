@@ -43,10 +43,18 @@ export function SendPaymentReminderDialog({
   const [channel, setChannel] = useState<Channel>('whatsapp');
   const [includeStripeLink, setIncludeStripeLink] = useState(true);
   const [includeBizum, setIncludeBizum] = useState(true);
-  const [includeTransfer, setIncludeTransfer] = useState(false);
+  const [includeTransfer, setIncludeTransfer] = useState(true);
   const [includeBonoOption, setIncludeBonoOption] = useState(false);
   const [messagePreview, setMessagePreview] = useState('');
   const [isSending, setIsSending] = useState(false);
+
+  // Sync defaults with center configuration when dialog opens
+  useEffect(() => {
+    if (open && center) {
+      setIncludeTransfer(!!(center as any).bank_transfer_info);
+      setIncludeBizum(!!(center as any).bizum_phone);
+    }
+  }, [open, center]);
 
   const { data: emailTemplate } = useCommunicationTemplate('email', 'payment_reminder');
   const { data: whatsappTemplate } = useCommunicationTemplate('whatsapp', 'payment_reminder');
