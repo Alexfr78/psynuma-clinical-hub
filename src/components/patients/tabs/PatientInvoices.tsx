@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
-import { useState } from 'react';
+import { useState, type MouseEvent } from 'react';
 import { toast } from 'sonner';
 
 interface PatientInvoicesProps {
@@ -40,7 +40,7 @@ export function PatientInvoices({ patientId, onInvoiceClick }: PatientInvoicesPr
     },
   });
 
-  const handleDownloadPDF = async (event: React.MouseEvent, invoiceId: string) => {
+  const handleDownloadPDF = async (event: MouseEvent, invoiceId: string) => {
     event.stopPropagation();
     setDownloadingId(invoiceId);
 
