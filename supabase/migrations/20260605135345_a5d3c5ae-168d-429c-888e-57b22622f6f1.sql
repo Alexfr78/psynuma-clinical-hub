@@ -1,0 +1,1 @@
+DELETE FROM public.consent_signatures WHERE id='7a600097-83bc-4382-abe8-5643aa1035e0';
