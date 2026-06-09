@@ -221,6 +221,7 @@ export function PatientAutoregistros({ patientId }: PatientAutoregistrosProps) {
         open={!!selectedEntry}
         onOpenChange={(v) => !v && setSelectedEntry(null)}
         entry={selectedEntry}
+        allEntries={entries ?? []}
       />
 
       <SendAutoregistroDialog
