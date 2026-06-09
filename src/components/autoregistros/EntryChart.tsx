@@ -9,28 +9,64 @@ import type { AutoregistroField } from '@/hooks/useAutoregistroTemplates';
 interface EntryChartProps {
   entries: AutoregistroEntry[];
   fields: AutoregistroField[];
+  /** When true, render one chart per numeric field instead of combining them. */
+  splitByField?: boolean;
 }
 
 const COLORS = ['hsl(var(--primary))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))', 'hsl(var(--chart-5))'];
 
-export function EntryChart({ entries, fields }: EntryChartProps) {
+export function EntryChart({ entries, fields, splitByField = false }: EntryChartProps) {
   const numericFields = fields.filter((f) => (f.type === 'number' || f.type === 'scale') && f.showInChart !== false);
+
+  const sortedEntries = useMemo(
+    () => [...entries].sort((a, b) => new Date(a.submitted_at).getTime() - new Date(b.submitted_at).getTime()),
+    [entries]
+  );
 
   const chartData = useMemo(() => {
     if (numericFields.length === 0) return [];
-    return [...entries]
-      .sort((a, b) => new Date(a.submitted_at).getTime() - new Date(b.submitted_at).getTime())
-      .map((e) => ({
-        date: format(new Date(e.submitted_at), 'dd/MM', { locale: es }),
-        ...numericFields.reduce((acc, f) => {
-          const v = e.values[f.label];
-          if (v !== undefined && v !== null) acc[f.label] = Number(v);
-          return acc;
-        }, {} as Record<string, number>),
-      }));
-  }, [entries, numericFields]);
+    return sortedEntries.map((e) => ({
+      date: format(new Date(e.submitted_at), 'dd/MM', { locale: es }),
+      ...numericFields.reduce((acc, f) => {
+        const v = e.values[f.label];
+        if (v !== undefined && v !== null) acc[f.label] = Number(v);
+        return acc;
+      }, {} as Record<string, number>),
+    }));
+  }, [sortedEntries, numericFields]);
 
   if (numericFields.length === 0 || chartData.length < 2) return null;
+
+  if (splitByField) {
+    return (
+      <div className="grid gap-4 md:grid-cols-2">
+        {numericFields.map((f, i) => (
+          <Card key={f.label}>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm">{f.label}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={200}>
+                <LineChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                  <XAxis dataKey="date" className="text-xs" />
+                  <YAxis className="text-xs" />
+                  <Tooltip />
+                  <Line
+                    type="monotone"
+                    dataKey={f.label}
+                    stroke={COLORS[i % COLORS.length]}
+                    strokeWidth={2}
+                    dot={{ r: 3 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    );
+  }
 
   return (
     <Card>
