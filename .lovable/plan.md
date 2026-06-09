@@ -1,51 +1,44 @@
-## Diagnóstico
+## Objetivo
 
-La sesión del 25 de mayo de Alejandro Macías Torre (id `9068712f…`) tiene **dos registros de deuda** por 75€:
+Mejorar la pestaña **Autorregistros** dentro de la ficha de contacto (`/pacientes/:id`) para poder consultar de forma completa los autorregistros enviados al contacto y todas sus respuestas.
 
-1. **Deuda huérfana pendiente** (id `f978872f…`)
-   - Creada el 26/05 a las **06:00 UTC** por el cron `generate-pending-debts`
-   - Sin `invoice_id`, status `pending` → es la que aparece en la captura
-2. **Deuda pagada correcta** (id `30a4a3b8…`)
-   - Creada el 26/05 a las **06:28 UTC** al emitir la factura `4a5f8a51…`
-   - Vinculada a la factura y al pago con tarjeta de 75€
+## Cambios
 
-**Causa raíz:** condición de carrera. El cron de generación de deudas se ejecutó a las 06:00 (sesión ya vencida, sin factura aún, sin deuda) y creó la pendiente. 28 min después, al emitir la factura, la automatización de facturas creó **otra** deuda enlazada a la factura en lugar de reutilizar la pendiente existente. El cron filtra por `session_id` para no duplicar, pero la creación vía factura no comprueba si ya existe una deuda pendiente para la misma sesión.
+### 1. Sub-pestañas internas en `PatientAutoregistros`
+Reorganizar la pestaña en tres vistas con un `Tabs` interno:
 
-Revisé la BD del paciente y solo este caso presenta el duplicado actualmente.
+- **Respuestas** (por defecto) — tabla/cards actuales de entries con detalle al hacer clic.
+- **Enlaces enviados** — listado de `autoregistro_links` del contacto con estado (activo / expirado), plantilla, fecha de envío, fecha de expiración, nº de respuestas recibidas. Acciones: copiar enlace, reenviar por WhatsApp, desactivar, eliminar.
+- **Evolución** — gráficas (`EntryChart`) con selector de plantilla cuando hay varias.
 
-## Plan
+### 2. Filtro por plantilla
+Cuando el contacto tiene respuestas de más de una plantilla:
+- Añadir un `Select` "Plantilla" arriba de las sub-pestañas Respuestas y Evolución.
+- Opción "Todas" para mantener la vista combinada actual.
+- Al filtrar, las columnas dinámicas se construyen a partir de los campos de la plantilla seleccionada y las gráficas se filtran al subconjunto correspondiente.
 
-### 1. Corregir el dato (migración puntual)
-Eliminar la deuda huérfana `f978872f-5c53-41a5-9987-7da1ba4ecbeb` (status `pending`, `invoice_id` null, mismo `session_id` que otra deuda ya pagada y facturada).
+### 3. Visualización de respuestas mejorada
+- En la sub-pestaña **Respuestas**, añadir columna "Plantilla" y "Fecha" (cuando hay varias plantillas o cuando "Todas" está seleccionado).
+- En `EntryDetailDialog`: si el campo tiene `type === 'number' | 'scale'` y hay ≥2 entries de la misma plantilla, mostrar un mini-sparkline con la evolución histórica de ese campo concreto para este contacto.
+- En la sub-pestaña **Evolución**: una `EntryChart` por cada campo numérico/escala (en lugar de todos los campos juntos), para que cada métrica tenga su propia escala Y y sea legible. Mantener `showInChart` para excluir campos.
 
-### 2. Prevenir la condición de carrera (estructural)
-Añadir una **restricción única parcial** en `debts` que impida tener más de una deuda activa por sesión:
+### 4. Sub-pestaña "Enlaces enviados"
+Tabla/cards con:
+- Plantilla · Fecha de envío · Expira · Estado (badge) · Nº respuestas · Acciones.
 
-```sql
-CREATE UNIQUE INDEX debts_one_active_per_session
-  ON public.debts (session_id)
-  WHERE session_id IS NOT NULL AND status <> 'cancelled';
-```
+Acciones por fila:
+- **Copiar enlace público** (`{APP_BASE_URL}/registro/{access_token}`)
+- **Reenviar por WhatsApp** (abrir `SendAutoregistroDialog` precargado con plantilla y contacto)
+- **Desactivar** (usar `deactivateLink` existente)
+- **Eliminar** (usar `deleteLink` existente, con confirmación)
 
-Con esto, si el cron crea una deuda pendiente y después la facturación intenta crear otra para la misma sesión, la segunda inserción falla y la lógica debe reutilizar la existente.
+El conteo de respuestas por enlace se calcula en cliente agrupando `entries` por `link_id`.
 
-### 3. Adaptar la lógica de facturación
-En las funciones/RPC que crean deudas al emitir factura para una sesión (principalmente `collect_session_payment_v2` y la automatización de facturas en `20260421191827…`), antes de hacer `INSERT INTO debts`:
+## Archivos afectados (solo frontend)
 
-- Buscar una deuda existente con el mismo `session_id` y sin `invoice_id`.
-- Si existe → hacer `UPDATE` enlazando `invoice_id`, ajustando `amount`/`due_date` y dejando que el recálculo de pagos marque el status final.
-- Si no existe → `INSERT` como hasta ahora.
+- `src/components/patients/tabs/PatientAutoregistros.tsx` — refactor a sub-pestañas + filtro de plantilla + sub-vista de enlaces.
+- `src/components/autoregistros/PatientLinksList.tsx` — **nuevo**: lista de enlaces enviados con acciones.
+- `src/components/autoregistros/EntryDetailDialog.tsx` — añadir mini-sparkline por campo numérico.
+- `src/components/autoregistros/EntryChart.tsx` — soportar opción "una gráfica por campo".
 
-### 4. Reforzar el cron `generate-pending-debts`
-Añadir un filtro adicional: excluir sesiones que ya tengan **cualquier** deuda activa (no solo por `session_id`, sino también revisar si la sesión está en proceso de facturación/cobro reciente). El filtro actual ya excluye sesiones con `invoice_items`, pero podemos hacerlo más conservador ejecutando el cron solo para sesiones con más de N horas de antigüedad (p. ej. 24h tras `session_date`) para reducir ventanas de carrera con facturación manual del mismo día.
-
-## Detalles técnicos
-
-- Archivos afectados:
-  - Nueva migración SQL para: borrado puntual + índice único parcial.
-  - `supabase/functions/generate-pending-debts/index.ts` → añadir margen temporal (24h) sobre `session_date`.
-  - RPC `collect_session_payment_v2` (migración `20260409150000`) y trigger/función de auto-factura (`20260421191827`) → cambiar `INSERT` por `UPSERT` lógico sobre `(session_id) WHERE invoice_id IS NULL`.
-- Sin cambios de UI.
-- Verificación posterior: consultar `debts` del paciente y confirmar que solo queda la deuda pagada vinculada a la factura.
-
-¿Procedo con esta limpieza + endurecimiento, o prefieres que solo borre la deuda huérfana sin tocar la lógica?
+Sin cambios de base de datos ni edge functions: toda la información ya está disponible vía `useAutoregistroEntries` y `useAutoregistroLinks`.
