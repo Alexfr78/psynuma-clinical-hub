@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -5,6 +6,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
+import { LineChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import type { AutoregistroEntry } from '@/hooks/useAutoregistroEntries';
@@ -16,18 +18,60 @@ interface EntryDetailDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   entry: AutoregistroEntry | null;
+  /** Optional: other entries (same patient) to render a mini-sparkline per numeric field */
+  allEntries?: AutoregistroEntry[];
 }
 
-export function EntryDetailDialog({ open, onOpenChange, entry }: EntryDetailDialogProps) {
+export function EntryDetailDialog({ open, onOpenChange, entry, allEntries }: EntryDetailDialogProps) {
+  const rawFields: AutoregistroField[] = (entry?.template as any)?.fields ?? [];
+  const fields = normalizeAutoregistroFields(rawFields);
+  const sorted = useMemo(() => [...fields].sort((a, b) => a.order - b.order), [fields]);
+
+  // History per field (only same template, sorted asc)
+  const history = useMemo(() => {
+    if (!entry || !allEntries) return [];
+    return allEntries
+      .filter((e) => e.template_id === entry.template_id)
+      .slice()
+      .sort((a, b) => new Date(a.submitted_at).getTime() - new Date(b.submitted_at).getTime());
+  }, [entry, allEntries]);
+
   if (!entry) return null;
 
-  const rawFields: AutoregistroField[] = (entry.template as any)?.fields ?? [];
-  const fields = normalizeAutoregistroFields(rawFields);
-  const sorted = [...fields].sort((a, b) => a.order - b.order);
+  const renderSparkline = (field: AutoregistroField) => {
+    if (history.length < 2) return null;
+    if (field.type !== 'number' && field.type !== 'scale') return null;
+    const data = history
+      .map((e) => {
+        const v = e.values?.[field.label];
+        if (v === undefined || v === null) return null;
+        return {
+          date: format(new Date(e.submitted_at), 'dd/MM', { locale: es }),
+          v: Number(v),
+        };
+      })
+      .filter(Boolean) as { date: string; v: number }[];
+    if (data.length < 2) return null;
+    return (
+      <div className="h-16 w-full mt-1">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={data} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
+            <XAxis dataKey="date" hide />
+            <YAxis hide domain={['auto', 'auto']} />
+            <Tooltip
+              contentStyle={{ fontSize: 11, padding: '4px 6px' }}
+              labelStyle={{ fontSize: 11 }}
+            />
+            <Line type="monotone" dataKey="v" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 2 }} />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+    );
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Detalle del registro</DialogTitle>
         </DialogHeader>
@@ -52,6 +96,7 @@ export function EntryDetailDialog({ open, onOpenChange, entry }: EntryDetailDial
                   formatFieldValue(field, entry.values[field.label])
                 )}
               </span>
+              {renderSparkline(field)}
             </div>
           ))}
 
