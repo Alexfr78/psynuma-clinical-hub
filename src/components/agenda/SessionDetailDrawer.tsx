@@ -1208,11 +1208,36 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                         className="h-8 flex-1"
                       />
                     </div>
+                    {detectedConflicts.length > 0 && (
+                      <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm dark:border-amber-900 dark:bg-amber-950/30">
+                        <p className="font-medium text-amber-800 dark:text-amber-200">
+                          Esta cita se solapa con otra del profesional.
+                        </p>
+                        <ul className="mt-1 list-disc pl-5 text-amber-700 dark:text-amber-300">
+                          {detectedConflicts.flatMap((c, i) =>
+                            c.conflicts.map((cc, j) => (
+                              <li key={`${i}-${j}`}>
+                                {cc.start.slice(0, 5)} - {cc.end.slice(0, 5)}
+                                {cc.patientName ? `: ${cc.patientName}` : ''}
+                              </li>
+                            ))
+                          )}
+                        </ul>
+                        <div className="mt-2 flex justify-end gap-2">
+                          <Button variant="outline" size="sm" onClick={handleConflictCancel}>
+                            Revisar
+                          </Button>
+                          <Button variant="destructive" size="sm" onClick={handleConflictForceCreate}>
+                            Guardar igualmente
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                     <div className="flex gap-2 justify-end">
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => setEditingDateTime(false)}
+                        onClick={() => { setDetectedConflicts([]); setEditingDateTime(false); }}
                       >
                         <X className="h-4 w-4" />
                       </Button>
@@ -1220,15 +1245,16 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                         variant="default"
                         size="sm"
                         onClick={handleDateTimeSave}
-                        disabled={updateSession.isPending}
+                        disabled={updateSession.isPending || isCheckingConflicts || detectedConflicts.length > 0}
                       >
-                        {updateSession.isPending ? (
+                        {updateSession.isPending || isCheckingConflicts ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
                         ) : (
                           <Check className="h-4 w-4" />
                         )}
                       </Button>
                     </div>
+
                   </div>
                 ) : (
                   <>
