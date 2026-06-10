@@ -491,17 +491,20 @@ export default function Agenda() {
     const { sessionId, newDate, newStartTime, newEndTime, session } = pendingDragMove;
     setPendingDragMove(null);
     try {
-      await updateSession.mutateAsync({
-        id: sessionId,
-        session_date: newDate,
-        start_time: newStartTime,
-        end_time: newEndTime,
+      const { error } = await supabase.rpc('update_session_datetime_force', {
+        p_session_id: sessionId,
+        p_session_date: newDate,
+        p_start_time: newStartTime,
+        p_end_time: newEndTime,
       });
+      if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: ['sessions'] });
       try {
         await syncMoveToGoogle(session, newDate, newStartTime, newEndTime);
       } catch {}
       toast({ title: 'Sesión movida', description: `Movida a ${newDate} ${newStartTime} (con conflicto)` });
-    } catch {
+    } catch (err) {
+      console.error('executeForceDragMove error:', err);
       toast({ title: 'Error', description: 'No se pudo mover la sesión', variant: 'destructive' });
     }
   };
