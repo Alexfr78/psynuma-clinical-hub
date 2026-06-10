@@ -1287,9 +1287,9 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                         variant="default"
                         size="sm"
                         onClick={handleDateTimeSave}
-                        disabled={updateSession.isPending || isCheckingConflicts || detectedConflicts.length > 0}
+                        disabled={isSavingDateTime || updateSession.isPending || isCheckingConflicts || detectedConflicts.length > 0}
                       >
-                        {updateSession.isPending || isCheckingConflicts ? (
+                        {isSavingDateTime || updateSession.isPending || isCheckingConflicts ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
                         ) : (
                           <Check className="h-4 w-4" />
