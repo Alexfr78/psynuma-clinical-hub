@@ -238,9 +238,9 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
   const [pendingRecurringUpdate, setPendingRecurringUpdate] = useState<Record<string, unknown> | null>(null);
   
   // Conflict detection state
-  const [conflictsDialogOpen, setConflictsDialogOpen] = useState(false);
   const [detectedConflicts, setDetectedConflicts] = useState<ConflictResult[]>([]);
   const [isCheckingConflicts, setIsCheckingConflicts] = useState(false);
+
   
   // Consent dialogs state
   const [showCreateConsentDialog, setShowCreateConsentDialog] = useState(false);
