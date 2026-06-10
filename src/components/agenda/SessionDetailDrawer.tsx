@@ -658,15 +658,28 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
     }
   };
 
+  // Radix Dialog inside a Vaul Drawer can leave `pointer-events: none`
+  // on <body> after closing, blocking further interaction until refresh.
+  const restoreBodyPointerEvents = () => {
+    setTimeout(() => {
+      if (document?.body?.style?.pointerEvents === 'none') {
+        document.body.style.pointerEvents = '';
+      }
+    }, 100);
+  };
+
   const handleConflictForceCreate = async () => {
     setConflictsDialogOpen(false);
     setDetectedConflicts([]);
+    restoreBodyPointerEvents();
     await executeDateTimeSave(true);
+    restoreBodyPointerEvents();
   };
 
   const handleConflictCancel = () => {
     setConflictsDialogOpen(false);
     setDetectedConflicts([]);
+    restoreBodyPointerEvents();
   };
 
   const handleFieldSave = async (field: string, value: any) => {
