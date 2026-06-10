@@ -240,6 +240,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
   // Conflict detection state
   const [detectedConflicts, setDetectedConflicts] = useState<ConflictResult[]>([]);
   const [isCheckingConflicts, setIsCheckingConflicts] = useState(false);
+  const [isSavingDateTime, setIsSavingDateTime] = useState(false);
 
   
   // Consent dialogs state
@@ -557,8 +558,34 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
 
   // Execute the actual date/time save
   const executeDateTimeSave = async (force = false) => {
+    setIsSavingDateTime(true);
     try {
-      if (force) {
+      if ((session as any).isGoogleEvent) {
+        const googleEventId = (session as any).google_calendar_event_id;
+        const { data, error } = await supabase.functions.invoke('update-google-calendar-event', {
+          body: {
+            professional_id: session.professional_id,
+            event_id: googleEventId,
+            session_date: dateTimeValue.date,
+            start_time: dateTimeValue.startTime,
+            end_time: dateTimeValue.endTime,
+          },
+        });
+
+        if (error || !data?.success) {
+          throw new Error(data?.message || data?.error || error?.message || 'No se pudo actualizar Google Calendar');
+        }
+
+        const { error: calendarEventError } = await supabase
+          .from('calendar_events')
+          .update({
+            start_at: `${dateTimeValue.date}T${dateTimeValue.startTime}:00`,
+            end_at: `${dateTimeValue.date}T${dateTimeValue.endTime}:00`,
+          })
+          .eq('id', session.id);
+
+        if (calendarEventError) throw calendarEventError;
+      } else if (force) {
         const { data, error } = await supabase.rpc('update_session_datetime_force', {
           p_session_id: session.id,
           p_session_date: dateTimeValue.date,
@@ -577,27 +604,31 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
         });
       }
 
-      // Sync date/time changes to Google Calendar immediately
-      try {
-        const result = await syncMoveToGoogle(
-          session,
-          dateTimeValue.date,
-          dateTimeValue.startTime,
-          dateTimeValue.endTime
-        );
+      if ((session as any).isGoogleEvent) {
+        toast({ title: 'Evento actualizado', description: 'El bloqueo de Google Calendar se ha actualizado.' });
+      } else {
+        // Sync date/time changes to Google Calendar immediately
+        try {
+          const result = await syncMoveToGoogle(
+            session,
+            dateTimeValue.date,
+            dateTimeValue.startTime,
+            dateTimeValue.endTime
+          );
 
-        if (result.recreated) {
-          toast({ title: 'Fecha y hora actualizadas', description: 'Evento de Google Calendar recreado.' });
-        } else if (result.created) {
-          toast({ title: 'Fecha y hora actualizadas', description: 'Evento creado en Google Calendar.' });
-        } else if (!result.success) {
-          toast({ title: 'Fecha actualizada', description: result.error || 'Error sincronizando con Google.' });
-        } else {
-          toast({ title: 'Fecha y hora actualizadas' });
+          if (result.recreated) {
+            toast({ title: 'Fecha y hora actualizadas', description: 'Evento de Google Calendar recreado.' });
+          } else if (result.created) {
+            toast({ title: 'Fecha y hora actualizadas', description: 'Evento creado en Google Calendar.' });
+          } else if (!result.success) {
+            toast({ title: 'Fecha actualizada', description: result.error || 'Error sincronizando con Google.' });
+          } else {
+            toast({ title: 'Fecha y hora actualizadas' });
+          }
+        } catch (googleError) {
+          console.error('Google sync failed:', googleError);
+          toast({ title: 'Fecha actualizada', description: 'Error sincronizando con Google.' });
         }
-      } catch (googleError) {
-        console.error('Google sync failed:', googleError);
-        toast({ title: 'Fecha actualizada', description: 'Error sincronizando con Google.' });
       }
 
       setLocalDateTime({
@@ -607,11 +638,18 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
       });
       queryClient.invalidateQueries({ queryKey: ['sessions'] });
       queryClient.invalidateQueries({ queryKey: ['session', session.id] });
+      queryClient.invalidateQueries({ queryKey: ['calendar-events'] });
       setDetectedConflicts([]);
       setEditingDateTime(false);
     } catch (err) {
       console.error('executeDateTimeSave error:', err);
-      toast({ title: 'Error al actualizar', variant: 'destructive' });
+      toast({
+        title: 'Error al actualizar',
+        description: err instanceof Error ? err.message : undefined,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSavingDateTime(false);
     }
   };
 
