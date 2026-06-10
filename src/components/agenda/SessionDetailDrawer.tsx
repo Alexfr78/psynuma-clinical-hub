@@ -559,8 +559,8 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
   const executeDateTimeSave = async (force = false) => {
     setIsSavingDateTime(true);
     try {
-      if ((session as any).isGoogleEvent) {
-        const googleEventId = (session as any).google_calendar_event_id;
+      if (sessionData.isGoogleEvent) {
+        const googleEventId = sessionData.google_calendar_event_id;
         const { data, error } = await supabase.functions.invoke('update-google-calendar-event', {
           body: {
             professional_id: session.professional_id,
@@ -603,7 +603,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
         });
       }
 
-      if ((session as any).isGoogleEvent) {
+      if (sessionData.isGoogleEvent) {
         toast({ title: 'Evento actualizado', description: 'El bloqueo de Google Calendar se ha actualizado.' });
       } else {
         // Sync date/time changes to Google Calendar immediately
@@ -667,7 +667,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
       return;
     }
 
-    if ((session as any).isGoogleEvent) {
+    if (sessionData.isGoogleEvent) {
       await executeDateTimeSave();
       return;
     }
