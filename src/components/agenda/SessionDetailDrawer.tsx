@@ -556,14 +556,24 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
   };
 
   // Execute the actual date/time save
-  const executeDateTimeSave = async () => {
+  const executeDateTimeSave = async (force = false) => {
     try {
-      await updateSession.mutateAsync({
-        id: session.id,
-        session_date: dateTimeValue.date,
-        start_time: dateTimeValue.startTime,
-        end_time: dateTimeValue.endTime,
-      });
+      if (force) {
+        const { error } = await supabase.rpc('update_session_datetime_force', {
+          p_session_id: session.id,
+          p_session_date: dateTimeValue.date,
+          p_start_time: dateTimeValue.startTime,
+          p_end_time: dateTimeValue.endTime,
+        });
+        if (error) throw error;
+      } else {
+        await updateSession.mutateAsync({
+          id: session.id,
+          session_date: dateTimeValue.date,
+          start_time: dateTimeValue.startTime,
+          end_time: dateTimeValue.endTime,
+        });
+      }
       
       // Sync date/time changes to Google Calendar immediately
       try {
@@ -598,7 +608,8 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
       });
       queryClient.invalidateQueries({ queryKey: ['sessions'] });
       setEditingDateTime(false);
-    } catch {
+    } catch (err) {
+      console.error('executeDateTimeSave error:', err);
       toast({ title: 'Error al actualizar', variant: 'destructive' });
     }
   };
@@ -650,7 +661,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
   const handleConflictForceCreate = async () => {
     setConflictsDialogOpen(false);
     setDetectedConflicts([]);
-    await executeDateTimeSave();
+    await executeDateTimeSave(true);
   };
 
   const handleConflictCancel = () => {
