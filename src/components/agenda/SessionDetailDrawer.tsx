@@ -121,7 +121,6 @@ import { EditRecurringScopeDialog } from './EditRecurringScopeDialog';
 import { useUpdateRecurringSession, useCancelRecurringSession } from '@/hooks/useRecurringSeries';
 import { EditScope } from '@/types/recurring';
 import { checkSessionConflicts, ConflictResult } from '@/lib/conflicts';
-import { ConflictsDialog } from './ConflictsDialog';
 import { useConsents, Consent } from '@/hooks/useConsents';
 import { useConsentTemplates } from '@/hooks/useConsentTemplates';
 import { CreateConsentDialog } from '@/components/consents/CreateConsentDialog';
@@ -665,6 +664,11 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
 
     if (!dateChanged && !timeChanged) {
       setEditingDateTime(false);
+      return;
+    }
+
+    if ((session as any).isGoogleEvent) {
+      await executeDateTimeSave();
       return;
     }
 
