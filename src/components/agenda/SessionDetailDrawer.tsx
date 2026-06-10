@@ -238,9 +238,9 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
   const [pendingRecurringUpdate, setPendingRecurringUpdate] = useState<Record<string, unknown> | null>(null);
   
   // Conflict detection state
-  const [conflictsDialogOpen, setConflictsDialogOpen] = useState(false);
   const [detectedConflicts, setDetectedConflicts] = useState<ConflictResult[]>([]);
   const [isCheckingConflicts, setIsCheckingConflicts] = useState(false);
+
   
   // Consent dialogs state
   const [showCreateConsentDialog, setShowCreateConsentDialog] = useState(false);
@@ -559,13 +559,15 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
   const executeDateTimeSave = async (force = false) => {
     try {
       if (force) {
-        const { error } = await supabase.rpc('update_session_datetime_force', {
+        const { data, error } = await supabase.rpc('update_session_datetime_force', {
           p_session_id: session.id,
           p_session_date: dateTimeValue.date,
           p_start_time: dateTimeValue.startTime,
           p_end_time: dateTimeValue.endTime,
         });
+        console.log('[force-update] rpc result', { data, error });
         if (error) throw error;
+        if (!data) throw new Error('No se pudo actualizar la sesión (sin datos)');
       } else {
         await updateSession.mutateAsync({
           id: session.id,
@@ -574,7 +576,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
           end_time: dateTimeValue.endTime,
         });
       }
-      
+
       // Sync date/time changes to Google Calendar immediately
       try {
         const result = await syncMoveToGoogle(
@@ -583,13 +585,11 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
           dateTimeValue.startTime,
           dateTimeValue.endTime
         );
-        
+
         if (result.recreated) {
           toast({ title: 'Fecha y hora actualizadas', description: 'Evento de Google Calendar recreado.' });
-          queryClient.invalidateQueries({ queryKey: ['sessions'] });
         } else if (result.created) {
           toast({ title: 'Fecha y hora actualizadas', description: 'Evento creado en Google Calendar.' });
-          queryClient.invalidateQueries({ queryKey: ['sessions'] });
         } else if (!result.success) {
           toast({ title: 'Fecha actualizada', description: result.error || 'Error sincronizando con Google.' });
         } else {
@@ -599,14 +599,15 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
         console.error('Google sync failed:', googleError);
         toast({ title: 'Fecha actualizada', description: 'Error sincronizando con Google.' });
       }
-      
-      // Update local state immediately so UI reflects changes
+
       setLocalDateTime({
         date: dateTimeValue.date,
         startTime: dateTimeValue.startTime,
         endTime: dateTimeValue.endTime,
       });
       queryClient.invalidateQueries({ queryKey: ['sessions'] });
+      queryClient.invalidateQueries({ queryKey: ['session', session.id] });
+      setDetectedConflicts([]);
       setEditingDateTime(false);
     } catch (err) {
       console.error('executeDateTimeSave error:', err);
@@ -620,9 +621,8 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
       return;
     }
 
-    // Check if date/time actually changed
     const dateChanged = dateTimeValue.date !== session.session_date;
-    const timeChanged = dateTimeValue.startTime !== session.start_time?.slice(0, 5) || 
+    const timeChanged = dateTimeValue.startTime !== session.start_time?.slice(0, 5) ||
                         dateTimeValue.endTime !== session.end_time?.slice(0, 5);
 
     if (!dateChanged && !timeChanged) {
@@ -632,7 +632,6 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
 
     setIsCheckingConflicts(true);
     try {
-      // Build the new session time range
       const newStart = new Date(`${dateTimeValue.date}T${dateTimeValue.startTime}`);
       const newEnd = new Date(`${dateTimeValue.date}T${dateTimeValue.endTime}`);
 
@@ -645,42 +644,26 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
 
       if (conflicts.length > 0) {
         setDetectedConflicts(conflicts);
-        setConflictsDialogOpen(true);
       } else {
         await executeDateTimeSave();
       }
     } catch (error) {
       console.error('Error checking conflicts:', error);
-      // If conflict check fails, proceed anyway
       await executeDateTimeSave();
     } finally {
       setIsCheckingConflicts(false);
     }
   };
 
-  // Radix Dialog inside a Vaul Drawer can leave `pointer-events: none`
-  // on <body> after closing, blocking further interaction until refresh.
-  const restoreBodyPointerEvents = () => {
-    setTimeout(() => {
-      if (document?.body?.style?.pointerEvents === 'none') {
-        document.body.style.pointerEvents = '';
-      }
-    }, 100);
-  };
-
   const handleConflictForceCreate = async () => {
-    setConflictsDialogOpen(false);
     setDetectedConflicts([]);
-    restoreBodyPointerEvents();
     await executeDateTimeSave(true);
-    restoreBodyPointerEvents();
   };
 
   const handleConflictCancel = () => {
-    setConflictsDialogOpen(false);
     setDetectedConflicts([]);
-    restoreBodyPointerEvents();
   };
+
 
   const handleFieldSave = async (field: string, value: any) => {
     try {
@@ -1225,11 +1208,36 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                         className="h-8 flex-1"
                       />
                     </div>
+                    {detectedConflicts.length > 0 && (
+                      <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm dark:border-amber-900 dark:bg-amber-950/30">
+                        <p className="font-medium text-amber-800 dark:text-amber-200">
+                          Esta cita se solapa con otra del profesional.
+                        </p>
+                        <ul className="mt-1 list-disc pl-5 text-amber-700 dark:text-amber-300">
+                          {detectedConflicts.flatMap((c, i) =>
+                            c.conflicts.map((cc, j) => (
+                              <li key={`${i}-${j}`}>
+                                {cc.start.slice(0, 5)} - {cc.end.slice(0, 5)}
+                                {cc.patientName ? `: ${cc.patientName}` : ''}
+                              </li>
+                            ))
+                          )}
+                        </ul>
+                        <div className="mt-2 flex justify-end gap-2">
+                          <Button variant="outline" size="sm" onClick={handleConflictCancel}>
+                            Revisar
+                          </Button>
+                          <Button variant="destructive" size="sm" onClick={handleConflictForceCreate}>
+                            Guardar igualmente
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                     <div className="flex gap-2 justify-end">
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => setEditingDateTime(false)}
+                        onClick={() => { setDetectedConflicts([]); setEditingDateTime(false); }}
                       >
                         <X className="h-4 w-4" />
                       </Button>
@@ -1237,15 +1245,16 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                         variant="default"
                         size="sm"
                         onClick={handleDateTimeSave}
-                        disabled={updateSession.isPending}
+                        disabled={updateSession.isPending || isCheckingConflicts || detectedConflicts.length > 0}
                       >
-                        {updateSession.isPending ? (
+                        {updateSession.isPending || isCheckingConflicts ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
                         ) : (
                           <Check className="h-4 w-4" />
                         )}
                       </Button>
                     </div>
+
                   </div>
                 ) : (
                   <>
@@ -2447,14 +2456,8 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
       />
     )}
 
-    {/* Conflicts Dialog for date/time edits */}
-    <ConflictsDialog
-      open={conflictsDialogOpen}
-      conflicts={detectedConflicts}
-      onCancel={handleConflictCancel}
-      onForceCreate={handleConflictForceCreate}
-      isRecurring={false}
-    />
+    {/* Conflict confirmation is now rendered inline inside the date/time edit block */}
+
 
     {/* Collect Bono Payment Dialog */}
     {session && localBonoId && bonoPaymentStatus?.debt && bonoPaymentStatus.bono && (
