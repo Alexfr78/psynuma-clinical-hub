@@ -6321,6 +6321,71 @@ export type Database = {
         }
         Returns: Json
       }
+      update_session_datetime_force: {
+        Args: {
+          p_end_time: string
+          p_session_date: string
+          p_session_id: string
+          p_start_time: string
+        }
+        Returns: {
+          access_token: string | null
+          ai_summary_clinical: string | null
+          ai_summary_patient: string | null
+          base_price_snapshot: number | null
+          bono_id: string | null
+          cancellation_policy: string | null
+          cancellation_reason: string | null
+          center_id: string
+          created_at: string
+          custom_price_id: string | null
+          end_time: string
+          google_calendar_event_id: string | null
+          id: string
+          is_exception: boolean | null
+          last_payment_reminder_at: string | null
+          location_id: string | null
+          notes: string | null
+          occurrence_index: number | null
+          original_start_datetime: string | null
+          patient_id: string
+          payment_mode: string | null
+          payment_reminder_count: number | null
+          payment_status: string | null
+          price: number
+          pricing_source: string | null
+          professional_id: string
+          recurring_series_id: string | null
+          reminder_sent_at: string | null
+          room: string | null
+          send_reminder_email: boolean | null
+          send_reminder_sms: boolean | null
+          send_reminder_whatsapp: boolean | null
+          session_date: string
+          session_modality: string | null
+          session_type: string | null
+          session_type_id: string | null
+          start_time: string
+          status: Database["public"]["Enums"]["session_status"] | null
+          stripe_checkout_session_id: string | null
+          stripe_payment_mode: string | null
+          stripe_payment_status: string | null
+          tariff_plan_assignment_id_snapshot: string | null
+          tariff_plan_id_snapshot: string | null
+          transcript_processed_at: string | null
+          updated_at: string
+          video_call_link: string | null
+          video_provider: string | null
+          zoom_meeting_id: string | null
+          zoom_password: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "sessions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       user_can_create_center: { Args: { _user_id: string }; Returns: boolean }
       uuid_to_lock_id: { Args: { p_uuid: string }; Returns: number }
       verify_assessment_token: {
