@@ -559,13 +559,15 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
   const executeDateTimeSave = async (force = false) => {
     try {
       if (force) {
-        const { error } = await supabase.rpc('update_session_datetime_force', {
+        const { data, error } = await supabase.rpc('update_session_datetime_force', {
           p_session_id: session.id,
           p_session_date: dateTimeValue.date,
           p_start_time: dateTimeValue.startTime,
           p_end_time: dateTimeValue.endTime,
         });
+        console.log('[force-update] rpc result', { data, error });
         if (error) throw error;
+        if (!data) throw new Error('No se pudo actualizar la sesión (sin datos)');
       } else {
         await updateSession.mutateAsync({
           id: session.id,
@@ -574,7 +576,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
           end_time: dateTimeValue.endTime,
         });
       }
-      
+
       // Sync date/time changes to Google Calendar immediately
       try {
         const result = await syncMoveToGoogle(
@@ -583,13 +585,11 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
           dateTimeValue.startTime,
           dateTimeValue.endTime
         );
-        
+
         if (result.recreated) {
           toast({ title: 'Fecha y hora actualizadas', description: 'Evento de Google Calendar recreado.' });
-          queryClient.invalidateQueries({ queryKey: ['sessions'] });
         } else if (result.created) {
           toast({ title: 'Fecha y hora actualizadas', description: 'Evento creado en Google Calendar.' });
-          queryClient.invalidateQueries({ queryKey: ['sessions'] });
         } else if (!result.success) {
           toast({ title: 'Fecha actualizada', description: result.error || 'Error sincronizando con Google.' });
         } else {
@@ -599,14 +599,15 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
         console.error('Google sync failed:', googleError);
         toast({ title: 'Fecha actualizada', description: 'Error sincronizando con Google.' });
       }
-      
-      // Update local state immediately so UI reflects changes
+
       setLocalDateTime({
         date: dateTimeValue.date,
         startTime: dateTimeValue.startTime,
         endTime: dateTimeValue.endTime,
       });
       queryClient.invalidateQueries({ queryKey: ['sessions'] });
+      queryClient.invalidateQueries({ queryKey: ['session', session.id] });
+      setDetectedConflicts([]);
       setEditingDateTime(false);
     } catch (err) {
       console.error('executeDateTimeSave error:', err);
@@ -620,9 +621,8 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
       return;
     }
 
-    // Check if date/time actually changed
     const dateChanged = dateTimeValue.date !== session.session_date;
-    const timeChanged = dateTimeValue.startTime !== session.start_time?.slice(0, 5) || 
+    const timeChanged = dateTimeValue.startTime !== session.start_time?.slice(0, 5) ||
                         dateTimeValue.endTime !== session.end_time?.slice(0, 5);
 
     if (!dateChanged && !timeChanged) {
@@ -632,7 +632,6 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
 
     setIsCheckingConflicts(true);
     try {
-      // Build the new session time range
       const newStart = new Date(`${dateTimeValue.date}T${dateTimeValue.startTime}`);
       const newEnd = new Date(`${dateTimeValue.date}T${dateTimeValue.endTime}`);
 
@@ -645,42 +644,26 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
 
       if (conflicts.length > 0) {
         setDetectedConflicts(conflicts);
-        setConflictsDialogOpen(true);
       } else {
         await executeDateTimeSave();
       }
     } catch (error) {
       console.error('Error checking conflicts:', error);
-      // If conflict check fails, proceed anyway
       await executeDateTimeSave();
     } finally {
       setIsCheckingConflicts(false);
     }
   };
 
-  // Radix Dialog inside a Vaul Drawer can leave `pointer-events: none`
-  // on <body> after closing, blocking further interaction until refresh.
-  const restoreBodyPointerEvents = () => {
-    setTimeout(() => {
-      if (document?.body?.style?.pointerEvents === 'none') {
-        document.body.style.pointerEvents = '';
-      }
-    }, 100);
-  };
-
   const handleConflictForceCreate = async () => {
-    setConflictsDialogOpen(false);
     setDetectedConflicts([]);
-    restoreBodyPointerEvents();
     await executeDateTimeSave(true);
-    restoreBodyPointerEvents();
   };
 
   const handleConflictCancel = () => {
-    setConflictsDialogOpen(false);
     setDetectedConflicts([]);
-    restoreBodyPointerEvents();
   };
+
 
   const handleFieldSave = async (field: string, value: any) => {
     try {
