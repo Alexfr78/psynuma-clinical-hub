@@ -2430,14 +2430,8 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
       />
     )}
 
-    {/* Conflicts Dialog for date/time edits */}
-    <ConflictsDialog
-      open={conflictsDialogOpen}
-      conflicts={detectedConflicts}
-      onCancel={handleConflictCancel}
-      onForceCreate={handleConflictForceCreate}
-      isRecurring={false}
-    />
+    {/* Conflict confirmation is now rendered inline inside the date/time edit block */}
+
 
     {/* Collect Bono Payment Dialog */}
     {session && localBonoId && bonoPaymentStatus?.debt && bonoPaymentStatus.bono && (
