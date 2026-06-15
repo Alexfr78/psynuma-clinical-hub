@@ -1,6 +1,6 @@
 import { registerSW } from "virtual:pwa-register";
 
-let hasControllerChanged = false;
+const UPDATE_INTERVAL_MS = 60 * 60 * 1000;
 
 /**
  * Detect contexts where registering a Service Worker would cause stale
@@ -74,24 +74,27 @@ export function registerPwa() {
     onRegisteredSW(_swUrl, registration) {
       if (!registration) return;
 
-      // Force update check immediately and frequently
-      registration.update().catch(() => undefined);
+      let lastUpdateCheck = 0;
 
-      window.setInterval(() => {
+      const checkForUpdate = () => {
+        if (document.visibilityState !== "visible") return;
+
+        const now = Date.now();
+        if (now - lastUpdateCheck < UPDATE_INTERVAL_MS) return;
+
+        lastUpdateCheck = now;
         registration.update().catch(() => undefined);
-      }, 10 * 1000); // 10 seconds for preview environments
+      };
+
+      checkForUpdate();
+      window.addEventListener("online", checkForUpdate);
+      document.addEventListener("visibilitychange", checkForUpdate);
     },
     onNeedRefresh() {
-      console.log('[PWA] New version available, forcing refresh...');
+      // Activate the update without forcing a page reload. Reloading during a
+      // mobile visibility transition can leave Safari/Chrome in a stalled state.
       void updateSW(true);
     },
     onOfflineReady() {},
-  });
-
-  navigator.serviceWorker.addEventListener("controllerchange", () => {
-    if (hasControllerChanged) return;
-    hasControllerChanged = true;
-    console.log('[PWA] Controller changed, reloading...');
-    window.location.reload();
   });
 }

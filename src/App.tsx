@@ -43,7 +43,19 @@ import Referrals from "./pages/Referrals";
 import Autoregistros from "./pages/Autoregistros";
 import AutoregistroPublic from "./pages/AutoregistroPublic";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      // Mobile browsers fire focus/visibility events aggressively when the app
+      // returns from the background. Refetching every mounted query at once can
+      // saturate the connection and make the UI appear frozen.
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: true,
+      staleTime: 30 * 1000,
+      retry: 1,
+    },
+  },
+});
 
 // Placeholder for future sections
 const PlaceholderPage = ({ title }: { title: string }) => (
