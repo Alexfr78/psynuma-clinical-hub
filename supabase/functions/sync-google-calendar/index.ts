@@ -1,6 +1,12 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { decryptSecret } from "../_shared/crypto.ts";
+import {
+  buildGoogleEventsListParams,
+  canRequestGoogleSync,
+  isPsycmaGoogleEvent,
+  shouldTreatGoogleEventAsExisting,
+} from "../_shared/googleSyncSafety.ts";
 import { notifyProfessionalBooking } from "../_shared/professionalNotification.ts";
 
 // ============================================================
@@ -142,6 +148,7 @@ interface SyncResult {
   updated: number;
   deleted: number;
   errors: string[];
+  warnings?: string[];
   calendarEventsImported?: number;
   skipped?: boolean;
   requestCount?: number;
@@ -535,21 +542,13 @@ async function fetchGoogleCalendarEventsIncremental(
   const baseUrl = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`;
 
   do {
-    const params = new URLSearchParams();
-    
-    if (syncToken && !fullSync) {
-      params.set('syncToken', syncToken);
-    } else {
-      fullSync = true;
-      if (timeMin) params.set('timeMin', timeMin);
-      if (timeMax) params.set('timeMax', timeMax);
-      params.set('singleEvents', 'true');
-      params.set('orderBy', 'startTime');
-    }
-
-    params.set('maxResults', '2500');
-    params.set('showDeleted', 'true');
-    if (pageToken) params.set('pageToken', pageToken);
+    fullSync = !syncToken;
+    const params = buildGoogleEventsListParams({
+      syncToken,
+      timeMin,
+      timeMax,
+      pageToken,
+    });
 
     const response = await googleFetch(
       `${baseUrl}?${params}`,
@@ -565,7 +564,7 @@ async function fetchGoogleCalendarEventsIncremental(
     if (!response.ok) {
       const error = await response.text();
       console.error(`[SYNC:${correlationId}] Error fetching events:`, error);
-      return { events: [], nextSyncToken: null, fullSync };
+      throw new Error(`Google Calendar list failed (${response.status}): ${error}`);
     }
 
     const data = await response.json();
@@ -889,18 +888,6 @@ async function renewChannelIfExpiring(
   }
 }
 
-function hasPsycmaMarkerInDescription(description: string | null | undefined): string | null {
-  if (!description) return null;
-  const match = description.match(/\[PSYCMA_SESSION_ID:([^\]]+)\]/);
-  return match ? match[1] : null;
-}
-
-function isPsycmaEvent(event: any): boolean {
-  if (event.extendedProperties?.private?.psycma_session_id) return true;
-  if (hasPsycmaMarkerInDescription(event.description)) return true;
-  return false;
-}
-
 async function upsertCalendarEvents(
   supabase: any,
   professionalId: string,
@@ -915,7 +902,7 @@ async function upsertCalendarEvents(
   const eventsToImport: any[] = [];
   
   for (const ev of events) {
-    if (isPsycmaEvent(ev)) {
+    if (isPsycmaGoogleEvent(ev)) {
       result.skipped++;
     } else {
       eventsToImport.push(ev);
@@ -989,7 +976,15 @@ async function syncProfessional(
   dateTo: string,
   correlationId: string
 ): Promise<SyncResult> {
-  const result: SyncResult = { created: 0, updated: 0, deleted: 0, errors: [], calendarEventsImported: 0, requestCount: 0 };
+  const result: SyncResult = {
+    created: 0,
+    updated: 0,
+    deleted: 0,
+    errors: [],
+    warnings: [],
+    calendarEventsImported: 0,
+    requestCount: 0,
+  };
 
   console.log(`[SYNC:${correlationId}] ====================================`);
   console.log(`[SYNC:${correlationId}] Professional ${professionalId}`);
@@ -1138,8 +1133,10 @@ async function syncProfessional(
         result.errors.push(`Failed to create event for session ${session.id}`);
       }
     } else {
-      let googleEvent = googleEventMap.get(session.google_calendar_event_id);
-      let eventExists = !!googleEvent;
+      const googleEvent = googleEventMap.get(session.google_calendar_event_id);
+      // Incremental responses contain only changed events. If an event is
+      // absent there, it is unchanged rather than deleted.
+      let eventExists = shouldTreatGoogleEventAsExisting(googleEvent, fullSync);
       
       // OPTIMIZATION: Limit the number of checkGoogleEventExists calls
       // If event is not in the fetched list, assume it doesn't exist and recreate
@@ -1250,7 +1247,7 @@ async function syncProfessional(
                   attempted: { date: parsedStart.date, start: parsedStart.time, end: parsedEnd.time },
                 });
 
-                result.errors.push(`Blocked large move from Google for session ${session.id} (${session.session_date} ${session.start_time} → ${parsedStart.date} ${parsedStart.time})`);
+                result.warnings?.push(`Blocked large move from Google for session ${session.id} (${session.session_date} ${session.start_time} → ${parsedStart.date} ${parsedStart.time})`);
 
                 // Notify the professional (in-app + email + WhatsApp)
                 await alertProfessionalSyncChange(supabase, {
@@ -1266,6 +1263,7 @@ async function syncProfessional(
                   correlationId,
                 });
                 continue;
+              }
 
               // SAFETY GUARD #2: aunque el modo lo permita, comprobar solapamiento antes de aplicar.
               const { data: overlap } = await supabase
@@ -1295,7 +1293,7 @@ async function syncProfessional(
                   google_event_id: session.google_calendar_event_id,
                   attempted: { date: parsedStart.date, start: parsedStart.time, end: parsedEnd.time },
                 });
-                result.errors.push(`Overlap blocked Google→Psycma for session ${session.id}`);
+                result.warnings?.push(`Overlap blocked Google→Psycma for session ${session.id}`);
 
                 // Notify the professional
                 await alertProfessionalSyncChange(supabase, {
@@ -1432,6 +1430,61 @@ async function syncProfessional(
   return result;
 }
 
+async function syncProfessionalWithLock(
+  supabase: any,
+  professionalId: string,
+  dateFrom: string,
+  dateTo: string,
+  correlationId: string
+): Promise<SyncResult> {
+  const lockToken = crypto.randomUUID();
+  const { data: lockAcquired, error: lockError } = await supabase.rpc(
+    'try_acquire_google_sync_lock',
+    {
+      p_professional_id: professionalId,
+      p_lock_token: lockToken,
+      p_lease_seconds: 900,
+    }
+  );
+
+  if (lockError) {
+    throw new Error(`Could not acquire Google sync lock: ${lockError.message}`);
+  }
+
+  if (!lockAcquired) {
+    console.log(`[SYNC:${correlationId}] Sync already running for ${professionalId}, skipping`);
+    return {
+      created: 0,
+      updated: 0,
+      deleted: 0,
+      errors: [],
+      warnings: ['sync_already_running'],
+      skipped: true,
+      requestCount: 0,
+    };
+  }
+
+  console.log(`[SYNC:${correlationId}] Lock acquired for ${professionalId}`);
+
+  try {
+    return await syncProfessional(supabase, professionalId, dateFrom, dateTo, correlationId);
+  } finally {
+    const { error: releaseError } = await supabase.rpc(
+      'release_google_sync_lock',
+      {
+        p_professional_id: professionalId,
+        p_lock_token: lockToken,
+      }
+    );
+
+    if (releaseError) {
+      console.error(`[SYNC:${correlationId}] Error releasing lock:`, releaseError);
+    } else {
+      console.log(`[SYNC:${correlationId}] Lock released for ${professionalId}`);
+    }
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -1444,47 +1497,55 @@ serve(async (req) => {
   requestCount = 0;
 
   try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
     const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      supabaseUrl,
+      serviceRoleKey
     );
 
     const body = await req.json();
     const { professional_id, date_from, date_to, sync_all_professionals, triggered_by } = body;
-    
-    // Use provided correlation_id if available (from webhook)
-    const finalCorrelationId = body.correlation_id || correlationId;
-    
-    console.log(`[SYNC:${finalCorrelationId}] Started, triggered_by: ${triggered_by || 'direct'}`);
 
-    // ============================================================
-    // MUTEX: Acquire advisory lock to prevent concurrent syncs
-    // ============================================================
-    if (professional_id) {
-      const { data: lockAcquired, error: lockError } = await supabase.rpc(
-        'try_acquire_google_sync_lock',
-        { p_professional_id: professional_id }
-      );
+    const authorization = req.headers.get('Authorization') ?? '';
+    const bearerToken = authorization.startsWith('Bearer ')
+      ? authorization.slice('Bearer '.length).trim()
+      : '';
+    const isServiceRequest = Boolean(serviceRoleKey) && bearerToken === serviceRoleKey;
 
-      if (lockError) {
-        console.error(`[SYNC:${finalCorrelationId}] Lock error:`, lockError);
-      } else if (!lockAcquired) {
-        console.log(`[SYNC:${finalCorrelationId}] Sync already running for ${professional_id}, skipping`);
+    if (!isServiceRequest) {
+      if (!bearerToken) {
         return new Response(
-          JSON.stringify({ 
-            created: 0, 
-            updated: 0, 
-            deleted: 0, 
-            errors: ['sync_already_running'], 
-            skipped: true,
-            requestCount: 0 
-          }),
-          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify({ error: 'Authentication required' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
-      console.log(`[SYNC:${finalCorrelationId}] Lock acquired for ${professional_id}`);
+      const { data: authData, error: authError } = await supabase.auth.getUser(bearerToken);
+      if (authError || !authData.user) {
+        return new Response(
+          JSON.stringify({ error: 'Invalid authentication token' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      if (!canRequestGoogleSync({
+        isServiceRequest: false,
+        authenticatedUserId: authData.user.id,
+        professionalId: professional_id || null,
+        syncAllProfessionals: Boolean(sync_all_professionals),
+      })) {
+        return new Response(
+          JSON.stringify({ error: 'Not authorized for this professional' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
     }
+
+    // Use provided correlation_id if available (from webhook)
+    const finalCorrelationId = body.correlation_id || correlationId;
+
+    console.log(`[SYNC:${finalCorrelationId}] Started, triggered_by: ${triggered_by || 'direct'}`);
 
     // Calculate date range
     let dateFrom = date_from;
@@ -1521,62 +1582,69 @@ serve(async (req) => {
       }
     }
 
-    let totalResult: SyncResult = { created: 0, updated: 0, deleted: 0, errors: [], calendarEventsImported: 0, requestCount: 0 };
+    let totalResult: SyncResult = {
+      created: 0,
+      updated: 0,
+      deleted: 0,
+      errors: [],
+      warnings: [],
+      calendarEventsImported: 0,
+      requestCount: 0,
+    };
 
-    try {
-      if (sync_all_professionals) {
-        console.log(`[SYNC:${finalCorrelationId}] Starting sync for all professionals`);
-        
-        const { data: allConnections } = await supabase
-          .from('oauth_connections')
-          .select('professional_id')
-          .eq('provider', 'google')
-          .eq('needs_reconnect', false)
-          .not('refresh_token', 'is', null);
+    if (sync_all_professionals) {
+      console.log(`[SYNC:${finalCorrelationId}] Starting sync for all professionals`);
 
-        const { data: enabledIntegrations } = await supabase
-          .from('professional_integrations')
-          .select('professional_id')
-          .eq('google_calendar_enabled', true);
+      const { data: allConnections } = await supabase
+        .from('oauth_connections')
+        .select('professional_id')
+        .eq('provider', 'google')
+        .eq('needs_reconnect', false)
+        .not('refresh_token', 'is', null);
 
-        const enabledSet = new Set((enabledIntegrations || []).map(i => i.professional_id));
-        const toSync = (allConnections || []).filter(c => enabledSet.has(c.professional_id));
+      const { data: enabledIntegrations } = await supabase
+        .from('professional_integrations')
+        .select('professional_id')
+        .eq('google_calendar_enabled', true);
 
-        console.log(`[SYNC:${finalCorrelationId}] Found ${toSync.length} professionals to sync`);
+      const enabledSet = new Set((enabledIntegrations || []).map(i => i.professional_id));
+      const toSync = (allConnections || []).filter(c => enabledSet.has(c.professional_id));
 
-        for (const connection of toSync) {
-          try {
-            const result = await syncProfessional(supabase, connection.professional_id, dateFrom, dateTo, finalCorrelationId);
-            totalResult.created += result.created;
-            totalResult.updated += result.updated;
-            totalResult.deleted += result.deleted;
-            totalResult.calendarEventsImported = (totalResult.calendarEventsImported || 0) + (result.calendarEventsImported || 0);
-            totalResult.errors.push(...result.errors.map(e => `[${connection.professional_id}] ${e}`));
-          } catch (err) {
-            console.error(`[SYNC:${finalCorrelationId}] Error syncing ${connection.professional_id}:`, err);
-            totalResult.errors.push(`[${connection.professional_id}] ${err}`);
-          }
-        }
-      } else if (professional_id) {
-        totalResult = await syncProfessional(supabase, professional_id, dateFrom, dateTo, finalCorrelationId);
-      } else {
-        return new Response(
-          JSON.stringify({ error: 'professional_id or sync_all_professionals required' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-    } finally {
-      // ============================================================
-      // MUTEX: Always release the lock
-      // ============================================================
-      if (professional_id) {
+      console.log(`[SYNC:${finalCorrelationId}] Found ${toSync.length} professionals to sync`);
+
+      for (const connection of toSync) {
         try {
-          await supabase.rpc('release_google_sync_lock', { p_professional_id: professional_id });
-          console.log(`[SYNC:${finalCorrelationId}] Lock released for ${professional_id}`);
-        } catch (e) {
-          console.error(`[SYNC:${finalCorrelationId}] Error releasing lock:`, e);
+          const result = await syncProfessionalWithLock(
+            supabase,
+            connection.professional_id,
+            dateFrom,
+            dateTo,
+            finalCorrelationId
+          );
+          totalResult.created += result.created;
+          totalResult.updated += result.updated;
+          totalResult.deleted += result.deleted;
+          totalResult.calendarEventsImported = (totalResult.calendarEventsImported || 0) + (result.calendarEventsImported || 0);
+          totalResult.errors.push(...result.errors.map(e => `[${connection.professional_id}] ${e}`));
+          totalResult.warnings?.push(...(result.warnings || []).map(e => `[${connection.professional_id}] ${e}`));
+        } catch (err) {
+          console.error(`[SYNC:${finalCorrelationId}] Error syncing ${connection.professional_id}:`, err);
+          totalResult.errors.push(`[${connection.professional_id}] ${err}`);
         }
       }
+    } else if (professional_id) {
+      totalResult = await syncProfessionalWithLock(
+        supabase,
+        professional_id,
+        dateFrom,
+        dateTo,
+        finalCorrelationId
+      );
+    } else {
+      return new Response(
+        JSON.stringify({ error: 'professional_id or sync_all_professionals required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     totalResult.requestCount = requestCount;
