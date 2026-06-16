@@ -2,7 +2,7 @@
 -- Sistema de tarifas personalizadas por paciente
 -- ============================================================
 
-CREATE TABLE patient_custom_prices (
+CREATE TABLE IF NOT EXISTS patient_custom_prices (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   center_id UUID NOT NULL REFERENCES centers(id) ON DELETE CASCADE,
   patient_id UUID NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
@@ -19,10 +19,10 @@ CREATE TABLE patient_custom_prices (
   CONSTRAINT pcp_end_after_start CHECK (end_date IS NULL OR end_date >= start_date)
 );
 
-CREATE INDEX idx_pcp_patient_id ON patient_custom_prices(patient_id);
-CREATE INDEX idx_pcp_center_id ON patient_custom_prices(center_id);
-CREATE INDEX idx_pcp_target ON patient_custom_prices(target_type, target_id);
-CREATE INDEX idx_pcp_active ON patient_custom_prices(patient_id, target_type, target_id, is_active);
+CREATE INDEX IF NOT EXISTS idx_pcp_patient_id ON patient_custom_prices(patient_id);
+CREATE INDEX IF NOT EXISTS idx_pcp_center_id ON patient_custom_prices(center_id);
+CREATE INDEX IF NOT EXISTS idx_pcp_target ON patient_custom_prices(target_type, target_id);
+CREATE INDEX IF NOT EXISTS idx_pcp_active ON patient_custom_prices(patient_id, target_type, target_id, is_active);
 
 CREATE OR REPLACE FUNCTION check_custom_price_overlap()
 RETURNS TRIGGER AS $$
@@ -54,6 +54,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SET search_path = public;
 
+DROP TRIGGER IF EXISTS trg_check_custom_price_overlap ON patient_custom_prices;
 CREATE TRIGGER trg_check_custom_price_overlap
   BEFORE INSERT OR UPDATE ON patient_custom_prices
   FOR EACH ROW EXECUTE FUNCTION check_custom_price_overlap();
@@ -66,11 +67,12 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SET search_path = public;
 
+DROP TRIGGER IF EXISTS trg_pcp_updated_at ON patient_custom_prices;
 CREATE TRIGGER trg_pcp_updated_at
   BEFORE UPDATE ON patient_custom_prices
   FOR EACH ROW EXECUTE FUNCTION update_patient_custom_prices_updated_at();
 
-CREATE TABLE patient_custom_price_history (
+CREATE TABLE IF NOT EXISTS patient_custom_price_history (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   patient_custom_price_id UUID NOT NULL REFERENCES patient_custom_prices(id) ON DELETE CASCADE,
   patient_id UUID NOT NULL,
@@ -88,8 +90,8 @@ CREATE TABLE patient_custom_price_history (
   changed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_pcph_patient_id ON patient_custom_price_history(patient_id);
-CREATE INDEX idx_pcph_custom_price_id ON patient_custom_price_history(patient_custom_price_id);
+CREATE INDEX IF NOT EXISTS idx_pcph_patient_id ON patient_custom_price_history(patient_id);
+CREATE INDEX IF NOT EXISTS idx_pcph_custom_price_id ON patient_custom_price_history(patient_custom_price_id);
 
 CREATE OR REPLACE FUNCTION record_custom_price_history()
 RETURNS TRIGGER AS $$
@@ -135,6 +137,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SET search_path = public;
 
+DROP TRIGGER IF EXISTS trg_record_custom_price_history ON patient_custom_prices;
 CREATE TRIGGER trg_record_custom_price_history
   AFTER INSERT OR UPDATE ON patient_custom_prices
   FOR EACH ROW EXECUTE FUNCTION record_custom_price_history();
@@ -216,6 +219,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 ALTER TABLE patient_custom_prices ENABLE ROW LEVEL SECURITY;
 ALTER TABLE patient_custom_price_history ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "pcp_center_access" ON patient_custom_prices;
 CREATE POLICY "pcp_center_access" ON patient_custom_prices
   FOR ALL USING (
     center_id IN (SELECT center_id FROM profiles WHERE id = auth.uid())
@@ -224,11 +228,13 @@ CREATE POLICY "pcp_center_access" ON patient_custom_prices
     center_id IN (SELECT center_id FROM profiles WHERE id = auth.uid())
   );
 
+DROP POLICY IF EXISTS "pcph_center_read" ON patient_custom_price_history;
 CREATE POLICY "pcph_center_read" ON patient_custom_price_history
   FOR SELECT USING (
     center_id IN (SELECT center_id FROM profiles WHERE id = auth.uid())
   );
 
+DROP POLICY IF EXISTS "pcph_center_insert" ON patient_custom_price_history;
 CREATE POLICY "pcph_center_insert" ON patient_custom_price_history
   FOR INSERT WITH CHECK (
     center_id IN (SELECT center_id FROM profiles WHERE id = auth.uid())
