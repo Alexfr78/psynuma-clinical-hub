@@ -716,7 +716,7 @@ async function updateGoogleCalendarEvent(
   const psycmaMarker = `\n\n[PSYCMA:${session.id}]`;
   const descriptionWithMarker = description + psycmaMarker;
 
-  const event = {
+  const event: Record<string, unknown> = {
     summary: title,
     description: descriptionWithMarker,
     start: { dateTime: startDateTime, timeZone: 'Europe/Madrid' },
@@ -724,6 +724,8 @@ async function updateGoogleCalendarEvent(
     extendedProperties: {
       private: { psycma_session_id: session.id, psycma_created: 'true' },
     },
+    // "2" = sage green when confirmed; null resets to calendar default
+    colorId: session.status === 'confirmed' ? '2' : null,
   };
 
   const response = await googleFetch(
