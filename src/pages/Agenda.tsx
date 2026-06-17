@@ -443,8 +443,10 @@ export default function Agenda() {
         session_date: newDate,
         start_time: newStartTime,
         end_time: newEndTime,
+        // Rescheduling voids the patient's confirmation
+        ...(session.status === 'confirmed' && { status: 'scheduled' }),
       });
-      
+
       // Sync to Google Calendar immediately with await
       try {
         const result = await syncMoveToGoogle(session, newDate, newStartTime, newEndTime);
@@ -498,6 +500,10 @@ export default function Agenda() {
         p_end_time: newEndTime,
       });
       if (error) throw error;
+      // Rescheduling voids the patient's confirmation
+      if (session.status === 'confirmed') {
+        await supabase.from('sessions').update({ status: 'scheduled' }).eq('id', sessionId);
+      }
       queryClient.invalidateQueries({ queryKey: ['sessions'] });
       try {
         await syncMoveToGoogle(session, newDate, newStartTime, newEndTime);

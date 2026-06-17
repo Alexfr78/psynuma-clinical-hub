@@ -71,11 +71,7 @@ export function SessionDetailDialog({ session, open, onOpenChange, onAnalyzeTran
         status: newStatus as 'scheduled' | 'confirmed' | 'completed' | 'cancelled' | 'no_show',
       });
       try {
-        if (newStatus === 'cancelled') {
-          await syncToGoogle(session, { status: 'cancelled' });
-        } else {
-          await syncToGoogle(session, {});
-        }
+        await syncToGoogle(session, { status: newStatus });
       } catch (googleError) {
         console.error('Error syncing status change to Google:', googleError);
       }

@@ -223,18 +223,19 @@ serve(async (req) => {
   }
 
   try {
-    const { 
-      professional_id, 
+    const {
+      professional_id,
       event_id,
-      session_date, 
-      start_time, 
-      end_time, 
+      session_date,
+      start_time,
+      end_time,
       title,
       description,
       location, // optional: human-readable location string
       status, // 'cancelled' to cancel the event
       psycma_session_id, // For linking converted events
       create_if_not_exists, // If true and event_id is null, create new event
+      color_id, // Google Calendar colorId: "2" = sage (green), null = calendar default
     } = await req.json();
 
     console.log('Update Google Calendar event request:', {
@@ -396,9 +397,11 @@ serve(async (req) => {
 
     // CASE 3: Updating existing event
     const event: any = {};
-    
+
     if (title) event.summary = title;
     if (location !== undefined) event.location = location || '';
+    // color_id: "2" = sage green (confirmed), null removes color (reverts to calendar default)
+    if (color_id !== undefined) event.colorId = color_id || null;
     
     // Handle description - preserve or add Psycma marker token
     if (description !== undefined) {

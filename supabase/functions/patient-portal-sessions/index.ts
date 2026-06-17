@@ -614,7 +614,7 @@ serve(async (req) => {
       // Verify session belongs to patient
       const { data: existingSession } = await supabase
         .from("sessions")
-        .select("id, patient_id, status")
+        .select("id, patient_id, status, professional_id, google_calendar_event_id")
         .eq("id", sessionId)
         .eq("patient_id", session.patientId)
         .single();
@@ -645,6 +645,28 @@ serve(async (req) => {
           JSON.stringify({ error: "Error al confirmar la cita" }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
+      }
+
+      // Update Google Calendar event color to sage green (colorId "2") to signal confirmation
+      if (existingSession.google_calendar_event_id) {
+        try {
+          await fetch(`${supabaseUrl}/functions/v1/update-google-calendar-event`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${supabaseAnonKey}`,
+              "apikey": supabaseServiceKey,
+            },
+            body: JSON.stringify({
+              professional_id: existingSession.professional_id,
+              event_id: existingSession.google_calendar_event_id,
+              color_id: "2",
+            }),
+          });
+        } catch (googleError) {
+          console.error("Error updating Google Calendar color on confirm:", googleError);
+          // Non-fatal — confirmation is already saved in DB
+        }
       }
 
       return new Response(

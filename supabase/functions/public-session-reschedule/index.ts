@@ -534,7 +534,8 @@ Deno.serve(async (req) => {
               end_time: newEndTime,
               title: `${session.session_type || 'Sesión'} - ${patientName}`,
               location: gcalLocation,
-              create_if_not_exists: true, // Create if somehow deleted from Google
+              create_if_not_exists: true,
+              color_id: null, // Rescheduling voids confirmation — remove green dot
             }),
           });
           

@@ -110,11 +110,15 @@ export function useGoogleCalendarUpdate(overrideProfessionalId?: string) {
     }
 
     // Update the existing event
-    const patientName = session.patient 
+    const patientName = session.patient
       ? `${session.patient.first_name} ${session.patient.last_name}`
       : 'Contacto';
 
-    console.log(`[SYNC] Updating Google Calendar event ${googleEventId} for session ${session.id}`);
+    // "2" = sage green when confirmed; null resets to calendar default for any other status
+    const effectiveStatus = updates.status ?? session.status;
+    const colorId = effectiveStatus === 'confirmed' ? '2' : null;
+
+    console.log(`[SYNC] Updating Google Calendar event ${googleEventId} for session ${session.id} (status: ${effectiveStatus}, colorId: ${colorId})`);
 
     const { data, error } = await supabase.functions.invoke('update-google-calendar-event', {
       body: {
@@ -125,7 +129,8 @@ export function useGoogleCalendarUpdate(overrideProfessionalId?: string) {
         start_time: updates.start_time || session.start_time,
         end_time: updates.end_time || session.end_time,
         title: updates.title || `Sesión con ${patientName}`,
-        create_if_not_exists: false, // We have an event_id, so expect it to exist
+        color_id: colorId,
+        create_if_not_exists: false,
       },
     });
 
@@ -171,6 +176,7 @@ export function useGoogleCalendarUpdate(overrideProfessionalId?: string) {
   };
 
   // Sync a moved session (date/time changes)
+  // Moving always voids the patient's confirmation — status forced to 'scheduled'
   const syncMoveToGoogle = async (
     session: SessionWithRelations,
     newDate: string,
@@ -181,6 +187,7 @@ export function useGoogleCalendarUpdate(overrideProfessionalId?: string) {
       session_date: newDate,
       start_time: newStartTime,
       end_time: newEndTime,
+      status: 'scheduled',
     });
   };
 
