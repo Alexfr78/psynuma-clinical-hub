@@ -2463,6 +2463,42 @@ export type Database = {
           },
         ]
       }
+      google_sync_locks: {
+        Row: {
+          lock_token: string
+          locked_until: string
+          professional_id: string
+          updated_at: string
+        }
+        Insert: {
+          lock_token: string
+          locked_until: string
+          professional_id: string
+          updated_at?: string
+        }
+        Update: {
+          lock_token?: string
+          locked_until?: string
+          professional_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "google_sync_locks_professional_id_fkey"
+            columns: ["professional_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "google_sync_locks_professional_id_fkey"
+            columns: ["professional_id"]
+            isOneToOne: true
+            referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       integration_errors: {
         Row: {
           at: string
@@ -6263,7 +6299,7 @@ export type Database = {
         Returns: string
       }
       release_google_sync_lock: {
-        Args: { p_professional_id: string }
+        Args: { p_lock_token: string; p_professional_id: string }
         Returns: undefined
       }
       release_verifactu_chain_lock: {
@@ -6307,7 +6343,11 @@ export type Database = {
       sanitize_error_payload: { Args: { payload: Json }; Returns: Json }
       set_patient_discharged: { Args: { p_patient_id: string }; Returns: Json }
       try_acquire_google_sync_lock: {
-        Args: { p_professional_id: string }
+        Args: {
+          p_lease_seconds?: number
+          p_lock_token: string
+          p_professional_id: string
+        }
         Returns: boolean
       }
       update_payment_and_recompute_debt_v2: {
