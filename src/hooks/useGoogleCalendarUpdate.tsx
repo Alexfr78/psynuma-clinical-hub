@@ -74,13 +74,18 @@ export function useGoogleCalendarUpdate(overrideProfessionalId?: string) {
     session: SessionWithRelations,
     updates: SyncOptions
   ): Promise<SyncResult> => {
-    if (!isGoogleCalendarConnected) {
-      console.log('[SYNC] Google Calendar not connected, skipping sync');
-      return { success: true }; // Not an error, just skipped
-    }
-
     const sessionData = session as any;
     const googleEventId = sessionData.google_calendar_event_id;
+
+    // Only gate on the caller's own integration when we'd need to CREATE a new
+    // event (no existing event_id). For updates/deletes of an already-linked
+    // event, always call the edge function — it checks the session
+    // professional's tokens server-side, which matters when an admin edits
+    // another therapist's session (their own integration check would be false).
+    if (!googleEventId && !isGoogleCalendarConnected) {
+      console.log('[SYNC] Google Calendar not connected for current user and no event_id, skipping sync');
+      return { success: true };
+    }
 
     // If status is cancelled and we have an event_id, delete the event
     if (updates.status === 'cancelled') {
