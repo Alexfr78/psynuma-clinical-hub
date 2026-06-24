@@ -1620,6 +1620,26 @@ serve(async (req) => {
 
       console.log(`[cancel-booking] success sessionId=${session.id}`);
 
+      // Delete event from Google Calendar if linked
+      if (session.google_calendar_event_id && session.professional_id) {
+        try {
+          await supabase.functions.invoke('update-google-calendar-event', {
+            headers: {
+              Authorization: `Bearer ${supabaseServiceKey}`,
+              apikey: supabaseServiceKey,
+            },
+            body: {
+              professional_id: session.professional_id,
+              event_id: session.google_calendar_event_id,
+              status: 'cancelled',
+            },
+          });
+        } catch (err) {
+          console.error('[cancel-booking] Google Calendar sync failed:', err);
+        }
+      }
+
+
       // Send patient cancellation notification
       await queueAndSendPatientBookingNotification({
         supabase,
