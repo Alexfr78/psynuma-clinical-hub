@@ -1698,7 +1698,7 @@ serve(async (req) => {
       // Get current session
       const { data: session } = await supabase
         .from("sessions")
-        .select("id, patient_id, professional_id, location_id, session_date, start_time, end_time, status, cancellation_policy, google_calendar_event_id, title, notes")
+        .select("id, patient_id, professional_id, location_id, session_date, start_time, end_time, status, cancellation_policy, google_calendar_event_id, notes")
         .eq("id", tokenData.sessionId)
         .eq("patient_id", tokenData.patientId)
         .single();
