@@ -207,6 +207,31 @@ serve(async (req) => {
 
         console.log(`Session ${targetSession.id} confirmed by patient via WhatsApp`);
 
+        // Sync confirmation color (sage green) to Google Calendar if linked
+        if (targetSession.google_calendar_event_id) {
+          try {
+            const { error: gcalError } = await supabase.functions.invoke("update-google-calendar-event", {
+              body: {
+                professional_id: targetSession.professional_id,
+                event_id: targetSession.google_calendar_event_id,
+                psycma_session_id: targetSession.id,
+                session_date: targetSession.session_date,
+                start_time: targetSession.start_time,
+                end_time: targetSession.end_time,
+                color_id: "2",
+                create_if_not_exists: false,
+              },
+            });
+            if (gcalError) {
+              console.error("Error syncing confirmation to Google Calendar:", gcalError);
+            } else {
+              console.log(`Google Calendar event ${targetSession.google_calendar_event_id} updated to confirmed color`);
+            }
+          } catch (gcalErr) {
+            console.error("Exception syncing confirmation to Google Calendar:", gcalErr);
+          }
+        }
+
         // Log the incoming message
         await supabase.from("whatsapp_messages").insert({
           center_id: targetSession.center_id,
