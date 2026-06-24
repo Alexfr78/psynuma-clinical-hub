@@ -1528,10 +1528,11 @@ serve(async (req) => {
       // Get session
       const { data: session } = await supabase
         .from("sessions")
-        .select("id, patient_id, session_date, start_time, status, cancellation_policy")
+        .select("id, patient_id, professional_id, session_date, start_time, status, cancellation_policy, google_calendar_event_id")
         .eq("id", tokenData.sessionId)
         .eq("patient_id", tokenData.patientId)
         .single();
+
 
       if (!session) {
         return new Response(
@@ -1619,6 +1620,26 @@ serve(async (req) => {
 
       console.log(`[cancel-booking] success sessionId=${session.id}`);
 
+      // Delete event from Google Calendar if linked
+      if (session.google_calendar_event_id && session.professional_id) {
+        try {
+          await supabase.functions.invoke('update-google-calendar-event', {
+            headers: {
+              Authorization: `Bearer ${supabaseServiceKey}`,
+              apikey: supabaseServiceKey,
+            },
+            body: {
+              professional_id: session.professional_id,
+              event_id: session.google_calendar_event_id,
+              status: 'cancelled',
+            },
+          });
+        } catch (err) {
+          console.error('[cancel-booking] Google Calendar sync failed:', err);
+        }
+      }
+
+
       // Send patient cancellation notification
       await queueAndSendPatientBookingNotification({
         supabase,
@@ -1677,10 +1698,11 @@ serve(async (req) => {
       // Get current session
       const { data: session } = await supabase
         .from("sessions")
-        .select("id, patient_id, professional_id, location_id, session_date, start_time, status, cancellation_policy")
+        .select("id, patient_id, professional_id, location_id, session_date, start_time, end_time, status, cancellation_policy, google_calendar_event_id, notes")
         .eq("id", tokenData.sessionId)
         .eq("patient_id", tokenData.patientId)
         .single();
+
 
       if (!session) {
         return new Response(
@@ -1890,6 +1912,40 @@ serve(async (req) => {
       }
 
       console.log(`[reschedule-booking] success sessionId=${session.id} newDate=${newDate}`);
+
+      // Sync to Google Calendar if linked
+      if (session.professional_id) {
+        try {
+          const { data: gcalResult, error: gcalError } = await supabase.functions.invoke('update-google-calendar-event', {
+            headers: {
+              Authorization: `Bearer ${supabaseServiceKey}`,
+              apikey: supabaseServiceKey,
+            },
+            body: {
+              professional_id: session.professional_id,
+              event_id: session.google_calendar_event_id || null,
+              session_date: newDate,
+              start_time: newStartTime,
+              end_time: newEndTime,
+              psycma_session_id: session.id,
+              description: session.notes || '',
+              create_if_not_exists: true,
+              color_id: null, // reset confirmation color on reschedule
+            },
+          });
+          if (gcalError) {
+            console.error('[reschedule-booking] Google Calendar sync error:', gcalError);
+          } else if (gcalResult?.event_id && gcalResult.event_id !== session.google_calendar_event_id) {
+            await supabase
+              .from('sessions')
+              .update({ google_calendar_event_id: gcalResult.event_id })
+              .eq('id', session.id);
+          }
+        } catch (err) {
+          console.error('[reschedule-booking] Google Calendar sync failed:', err);
+        }
+      }
+
 
       // Send patient reschedule notification
       await queueAndSendPatientBookingNotification({
