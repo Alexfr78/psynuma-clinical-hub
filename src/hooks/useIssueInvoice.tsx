@@ -115,7 +115,22 @@ export function useIssueInvoice() {
       if (!existingDebt) {
         const patientId = invoice.patient_id;
         const invoiceTotal = Number(invoice.total);
-        const sessionId = invoice.session_id || null;
+        let sessionId: string | null = invoice.session_id || null;
+
+        // Invoice header has no session_id column; resolve session via invoice_items
+        if (!sessionId) {
+          const { data: itemSessions } = await supabase
+            .from('invoice_items')
+            .select('session_id')
+            .eq('invoice_id', invoiceId)
+            .not('session_id', 'is', null);
+          const uniqueSessions = Array.from(
+            new Set((itemSessions || []).map((i: any) => i.session_id).filter(Boolean))
+          );
+          if (uniqueSessions.length === 1) {
+            sessionId = uniqueSessions[0] as string;
+          }
+        }
 
         if (patientId && invoiceTotal > 0) {
           // If a session-level pending debt already exists (e.g. created by
@@ -123,18 +138,17 @@ export function useIssueInvoice() {
           // issued), reuse it instead of inserting a duplicate.
           let reusedDebtId: string | null = null;
           if (sessionId) {
-            const { data: sessionDebt } = await supabase
+            const { data: sessionDebts } = await supabase
               .from('debts')
               .select('id')
               .eq('session_id', sessionId)
               .is('invoice_id', null)
               .neq('status', 'refunded')
-              .order('created_at', { ascending: false })
-              .limit(1)
-              .maybeSingle();
+              .order('created_at', { ascending: false });
 
-            if (sessionDebt?.id) {
-              reusedDebtId = sessionDebt.id;
+            if (sessionDebts && sessionDebts.length > 0) {
+              const [first, ...duplicates] = sessionDebts;
+              reusedDebtId = first.id;
               await supabase
                 .from('debts')
                 .update({
@@ -142,7 +156,15 @@ export function useIssueInvoice() {
                   amount: invoiceTotal,
                   updated_at: new Date().toISOString(),
                 })
-                .eq('id', sessionDebt.id);
+                .eq('id', first.id);
+
+              // Clean up any stale duplicate pending debts for the same session
+              if (duplicates.length > 0) {
+                await supabase
+                  .from('debts')
+                  .delete()
+                  .in('id', duplicates.map((d) => d.id));
+              }
             }
           }
 
@@ -162,6 +184,7 @@ export function useIssueInvoice() {
           }
         }
       }
+
 
       // 6. Sign with Verifactu if enabled
       const verifactuAutoEnabled = center?.verifactu_auto_enabled === true;
