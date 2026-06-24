@@ -166,7 +166,7 @@ serve(async (req) => {
         // Find next scheduled session within 48h
         const { data: sessions } = await supabase
           .from("sessions")
-          .select("id, session_date, start_time, status, center_id, patient_id")
+          .select("id, session_date, start_time, end_time, status, center_id, patient_id, professional_id, google_calendar_event_id")
           .in("patient_id", patientIds)
           .eq("status", "scheduled")
           .gte("session_date", todayDate)
