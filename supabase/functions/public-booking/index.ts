@@ -1528,10 +1528,11 @@ serve(async (req) => {
       // Get session
       const { data: session } = await supabase
         .from("sessions")
-        .select("id, patient_id, session_date, start_time, status, cancellation_policy")
+        .select("id, patient_id, professional_id, session_date, start_time, status, cancellation_policy, google_calendar_event_id")
         .eq("id", tokenData.sessionId)
         .eq("patient_id", tokenData.patientId)
         .single();
+
 
       if (!session) {
         return new Response(
