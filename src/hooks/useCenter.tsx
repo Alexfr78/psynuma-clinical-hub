@@ -151,7 +151,7 @@ export function useCenter() {
         .from('centers')
         .update(updates)
         .eq('id', centerId)
-        .select()
+        .select('id')
         .single();
 
       if (error) throw error;
