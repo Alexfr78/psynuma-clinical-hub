@@ -5158,6 +5158,7 @@ export type Database = {
           nif_emisor: string
           numero_instalacion: number
           ultima_factura_id: string | null
+          ultima_verifactu_record_id: string | null
           ultimo_hash: string
           updated_at: string
         }
@@ -5171,6 +5172,7 @@ export type Database = {
           nif_emisor: string
           numero_instalacion: number
           ultima_factura_id?: string | null
+          ultima_verifactu_record_id?: string | null
           ultimo_hash: string
           updated_at?: string
         }
@@ -5184,6 +5186,7 @@ export type Database = {
           nif_emisor?: string
           numero_instalacion?: number
           ultima_factura_id?: string | null
+          ultima_verifactu_record_id?: string | null
           ultimo_hash?: string
           updated_at?: string
         }
@@ -5214,6 +5217,13 @@ export type Database = {
             columns: ["ultima_factura_id"]
             isOneToOne: false
             referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "verifactu_chain_status_ultima_verifactu_record_id_fkey"
+            columns: ["ultima_verifactu_record_id"]
+            isOneToOne: false
+            referencedRelation: "verifactu_records"
             referencedColumns: ["id"]
           },
         ]
@@ -5294,6 +5304,117 @@ export type Database = {
             columns: ["invoice_id"]
             isOneToOne: false
             referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      verifactu_records: {
+        Row: {
+          aeat_csv: string | null
+          aeat_response_xml: string | null
+          aeat_status: string
+          center_id: string
+          created_at: string
+          created_by: string | null
+          environment: string
+          error_message: string | null
+          hash: string
+          http_status: number | null
+          id: string
+          installation_id: number
+          invoice_id: string
+          invoice_issue_date: string
+          invoice_number: string
+          previous_hash: string | null
+          previous_record_id: string | null
+          record_type: string
+          system_id: string
+          taxpayer_nif: string
+          updated_at: string
+          xml_sent: string
+        }
+        Insert: {
+          aeat_csv?: string | null
+          aeat_response_xml?: string | null
+          aeat_status: string
+          center_id: string
+          created_at?: string
+          created_by?: string | null
+          environment: string
+          error_message?: string | null
+          hash: string
+          http_status?: number | null
+          id?: string
+          installation_id: number
+          invoice_id: string
+          invoice_issue_date: string
+          invoice_number: string
+          previous_hash?: string | null
+          previous_record_id?: string | null
+          record_type: string
+          system_id: string
+          taxpayer_nif: string
+          updated_at?: string
+          xml_sent: string
+        }
+        Update: {
+          aeat_csv?: string | null
+          aeat_response_xml?: string | null
+          aeat_status?: string
+          center_id?: string
+          created_at?: string
+          created_by?: string | null
+          environment?: string
+          error_message?: string | null
+          hash?: string
+          http_status?: number | null
+          id?: string
+          installation_id?: number
+          invoice_id?: string
+          invoice_issue_date?: string
+          invoice_number?: string
+          previous_hash?: string | null
+          previous_record_id?: string | null
+          record_type?: string
+          system_id?: string
+          taxpayer_nif?: string
+          updated_at?: string
+          xml_sent?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "verifactu_records_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "verifactu_records_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "verifactu_records_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "portal_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "verifactu_records_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "verifactu_records_previous_record_id_fkey"
+            columns: ["previous_record_id"]
+            isOneToOne: false
+            referencedRelation: "verifactu_records"
             referencedColumns: ["id"]
           },
         ]
