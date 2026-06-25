@@ -31,7 +31,7 @@ function useDashboardStats() {
         supabase.from('sessions').select('id', { count: 'exact', head: true }).eq('session_date', today).neq('status', 'cancelled').neq('status', 'no_show').neq('status', 'blocked'),
         supabase.from('invoices').select('total, status').gte('issue_date', startOfMonth).lte('issue_date', endOfMonth),
         supabase.from('debts').select('amount, paid_amount, invoice_id').in('status', ['pending', 'partial']),
-        supabase.from('invoices').select('id, total').eq('status', 'issued'),
+        supabase.from('invoices').select('id, total').eq('status', 'issued').eq('is_valid', true),
         // All debts with invoice_id (any status) to know which invoices already have debt records
         supabase.from('debts').select('invoice_id').not('invoice_id', 'is', null),
       ]);
@@ -40,11 +40,23 @@ function useDashboardStats() {
         ?.filter(inv => inv.status === 'issued' || inv.status === 'paid')
         .reduce((sum, inv) => sum + Number(inv.total), 0) || 0;
 
-      // Debts pending amount
-      const debtsPending = debtsRes.data
-        ?.reduce((sum, debt) => sum + (Number(debt.amount) - Number(debt.paid_amount)), 0) || 0;
+      // Exclude debts whose invoice has been invalidated by a rectificativa
+      const debtInvoiceIds = new Set(debtsRes.data?.map(d => d.invoice_id).filter(Boolean) as string[]);
+      let invalidInvoiceIds = new Set<string>();
+      if (debtInvoiceIds.size > 0) {
+        const { data: invalidInvoices } = await supabase
+          .from('invoices')
+          .select('id')
+          .in('id', Array.from(debtInvoiceIds))
+          .eq('is_valid', false);
+        if (invalidInvoices) invalidInvoiceIds = new Set(invalidInvoices.map(i => i.id));
+      }
 
-      // Issued invoices without ANY debt record (fallback for older invoices)
+      const debtsPending = debtsRes.data
+        ?.filter(debt => !debt.invoice_id || !invalidInvoiceIds.has(debt.invoice_id))
+        .reduce((sum, debt) => sum + (Number(debt.amount) - Number(debt.paid_amount)), 0) || 0;
+
+      // Issued valid invoices without ANY debt record (fallback for older invoices)
       const allDebtInvoiceIds = new Set(allDebtInvoiceIdsRes.data?.map(d => d.invoice_id).filter(Boolean));
       const invoicesWithoutDebt = issuedInvoicesRes.data
         ?.filter(inv => !allDebtInvoiceIds.has(inv.id))
