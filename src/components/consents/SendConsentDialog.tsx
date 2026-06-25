@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   ResponsiveDialog as Dialog,
   ResponsiveDialogContent as DialogContent,
@@ -13,6 +13,7 @@ import { useWhatsAppDelivery } from "@/hooks/useWhatsAppDelivery";
 import { useCenter } from "@/hooks/useCenter";
 import { WhatsAppLinkDialog } from "@/components/agenda/WhatsAppLinkDialog";
 import { Badge } from "@/components/ui/badge";
+import { supabase } from "@/integrations/supabase/client";
 
 interface SendConsentDialogProps {
   consent: Consent;
@@ -26,13 +27,31 @@ export function SendConsentDialog({ consent, patientPhone, open, onOpenChange }:
   const [isSending, setIsSending] = useState(false);
   const [whatsAppDialogOpen, setWhatsAppDialogOpen] = useState(false);
   const [manualLink, setManualLink] = useState("");
+  const [fetchedPhone, setFetchedPhone] = useState<string | null>(null);
 
   const { sendWhatsApp, deliveryMethod, isAutomatic, methodLabel } = useWhatsAppDelivery();
   const { center } = useCenter();
 
   const consentUrl = `${window.location.origin}/consentimiento/${consent.access_token}`;
   const patientName = consent.patient ? `${consent.patient.first_name}` : "";
-  const phone = patientPhone ?? consent.patient?.phone ?? null;
+  const phone = patientPhone || consent.patient?.phone || fetchedPhone || null;
+
+  // Fallback: fetch the patient's phone directly if it wasn't provided via props/embed
+  useEffect(() => {
+    if (!open) return;
+    if (patientPhone || consent.patient?.phone) return;
+    if (!consent.patient_id) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from('patients')
+        .select('phone')
+        .eq('id', consent.patient_id)
+        .maybeSingle();
+      if (!cancelled && data?.phone) setFetchedPhone(data.phone);
+    })();
+    return () => { cancelled = true; };
+  }, [open, consent.patient_id, patientPhone, consent.patient?.phone]);
 
   const message = `Buenos días${patientName ? ` ${patientName}` : ""}, tal y como te comenté, te adjunto el acuerdo de consentimiento para la protección de datos. Al final de la lectura encontrás los campos para Autorizar o No el consentimiento.
 
