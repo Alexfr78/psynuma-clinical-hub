@@ -400,8 +400,10 @@ serve(async (req) => {
 
     if (title) event.summary = title;
     if (location !== undefined) event.location = location || '';
-    // color_id: "2" = sage green (confirmed), null removes color (reverts to calendar default)
-    if (color_id !== undefined) event.colorId = color_id || null;
+    // Apply explicit colors with the main update. Removing a color is done in a
+    // separate request below so a rejected color reset can never block a move.
+    const shouldClearColor = color_id === null;
+    if (color_id !== undefined && color_id !== null) event.colorId = color_id;
     
     // Handle description - preserve or add Psycma marker token
     if (description !== undefined) {
@@ -547,8 +549,35 @@ serve(async (req) => {
     const eventData = await updateResponse.json();
     console.log(`[UPDATE] Event updated successfully: ${eventData.id}`);
 
+    let colorReset = true;
+    if (shouldClearColor) {
+      const colorResponse = await fetch(
+        `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${event_id}`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ colorId: null }),
+        }
+      );
+
+      colorReset = colorResponse.ok;
+      if (!colorReset) {
+        const colorError = await colorResponse.text();
+        console.error(`[UPDATE] Event moved, but color reset failed (${colorResponse.status}):`, colorError);
+      }
+    }
+
     return new Response(
-      JSON.stringify({ success: true, event_id: eventData.id }),
+      JSON.stringify({
+        success: true,
+        event_id: eventData.id,
+        ...(shouldClearColor && !colorReset
+          ? { warning: 'event_updated_but_color_reset_failed' }
+          : {}),
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
