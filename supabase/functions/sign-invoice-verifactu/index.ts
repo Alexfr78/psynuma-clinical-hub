@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { authorizeFiscalInvoiceRequest } from "../_shared/fiscalAuth.ts";
 
 // Dynamic import of node-forge with bundle for Deno compatibility
 const forgeModule = await import("https://esm.sh/node-forge@1.3.1?bundle");
@@ -208,7 +209,7 @@ function sanitizeNumSerieFactura(input: unknown): string {
   s = s.replace(/\s+/g, '');
   
   // Remove any character that's not A-Z, 0-9, or hyphen
-  s = s.replace(/[^A-Z0-9\-]/g, '');
+  s = s.replace(/[^A-Z0-9-]/g, '');
   
   console.log("NORMALIZED NumSerieFactura:", JSON.stringify(s));
   
@@ -217,7 +218,7 @@ function sanitizeNumSerieFactura(input: unknown): string {
     throw new Error(`NumSerieFactura vacío después de normalizar (valor original: ${JSON.stringify(input)})`);
   }
   
-  if (!/^[A-Z0-9\-]{1,60}$/.test(s)) {
+  if (!/^[A-Z0-9-]{1,60}$/.test(s)) {
     throw new Error(`NumSerieFactura inválido: "${s}" (longitud: ${s.length})`);
   }
   
@@ -233,7 +234,10 @@ function sanitizeNombreSistemaInformatico(input: unknown): string {
   s = s.replace(/[\r\n\t]+/g, " ").trim();
 
   // Remove control characters (ASCII 0-31 and 127)
-  s = s.replace(/[\x00-\x1F\x7F]/g, "");
+  s = Array.from(s).filter((char) => {
+    const code = char.charCodeAt(0);
+    return code > 31 && code !== 127;
+  }).join("");
 
   // Remove emoji/surrogates
   s = s.replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, "");
@@ -338,9 +342,9 @@ function buildDesgloseFromItems(invoiceItems: any[], invoice: any): string {
     const cuota = Number(item.tax_amount) || 0;
     
     // Determine treatment from item or infer from tax rate
-    let treatment = item.tax_treatment || (taxRate === 0 ? 'EXENTA' : 'S1');
-    let exemptionCode = item.exemption_code || (treatment === 'EXENTA' ? 'E1' : null);
-    let nonSubjectCode = item.non_subject_code || null;
+    const treatment = item.tax_treatment || (taxRate === 0 ? 'EXENTA' : 'S1');
+    const exemptionCode = item.exemption_code || (treatment === 'EXENTA' ? 'E1' : null);
+    const nonSubjectCode = item.non_subject_code || null;
 
     // Create group key based on treatment + tax rate
     const groupKey = `${treatment}-${taxRate}-${exemptionCode || ''}-${nonSubjectCode || ''}`;
@@ -516,9 +520,7 @@ function buildRegistroAltaXML(
               <sum1:Huella>${previousHash}</sum1:Huella>
             </sum1:RegistroAnterior>`;
   } else if (previousHash) {
-    // Fallback: we have a hash but no previous invoice data (shouldn't happen normally)
-    console.warn("WARNING: previousHash exists but no previous invoice data available. Using PrimerRegistro=S as fallback.");
-    encadenamientoXML = `<sum1:PrimerRegistro>S</sum1:PrimerRegistro>`;
+    throw new Error("Cadena Verifactu inconsistente: existe huella anterior pero faltan datos del registro anterior");
   } else {
     encadenamientoXML = `<sum1:PrimerRegistro>S</sum1:PrimerRegistro>`;
   }
@@ -819,6 +821,17 @@ function extractResponseCode(responseXml: string): string | null {
   return codeMatch?.[1] || null;
 }
 
+function extractXmlValue(responseXml: string, tagName: string): string | null {
+  const match = responseXml.match(new RegExp(`<[^>]*${tagName}[^>]*>([^<]+)<\\/[^>]*${tagName}[^>]*>`, 'i'));
+  return match?.[1]?.trim() || null;
+}
+
+function isExplicitAEATSuccess(responseXml: string): boolean {
+  const estadoEnvio = extractXmlValue(responseXml, 'EstadoEnvio');
+  const estadoRegistro = extractXmlValue(responseXml, 'EstadoRegistro');
+  return estadoEnvio === 'Correcto' || estadoRegistro === 'Correcto';
+}
+
 // Send XML to AEAT with mTLS authentication
 async function sendToAEAT(
   signedXml: string, 
@@ -851,7 +864,7 @@ async function sendToAEAT(
         'SOAPAction': SOAP_ACTION_ALTA
       },
       body: signedXml,
-      // @ts-ignore - Deno specific option for mTLS
+      // @ts-expect-error - Deno specific option for mTLS
       client: client
     });
 
@@ -876,11 +889,8 @@ async function sendToAEAT(
       };
     }
 
-    // Check for EstadoEnvio/EstadoRegistro = Incorrecto (multiple namespace patterns: sifac, tikR)
-    const estadoEnvioMatch = responseText.match(/<(?:sifac|tikR):EstadoEnvio>([^<]+)<\/(?:sifac|tikR):EstadoEnvio>/);
-    const estadoRegistroMatch = responseText.match(/<(?:sifac|tikR):EstadoRegistro>([^<]+)<\/(?:sifac|tikR):EstadoRegistro>/);
-    const estadoEnvio = estadoEnvioMatch?.[1];
-    const estadoRegistro = estadoRegistroMatch?.[1];
+    const estadoEnvio = extractXmlValue(responseText, 'EstadoEnvio');
+    const estadoRegistro = extractXmlValue(responseText, 'EstadoRegistro');
     
     // Extract error code and description (support multiple namespaces)
     const errorCodePatterns = [
@@ -926,16 +936,20 @@ async function sendToAEAT(
       return { success: true, response: responseText, httpStatus: response.status };
     }
 
-    // Check for EstadoRegistro = Correcto or EstadoEnvio = Correcto
-    if (estadoEnvio === 'Correcto' || estadoRegistro === 'Correcto' || 
-        responseText.includes('Correcto') || responseText.includes('Aceptada')) {
+    // Accept only explicit AEAT success states, not generic text matches.
+    if (isExplicitAEATSuccess(responseText)) {
       return { success: true, response: responseText, httpStatus: response.status };
     }
 
-    // If we have a valid SOAP response but no clear success/error, log warning and return as pending
+    // A SOAP envelope without explicit acceptance is not a successful registration.
     if (responseText.includes('RespuestaRegFactuSistemaFacturacion') || responseText.includes('env:Envelope')) {
-      console.log("AEAT response received but status unclear, treating as success");
-      return { success: true, response: responseText, httpStatus: response.status };
+      console.warn("AEAT response received but acceptance status is unclear; not marking as success");
+      return {
+        success: false,
+        error: 'Respuesta AEAT sin aceptacion inequivoca',
+        response: responseText,
+        httpStatus: response.status
+      };
     }
 
     // Unknown response format
@@ -1028,6 +1042,20 @@ serve(async (req) => {
       );
     }
 
+    const fiscalAccess = await authorizeFiscalInvoiceRequest(req, supabase, {
+      invoiceId: invoice_id,
+      invoiceCenterId: invoice.center_id,
+      allowedRoles: ["admin"],
+      corsHeaders,
+    });
+    if (!fiscalAccess.ok) return fiscalAccess.response;
+
+    console.log("[VERIFACTU:AUTH] Fiscal access granted", {
+      actor_type: fiscalAccess.context.actorType,
+      user_id: fiscalAccess.context.userId,
+      center_id: fiscalAccess.context.centerId,
+    });
+
     const center = invoice.centers;
     const patient = invoice.patients;
     const invoiceItems = invoice.invoice_items || [];
@@ -1106,7 +1134,7 @@ serve(async (req) => {
     // This ensures proper chaining per NIF + Sistema + Instalación
     const { data: chainStatus } = await supabase
       .from("verifactu_chain_status")
-      .select("ultimo_hash, ultima_factura_id")
+      .select("ultimo_hash, ultima_factura_id, ultima_verifactu_record_id")
       .eq("center_id", invoice.center_id)
       .eq("nif_emisor", nifEmisor)
       .eq("id_sistema_informatico", idSistemaInformatico)
@@ -1114,13 +1142,27 @@ serve(async (req) => {
       .maybeSingle();
 
     const previousHash = chainStatus?.ultimo_hash || null;
+    const previousRecordId = chainStatus?.ultima_verifactu_record_id || null;
     console.log(`Chain status for NIF=${nifEmisor}, Sistema=${idSistemaInformatico}, Instalacion=${numeroInstalacion}:`, 
       previousHash ? `found hash from invoice ${chainStatus?.ultima_factura_id}` : "none (first invoice in this chain)");
 
     // Fetch previous invoice data for RegistroAnterior block
     let previousInvoiceNumber: string | undefined;
     let previousInvoiceDate: string | undefined;
-    if (chainStatus?.ultima_factura_id) {
+    if (previousRecordId) {
+      const { data: prevRecord } = await supabase
+        .from("verifactu_records")
+        .select("invoice_number, invoice_issue_date")
+        .eq("id", previousRecordId)
+        .single();
+      if (prevRecord) {
+        previousInvoiceNumber = prevRecord.invoice_number;
+        previousInvoiceDate = prevRecord.invoice_issue_date;
+        console.log(`Previous Verifactu record for chain: ${previousInvoiceNumber} (${previousInvoiceDate})`);
+      } else {
+        console.warn(`Could not fetch previous Verifactu record ${previousRecordId} for RegistroAnterior`);
+      }
+    } else if (chainStatus?.ultima_factura_id) {
       const { data: prevInv } = await supabase
         .from("invoices")
         .select("invoice_number, issue_date")
@@ -1133,6 +1175,29 @@ serve(async (req) => {
       } else {
         console.warn(`Could not fetch previous invoice ${chainStatus.ultima_factura_id} for RegistroAnterior`);
       }
+    }
+
+    if (previousHash && (!previousInvoiceNumber || !previousInvoiceDate)) {
+      const chainError = chainStatus?.ultima_factura_id
+        ? `Cadena Verifactu inconsistente: no se pudo cargar la factura anterior ${chainStatus.ultima_factura_id}`
+        : "Cadena Verifactu inconsistente: existe huella anterior sin factura anterior asociada";
+
+      console.error("[VERIFACTU:CHAIN]", chainError);
+      await logVerifactuEvent(supabase, {
+        invoice_id,
+        center_id: invoice.center_id,
+        event_type: 'error',
+        environment,
+        error_details: chainError
+      });
+
+      return new Response(
+        JSON.stringify({
+          error: chainError,
+          chain_inconsistent: true
+        }),
+        { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     // Generate timestamp
@@ -1377,6 +1442,68 @@ serve(async (req) => {
       );
     }
 
+    const { data: verifactuRecord, error: recordInsertError } = await supabase
+      .from("verifactu_records")
+      .insert({
+        center_id: invoice.center_id,
+        invoice_id,
+        previous_record_id: previousRecordId,
+        record_type: 'alta',
+        taxpayer_nif: nifEmisor,
+        system_id: idSistemaInformatico,
+        installation_id: numeroInstalacion,
+        environment,
+        invoice_number: invoice.invoice_number,
+        invoice_issue_date: invoice.issue_date,
+        hash: invoiceHash,
+        previous_hash: previousHash,
+        xml_sent: signedXml,
+        aeat_response_xml: aeatResult.response,
+        aeat_status: 'accepted',
+        aeat_csv: csv,
+        http_status: aeatResult.httpStatus,
+        created_by: fiscalAccess.context.userId
+      })
+      .select("id")
+      .single();
+
+    if (recordInsertError || !verifactuRecord) {
+      const recordError = `Factura registrada en AEAT, pero no se pudo guardar el registro Verifactu canónico: ${recordInsertError?.message || 'sin detalle'}`;
+      console.error("[VERIFACTU:RECORD]", recordError);
+
+      await logVerifactuEvent(supabase, {
+        invoice_id,
+        center_id: invoice.center_id,
+        event_type: 'error',
+        aeat_csv: csv,
+        aeat_response_message: recordError,
+        aeat_response_xml: aeatResult.response,
+        xml_sent: signedXml,
+        environment,
+        http_status: aeatResult.httpStatus,
+        error_details: recordError
+      });
+
+      await supabase
+        .from("invoices")
+        .update({
+          verifactu_error_message: recordError,
+          verifactu_error_permanent: true
+        })
+        .eq("id", invoice_id);
+
+      return new Response(
+        JSON.stringify({
+          error: recordError,
+          canonical_record_failed: true,
+          invoice_number: invoice.invoice_number,
+          csv,
+          environment
+        }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // Update chain status with the new hash for this installation
     // This ensures proper chaining for subsequent invoices
     const { error: chainUpdateError } = await supabase
@@ -1388,6 +1515,7 @@ serve(async (req) => {
         numero_instalacion: numeroInstalacion,
         ultimo_hash: invoiceHash,
         ultima_factura_id: invoice_id,
+        ultima_verifactu_record_id: verifactuRecord.id,
         updated_at: new Date().toISOString()
       }, {
         onConflict: 'center_id,nif_emisor,id_sistema_informatico,numero_instalacion'
@@ -1395,10 +1523,42 @@ serve(async (req) => {
 
     if (chainUpdateError) {
       console.error("Error updating chain status:", chainUpdateError);
-      // Don't fail the request, just log - the invoice was already registered
-    } else {
-      console.log(`Chain status updated: NIF=${nifEmisor}, Sistema=${idSistemaInformatico}, Instalacion=${numeroInstalacion}, Hash=${invoiceHash.substring(0, 16)}...`);
+      const chainError = `Factura registrada en AEAT, pero no se pudo actualizar la cadena local: ${chainUpdateError.message}`;
+
+      await logVerifactuEvent(supabase, {
+        invoice_id,
+        center_id: invoice.center_id,
+        event_type: 'error',
+        aeat_csv: csv,
+        aeat_response_message: chainError,
+        aeat_response_xml: aeatResult.response,
+        xml_sent: signedXml,
+        environment,
+        http_status: aeatResult.httpStatus,
+        error_details: chainError
+      });
+
+      await supabase
+        .from("invoices")
+        .update({
+          verifactu_error_message: chainError,
+          verifactu_error_permanent: true
+        })
+        .eq("id", invoice_id);
+
+      return new Response(
+        JSON.stringify({
+          error: chainError,
+          chain_update_failed: true,
+          invoice_number: invoice.invoice_number,
+          csv,
+          environment
+        }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
+
+    console.log(`Chain status updated: NIF=${nifEmisor}, Sistema=${idSistemaInformatico}, Instalacion=${numeroInstalacion}, Hash=${invoiceHash.substring(0, 16)}...`);
 
     console.log("Invoice signed and registered successfully");
 

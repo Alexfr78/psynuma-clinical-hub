@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { authorizeFiscalInvoiceRequest } from "../_shared/fiscalAuth.ts";
 
 // Dynamic import of node-forge with bundle for Deno compatibility
 const forgeModule = await import("https://esm.sh/node-forge@1.3.1?bundle");
@@ -114,6 +115,15 @@ function escapeXML(str: string): string {
     .replace(/'/g, '&apos;');
 }
 
+function normalizeNifForAEAT(nif: string | null | undefined): string {
+  if (!nif) return '';
+  let normalized = nif.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (normalized.startsWith('ES') && normalized.length > 2) {
+    normalized = normalized.substring(2);
+  }
+  return normalized;
+}
+
 // Generate SHA-256 hash for cancellation record
 async function generateSHA256(data: string): Promise<string> {
   const encoder = new TextEncoder();
@@ -125,7 +135,7 @@ async function generateSHA256(data: string): Promise<string> {
 
 // Calculate cancellation hash for chaining (Art. 11.2.c RRSIF)
 async function calculateCancellationHash(invoice: any, center: any, previousHash: string | null, timestamp: string): Promise<string> {
-  const nifEmisor = center.tax_id?.replace(/[^A-Z0-9]/gi, '') || '';
+  const nifEmisor = normalizeNifForAEAT(center.tax_id);
   const numSerie = invoice.invoice_number || '';
   const fechaExpedicion = formatDateVerifactu(invoice.issue_date);
   const huellaAnterior = previousHash || '';
@@ -140,26 +150,37 @@ async function calculateCancellationHash(invoice: any, center: any, previousHash
 // Build RegistroAnulacion XML for invoice cancellation (with proper chaining per Art. 11.2.c RRSIF)
 // sum: for container elements (RegFactuSistemaFacturacion, Cabecera, RegistroFactura)
 // sum1: for internal types
-function buildRegistroBajaXML(invoice: any, center: any, generationTimestamp: string, cancellationHash: string, previousHash: string | null): string {
-  const nifEmisor = center.tax_id?.replace(/[^A-Z0-9]/gi, '') || '';
+function buildRegistroBajaXML(
+  invoice: any,
+  center: any,
+  generationTimestamp: string,
+  cancellationHash: string,
+  previousHash: string | null,
+  previousInvoiceNumber?: string,
+  previousInvoiceDate?: string
+): string {
+  const nifEmisor = normalizeNifForAEAT(center.tax_id);
   const nombreEmisor = center.name || '';
   const fechaExpedicion = formatDateVerifactu(invoice.issue_date);
   const softwareName = center.verifactu_software_name || 'Psycma';
   const softwareVersion = center.verifactu_software_version || '1.0.0';
   const softwareNif = center.verifactu_software_nif || nifEmisor;
+  const numeroInstalacion = String(center.verifactu_numero_instalacion || 1);
 
   // Build encadenamiento (chaining) for cancellation - Art. 11.2.c RRSIF
   let encadenamientoXML = '';
-  if (previousHash) {
+  if (previousHash && previousInvoiceNumber && previousInvoiceDate) {
     encadenamientoXML = `
           <sum1:Encadenamiento>
             <sum1:RegistroAnterior>
               <sum1:IDEmisorFactura>${nifEmisor}</sum1:IDEmisorFactura>
-              <sum1:NumSerieFactura>${escapeXML(invoice.invoice_number)}</sum1:NumSerieFactura>
-              <sum1:FechaExpedicionFactura>${fechaExpedicion}</sum1:FechaExpedicionFactura>
+              <sum1:NumSerieFactura>${escapeXML(previousInvoiceNumber)}</sum1:NumSerieFactura>
+              <sum1:FechaExpedicionFactura>${formatDateVerifactu(previousInvoiceDate)}</sum1:FechaExpedicionFactura>
               <sum1:Huella>${previousHash}</sum1:Huella>
             </sum1:RegistroAnterior>
           </sum1:Encadenamiento>`;
+  } else if (previousHash) {
+    throw new Error("Cadena Verifactu inconsistente: existe huella anterior pero faltan datos del registro anterior");
   } else {
     encadenamientoXML = `
           <sum1:Encadenamiento>
@@ -188,7 +209,7 @@ function buildRegistroBajaXML(invoice: any, center: any, generationTimestamp: st
             <sum1:NombreSistemaInformatico>${escapeXML(softwareName)}</sum1:NombreSistemaInformatico>
             <sum1:IdSistemaInformatico>01</sum1:IdSistemaInformatico>
             <sum1:Version>${softwareVersion}</sum1:Version>
-            <sum1:NumeroInstalacion>1</sum1:NumeroInstalacion>
+            <sum1:NumeroInstalacion>${numeroInstalacion}</sum1:NumeroInstalacion>
             <sum1:TipoUsoPosibleSoloVerifactu>S</sum1:TipoUsoPosibleSoloVerifactu>
             <sum1:TipoUsoPosibleMultiOT>N</sum1:TipoUsoPosibleMultiOT>
             <sum1:IndicadorMultiplesOT>N</sum1:IndicadorMultiplesOT>
@@ -244,7 +265,9 @@ function extractCertificatesFromPKCS12(certificateBase64: string, certificatePas
         endEntityCert = cert;
         break;
       }
-    } catch (e) {}
+    } catch (e) {
+      console.warn("Skipping certificate while matching public key:", e);
+    }
   }
 
   if (!endEntityCert) {
@@ -339,6 +362,22 @@ function extractCSV(responseXml: string): string | null {
   return csvMatch?.[1] || null;
 }
 
+function extractXmlValue(responseXml: string, tagName: string): string | null {
+  const match = responseXml.match(new RegExp(`<[^>]*${tagName}[^>]*>([^<]+)<\\/[^>]*${tagName}[^>]*>`, 'i'));
+  return match?.[1]?.trim() || null;
+}
+
+function extractAEATError(responseXml: string): string | null {
+  return extractXmlValue(responseXml, 'DescripcionErrorRegistro')
+    || extractXmlValue(responseXml, 'faultstring');
+}
+
+function isExplicitAEATSuccess(responseXml: string): boolean {
+  const estadoEnvio = extractXmlValue(responseXml, 'EstadoEnvio');
+  const estadoRegistro = extractXmlValue(responseXml, 'EstadoRegistro');
+  return estadoEnvio === 'Correcto' || estadoRegistro === 'Correcto';
+}
+
 // Send XML to AEAT with mTLS authentication
 async function sendToAEAT(
   signedXml: string, 
@@ -371,7 +410,7 @@ async function sendToAEAT(
         'SOAPAction': SOAP_ACTION_BAJA
       },
       body: signedXml,
-      // @ts-ignore - Deno specific option for mTLS
+      // @ts-expect-error - Deno specific option for mTLS
       client: client
     });
 
@@ -396,14 +435,41 @@ async function sendToAEAT(
       };
     }
 
-    if (responseText.includes('<sifac:CodigoErrorRegistro>') || responseText.includes('faultstring')) {
-      const errorMatch = responseText.match(/<sifac:DescripcionErrorRegistro>([^<]+)<\/sifac:DescripcionErrorRegistro>/);
-      const faultMatch = responseText.match(/<faultstring>([^<]+)<\/faultstring>/);
-      const errorMessage = errorMatch?.[1] || faultMatch?.[1] || 'Error desconocido de AEAT';
+    const errorCode = extractXmlValue(responseText, 'CodigoErrorRegistro');
+    const estadoEnvio = extractXmlValue(responseText, 'EstadoEnvio');
+    const estadoRegistro = extractXmlValue(responseText, 'EstadoRegistro');
+
+    if (errorCode || estadoEnvio === 'Incorrecto' || estadoRegistro === 'Incorrecto' || responseText.includes('faultstring')) {
+      const errorMessage = extractAEATError(responseText) || 'Error desconocido de AEAT';
       return { success: false, error: errorMessage, response: responseText, httpStatus: response.status };
     }
 
-    return { success: true, response: responseText, httpStatus: response.status };
+    const csv = extractCSV(responseText);
+    if (csv) {
+      console.log("AEAT returned cancellation CSV:", csv);
+      return { success: true, response: responseText, httpStatus: response.status };
+    }
+
+    if (isExplicitAEATSuccess(responseText)) {
+      return { success: true, response: responseText, httpStatus: response.status };
+    }
+
+    if (responseText.includes('RespuestaRegFactuSistemaFacturacion') || responseText.includes('env:Envelope')) {
+      console.warn("AEAT cancellation response received but acceptance status is unclear; not marking as success");
+      return {
+        success: false,
+        error: 'Respuesta AEAT sin aceptacion inequivoca',
+        response: responseText,
+        httpStatus: response.status
+      };
+    }
+
+    return {
+      success: false,
+      error: 'Respuesta inesperada de AEAT - formato no reconocido',
+      response: responseText,
+      httpStatus: response.status
+    };
   } catch (error) {
     console.error("Error sending to AEAT:", error);
     return { success: false, error: error instanceof Error ? error.message : 'Error de conexión' };
@@ -466,7 +532,8 @@ serve(async (req) => {
           id, name, tax_id,
           verifactu_certificate_base64, verifactu_certificate_password,
           verifactu_environment, verifactu_software_name, 
-          verifactu_software_version, verifactu_software_nif
+          verifactu_software_version, verifactu_software_nif,
+          verifactu_numero_instalacion
         )
       `)
       .eq("id", invoice_id)
@@ -479,6 +546,20 @@ serve(async (req) => {
         { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    const fiscalAccess = await authorizeFiscalInvoiceRequest(req, supabase, {
+      invoiceId: invoice_id,
+      invoiceCenterId: invoice.center_id,
+      allowedRoles: ["admin"],
+      corsHeaders,
+    });
+    if (!fiscalAccess.ok) return fiscalAccess.response;
+
+    console.log("[VERIFACTU:AUTH] Cancellation access granted", {
+      actor_type: fiscalAccess.context.actorType,
+      user_id: fiscalAccess.context.userId,
+      center_id: fiscalAccess.context.centerId,
+    });
 
     if (!invoice.invoice_hash) {
       return new Response(
@@ -532,26 +613,84 @@ serve(async (req) => {
     // Generate timestamp
     const generationTimestamp = formatTimestampVerifactu(new Date());
 
-    // Get previous invoice hash for chaining (Art. 11.2.c RRSIF)
-    const { data: previousInvoice } = await supabase
-      .from("invoices")
-      .select("invoice_hash")
-      .eq("center_id", invoice.center_id)
-      .not("invoice_hash", "is", null)
-      .neq("id", invoice_id)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .single();
+    const nifEmisor = normalizeNifForAEAT(center.tax_id);
+    const idSistemaInformatico = '01';
+    const numeroInstalacion = center.verifactu_numero_instalacion || 1;
 
-    const previousHash = previousInvoice?.invoice_hash || null;
-    console.log("Previous invoice hash for cancellation:", previousHash ? "found" : "none");
+    const { data: chainStatus } = await supabase
+      .from("verifactu_chain_status")
+      .select("ultimo_hash, ultima_factura_id, ultima_verifactu_record_id")
+      .eq("center_id", invoice.center_id)
+      .eq("nif_emisor", nifEmisor)
+      .eq("id_sistema_informatico", idSistemaInformatico)
+      .eq("numero_instalacion", numeroInstalacion)
+      .maybeSingle();
+
+    const previousHash = chainStatus?.ultimo_hash || invoice.invoice_hash || null;
+    const previousRecordId = chainStatus?.ultima_verifactu_record_id || null;
+    let previousInvoiceNumber: string | undefined = invoice.invoice_number;
+    let previousInvoiceDate: string | undefined = invoice.issue_date;
+
+    if (previousRecordId) {
+      const { data: prevRecord } = await supabase
+        .from("verifactu_records")
+        .select("invoice_number, invoice_issue_date")
+        .eq("id", previousRecordId)
+        .single();
+
+      if (prevRecord) {
+        previousInvoiceNumber = prevRecord.invoice_number;
+        previousInvoiceDate = prevRecord.invoice_issue_date;
+      } else {
+        previousInvoiceNumber = undefined;
+        previousInvoiceDate = undefined;
+      }
+    } else if (chainStatus?.ultima_factura_id && chainStatus.ultima_factura_id !== invoice_id) {
+      const { data: prevInv } = await supabase
+        .from("invoices")
+        .select("invoice_number, issue_date")
+        .eq("id", chainStatus.ultima_factura_id)
+        .single();
+
+      if (prevInv) {
+        previousInvoiceNumber = prevInv.invoice_number;
+        previousInvoiceDate = prevInv.issue_date;
+      } else {
+        previousInvoiceNumber = undefined;
+        previousInvoiceDate = undefined;
+      }
+    }
+
+    if (previousHash && (!previousInvoiceNumber || !previousInvoiceDate)) {
+      const chainError = chainStatus?.ultima_factura_id
+        ? `Cadena Verifactu inconsistente: no se pudo cargar la factura anterior ${chainStatus.ultima_factura_id}`
+        : "Cadena Verifactu inconsistente: existe huella anterior sin factura anterior asociada";
+
+      await logVerifactuEvent(supabase, {
+        invoice_id,
+        center_id: invoice.center_id,
+        event_type: 'error',
+        environment,
+        error_details: chainError
+      });
+
+      return new Response(
+        JSON.stringify({
+          error: chainError,
+          chain_inconsistent: true
+        }),
+        { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    console.log("Previous record hash for cancellation:", previousHash ? "found" : "none");
 
     // Calculate cancellation hash for chaining
     const cancellationHash = await calculateCancellationHash(invoice, center, previousHash, generationTimestamp);
     console.log("Calculated cancellation hash:", cancellationHash);
 
     // Build and sign cancellation XML with proper chaining
-    const xmlBody = buildRegistroBajaXML(invoice, center, generationTimestamp, cancellationHash, previousHash);
+    const xmlBody = buildRegistroBajaXML(invoice, center, generationTimestamp, cancellationHash, previousHash, previousInvoiceNumber, previousInvoiceDate);
     const signedXml = buildSignedSOAPEnvelope(xmlBody, certData.privateKey, certData.certificate);
 
     console.log("Sending cancellation request to AEAT...");
@@ -615,6 +754,104 @@ serve(async (req) => {
 
     if (updateError) {
       console.error("Error updating invoice status:", updateError);
+    }
+
+    const { data: verifactuRecord, error: recordInsertError } = await supabase
+      .from("verifactu_records")
+      .insert({
+        center_id: invoice.center_id,
+        invoice_id,
+        previous_record_id: previousRecordId,
+        record_type: 'anulacion',
+        taxpayer_nif: nifEmisor,
+        system_id: idSistemaInformatico,
+        installation_id: numeroInstalacion,
+        environment,
+        invoice_number: invoice.invoice_number,
+        invoice_issue_date: invoice.issue_date,
+        hash: cancellationHash,
+        previous_hash: previousHash,
+        xml_sent: signedXml,
+        aeat_response_xml: aeatResult.response,
+        aeat_status: 'accepted',
+        aeat_csv: csv,
+        http_status: aeatResult.httpStatus,
+        created_by: fiscalAccess.context.userId
+      })
+      .select("id")
+      .single();
+
+    if (recordInsertError || !verifactuRecord) {
+      const recordError = `Anulación registrada en AEAT, pero no se pudo guardar el registro Verifactu canónico: ${recordInsertError?.message || 'sin detalle'}`;
+      console.error("[VERIFACTU:RECORD]", recordError);
+
+      await logVerifactuEvent(supabase, {
+        invoice_id,
+        center_id: invoice.center_id,
+        event_type: 'error',
+        aeat_csv: csv,
+        aeat_response_message: recordError,
+        aeat_response_xml: aeatResult.response,
+        xml_sent: signedXml,
+        environment,
+        http_status: aeatResult.httpStatus,
+        error_details: recordError
+      });
+
+      return new Response(
+        JSON.stringify({
+          error: recordError,
+          canonical_record_failed: true,
+          invoice_number: invoice.invoice_number,
+          csv,
+          environment
+        }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const { error: chainUpdateError } = await supabase
+      .from("verifactu_chain_status")
+      .upsert({
+        center_id: invoice.center_id,
+        nif_emisor: nifEmisor,
+        id_sistema_informatico: idSistemaInformatico,
+        numero_instalacion: numeroInstalacion,
+        ultimo_hash: cancellationHash,
+        ultima_factura_id: invoice_id,
+        ultima_verifactu_record_id: verifactuRecord.id,
+        updated_at: new Date().toISOString()
+      }, {
+        onConflict: 'center_id,nif_emisor,id_sistema_informatico,numero_instalacion'
+      });
+
+    if (chainUpdateError) {
+      const chainError = `Anulación registrada en AEAT, pero no se pudo actualizar la cadena local: ${chainUpdateError.message}`;
+      console.error("[VERIFACTU:CHAIN]", chainError);
+
+      await logVerifactuEvent(supabase, {
+        invoice_id,
+        center_id: invoice.center_id,
+        event_type: 'error',
+        aeat_csv: csv,
+        aeat_response_message: chainError,
+        aeat_response_xml: aeatResult.response,
+        xml_sent: signedXml,
+        environment,
+        http_status: aeatResult.httpStatus,
+        error_details: chainError
+      });
+
+      return new Response(
+        JSON.stringify({
+          error: chainError,
+          chain_update_failed: true,
+          invoice_number: invoice.invoice_number,
+          csv,
+          environment
+        }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     console.log("Invoice cancellation registered successfully");

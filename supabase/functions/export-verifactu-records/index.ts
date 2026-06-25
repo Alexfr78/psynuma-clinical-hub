@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { authorizeFiscalCenterRequest } from "../_shared/fiscalAuth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -22,6 +23,72 @@ function escapeXML(str: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&apos;');
+}
+
+function cdata(str: string | null | undefined): string {
+  return `<![CDATA[${(str || '').replace(/\]\]>/g, ']]]]><![CDATA[>')}]]>`;
+}
+
+function buildCanonicalRecordsExportXML(records: any[], center: any, events: any[]): string {
+  const nifEmisor = center.tax_id?.replace(/[^A-Z0-9]/gi, '') || '';
+  const nombreEmisor = center.name || '';
+  const softwareName = center.verifactu_software_name || 'Psycma';
+  const softwareVersion = center.verifactu_software_version || '1.0.0';
+  const softwareNif = center.verifactu_software_nif || nifEmisor;
+  const exportDate = new Date().toISOString();
+
+  const registrosXML = records.map((record) => `
+    <RegistroCanonico>
+      <ID>${record.id}</ID>
+      <Tipo>${record.record_type}</Tipo>
+      <FacturaID>${record.invoice_id}</FacturaID>
+      <NumSerieFactura>${escapeXML(record.invoice_number)}</NumSerieFactura>
+      <FechaExpedicionFactura>${formatDateVerifactu(record.invoice_issue_date)}</FechaExpedicionFactura>
+      <Huella>${record.hash}</Huella>
+      ${record.previous_hash ? `<HuellaAnterior>${record.previous_hash}</HuellaAnterior>` : '<PrimerRegistro>S</PrimerRegistro>'}
+      ${record.previous_record_id ? `<RegistroAnteriorID>${record.previous_record_id}</RegistroAnteriorID>` : ''}
+      <EstadoAEAT>${record.aeat_status}</EstadoAEAT>
+      ${record.aeat_csv ? `<CSV>${record.aeat_csv}</CSV>` : ''}
+      <Entorno>${record.environment}</Entorno>
+      <FechaHoraGeneracion>${record.created_at}</FechaHoraGeneracion>
+      <XMLCanonicoEnviado>${cdata(record.xml_sent)}</XMLCanonicoEnviado>
+      <RespuestaAEAT>${cdata(record.aeat_response_xml)}</RespuestaAEAT>
+    </RegistroCanonico>`).join('');
+
+  const eventosXML = events.map((event) => `
+    <EventoRegistro>
+      <FechaHora>${event.created_at}</FechaHora>
+      <TipoEvento>${event.event_type.toUpperCase()}</TipoEvento>
+      <FacturaID>${event.invoice_id || 'N/A'}</FacturaID>
+      ${event.aeat_csv ? `<CSV>${event.aeat_csv}</CSV>` : ''}
+      <Entorno>${event.environment || 'test'}</Entorno>
+      <EstadoHTTP>${event.http_status || 'N/A'}</EstadoHTTP>
+      ${event.aeat_response_message ? `<MensajeRespuesta>${escapeXML(event.aeat_response_message)}</MensajeRespuesta>` : ''}
+      ${event.error_details ? `<ErrorDetalles>${escapeXML(event.error_details)}</ErrorDetalles>` : ''}
+    </EventoRegistro>`).join('');
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<ExportacionVerifactuCanonica>
+  <Cabecera>
+    <FechaExportacion>${exportDate}</FechaExportacion>
+    <ObligadoEmision>
+      <NombreRazon>${escapeXML(nombreEmisor)}</NombreRazon>
+      <NIF>${nifEmisor}</NIF>
+    </ObligadoEmision>
+    <SoftwareFacturacion>
+      <NombreRazon>${escapeXML(softwareName)}</NombreRazon>
+      <NIF>${softwareNif}</NIF>
+      <Version>${softwareVersion}</Version>
+    </SoftwareFacturacion>
+    <Fuente>verifactu_records</Fuente>
+    <TotalRegistros>${records.length}</TotalRegistros>
+    <TotalEventos>${events.length}</TotalEventos>
+  </Cabecera>
+  <RegistrosCanonicos>${registrosXML}
+  </RegistrosCanonicos>
+  <RegistroEventos>${eventosXML}
+  </RegistroEventos>
+</ExportacionVerifactuCanonica>`;
 }
 
 // Build export XML following AEAT LibroRegistroFacturasEmitidas format
@@ -141,48 +208,48 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Get authorization header to identify center
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: "No autorizado" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
+    const fiscalAccess = await authorizeFiscalCenterRequest(req, supabase, {
+      allowedRoles: ["admin"],
+      corsHeaders,
+    });
+    if (!fiscalAccess.ok) return fiscalAccess.response;
 
-    // Get user's center
-    const { data: { user } } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''));
-    if (!user) {
-      return new Response(
-        JSON.stringify({ error: "Usuario no encontrado" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('center_id')
-      .eq('id', user.id)
-      .single();
-
-    if (!profile?.center_id) {
-      return new Response(
-        JSON.stringify({ error: "Centro no encontrado" }),
-        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
+    const centerId = fiscalAccess.context.centerId;
 
     // Fetch center data
     const { data: center } = await supabase
       .from('centers')
       .select('*')
-      .eq('id', profile.center_id)
+      .eq('id', centerId)
       .single();
 
     if (!center) {
       return new Response(
         JSON.stringify({ error: "Centro no encontrado" }),
         { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    let recordsQuery = supabase
+      .from('verifactu_records')
+      .select('*')
+      .eq('center_id', centerId)
+      .order('created_at', { ascending: true });
+
+    if (start_date) {
+      recordsQuery = recordsQuery.gte('invoice_issue_date', start_date);
+    }
+    if (end_date) {
+      recordsQuery = recordsQuery.lte('invoice_issue_date', end_date);
+    }
+
+    const { data: records, error: recordsError } = await recordsQuery;
+
+    if (recordsError) {
+      console.error("Error fetching canonical Verifactu records:", recordsError);
+      return new Response(
+        JSON.stringify({ error: "Error al obtener registros Verifactu canónicos" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -193,7 +260,7 @@ serve(async (req) => {
         *,
         patients (first_name, last_name, tax_id)
       `)
-      .eq('center_id', profile.center_id)
+      .eq('center_id', centerId)
       .not('invoice_hash', 'is', null)
       .order('issue_date', { ascending: true });
 
@@ -220,7 +287,7 @@ serve(async (req) => {
       let eventsQuery = supabase
         .from('verifactu_events')
         .select('*')
-        .eq('center_id', profile.center_id)
+        .eq('center_id', centerId)
         .order('created_at', { ascending: true });
 
       if (start_date) {
@@ -234,10 +301,14 @@ serve(async (req) => {
       events = eventData || [];
     }
 
-    console.log(`Exporting ${invoices?.length || 0} invoices and ${events.length} events for center ${profile.center_id}`);
+    console.log(`Exporting ${invoices?.length || 0} invoices and ${events.length} events for center ${centerId}`);
 
-    // Generate XML
-    const xml = buildExportXML(invoices || [], center, events);
+    const canonicalRecords = records || [];
+    const xml = canonicalRecords.length > 0
+      ? buildCanonicalRecordsExportXML(canonicalRecords, center, events)
+      : buildExportXML(invoices || [], center, events);
+
+    console.log(`Canonical Verifactu records exported: ${canonicalRecords.length}`);
 
     // Return XML with proper content type for download
     return new Response(xml, {

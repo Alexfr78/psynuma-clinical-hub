@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { authorizeFiscalInvoiceRequest } from "../_shared/fiscalAuth.ts";
 
 // Dynamic import of node-forge with bundle for Deno compatibility
 const forgeModule = await import("https://esm.sh/node-forge@1.3.1?bundle");
@@ -423,6 +424,20 @@ serve(async (req) => {
         { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    const fiscalAccess = await authorizeFiscalInvoiceRequest(req, supabase, {
+      invoiceId: invoice_id,
+      invoiceCenterId: invoice.center_id,
+      allowedRoles: ["admin"],
+      corsHeaders,
+    });
+    if (!fiscalAccess.ok) return fiscalAccess.response;
+
+    console.log("[VERIFACTU:AUTH] Consultation access granted", {
+      actor_type: fiscalAccess.context.actorType,
+      user_id: fiscalAccess.context.userId,
+      center_id: fiscalAccess.context.centerId,
+    });
 
     const center = invoice.centers;
     const environment = center?.verifactu_environment || 'test';
