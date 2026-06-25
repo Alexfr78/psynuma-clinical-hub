@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { encode as base64Encode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
+import QRCode from "https://esm.sh/qrcode@1.5.4";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { logAuditEvent } from "../_shared/auditLogger.ts";
 
@@ -65,6 +66,11 @@ interface InvoiceItem {
   total: number;
 }
 
+interface RectifiedInvoice {
+  invoice_number: string;
+  issue_date: string;
+}
+
 /**
  * Unified invoice document type label logic
  * Must match the frontend implementation in src/lib/invoiceDocumentType.ts
@@ -126,15 +132,23 @@ async function fetchImageAsBase64(url: string): Promise<string | null> {
 // Generate QR code as base64 data URL
 async function generateQRCodeBase64(url: string, size: number = 120): Promise<string> {
   try {
-    const encodedUrl = encodeURIComponent(url);
-    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodedUrl}&format=png`;
-    
-    const result = await fetchImageAsBase64(qrUrl);
-    return result || qrUrl; // Fallback to external URL if fetch fails
+    const qrGenerator = QRCode as {
+      toDataURL: (input: string, options: Record<string, unknown>) => Promise<string>;
+    };
+
+    return await qrGenerator.toDataURL(url, {
+      type: 'image/png',
+      width: size,
+      margin: 1,
+      errorCorrectionLevel: 'M',
+      color: {
+        dark: '#000000',
+        light: '#ffffff',
+      },
+    });
   } catch (error) {
-    console.error('Error generating QR base64:', error);
-    const encodedUrl = encodeURIComponent(url);
-    return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodedUrl}&format=png`;
+    console.error('Error generating internal QR base64:', error);
+    return '';
   }
 }
 
@@ -181,7 +195,8 @@ serve(async (req) => {
       );
     }
 
-    if (!isAuthed && (!access_token || access_token !== (invoice as any).access_token)) {
+    const invoiceAccessToken = (invoice as { access_token?: string | null }).access_token;
+    if (!isAuthed && (!access_token || access_token !== invoiceAccessToken)) {
       return unauthorizedResponse(corsHeaders);
     }
 
@@ -210,7 +225,7 @@ serve(async (req) => {
     }
 
     // Fetch rectified invoice if exists
-    let rectifiedInvoice = null;
+    let rectifiedInvoice: RectifiedInvoice | null = null;
     if (invoice.rectified_invoice_id) {
       const { data: rectified } = await supabase
         .from("invoices")
@@ -278,7 +293,7 @@ serve(async (req) => {
 function generateInvoiceHTML(
   invoice: InvoiceData, 
   items: InvoiceItem[], 
-  rectifiedInvoice: any, 
+  rectifiedInvoice: RectifiedInvoice | null,
   qrBase64: string, 
   logoBase64: string,
   series: InvoiceSeries | null
