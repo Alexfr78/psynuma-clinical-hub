@@ -1491,12 +1491,26 @@ serve(async (req) => {
         );
       }
 
+      // Resolve session_type_id by name if missing (legacy sessions)
+      if (!session.session_type_id && session.session_type) {
+        const { data: st } = await supabase
+          .from("session_types")
+          .select("id")
+          .eq("center_id", tokenData.centerId)
+          .eq("name", session.session_type)
+          .eq("is_public", true)
+          .eq("is_active", true)
+          .maybeSingle();
+        if (st?.id) session.session_type_id = st.id;
+      }
+
       // Get center info
       const { data: center } = await supabase
         .from("centers")
         .select("name, portal_slug")
         .eq("id", tokenData.centerId)
         .single();
+
 
       return new Response(
         JSON.stringify({ 
