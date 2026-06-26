@@ -59,17 +59,16 @@ export default function PublicBookingManage() {
   const loadSlots = async () => {
     if (!selectedDate || !booking) return;
     setSlotsLoading(true);
-    // We need to get session type id - for now we'll use a workaround
-    // In a real scenario, we'd store the session_type_id in the booking
     const data = await getAvailability(
       format(selectedDate, 'yyyy-MM-dd'),
-      booking.session_type, // This won't work directly, but the edge function should handle it
-      booking.location?.id || '',
-      booking.professional?.id
+      booking.session_type_id,
+      booking.location_id || booking.location?.id || '',
+      booking.professional_id || booking.professional?.id
     );
     setSlots(data.slots);
     setSlotsLoading(false);
   };
+
 
   const handleCancel = async () => {
     const success = await cancelBooking(bookingToken);
