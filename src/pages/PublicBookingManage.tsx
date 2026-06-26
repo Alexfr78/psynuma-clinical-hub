@@ -26,7 +26,7 @@ export default function PublicBookingManage() {
   const [searchParams] = useSearchParams();
   const bookingToken = searchParams.get('token') || '';
 
-  const { getBooking, cancelBooking, rescheduleBooking, getAvailability, loading, error } = usePublicBooking(centerSlug || '');
+  const { getBooking, cancelBooking, rescheduleBooking, getAvailability, getMonthAvailability, loading, error } = usePublicBooking(centerSlug || '');
   
   const [booking, setBooking] = useState<any>(null);
   const [centerName, setCenterName] = useState('');
@@ -35,6 +35,9 @@ export default function PublicBookingManage() {
   const [selectedSlot, setSelectedSlot] = useState<{ startTime: string; endTime: string } | null>(null);
   const [slots, setSlots] = useState<{ startTime: string; endTime: string }[]>([]);
   const [slotsLoading, setSlotsLoading] = useState(false);
+  const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
+  const [availabilityData, setAvailabilityData] = useState<{ month: string; byDate: Record<string, number> }>({ month: '', byDate: {} });
+  const [availabilityLoading, setAvailabilityLoading] = useState(false);
 
   useEffect(() => {
     if (bookingToken) {
