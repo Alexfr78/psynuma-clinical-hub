@@ -6054,6 +6054,10 @@ export type Database = {
         Args: { p_bono_id: string; p_session_id: string }
         Returns: Json
       }
+      assert_invoice_items_mutable: {
+        Args: { p_invoice_id: string; p_operation: string }
+        Returns: undefined
+      }
       auto_complete_past_sessions: { Args: never; Returns: Json }
       bootstrap_create_center: {
         Args: {
