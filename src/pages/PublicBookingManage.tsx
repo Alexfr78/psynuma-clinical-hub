@@ -170,22 +170,23 @@ export default function PublicBookingManage() {
                 </div>
 
                 {booking.location && (
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-start gap-3">
                     {booking.location.location_type === 'online' ? (
-                      <Video className="h-5 w-5 text-muted-foreground" />
+                      <Video className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
                     ) : (
-                      <MapPin className="h-5 w-5 text-muted-foreground" />
+                      <MapPin className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
                     )}
-                    <div>
-                      <div className="font-medium">{booking.location.name}</div>
+                    <div className="min-w-0 flex-1">
+                      <div className="font-medium break-words">{booking.location.name}</div>
                       {booking.location.street && (
-                        <div className="text-sm text-muted-foreground">
-                          {booking.location.street}, {booking.location.city}
+                        <div className="text-sm text-muted-foreground break-words">
+                          {booking.location.street}{booking.location.city ? `, ${booking.location.city}` : ''}
                         </div>
                       )}
                     </div>
                   </div>
                 )}
+
 
                 {booking.professional && (
                   <div className="flex items-center gap-3">
