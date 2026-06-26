@@ -1475,12 +1475,14 @@ serve(async (req) => {
         .from("sessions")
         .select(`
           id, session_date, start_time, end_time, status, session_type, session_modality, cancellation_policy,
-          professional:profiles!sessions_professional_id_fkey(first_name, last_name),
-          location:center_locations(name, location_type, street, city)
+          session_type_id, professional_id, location_id,
+          professional:profiles!sessions_professional_id_fkey(id, first_name, last_name),
+          location:center_locations(id, name, location_type, street, city)
         `)
         .eq("id", tokenData.sessionId)
         .eq("patient_id", tokenData.patientId)
         .single();
+
 
       if (error || !session) {
         return new Response(
