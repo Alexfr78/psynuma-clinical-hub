@@ -59,6 +59,26 @@ export default function PublicBookingManage() {
     }
   }, [selectedDate, mode]);
 
+  // Load month availability when entering reschedule mode or changing month
+  useEffect(() => {
+    if (mode === 'reschedule' && booking) {
+      const monthStr = format(currentMonth, 'yyyy-MM');
+      setAvailabilityLoading(true);
+      getMonthAvailability(
+        monthStr,
+        booking.session_type_id,
+        booking.location_id || booking.location?.id || '',
+        booking.professional_id || booking.professional?.id
+      )
+        .then(days => {
+          const map: Record<string, number> = {};
+          days.forEach(d => { map[d.date] = d.availableCount; });
+          setAvailabilityData({ month: monthStr, byDate: map });
+        })
+        .finally(() => setAvailabilityLoading(false));
+    }
+  }, [mode, booking, currentMonth, getMonthAvailability]);
+
   const loadSlots = async () => {
     if (!selectedDate || !booking) return;
     setSlotsLoading(true);
