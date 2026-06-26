@@ -21,6 +21,7 @@ export interface Invoice {
   is_recapitulative: boolean;
   is_valid: boolean;
   notes: string | null;
+  invoice_hash: string | null;
   verifactu_hash: string | null;
   verifactu_qr: string | null;
   verifactu_timestamp: string | null;
@@ -100,6 +101,16 @@ export interface InvoiceItemInsert {
 
 export type InvoiceSortField = 'invoice_number' | 'issue_date';
 export type SortDirection = 'asc' | 'desc';
+
+type SessionInvoiceSummary = {
+  id: string;
+  invoice_number: string;
+  status: Invoice['status'];
+  total: number;
+  is_valid: boolean;
+  rectified_invoice_id: string | null;
+  issue_date: string;
+};
 
 export function useInvoices(filters?: { 
   patientId?: string; 
@@ -394,7 +405,7 @@ export function useUpdateInvoiceStatus() {
         }
       }
 
-      let updateData: { status: Invoice['status']; invoice_number?: string } = { status };
+      const updateData: { status: Invoice['status']; invoice_number?: string } = { status };
 
       // If issuing a draft, assign proper series number
       if (status === 'issued' && currentInvoice?.invoice_number?.startsWith('BORRADOR-')) {
@@ -594,16 +605,16 @@ export function useSessionInvoiceStatus(sessionId: string | undefined) {
       if (iiError) throw iiError;
 
       // Extract unique invoices
-      const invoicesMap = new Map();
+      const invoicesMap = new Map<string, SessionInvoiceSummary>();
       invoiceItems?.forEach(item => {
         if (item.invoices) {
-          invoicesMap.set(item.invoice_id, item.invoices);
+          invoicesMap.set(item.invoice_id, item.invoices as SessionInvoiceSummary);
         }
       });
       const invoices = Array.from(invoicesMap.values());
 
       // Check if there's a valid, non-cancelled invoice
-      const validInvoice = invoices.find((inv: any) => 
+      const validInvoice = invoices.find((inv) =>
         inv.is_valid && inv.status !== 'cancelled'
       );
 

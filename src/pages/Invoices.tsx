@@ -35,6 +35,7 @@ import { LinkPaymentsToInvoiceDialog } from '@/components/invoices/LinkPaymentsT
 import { ExportInvoicesDialog } from '@/components/invoices/ExportInvoicesDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { hasInvoiceAeatRegistration } from '@/lib/invoice-immutability';
 
 export default function Invoices() {
   const [simpleOpen, setSimpleOpen] = useState(false);
@@ -101,7 +102,7 @@ export default function Invoices() {
     if (!invoices) return 0;
     return invoices.filter(inv => 
       (inv.status === 'issued' || inv.status === 'paid') && 
-      !inv.verifactu_hash && 
+      !hasInvoiceAeatRegistration(inv) &&
       !inv.verifactu_pending &&
       !inv.invoice_number?.startsWith('BORRADOR-')
     ).length;

@@ -27,6 +27,7 @@ import { useInvoice, useInvoiceItems, type InvoiceWithPatient } from '@/hooks/us
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { QRCodeSVG } from 'qrcode.react';
+import { hasInvoiceAeatRegistration, isInvoiceFiscalLocked } from '@/lib/invoice-immutability';
 
 interface InvoiceDetailDialogProps {
   open: boolean;
@@ -47,9 +48,10 @@ export function InvoiceDetailDialog({ open, onOpenChange, invoiceId }: InvoiceDe
   const [retrying, setRetrying] = useState(false);
 
   const isLoading = invoiceLoading || itemsLoading;
-  const isSealed = !!invoice?.verifactu_hash;
-  const isPendingVerifactu = !!invoice?.verifactu_pending && !isSealed;
-  const isPermanentError = !!invoice?.verifactu_error_permanent && !isSealed;
+  const isFiscalLocked = isInvoiceFiscalLocked(invoice);
+  const hasAeatRegistration = hasInvoiceAeatRegistration(invoice);
+  const isPendingVerifactu = !!invoice?.verifactu_pending && !hasAeatRegistration;
+  const isPermanentError = !!invoice?.verifactu_error_permanent && !hasAeatRegistration;
   const permanentErrorMessage = invoice?.verifactu_error_message;
 
   const handleRetryVerifactu = async () => {
@@ -69,9 +71,9 @@ export function InvoiceDetailDialog({ open, onOpenChange, invoiceId }: InvoiceDe
       } else {
         toast.error('Error inesperado al registrar en AEAT');
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Retry verifactu error:', err);
-      toast.error(err.message || 'Error al registrar en AEAT');
+      toast.error(err instanceof Error ? err.message : 'Error al registrar en AEAT');
     } finally {
       setRetrying(false);
     }
@@ -146,10 +148,16 @@ export function InvoiceDetailDialog({ open, onOpenChange, invoiceId }: InvoiceDe
                 {invoice.is_recapitulative && (
                   <Badge variant="outline">Recapitulativa</Badge>
                 )}
-                {isSealed && (
+                {hasAeatRegistration && (
                   <Badge variant="default" className="gap-1 bg-green-600 hover:bg-green-700">
                     <ShieldCheck className="h-3 w-3" />
-                    Verifactu
+                    AEAT
+                  </Badge>
+                )}
+                {isFiscalLocked && !hasAeatRegistration && (
+                  <Badge variant="outline" className="gap-1 border-green-600 text-green-700">
+                    <ShieldCheck className="h-3 w-3" />
+                    Cierre fiscal
                   </Badge>
                 )}
               </div>
@@ -219,13 +227,13 @@ export function InvoiceDetailDialog({ open, onOpenChange, invoiceId }: InvoiceDe
             </div>
 
             {/* Verifactu Section */}
-            {isSealed && (
+            {isFiscalLocked && (
               <>
                 <Separator />
                 <div className="space-y-3">
                   <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide flex items-center gap-2">
                     <ShieldCheck className="h-4 w-4 text-green-600" />
-                    Verifactu
+                    Cierre fiscal
                   </h3>
                   <div className="rounded-lg border border-green-200 bg-green-50/50 dark:border-green-900 dark:bg-green-950/20 p-4">
                     <div className="flex gap-4">
@@ -254,6 +262,12 @@ export function InvoiceDetailDialog({ open, onOpenChange, invoiceId }: InvoiceDe
                             <span className="font-mono font-medium">{invoice.verifactu_registration_id}</span>
                           </div>
                         )}
+                        {!invoice.verifactu_registration_id && (
+                          <div>
+                            <span className="text-muted-foreground">Estado: </span>
+                            <span className="font-medium">Pendiente de CSV AEAT</span>
+                          </div>
+                        )}
                         {invoice.verifactu_timestamp && (
                           <div>
                             <span className="text-muted-foreground">Registrado: </span>
@@ -265,6 +279,14 @@ export function InvoiceDetailDialog({ open, onOpenChange, invoiceId }: InvoiceDe
                             <span className="text-muted-foreground">Hash: </span>
                             <span className="font-mono text-xs break-all">
                               {invoice.verifactu_hash.substring(0, 32)}...
+                            </span>
+                          </div>
+                        )}
+                        {invoice.invoice_hash && invoice.invoice_hash !== invoice.verifactu_hash && (
+                          <div>
+                            <span className="text-muted-foreground">Huella factura: </span>
+                            <span className="font-mono text-xs break-all">
+                              {invoice.invoice_hash.substring(0, 32)}...
                             </span>
                           </div>
                         )}

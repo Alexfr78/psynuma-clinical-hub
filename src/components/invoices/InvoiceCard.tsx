@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { FileText, User, Download, MoreVertical, ShieldCheck, Search, FileX, FilePlus2, RefreshCw, Clock, Mail, Link2, AlertTriangle, Trash2 } from 'lucide-react';
+import { FileText, User, Download, MoreVertical, ShieldCheck, Search, FileX, FilePlus2, RefreshCw, Mail, Link2, AlertTriangle, Trash2, LockKeyhole } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import type { InvoiceWithPatient } from '@/hooks/useInvoices';
+import { hasInvoiceAeatRegistration, isInvoiceFiscalLocked } from '@/lib/invoice-immutability';
 
 interface InvoiceCardProps {
   invoice: InvoiceWithPatient;
@@ -52,15 +53,16 @@ export function InvoiceCard({
   onDeleteDraft
 }: InvoiceCardProps) {
   const status = statusConfig[invoice.status] || statusConfig.draft;
-  const isSealed = !!invoice.verifactu_registration_id; // Use registration_id as it confirms AEAT acceptance
-  const isPendingVerifactu = invoice.verifactu_pending && !isSealed;
+  const isFiscalLocked = isInvoiceFiscalLocked(invoice);
+  const hasAeatRegistration = hasInvoiceAeatRegistration(invoice);
+  const isPendingVerifactu = invoice.verifactu_pending && !hasAeatRegistration;
   const maxRetriesReached = (invoice.verifactu_retry_count || 0) >= 5;
   // Invoice is issued but NOT signed in Verifactu (needs signing)
-  const needsVerifactuSign = invoice.status === 'issued' && !isSealed && !isPendingVerifactu;
+  const needsVerifactuSign = (invoice.status === 'issued' || invoice.status === 'paid') && !hasAeatRegistration && !isPendingVerifactu;
   // Check if invoice has been invalidated (rectified)
-  const isInvalidated = (invoice as any).is_valid === false;
-  // Orphan: issued/paid but never registered in AEAT (no verifactu_hash)
-  const isOrphanVerifactu = (invoice.status === 'issued' || invoice.status === 'paid') && !invoice.verifactu_hash && !isPendingVerifactu;
+  const isInvalidated = invoice.is_valid === false;
+  // Orphan: issued/paid but never registered in AEAT
+  const isOrphanVerifactu = (invoice.status === 'issued' || invoice.status === 'paid') && !hasAeatRegistration && !isPendingVerifactu;
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
@@ -87,10 +89,16 @@ export function InvoiceCard({
                     {invoice.invoice_number}
                   </span>
                   <Badge variant={status.variant} className="text-xs shrink-0">{status.label}</Badge>
-                  {isSealed && (
+                  {hasAeatRegistration && (
                     <Badge variant="default" className="gap-1 bg-green-600 hover:bg-green-700 text-xs shrink-0">
                       <ShieldCheck className="h-3 w-3" />
-                      <span className="hidden sm:inline">Verifactu</span>
+                      <span className="hidden sm:inline">AEAT</span>
+                    </Badge>
+                  )}
+                  {isFiscalLocked && !hasAeatRegistration && (
+                    <Badge variant="outline" className="gap-1 text-xs shrink-0 border-green-600 text-green-700">
+                      <LockKeyhole className="h-3 w-3" />
+                      <span className="hidden sm:inline">Cierre fiscal</span>
                     </Badge>
                   )}
                   {isPendingVerifactu && maxRetriesReached && (
@@ -163,7 +171,7 @@ export function InvoiceCard({
 
                     <DropdownMenuSeparator />
 
-                    {invoice.status === 'draft' && !isSealed && !isPendingVerifactu && (
+                    {invoice.status === 'draft' && !isFiscalLocked && !isPendingVerifactu && (
                       <DropdownMenuItem onClick={() => { setMenuOpen(false); onSealVerifactu?.(); }} className="text-green-600">
                         <ShieldCheck className="h-4 w-4 mr-2" />
                         Sellar con Verifactu
@@ -213,7 +221,7 @@ export function InvoiceCard({
                     )}
 
                     {/* Verifactu query for sealed invoices */}
-                    {isSealed && (
+                    {hasAeatRegistration && (
                       <>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem onClick={() => { setMenuOpen(false); onQueryVerifactu?.(); }}>
@@ -223,10 +231,17 @@ export function InvoiceCard({
                       </>
                     )}
 
+                    {hasAeatRegistration && invoice.status !== 'cancelled' && !isInvalidated && (
+                      <DropdownMenuItem onClick={() => { setMenuOpen(false); onCancelVerifactu?.(); }} className="text-destructive focus:text-destructive">
+                        <FileX className="h-4 w-4 mr-2" />
+                        Anular en AEAT
+                      </DropdownMenuItem>
+                    )}
+
                     {/* Rectificativa option for issued/paid valid invoices */}
                     {(invoice.status === 'issued' || invoice.status === 'paid') && !isInvalidated && (
                       <>
-                        {!isSealed && <DropdownMenuSeparator />}
+                        {!hasAeatRegistration && <DropdownMenuSeparator />}
                         <DropdownMenuItem onClick={() => { setMenuOpen(false); onCreateRectificativa?.(); }}>
                           <FilePlus2 className="h-4 w-4 mr-2" />
                           Crear Rectificativa
