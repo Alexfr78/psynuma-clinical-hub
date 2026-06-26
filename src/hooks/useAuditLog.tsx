@@ -5,6 +5,19 @@ import { supabase } from '@/integrations/supabase/client';
 const lastLogTimes = new Map<string, number>();
 const DEBOUNCE_MS = 60_000; // 60 seconds
 
+type ClientAuditRpc = (
+  fn: 'record_client_audit_event',
+  args: {
+    p_resource_type: string;
+    p_resource_id: string;
+    p_patient_id?: string | null;
+    p_action: 'VIEW';
+    p_route_or_endpoint: string;
+    p_user_agent: string;
+    p_metadata: Record<string, never>;
+  }
+) => Promise<{ error: Error | null }>;
+
 export function useAuditLog() {
   const logView = useCallback(
     (resourceType: string, resourceId: string, patientId?: string) => {
@@ -17,24 +30,14 @@ export function useAuditLog() {
       // Fire-and-forget
       (async () => {
         try {
-          const { data: { user } } = await supabase.auth.getUser();
-          if (!user) return;
-
-          await supabase.rpc('record_audit_event', {
-            p_user_id: user.id,
-            p_user_role: null,
-            p_organization_id: null,
+          const rpc = supabase.rpc as unknown as ClientAuditRpc;
+          await rpc('record_client_audit_event', {
             p_patient_id: patientId ?? null,
             p_resource_type: resourceType,
             p_resource_id: resourceId,
             p_action: 'VIEW',
-            p_status: 'success',
-            p_ip_address: null,
             p_user_agent: navigator.userAgent,
-            p_session_id: null,
-            p_request_method: 'GET',
             p_route_or_endpoint: window.location.pathname,
-            p_justification: null,
             p_metadata: {},
           });
         } catch {
