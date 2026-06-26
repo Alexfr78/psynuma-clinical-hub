@@ -262,14 +262,50 @@ export default function PublicBookingManage() {
               <CardDescription>Selecciona una nueva fecha y hora</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <Calendar
-                mode="single"
-                selected={selectedDate}
-                onSelect={d => { setSelectedDate(d); setSelectedSlot(null); }}
-                disabled={(date) => isBefore(date, startOfDay(new Date())) || isBefore(addDays(new Date(), 90), date)}
-                locale={es}
-                className="rounded-md border mx-auto"
-              />
+              <div className="relative">
+                <Calendar
+                  mode="single"
+                  selected={selectedDate}
+                  month={currentMonth}
+                  onMonthChange={setCurrentMonth}
+                  onSelect={d => { setSelectedDate(d); setSelectedSlot(null); }}
+                  disabled={(date) => {
+                    if (isBefore(date, startOfDay(new Date()))) return true;
+                    if (isBefore(addDays(new Date(), 90), date)) return true;
+                    const monthStr = format(currentMonth, 'yyyy-MM');
+                    if (availabilityData.month === monthStr && Object.keys(availabilityData.byDate).length > 0) {
+                      const dateStr = format(date, 'yyyy-MM-dd');
+                      return (availabilityData.byDate[dateStr] || 0) === 0;
+                    }
+                    return false;
+                  }}
+                  components={{
+                    DayContent: ({ date }) => {
+                      const dateStr = format(date, 'yyyy-MM-dd');
+                      const monthStr = format(currentMonth, 'yyyy-MM');
+                      const count = availabilityData.month === monthStr ? (availabilityData.byDate[dateStr] || 0) : 0;
+                      const hasAvailability = count > 0;
+                      return (
+                        <div className="relative w-full h-full flex items-center justify-center">
+                          <span className={cn(hasAvailability && "font-bold text-primary")}>
+                            {date.getDate()}
+                          </span>
+                          {hasAvailability && (
+                            <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-primary" />
+                          )}
+                        </div>
+                      );
+                    }
+                  }}
+                  locale={es}
+                  className="rounded-md border mx-auto"
+                />
+                {availabilityLoading && (
+                  <div className="absolute inset-0 bg-background/50 flex items-center justify-center rounded-md">
+                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                  </div>
+                )}
+              </div>
 
               {selectedDate && (
                 <div>
