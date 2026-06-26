@@ -130,7 +130,8 @@ serve(async (req) => {
             await supabase.from("verifactu_events").insert({
               center_id: invoice.center_id,
               invoice_id: invoice.id,
-              event_type: "retry_failed",
+              event_type: "error",
+              aeat_response_message: "Reintento Verifactu fallido",
               error_details: signResult.error || "Unknown error",
               retry_count: newRetryCount,
             });

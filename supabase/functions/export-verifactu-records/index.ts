@@ -1,11 +1,70 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { authorizeFiscalCenterRequest } from "../_shared/fiscalAuth.ts";
+import { logAuditEvent } from "../_shared/auditLogger.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+interface VerifactuExportCenter {
+  name: string | null;
+  tax_id: string | null;
+  verifactu_software_name: string | null;
+  verifactu_software_version: string | null;
+  verifactu_software_nif: string | null;
+}
+
+interface VerifactuExportEvent {
+  created_at: string;
+  event_type: string;
+  invoice_id: string | null;
+  aeat_csv: string | null;
+  environment: string | null;
+  http_status: number | null;
+  aeat_response_message: string | null;
+  error_details: string | null;
+}
+
+interface CanonicalVerifactuRecord {
+  id: string;
+  record_type: string;
+  invoice_id: string;
+  invoice_number: string;
+  invoice_issue_date: string;
+  hash: string;
+  previous_hash: string | null;
+  previous_record_id: string | null;
+  aeat_status: string;
+  aeat_csv: string | null;
+  environment: string;
+  created_at: string;
+  xml_sent: string;
+  aeat_response_xml: string | null;
+}
+
+interface LegacyVerifactuInvoice {
+  invoice_number: string;
+  issue_date: string;
+  subtotal: number | string | null;
+  tax_amount: number | string | null;
+  total: number | string;
+  invoice_hash: string | null;
+  previous_invoice_hash: string | null;
+  verifactu_timestamp: string | null;
+  verifactu_registration_id: string | null;
+  created_at: string;
+  status: string | null;
+  is_recapitulative: boolean | null;
+  rectified_invoice_id: string | null;
+  rectification_type: string | null;
+  patients: {
+    first_name: string | null;
+    last_name: string | null;
+    tax_id: string | null;
+  } | null;
+}
 
 function formatDateVerifactu(dateStr: string): string {
   const date = new Date(dateStr);
@@ -29,7 +88,11 @@ function cdata(str: string | null | undefined): string {
   return `<![CDATA[${(str || '').replace(/\]\]>/g, ']]]]><![CDATA[>')}]]>`;
 }
 
-function buildCanonicalRecordsExportXML(records: any[], center: any, events: any[]): string {
+function buildCanonicalRecordsExportXML(
+  records: CanonicalVerifactuRecord[],
+  center: VerifactuExportCenter,
+  events: VerifactuExportEvent[],
+): string {
   const nifEmisor = center.tax_id?.replace(/[^A-Z0-9]/gi, '') || '';
   const nombreEmisor = center.name || '';
   const softwareName = center.verifactu_software_name || 'Psycma';
@@ -92,7 +155,11 @@ function buildCanonicalRecordsExportXML(records: any[], center: any, events: any
 }
 
 // Build export XML following AEAT LibroRegistroFacturasEmitidas format
-function buildExportXML(invoices: any[], center: any, events: any[]): string {
+function buildExportXML(
+  invoices: LegacyVerifactuInvoice[],
+  center: VerifactuExportCenter,
+  events: VerifactuExportEvent[],
+): string {
   const nifEmisor = center.tax_id?.replace(/[^A-Z0-9]/gi, '') || '';
   const nombreEmisor = center.name || '';
   const softwareName = center.verifactu_software_name || 'Psycma';
@@ -201,12 +268,22 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  let supabase: ReturnType<typeof createClient> | null = null;
+  let auditContext: {
+    userId: string | null;
+    userRole: string | null;
+    centerId: string;
+    startDate?: string;
+    endDate?: string;
+    includeEvents: boolean;
+  } | null = null;
+
   try {
     const { start_date, end_date, include_events = true } = await req.json();
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    supabase = createClient(supabaseUrl, supabaseKey);
 
     const fiscalAccess = await authorizeFiscalCenterRequest(req, supabase, {
       allowedRoles: ["admin"],
@@ -215,6 +292,14 @@ serve(async (req) => {
     if (!fiscalAccess.ok) return fiscalAccess.response;
 
     const centerId = fiscalAccess.context.centerId;
+    auditContext = {
+      userId: fiscalAccess.context.userId,
+      userRole: fiscalAccess.context.roles.join(",") || fiscalAccess.context.actorType,
+      centerId,
+      startDate: start_date || undefined,
+      endDate: end_date || undefined,
+      includeEvents: include_events,
+    };
 
     // Fetch center data
     const { data: center } = await supabase
@@ -282,7 +367,7 @@ serve(async (req) => {
     }
 
     // Fetch events if requested
-    let events: any[] = [];
+    let events: VerifactuExportEvent[] = [];
     if (include_events) {
       let eventsQuery = supabase
         .from('verifactu_events')
@@ -310,6 +395,26 @@ serve(async (req) => {
 
     console.log(`Canonical Verifactu records exported: ${canonicalRecords.length}`);
 
+    await logAuditEvent({
+      supabase,
+      req,
+      userId: auditContext.userId,
+      userRole: auditContext.userRole,
+      organizationId: centerId,
+      resourceType: "verifactu_records",
+      action: "EXPORT",
+      status: "success",
+      routeOrEndpoint: "export-verifactu-records",
+      metadata: {
+        start_date: start_date || null,
+        end_date: end_date || null,
+        include_events,
+        canonical_records_count: canonicalRecords.length,
+        legacy_invoices_count: invoices?.length || 0,
+        events_count: events.length,
+      },
+    });
+
     // Return XML with proper content type for download
     return new Response(xml, {
       headers: {
@@ -322,6 +427,25 @@ serve(async (req) => {
   } catch (error) {
     console.error("Error exporting Verifactu records:", error);
     console.error("[export-verifactu-records] Unhandled error:", error);
+    if (supabase && auditContext) {
+      await logAuditEvent({
+        supabase,
+        req,
+        userId: auditContext.userId,
+        userRole: auditContext.userRole,
+        organizationId: auditContext.centerId,
+        resourceType: "verifactu_records",
+        action: "EXPORT",
+        status: "failed",
+        routeOrEndpoint: "export-verifactu-records",
+        metadata: {
+          start_date: auditContext.startDate || null,
+          end_date: auditContext.endDate || null,
+          include_events: auditContext.includeEvents,
+          error: error instanceof Error ? error.message : String(error),
+        },
+      });
+    }
     return new Response(
       JSON.stringify({ error: "Error interno del servidor" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
