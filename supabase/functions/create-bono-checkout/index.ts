@@ -68,6 +68,7 @@ serve(async (req) => {
       .select('*')
       .eq('id', bono_template_id)
       .eq('is_active', true)
+      .eq('is_public', true)
       .single();
 
     if (templateError || !bonoTemplate) {

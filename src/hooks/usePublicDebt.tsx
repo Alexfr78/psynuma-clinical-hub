@@ -108,6 +108,7 @@ export function usePublicBonoTemplates(centerId: string | undefined) {
         .select('id, name, total_sessions, total_price, price_per_session')
         .eq('center_id', centerId)
         .eq('is_active', true)
+        .eq('is_public', true)
         .order('total_sessions');
 
       if (error) {

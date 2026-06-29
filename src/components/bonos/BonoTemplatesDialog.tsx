@@ -20,6 +20,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Switch } from '@/components/ui/switch';
 import { useBonoTemplates, useCreateBonoTemplate, useDeleteBonoTemplate } from '@/hooks/useBonos';
 
 const formSchema = z.object({
@@ -28,6 +29,7 @@ const formSchema = z.object({
   price_per_session: z.coerce.number().min(0, 'El precio no puede ser negativo'),
   total_price: z.coerce.number().min(0, 'El precio no puede ser negativo'),
   validity_days: z.coerce.number().min(0).optional(),
+  is_public: z.boolean().default(false),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -51,6 +53,7 @@ export function BonoTemplatesDialog({ open, onOpenChange }: BonoTemplatesDialogP
       price_per_session: 50,
       total_price: 500,
       validity_days: 90,
+      is_public: false,
     },
   });
 
@@ -67,6 +70,7 @@ export function BonoTemplatesDialog({ open, onOpenChange }: BonoTemplatesDialogP
       price_per_session: values.price_per_session,
       total_price: calculatedTotal,
       validity_days: values.validity_days || null,
+      is_public: values.is_public,
     });
     form.reset();
     setShowForm(false);
@@ -161,6 +165,24 @@ export function BonoTemplatesDialog({ open, onOpenChange }: BonoTemplatesDialogP
                         )}
                       />
                     </div>
+
+                    <FormField
+                      control={form.control}
+                      name="is_public"
+                      render={({ field }) => (
+                        <FormItem className="flex items-center justify-between rounded-lg border p-3">
+                          <div className="space-y-0.5">
+                            <FormLabel>Visible para pacientes</FormLabel>
+                            <p className="text-xs text-muted-foreground">
+                              Permite comprar este bono desde enlaces públicos de pago.
+                            </p>
+                          </div>
+                          <FormControl>
+                            <Switch checked={field.value} onCheckedChange={field.onChange} />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
 
                     <div className="flex justify-end gap-2">
                       <Button type="button" variant="ghost" onClick={() => setShowForm(false)}>

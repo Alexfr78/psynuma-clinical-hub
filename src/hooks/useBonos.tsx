@@ -34,6 +34,7 @@ export interface BonoTemplate {
   price_per_session: number;
   total_price: number;
   validity_days: number | null;
+  is_public: boolean | null;
   is_active: boolean;
   created_at: string;
 }
@@ -53,6 +54,7 @@ export interface BonoTemplateInsert {
   price_per_session: number;
   total_price: number;
   validity_days?: number | null;
+  is_public?: boolean;
   is_active?: boolean;
 }
 

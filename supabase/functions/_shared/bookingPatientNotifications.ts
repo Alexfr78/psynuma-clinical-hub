@@ -32,6 +32,7 @@ export interface BookingNotificationArgs {
   // Manage URL (for public bookings)
   manageUrl?: string;
   includeAdvancePaymentBlock?: boolean;
+  extraMessage?: string;
 }
 
 function formatDateSpanish(dateStr: string): string {
@@ -219,6 +220,9 @@ export async function queueAndSendPatientBookingNotification(args: BookingNotifi
 
     const subject = rendered.subject || '';
     let message = rendered.message;
+    if (args.extraMessage) {
+      message = [message, args.extraMessage].filter(Boolean).join('\n\n');
+    }
 
     if (eventType === 'created' && args.includeAdvancePaymentBlock) {
       const baseUrl = center.custom_domain

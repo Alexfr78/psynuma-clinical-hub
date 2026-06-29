@@ -5,6 +5,7 @@ import { logAuditEvent } from "../_shared/auditLogger.ts";
 import { queueAndSendPatientBookingNotification } from "../_shared/bookingPatientNotifications.ts";
 import { notifyProfessionalBooking } from "../_shared/professionalNotification.ts";
 import { resolvePaymentRules } from "../_shared/paymentRules.ts";
+import { autoApplyAvailableBonoToSession } from "../_shared/bonoAutomation.ts";
 import {
   buildFreeWindows,
   generateScoredSlots,
@@ -385,6 +386,16 @@ serve(async (req) => {
         );
       }
 
+      const bonoResult = await autoApplyAvailableBonoToSession(supabase, {
+        centerId: session.centerId!,
+        patientId: session.patientId!,
+        sessionId: newSession.id,
+        shouldApply: status === "scheduled",
+      });
+      const bonoMessage = bonoResult.applied
+        ? `Se ha descontado esta cita de tu bono. Sesiones pendientes: ${bonoResult.remainingSessions ?? 0}.`
+        : undefined;
+
       // Send admin alert for portal session created
       const { data: patientData } = await supabase
         .from("patients")
@@ -432,7 +443,8 @@ serve(async (req) => {
         sessionType: sessionType.name,
         sessionModality,
         locationName: location.name,
-        includeAdvancePaymentBlock: status !== "pending_approval",
+        includeAdvancePaymentBlock: status !== "pending_approval" && !bonoResult.applied,
+        extraMessage: bonoMessage,
       });
 
       // Notify professional (email or WhatsApp depending on center config)

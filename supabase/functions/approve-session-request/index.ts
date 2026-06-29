@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { queueAndSendPatientBookingNotification } from "../_shared/bookingPatientNotifications.ts";
+import { autoApplyAvailableBonoToSession } from "../_shared/bonoAutomation.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -125,6 +126,16 @@ serve(async (req) => {
       );
     }
 
+    const bonoResult = await autoApplyAvailableBonoToSession(supabase, {
+      centerId: session.center_id,
+      patientId: session.patient_id,
+      sessionId: session.id,
+      shouldApply: true,
+    });
+    const bonoMessage = bonoResult.applied
+      ? `Se ha descontado esta cita de tu bono. Sesiones pendientes: ${bonoResult.remainingSessions ?? 0}.`
+      : undefined;
+
     const location = Array.isArray(session.location) ? session.location[0] : session.location;
     await queueAndSendPatientBookingNotification({
       supabase,
@@ -137,7 +148,8 @@ serve(async (req) => {
       sessionType: session.session_type || "",
       sessionModality: session.session_modality || "",
       locationName: location?.name || "",
-      includeAdvancePaymentBlock: true,
+      includeAdvancePaymentBlock: !bonoResult.applied,
+      extraMessage: bonoMessage,
     });
 
     return new Response(

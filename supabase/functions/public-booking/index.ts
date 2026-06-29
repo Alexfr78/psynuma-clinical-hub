@@ -4,6 +4,7 @@ import { sendAdminAlert, buildAlertMessage } from "../_shared/adminAlerts.ts";
 import { queueAndSendPatientBookingNotification } from "../_shared/bookingPatientNotifications.ts";
 import { notifyProfessionalBooking } from "../_shared/professionalNotification.ts";
 import { resolvePaymentRules } from "../_shared/paymentRules.ts";
+import { autoApplyAvailableBonoToSession } from "../_shared/bonoAutomation.ts";
 import { isValidEmail, isValidDate, isValidTime, isValidName } from "../_shared/validation.ts";
 import { checkIpRateLimit, getClientIp } from "../_shared/rateLimiter.ts";
 import { resolveDayAvailability } from "../_shared/availability-core.ts";
@@ -1377,6 +1378,16 @@ serve(async (req) => {
         );
       }
 
+      const bonoResult = await autoApplyAvailableBonoToSession(supabase, {
+        centerId: center.id,
+        patientId,
+        sessionId: newSession.id,
+        shouldApply: status === "scheduled",
+      });
+      const bonoMessage = bonoResult.applied
+        ? `Se ha descontado esta cita de tu bono. Sesiones pendientes: ${bonoResult.remainingSessions ?? 0}.`
+        : undefined;
+
       // Send admin alert for new booking (replaces the empty recipient notification)
       const prof = Array.isArray(newSession.professional) ? newSession.professional[0] : newSession.professional;
       const loc = Array.isArray(newSession.location) ? newSession.location[0] : newSession.location;
@@ -1430,7 +1441,8 @@ serve(async (req) => {
         sessionModality,
         locationName,
         manageUrl,
-        includeAdvancePaymentBlock: status !== "pending_approval",
+        includeAdvancePaymentBlock: status !== "pending_approval" && !bonoResult.applied,
+        extraMessage: bonoMessage,
       });
 
       // Wait 6s to respect WasenderAPI rate limit (1 msg per 5s)
