@@ -1119,6 +1119,7 @@ export type Database = {
           created_at: string | null
           id: string
           is_active: boolean | null
+          is_public: boolean | null
           name: string
           price_per_session: number
           total_price: number
@@ -1131,6 +1132,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           is_active?: boolean | null
+          is_public?: boolean | null
           name: string
           price_per_session: number
           total_price: number
@@ -1143,6 +1145,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           is_active?: boolean | null
+          is_public?: boolean | null
           name?: string
           price_per_session?: number
           total_price?: number
@@ -1381,6 +1384,231 @@ export type Database = {
           },
         ]
       }
+      cancellation_charges: {
+        Row: {
+          amount: number
+          base_session_price: number
+          center_id: string
+          concept: string
+          created_at: string
+          debt_id: string | null
+          id: string
+          invoice_id: string | null
+          original_amount: number
+          patient_id: string
+          percentage: number
+          policy_version_id: string | null
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          session_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          amount?: number
+          base_session_price?: number
+          center_id: string
+          concept?: string
+          created_at?: string
+          debt_id?: string | null
+          id?: string
+          invoice_id?: string | null
+          original_amount?: number
+          patient_id: string
+          percentage?: number
+          policy_version_id?: string | null
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          session_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          base_session_price?: number
+          center_id?: string
+          concept?: string
+          created_at?: string
+          debt_id?: string | null
+          id?: string
+          invoice_id?: string | null
+          original_amount?: number
+          patient_id?: string
+          percentage?: number
+          policy_version_id?: string | null
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          session_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cancellation_charges_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cancellation_charges_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cancellation_charges_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "portal_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cancellation_charges_debt_id_fkey"
+            columns: ["debt_id"]
+            isOneToOne: false
+            referencedRelation: "debts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cancellation_charges_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cancellation_charges_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cancellation_charges_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cancellation_charges_policy_version_id_fkey"
+            columns: ["policy_version_id"]
+            isOneToOne: false
+            referencedRelation: "cancellation_policy_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cancellation_charges_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cancellation_charges_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cancellation_charges_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cancellation_policy_versions: {
+        Row: {
+          center_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          name: string
+          penalty_invoice_concept: string
+          rectification_reason: string
+          rules: Json
+          updated_at: string
+          valid_reasons: Json
+          version_number: number
+          voucher_validity_days: number
+        }
+        Insert: {
+          center_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          penalty_invoice_concept?: string
+          rectification_reason?: string
+          rules?: Json
+          updated_at?: string
+          valid_reasons?: Json
+          version_number?: number
+          voucher_validity_days?: number
+        }
+        Update: {
+          center_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          penalty_invoice_concept?: string
+          rectification_reason?: string
+          rules?: Json
+          updated_at?: string
+          valid_reasons?: Json
+          version_number?: number
+          voucher_validity_days?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cancellation_policy_versions_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cancellation_policy_versions_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cancellation_policy_versions_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "portal_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cancellation_policy_versions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cancellation_policy_versions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       center_locations: {
         Row: {
           center_id: string
@@ -1473,6 +1701,7 @@ export type Database = {
           ai_prompt_system: string | null
           ai_provider: string | null
           ai_temperature: number | null
+          auto_cancel_unpaid_advance_sessions: boolean | null
           auto_invoicing_enabled: boolean | null
           bank_transfer_info: string | null
           bizum_phone: string | null
@@ -1481,6 +1710,7 @@ export type Database = {
           country: string | null
           created_at: string
           custom_domain: string | null
+          default_advance_payment_limit_hours: number | null
           default_payment_mode: string | null
           default_scheduled_hours_before: number | null
           default_tax_name: string | null
@@ -1533,6 +1763,7 @@ export type Database = {
           session_reminder_timing: string | null
           tax_id: string | null
           transcript_retention_days: number | null
+          unpaid_advance_cancellation_alert_threshold: number | null
           updated_at: string
           verifactu_auto_enabled: boolean | null
           verifactu_certificate_base64: string | null
@@ -1572,6 +1803,7 @@ export type Database = {
           ai_prompt_system?: string | null
           ai_provider?: string | null
           ai_temperature?: number | null
+          auto_cancel_unpaid_advance_sessions?: boolean | null
           auto_invoicing_enabled?: boolean | null
           bank_transfer_info?: string | null
           bizum_phone?: string | null
@@ -1580,6 +1812,7 @@ export type Database = {
           country?: string | null
           created_at?: string
           custom_domain?: string | null
+          default_advance_payment_limit_hours?: number | null
           default_payment_mode?: string | null
           default_scheduled_hours_before?: number | null
           default_tax_name?: string | null
@@ -1632,6 +1865,7 @@ export type Database = {
           session_reminder_timing?: string | null
           tax_id?: string | null
           transcript_retention_days?: number | null
+          unpaid_advance_cancellation_alert_threshold?: number | null
           updated_at?: string
           verifactu_auto_enabled?: boolean | null
           verifactu_certificate_base64?: string | null
@@ -1671,6 +1905,7 @@ export type Database = {
           ai_prompt_system?: string | null
           ai_provider?: string | null
           ai_temperature?: number | null
+          auto_cancel_unpaid_advance_sessions?: boolean | null
           auto_invoicing_enabled?: boolean | null
           bank_transfer_info?: string | null
           bizum_phone?: string | null
@@ -1679,6 +1914,7 @@ export type Database = {
           country?: string | null
           created_at?: string
           custom_domain?: string | null
+          default_advance_payment_limit_hours?: number | null
           default_payment_mode?: string | null
           default_scheduled_hours_before?: number | null
           default_tax_name?: string | null
@@ -1731,6 +1967,7 @@ export type Database = {
           session_reminder_timing?: string | null
           tax_id?: string | null
           transcript_retention_days?: number | null
+          unpaid_advance_cancellation_alert_threshold?: number | null
           updated_at?: string
           verifactu_auto_enabled?: boolean | null
           verifactu_certificate_base64?: string | null
@@ -1965,6 +2202,7 @@ export type Database = {
       consents: {
         Row: {
           access_token: string
+          cancellation_policy_version_id: string | null
           center_id: string
           content_snapshot: string
           created_at: string | null
@@ -1986,6 +2224,7 @@ export type Database = {
         }
         Insert: {
           access_token?: string
+          cancellation_policy_version_id?: string | null
           center_id: string
           content_snapshot: string
           created_at?: string | null
@@ -2007,6 +2246,7 @@ export type Database = {
         }
         Update: {
           access_token?: string
+          cancellation_policy_version_id?: string | null
           center_id?: string
           content_snapshot?: string
           created_at?: string | null
@@ -2027,6 +2267,13 @@ export type Database = {
           verification_responses?: Json | null
         }
         Relationships: [
+          {
+            foreignKeyName: "consents_cancellation_policy_version_id_fkey"
+            columns: ["cancellation_policy_version_id"]
+            isOneToOne: false
+            referencedRelation: "cancellation_policy_versions"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "consents_center_id_fkey"
             columns: ["center_id"]
@@ -3534,8 +3781,10 @@ export type Database = {
           is_minor: boolean | null
           last_name: string
           notes: string | null
+          payment_mode: string | null
           phone: string | null
           postal_code: string | null
+          require_advance_payment_always: boolean | null
           status: Database["public"]["Enums"]["patient_status"] | null
           status_reason: string | null
           status_source: string | null
@@ -3564,8 +3813,10 @@ export type Database = {
           is_minor?: boolean | null
           last_name: string
           notes?: string | null
+          payment_mode?: string | null
           phone?: string | null
           postal_code?: string | null
+          require_advance_payment_always?: boolean | null
           status?: Database["public"]["Enums"]["patient_status"] | null
           status_reason?: string | null
           status_source?: string | null
@@ -3594,8 +3845,10 @@ export type Database = {
           is_minor?: boolean | null
           last_name?: string
           notes?: string | null
+          payment_mode?: string | null
           phone?: string | null
           postal_code?: string | null
+          require_advance_payment_always?: boolean | null
           status?: Database["public"]["Enums"]["patient_status"] | null
           status_reason?: string | null
           status_source?: string | null
@@ -4610,12 +4863,21 @@ export type Database = {
       sessions: {
         Row: {
           access_token: string | null
+          advance_payment_due_at: string | null
+          advance_payment_limit_hours: number | null
+          advance_payment_notification_error: string | null
+          advance_payment_notification_failed_at: string | null
+          advance_payment_notification_sent_at: string | null
           ai_summary_clinical: string | null
           ai_summary_patient: string | null
           base_price_snapshot: number | null
           bono_id: string | null
+          cancellation_origin: string | null
           cancellation_policy: string | null
+          cancellation_policy_status: string | null
+          cancellation_policy_version_id: string | null
           cancellation_reason: string | null
+          cancelled_for_non_payment: boolean | null
           center_id: string
           created_at: string
           custom_price_id: string | null
@@ -4661,12 +4923,21 @@ export type Database = {
         }
         Insert: {
           access_token?: string | null
+          advance_payment_due_at?: string | null
+          advance_payment_limit_hours?: number | null
+          advance_payment_notification_error?: string | null
+          advance_payment_notification_failed_at?: string | null
+          advance_payment_notification_sent_at?: string | null
           ai_summary_clinical?: string | null
           ai_summary_patient?: string | null
           base_price_snapshot?: number | null
           bono_id?: string | null
+          cancellation_origin?: string | null
           cancellation_policy?: string | null
+          cancellation_policy_status?: string | null
+          cancellation_policy_version_id?: string | null
           cancellation_reason?: string | null
+          cancelled_for_non_payment?: boolean | null
           center_id: string
           created_at?: string
           custom_price_id?: string | null
@@ -4712,12 +4983,21 @@ export type Database = {
         }
         Update: {
           access_token?: string | null
+          advance_payment_due_at?: string | null
+          advance_payment_limit_hours?: number | null
+          advance_payment_notification_error?: string | null
+          advance_payment_notification_failed_at?: string | null
+          advance_payment_notification_sent_at?: string | null
           ai_summary_clinical?: string | null
           ai_summary_patient?: string | null
           base_price_snapshot?: number | null
           bono_id?: string | null
+          cancellation_origin?: string | null
           cancellation_policy?: string | null
+          cancellation_policy_status?: string | null
+          cancellation_policy_version_id?: string | null
           cancellation_reason?: string | null
+          cancelled_for_non_payment?: boolean | null
           center_id?: string
           created_at?: string
           custom_price_id?: string | null
@@ -4767,6 +5047,13 @@ export type Database = {
             columns: ["bono_id"]
             isOneToOne: false
             referencedRelation: "bonos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_cancellation_policy_version_id_fkey"
+            columns: ["cancellation_policy_version_id"]
+            isOneToOne: false
+            referencedRelation: "cancellation_policy_versions"
             referencedColumns: ["id"]
           },
           {
@@ -6507,12 +6794,21 @@ export type Database = {
         }
         Returns: {
           access_token: string | null
+          advance_payment_due_at: string | null
+          advance_payment_limit_hours: number | null
+          advance_payment_notification_error: string | null
+          advance_payment_notification_failed_at: string | null
+          advance_payment_notification_sent_at: string | null
           ai_summary_clinical: string | null
           ai_summary_patient: string | null
           base_price_snapshot: number | null
           bono_id: string | null
+          cancellation_origin: string | null
           cancellation_policy: string | null
+          cancellation_policy_status: string | null
+          cancellation_policy_version_id: string | null
           cancellation_reason: string | null
+          cancelled_for_non_payment: boolean | null
           center_id: string
           created_at: string
           custom_price_id: string | null
