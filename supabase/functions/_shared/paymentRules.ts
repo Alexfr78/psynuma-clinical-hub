@@ -7,7 +7,7 @@ const PAYMENT_MODES = new Set<PaymentMode>([
   'scheduled_before',
 ]);
 
-export interface ResolvePaymentSettingsInput {
+export interface ResolvePaymentRulesInput {
   sessionPaymentMode?: string | null;
   patientPaymentMode?: string | null;
   patientRequireAdvancePaymentAlways?: boolean | null;
@@ -17,21 +17,23 @@ export interface ResolvePaymentSettingsInput {
   centerDefaultScheduledHoursBefore?: number | null;
   sessionDate?: string | Date | null;
   startTime?: string | null;
+  price?: number | string | null;
 }
 
-export interface ResolvedPaymentSettings {
+export interface ResolvedPaymentRules {
   paymentMode: PaymentMode;
   source: 'session' | 'patient' | 'center' | 'fallback';
+  paymentStatus: 'pending' | 'paid';
   requiresAdvancePayment: boolean;
   advancePaymentLimitHours: number | null;
-  advancePaymentDueAt: Date | null;
+  advancePaymentDueAt: string | null;
 }
 
 function asPaymentMode(value?: string | null): PaymentMode | null {
   return value && PAYMENT_MODES.has(value as PaymentMode) ? (value as PaymentMode) : null;
 }
 
-function resolveSource(input: ResolvePaymentSettingsInput): Pick<ResolvedPaymentSettings, 'paymentMode' | 'source'> {
+function resolveMode(input: ResolvePaymentRulesInput): Pick<ResolvedPaymentRules, 'paymentMode' | 'source'> {
   const sessionMode = asPaymentMode(input.sessionPaymentMode);
   if (sessionMode) return { paymentMode: sessionMode, source: 'session' };
 
@@ -59,11 +61,15 @@ function buildSessionDateTime(sessionDate?: string | Date | null, startTime?: st
   return Number.isNaN(dateTime.getTime()) ? null : dateTime;
 }
 
-export function resolvePaymentSettings(input: ResolvePaymentSettingsInput): ResolvedPaymentSettings {
-  const { paymentMode, source } = resolveSource(input);
-  const requiresAdvancePayment = input.patientRequireAdvancePaymentAlways === true
+export function resolvePaymentRules(input: ResolvePaymentRulesInput): ResolvedPaymentRules {
+  const { paymentMode, source } = resolveMode(input);
+  const price = Number(input.price ?? 0);
+  const paymentStatus = price > 0 ? 'pending' : 'paid';
+  const requiresAdvancePayment = price > 0 && (
+    input.patientRequireAdvancePaymentAlways === true
     || paymentMode === 'required_now'
-    || paymentMode === 'scheduled_before';
+    || paymentMode === 'scheduled_before'
+  );
 
   const advancePaymentLimitHours = requiresAdvancePayment
     ? input.sessionAdvancePaymentLimitHours
@@ -74,12 +80,13 @@ export function resolvePaymentSettings(input: ResolvePaymentSettingsInput): Reso
 
   const sessionDateTime = buildSessionDateTime(input.sessionDate, input.startTime);
   const advancePaymentDueAt = requiresAdvancePayment && sessionDateTime && advancePaymentLimitHours !== null
-    ? new Date(sessionDateTime.getTime() - advancePaymentLimitHours * 60 * 60 * 1000)
+    ? new Date(sessionDateTime.getTime() - advancePaymentLimitHours * 60 * 60 * 1000).toISOString()
     : null;
 
   return {
     paymentMode,
     source,
+    paymentStatus,
     requiresAdvancePayment,
     advancePaymentLimitHours,
     advancePaymentDueAt,

@@ -4,6 +4,7 @@ import { sendAdminAlert, buildAlertMessage, formatDateSpanish, formatTime } from
 import { logAuditEvent } from "../_shared/auditLogger.ts";
 import { queueAndSendPatientBookingNotification } from "../_shared/bookingPatientNotifications.ts";
 import { notifyProfessionalBooking } from "../_shared/professionalNotification.ts";
+import { resolvePaymentRules } from "../_shared/paymentRules.ts";
 import {
   buildFreeWindows,
   generateScoredSlots,
@@ -199,9 +200,15 @@ serve(async (req) => {
       // Get center configuration
       const { data: center } = await supabase
         .from("centers")
-        .select("portal_require_approval, portal_default_professional_id, portal_allow_professional_selection, reschedule_slot_duration")
+        .select("portal_require_approval, portal_default_professional_id, portal_allow_professional_selection, reschedule_slot_duration, default_payment_mode, default_scheduled_hours_before, default_advance_payment_limit_hours")
         .eq("id", session.centerId)
         .single();
+
+      const { data: patientPayment } = await supabase
+        .from("patients")
+        .select("payment_mode, require_advance_payment_always")
+        .eq("id", session.patientId)
+        .maybeSingle();
 
       // Determine professional
       let finalProfessionalId = professionalId;
@@ -337,6 +344,16 @@ serve(async (req) => {
 
       // Create session
       const status = center?.portal_require_approval ? "pending_approval" : "scheduled";
+      const paymentRules = resolvePaymentRules({
+        patientPaymentMode: patientPayment?.payment_mode,
+        patientRequireAdvancePaymentAlways: patientPayment?.require_advance_payment_always,
+        centerDefaultPaymentMode: center?.default_payment_mode,
+        centerDefaultAdvancePaymentLimitHours: center?.default_advance_payment_limit_hours,
+        centerDefaultScheduledHoursBefore: center?.default_scheduled_hours_before,
+        sessionDate,
+        startTime,
+        price: sessionType.default_price || 0,
+      });
       
       const { data: newSession, error: createError } = await supabase
         .from("sessions")
@@ -352,6 +369,9 @@ serve(async (req) => {
           session_modality: sessionModality,
           location_id: locationId,
           price: sessionType.default_price || 0,
+          payment_status: paymentRules.paymentStatus,
+          advance_payment_limit_hours: paymentRules.advancePaymentLimitHours,
+          advance_payment_due_at: paymentRules.advancePaymentDueAt,
           notes: "Cita solicitada desde el portal de pacientes",
         })
         .select()

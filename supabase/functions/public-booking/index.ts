@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendAdminAlert, buildAlertMessage } from "../_shared/adminAlerts.ts";
 import { queueAndSendPatientBookingNotification } from "../_shared/bookingPatientNotifications.ts";
 import { notifyProfessionalBooking } from "../_shared/professionalNotification.ts";
+import { resolvePaymentRules } from "../_shared/paymentRules.ts";
 import { isValidEmail, isValidDate, isValidTime, isValidName } from "../_shared/validation.ts";
 import { checkIpRateLimit, getClientIp } from "../_shared/rateLimiter.ts";
 import { resolveDayAvailability } from "../_shared/availability-core.ts";
@@ -1085,7 +1086,7 @@ serve(async (req) => {
         .select(`
           id, public_booking_enabled, 
           portal_require_approval, portal_default_professional_id, portal_allow_professional_selection,
-          reschedule_max_days
+          reschedule_max_days, default_payment_mode, default_scheduled_hours_before, default_advance_payment_limit_hours
         `)
         .eq("portal_slug", centerSlug)
         .single();
@@ -1271,7 +1272,7 @@ serve(async (req) => {
       // 1. Try to find existing patient by email
       const { data: existingByEmail } = await supabase
         .from("patients")
-        .select("id, first_name, last_name, phone, email")
+        .select("id, first_name, last_name, phone, email, payment_mode, require_advance_payment_always")
         .eq("center_id", center.id)
         .ilike("email", normalizedEmail)
         .maybeSingle();
@@ -1281,7 +1282,7 @@ serve(async (req) => {
       if (!existingPatient && normalizedPhone) {
         const { data: existingByPhone } = await supabase
           .from("patients")
-          .select("id, first_name, last_name, phone, email")
+          .select("id, first_name, last_name, phone, email, payment_mode, require_advance_payment_always")
           .eq("center_id", center.id)
           .eq("phone", normalizedPhone)
           .is("email", null)
@@ -1328,6 +1329,16 @@ serve(async (req) => {
       // ===== Create session =====
       const sessionModality = location.location_type === 'online' ? 'online' : 'in_person';
       const status = center.portal_require_approval ? "pending_approval" : "scheduled";
+      const paymentRules = resolvePaymentRules({
+        patientPaymentMode: existingPatient?.payment_mode,
+        patientRequireAdvancePaymentAlways: existingPatient?.require_advance_payment_always,
+        centerDefaultPaymentMode: center.default_payment_mode,
+        centerDefaultAdvancePaymentLimitHours: center.default_advance_payment_limit_hours,
+        centerDefaultScheduledHoursBefore: center.default_scheduled_hours_before,
+        sessionDate,
+        startTime,
+        price: sessionType.default_price || 0,
+      });
       const sessionNotes = notes 
         ? `Reserva pública web\n${notes}` 
         : "Reserva pública web";
@@ -1346,6 +1357,9 @@ serve(async (req) => {
           session_modality: sessionModality,
           location_id: locationId,
           price: sessionType.default_price || 0,
+          payment_status: paymentRules.paymentStatus,
+          advance_payment_limit_hours: paymentRules.advancePaymentLimitHours,
+          advance_payment_due_at: paymentRules.advancePaymentDueAt,
           notes: sessionNotes,
         })
         .select(`

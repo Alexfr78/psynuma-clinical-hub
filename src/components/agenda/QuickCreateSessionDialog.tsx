@@ -476,11 +476,19 @@ export function QuickCreateSessionDialog({
     }
     
     const effectivePaymentMode = values.payment_mode === '__default__' ? null : values.payment_mode;
+    const patientPaymentSettings = selectedPatient as {
+      payment_mode?: string | null;
+      require_advance_payment_always?: boolean | null;
+    } | undefined;
+    const centerPaymentSettings = center as typeof center & {
+      default_advance_payment_limit_hours?: number | null;
+    };
     const resolvedPayment = resolvePaymentSettings({
       sessionPaymentMode: effectivePaymentMode,
-      patientPaymentMode: (selectedPatient as any)?.payment_mode,
+      patientPaymentMode: patientPaymentSettings?.payment_mode,
+      patientRequireAdvancePaymentAlways: patientPaymentSettings?.require_advance_payment_always,
       centerDefaultPaymentMode: center?.default_payment_mode,
-      centerDefaultAdvancePaymentLimitHours: (center as any)?.default_advance_payment_limit_hours,
+      centerDefaultAdvancePaymentLimitHours: centerPaymentSettings?.default_advance_payment_limit_hours,
       centerDefaultScheduledHoursBefore: center?.default_scheduled_hours_before,
       sessionDate: values.session_date,
       startTime: values.start_time,
