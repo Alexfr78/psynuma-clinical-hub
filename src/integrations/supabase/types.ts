@@ -6423,6 +6423,18 @@ export type Database = {
         }
         Returns: string
       }
+      record_client_audit_event: {
+        Args: {
+          p_action?: string
+          p_metadata?: Json
+          p_patient_id?: string
+          p_resource_id?: string
+          p_resource_type: string
+          p_route_or_endpoint?: string
+          p_user_agent?: string
+        }
+        Returns: string
+      }
       release_google_sync_lock: {
         Args: { p_lock_token: string; p_professional_id: string }
         Returns: undefined
