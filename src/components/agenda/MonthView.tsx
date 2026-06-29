@@ -20,6 +20,7 @@ import {
 import type { SpecialDay, SpecialDayType } from '@/lib/special-days';
 import { SessionWithRelations } from '@/hooks/useSessions';
 import { useSwipeNavigation } from '@/hooks/useSwipeNavigation';
+import { PaymentStatusIndicator } from './PaymentStatusIndicator';
 
 interface MonthViewProps {
   currentDate: Date;
@@ -186,7 +187,18 @@ export function MonthView({ currentDate, sessions, onSessionClick, onDayClick, o
                       onSessionClick(session);
                     }}
                   >
-                    {session.start_time?.slice(0, 5)} {session.patient?.first_name}
+                    <span className="inline-flex min-w-0 max-w-full items-center gap-1">
+                      <span className="truncate">
+                        {session.start_time?.slice(0, 5)} {session.patient?.first_name}
+                      </span>
+                      <PaymentStatusIndicator
+                        paymentStatus={session.payment_status}
+                        price={session.price}
+                        bonoId={session.bono_id}
+                        compact
+                        className="bg-white/95"
+                      />
+                    </span>
                   </div>
                 ))}
                 {daySessions.length > 3 && (

@@ -131,6 +131,7 @@ import { PatientSessionHistory } from './PatientSessionHistory';
 import { PatientAutoregistros } from '@/components/patients/tabs/PatientAutoregistros';
 import { PatientInvoices } from '@/components/patients/tabs/PatientInvoices';
 import { InvoiceDetailDialog } from '@/components/invoices/InvoiceDetailDialog';
+import { PaymentStatusIndicator } from './PaymentStatusIndicator';
 import { Receipt, Brain } from 'lucide-react';
 import { useAuditLog } from '@/hooks/useAuditLog';
 
@@ -1012,9 +1013,17 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
           </div>
         )}
       </div>
-      <Badge className={cn(status.className, "shrink-0")} variant={status.variant}>
-        {status.label}
-      </Badge>
+      <div className="flex shrink-0 items-center gap-2">
+        <PaymentStatusIndicator
+          paymentStatus={session.payment_status}
+          price={session.price}
+          bonoId={session.bono_id}
+          showLabel={!isMobile}
+        />
+        <Badge className={cn(status.className, "shrink-0")} variant={status.variant}>
+          {status.label}
+        </Badge>
+      </div>
     </div>
   );
 

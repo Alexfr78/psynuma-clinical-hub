@@ -4,6 +4,7 @@ import { SessionWithRelations } from '@/hooks/useSessions';
 import { useCallback, useRef, useState, useEffect } from 'react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { PaymentStatusIndicator } from './PaymentStatusIndicator';
 
 interface SessionCardProps {
   session: SessionWithRelations;
@@ -227,6 +228,14 @@ export function SessionCard({
             </TooltipProvider>
           )}
           <div className="font-medium truncate flex-1">{displayName}</div>
+          {!isGoogleEvent && (
+            <PaymentStatusIndicator
+              paymentStatus={session.payment_status}
+              price={session.price}
+              bonoId={session.bono_id}
+              compact
+            />
+          )}
         </div>
         <div className="text-[10px] opacity-75">
           {session.start_time?.slice(0, 5)} - {session.end_time?.slice(0, 5)}
@@ -278,6 +287,13 @@ export function SessionCard({
               </TooltipProvider>
             )}
             <h4 className="font-medium truncate">{displayName}</h4>
+            {!isGoogleEvent && (
+              <PaymentStatusIndicator
+                paymentStatus={session.payment_status}
+                price={session.price}
+                bonoId={session.bono_id}
+              />
+            )}
           </div>
           <div className="mt-1 flex items-center gap-3 text-sm text-muted-foreground">
             <div className="flex items-center gap-1">
