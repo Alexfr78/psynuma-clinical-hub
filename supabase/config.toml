@@ -63,6 +63,8 @@ project_id = "zprkdxmluvirxfhswrzq"
     verify_jwt = false
   [functions.process-email-queue]
     verify_jwt = true
+  [functions.process-advance-payment-deadlines]
+    verify_jwt = false
   [functions.public-booking]
     verify_jwt = false
   [functions.public-referral-register]
