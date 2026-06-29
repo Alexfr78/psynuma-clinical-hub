@@ -54,6 +54,9 @@ export interface Center {
   // Payment settings
   default_payment_mode: string | null;
   default_scheduled_hours_before: number | null;
+  default_advance_payment_limit_hours: number | null;
+  auto_cancel_unpaid_advance_sessions: boolean | null;
+  unpaid_advance_cancellation_alert_threshold: number | null;
   payment_reminder_enabled: boolean | null;
   payment_reminder_hours_after: number | null;
   payment_reminder_max_count: number | null;

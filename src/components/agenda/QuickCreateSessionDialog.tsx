@@ -79,6 +79,7 @@ import { ConflictsDialog } from './ConflictsDialog';
 import { useWhatsAppDelivery } from '@/hooks/useWhatsAppDelivery';
 import { useAllLocationSchedules } from '@/hooks/useLocationSchedules';
 import { getDefaultLocationForDate } from '@/lib/location-defaults';
+import { resolvePaymentSettings } from '@/lib/payment-mode';
 
 const quickSessionSchema = z.object({
   patient_id: z.string().uuid('Selecciona un contacto'),
@@ -475,6 +476,15 @@ export function QuickCreateSessionDialog({
     }
     
     const effectivePaymentMode = values.payment_mode === '__default__' ? null : values.payment_mode;
+    const resolvedPayment = resolvePaymentSettings({
+      sessionPaymentMode: effectivePaymentMode,
+      patientPaymentMode: (selectedPatient as any)?.payment_mode,
+      centerDefaultPaymentMode: center?.default_payment_mode,
+      centerDefaultAdvancePaymentLimitHours: (center as any)?.default_advance_payment_limit_hours,
+      centerDefaultScheduledHoursBefore: center?.default_scheduled_hours_before,
+      sessionDate: values.session_date,
+      startTime: values.start_time,
+    });
     
     const [startH, startM] = values.start_time.split(':').map(Number);
     const [endH, endM] = values.end_time.split(':').map(Number);
@@ -566,11 +576,14 @@ export function QuickCreateSessionDialog({
         location_id: values.session_modality === 'in_person' && values.location_id ? values.location_id : null,
         bono_id: usesBono ? values.bono_id : null,
         payment_mode: effectivePaymentMode,
+        payment_status: sessionPrice > 0 ? 'pending' : 'paid',
+        advance_payment_limit_hours: resolvedPayment.advancePaymentLimitHours,
+        advance_payment_due_at: resolvedPayment.advancePaymentDueAt?.toISOString() ?? null,
         send_reminder_whatsapp: values.send_reminder_whatsapp,
         send_reminder_email: values.send_reminder_email,
         send_reminder_sms: values.send_reminder_sms,
         ...pricingSnapshots,
-      });
+      } as any);
 
       // Handle video/calendar integrations for non-draft sessions (non-critical)
       if (!asDraft && newSession?.id && selectedPatient) {

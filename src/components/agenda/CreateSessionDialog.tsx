@@ -49,6 +49,7 @@ import { usePatientActiveBonos, useDeductBonoSession } from '@/hooks/useBonos';
 import { useSessionTypes } from '@/hooks/useSessionTypes';
 import { useResolvedPrice } from '@/hooks/useCustomPrices';
 import { PriceBadge } from '@/components/pricing/PriceBadge';
+import { resolvePaymentSettings } from '@/lib/payment-mode';
 
 import { sendSessionNotificationDirect, WhatsAppDialogData } from '@/hooks/useSendSessionNotification';
 import { CreateBonoDialog } from '@/components/bonos/CreateBonoDialog';
@@ -231,6 +232,18 @@ export function CreateSessionDialog({
 
   const onSubmit = async (values: SessionFormValues) => {
     try {
+      const patient = patients?.find(p => p.id === values.patient_id);
+      const explicitPaymentMode = values.payment_mode === '__default__' ? null : values.payment_mode;
+      const resolvedPayment = resolvePaymentSettings({
+        sessionPaymentMode: explicitPaymentMode,
+        patientPaymentMode: (patient as any)?.payment_mode,
+        centerDefaultPaymentMode: center?.default_payment_mode,
+        centerDefaultAdvancePaymentLimitHours: (center as any)?.default_advance_payment_limit_hours,
+        centerDefaultScheduledHoursBefore: center?.default_scheduled_hours_before,
+        sessionDate: values.session_date,
+        startTime: values.start_time,
+      });
+
       // Determinar nombre del tipo de sesión
       const sessionTypeName = values.session_type_id
         ? (sessionTypes?.find(st => st.id === values.session_type_id)?.name ?? values.session_type ?? 'individual')
@@ -253,13 +266,16 @@ export function CreateSessionDialog({
         notes: values.notes || null,
         status: values.status as 'scheduled' | 'confirmed' | 'completed' | 'cancelled' | 'no_show',
         bono_id: values.bono_id && values.bono_id !== 'none' ? values.bono_id : null,
+        payment_mode: explicitPaymentMode,
+        payment_status: values.price > 0 ? 'pending' : 'paid',
+        advance_payment_limit_hours: resolvedPayment.advancePaymentLimitHours,
+        advance_payment_due_at: resolvedPayment.advancePaymentDueAt?.toISOString() ?? null,
         send_reminder_email: values.send_reminder_email,
         send_reminder_sms: values.send_reminder_sms,
         send_reminder_whatsapp: values.send_reminder_whatsapp,
       };
 
-      const newSession = await createSession.mutateAsync(sessionData);
-      const patient = patients?.find(p => p.id === values.patient_id);
+      const newSession = await createSession.mutateAsync(sessionData as any);
       const professional = professionals?.find(p => p.id === values.professional_id);
 
       // If bono was used, deduct a session

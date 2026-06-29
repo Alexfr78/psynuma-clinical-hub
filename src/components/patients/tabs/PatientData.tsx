@@ -46,6 +46,7 @@ const patientSchema = z.object({
   status: z.string(),
   is_minor: z.boolean(),
   auto_invoice_on_complete: z.boolean(),
+  payment_mode: z.string(),
   guardian_name: z.string().max(200).optional().or(z.literal('')),
   guardian_phone: z.string().max(20).optional().or(z.literal('')),
   guardian_email: z.string().email('Email inválido').max(255).optional().or(z.literal('')),
@@ -84,6 +85,7 @@ export function PatientData({ patient }: PatientDataProps) {
       status: patient.status || 'active',
       is_minor: patient.is_minor || false,
       auto_invoice_on_complete: patient.auto_invoice_on_complete ?? false,
+      payment_mode: (patient as any).payment_mode || '__center__',
       guardian_name: patient.guardian_name || '',
       guardian_phone: patient.guardian_phone || '',
       guardian_email: patient.guardian_email || '',
@@ -106,6 +108,7 @@ export function PatientData({ patient }: PatientDataProps) {
         status: values.status as 'active' | 'inactive' | 'discharged',
         is_minor: values.is_minor,
         auto_invoice_on_complete: values.auto_invoice_on_complete,
+        payment_mode: values.payment_mode === '__center__' ? null : values.payment_mode,
         assigned_professional_id: values.assigned_professional_id,
         email: values.email || null,
         phone: values.phone || null,
@@ -122,7 +125,7 @@ export function PatientData({ patient }: PatientDataProps) {
         emergency_contact_name: values.emergency_contact_name || null,
         emergency_contact_phone: values.emergency_contact_phone || null,
         notes: values.notes || null,
-      });
+      } as any);
 
       toast({
         title: 'Datos actualizados',
@@ -490,7 +493,34 @@ export function PatientData({ patient }: PatientDataProps) {
           <CardHeader>
             <CardTitle className="text-base">Asignación</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
+            <FormField
+              control={form.control}
+              name="payment_mode"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Modo de pago</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value} disabled={!isEditing}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="__center__">Usar configuracion del centro</SelectItem>
+                      <SelectItem value="required_now">Pago anticipado</SelectItem>
+                      <SelectItem value="in_session">Pago durante la sesion</SelectItem>
+                      <SelectItem value="post_session">Pago despues de la sesion</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-sm text-muted-foreground">
+                    Se aplicara a nuevas citas salvo que la cita tenga una configuracion propia.
+                  </p>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
             <FormField
               control={form.control}
               name="assigned_professional_id"

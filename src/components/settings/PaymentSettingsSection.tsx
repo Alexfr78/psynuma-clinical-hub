@@ -40,6 +40,9 @@ export function PaymentSettingsSection() {
   
   const [paymentMode, setPaymentMode] = useState('in_session');
   const [scheduledHoursBefore, setScheduledHoursBefore] = useState(24);
+  const [advancePaymentLimitHours, setAdvancePaymentLimitHours] = useState(12);
+  const [autoCancelUnpaidAdvanceSessions, setAutoCancelUnpaidAdvanceSessions] = useState(false);
+  const [unpaidAlertThreshold, setUnpaidAlertThreshold] = useState(2);
   const [reminderEnabled, setReminderEnabled] = useState(true);
   const [reminderHoursAfter, setReminderHoursAfter] = useState(24);
   const [reminderMaxCount, setReminderMaxCount] = useState(3);
@@ -53,6 +56,9 @@ export function PaymentSettingsSection() {
     if (center) {
       setPaymentMode(center.default_payment_mode || 'in_session');
       setScheduledHoursBefore(center.default_scheduled_hours_before || 24);
+      setAdvancePaymentLimitHours(center.default_advance_payment_limit_hours || 12);
+      setAutoCancelUnpaidAdvanceSessions(center.auto_cancel_unpaid_advance_sessions ?? false);
+      setUnpaidAlertThreshold(center.unpaid_advance_cancellation_alert_threshold || 2);
       setReminderEnabled(center.payment_reminder_enabled ?? true);
       setReminderHoursAfter(center.payment_reminder_hours_after || 24);
       setReminderMaxCount(center.payment_reminder_max_count || 3);
@@ -69,6 +75,9 @@ export function PaymentSettingsSection() {
       await updateCenter.mutateAsync({
         default_payment_mode: paymentMode,
         default_scheduled_hours_before: scheduledHoursBefore,
+        default_advance_payment_limit_hours: advancePaymentLimitHours,
+        auto_cancel_unpaid_advance_sessions: autoCancelUnpaidAdvanceSessions,
+        unpaid_advance_cancellation_alert_threshold: unpaidAlertThreshold,
         payment_reminder_enabled: reminderEnabled,
         payment_reminder_hours_after: reminderHoursAfter,
         payment_reminder_max_count: reminderMaxCount,
@@ -213,6 +222,61 @@ export function PaymentSettingsSection() {
               </div>
             </div>
           )}
+
+          <Separator />
+
+          <div className="grid gap-4 md:grid-cols-3">
+            <div className="space-y-2">
+              <Label htmlFor="advance-payment-limit">Limite para pago anticipado</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  id="advance-payment-limit"
+                  type="number"
+                  min={1}
+                  max={168}
+                  value={advancePaymentLimitHours}
+                  onChange={(e) => setAdvancePaymentLimitHours(parseInt(e.target.value) || 12)}
+                  className="w-24"
+                />
+                <span className="text-sm text-muted-foreground">horas</span>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Por defecto, la cita debe quedar pagada antes de este plazo.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="unpaid-alert-threshold">Alerta por falta de pago</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  id="unpaid-alert-threshold"
+                  type="number"
+                  min={1}
+                  max={20}
+                  value={unpaidAlertThreshold}
+                  onChange={(e) => setUnpaidAlertThreshold(parseInt(e.target.value) || 2)}
+                  className="w-24"
+                />
+                <span className="text-sm text-muted-foreground">cancelaciones</span>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Se avisara al terapeuta al alcanzar este numero en el historial.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-between rounded-lg border p-4">
+              <div className="space-y-0.5">
+                <Label>Cancelar si no paga</Label>
+                <p className="text-xs text-muted-foreground">
+                  Al vencer el plazo de pago anticipado.
+                </p>
+              </div>
+              <Switch
+                checked={autoCancelUnpaidAdvanceSessions}
+                onCheckedChange={setAutoCancelUnpaidAdvanceSessions}
+              />
+            </div>
+          </div>
         </CardContent>
       </Card>
 
