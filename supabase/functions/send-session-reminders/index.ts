@@ -1,6 +1,11 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { decryptSecret } from "../_shared/crypto.ts";
+import {
+  buildAdvancePaymentBlock,
+  markAdvancePaymentNotificationFailed,
+  markAdvancePaymentNotificationSent,
+} from "../_shared/advancePaymentNotifications.ts";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 const WASENDER_API_URL = "https://www.wasenderapi.com/api";
@@ -93,6 +98,9 @@ interface SessionToRemind {
   start_time: string;
   end_time: string;
   price: number;
+  payment_status: string | null;
+  advance_payment_due_at: string | null;
+  advance_payment_notification_sent_at: string | null;
   notes: string | null;
   session_type: string | null;
   session_modality: string | null;
@@ -524,6 +532,9 @@ serve(async (req) => {
           start_time,
           end_time,
           price,
+          payment_status,
+          advance_payment_due_at,
+          advance_payment_notification_sent_at,
           notes,
           session_type,
           session_modality,
@@ -570,8 +581,53 @@ serve(async (req) => {
           continue;
         }
 
-        const whatsappMessage = buildReminderMessage(session, center, templateMessage, baseUrl);
-        const emailMessage = buildReminderMessage(session, center, emailTemplateMessage || templateMessage, baseUrl);
+        const shouldIncludeAdvancePayment = Number(session.price ?? 0) > 0
+          && !!session.advance_payment_due_at
+          && !session.advance_payment_notification_sent_at
+          && !["paid", "bono", "refunded"].includes((session.payment_status || "").toLowerCase());
+
+        let whatsappMessage = buildReminderMessage(session, center, templateMessage, baseUrl);
+        let emailMessage = buildReminderMessage(session, center, emailTemplateMessage || templateMessage, baseUrl);
+        let advancePaymentBlockIncluded = false;
+        let advancePaymentBlockError: string | null = null;
+
+        if (shouldIncludeAdvancePayment) {
+          const paymentChannel: "whatsapp" | "email" | null =
+            channels.whatsapp && patient.phone
+              ? "whatsapp"
+              : (channels.email && patient.email ? "email" : null);
+
+          if (paymentChannel) {
+            const paymentBlock = await buildAdvancePaymentBlock({
+              supabase,
+              centerId: center.id,
+              sessionId: session.id,
+              channel: paymentChannel,
+              baseUrl,
+            });
+
+            if (paymentBlock.hasPaymentInstructions && paymentBlock.block) {
+              if (channels.whatsapp && patient.phone) {
+                whatsappMessage = [whatsappMessage, paymentBlock.block].filter(Boolean).join("\n\n");
+              }
+              if (channels.email && patient.email) {
+                emailMessage = [emailMessage, paymentBlock.block].filter(Boolean).join("\n\n");
+              }
+              advancePaymentBlockIncluded = true;
+            } else {
+              advancePaymentBlockError = paymentBlock.stripeError || advancePaymentBlockError;
+            }
+          }
+
+          if (!advancePaymentBlockIncluded) {
+            await markAdvancePaymentNotificationFailed(
+              supabase,
+              session.id,
+              advancePaymentBlockError || "No hay metodos de pago configurados para enviar al paciente",
+            );
+          }
+        }
+
         const logoUrl = center.invoice_logo_url || center.logo_url;
         let reminderSent = false;
 
@@ -750,10 +806,15 @@ serve(async (req) => {
 
         // Mark session as reminded if at least one channel succeeded
         if (reminderSent) {
+          const updatePayload: Record<string, string | null> = { reminder_sent_at: new Date().toISOString() };
           await supabase
             .from("sessions")
-            .update({ reminder_sent_at: new Date().toISOString() })
+            .update(updatePayload)
             .eq("id", session.id);
+
+          if (advancePaymentBlockIncluded) {
+            await markAdvancePaymentNotificationSent(supabase, session.id);
+          }
           
           sent++;
         }

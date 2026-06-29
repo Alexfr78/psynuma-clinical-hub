@@ -3,6 +3,11 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { renderBookingTemplate } from "./bookingTemplates.ts";
+import {
+  buildAdvancePaymentBlock,
+  markAdvancePaymentNotificationFailed,
+  markAdvancePaymentNotificationSent,
+} from "./advancePaymentNotifications.ts";
 
 // deno-lint-ignore no-explicit-any
 type SupabaseClient = any;
@@ -26,6 +31,7 @@ export interface BookingNotificationArgs {
   reason?: string;
   // Manage URL (for public bookings)
   manageUrl?: string;
+  includeAdvancePaymentBlock?: boolean;
 }
 
 function formatDateSpanish(dateStr: string): string {
@@ -165,6 +171,13 @@ export async function queueAndSendPatientBookingNotification(args: BookingNotifi
       recipient = patient.email;
     } else {
       console.log(`[patient-confirmation] No valid channel for patient=${patientId} (no phone or email)`);
+      if (eventType === 'created' && args.includeAdvancePaymentBlock) {
+        await markAdvancePaymentNotificationFailed(
+          supabase,
+          sessionId,
+          'El paciente no tiene email ni telefono para enviar el aviso de pago anticipado',
+        );
+      }
       return;
     }
 
@@ -205,7 +218,31 @@ export async function queueAndSendPatientBookingNotification(args: BookingNotifi
     );
 
     const subject = rendered.subject || '';
-    const message = rendered.message;
+    let message = rendered.message;
+
+    if (eventType === 'created' && args.includeAdvancePaymentBlock) {
+      const baseUrl = center.custom_domain
+        ? `https://${center.custom_domain}`
+        : (center.public_domain ? `https://${center.public_domain}` : 'https://psycma.lovable.app');
+
+      const paymentBlock = await buildAdvancePaymentBlock({
+        supabase,
+        centerId,
+        sessionId,
+        channel,
+        baseUrl,
+      });
+
+      if (paymentBlock.hasPaymentInstructions && paymentBlock.block) {
+        message = [message, paymentBlock.block].filter(Boolean).join('\n\n');
+      } else {
+        await markAdvancePaymentNotificationFailed(
+          supabase,
+          sessionId,
+          paymentBlock.stripeError || 'No hay metodos de pago configurados para enviar al paciente',
+        );
+      }
+    }
 
     // 6. Insert into notifications table
     const { data: notification, error: insertError } = await supabase
@@ -226,10 +263,21 @@ export async function queueAndSendPatientBookingNotification(args: BookingNotifi
 
     if (insertError || !notification) {
       console.error(`[patient-confirmation] Error inserting notification:`, insertError);
+      if (eventType === 'created' && args.includeAdvancePaymentBlock) {
+        await markAdvancePaymentNotificationFailed(
+          supabase,
+          sessionId,
+          insertError?.message || 'No se pudo crear la notificacion de pago anticipado',
+        );
+      }
       return;
     }
 
     console.log(`[patient-confirmation] Notification created id=${notification.id}`);
+
+    if (eventType === 'created' && args.includeAdvancePaymentBlock && message !== rendered.message) {
+      await markAdvancePaymentNotificationSent(supabase, sessionId);
+    }
 
     // 7. Invoke send-notification
     try {

@@ -432,6 +432,7 @@ serve(async (req) => {
         sessionType: sessionType.name,
         sessionModality,
         locationName: location.name,
+        includeAdvancePaymentBlock: status !== "pending_approval",
       });
 
       // Notify professional (email or WhatsApp depending on center config)

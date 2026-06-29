@@ -1430,6 +1430,7 @@ serve(async (req) => {
         sessionModality,
         locationName,
         manageUrl,
+        includeAdvancePaymentBlock: status !== "pending_approval",
       });
 
       // Wait 6s to respect WasenderAPI rate limit (1 msg per 5s)

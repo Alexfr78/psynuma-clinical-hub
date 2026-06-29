@@ -64,10 +64,9 @@ export function PendingApprovalsPanel() {
 
   const approveMutation = useMutation({
     mutationFn: async (sessionId: string) => {
-      const { error } = await supabase
-        .from('sessions')
-        .update({ status: 'scheduled' })
-        .eq('id', sessionId);
+      const { error } = await supabase.functions.invoke('approve-session-request', {
+        body: { session_id: sessionId },
+      });
       
       if (error) throw error;
     },

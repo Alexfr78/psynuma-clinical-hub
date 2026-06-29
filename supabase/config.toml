@@ -3,6 +3,8 @@ project_id = "zprkdxmluvirxfhswrzq"
 [functions]
   [functions.analyze-des-examples]
     verify_jwt = false
+  [functions.approve-session-request]
+    verify_jwt = true
   [functions.auth-email-hook]
     verify_jwt = false
   [functions.cancel-registro-facturacion]
