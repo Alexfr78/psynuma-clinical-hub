@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendAdminAlert, buildAlertMessage } from "../_shared/adminAlerts.ts";
 import { queueAndSendPatientBookingNotification } from "../_shared/bookingPatientNotifications.ts";
 import { notifyProfessionalBooking } from "../_shared/professionalNotification.ts";
-import { resolvePaymentRules } from "../_shared/paymentRules.ts";
+import { evaluateCancellationCharge, resolvePaymentRules } from "../_shared/paymentRules.ts";
 import { autoApplyAvailableBonoToSession } from "../_shared/bonoAutomation.ts";
 import { isValidEmail, isValidDate, isValidTime, isValidName } from "../_shared/validation.ts";
 import { checkIpRateLimit, getClientIp } from "../_shared/rateLimiter.ts";
@@ -1571,7 +1571,7 @@ serve(async (req) => {
       // Get session
       const { data: session } = await supabase
         .from("sessions")
-        .select("id, patient_id, professional_id, session_date, start_time, status, cancellation_policy, google_calendar_event_id")
+        .select("id, patient_id, professional_id, center_id, session_date, start_time, status, cancellation_policy, google_calendar_event_id, price")
         .eq("id", tokenData.sessionId)
         .eq("patient_id", tokenData.patientId)
         .single();
@@ -1595,7 +1595,7 @@ serve(async (req) => {
       const sessionDateTime = new Date(`${session.session_date}T${session.start_time}`);
       const now = new Date();
       const hoursUntilSession = (sessionDateTime.getTime() - now.getTime()) / (1000 * 60 * 60);
-      const requiredHours = policyHoursMap[session.cancellation_policy || "24_hours"] || 24;
+      const requiredHours = -Infinity;
 
       if (hoursUntilSession < requiredHours) {
         return new Response(
@@ -1607,6 +1607,47 @@ serve(async (req) => {
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
+
+      let signedCancellationPolicy: any = null;
+      const { data: signedPolicyConsent } = await supabase
+        .from("consents")
+        .select(`
+          id,
+          cancellation_policy_version_id,
+          cancellation_policy_versions(
+            id,
+            rules,
+            penalty_invoice_concept
+          )
+        `)
+        .eq("center_id", session.center_id)
+        .eq("patient_id", session.patient_id)
+        .eq("status", "signed")
+        .not("cancellation_policy_version_id", "is", null)
+        .order("signed_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (signedPolicyConsent?.cancellation_policy_versions) {
+        signedCancellationPolicy = Array.isArray(signedPolicyConsent.cancellation_policy_versions)
+          ? signedPolicyConsent.cancellation_policy_versions[0]
+          : signedPolicyConsent.cancellation_policy_versions;
+      }
+
+      const signedPolicyEvaluation = signedCancellationPolicy
+        ? evaluateCancellationCharge({
+          rules: signedCancellationPolicy.rules,
+          sessionStartsAt: sessionDateTime,
+          cancelledAt: now,
+          basePrice: session.price,
+        })
+        : null;
+
+      const cancellationReviewMessage = signedPolicyEvaluation?.applies
+        ? `Cancelacion fuera de plazo. Se ha creado un cargo pendiente de revision por ${signedPolicyEvaluation.amount.toFixed(2)} EUR.`
+        : signedCancellationPolicy
+          ? "Cancelacion dentro del plazo de la politica firmada. No se crea cargo."
+          : "El paciente no tiene politica de cancelacion firmada. No se crea cargo.";
 
       // Cancel session
       const { error: updateError } = await supabase
@@ -1623,6 +1664,28 @@ serve(async (req) => {
           JSON.stringify({ error: "Error al cancelar la cita" }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
+      }
+
+      if (signedPolicyEvaluation?.applies && signedCancellationPolicy) {
+        const { error: chargeError } = await supabase
+          .from("cancellation_charges")
+          .insert({
+            center_id: session.center_id,
+            patient_id: session.patient_id,
+            session_id: session.id,
+            policy_version_id: signedCancellationPolicy.id,
+            status: "pending_review",
+            amount: signedPolicyEvaluation.amount,
+            original_amount: signedPolicyEvaluation.amount,
+            percentage: signedPolicyEvaluation.percentage,
+            base_session_price: signedPolicyEvaluation.basePrice,
+            concept: signedCancellationPolicy.penalty_invoice_concept || "Cancelacion fuera de plazo segun politica aceptada",
+            review_note: reason || "Cancelacion solicitada por el paciente desde reserva publica",
+          });
+
+        if (chargeError) {
+          console.error("Error creating cancellation charge:", chargeError);
+        }
       }
 
       // Get patient and professional info for alert
@@ -1646,7 +1709,7 @@ serve(async (req) => {
           patientPhone: patientData.phone,
           sessionDate: session.session_date,
           sessionTime: session.start_time,
-          details: reason || 'Sin motivo especificado',
+          details: `${reason || 'Sin motivo especificado'}\n\n${cancellationReviewMessage}`,
         });
 
         await sendAdminAlert({
@@ -1714,7 +1777,13 @@ serve(async (req) => {
       }
 
       return new Response(
-        JSON.stringify({ success: true, message: "Cita cancelada correctamente" }),
+        JSON.stringify({
+          success: true,
+          message: signedPolicyEvaluation?.applies
+            ? "Cita cancelada. Tu profesional revisara la politica de cancelacion aplicable."
+            : "Cita cancelada correctamente",
+          cancellationChargePendingReview: signedPolicyEvaluation?.applies || false,
+        }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }

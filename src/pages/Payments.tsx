@@ -23,7 +23,9 @@ import { RecordPaymentDialog } from '@/components/payments/RecordPaymentDialog';
 import { EditPaymentDialog } from '@/components/payments/EditPaymentDialog';
 import { SendPaymentReminderDialog } from '@/components/payments/SendPaymentReminderDialog';
 import { LinkPaymentToInvoiceDialog } from '@/components/payments/LinkPaymentToInvoiceDialog';
+import { CancellationChargesPanel } from '@/components/payments/CancellationChargesPanel';
 import { SendInvoiceDialog } from '@/components/invoices/SendInvoiceDialog';
+import { useCancellationCharges } from '@/hooks/useCancellationCharges';
 import { format } from 'date-fns';
 
 export default function Payments() {
@@ -57,6 +59,7 @@ export default function Payments() {
 
   const { data: debts, isLoading: debtsLoading } = useDebts();
   const { data: payments, isLoading: paymentsLoading } = usePayments();
+  const { data: cancellationCharges } = useCancellationCharges();
   const { data: debtStats } = useDebtStats();
   const { data: paymentStats } = usePaymentStats();
   const deletePayment = useDeletePayment();
@@ -192,6 +195,15 @@ export default function Payments() {
               <span className="hidden sm:inline">Historial de pagos</span>
               <span className="sm:hidden">Historial</span>
             </TabsTrigger>
+            <TabsTrigger value="cancellations" className="flex-shrink-0 text-xs sm:text-sm px-3 py-2 min-h-[40px]">
+              <span className="hidden sm:inline">Cancelaciones</span>
+              <span className="sm:hidden">Canc.</span>
+              {cancellationCharges && cancellationCharges.length > 0 && (
+                <span className="ml-1 rounded-full bg-destructive px-1.5 py-0.5 text-[10px] leading-none text-destructive-foreground">
+                  {cancellationCharges.length}
+                </span>
+              )}
+            </TabsTrigger>
           </TabsList>
         </div>
 
@@ -256,6 +268,10 @@ export default function Payments() {
               }}
             />
           )}
+        </TabsContent>
+
+        <TabsContent value="cancellations" className="mt-0">
+          <CancellationChargesPanel />
         </TabsContent>
       </Tabs>
 
