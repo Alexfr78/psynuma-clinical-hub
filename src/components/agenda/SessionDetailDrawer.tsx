@@ -132,6 +132,7 @@ import { PatientAutoregistros } from '@/components/patients/tabs/PatientAutoregi
 import { PatientInvoices } from '@/components/patients/tabs/PatientInvoices';
 import { InvoiceDetailDialog } from '@/components/invoices/InvoiceDetailDialog';
 import { PaymentStatusIndicator } from './PaymentStatusIndicator';
+import { CancellationPolicyIndicator } from './CancellationPolicyIndicator';
 import { Receipt, Brain } from 'lucide-react';
 import { useAuditLog } from '@/hooks/useAuditLog';
 
@@ -1014,6 +1015,10 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
         )}
       </div>
       <div className="flex shrink-0 items-center gap-2">
+        <CancellationPolicyIndicator
+          status={session.cancellation_policy_status}
+          showLabel={!isMobile}
+        />
         <PaymentStatusIndicator
           paymentStatus={session.payment_status}
           price={session.price}
@@ -1102,6 +1107,30 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
       </TabsList>
 
           <TabsContent value="info" className="mt-0 px-4 sm:px-6 py-4 space-y-6">
+            {session.patient && session.cancellation_policy_status && session.cancellation_policy_status !== 'signed' && (
+              <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="space-y-1">
+                    <h3 className="font-semibold text-amber-900 dark:text-amber-200">
+                      Política de cancelación pendiente
+                    </h3>
+                    <p className="text-sm text-amber-900/80 dark:text-amber-200/80">
+                      {session.cancellation_policy_status === 'outdated'
+                        ? 'El contacto tiene firmada una versión anterior de la política.'
+                        : 'El contacto todavía no tiene una política de cancelación firmada.'}
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => navigate(`/pacientes/${session.patient!.id}`)}
+                  >
+                    Ver ficha
+                  </Button>
+                </div>
+              </div>
+            )}
+
             {/* Patient Card / Blocked Session Conversion */}
             {isBlockedSession && !session.patient ? (
               // Blocked session without patient - show conversion UI

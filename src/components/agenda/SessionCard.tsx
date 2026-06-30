@@ -5,6 +5,7 @@ import { useCallback, useRef, useState, useEffect } from 'react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { PaymentStatusIndicator } from './PaymentStatusIndicator';
+import { CancellationPolicyIndicator } from './CancellationPolicyIndicator';
 
 interface SessionCardProps {
   session: SessionWithRelations;
@@ -229,12 +230,15 @@ export function SessionCard({
           )}
           <div className="font-medium truncate flex-1">{displayName}</div>
           {!isGoogleEvent && (
-            <PaymentStatusIndicator
-              paymentStatus={session.payment_status}
-              price={session.price}
-              bonoId={session.bono_id}
-              compact
-            />
+            <div className="flex shrink-0 items-center gap-1">
+              <CancellationPolicyIndicator status={session.cancellation_policy_status} compact />
+              <PaymentStatusIndicator
+                paymentStatus={session.payment_status}
+                price={session.price}
+                bonoId={session.bono_id}
+                compact
+              />
+            </div>
           )}
         </div>
         <div className="text-[10px] opacity-75">
@@ -288,11 +292,14 @@ export function SessionCard({
             )}
             <h4 className="font-medium truncate">{displayName}</h4>
             {!isGoogleEvent && (
-              <PaymentStatusIndicator
-                paymentStatus={session.payment_status}
-                price={session.price}
-                bonoId={session.bono_id}
-              />
+              <div className="flex shrink-0 items-center gap-1">
+                <CancellationPolicyIndicator status={session.cancellation_policy_status} />
+                <PaymentStatusIndicator
+                  paymentStatus={session.payment_status}
+                  price={session.price}
+                  bonoId={session.bono_id}
+                />
+              </div>
             )}
           </div>
           <div className="mt-1 flex items-center gap-3 text-sm text-muted-foreground">
