@@ -1,9 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Save, Loader2, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import {
+  CancellationPolicyRules,
+  cancellationPolicyLinesToList,
+  cancellationPolicyReasonsToLines,
+  normalizeCancellationPolicyRules,
+  useActiveCancellationPolicy,
+} from '@/hooks/useCancellationPolicy';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,31 +20,7 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 
-type RefundMode = 'automatic' | 'review';
 type RefundOption = 'refund' | 'voucher';
-
-interface CancellationPolicyRules {
-  cancellation_window_hours: number;
-  late_cancel_penalty_percentage: number;
-  no_show_percentage: number;
-  unjustified_free_cancellations: number;
-  allow_justified_cancellations: boolean;
-  refund_mode: RefundMode;
-  refund_options: RefundOption[];
-}
-
-interface CancellationPolicyVersion {
-  id: string;
-  center_id: string;
-  name: string;
-  version_number: number;
-  is_active: boolean;
-  rules: CancellationPolicyRules | Record<string, unknown>;
-  valid_reasons: string[] | unknown;
-  penalty_invoice_concept: string;
-  rectification_reason: string;
-  voucher_validity_days: number;
-}
 
 const DEFAULT_RULES: CancellationPolicyRules = {
   cancellation_window_hours: 24,
@@ -48,32 +31,6 @@ const DEFAULT_RULES: CancellationPolicyRules = {
   refund_mode: 'review',
   refund_options: ['refund', 'voucher'],
 };
-
-function normalizeRules(value: CancellationPolicyVersion['rules'] | null | undefined): CancellationPolicyRules {
-  const raw = (value || {}) as Partial<CancellationPolicyRules>;
-  return {
-    cancellation_window_hours: Number(raw.cancellation_window_hours ?? DEFAULT_RULES.cancellation_window_hours),
-    late_cancel_penalty_percentage: Number(raw.late_cancel_penalty_percentage ?? DEFAULT_RULES.late_cancel_penalty_percentage),
-    no_show_percentage: Number(raw.no_show_percentage ?? DEFAULT_RULES.no_show_percentage),
-    unjustified_free_cancellations: Number(raw.unjustified_free_cancellations ?? DEFAULT_RULES.unjustified_free_cancellations),
-    allow_justified_cancellations: raw.allow_justified_cancellations ?? DEFAULT_RULES.allow_justified_cancellations,
-    refund_mode: raw.refund_mode === 'automatic' ? 'automatic' : 'review',
-    refund_options: Array.isArray(raw.refund_options) && raw.refund_options.length > 0
-      ? raw.refund_options.filter((option): option is RefundOption => option === 'refund' || option === 'voucher')
-      : DEFAULT_RULES.refund_options,
-  };
-}
-
-function linesToList(value: string): string[] {
-  return value
-    .split('\n')
-    .map((line) => line.trim())
-    .filter(Boolean);
-}
-
-function listToLines(value: unknown): string {
-  return Array.isArray(value) ? value.filter(Boolean).join('\n') : '';
-}
 
 export function CancellationPolicySettingsSection() {
   const { profile } = useAuth();
@@ -87,37 +44,20 @@ export function CancellationPolicySettingsSection() {
   const [rectificationReason, setRectificationReason] = useState('Devolución por cancelación de cita');
   const [voucherValidityDays, setVoucherValidityDays] = useState(365);
 
-  const { data: activePolicy, isLoading } = useQuery({
-    queryKey: ['active-cancellation-policy', centerId],
-    queryFn: async () => {
-      if (!centerId) return null;
-      const { data, error } = await supabase
-        .from('cancellation_policy_versions')
-        .select('*')
-        .eq('center_id', centerId)
-        .eq('is_active', true)
-        .order('version_number', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (error) throw error;
-      return data as CancellationPolicyVersion | null;
-    },
-    enabled: !!centerId,
-  });
+  const { data: activePolicy, isLoading } = useActiveCancellationPolicy();
 
   useEffect(() => {
     if (!activePolicy) return;
     setName(activePolicy.name || 'Política de cancelación');
-    setRules(normalizeRules(activePolicy.rules));
-    setValidReasons(listToLines(activePolicy.valid_reasons));
+    setRules(normalizeCancellationPolicyRules(activePolicy.rules));
+    setValidReasons(cancellationPolicyReasonsToLines(activePolicy.valid_reasons));
     setPenaltyConcept(activePolicy.penalty_invoice_concept || 'Cancelación fuera de plazo según política aceptada');
     setRectificationReason(activePolicy.rectification_reason || 'Devolución por cancelación de cita');
     setVoucherValidityDays(activePolicy.voucher_validity_days || 365);
   }, [activePolicy]);
 
   const previewText = useMemo(() => {
-    const reasons = linesToList(validReasons);
+    const reasons = cancellationPolicyLinesToList(validReasons);
     const refundText = rules.refund_options.includes('refund') && rules.refund_options.includes('voucher')
       ? 'devolución o vale'
       : rules.refund_options.includes('refund')
@@ -169,7 +109,7 @@ export function CancellationPolicySettingsSection() {
           version_number: nextVersion,
           is_active: true,
           rules,
-          valid_reasons: linesToList(validReasons),
+          valid_reasons: cancellationPolicyLinesToList(validReasons),
           penalty_invoice_concept: penaltyConcept,
           rectification_reason: rectificationReason,
           voucher_validity_days: voucherValidityDays,

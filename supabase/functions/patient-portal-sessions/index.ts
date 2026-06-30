@@ -4,7 +4,7 @@ import { sendAdminAlert, buildAlertMessage, formatDateSpanish, formatTime } from
 import { logAuditEvent } from "../_shared/auditLogger.ts";
 import { queueAndSendPatientBookingNotification } from "../_shared/bookingPatientNotifications.ts";
 import { notifyProfessionalBooking } from "../_shared/professionalNotification.ts";
-import { resolvePaymentRules } from "../_shared/paymentRules.ts";
+import { evaluateCancellationCharge, resolvePaymentRules } from "../_shared/paymentRules.ts";
 import { autoApplyAvailableBonoToSession } from "../_shared/bonoAutomation.ts";
 import {
   buildFreeWindows,
@@ -500,7 +500,7 @@ serve(async (req) => {
       // Verify session belongs to patient
       const { data: existingSession } = await supabase
         .from("sessions")
-        .select("id, patient_id, session_date, start_time, cancellation_policy, professional_id")
+        .select("id, center_id, patient_id, session_date, start_time, cancellation_policy, cancellation_policy_version_id, professional_id, price")
         .eq("id", sessionId)
         .eq("patient_id", session.patientId)
         .single();
@@ -512,24 +512,55 @@ serve(async (req) => {
         );
       }
 
+      let signedCancellationPolicy: any = null;
+      const { data: signedPolicyConsent } = await supabase
+        .from("consents")
+        .select(`
+          id,
+          cancellation_policy_version_id,
+          cancellation_policy_versions(
+            id,
+            rules,
+            penalty_invoice_concept
+          )
+        `)
+        .eq("center_id", existingSession.center_id)
+        .eq("patient_id", session.patientId)
+        .eq("status", "signed")
+        .not("cancellation_policy_version_id", "is", null)
+        .order("signed_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (signedPolicyConsent?.cancellation_policy_versions) {
+        signedCancellationPolicy = Array.isArray(signedPolicyConsent.cancellation_policy_versions)
+          ? signedPolicyConsent.cancellation_policy_versions[0]
+          : signedPolicyConsent.cancellation_policy_versions;
+      }
+
       // Check cancellation policy
       const sessionDateTime = new Date(`${existingSession.session_date}T${existingSession.start_time}`);
       const now = new Date();
       const hoursUntilSession = (sessionDateTime.getTime() - now.getTime()) / (1000 * 60 * 60);
 
-      const policyHours: Record<string, number> = {
-        "not_allowed": Infinity,
-        "until_start": 0,
-        "1_hour": 1,
-        "2_hours": 2,
-        "24_hours": 24,
-        "48_hours": 48,
-        "72_hours": 72,
-      };
-
-      const requiredHours = policyHours[existingSession.cancellation_policy || "24_hours"] || 24;
+      const requiredHours = -Infinity;
       
-      if (hoursUntilSession < requiredHours) {
+      const signedPolicyEvaluation = signedCancellationPolicy
+        ? evaluateCancellationCharge({
+          rules: signedCancellationPolicy.rules,
+          sessionStartsAt: sessionDateTime,
+          cancelledAt: now,
+          basePrice: existingSession.price,
+        })
+        : null;
+
+      const cancellationReviewMessage = signedPolicyEvaluation?.applies
+        ? `Cancelacion fuera de plazo. Se ha creado un cargo pendiente de revision por ${signedPolicyEvaluation.amount.toFixed(2)} EUR.`
+        : signedCancellationPolicy
+          ? "Cancelacion dentro del plazo de la politica firmada. No se crea cargo."
+          : "El paciente no tiene politica de cancelacion firmada. No se crea cargo.";
+
+      if (hoursUntilSession < requiredHours && !signedCancellationPolicy) {
         return new Response(
           JSON.stringify({ 
             error: requiredHours === Infinity 
@@ -557,6 +588,28 @@ serve(async (req) => {
         );
       }
 
+      if (signedPolicyEvaluation?.applies && signedCancellationPolicy) {
+        const { error: chargeError } = await supabase
+          .from("cancellation_charges")
+          .insert({
+            center_id: existingSession.center_id,
+            patient_id: session.patientId!,
+            session_id: sessionId,
+            policy_version_id: signedCancellationPolicy.id,
+            status: "pending_review",
+            amount: signedPolicyEvaluation.amount,
+            original_amount: signedPolicyEvaluation.amount,
+            percentage: signedPolicyEvaluation.percentage,
+            base_session_price: signedPolicyEvaluation.basePrice,
+            concept: signedCancellationPolicy.penalty_invoice_concept || "CancelaciÃ³n fuera de plazo segÃºn polÃ­tica aceptada",
+            review_note: reason || "CancelaciÃ³n solicitada por el paciente desde el portal",
+          });
+
+        if (chargeError) {
+          console.error("Error creating cancellation charge:", chargeError);
+        }
+      }
+
       // Send admin alert for cancellation
       const { data: patientData } = await supabase
         .from("patients")
@@ -571,7 +624,7 @@ serve(async (req) => {
           patientEmail: patientData.email,
           sessionDate: existingSession.session_date,
           sessionTime: existingSession.start_time,
-          details: reason || 'Sin motivo especificado',
+          details: `${reason || 'Sin motivo especificado'}\n\n${cancellationReviewMessage}`,
         });
 
         await sendAdminAlert({
@@ -629,7 +682,13 @@ serve(async (req) => {
       });
 
       return new Response(
-        JSON.stringify({ success: true, message: "Cita cancelada correctamente" }),
+        JSON.stringify({
+          success: true,
+          message: signedPolicyEvaluation?.applies
+            ? "Cita cancelada. Tu profesional revisara la politica de cancelacion aplicable."
+            : "Cita cancelada correctamente",
+          cancellationChargePendingReview: signedPolicyEvaluation?.applies || false,
+        }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }

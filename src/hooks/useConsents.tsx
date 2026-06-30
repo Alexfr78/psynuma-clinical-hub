@@ -22,6 +22,7 @@ export interface Consent {
   signed_pdf_url: string | null;
   uploaded_file_url: string | null;
   source: 'digital' | 'uploaded' | null;
+  cancellation_policy_version_id: string | null;
   created_at: string;
   updated_at: string;
   template?: {
@@ -89,11 +90,13 @@ export function useConsents(patientId?: string) {
       template_id,
       content_snapshot,
       requires_guardian,
+      cancellation_policy_version_id,
     }: {
       patient_id: string;
       template_id: string;
       content_snapshot: string;
       requires_guardian: boolean;
+      cancellation_policy_version_id?: string | null;
     }) => {
       if (!profile?.center_id || !profile?.id) throw new Error('No center or profile');
       
@@ -110,6 +113,7 @@ export function useConsents(patientId?: string) {
           content_snapshot,
           requires_guardian,
           expires_at,
+          cancellation_policy_version_id: cancellation_policy_version_id || null,
         })
         .select()
         .single();

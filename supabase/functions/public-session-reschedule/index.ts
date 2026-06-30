@@ -2,6 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendAdminAlert, buildAlertMessage, formatDateSpanish, formatTime } from "../_shared/adminAlerts.ts";
 import { queueAndSendPatientBookingNotification } from "../_shared/bookingPatientNotifications.ts";
 import { notifyProfessionalBooking } from "../_shared/professionalNotification.ts";
+import { evaluateCancellationCharge } from "../_shared/paymentRules.ts";
 import { resolveDayAvailability } from "../_shared/availability-core.ts";
 import {
   buildDayScheduleInput,
@@ -70,6 +71,7 @@ Deno.serve(async (req) => {
         session_type,
         session_modality,
         cancellation_policy,
+        price,
         google_calendar_event_id
       `)
       .eq("access_token", token)
@@ -157,6 +159,7 @@ Deno.serve(async (req) => {
       );
     }
 
+    const sessionRow = session;
     const maxDays = center?.reschedule_max_days || 30;
 
     // Calculate session duration from the original session's start and end times
@@ -175,7 +178,7 @@ Deno.serve(async (req) => {
         .from("center_locations")
         .select("id, name, location_type, street, number_details, city, postal_code, is_active, is_public, center_id")
         .eq("id", locId)
-        .eq("center_id", session.center_id)
+        .eq("center_id", sessionRow.center_id)
         .maybeSingle();
       if (error || !loc) return { row: null, error: "Ubicación no encontrada" };
       if (!loc.is_active || !loc.is_public) return { row: null, error: "Ubicación no disponible" };
@@ -665,7 +668,7 @@ Deno.serve(async (req) => {
         "72_hours": 72,
       };
       
-      const requiredHours = policyHoursMap[policy] ?? 24;
+      const requiredHours = -Infinity;
       
       if (requiredHours === Infinity) {
         return new Response(
@@ -680,6 +683,47 @@ Deno.serve(async (req) => {
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
+
+      let signedCancellationPolicy: any = null;
+      const { data: signedPolicyConsent } = await supabase
+        .from("consents")
+        .select(`
+          id,
+          cancellation_policy_version_id,
+          cancellation_policy_versions(
+            id,
+            rules,
+            penalty_invoice_concept
+          )
+        `)
+        .eq("center_id", sessionRow.center_id)
+        .eq("patient_id", session.patient_id)
+        .eq("status", "signed")
+        .not("cancellation_policy_version_id", "is", null)
+        .order("signed_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (signedPolicyConsent?.cancellation_policy_versions) {
+        signedCancellationPolicy = Array.isArray(signedPolicyConsent.cancellation_policy_versions)
+          ? signedPolicyConsent.cancellation_policy_versions[0]
+          : signedPolicyConsent.cancellation_policy_versions;
+      }
+
+      const signedPolicyEvaluation = signedCancellationPolicy
+        ? evaluateCancellationCharge({
+          rules: signedCancellationPolicy.rules,
+          sessionStartsAt: sessionDateTime,
+          cancelledAt: new Date(),
+          basePrice: session.price,
+        })
+        : null;
+
+      const cancellationReviewMessage = signedPolicyEvaluation?.applies
+        ? `Cancelacion fuera de plazo. Se ha creado un cargo pendiente de revision por ${signedPolicyEvaluation.amount.toFixed(2)} EUR.`
+        : signedCancellationPolicy
+          ? "Cancelacion dentro del plazo de la politica firmada. No se crea cargo."
+          : "El paciente no tiene politica de cancelacion firmada. No se crea cargo.";
 
       // Update the session status to cancelled
       const { error: updateError } = await supabase
@@ -696,6 +740,28 @@ Deno.serve(async (req) => {
           JSON.stringify({ error: "Failed to cancel session" }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
+      }
+
+      if (signedPolicyEvaluation?.applies && signedCancellationPolicy) {
+        const { error: chargeError } = await supabase
+          .from("cancellation_charges")
+          .insert({
+            center_id: session.center_id,
+            patient_id: session.patient_id,
+            session_id: session.id,
+            policy_version_id: signedCancellationPolicy.id,
+            status: "pending_review",
+            amount: signedPolicyEvaluation.amount,
+            original_amount: signedPolicyEvaluation.amount,
+            percentage: signedPolicyEvaluation.percentage,
+            base_session_price: signedPolicyEvaluation.basePrice,
+            concept: signedCancellationPolicy.penalty_invoice_concept || "Cancelacion fuera de plazo segun politica aceptada",
+            review_note: cancellation_reason || "Cancelacion solicitada por el paciente desde el enlace publico",
+          });
+
+        if (chargeError) {
+          console.error("Error creating cancellation charge:", chargeError);
+        }
       }
 
       // Sync the cancellation to Google Calendar if session has a Google event
@@ -746,7 +812,7 @@ Deno.serve(async (req) => {
           professionalName,
           modality: session.session_modality,
           locationName,
-          details: cancellation_reason || undefined,
+          details: `${cancellation_reason || 'Sin motivo especificado'}\n\n${cancellationReviewMessage}`,
         });
 
         await sendAdminAlert({
@@ -801,7 +867,10 @@ Deno.serve(async (req) => {
       return new Response(
         JSON.stringify({ 
           success: true,
-          message: "Cita cancelada correctamente"
+          message: signedPolicyEvaluation?.applies
+            ? "Cita cancelada. Tu profesional revisara la politica de cancelacion aplicable."
+            : "Cita cancelada correctamente",
+          cancellationChargePendingReview: signedPolicyEvaluation?.applies || false,
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );

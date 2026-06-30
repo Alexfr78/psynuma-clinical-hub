@@ -166,6 +166,8 @@ export interface CancellationTier {
 }
 
 export interface CancellationPolicyRules {
+  cancellation_window_hours?: number;
+  late_cancel_penalty_percentage?: number;
   tiers?: CancellationTier[];
   thresholds?: CancellationTier[];
   default_penalty_percentage?: number;
@@ -236,6 +238,16 @@ export function evaluateCancellationCharge(input: EvaluateCancellationInput): Ca
   if (input.isNoShow) {
     const pct = rules.no_show_percentage ?? 100;
     return buildResult(pct, null, 'no_show');
+  }
+
+  if (
+    typeof rules.cancellation_window_hours === 'number'
+    && typeof rules.late_cancel_penalty_percentage === 'number'
+  ) {
+    if (hoursBefore >= rules.cancellation_window_hours) {
+      return buildResult(0, null, 'within_grace');
+    }
+    return buildResult(rules.late_cancel_penalty_percentage, null, 'default');
   }
 
   // Grace window: if cancelled enough in advance, no penalty.

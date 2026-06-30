@@ -8,6 +8,7 @@ import { CreateConsentDialog } from '@/components/consents/CreateConsentDialog';
 import { SendConsentDialog } from '@/components/consents/SendConsentDialog';
 import { UploadConsentDialog } from '@/components/consents/UploadConsentDialog';
 import { Patient } from '@/hooks/usePatients';
+import { useActiveCancellationPolicy, useCreateCancellationPolicyConsent } from '@/hooks/useCancellationPolicy';
 
 interface PatientConsentsProps {
   patientId: string;
@@ -17,6 +18,8 @@ interface PatientConsentsProps {
 export function PatientConsents({ patientId, patient }: PatientConsentsProps) {
   const { consents, isLoading } = useConsents(patientId);
   const { profile } = useAuth();
+  const { data: activeCancellationPolicy } = useActiveCancellationPolicy();
+  const createCancellationPolicyConsent = useCreateCancellationPolicyConsent(patient);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [sendDialogConsent, setSendDialogConsent] = useState<typeof consents[0] | null>(null);
@@ -26,6 +29,11 @@ export function PatientConsents({ patientId, patient }: PatientConsentsProps) {
     if (newConsent) {
       setSendDialogConsent(newConsent);
     }
+  };
+
+  const handleCreateCancellationPolicyConsent = async () => {
+    const consent = await createCancellationPolicyConsent.mutateAsync();
+    setSendDialogConsent(consent);
   };
 
   if (isLoading) {
@@ -43,6 +51,22 @@ export function PatientConsents({ patientId, patient }: PatientConsentsProps) {
           Consentimientos informados
         </h2>
         <div className="flex gap-2">
+          {activeCancellationPolicy && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full sm:w-auto"
+              onClick={handleCreateCancellationPolicyConsent}
+              disabled={createCancellationPolicyConsent.isPending}
+            >
+              {createCancellationPolicyConsent.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <FileText className="mr-2 h-4 w-4" />
+              )}
+              Política cancelación
+            </Button>
+          )}
           <Button variant="outline" size="sm" className="w-full sm:w-auto" onClick={() => setUploadOpen(true)}>
             <Upload className="mr-2 h-4 w-4" />
             Subir firmado
