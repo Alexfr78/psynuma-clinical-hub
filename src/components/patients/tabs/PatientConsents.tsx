@@ -1,6 +1,8 @@
 import { useState } from 'react';
-import { Plus, FileText, Loader2, Upload } from 'lucide-react';
+import { Plus, FileText, Loader2, Upload, CheckCircle2, AlertTriangle, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { useConsents } from '@/hooks/useConsents';
 import { useAuth } from '@/hooks/useAuth';
 import { ConsentCard } from '@/components/consents/ConsentCard';
@@ -35,6 +37,19 @@ export function PatientConsents({ patientId, patient }: PatientConsentsProps) {
     const consent = await createCancellationPolicyConsent.mutateAsync();
     setSendDialogConsent(consent);
   };
+
+  const policyConsents = consents.filter((consent) => consent.cancellation_policy_version_id);
+  const signedPolicyConsent = policyConsents.find((consent) => consent.status === 'signed');
+  const pendingPolicyConsent = policyConsents.find((consent) => consent.status === 'pending');
+  const hasActivePolicySigned = !!activeCancellationPolicy
+    && signedPolicyConsent?.cancellation_policy_version_id === activeCancellationPolicy.id;
+  const policyStatus = hasActivePolicySigned
+    ? 'signed'
+    : signedPolicyConsent
+      ? 'outdated'
+      : pendingPolicyConsent
+        ? 'pending'
+        : 'missing';
 
   if (isLoading) {
     return (
@@ -77,6 +92,57 @@ export function PatientConsents({ patientId, patient }: PatientConsentsProps) {
           </Button>
         </div>
       </div>
+
+      {activeCancellationPolicy && (
+        <Card>
+          <CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-3">
+              <div className="rounded-lg bg-muted p-2">
+                {policyStatus === 'signed' ? (
+                  <CheckCircle2 className="h-5 w-5 text-green-600" />
+                ) : policyStatus === 'pending' ? (
+                  <Clock className="h-5 w-5 text-amber-600" />
+                ) : (
+                  <AlertTriangle className="h-5 w-5 text-destructive" />
+                )}
+              </div>
+              <div className="space-y-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="font-semibold">Política de cancelación</h3>
+                  {policyStatus === 'signed' && <Badge variant="outline">Vigente</Badge>}
+                  {policyStatus === 'outdated' && <Badge variant="secondary">Versión anterior firmada</Badge>}
+                  {policyStatus === 'pending' && <Badge variant="outline">Pendiente de firma</Badge>}
+                  {policyStatus === 'missing' && <Badge variant="destructive">Sin firma</Badge>}
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Versión activa: {activeCancellationPolicy.name} v{activeCancellationPolicy.version_number}
+                </p>
+                {signedPolicyConsent?.signed_at && (
+                  <p className="text-xs text-muted-foreground">
+                    Última firma: {new Date(signedPolicyConsent.signed_at).toLocaleDateString('es-ES')}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {policyStatus !== 'signed' && (
+              <Button
+                variant={policyStatus === 'missing' ? 'default' : 'outline'}
+                size="sm"
+                onClick={handleCreateCancellationPolicyConsent}
+                disabled={createCancellationPolicyConsent.isPending}
+              >
+                {createCancellationPolicyConsent.isPending ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <FileText className="mr-2 h-4 w-4" />
+                )}
+                Enviar política
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {consents.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12 text-center">

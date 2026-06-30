@@ -145,6 +145,46 @@ export function useActiveCancellationPolicy() {
   });
 }
 
+export async function resolvePatientCancellationPolicyForSession(
+  centerId: string,
+  patientId: string | null | undefined,
+  activePolicyId?: string | null,
+) {
+  if (!patientId) {
+    return {
+      cancellation_policy_version_id: null,
+      cancellation_policy_status: activePolicyId ? 'not_signed' : null,
+    };
+  }
+
+  const { data: signedPolicyConsent, error } = await supabase
+    .from('consents')
+    .select('cancellation_policy_version_id, signed_at')
+    .eq('center_id', centerId)
+    .eq('patient_id', patientId)
+    .eq('status', 'signed')
+    .not('cancellation_policy_version_id', 'is', null)
+    .order('signed_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw error;
+
+  if (!signedPolicyConsent?.cancellation_policy_version_id) {
+    return {
+      cancellation_policy_version_id: null,
+      cancellation_policy_status: activePolicyId ? 'not_signed' : null,
+    };
+  }
+
+  return {
+    cancellation_policy_version_id: signedPolicyConsent.cancellation_policy_version_id,
+    cancellation_policy_status: activePolicyId && signedPolicyConsent.cancellation_policy_version_id !== activePolicyId
+      ? 'outdated'
+      : 'signed',
+  };
+}
+
 export function useCreateCancellationPolicyConsent(patient: Patient) {
   const { profile } = useAuth();
   const { center } = useCenter();

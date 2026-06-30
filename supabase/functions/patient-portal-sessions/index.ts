@@ -6,6 +6,7 @@ import { queueAndSendPatientBookingNotification } from "../_shared/bookingPatien
 import { notifyProfessionalBooking } from "../_shared/professionalNotification.ts";
 import { evaluateCancellationCharge, resolvePaymentRules } from "../_shared/paymentRules.ts";
 import { autoApplyAvailableBonoToSession } from "../_shared/bonoAutomation.ts";
+import { resolvePatientCancellationPolicyForSession } from "../_shared/cancellationPolicy.ts";
 import {
   buildFreeWindows,
   generateScoredSlots,
@@ -355,6 +356,10 @@ serve(async (req) => {
         startTime,
         price: sessionType.default_price || 0,
       });
+      const cancellationPolicyState = await resolvePatientCancellationPolicyForSession(supabase, {
+        centerId: session.centerId!,
+        patientId: session.patientId,
+      });
       
       const { data: newSession, error: createError } = await supabase
         .from("sessions")
@@ -373,6 +378,7 @@ serve(async (req) => {
           payment_status: paymentRules.paymentStatus,
           advance_payment_limit_hours: paymentRules.advancePaymentLimitHours,
           advance_payment_due_at: paymentRules.advancePaymentDueAt,
+          ...cancellationPolicyState,
           notes: "Cita solicitada desde el portal de pacientes",
         })
         .select()

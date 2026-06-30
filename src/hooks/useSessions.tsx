@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { Tables, TablesInsert, TablesUpdate } from '@/integrations/supabase/types';
 import { createCancellationChargeForSessionCancellation } from './useCancellationCharges';
+import { resolvePatientCancellationPolicyForSession } from './useCancellationPolicy';
 
 export type Session = Tables<'sessions'>;
 export type SessionInsert = TablesInsert<'sessions'>;
@@ -71,9 +72,24 @@ export function useCreateSession() {
     mutationFn: async (session: Omit<SessionInsert, 'center_id'>) => {
       if (!profile?.center_id) throw new Error('No center assigned');
 
+      const { data: activePolicy } = await supabase
+        .from('cancellation_policy_versions')
+        .select('id')
+        .eq('center_id', profile.center_id)
+        .eq('is_active', true)
+        .order('version_number', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const policyState = await resolvePatientCancellationPolicyForSession(
+        profile.center_id,
+        session.patient_id,
+        activePolicy?.id,
+      );
+
       const { data, error } = await supabase
         .from('sessions')
-        .insert({ ...session, center_id: profile.center_id })
+        .insert({ ...session, ...policyState, center_id: profile.center_id })
         .select()
         .single();
 
@@ -91,26 +107,53 @@ export function useUpdateSession() {
 
   return useMutation({
     mutationFn: async ({ id, ...updates }: SessionUpdate & { id: string }) => {
+      let updatesWithPolicy = updates;
+      if (updates.patient_id !== undefined) {
+        const { data: currentSession, error: currentSessionError } = await supabase
+          .from('sessions')
+          .select('center_id')
+          .eq('id', id)
+          .single();
+
+        if (currentSessionError) throw currentSessionError;
+
+        const { data: activePolicy } = await supabase
+          .from('cancellation_policy_versions')
+          .select('id')
+          .eq('center_id', currentSession.center_id)
+          .eq('is_active', true)
+          .order('version_number', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        const policyState = await resolvePatientCancellationPolicyForSession(
+          currentSession.center_id,
+          updates.patient_id,
+          activePolicy?.id,
+        );
+        updatesWithPolicy = { ...updates, ...policyState };
+      }
+
       const { data, error } = await supabase
         .from('sessions')
-        .update(updates)
+        .update(updatesWithPolicy)
         .eq('id', id)
         .select()
         .single();
 
       if (error) throw error;
 
-      if (updates.status === 'cancelled') {
+      if (updatesWithPolicy.status === 'cancelled') {
         await createCancellationChargeForSessionCancellation(
           id,
-          typeof updates.cancellation_reason === 'string'
-            ? updates.cancellation_reason
+          typeof updatesWithPolicy.cancellation_reason === 'string'
+            ? updatesWithPolicy.cancellation_reason
             : 'Cancelacion registrada por el profesional desde agenda',
         );
       }
 
       // If price changed, update the associated debt amount
-      if (updates.price !== undefined) {
+      if (updatesWithPolicy.price !== undefined) {
         const { data: debt, error: debtError } = await supabase
           .from('debts')
           .select('id, paid_amount, status')
@@ -122,7 +165,7 @@ export function useUpdateSession() {
         }
 
         if (debt) {
-          const newAmount = Number(updates.price);
+          const newAmount = Number(updatesWithPolicy.price);
           const paidAmount = Number(debt.paid_amount) || 0;
           
           // If the new amount is 0 and no payments have been made, delete the debt
@@ -161,7 +204,7 @@ export function useUpdateSession() {
         // Also update billable_events if exists
         await supabase
           .from('billable_events')
-          .update({ amount: updates.price })
+          .update({ amount: updatesWithPolicy.price })
           .eq('session_id', id);
       }
 

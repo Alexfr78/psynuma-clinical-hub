@@ -5,6 +5,7 @@ import { queueAndSendPatientBookingNotification } from "../_shared/bookingPatien
 import { notifyProfessionalBooking } from "../_shared/professionalNotification.ts";
 import { evaluateCancellationCharge, resolvePaymentRules } from "../_shared/paymentRules.ts";
 import { autoApplyAvailableBonoToSession } from "../_shared/bonoAutomation.ts";
+import { resolvePatientCancellationPolicyForSession } from "../_shared/cancellationPolicy.ts";
 import { isValidEmail, isValidDate, isValidTime, isValidName } from "../_shared/validation.ts";
 import { checkIpRateLimit, getClientIp } from "../_shared/rateLimiter.ts";
 import { resolveDayAvailability } from "../_shared/availability-core.ts";
@@ -1340,6 +1341,10 @@ serve(async (req) => {
         startTime,
         price: sessionType.default_price || 0,
       });
+      const cancellationPolicyState = await resolvePatientCancellationPolicyForSession(supabase, {
+        centerId: center.id,
+        patientId,
+      });
       const sessionNotes = notes 
         ? `Reserva pública web\n${notes}` 
         : "Reserva pública web";
@@ -1361,6 +1366,7 @@ serve(async (req) => {
           payment_status: paymentRules.paymentStatus,
           advance_payment_limit_hours: paymentRules.advancePaymentLimitHours,
           advance_payment_due_at: paymentRules.advancePaymentDueAt,
+          ...cancellationPolicyState,
           notes: sessionNotes,
         })
         .select(`

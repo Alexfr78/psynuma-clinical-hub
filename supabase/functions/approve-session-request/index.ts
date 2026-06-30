@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { queueAndSendPatientBookingNotification } from "../_shared/bookingPatientNotifications.ts";
 import { autoApplyAvailableBonoToSession } from "../_shared/bonoAutomation.ts";
+import { resolvePatientCancellationPolicyForSession } from "../_shared/cancellationPolicy.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -113,9 +114,18 @@ serve(async (req) => {
       );
     }
 
+    const cancellationPolicyState = await resolvePatientCancellationPolicyForSession(supabase, {
+      centerId: session.center_id,
+      patientId: session.patient_id,
+    });
+
     const { error: updateError } = await supabase
       .from("sessions")
-      .update({ status: "scheduled", updated_at: new Date().toISOString() })
+      .update({
+        status: "scheduled",
+        ...cancellationPolicyState,
+        updated_at: new Date().toISOString(),
+      })
       .eq("id", session_id)
       .eq("status", "pending_approval");
 
