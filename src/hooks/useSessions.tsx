@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { Tables, TablesInsert, TablesUpdate } from '@/integrations/supabase/types';
+import { createCancellationChargeForSessionCancellation } from './useCancellationCharges';
 
 export type Session = Tables<'sessions'>;
 export type SessionInsert = TablesInsert<'sessions'>;
@@ -99,6 +100,15 @@ export function useUpdateSession() {
 
       if (error) throw error;
 
+      if (updates.status === 'cancelled') {
+        await createCancellationChargeForSessionCancellation(
+          id,
+          typeof updates.cancellation_reason === 'string'
+            ? updates.cancellation_reason
+            : 'Cancelacion registrada por el profesional desde agenda',
+        );
+      }
+
       // If price changed, update the associated debt amount
       if (updates.price !== undefined) {
         const { data: debt, error: debtError } = await supabase
@@ -163,6 +173,7 @@ export function useUpdateSession() {
       queryClient.invalidateQueries({ queryKey: ['billable-events'] });
       queryClient.invalidateQueries({ queryKey: ['session-payment-status'] });
       queryClient.invalidateQueries({ queryKey: ['session-invoice-status'] });
+      queryClient.invalidateQueries({ queryKey: ['cancellation-charges'] });
     },
   });
 }

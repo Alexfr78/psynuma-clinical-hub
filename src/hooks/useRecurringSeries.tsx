@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { RecurringSeries, RecurringSeriesInsert, RecurringSeriesUpdate, EditScope, RecurrenceConfig } from '@/types/recurring';
 import { generateRecurrenceOccurrences } from '@/lib/recurrence-utils';
 import { format } from 'date-fns';
+import { createCancellationChargeForSessionCancellation } from './useCancellationCharges';
 
 interface CreateRecurringSeriesParams {
   seriesData: Omit<RecurringSeriesInsert, 'center_id' | 'created_by'>;
@@ -273,16 +274,21 @@ export function useCancelRecurringSession() {
       switch (scope) {
         case 'this': {
           // Cancel only this session
-          const { error } = await supabase
+          const { data, error } = await supabase
             .from('sessions')
             .update({
               status: 'cancelled',
               is_exception: true,
               updated_at: new Date().toISOString(),
             })
-            .eq('id', sessionId);
+            .eq('id', sessionId)
+            .select('id')
+            .single();
 
           if (error) throw error;
+          if (data?.id) {
+            await createCancellationChargeForSessionCancellation(data.id, 'Cancelacion recurrente registrada por el profesional');
+          }
           return { cancelled: 1 };
         }
 
@@ -309,6 +315,11 @@ export function useCancelRecurringSession() {
             .select();
 
           if (error) throw error;
+          await Promise.all(
+            (cancelled ?? []).map((session) =>
+              createCancellationChargeForSessionCancellation(session.id, 'Cancelacion recurrente registrada por el profesional')
+            )
+          );
           return { cancelled: cancelled?.length || 0 };
         }
 
@@ -363,6 +374,11 @@ export function useCancelRecurringSession() {
             .select();
 
           if (error) throw error;
+          await Promise.all(
+            (cancelled ?? []).map((session) =>
+              createCancellationChargeForSessionCancellation(session.id, 'Cancelacion recurrente registrada por el profesional')
+            )
+          );
           return { cancelled: cancelled?.length || 0 };
         }
 
@@ -373,6 +389,7 @@ export function useCancelRecurringSession() {
     onSuccess: ({ cancelled }) => {
       queryClient.invalidateQueries({ queryKey: ['sessions'] });
       queryClient.invalidateQueries({ queryKey: ['recurring-series'] });
+      queryClient.invalidateQueries({ queryKey: ['cancellation-charges'] });
       toast.success(`Se han cancelado ${cancelled} cita${cancelled !== 1 ? 's' : ''}`);
     },
     onError: (error) => {

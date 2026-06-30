@@ -1,9 +1,14 @@
+import { useEffect, useState } from 'react';
 import { AlertTriangle, Calendar, CheckCircle2, Loader2, User, XCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   CancellationCharge,
   useCancellationCharges,
@@ -22,17 +27,37 @@ function sessionLabel(charge: CancellationCharge) {
   return `${date}${time ? ` · ${time}` : ''}`;
 }
 
-export function CancellationChargesPanel() {
-  const { data: charges = [], isLoading } = useCancellationCharges();
+function CancellationChargeList({ status }: { status: CancellationCharge['status'] }) {
+  const { data: charges = [], isLoading } = useCancellationCharges(status);
   const confirmCharge = useConfirmCancellationCharge();
   const forgiveCharge = useForgiveCancellationCharge();
+  const [amounts, setAmounts] = useState<Record<string, string>>({});
+  const [notes, setNotes] = useState<Record<string, string>>({});
   const isMutating = confirmCharge.isPending || forgiveCharge.isPending;
+  const isPendingReview = status === 'pending_review';
+
+  useEffect(() => {
+    setAmounts((current) => {
+      const next = { ...current };
+      charges.forEach((charge) => {
+        if (next[charge.id] === undefined) next[charge.id] = charge.amount.toFixed(2);
+      });
+      return next;
+    });
+    setNotes((current) => {
+      const next = { ...current };
+      charges.forEach((charge) => {
+        if (next[charge.id] === undefined) next[charge.id] = charge.review_note || '';
+      });
+      return next;
+    });
+  }, [charges]);
 
   if (isLoading) {
     return (
       <div className="flex items-center justify-center rounded-lg border py-12 text-muted-foreground">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-        Cargando cancelaciones pendientes...
+        Cargando cancelaciones...
       </div>
     );
   }
@@ -41,9 +66,9 @@ export function CancellationChargesPanel() {
     return (
       <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12 text-center">
         <CheckCircle2 className="h-12 w-12 text-muted-foreground" />
-        <h3 className="mt-4 font-semibold">Sin cancelaciones pendientes</h3>
+        <h3 className="mt-4 font-semibold">Sin cancelaciones</h3>
         <p className="text-sm text-muted-foreground">
-          No hay cargos por cancelación esperando revisión.
+          No hay cargos por cancelación en esta vista.
         </p>
       </div>
     );
@@ -59,7 +84,7 @@ export function CancellationChargesPanel() {
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge variant="outline" className="gap-1">
                     <AlertTriangle className="h-3 w-3" />
-                    Pendiente de revisión
+                    {status === 'pending_review' ? 'Pendiente de revisión' : status === 'confirmed' ? 'Deuda generada' : 'Perdonado'}
                   </Badge>
                   <span className="text-xs text-muted-foreground">
                     Creado {format(new Date(charge.created_at), "d MMM yyyy · HH:mm", { locale: es })}
@@ -82,32 +107,106 @@ export function CancellationChargesPanel() {
                 </div>
 
                 <p className="text-sm">{charge.concept}</p>
-                {charge.review_note && (
+                {isPendingReview ? (
+                  <div className="grid gap-3 pt-2 md:grid-cols-[160px_1fr]">
+                    <div className="space-y-1.5">
+                      <Label htmlFor={`charge-amount-${charge.id}`} className="text-xs">
+                        Importe a generar
+                      </Label>
+                      <Input
+                        id={`charge-amount-${charge.id}`}
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        value={amounts[charge.id] ?? charge.amount.toFixed(2)}
+                        onChange={(event) => setAmounts((current) => ({
+                          ...current,
+                          [charge.id]: event.target.value,
+                        }))}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor={`charge-note-${charge.id}`} className="text-xs">
+                        Nota de resolución
+                      </Label>
+                      <Textarea
+                        id={`charge-note-${charge.id}`}
+                        rows={2}
+                        value={notes[charge.id] ?? ''}
+                        onChange={(event) => setNotes((current) => ({
+                          ...current,
+                          [charge.id]: event.target.value,
+                        }))}
+                        placeholder="Motivo de la decisión, ajuste aplicado..."
+                      />
+                    </div>
+                  </div>
+                ) : charge.review_note ? (
                   <p className="text-xs text-muted-foreground">{charge.review_note}</p>
-                )}
+                ) : null}
               </div>
 
-              <div className="flex flex-col gap-2 sm:flex-row lg:shrink-0">
-                <Button
-                  variant="outline"
-                  onClick={() => forgiveCharge.mutate(charge.id)}
-                  disabled={isMutating}
-                >
-                  <XCircle className="mr-2 h-4 w-4" />
-                  Perdonar
-                </Button>
-                <Button
-                  onClick={() => confirmCharge.mutate(charge)}
-                  disabled={isMutating}
-                >
-                  <CheckCircle2 className="mr-2 h-4 w-4" />
-                  Generar deuda
-                </Button>
-              </div>
+              {isPendingReview && (
+                <div className="flex flex-col gap-2 sm:flex-row lg:shrink-0">
+                  <Button
+                    variant="outline"
+                    onClick={() => forgiveCharge.mutate({
+                      chargeId: charge.id,
+                      reviewNote: notes[charge.id],
+                    })}
+                    disabled={isMutating}
+                  >
+                    <XCircle className="mr-2 h-4 w-4" />
+                    Perdonar
+                  </Button>
+                  <Button
+                    onClick={() => confirmCharge.mutate({
+                      charge,
+                      amount: Number(amounts[charge.id] ?? charge.amount),
+                      reviewNote: notes[charge.id],
+                    })}
+                    disabled={isMutating}
+                  >
+                    <CheckCircle2 className="mr-2 h-4 w-4" />
+                    Generar deuda
+                  </Button>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
       ))}
     </div>
+  );
+}
+
+export function CancellationChargesPanel() {
+  const { data: pendingCharges = [] } = useCancellationCharges('pending_review');
+
+  return (
+    <Tabs defaultValue="pending" className="space-y-4">
+      <TabsList>
+        <TabsTrigger value="pending">
+          Pendientes
+          {pendingCharges.length > 0 && (
+            <span className="ml-1 rounded-full bg-destructive px-1.5 py-0.5 text-[10px] leading-none text-destructive-foreground">
+              {pendingCharges.length}
+            </span>
+          )}
+        </TabsTrigger>
+        <TabsTrigger value="confirmed">Generadas</TabsTrigger>
+        <TabsTrigger value="forgiven">Perdonadas</TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="pending">
+        <CancellationChargeList status="pending_review" />
+      </TabsContent>
+      <TabsContent value="confirmed">
+        <CancellationChargeList status="confirmed" />
+      </TabsContent>
+      <TabsContent value="forgiven">
+        <CancellationChargeList status="forgiven" />
+      </TabsContent>
+    </Tabs>
   );
 }

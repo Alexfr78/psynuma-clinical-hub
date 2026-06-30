@@ -37,6 +37,113 @@ export interface CancellationCharge {
   } | null;
 }
 
+function evaluateCancellationCharge(input: {
+  rules: Record<string, unknown> | null;
+  sessionStartsAt: Date;
+  cancelledAt?: Date;
+  basePrice: number | string | null | undefined;
+}) {
+  const rules = input.rules || {};
+  const basePrice = Math.max(Number(input.basePrice ?? 0) || 0, 0);
+  const cancelledAt = input.cancelledAt || new Date();
+  const hoursBefore = (input.sessionStartsAt.getTime() - cancelledAt.getTime()) / (1000 * 60 * 60);
+  const cancellationWindowHours = Number(rules.cancellation_window_hours ?? 24);
+  const percentage = Number(rules.late_cancel_penalty_percentage ?? 0);
+
+  if (hoursBefore >= cancellationWindowHours || percentage <= 0 || basePrice <= 0) {
+    return {
+      applies: false,
+      amount: 0,
+      percentage,
+      basePrice,
+    };
+  }
+
+  return {
+    applies: true,
+    amount: Math.round((basePrice * percentage)) / 100,
+    percentage,
+    basePrice,
+  };
+}
+
+export async function createCancellationChargeForSessionCancellation(sessionId: string, note?: string) {
+  const { data: existingCharge, error: existingError } = await supabase
+    .from('cancellation_charges')
+    .select('id')
+    .eq('session_id', sessionId)
+    .in('status', ['pending_review', 'confirmed', 'paid'])
+    .maybeSingle();
+
+  if (existingError) throw existingError;
+  if (existingCharge) return null;
+
+  const { data: session, error: sessionError } = await supabase
+    .from('sessions')
+    .select('id, center_id, patient_id, session_date, start_time, price')
+    .eq('id', sessionId)
+    .maybeSingle();
+
+  if (sessionError) throw sessionError;
+  if (!session?.patient_id || !session.center_id) return null;
+
+  const { data: signedPolicyConsent, error: consentError } = await supabase
+    .from('consents')
+    .select(`
+      id,
+      cancellation_policy_version_id,
+      cancellation_policy_versions(
+        id,
+        rules,
+        penalty_invoice_concept
+      )
+    `)
+    .eq('center_id', session.center_id)
+    .eq('patient_id', session.patient_id)
+    .eq('status', 'signed')
+    .not('cancellation_policy_version_id', 'is', null)
+    .order('signed_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (consentError) throw consentError;
+  if (!signedPolicyConsent?.cancellation_policy_versions) return null;
+
+  const signedPolicy = Array.isArray(signedPolicyConsent.cancellation_policy_versions)
+    ? signedPolicyConsent.cancellation_policy_versions[0]
+    : signedPolicyConsent.cancellation_policy_versions;
+  if (!signedPolicy) return null;
+
+  const evaluation = evaluateCancellationCharge({
+    rules: signedPolicy.rules as Record<string, unknown>,
+    sessionStartsAt: new Date(`${session.session_date}T${session.start_time}`),
+    basePrice: session.price,
+  });
+
+  if (!evaluation.applies) return null;
+
+  const { data: charge, error: chargeError } = await supabase
+    .from('cancellation_charges')
+    .insert({
+      center_id: session.center_id,
+      patient_id: session.patient_id,
+      session_id: session.id,
+      policy_version_id: signedPolicy.id,
+      status: 'pending_review',
+      amount: evaluation.amount,
+      original_amount: evaluation.amount,
+      percentage: evaluation.percentage,
+      base_session_price: evaluation.basePrice,
+      concept: signedPolicy.penalty_invoice_concept || 'Cancelacion fuera de plazo segun politica aceptada',
+      review_note: note || 'Cancelacion registrada por el profesional desde agenda',
+    })
+    .select()
+    .single();
+
+  if (chargeError) throw chargeError;
+  return charge;
+}
+
 export function useCancellationCharges(status: CancellationCharge['status'] = 'pending_review') {
   const { profile } = useAuth();
 
@@ -68,14 +175,23 @@ export function useConfirmCancellationCharge() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (charge: CancellationCharge) => {
+    mutationFn: async ({
+      charge,
+      amount,
+      reviewNote,
+    }: {
+      charge: CancellationCharge;
+      amount?: number;
+      reviewNote?: string;
+    }) => {
+      const finalAmount = Math.max(Number(amount ?? charge.amount) || 0, 0);
       const { data: debt, error: debtError } = await supabase
         .from('debts')
         .insert({
           center_id: charge.center_id,
           patient_id: charge.patient_id,
           session_id: charge.session_id,
-          amount: charge.amount,
+          amount: finalAmount,
           paid_amount: 0,
           status: 'pending',
           notes: charge.concept,
@@ -89,7 +205,9 @@ export function useConfirmCancellationCharge() {
         .from('cancellation_charges')
         .update({
           status: 'confirmed',
+          amount: finalAmount,
           debt_id: debt.id,
+          review_note: reviewNote?.trim() || charge.review_note,
           reviewed_by: profile?.id || null,
           reviewed_at: new Date().toISOString(),
         })
@@ -117,11 +235,18 @@ export function useForgiveCancellationCharge() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (chargeId: string) => {
+    mutationFn: async ({
+      chargeId,
+      reviewNote,
+    }: {
+      chargeId: string;
+      reviewNote?: string;
+    }) => {
       const { error } = await supabase
         .from('cancellation_charges')
         .update({
           status: 'forgiven',
+          review_note: reviewNote?.trim() || null,
           reviewed_by: profile?.id || null,
           reviewed_at: new Date().toISOString(),
         })
