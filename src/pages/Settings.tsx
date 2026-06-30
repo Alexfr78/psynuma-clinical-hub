@@ -49,6 +49,7 @@ import { InvoiceAutomationSection } from '@/components/settings/InvoiceAutomatio
 import { LocationsSection } from '@/components/settings/LocationsSection';
 import { SessionTypesSection } from '@/components/settings/SessionTypesSection';
 import { PaymentSettingsSection } from '@/components/settings/PaymentSettingsSection';
+import { CancellationPolicySettingsSection } from '@/components/settings/CancellationPolicySettingsSection';
 import { EmailTemplateEditor } from '@/components/settings/communications/EmailTemplateEditor';
 import { WhatsAppTemplateEditor } from '@/components/settings/communications/WhatsAppTemplateEditor';
 import { SmsTemplateEditor } from '@/components/settings/communications/SmsTemplateEditor';
@@ -101,6 +102,7 @@ type SettingsSection =
   
   | 'sesiones-tipos'
   | 'pagos-config'
+  | 'pagos-politica-cancelacion'
   | 'consentimientos-config'
   | 'facturacion-info' 
   | 'facturacion-editar' 
@@ -164,6 +166,7 @@ const navItems: NavItem[] = [
   // Pagos y Facturación
   { id: 'tarifas', label: 'Planes tarifarios', icon: Layers, parent: 'Pagos y Facturación' },
   { id: 'pagos-config', label: 'Métodos de cobro', icon: Wallet, parent: 'Pagos y Facturación' },
+  { id: 'pagos-politica-cancelacion', label: 'Política de cancelación', icon: FileText, parent: 'Pagos y Facturación' },
   { id: 'facturacion-info', label: 'Datos fiscales', icon: Receipt, parent: 'Pagos y Facturación' },
   { id: 'facturacion-editar', label: 'Personalizar facturas', icon: Pencil, parent: 'Pagos y Facturación' },
   { id: 'facturacion-series', label: 'Series de facturas', icon: List, parent: 'Pagos y Facturación' },
@@ -381,6 +384,8 @@ export default function Settings() {
         return <TariffPlansSection />;
       case 'pagos-config':
         return <PaymentSettingsSection />;
+      case 'pagos-politica-cancelacion':
+        return <CancellationPolicySettingsSection />;
       case 'consentimientos-config':
         return <ConsentSettingsSection />;
       case 'facturacion-info':
