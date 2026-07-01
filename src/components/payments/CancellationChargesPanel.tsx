@@ -165,7 +165,7 @@ function CancellationChargeList({ status }: { status: CancellationCharge['status
                       amount: Number(amounts[charge.id] ?? charge.amount),
                       reviewNote: notes[charge.id],
                     })}
-                    disabled={isMutating}
+                    disabled={isMutating || Number(amounts[charge.id] ?? charge.amount) <= 0}
                   >
                     <CheckCircle2 className="mr-2 h-4 w-4" />
                     Generar deuda

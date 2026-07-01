@@ -336,6 +336,9 @@ export function usePublicSessionReschedule(token: string | undefined) {
       return data;
     },
     onSuccess: (data) => {
+      queryClient.setQueryData<PublicSessionData | undefined>(['public-session', token], (current) => (
+        current ? { ...current, status: 'cancelled' } : current
+      ));
       queryClient.invalidateQueries({ queryKey: ['public-session', token] });
       toast.success(data.message || 'Cita cancelada');
     },

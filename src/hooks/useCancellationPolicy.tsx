@@ -29,8 +29,59 @@ export interface CancellationPolicyVersion {
   rules: CancellationPolicyRules | Record<string, unknown>;
   valid_reasons: string[] | unknown;
   penalty_invoice_concept: string;
+  policy_text?: string | null;
   rectification_reason: string;
   voucher_validity_days: number;
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function policyTextToHtml(text: string) {
+  const lines = text.split('\n');
+  const html: string[] = [];
+  let listOpen = false;
+
+  const closeList = () => {
+    if (listOpen) {
+      html.push('</ul>');
+      listOpen = false;
+    }
+  };
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line) {
+      closeList();
+      continue;
+    }
+
+    if (line.startsWith('# ')) {
+      closeList();
+      html.push(`<h2>${escapeHtml(line.slice(2))}</h2>`);
+    } else if (line.startsWith('## ')) {
+      closeList();
+      html.push(`<h3>${escapeHtml(line.slice(3))}</h3>`);
+    } else if (line.startsWith('* ')) {
+      if (!listOpen) {
+        html.push('<ul>');
+        listOpen = true;
+      }
+      html.push(`<li>${escapeHtml(line.slice(2))}</li>`);
+    } else {
+      closeList();
+      html.push(`<p>${escapeHtml(line)}</p>`);
+    }
+  }
+
+  closeList();
+  return html.join('\n');
 }
 
 const DEFAULT_RULES: CancellationPolicyRules = {
@@ -82,6 +133,16 @@ function buildPolicyHtml({
   centerName: string;
   professionalName: string;
 }) {
+  if (policy.policy_text?.trim()) {
+    return policyTextToHtml(
+      policy.policy_text
+        .replace(/\[nombre y apellidos\]/gi, `${patient.first_name} ${patient.last_name}`.trim())
+        .replace(/\[fecha\]/gi, format(new Date(), "d 'de' MMMM 'de' yyyy", { locale: es }))
+        .replace(/\[profesional\]/gi, professionalName)
+        .replace(/\[centro\]/gi, centerName),
+    );
+  }
+
   const rules = normalizeCancellationPolicyRules(policy.rules);
   const validReasons = Array.isArray(policy.valid_reasons) ? policy.valid_reasons.filter(Boolean) : [];
   const refundOptions = rules.refund_options.includes('refund') && rules.refund_options.includes('voucher')

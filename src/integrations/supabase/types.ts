@@ -1534,6 +1534,7 @@ export type Database = {
           is_active: boolean
           name: string
           penalty_invoice_concept: string
+          policy_text: string | null
           rectification_reason: string
           rules: Json
           updated_at: string
@@ -1549,6 +1550,7 @@ export type Database = {
           is_active?: boolean
           name: string
           penalty_invoice_concept?: string
+          policy_text?: string | null
           rectification_reason?: string
           rules?: Json
           updated_at?: string
@@ -1564,6 +1566,7 @@ export type Database = {
           is_active?: boolean
           name?: string
           penalty_invoice_concept?: string
+          policy_text?: string | null
           rectification_reason?: string
           rules?: Json
           updated_at?: string

@@ -24,18 +24,113 @@ type RefundOption = 'refund' | 'voucher';
 
 const DEFAULT_RULES: CancellationPolicyRules = {
   cancellation_window_hours: 24,
-  late_cancel_penalty_percentage: 100,
+  late_cancel_penalty_percentage: 50,
   no_show_percentage: 100,
-  unjustified_free_cancellations: 0,
+  unjustified_free_cancellations: 1,
   allow_justified_cancellations: true,
   refund_mode: 'review',
   refund_options: ['refund', 'voucher'],
 };
 
+function buildPolicyText({
+  name,
+  rules,
+  validReasons,
+  penaltyConcept,
+  voucherValidityDays,
+  professionalName,
+}: {
+  name: string;
+  rules: CancellationPolicyRules;
+  validReasons: string;
+  penaltyConcept: string;
+  voucherValidityDays: number;
+  professionalName: string;
+}) {
+  const reasons = cancellationPolicyLinesToList(validReasons);
+  const formattedReasons = reasons.length > 0
+    ? reasons.map((reason) => `* ${reason}`).join('\n')
+    : '* Causa justificada aceptada por el profesional.';
+
+  return `# ${name}
+
+Yo, [nombre y apellidos], declaro haber sido informado/a de la política de cancelación, modificación e inasistencia a citas del centro profesional de ${professionalName}.
+
+## 1. Cancelación o modificación de la cita
+
+La cita podrá cancelarse o modificarse sin penalización siempre que se comunique con al menos ${rules.cancellation_window_hours} horas de antelación respecto a la hora prevista para la sesión.
+
+Se entiende por modificación cualquier cambio de día, hora, formato de la sesión o cualquier otra variación que afecte a la cita previamente acordada.
+
+## 2. Cancelación o modificación fuera de plazo
+
+Cuando la cancelación o modificación se comunique con menos de ${rules.cancellation_window_hours} horas de antelación, podrá aplicarse un cargo equivalente al ${rules.late_cancel_penalty_percentage}% del importe de la sesión.
+
+El concepto de dicho cargo será:
+
+"${penaltyConcept}".
+
+## 3. Inasistencia sin aviso o aviso insuficiente
+
+En caso de inasistencia a la sesión sin aviso previo, podrá aplicarse un cargo equivalente al ${rules.no_show_percentage}% del importe de la sesión.
+
+También podrá considerarse inasistencia, a efectos de esta política, la cancelación comunicada con una antelación insuficiente para reorganizar la agenda profesional, especialmente cuando el aviso se produzca en los minutos inmediatamente anteriores al inicio de la sesión o una vez alcanzada la hora prevista.
+
+Se considerará inasistencia sin aviso o aviso insuficiente cuando la persona:
+
+* No acuda a la cita presencial.
+* No se conecte a la sesión online.
+* Avise en un momento tan próximo al inicio de la sesión que impida ofrecer ese espacio a otra persona.
+* Comunique la cancelación una vez iniciada la franja horaria reservada para la sesión.
+
+En estos casos, podrá aplicarse un cargo equivalente al ${rules.no_show_percentage}% del importe de la sesión, salvo que exista una causa justificada aceptada por el profesional.
+
+## 4. Cancelaciones sin justificar
+
+Se permitirá ${rules.unjustified_free_cancellations} cancelación sin justificar sin aplicación de penalización, siempre que el profesional considere que no existe un uso reiterado o abusivo de esta excepción.
+
+A partir de dicha cancelación, podrán aplicarse las condiciones generales recogidas en esta política.
+
+## 5. Cancelaciones justificadas
+
+Las cancelaciones justificadas podrán ser revisadas por el profesional antes de aplicar cualquier cargo.
+
+Podrán considerarse motivos válidos, entre otros:
+
+${formattedReasons}
+
+La aceptación final de la justificación quedará sujeta a la valoración del profesional, atendiendo a las circunstancias concretas de cada caso.
+
+## 6. Sesiones abonadas previamente
+
+Si la sesión hubiera sido abonada con anterioridad y procediera algún tipo de compensación, el centro podrá ofrecer, según corresponda:
+
+* Devolución del importe.
+* Reprogramación de la cita.
+* Vale para una sesión futura.
+
+Los vales generados tendrán una caducidad de ${voucherValidityDays} días desde la fecha de emisión.
+
+## 7. Aplicación de la política
+
+La aplicación final de esta política quedará sujeta a la revisión del profesional cuando corresponda, especialmente en situaciones justificadas, imprevistos relevantes o circunstancias excepcionales.
+
+El objetivo de esta política es garantizar una adecuada organización de la agenda profesional, respetar el tiempo reservado para cada paciente y facilitar un uso responsable de las citas disponibles.
+
+Profesional: ${professionalName}
+
+Fecha: ${new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}
+
+Firma del/de la paciente:
+
+Firma del profesional:`;
+}
+
 export function CancellationPolicySettingsSection() {
   const { profile } = useAuth();
   const queryClient = useQueryClient();
   const centerId = profile?.center_id;
+  const professionalName = `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim() || 'el profesional';
 
   const [name, setName] = useState('Política de cancelación');
   const [rules, setRules] = useState<CancellationPolicyRules>(DEFAULT_RULES);
@@ -43,6 +138,14 @@ export function CancellationPolicySettingsSection() {
   const [penaltyConcept, setPenaltyConcept] = useState('Cancelación fuera de plazo según política aceptada');
   const [rectificationReason, setRectificationReason] = useState('Devolución por cancelación de cita');
   const [voucherValidityDays, setVoucherValidityDays] = useState(365);
+  const [policyText, setPolicyText] = useState(() => buildPolicyText({
+    name: 'Política de cancelación, modificación e inasistencia a citas',
+    rules: DEFAULT_RULES,
+    validReasons: 'Enfermedad o urgencia médica\nFuerza mayor familiar\nCausa justificada aceptada por el profesional',
+    penaltyConcept: 'Cancelación o modificación fuera de plazo según política aceptada',
+    voucherValidityDays: 365,
+    professionalName,
+  }));
 
   const { data: activePolicy, isLoading } = useActiveCancellationPolicy();
 
@@ -54,7 +157,15 @@ export function CancellationPolicySettingsSection() {
     setPenaltyConcept(activePolicy.penalty_invoice_concept || 'Cancelación fuera de plazo según política aceptada');
     setRectificationReason(activePolicy.rectification_reason || 'Devolución por cancelación de cita');
     setVoucherValidityDays(activePolicy.voucher_validity_days || 365);
-  }, [activePolicy]);
+    setPolicyText(activePolicy.policy_text || buildPolicyText({
+      name: activePolicy.name || 'Política de cancelación, modificación e inasistencia a citas',
+      rules: normalizeCancellationPolicyRules(activePolicy.rules),
+      validReasons: cancellationPolicyReasonsToLines(activePolicy.valid_reasons),
+      penaltyConcept: activePolicy.penalty_invoice_concept || 'Cancelación o modificación fuera de plazo según política aceptada',
+      voucherValidityDays: activePolicy.voucher_validity_days || 365,
+      professionalName,
+    }));
+  }, [activePolicy, professionalName]);
 
   const previewText = useMemo(() => {
     const reasons = cancellationPolicyLinesToList(validReasons);
@@ -109,6 +220,7 @@ export function CancellationPolicySettingsSection() {
           version_number: nextVersion,
           is_active: true,
           rules,
+          policy_text: policyText,
           valid_reasons: cancellationPolicyLinesToList(validReasons),
           penalty_invoice_concept: penaltyConcept,
           rectification_reason: rectificationReason,
@@ -289,8 +401,34 @@ export function CancellationPolicySettingsSection() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Texto generado</Label>
-                  <Textarea value={previewText} readOnly rows={6} className="bg-muted/50" />
+                  <div className="flex items-center justify-between gap-3">
+                    <Label htmlFor="policy-text">Texto de la política firmable</Label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPolicyText(buildPolicyText({
+                        name,
+                        rules,
+                        validReasons,
+                        penaltyConcept,
+                        voucherValidityDays,
+                        professionalName,
+                      }))}
+                    >
+                      Regenerar
+                    </Button>
+                  </div>
+                  <Textarea
+                    id="policy-text"
+                    value={policyText}
+                    onChange={(event) => setPolicyText(event.target.value)}
+                    rows={18}
+                    placeholder="Texto que se enviará al paciente para firma"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Este texto queda guardado en la nueva versión y será el contenido firmado por el paciente.
+                  </p>
                 </div>
               </div>
 

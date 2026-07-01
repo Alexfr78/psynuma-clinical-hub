@@ -722,6 +722,12 @@ Deno.serve(async (req) => {
         : signedCancellationPolicy
           ? "Cancelacion dentro del plazo de la politica firmada. No se crea cargo."
           : "El paciente no tiene politica de cancelacion firmada. No se crea cargo.";
+      const patientCancellationPolicyMessage = signedPolicyEvaluation?.applies
+        ? `Tu cancelacion queda pendiente de revision segun la politica aceptada. Importe estimado sujeto a revision: ${signedPolicyEvaluation.amount.toFixed(2)} EUR.`
+        : undefined;
+      const professionalCancellationPolicyMessage = signedPolicyEvaluation?.applies
+        ? `Se ha creado una cancelacion pendiente de revision segun la politica aceptada. Importe estimado: ${signedPolicyEvaluation.amount.toFixed(2)} EUR.`
+        : undefined;
 
       // Update the session status to cancelled
       const { error: updateError } = await supabase
@@ -842,6 +848,7 @@ Deno.serve(async (req) => {
         sessionModality: session.session_modality,
         locationName: locationName || undefined,
         reason: cancellation_reason || undefined,
+        extraMessage: professionalCancellationPolicyMessage,
       });
 
       // Wait 6s to respect WasenderAPI rate limit (1 msg per 5s)
@@ -860,6 +867,7 @@ Deno.serve(async (req) => {
         sessionModality: session.session_modality,
         locationName: locationName || undefined,
         reason: cancellation_reason || undefined,
+        extraMessage: patientCancellationPolicyMessage,
       });
 
       return new Response(

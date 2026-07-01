@@ -26,6 +26,7 @@ export interface ProfessionalNotificationArgs {
   oldTime?: string;
   // Cancel-specific
   reason?: string;
+  extraMessage?: string;
 }
 
 function formatDateSpanish(dateStr: string): string {
@@ -208,7 +209,10 @@ export async function notifyProfessionalBooking(args: ProfessionalNotificationAr
     );
 
     const subject = rendered.subject || '';
-    const message = rendered.message;
+    let message = rendered.message;
+    if (args.extraMessage) {
+      message = [message, args.extraMessage].filter(Boolean).join('\n\n');
+    }
 
     // 7. Insert notification
     const { data: notification, error: insertError } = await supabase

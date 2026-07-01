@@ -608,6 +608,12 @@ serve(async (req) => {
         : signedCancellationPolicy
           ? "Cancelacion dentro del plazo de la politica firmada. No se crea cargo."
           : "El paciente no tiene politica de cancelacion firmada. No se crea cargo.";
+      const patientCancellationPolicyMessage = signedPolicyEvaluation?.applies
+        ? `Tu cancelacion queda pendiente de revision segun la politica aceptada. Importe estimado sujeto a revision: ${signedPolicyEvaluation.amount.toFixed(2)} EUR.`
+        : undefined;
+      const professionalCancellationPolicyMessage = signedPolicyEvaluation?.applies
+        ? `Se ha creado una cancelacion pendiente de revision segun la politica aceptada. Importe estimado: ${signedPolicyEvaluation.amount.toFixed(2)} EUR.`
+        : undefined;
 
       // Cancel session
       const { error: updateError } = await supabase
@@ -688,6 +694,7 @@ serve(async (req) => {
             sessionDate: existingSession.session_date,
             startTime: existingSession.start_time,
             reason: reason || undefined,
+            extraMessage: professionalCancellationPolicyMessage,
           });
         }
       }
@@ -705,6 +712,7 @@ serve(async (req) => {
         sessionDate: existingSession.session_date,
         startTime: existingSession.start_time,
         reason: reason || undefined,
+        extraMessage: patientCancellationPolicyMessage,
       });
 
       // Audit: patient cancelled a session

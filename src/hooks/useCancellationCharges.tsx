@@ -225,6 +225,18 @@ export function useConfirmCancellationCharge() {
       reviewNote?: string;
     }) => {
       const finalAmount = Math.max(Number(amount ?? charge.amount) || 0, 0);
+      if (finalAmount <= 0) {
+        throw new Error('El importe debe ser mayor que 0 para generar una deuda');
+      }
+
+      const debtNotes = [
+        charge.concept,
+        `Origen: cancelación fuera de plazo según política aceptada.`,
+        `Importe revisado: ${finalAmount.toFixed(2)} EUR. Importe estimado inicial: ${Number(charge.original_amount || charge.amount).toFixed(2)} EUR.`,
+        `Cálculo inicial: ${charge.percentage}% de ${Number(charge.base_session_price || 0).toFixed(2)} EUR.`,
+        reviewNote?.trim() ? `Resolución profesional: ${reviewNote.trim()}` : null,
+      ].filter(Boolean).join('\n');
+
       const { data: debt, error: debtError } = await supabase
         .from('debts')
         .insert({
@@ -234,7 +246,7 @@ export function useConfirmCancellationCharge() {
           amount: finalAmount,
           paid_amount: 0,
           status: 'pending',
-          notes: charge.concept,
+          notes: debtNotes,
         })
         .select('id')
         .single();
