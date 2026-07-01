@@ -156,47 +156,19 @@ export function useUpdatePublicSession() {
   });
 }
 
-// Helper function to check if cancellation is allowed based on policy
+// Cancellation is always allowed for active future sessions. The signed
+// cancellation policy now decides whether it creates a charge or review.
 export function canCancelSession(
-  sessionDate: string, 
-  startTime: string, 
-  cancellationPolicy: string | null
+  sessionDate: string,
+  startTime: string,
+  _cancellationPolicy: string | null
 ): { allowed: boolean; reason?: string } {
   const sessionDateTime = new Date(`${sessionDate}T${startTime}`);
   const now = new Date();
   const hoursUntilSession = (sessionDateTime.getTime() - now.getTime()) / (1000 * 60 * 60);
 
-  // If session has already passed
   if (hoursUntilSession < 0) {
     return { allowed: false, reason: 'La cita ya ha pasado.' };
-  }
-
-  // Policy hours mapping
-  const policyHoursMap: Record<string, { hours: number; label: string }> = {
-    'not_allowed': { hours: Infinity, label: 'No se permiten cancelaciones para esta cita.' },
-    'until_start': { hours: 0, label: '' },
-    '1_hour': { hours: 1, label: '1 hora' },
-    '2_hours': { hours: 2, label: '2 horas' },
-    '24_hours': { hours: 24, label: '24 horas' },
-    '48_hours': { hours: 48, label: '48 horas' },
-    '72_hours': { hours: 72, label: '72 horas' },
-  };
-
-  const policy = policyHoursMap[cancellationPolicy || '24_hours'] || policyHoursMap['24_hours'];
-
-  if (policy.hours === Infinity) {
-    return { allowed: false, reason: policy.label };
-  }
-
-  if (policy.hours === 0) {
-    return { allowed: true };
-  }
-
-  if (hoursUntilSession < policy.hours) {
-    return { 
-      allowed: false, 
-      reason: `Las cancelaciones deben realizarse con al menos ${policy.label} de antelación.`
-    };
   }
 
   return { allowed: true };
