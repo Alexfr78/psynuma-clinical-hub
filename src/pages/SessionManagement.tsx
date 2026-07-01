@@ -36,7 +36,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { usePublicSession, useUpdatePublicSession, canCancelSession, usePublicSessionReschedule } from '@/hooks/usePublicSession';
+import { usePublicSession, useUpdatePublicSession, usePublicSessionReschedule } from '@/hooks/usePublicSession';
 import { useState, useEffect } from 'react';
 import { Textarea } from '@/components/ui/textarea';
 import { formatLocationLine, summarizeLocationChange, isOnlineLocation, type RescheduleLocation } from '@/lib/reschedule-helpers';
@@ -161,12 +161,6 @@ export default function SessionManagement() {
   const formattedTime = `${session.start_time.slice(0, 5)} - ${session.end_time.slice(0, 5)}`;
   const status = session.status || 'scheduled';
   const statusInfo = statusConfig[status] || statusConfig.scheduled;
-
-  const cancellationCheck = canCancelSession(
-    session.session_date, 
-    session.start_time, 
-    session.cancellation_policy
-  );
 
   const isPast = new Date(`${session.session_date}T${session.start_time}`) < new Date();
   const canTakeAction = !isPast && !['completed', 'cancelled', 'no_show'].includes(status);
@@ -640,7 +634,7 @@ export default function SessionManagement() {
                     variant="ghost" 
                     className="w-full text-destructive hover:text-destructive hover:bg-destructive/10" 
                     size="lg"
-                    disabled={!cancellationCheck.allowed || isCancelling}
+                    disabled={isCancelling}
                   >
                     <XCircle className="h-4 w-4 mr-2" />
                     Cancelar cita
@@ -682,15 +676,6 @@ export default function SessionManagement() {
                 </AlertDialogContent>
               </AlertDialog>
 
-              {/* Cancellation Policy Warning */}
-              {!cancellationCheck.allowed && cancellationCheck.reason && (
-                <Alert variant="default" className="bg-muted">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription className="text-sm">
-                    {cancellationCheck.reason}
-                  </AlertDescription>
-                </Alert>
-              )}
             </div>
           ) : (
             <div className="text-center py-4">

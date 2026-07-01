@@ -156,24 +156,6 @@ export function useUpdatePublicSession() {
   });
 }
 
-// Cancellation is always allowed for active future sessions. The signed
-// cancellation policy now decides whether it creates a charge or review.
-export function canCancelSession(
-  sessionDate: string,
-  startTime: string,
-  _cancellationPolicy: string | null
-): { allowed: boolean; reason?: string } {
-  const sessionDateTime = new Date(`${sessionDate}T${startTime}`);
-  const now = new Date();
-  const hoursUntilSession = (sessionDateTime.getTime() - now.getTime()) / (1000 * 60 * 60);
-
-  if (hoursUntilSession < 0) {
-    return { allowed: false, reason: 'La cita ya ha pasado.' };
-  }
-
-  return { allowed: true };
-}
-
 // Hook for getting availability and rescheduling a session
 export interface PublicLocation {
   id: string;

@@ -654,35 +654,7 @@ Deno.serve(async (req) => {
     }
 
     if (action === "cancel") {
-      // Check cancellation policy
-      const policy = session.cancellation_policy || "24_hours";
       const hoursUntilSession = (sessionDateTime.getTime() - new Date().getTime()) / (1000 * 60 * 60);
-      
-      const policyHoursMap: Record<string, number> = {
-        "not_allowed": Infinity,
-        "until_start": 0,
-        "1_hour": 1,
-        "2_hours": 2,
-        "24_hours": 24,
-        "48_hours": 48,
-        "72_hours": 72,
-      };
-      
-      const requiredHours = -Infinity;
-      
-      if (requiredHours === Infinity) {
-        return new Response(
-          JSON.stringify({ error: "No se permiten cancelaciones para esta cita" }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      
-      if (hoursUntilSession < requiredHours && requiredHours > 0) {
-        return new Response(
-          JSON.stringify({ error: `Las cancelaciones deben realizarse con al menos ${requiredHours} horas de antelación` }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
 
       let signedCancellationPolicy: any = null;
       const { data: signedPolicyConsent } = await supabase
