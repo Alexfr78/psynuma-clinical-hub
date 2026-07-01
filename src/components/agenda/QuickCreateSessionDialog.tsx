@@ -5,7 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { CalendarIcon, User, Globe, ChevronDown, Plus, Video, MapPin, Ban, Settings2, Package, CreditCard, AlertCircle } from 'lucide-react';
+import { CalendarIcon, User, Globe, ChevronDown, Plus, Video, MapPin, Ban, Settings2, Package, CreditCard, AlertCircle, Search } from 'lucide-react';
 import { isDateBlocked, ScheduleException } from '@/lib/schedule-exceptions';
 import { useScheduleExceptions } from '@/hooks/useScheduleExceptions';
 import { useSpecialDays } from '@/hooks/useSpecialDays';
@@ -36,13 +36,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Command,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from '@/components/ui/command';
 import {
   Popover,
   PopoverContent,
@@ -982,75 +975,82 @@ export function QuickCreateSessionDialog({
               render={({ field }) => (
                 <FormItem className="flex flex-col">
                   <FormLabel className="text-sm font-medium">Contacto</FormLabel>
-                    <Popover open={patientPopoverOpen} onOpenChange={setPatientPopoverOpen} modal>
-                      <PopoverTrigger asChild>
-                        <FormControl>
-                          <Button
-                            variant="outline"
-                            role="combobox"
-                            className={cn(
-                              'w-full justify-between h-10',
-                              !field.value && 'text-muted-foreground'
-                            )}
-                          >
-                            {selectedPatient ? (
-                              <span className="flex items-center gap-2">
-                                <div className="h-6 w-6 rounded-full bg-muted flex items-center justify-center">
-                                  <User className="h-3 w-3" />
-                                </div>
+                    <div className="relative space-y-2">
+                      <FormControl>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          role="combobox"
+                          aria-expanded={patientPopoverOpen}
+                          className={cn(
+                            'w-full justify-between h-10',
+                            !field.value && 'text-muted-foreground'
+                          )}
+                          onClick={() => setPatientPopoverOpen((current) => !current)}
+                        >
+                          {selectedPatient ? (
+                            <span className="flex min-w-0 items-center gap-2">
+                              <div className="h-6 w-6 rounded-full bg-muted flex items-center justify-center shrink-0">
+                                <User className="h-3 w-3" />
+                              </div>
+                              <span className="truncate">
                                 {selectedPatient.first_name} {selectedPatient.last_name}
                               </span>
-                            ) : (
-                              'Buscar paciente...'
-                            )}
-                            <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                          </Button>
-                        </FormControl>
-                      </PopoverTrigger>
-                      <PopoverContent 
-                        className="w-[--radix-popover-trigger-width] max-w-[calc(100vw-2rem)] p-0 z-[9999] pointer-events-auto" 
-                        align="start" 
-                        data-vaul-no-drag
-                      >
-                        <Command shouldFilter={false}>
-                          <CommandInput 
-                            placeholder="Buscar contacto..." 
-                            value={patientSearch}
-                            onValueChange={setPatientSearch}
-                          />
-                          <CommandList>
+                            </span>
+                          ) : (
+                            'Buscar paciente...'
+                          )}
+                          <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </FormControl>
+
+                      {patientPopoverOpen && (
+                        <div className="rounded-md border bg-popover shadow-md">
+                          <div className="flex items-center border-b px-3">
+                            <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+                            <Input
+                              autoFocus
+                              placeholder="Buscar contacto..."
+                              value={patientSearch}
+                              onChange={(event) => setPatientSearch(event.target.value)}
+                              onKeyDown={(event) => {
+                                if (event.key === 'Escape') {
+                                  setPatientPopoverOpen(false);
+                                }
+                              }}
+                              className="h-11 border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
+                            />
+                          </div>
+                          <div className="max-h-80 overflow-y-auto p-1">
                             {filteredPatients && filteredPatients.length > 0 ? (
-                              <CommandGroup>
-                                {filteredPatients.slice(0, 10).map((patient) => (
-                                  <CommandItem
-                                    key={patient.id}
-                                    value={`${patient.first_name} ${patient.last_name}`}
-                                    onSelect={() => {
-                                      field.onChange(patient.id);
-                                      setPatientPopoverOpen(false);
-                                    }}
-                                  >
-                                    <div className="flex items-center gap-2">
-                                      <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
-                                        <User className="h-4 w-4" />
-                                      </div>
-                                      <div>
-                                        <p className="font-medium">{patient.first_name} {patient.last_name}</p>
-                                        {patient.email && (
-                                          <p className="text-xs text-muted-foreground">{patient.email}</p>
-                                        )}
-                                      </div>
-                                    </div>
-                                  </CommandItem>
-                                ))}
-                              </CommandGroup>
+                              filteredPatients.map((patient) => (
+                                <button
+                                  key={patient.id}
+                                  type="button"
+                                  className="flex w-full items-center gap-2 rounded-sm px-2 py-2 text-left text-sm hover:bg-accent focus:bg-accent focus:outline-none"
+                                  onClick={() => {
+                                    field.onChange(patient.id);
+                                    setPatientPopoverOpen(false);
+                                  }}
+                                >
+                                  <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center shrink-0">
+                                    <User className="h-4 w-4" />
+                                  </div>
+                                  <div className="min-w-0">
+                                    <p className="truncate font-medium">{patient.first_name} {patient.last_name}</p>
+                                    {patient.email && (
+                                      <p className="truncate text-xs text-muted-foreground">{patient.email}</p>
+                                    )}
+                                  </div>
+                                </button>
+                              ))
                             ) : (
                               <div className="py-6 px-4 text-center">
                                 <p className="text-sm text-muted-foreground mb-3">
                                   No se encontraron pacientes.
                                 </p>
-                                <Button 
-                                  variant="outline" 
+                                <Button
+                                  variant="outline"
                                   size="sm"
                                   type="button"
                                   onClick={() => {
@@ -1063,10 +1063,10 @@ export function QuickCreateSessionDialog({
                                 </Button>
                               </div>
                             )}
-                          </CommandList>
-                        </Command>
-                      </PopoverContent>
-                    </Popover>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   <FormMessage />
                 </FormItem>
               )}
