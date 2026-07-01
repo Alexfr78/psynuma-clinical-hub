@@ -544,12 +544,8 @@ serve(async (req) => {
           : signedPolicyConsent.cancellation_policy_versions;
       }
 
-      // Check cancellation policy
       const sessionDateTime = new Date(`${existingSession.session_date}T${existingSession.start_time}`);
       const now = new Date();
-      const hoursUntilSession = (sessionDateTime.getTime() - now.getTime()) / (1000 * 60 * 60);
-
-      const requiredHours = -Infinity;
       
       const signedPolicyEvaluation = signedCancellationPolicy
         ? evaluateCancellationCharge({
@@ -565,17 +561,6 @@ serve(async (req) => {
         : signedCancellationPolicy
           ? "Cancelacion dentro del plazo de la politica firmada. No se crea cargo."
           : "El paciente no tiene politica de cancelacion firmada. No se crea cargo.";
-
-      if (hoursUntilSession < requiredHours && !signedCancellationPolicy) {
-        return new Response(
-          JSON.stringify({ 
-            error: requiredHours === Infinity 
-              ? "Esta cita no se puede cancelar" 
-              : `La cita debe cancelarse con al menos ${requiredHours} horas de antelación` 
-          }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
 
       // Cancel session
       const { error: updateError } = await supabase

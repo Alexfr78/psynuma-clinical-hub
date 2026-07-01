@@ -1597,22 +1597,8 @@ serve(async (req) => {
         );
       }
 
-      // Check cancellation policy
       const sessionDateTime = new Date(`${session.session_date}T${session.start_time}`);
       const now = new Date();
-      const hoursUntilSession = (sessionDateTime.getTime() - now.getTime()) / (1000 * 60 * 60);
-      const requiredHours = -Infinity;
-
-      if (hoursUntilSession < requiredHours) {
-        return new Response(
-          JSON.stringify({
-            error: requiredHours === Infinity
-              ? "Esta cita no se puede cancelar"
-              : `La cita debe cancelarse con al menos ${requiredHours} horas de antelación`
-          }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
 
       let signedCancellationPolicy: any = null;
       const { data: signedPolicyConsent } = await supabase
