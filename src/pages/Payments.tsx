@@ -271,7 +271,7 @@ export default function Payments() {
         </TabsContent>
 
         <TabsContent value="cancellations" className="mt-0">
-          <CancellationChargesPanel />
+          <CancellationChargesPanel onRecordPayment={handleRecordPayment} />
         </TabsContent>
       </Tabs>
 

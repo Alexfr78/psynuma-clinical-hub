@@ -16,6 +16,15 @@ import {
   useForgiveCancellationCharge,
 } from '@/hooks/useCancellationCharges';
 
+interface CancellationChargesPanelProps {
+  onRecordPayment?: (debtInfo: {
+    debtId: string;
+    patientId: string;
+    pendingAmount: number;
+    description?: string;
+  }) => void;
+}
+
 function patientName(charge: CancellationCharge) {
   return `${charge.patients?.first_name || ''} ${charge.patients?.last_name || ''}`.trim() || 'Paciente';
 }
@@ -27,7 +36,13 @@ function sessionLabel(charge: CancellationCharge) {
   return `${date}${time ? ` · ${time}` : ''}`;
 }
 
-function CancellationChargeList({ status }: { status: CancellationCharge['status'] }) {
+function CancellationChargeList({
+  status,
+  onRecordPayment,
+}: {
+  status: CancellationCharge['status'];
+  onRecordPayment?: CancellationChargesPanelProps['onRecordPayment'];
+}) {
   const { data: charges = [], isLoading } = useCancellationCharges(status);
   const confirmCharge = useConfirmCancellationCharge();
   const forgiveCharge = useForgiveCancellationCharge();
@@ -172,6 +187,21 @@ function CancellationChargeList({ status }: { status: CancellationCharge['status
                   </Button>
                 </div>
               )}
+              {status === 'confirmed' && charge.debt_id && onRecordPayment && (
+                <div className="flex flex-col gap-2 sm:flex-row lg:shrink-0">
+                  <Button
+                    variant="outline"
+                    onClick={() => onRecordPayment({
+                      debtId: charge.debt_id!,
+                      patientId: charge.patient_id,
+                      pendingAmount: Math.max(Number(charge.amount || 0), 0),
+                      description: charge.concept,
+                    })}
+                  >
+                    Registrar pago
+                  </Button>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -180,7 +210,7 @@ function CancellationChargeList({ status }: { status: CancellationCharge['status
   );
 }
 
-export function CancellationChargesPanel() {
+export function CancellationChargesPanel({ onRecordPayment }: CancellationChargesPanelProps) {
   const { data: pendingCharges = [] } = useCancellationCharges('pending_review');
 
   return (
@@ -199,13 +229,13 @@ export function CancellationChargesPanel() {
       </TabsList>
 
       <TabsContent value="pending">
-        <CancellationChargeList status="pending_review" />
+        <CancellationChargeList status="pending_review" onRecordPayment={onRecordPayment} />
       </TabsContent>
       <TabsContent value="confirmed">
-        <CancellationChargeList status="confirmed" />
+        <CancellationChargeList status="confirmed" onRecordPayment={onRecordPayment} />
       </TabsContent>
       <TabsContent value="forgiven">
-        <CancellationChargeList status="forgiven" />
+        <CancellationChargeList status="forgiven" onRecordPayment={onRecordPayment} />
       </TabsContent>
     </Tabs>
   );

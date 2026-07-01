@@ -35,6 +35,9 @@ export function SendConsentDialog({ consent, patientPhone, open, onOpenChange }:
   const consentUrl = `${window.location.origin}/consentimiento/${consent.access_token}`;
   const patientName = consent.patient ? `${consent.patient.first_name}` : "";
   const phone = patientPhone || consent.patient?.phone || fetchedPhone || null;
+  const isCancellationPolicy = Boolean(consent.cancellation_policy_version_id)
+    || consent.template?.name?.toLowerCase().includes('cancelaci')
+    || consent.template?.name?.toLowerCase().includes('cancelacion');
 
   // Fallback: fetch the patient's phone directly if it wasn't provided via props/embed
   useEffect(() => {
@@ -59,6 +62,16 @@ ${consentUrl}
 
 Si tienes cualquier consulta, no dudes en avisarme.`;
 
+  const finalMessage = isCancellationPolicy
+    ? `Buenos días${patientName ? ` ${patientName}` : ""}, tal y como te comenté, te adjunto la política de cancelación, modificación e inasistencia a citas para su lectura y firma.
+
+Al final de la lectura encontrarás los campos para aceptar o rechazar la política.
+
+${consentUrl}
+
+Si tienes cualquier consulta, no dudes en avisarme.`
+    : message;
+
   const handleCopyLink = () => {
     navigator.clipboard.writeText(consentUrl);
     setCopied(true);
@@ -67,7 +80,7 @@ Si tienes cualquier consulta, no dudes en avisarme.`;
   };
 
   const handleCopyMessage = () => {
-    navigator.clipboard.writeText(message);
+    navigator.clipboard.writeText(finalMessage);
     toast.success("Mensaje copiado");
   };
 
@@ -85,7 +98,7 @@ Si tienes cualquier consulta, no dudes en avisarme.`;
     try {
       const result = await sendWhatsApp({
         phone,
-        message,
+        message: finalMessage,
         patientId: consent.patient_id,
         patientName: patientName || "Contacto",
         centerId: center.id,
@@ -170,7 +183,7 @@ Si tienes cualquier consulta, no dudes en avisarme.`;
             <div className="space-y-2 overflow-hidden">
               <p className="text-sm font-medium">Vista previa del mensaje</p>
               <div className="max-h-[150px] overflow-auto rounded-lg bg-muted p-3">
-                <pre className="whitespace-pre-wrap break-all text-xs">{message}</pre>
+                <pre className="whitespace-pre-wrap break-all text-xs">{finalMessage}</pre>
               </div>
             </div>
 
@@ -188,7 +201,7 @@ Si tienes cualquier consulta, no dudes en avisarme.`;
         open={whatsAppDialogOpen}
         onOpenChange={setWhatsAppDialogOpen}
         phone={phone || ""}
-        message={message}
+        message={finalMessage}
         patientName={patientName || "Contacto"}
       />
     </>
