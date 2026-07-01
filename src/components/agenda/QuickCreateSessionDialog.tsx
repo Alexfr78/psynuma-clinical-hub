@@ -982,7 +982,7 @@ export function QuickCreateSessionDialog({
               render={({ field }) => (
                 <FormItem className="flex flex-col">
                   <FormLabel className="text-sm font-medium">Contacto</FormLabel>
-                    <Popover open={patientPopoverOpen} onOpenChange={setPatientPopoverOpen} modal={false}>
+                    <Popover open={patientPopoverOpen} onOpenChange={setPatientPopoverOpen} modal>
                       <PopoverTrigger asChild>
                         <FormControl>
                           <Button
@@ -1012,7 +1012,7 @@ export function QuickCreateSessionDialog({
                         align="start" 
                         data-vaul-no-drag
                       >
-                        <Command>
+                        <Command shouldFilter={false}>
                           <CommandInput 
                             placeholder="Buscar contacto..." 
                             value={patientSearch}
