@@ -145,6 +145,77 @@ export function useActiveCancellationPolicy() {
   });
 }
 
+function normalizePolicyText(value: unknown): string {
+  return String(value ?? '')
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase();
+}
+
+function looksLikeCancellationPolicyConsent(consent: {
+  content_snapshot?: string | null;
+  template?: { name?: string | null } | null;
+}) {
+  const text = normalizePolicyText([
+    consent.content_snapshot,
+    consent.template?.name,
+  ].filter(Boolean).join(' '));
+
+  return text.includes('politica de cancelacion')
+    || text.includes('politica cancelacion')
+    || (text.includes('cancelacion') && text.includes('fuera de plazo'));
+}
+
+export async function resolveSignedCancellationPolicyVersion(
+  centerId: string,
+  patientId: string | null | undefined,
+  activePolicyId?: string | null,
+) {
+  if (!patientId) return null;
+
+  const { data: linkedConsent, error: linkedError } = await supabase
+    .from('consents')
+    .select('cancellation_policy_version_id, signed_at')
+    .eq('center_id', centerId)
+    .eq('patient_id', patientId)
+    .eq('status', 'signed')
+    .not('cancellation_policy_version_id', 'is', null)
+    .order('signed_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (linkedError) throw linkedError;
+  if (linkedConsent?.cancellation_policy_version_id) {
+    return linkedConsent.cancellation_policy_version_id;
+  }
+
+  const policyId = activePolicyId ?? (await supabase
+    .from('cancellation_policy_versions')
+    .select('id')
+    .eq('center_id', centerId)
+    .eq('is_active', true)
+    .order('version_number', { ascending: false })
+    .limit(1)
+    .maybeSingle()).data?.id ?? null;
+
+  if (!policyId) return null;
+
+  const { data: legacyConsents, error: legacyError } = await supabase
+    .from('consents')
+    .select('id, content_snapshot, signed_at, template:consent_templates(name)')
+    .eq('center_id', centerId)
+    .eq('patient_id', patientId)
+    .eq('status', 'signed')
+    .is('cancellation_policy_version_id', null)
+    .order('signed_at', { ascending: false })
+    .limit(20);
+
+  if (legacyError) throw legacyError;
+  return (legacyConsents || []).some((consent) => looksLikeCancellationPolicyConsent(consent))
+    ? policyId
+    : null;
+}
+
 export async function resolvePatientCancellationPolicyForSession(
   centerId: string,
   patientId: string | null | undefined,
@@ -157,20 +228,9 @@ export async function resolvePatientCancellationPolicyForSession(
     };
   }
 
-  const { data: signedPolicyConsent, error } = await supabase
-    .from('consents')
-    .select('cancellation_policy_version_id, signed_at')
-    .eq('center_id', centerId)
-    .eq('patient_id', patientId)
-    .eq('status', 'signed')
-    .not('cancellation_policy_version_id', 'is', null)
-    .order('signed_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  const signedPolicyVersionId = await resolveSignedCancellationPolicyVersion(centerId, patientId, activePolicyId);
 
-  if (error) throw error;
-
-  if (!signedPolicyConsent?.cancellation_policy_version_id) {
+  if (!signedPolicyVersionId) {
     return {
       cancellation_policy_version_id: null,
       cancellation_policy_status: activePolicyId ? 'not_signed' : null,
@@ -178,8 +238,8 @@ export async function resolvePatientCancellationPolicyForSession(
   }
 
   return {
-    cancellation_policy_version_id: signedPolicyConsent.cancellation_policy_version_id,
-    cancellation_policy_status: activePolicyId && signedPolicyConsent.cancellation_policy_version_id !== activePolicyId
+    cancellation_policy_version_id: signedPolicyVersionId,
+    cancellation_policy_status: activePolicyId && signedPolicyVersionId !== activePolicyId
       ? 'outdated'
       : 'signed',
   };

@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
+import { resolveSignedCancellationPolicyVersion } from './useCancellationPolicy';
 
 export interface CancellationCharge {
   id: string;
@@ -50,7 +51,7 @@ function evaluateCancellationCharge(input: {
   const cancellationWindowHours = Number(rules.cancellation_window_hours ?? 24);
   const percentage = Number(rules.late_cancel_penalty_percentage ?? 0);
 
-  if (hoursBefore >= cancellationWindowHours || percentage <= 0 || basePrice <= 0) {
+  if (hoursBefore >= cancellationWindowHours || percentage <= 0) {
     return {
       applies: false,
       amount: 0,
@@ -67,6 +68,53 @@ function evaluateCancellationCharge(input: {
   };
 }
 
+async function resolveCancellationBasePrice(input: {
+  centerId: string;
+  patientId: string;
+  sessionTypeId?: string | null;
+  sessionTypeName?: string | null;
+  sessionDate?: string | null;
+  sessionPrice?: number | string | null;
+}) {
+  const savedPrice = Number(input.sessionPrice ?? 0) || 0;
+  if (savedPrice > 0) return savedPrice;
+
+  let sessionTypeId = input.sessionTypeId || null;
+
+  if (!sessionTypeId && input.sessionTypeName) {
+    const { data: sessionType } = await supabase
+      .from('session_types')
+      .select('id, default_price')
+      .eq('center_id', input.centerId)
+      .ilike('name', input.sessionTypeName)
+      .maybeSingle();
+
+    sessionTypeId = sessionType?.id || null;
+    const fallbackPrice = Number(sessionType?.default_price ?? 0) || 0;
+    if (!sessionTypeId && fallbackPrice > 0) return fallbackPrice;
+  }
+
+  if (!sessionTypeId) return 0;
+
+  const { data: resolvedPrice } = await supabase.rpc('resolve_effective_price', {
+    p_patient_id: input.patientId,
+    p_target_type: 'session_type',
+    p_target_id: sessionTypeId,
+    p_reference_date: input.sessionDate || new Date().toISOString().slice(0, 10),
+  });
+
+  const appliedPrice = Number((resolvedPrice as { applied_price?: number } | null)?.applied_price ?? 0) || 0;
+  if (appliedPrice > 0) return appliedPrice;
+
+  const { data: sessionType } = await supabase
+    .from('session_types')
+    .select('default_price')
+    .eq('id', sessionTypeId)
+    .maybeSingle();
+
+  return Number(sessionType?.default_price ?? 0) || 0;
+}
+
 export async function createCancellationChargeForSessionCancellation(sessionId: string, note?: string) {
   const { data: existingCharge, error: existingError } = await supabase
     .from('cancellation_charges')
@@ -80,44 +128,36 @@ export async function createCancellationChargeForSessionCancellation(sessionId: 
 
   const { data: session, error: sessionError } = await supabase
     .from('sessions')
-    .select('id, center_id, patient_id, session_date, start_time, price')
+    .select('id, center_id, patient_id, session_date, start_time, session_type, session_type_id, price')
     .eq('id', sessionId)
     .maybeSingle();
 
   if (sessionError) throw sessionError;
   if (!session?.patient_id || !session.center_id) return null;
 
-  const { data: signedPolicyConsent, error: consentError } = await supabase
-    .from('consents')
-    .select(`
-      id,
-      cancellation_policy_version_id,
-      cancellation_policy_versions(
-        id,
-        rules,
-        penalty_invoice_concept
-      )
-    `)
-    .eq('center_id', session.center_id)
-    .eq('patient_id', session.patient_id)
-    .eq('status', 'signed')
-    .not('cancellation_policy_version_id', 'is', null)
-    .order('signed_at', { ascending: false })
-    .limit(1)
+  const signedPolicyVersionId = await resolveSignedCancellationPolicyVersion(session.center_id, session.patient_id);
+  if (!signedPolicyVersionId) return null;
+
+  const { data: signedPolicy, error: policyError } = await supabase
+    .from('cancellation_policy_versions')
+    .select('id, rules, penalty_invoice_concept')
+    .eq('id', signedPolicyVersionId)
     .maybeSingle();
 
-  if (consentError) throw consentError;
-  if (!signedPolicyConsent?.cancellation_policy_versions) return null;
-
-  const signedPolicy = Array.isArray(signedPolicyConsent.cancellation_policy_versions)
-    ? signedPolicyConsent.cancellation_policy_versions[0]
-    : signedPolicyConsent.cancellation_policy_versions;
+  if (policyError) throw policyError;
   if (!signedPolicy) return null;
 
   const evaluation = evaluateCancellationCharge({
     rules: signedPolicy.rules as Record<string, unknown>,
     sessionStartsAt: new Date(`${session.session_date}T${session.start_time}`),
-    basePrice: session.price,
+    basePrice: await resolveCancellationBasePrice({
+      centerId: session.center_id,
+      patientId: session.patient_id,
+      sessionTypeId: session.session_type_id,
+      sessionTypeName: session.session_type,
+      sessionDate: session.session_date,
+      sessionPrice: session.price,
+    }),
   });
 
   if (!evaluation.applies) return null;

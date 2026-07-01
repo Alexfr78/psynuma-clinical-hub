@@ -224,7 +224,7 @@ export function evaluateCancellationCharge(input: EvaluateCancellationInput): Ca
       : (basePrice * percentage) / 100;
     const amount = roundAmount(Math.max(rawAmount, 0), rounding);
     return {
-      applies: amount > 0,
+      applies: percentage > 0 || amount > 0,
       hoursBefore,
       percentage,
       amount,
@@ -289,5 +289,61 @@ export function evaluateCancellationCharge(input: EvaluateCancellationInput): Ca
 
   const defaultPct = rules.default_penalty_percentage ?? rules.default_percentage ?? 0;
   return buildResult(defaultPct, null, defaultPct > 0 ? 'default' : 'no_policy');
+}
+
+export async function resolveCancellationBasePrice(
+  supabase: any,
+  input: {
+    centerId: string;
+    patientId: string;
+    sessionTypeId?: string | null;
+    sessionTypeName?: string | null;
+    sessionDate?: string | Date | null;
+    sessionPrice?: number | string | null;
+  },
+): Promise<number> {
+  const savedPrice = Number(input.sessionPrice ?? 0) || 0;
+  if (savedPrice > 0) return savedPrice;
+
+  let sessionTypeId = input.sessionTypeId || null;
+
+  if (!sessionTypeId && input.sessionTypeName) {
+    const { data: sessionType } = await supabase
+      .from("session_types")
+      .select("id, default_price")
+      .eq("center_id", input.centerId)
+      .ilike("name", input.sessionTypeName)
+      .maybeSingle();
+
+    sessionTypeId = sessionType?.id || null;
+    const fallbackPrice = Number(sessionType?.default_price ?? 0) || 0;
+    if (!sessionTypeId && fallbackPrice > 0) return fallbackPrice;
+  }
+
+  if (!sessionTypeId) return 0;
+
+  const referenceDate = input.sessionDate instanceof Date
+    ? input.sessionDate.toISOString().slice(0, 10)
+    : input.sessionDate || new Date().toISOString().slice(0, 10);
+
+  const { data: resolvedPrice, error } = await supabase.rpc("resolve_effective_price", {
+    p_patient_id: input.patientId,
+    p_target_type: "session_type",
+    p_target_id: sessionTypeId,
+    p_reference_date: referenceDate,
+  });
+
+  if (!error) {
+    const appliedPrice = Number(resolvedPrice?.applied_price ?? 0) || 0;
+    if (appliedPrice > 0) return appliedPrice;
+  }
+
+  const { data: sessionType } = await supabase
+    .from("session_types")
+    .select("default_price")
+    .eq("id", sessionTypeId)
+    .maybeSingle();
+
+  return Number(sessionType?.default_price ?? 0) || 0;
 }
 

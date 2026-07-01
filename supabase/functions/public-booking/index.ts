@@ -3,9 +3,9 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendAdminAlert, buildAlertMessage } from "../_shared/adminAlerts.ts";
 import { queueAndSendPatientBookingNotification } from "../_shared/bookingPatientNotifications.ts";
 import { notifyProfessionalBooking } from "../_shared/professionalNotification.ts";
-import { evaluateCancellationCharge, resolvePaymentRules } from "../_shared/paymentRules.ts";
+import { evaluateCancellationCharge, resolveCancellationBasePrice, resolvePaymentRules } from "../_shared/paymentRules.ts";
 import { autoApplyAvailableBonoToSession } from "../_shared/bonoAutomation.ts";
-import { resolvePatientCancellationPolicyForSession } from "../_shared/cancellationPolicy.ts";
+import { resolvePatientCancellationPolicyForSession, resolveSignedCancellationPolicyVersion } from "../_shared/cancellationPolicy.ts";
 import { isValidEmail, isValidDate, isValidTime, isValidName } from "../_shared/validation.ts";
 import { checkIpRateLimit, getClientIp } from "../_shared/rateLimiter.ts";
 import { resolveDayAvailability } from "../_shared/availability-core.ts";
@@ -1577,7 +1577,7 @@ serve(async (req) => {
       // Get session
       const { data: session } = await supabase
         .from("sessions")
-        .select("id, patient_id, professional_id, center_id, session_date, start_time, status, cancellation_policy, google_calendar_event_id, price")
+        .select("id, patient_id, professional_id, center_id, session_date, start_time, session_type, session_type_id, status, cancellation_policy, google_calendar_event_id, price")
         .eq("id", tokenData.sessionId)
         .eq("patient_id", tokenData.patientId)
         .single();
@@ -1600,38 +1600,25 @@ serve(async (req) => {
       const sessionDateTime = new Date(`${session.session_date}T${session.start_time}`);
       const now = new Date();
 
-      let signedCancellationPolicy: any = null;
-      const { data: signedPolicyConsent } = await supabase
-        .from("consents")
-        .select(`
-          id,
-          cancellation_policy_version_id,
-          cancellation_policy_versions(
-            id,
-            rules,
-            penalty_invoice_concept
-          )
-        `)
-        .eq("center_id", session.center_id)
-        .eq("patient_id", session.patient_id)
-        .eq("status", "signed")
-        .not("cancellation_policy_version_id", "is", null)
-        .order("signed_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (signedPolicyConsent?.cancellation_policy_versions) {
-        signedCancellationPolicy = Array.isArray(signedPolicyConsent.cancellation_policy_versions)
-          ? signedPolicyConsent.cancellation_policy_versions[0]
-          : signedPolicyConsent.cancellation_policy_versions;
-      }
+      const signedCancellationPolicy = await resolveSignedCancellationPolicyVersion(supabase, {
+        centerId: session.center_id,
+        patientId: session.patient_id,
+        versionSelect: "id, rules, penalty_invoice_concept",
+      });
 
       const signedPolicyEvaluation = signedCancellationPolicy
         ? evaluateCancellationCharge({
           rules: signedCancellationPolicy.rules,
           sessionStartsAt: sessionDateTime,
           cancelledAt: now,
-          basePrice: session.price,
+          basePrice: await resolveCancellationBasePrice(supabase, {
+            centerId: session.center_id,
+            patientId: session.patient_id,
+            sessionTypeId: session.session_type_id,
+            sessionTypeName: session.session_type,
+            sessionDate: session.session_date,
+            sessionPrice: session.price,
+          }),
         })
         : null;
 
