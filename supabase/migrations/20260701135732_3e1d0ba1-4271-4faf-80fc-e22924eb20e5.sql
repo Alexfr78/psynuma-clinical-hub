@@ -1,0 +1,4 @@
+
+ALTER TABLE public.debts DISABLE TRIGGER USER;
+DELETE FROM public.debts WHERE id='f364eaa8-24ec-48b5-8f8a-f8f203598a67';
+ALTER TABLE public.debts ENABLE TRIGGER USER;

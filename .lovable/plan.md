@@ -1,49 +1,47 @@
-## Problema
 
-En la ficha de contacto, al editar la fecha/hora de una sesión y aceptar el aviso de conflicto:
+## Diagnóstico
 
-1. La interfaz queda bloqueada (no se puede hacer nada hasta refrescar).
-2. El cambio de fecha/hora no se aplica a la sesión.
+**Sesiones (8):**
+| Sesión | Estado | Precio | payment_status | Factura | Deuda |
+|---|---|---|---|---|---|
+| 2bd2bd02 | completed | 0 € | pending | — | — (ok) |
+| 7a2e74e4 (22-jun) | completed | 75 | **pending ✗** | SP260038 paid | paid |
+| 6b054bc3 (10-jun) | completed | 75 | **pending ✗** | SP260037 paid | paid |
+| c3a61291 (4-jun) | completed | 75 | **pending ✗** | SP260035 paid | paid |
+| 82a9d9f6 (2-mar) | completed | 75 | paid | SP260013 paid (+ SP260011 anulada) | paid |
+| 0a93374f (30-jun) | confirmed | 75 | pending | SP260041 emitida | **2 deudas duplicadas** |
+| ff945d0c | confirmed | 75 | pending | — | pending |
+| 5dc7d192 | confirmed | 75 | pending | — | pending |
 
-## Causa
+**Problemas detectados:**
 
-1. **Bloqueo de interacción:** El `SessionDetailDrawer` se renderiza como `Sheet` (Radix Dialog) en desktop. El `ConflictsDialog` que confirma el solapamiento es **otro Radix Dialog** apilado encima. Cuando el segundo Dialog se cierra mientras el Sheet sigue abierto, Radix deja `pointer-events: none` colgando en `<body>` (conflicto de limpieza entre dos overlays modales hermanos). El parche con `setTimeout` no es suficiente porque Radix vuelve a aplicar el estilo en el ciclo siguiente.
+1. **Desincronización `sessions.payment_status`** — tres sesiones (7a2e74e4, 6b054bc3, c3a61291) tienen su factura y su deuda marcadas como `paid`, pero la sesión sigue en `pending`. Por eso "no cuadra": Cobros/agenda las siguen mostrando como pendientes aunque ya están cobradas.
 
-2. **Cambio no aplicado:** Hay que confirmar si el RPC `update_session_datetime_force` realmente devuelve la fila actualizada o un `null` silencioso (sin error). Hoy el cliente no inspecciona el valor devuelto ni registra el resultado, por lo que un fallo silencioso (por ejemplo trigger bloqueando pese al GUC) pasa desapercibido y muestra el toast de éxito.
+2. **Deuda duplicada en sesión 0a93374f (30-jun)** — hay dos filas en `debts` para la misma sesión:
+   - `f364eaa8` creada 7-abr por el cron automático (sin factura, pending)
+   - `61e91d6c` creada 30-jun al emitir la factura SP260041 (vinculada a factura, pending)
+   Se contabiliza la deuda dos veces (150 € en lugar de 75 €).
 
-## Plan
+## Plan de corrección
 
-### 1. Eliminar el Dialog anidado de conflictos en la edición desde la ficha
+### 1. Sincronizar `sessions.payment_status`
+Actualizar a `paid` las tres sesiones cuya factura/deuda ya están cobradas:
+- `7a2e74e4-da68-4063-ae5f-204c2f65bcf7`
+- `6b054bc3-561e-40a5-bd2f-66c10ad81809`
+- `c3a61291-3b2c-4790-a3f7-cf8e12312e6f`
 
-Sustituir el uso de `<ConflictsDialog>` dentro de `SessionDetailDrawer` por una **confirmación inline** integrada en el bloque de edición de fecha/hora del propio Sheet/Drawer:
+### 2. Eliminar deuda duplicada de la sesión 0a93374f
+Borrar la deuda huérfana `f364eaa8-24ec-48b5-8f8a-f8f203598a67` (la creada por el cron sin factura). La deuda `61e91d6c` vinculada a SP260041 queda como única representación válida.
 
-- Cuando `handleDateTimeSave` detecte conflictos, en vez de abrir un Dialog, mostrar un panel ámbar dentro de la sección "Editando fecha y hora" con:
-  - Mensaje "Esta cita se solapa con otra del profesional el …"
-  - Lista resumida de las citas en conflicto.
-  - Botones `Cancelar` (vuelve al estado de edición normal) y `Guardar igualmente` (llama a `executeDateTimeSave(true)`).
-- Eliminar `<ConflictsDialog>` y los estados `conflictsDialogOpen` y handlers `handleConflictForceCreate` / `handleConflictCancel` asociados, y la utilidad `restoreBodyPointerEvents` añadida en el intento anterior.
-- Esto elimina por completo el apilado de dos modales Radix y por tanto el bloqueo de `pointer-events` en `<body>`.
+### 3. Verificación post-fix
+Volver a listar sesiones + deudas + facturas para confirmar:
+- Deuda pendiente total = 75 (SP260041) + 75 (ff945d0c) + 75 (5dc7d192) = **225 €**
+- Sesiones completadas y cobradas coherentes con facturas.
 
-El `ConflictsDialog` se mantiene tal cual para los flujos donde es seguro (creación de sesión, drag-and-drop en agenda), ya que ahí no hay un Sheet padre abierto.
+### Notas técnicas
+- Se hará vía migración (UPDATE + DELETE), ya que `psql` en este entorno es solo lectura/insert.
+- No se toca ninguna factura emitida (protegidas por `protect_issued_invoices`).
+- No se altera la sesión 82a9d9f6 ni la factura anulada SP260011 (situación válida: reemisión).
 
-### 2. Hacer robusto el guardado forzado y diagnosticar el fallo
-
-En `executeDateTimeSave(force=true)`:
-
-- Cambiar la llamada para capturar también `data`: `const { data, error } = await supabase.rpc('update_session_datetime_force', {...})`.
-- Si `error` o `data` es `null`/vacío, lanzar un error con un mensaje claro ("No se pudo actualizar la sesión") en vez de mostrar el toast de éxito.
-- Loggear `data` en consola para ver en una próxima reproducción si el RPC devuelve la fila esperada con la nueva fecha.
-- Tras éxito, además de `setLocalDateTime(...)`, llamar también a `queryClient.invalidateQueries({ queryKey: ['sessions'] })` (ya existe) y a `queryClient.invalidateQueries({ queryKey: ['session', session.id] })` por si la ficha usa una query por id.
-
-### 3. Verificación
-
-- Abrir la ficha de un contacto, editar la fecha de una sesión a una franja que solape otra existente del mismo profesional.
-- Confirmar que aparece el panel inline ámbar (no un diálogo encima).
-- Pulsar "Guardar igualmente": el panel se cierra, el toast indica éxito, la fecha mostrada cambia y la interfaz sigue respondiendo (se puede volver a abrir/cerrar la sesión sin refrescar).
-- Si el cambio no llegara a aplicarse, el nuevo log/error revelará si el RPC devolvió `null` (problema servidor) o si devolvió la fila correcta pero el frontend no la reflejó (problema cliente).
-
-## Archivos a tocar
-
-- `src/components/agenda/SessionDetailDrawer.tsx` — Quitar `ConflictsDialog`/handlers, añadir confirmación inline en la sección de edición de fecha/hora, mejorar `executeDateTimeSave` con manejo de `data`/`error` y logs.
-
-No se tocan: `ConflictsDialog.tsx`, `Agenda.tsx`, ni la migración del RPC (ya está correcta).
+### Fuera de alcance (a decidir aparte)
+Las dos sesiones futuras/confirmadas (`ff945d0c`, `5dc7d192`) tienen deuda ya generada por el cron aunque aún no se hayan completado. Si prefieres que no se generen deudas hasta que la sesión esté `completed`, sería un cambio en el cron `generate_daily_debts` — dímelo y lo abordamos en un plan separado.
