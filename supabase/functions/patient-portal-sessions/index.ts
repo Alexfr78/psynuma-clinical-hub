@@ -493,17 +493,7 @@ serve(async (req) => {
       );
     }
 
-    if (action === "cancel") {
-      const { sessionId, reason } = params;
-
-      if (!sessionId) {
-        return new Response(
-          JSON.stringify({ error: "ID de cita requerido" }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      // Verify session belongs to patient
+    async function buildCancellationPreview(sessionId: string) {
       const { data: existingSession } = await supabase
         .from("sessions")
         .select("id, center_id, patient_id, session_date, start_time, session_type, session_type_id, cancellation_policy, cancellation_policy_version_id, professional_id, price")
@@ -512,10 +502,7 @@ serve(async (req) => {
         .single();
 
       if (!existingSession) {
-        return new Response(
-          JSON.stringify({ error: "Cita no encontrada" }),
-          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        return { existingSession: null, signedCancellationPolicy: null, signedPolicyEvaluation: null, response: null };
       }
 
       const signedCancellationPolicy = await resolveSignedCancellationPolicyVersion(supabase, {
@@ -526,7 +513,7 @@ serve(async (req) => {
 
       const sessionDateTime = new Date(`${existingSession.session_date}T${existingSession.start_time}`);
       const now = new Date();
-      
+
       const signedPolicyEvaluation = signedCancellationPolicy
         ? evaluateCancellationCharge({
           rules: signedCancellationPolicy.rules,
@@ -542,6 +529,79 @@ serve(async (req) => {
           }),
         })
         : null;
+
+      const applies = signedPolicyEvaluation?.applies || false;
+      const amount = signedPolicyEvaluation?.amount || 0;
+      const basePrice = signedPolicyEvaluation?.basePrice || 0;
+      const percentage = signedPolicyEvaluation?.percentage || 0;
+
+      return {
+        existingSession,
+        signedCancellationPolicy,
+        signedPolicyEvaluation,
+        response: {
+          hasSignedPolicy: Boolean(signedCancellationPolicy),
+          applies,
+          amount,
+          basePrice,
+          percentage,
+          concept: signedCancellationPolicy?.penalty_invoice_concept || "Cancelacion fuera de plazo segun politica aceptada",
+          message: applies
+            ? `Esta cita esta sujeta a la politica de cancelacion aceptada. Importe estimado sujeto a revision: ${amount.toFixed(2)} EUR.`
+            : signedCancellationPolicy
+              ? "Esta cita esta cubierta por la politica de cancelacion aceptada. No se estima cargo por cancelacion."
+              : "El paciente no tiene politica de cancelacion firmada. No se estima cargo automatico.",
+        },
+      };
+    }
+
+    if (action === "get-cancellation-preview") {
+      const { sessionId } = params;
+
+      if (!sessionId) {
+        return new Response(
+          JSON.stringify({ error: "ID de cita requerido" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const { existingSession, response } = await buildCancellationPreview(sessionId);
+
+      if (!existingSession) {
+        return new Response(
+          JSON.stringify({ error: "Cita no encontrada" }),
+          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify(response),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (action === "cancel") {
+      const { sessionId, reason } = params;
+
+      if (!sessionId) {
+        return new Response(
+          JSON.stringify({ error: "ID de cita requerido" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const {
+        existingSession,
+        signedCancellationPolicy,
+        signedPolicyEvaluation,
+      } = await buildCancellationPreview(sessionId);
+
+      if (!existingSession) {
+        return new Response(
+          JSON.stringify({ error: "Cita no encontrada" }),
+          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
 
       const cancellationReviewMessage = signedPolicyEvaluation?.applies
         ? `Cancelacion fuera de plazo. Se ha creado un cargo pendiente de revision por ${signedPolicyEvaluation.amount.toFixed(2)} EUR.`

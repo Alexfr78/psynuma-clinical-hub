@@ -167,6 +167,16 @@ export interface PublicLocation {
   postal_code: string | null;
 }
 
+export interface CancellationPolicyPreview {
+  hasSignedPolicy: boolean;
+  applies: boolean;
+  amount: number;
+  basePrice: number;
+  percentage: number;
+  concept: string | null;
+  message: string;
+}
+
 export function usePublicSessionReschedule(token: string | undefined) {
   const queryClient = useQueryClient();
   const [slots, setSlots] = useState<AvailabilitySlot[]>([]);
@@ -177,6 +187,8 @@ export function usePublicSessionReschedule(token: string | undefined) {
   const [slotDuration, setSlotDuration] = useState(60);
   const [locations, setLocations] = useState<PublicLocation[]>([]);
   const [originalLocationId, setOriginalLocationId] = useState<string | null>(null);
+  const [cancellationPolicyPreview, setCancellationPolicyPreview] = useState<CancellationPolicyPreview | null>(null);
+  const [cancellationPolicyPreviewLoading, setCancellationPolicyPreviewLoading] = useState(false);
 
   const getLocations = useCallback(async () => {
     if (!token) return;
@@ -235,6 +247,30 @@ export function usePublicSessionReschedule(token: string | undefined) {
       setSlots([]);
     } finally {
       setSlotsLoading(false);
+    }
+  }, [token]);
+
+  const getCancellationPolicyPreview = useCallback(async () => {
+    if (!token) return null;
+
+    setCancellationPolicyPreviewLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('public-session-reschedule', {
+        body: { action: 'get-cancellation-preview', token }
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      const preview = data as CancellationPolicyPreview;
+      setCancellationPolicyPreview(preview);
+      return preview;
+    } catch (error) {
+      console.error('Error fetching cancellation policy preview:', error);
+      setCancellationPolicyPreview(null);
+      return null;
+    } finally {
+      setCancellationPolicyPreviewLoading(false);
     }
   }, [token]);
 
@@ -318,9 +354,12 @@ export function usePublicSessionReschedule(token: string | undefined) {
     slotDuration,
     locations,
     originalLocationId,
+    cancellationPolicyPreview,
+    cancellationPolicyPreviewLoading,
     getLocations,
     getAvailableDays,
     getAvailability,
+    getCancellationPolicyPreview,
     reschedule: rescheduleMutation.mutate,
     isRescheduling: rescheduleMutation.isPending,
     cancelSession: cancelMutation.mutate,

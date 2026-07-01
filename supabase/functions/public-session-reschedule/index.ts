@@ -172,6 +172,54 @@ Deno.serve(async (req) => {
     const patientName = patient ? `${patient.first_name} ${patient.last_name}` : "Paciente";
     const professionalName = professional ? `${professional.first_name} ${professional.last_name}` : undefined;
 
+    async function buildCancellationPolicyPreview() {
+      const signedCancellationPolicy = await resolveSignedCancellationPolicyVersion(supabase, {
+        centerId: sessionRow.center_id,
+        patientId: sessionRow.patient_id,
+        versionSelect: "id, rules, penalty_invoice_concept",
+      });
+
+      const signedPolicyEvaluation = signedCancellationPolicy
+        ? evaluateCancellationCharge({
+          rules: signedCancellationPolicy.rules,
+          sessionStartsAt: sessionDateTime,
+          cancelledAt: new Date(),
+          basePrice: await resolveCancellationBasePrice(supabase, {
+            centerId: sessionRow.center_id,
+            patientId: sessionRow.patient_id,
+            sessionTypeId: sessionRow.session_type_id,
+            sessionTypeName: sessionRow.session_type,
+            sessionDate: sessionRow.session_date,
+            sessionPrice: sessionRow.price,
+          }),
+        })
+        : null;
+
+      const applies = signedPolicyEvaluation?.applies || false;
+      const amount = signedPolicyEvaluation?.amount || 0;
+      const basePrice = signedPolicyEvaluation?.basePrice || 0;
+      const percentage = signedPolicyEvaluation?.percentage || 0;
+      const concept = signedCancellationPolicy?.penalty_invoice_concept || "Cancelacion fuera de plazo segun politica aceptada";
+
+      return {
+        signedCancellationPolicy,
+        signedPolicyEvaluation,
+        response: {
+          hasSignedPolicy: Boolean(signedCancellationPolicy),
+          applies,
+          amount,
+          basePrice,
+          percentage,
+          concept,
+          message: applies
+            ? `Esta cita esta sujeta a la politica de cancelacion aceptada. Importe estimado sujeto a revision: ${amount.toFixed(2)} EUR.`
+            : signedCancellationPolicy
+              ? "Esta cita esta cubierta por la politica de cancelacion aceptada. No se estima cargo por cancelacion."
+              : "El paciente no tiene politica de cancelacion firmada. No se estima cargo automatico.",
+        },
+      };
+    }
+
     // Helper: resolve & validate a requested location id (must belong to the same
     // center and be active+public). Returns the validated row or null on error.
     async function resolveRequestedLocation(locId: string | null | undefined) {
@@ -185,6 +233,14 @@ Deno.serve(async (req) => {
       if (error || !loc) return { row: null, error: "Ubicación no encontrada" };
       if (!loc.is_active || !loc.is_public) return { row: null, error: "Ubicación no disponible" };
       return { row: loc, error: null };
+    }
+
+    if (action === "get-cancellation-preview") {
+      const { response } = await buildCancellationPolicyPreview();
+      return new Response(
+        JSON.stringify(response),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     if (action === "get-locations") {
@@ -656,29 +712,10 @@ Deno.serve(async (req) => {
     }
 
     if (action === "cancel") {
-      const hoursUntilSession = (sessionDateTime.getTime() - new Date().getTime()) / (1000 * 60 * 60);
-
-      const signedCancellationPolicy = await resolveSignedCancellationPolicyVersion(supabase, {
-        centerId: sessionRow.center_id,
-        patientId: session.patient_id,
-        versionSelect: "id, rules, penalty_invoice_concept",
-      });
-
-      const signedPolicyEvaluation = signedCancellationPolicy
-        ? evaluateCancellationCharge({
-          rules: signedCancellationPolicy.rules,
-          sessionStartsAt: sessionDateTime,
-          cancelledAt: new Date(),
-          basePrice: await resolveCancellationBasePrice(supabase, {
-            centerId: session.center_id,
-            patientId: session.patient_id,
-            sessionTypeId: session.session_type_id,
-            sessionTypeName: session.session_type,
-            sessionDate: session.session_date,
-            sessionPrice: session.price,
-          }),
-        })
-        : null;
+      const {
+        signedCancellationPolicy,
+        signedPolicyEvaluation,
+      } = await buildCancellationPolicyPreview();
 
       const cancellationReviewMessage = signedPolicyEvaluation?.applies
         ? `Cancelacion fuera de plazo. Se ha creado un cargo pendiente de revision por ${signedPolicyEvaluation.amount.toFixed(2)} EUR.`

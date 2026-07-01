@@ -3,7 +3,13 @@
     "allow": [
       "Bash(xargs grep:*)",
       "Bash(npx tsc:*)",
-      "Bash(npx vite:*)"
+      "Bash(npx vite:*)",
+      "Bash(git clone *)",
+      "Bash(mkdir -p ~/.claude/agents)",
+      "Bash(cp -r agency-agents/agents/* ~/.claude/agents/)",
+      "Bash(python3 *)",
+      "PowerShell(python \"C:\\\\Users\\\\aleja\\\\Cursor\\\\psynuma-clinical-hub\\\\.claude\\\\skills\\\\ui-ux-pro-max\\\\scripts\\\\search.py\" \"psychology therapy mental health clinical SaaS calm trust warm professional\" --design-system -p \"Psycma\" -f markdown 2>&1)",
+      "Bash(git checkout *)"
     ]
   }
 }

@@ -44,6 +44,16 @@ interface PortalState {
   sessionToken: string | null;
 }
 
+export interface CancellationPolicyPreview {
+  hasSignedPolicy: boolean;
+  applies: boolean;
+  amount: number;
+  basePrice: number;
+  percentage: number;
+  concept: string | null;
+  message: string;
+}
+
 export function usePatientPortal(centerSlug?: string) {
   const [state, setState] = useState<PortalState>({
     isAuthenticated: false,
@@ -263,6 +273,26 @@ export function usePatientPortal(centerSlug?: string) {
     }
   };
 
+  const getCancellationPreview = async (sessionId: string): Promise<CancellationPolicyPreview | null> => {
+    if (!state.sessionToken) return null;
+
+    try {
+      const { data, error } = await supabase.functions.invoke('patient-portal-sessions', {
+        body: { action: 'get-cancellation-preview', sessionToken: state.sessionToken, sessionId },
+      });
+
+      if (error || data?.error) {
+        console.error('Error fetching cancellation preview:', error || data?.error);
+        return null;
+      }
+
+      return data as CancellationPolicyPreview;
+    } catch (error) {
+      console.error('Error fetching cancellation preview:', error);
+      return null;
+    }
+  };
+
   const confirmSession = async (sessionId: string): Promise<{ success: boolean; error?: string }> => {
     if (!state.sessionToken) {
       return { success: false, error: 'Sesión no válida' };
@@ -388,6 +418,7 @@ export function usePatientPortal(centerSlug?: string) {
     fetchSessions,
     createSession,
     cancelSession,
+    getCancellationPreview,
     confirmSession,
     rescheduleSession,
     getAvailability,

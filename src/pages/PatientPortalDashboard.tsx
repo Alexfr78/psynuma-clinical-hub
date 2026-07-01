@@ -35,6 +35,7 @@ export default function PatientPortalDashboard() {
     logout,
     fetchSessions,
     cancelSession,
+    getCancellationPreview,
     confirmSession,
     rescheduleSession,
     getMonthAvailability,
@@ -235,6 +236,7 @@ export default function PatientPortalDashboard() {
                   sessions={sessions.upcoming}
                   loading={sessionsLoading}
                   onCancel={handleCancel}
+                  onCancellationPreview={getCancellationPreview}
                   onConfirm={handleConfirm}
                   onReschedule={handleReschedule}
                   emptyMessage="No tienes citas próximas"

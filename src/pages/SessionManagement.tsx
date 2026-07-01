@@ -75,6 +75,7 @@ export default function SessionManagement() {
   const [selectedSlot, setSelectedSlot] = useState<{ startTime: string; endTime: string } | null>(null);
   const [selectedLocationId, setSelectedLocationId] = useState<string>('');
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   
   const {
     slots,
@@ -84,9 +85,12 @@ export default function SessionManagement() {
     maxDays,
     locations,
     originalLocationId,
+    cancellationPolicyPreview,
+    cancellationPolicyPreviewLoading,
     getLocations,
     getAvailableDays,
     getAvailability,
+    getCancellationPolicyPreview,
     reschedule,
     isRescheduling,
     cancelSession,
@@ -176,6 +180,13 @@ export default function SessionManagement() {
     cancelSession({ 
       cancellation_reason: cancellationReason || 'Cancelada por el paciente'
     });
+  };
+
+  const handleCancelDialogOpenChange = (open: boolean) => {
+    setCancelDialogOpen(open);
+    if (open) {
+      getCancellationPolicyPreview();
+    }
   };
 
   const handleRescheduleConfirm = () => {
@@ -628,7 +639,7 @@ export default function SessionManagement() {
               )}
 
               {/* Cancel Button */}
-              <AlertDialog>
+              <AlertDialog open={cancelDialogOpen} onOpenChange={handleCancelDialogOpenChange}>
                 <AlertDialogTrigger asChild>
                   <Button 
                     variant="ghost" 
@@ -647,6 +658,28 @@ export default function SessionManagement() {
                       Esta acción no se puede deshacer. Si necesitas reprogramar, usa la opción "Cambiar fecha".
                     </AlertDialogDescription>
                   </AlertDialogHeader>
+                  <Alert className="border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-900 dark:bg-amber-950/20 dark:text-amber-100">
+                    <AlertCircle className="h-4 w-4 text-amber-600" />
+                    <AlertDescription>
+                      {cancellationPolicyPreviewLoading ? (
+                        'Comprobando la política de cancelación...'
+                      ) : cancellationPolicyPreview?.applies ? (
+                        <>
+                          Esta cita está sujeta a la política de cancelación aceptada. Al cancelarla fuera de plazo, tu profesional revisará si corresponde aplicar un cargo.
+                          <span className="mt-2 block font-medium">
+                            Importe estimado sujeto a revisión: {Number(cancellationPolicyPreview.amount || 0).toFixed(2)} EUR
+                            {cancellationPolicyPreview.percentage > 0 && cancellationPolicyPreview.basePrice > 0
+                              ? ` (${cancellationPolicyPreview.percentage}% de ${Number(cancellationPolicyPreview.basePrice).toFixed(2)} EUR)`
+                              : ''}
+                          </span>
+                        </>
+                      ) : cancellationPolicyPreview?.hasSignedPolicy ? (
+                        'Esta cita está cubierta por la política de cancelación aceptada. Según el plazo actual, no se estima cargo por cancelación.'
+                      ) : (
+                        'Se avisará al centro de la cancelación. Si tienes dudas sobre la política aplicable, contacta con tu profesional.'
+                      )}
+                    </AlertDescription>
+                  </Alert>
                   <div className="py-4">
                     <label className="text-sm font-medium">Motivo (opcional)</label>
                     <Textarea

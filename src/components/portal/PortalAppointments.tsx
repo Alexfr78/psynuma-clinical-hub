@@ -1,8 +1,10 @@
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Calendar, Clock, User, MapPin, Loader2, CheckCircle, XCircle, AlertCircle, RefreshCw } from 'lucide-react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -41,10 +43,21 @@ interface PortalAppointmentsProps {
   sessions: Session[];
   loading: boolean;
   onCancel?: (sessionId: string) => Promise<void>;
+  onCancellationPreview?: (sessionId: string) => Promise<CancellationPolicyPreview | null>;
   onConfirm?: (sessionId: string) => Promise<void>;
   onReschedule?: (session: Session) => void;
   isPast?: boolean;
   emptyMessage?: string;
+}
+
+interface CancellationPolicyPreview {
+  hasSignedPolicy: boolean;
+  applies: boolean;
+  amount: number;
+  basePrice: number;
+  percentage: number;
+  concept: string | null;
+  message: string;
 }
 
 const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; icon: typeof CheckCircle }> = {
@@ -60,11 +73,31 @@ export function PortalAppointments({
   sessions,
   loading,
   onCancel,
+  onCancellationPreview,
   onConfirm,
   onReschedule,
   isPast = false,
   emptyMessage = 'No hay citas',
 }: PortalAppointmentsProps) {
+  const [cancelDialogSessionId, setCancelDialogSessionId] = useState<string | null>(null);
+  const [cancellationPreview, setCancellationPreview] = useState<CancellationPolicyPreview | null>(null);
+  const [cancellationPreviewLoading, setCancellationPreviewLoading] = useState(false);
+
+  const handleCancelDialogOpenChange = async (open: boolean, sessionId: string) => {
+    setCancelDialogSessionId(open ? sessionId : null);
+    if (!open) return;
+
+    setCancellationPreview(null);
+    if (!onCancellationPreview) return;
+
+    setCancellationPreviewLoading(true);
+    try {
+      setCancellationPreview(await onCancellationPreview(sessionId));
+    } finally {
+      setCancellationPreviewLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-8">
@@ -163,7 +196,10 @@ export function PortalAppointments({
                   </Button>
                 )}
                 {canCancel && onCancel && (
-                  <AlertDialog>
+                  <AlertDialog
+                    open={cancelDialogSessionId === session.id}
+                    onOpenChange={(open) => handleCancelDialogOpenChange(open, session.id)}
+                  >
                     <AlertDialogTrigger asChild>
                       <Button variant="outline" size="sm">
                         <XCircle className="h-4 w-4 mr-1" />
@@ -177,6 +213,28 @@ export function PortalAppointments({
                           La cita del {format(new Date(session.session_date), "d 'de' MMMM", { locale: es })} a las {session.start_time.substring(0, 5)} será cancelada.
                         </AlertDialogDescription>
                       </AlertDialogHeader>
+                      <Alert className="border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-900 dark:bg-amber-950/20 dark:text-amber-100">
+                        <AlertCircle className="h-4 w-4 text-amber-600" />
+                        <AlertDescription>
+                          {cancellationPreviewLoading ? (
+                            'Comprobando la política de cancelación...'
+                          ) : cancellationPreview?.applies ? (
+                            <>
+                              Esta cita está sujeta a la política de cancelación aceptada. Al cancelarla fuera de plazo, tu profesional revisará si corresponde aplicar un cargo.
+                              <span className="mt-2 block font-medium">
+                                Importe estimado sujeto a revisión: {Number(cancellationPreview.amount || 0).toFixed(2)} EUR
+                                {cancellationPreview.percentage > 0 && cancellationPreview.basePrice > 0
+                                  ? ` (${cancellationPreview.percentage}% de ${Number(cancellationPreview.basePrice).toFixed(2)} EUR)`
+                                  : ''}
+                              </span>
+                            </>
+                          ) : cancellationPreview?.hasSignedPolicy ? (
+                            'Esta cita está cubierta por la política de cancelación aceptada. Según el plazo actual, no se estima cargo por cancelación.'
+                          ) : (
+                            'Se avisará al centro de la cancelación. Si tienes dudas sobre la política aplicable, contacta con tu profesional.'
+                          )}
+                        </AlertDescription>
+                      </Alert>
                       <AlertDialogFooter>
                         <AlertDialogCancel>Volver</AlertDialogCancel>
                         <AlertDialogAction
