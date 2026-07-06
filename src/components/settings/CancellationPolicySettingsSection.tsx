@@ -218,7 +218,7 @@ export function CancellationPolicySettingsSection() {
         name,
         version_number: nextVersion,
         is_active: true,
-        rules,
+        rules: rules as Json,
         policy_text: policyText,
         valid_reasons: cancellationPolicyLinesToList(validReasons),
         penalty_invoice_concept: penaltyConcept,
