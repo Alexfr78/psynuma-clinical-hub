@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
+import { type Center } from './useCenter';
 import { toast } from 'sonner';
 
 export interface Invoice {
@@ -205,16 +206,14 @@ export function useCreateInvoice() {
 
   return useMutation({
     mutationFn: async ({ invoice, items }: { invoice: InvoiceInsert; items: Omit<InvoiceItemInsert, 'invoice_id'>[] }) => {
-      // Get next invoice number
-      const { data: center, error: centerError } = await supabase
-        .from('centers')
-        .select('invoice_prefix, invoice_next_number')
-        .eq('id', profile!.center_id!)
-        .single();
+      // Get next invoice number via safe center RPC (avoids direct SELECT on centers)
+      const { data: centerData, error: centerError } = await supabase
+        .rpc('get_safe_center', { p_center_id: profile!.center_id! });
 
       if (centerError) throw centerError;
 
-      const invoiceNumber = `${center.invoice_prefix}-${String(center.invoice_next_number).padStart(5, '0')}`;
+      const center = centerData as unknown as Center | null;
+      const invoiceNumber = `${center?.invoice_prefix}-${String(center?.invoice_next_number ?? 0).padStart(5, '0')}`;
 
       // Create invoice
       const { data: newInvoice, error: invoiceError } = await supabase
@@ -386,14 +385,11 @@ export function useUpdateInvoiceStatus() {
 
       // GUARD: Block cancellation of issued invoices without AEAT registration when Verifactu is enabled
       if (status === 'cancelled' && currentInvoice?.status === 'issued') {
-        // Check if center has Verifactu configured
+        // Check if center has Verifactu configured via safe center RPC
         const { data: center } = await supabase
-          .from('centers')
-          .select('verifactu_environment')
-          .eq('id', profile!.center_id!)
-          .single();
+          .rpc('get_safe_center', { p_center_id: profile!.center_id! });
 
-        const hasVerifactu = !!center?.verifactu_environment;
+        const hasVerifactu = !!(center as unknown as Center)?.verifactu_environment;
 
         if (hasVerifactu) {
           if (currentInvoice.verifactu_pending) {

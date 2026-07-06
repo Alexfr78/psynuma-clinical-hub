@@ -4,6 +4,7 @@ import { Save, Loader2, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { Database, Json } from '@/integrations/supabase/types';
 import {
   CancellationPolicyRules,
   cancellationPolicyLinesToList,
@@ -212,21 +213,23 @@ export function CancellationPolicySettingsSection() {
         .eq('is_active', true);
 
       const nextVersion = Number(latest?.version_number || 0) + 1;
+      const newPolicy: Database['public']['Tables']['cancellation_policy_versions']['Insert'] = {
+        center_id: centerId,
+        name,
+        version_number: nextVersion,
+        is_active: true,
+        rules: rules as unknown as Json,
+        policy_text: policyText,
+        valid_reasons: cancellationPolicyLinesToList(validReasons),
+        penalty_invoice_concept: penaltyConcept,
+        rectification_reason: rectificationReason,
+        voucher_validity_days: voucherValidityDays,
+        created_by: profile?.id || null,
+      };
+
       const { error } = await supabase
         .from('cancellation_policy_versions')
-        .insert({
-          center_id: centerId,
-          name,
-          version_number: nextVersion,
-          is_active: true,
-          rules,
-          policy_text: policyText,
-          valid_reasons: cancellationPolicyLinesToList(validReasons),
-          penalty_invoice_concept: penaltyConcept,
-          rectification_reason: rectificationReason,
-          voucher_validity_days: voucherValidityDays,
-          created_by: profile?.id || null,
-        });
+        .insert(newPolicy);
 
       if (error) throw error;
     },

@@ -3,7 +3,7 @@ import { Plus, FileText, Loader2, Upload, CheckCircle2, AlertTriangle, Clock } f
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { useConsents } from '@/hooks/useConsents';
+import { useConsents, type Consent } from '@/hooks/useConsents';
 import { useAuth } from '@/hooks/useAuth';
 import { ConsentCard } from '@/components/consents/ConsentCard';
 import { CreateConsentDialog } from '@/components/consents/CreateConsentDialog';
@@ -35,7 +35,7 @@ export function PatientConsents({ patientId, patient }: PatientConsentsProps) {
 
   const handleCreateCancellationPolicyConsent = async () => {
     const consent = await createCancellationPolicyConsent.mutateAsync();
-    setSendDialogConsent(consent);
+    setSendDialogConsent(consent as Consent);
   };
 
   const policyConsents = consents.filter((consent) => consent.cancellation_policy_version_id);
