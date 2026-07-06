@@ -3,7 +3,7 @@ import { Plus, FileText, Loader2, Upload, CheckCircle2, AlertTriangle, Clock } f
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { useConsents } from '@/hooks/useConsents';
+import { useConsents, type Consent } from '@/hooks/useConsents';
 import { useAuth } from '@/hooks/useAuth';
 import { ConsentCard } from '@/components/consents/ConsentCard';
 import { CreateConsentDialog } from '@/components/consents/CreateConsentDialog';
