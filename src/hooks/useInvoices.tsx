@@ -385,14 +385,11 @@ export function useUpdateInvoiceStatus() {
 
       // GUARD: Block cancellation of issued invoices without AEAT registration when Verifactu is enabled
       if (status === 'cancelled' && currentInvoice?.status === 'issued') {
-        // Check if center has Verifactu configured
+        // Check if center has Verifactu configured via safe center RPC
         const { data: center } = await supabase
-          .from('centers')
-          .select('verifactu_environment')
-          .eq('id', profile!.center_id!)
-          .single();
+          .rpc('get_safe_center', { p_center_id: profile!.center_id! });
 
-        const hasVerifactu = !!center?.verifactu_environment;
+        const hasVerifactu = !!(center as unknown as Center)?.verifactu_environment;
 
         if (hasVerifactu) {
           if (currentInvoice.verifactu_pending) {
