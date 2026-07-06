@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { FileText, Plus, RefreshCw, ArrowUpDown, Hash, Calendar, Search, Download, AlertTriangle } from 'lucide-react';
+import { endOfMonth, format as formatDate, startOfMonth } from 'date-fns';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -33,9 +34,19 @@ import { CreateRectificativaDialog } from '@/components/invoices/CreateRectifica
 import { SendInvoiceDialog } from '@/components/invoices/SendInvoiceDialog';
 import { LinkPaymentsToInvoiceDialog } from '@/components/invoices/LinkPaymentsToInvoiceDialog';
 import { ExportInvoicesDialog } from '@/components/invoices/ExportInvoicesDialog';
+import { InvoiceAnalyticsCard, type InvoiceDateRange } from '@/components/invoices/InvoiceAnalyticsCard';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { hasInvoiceAeatRegistration } from '@/lib/invoice-immutability';
+import { usePayments } from '@/hooks/usePayments';
+
+const getCurrentMonthRange = (): InvoiceDateRange => {
+  const today = new Date();
+  return {
+    startDate: formatDate(startOfMonth(today), 'yyyy-MM-dd'),
+    endDate: formatDate(endOfMonth(today), 'yyyy-MM-dd'),
+  };
+};
 
 export default function Invoices() {
   const [simpleOpen, setSimpleOpen] = useState(false);
@@ -68,11 +79,27 @@ export default function Invoices() {
   
   // Export dialog state
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
+  const [invoiceDateRange, setInvoiceDateRange] = useState<InvoiceDateRange>(() => getCurrentMonthRange());
+  const [selectedChartBucket, setSelectedChartBucket] = useState<(InvoiceDateRange & { label: string }) | null>(null);
+
+  const listDateRange = selectedChartBucket || invoiceDateRange;
 
   const { data: invoices, isLoading, refetch } = useInvoices({
     status: statusFilter === 'all' ? undefined : statusFilter,
+    startDate: listDateRange.startDate,
+    endDate: listDateRange.endDate,
     sortBy,
     sortDirection,
+  });
+  const { data: analyticsInvoices, isLoading: analyticsInvoicesLoading } = useInvoices({
+    startDate: invoiceDateRange.startDate,
+    endDate: invoiceDateRange.endDate,
+    sortBy: 'issue_date',
+    sortDirection: 'asc',
+  });
+  const { data: analyticsPayments, isLoading: analyticsPaymentsLoading } = usePayments({
+    startDate: invoiceDateRange.startDate,
+    endDate: invoiceDateRange.endDate,
   });
 
   // Filter invoices by patient name, invoice number, or date
@@ -385,6 +412,16 @@ export default function Invoices() {
           </AlertDescription>
         </Alert>
       )}
+
+      <InvoiceAnalyticsCard
+        invoices={analyticsInvoices}
+        payments={analyticsPayments}
+        isLoading={analyticsInvoicesLoading || analyticsPaymentsLoading}
+        range={invoiceDateRange}
+        selectedBucket={selectedChartBucket}
+        onRangeChange={setInvoiceDateRange}
+        onSelectedBucketChange={setSelectedChartBucket}
+      />
 
       <Tabs value={statusFilter} onValueChange={setStatusFilter} className="min-w-0 w-full overflow-hidden">
         <div className="relative min-w-0 overflow-hidden">
