@@ -35,7 +35,7 @@ export function PatientConsents({ patientId, patient }: PatientConsentsProps) {
 
   const handleCreateCancellationPolicyConsent = async () => {
     const consent = await createCancellationPolicyConsent.mutateAsync();
-    setSendDialogConsent(consent);
+    setSendDialogConsent(consent as Consent);
   };
 
   const policyConsents = consents.filter((consent) => consent.cancellation_policy_version_id);
