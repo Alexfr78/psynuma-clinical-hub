@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Calendar, Clock, User, FileText } from 'lucide-react';
@@ -51,6 +51,26 @@ export function PatientSessions({ patientId }: PatientSessionsProps) {
       return data as unknown as SessionWithRelations[];
     },
   });
+
+  useEffect(() => {
+    const handler = async (e: Event) => {
+      const detail = (e as CustomEvent).detail as { sessionId?: string };
+      if (!detail?.sessionId) return;
+      const found = sessions?.find((s) => s.id === detail.sessionId);
+      if (found) {
+        setSelectedSession(found);
+        return;
+      }
+      const { data, error } = await supabase
+        .from('sessions')
+        .select(`*, patient:patients!sessions_patient_id_fkey(id, first_name, last_name, email, phone), professional:profiles!sessions_professional_id_fkey(id, first_name, last_name)`)
+        .eq('id', detail.sessionId)
+        .maybeSingle();
+      if (!error && data) setSelectedSession(data as unknown as SessionWithRelations);
+    };
+    window.addEventListener('select-session', handler as EventListener);
+    return () => window.removeEventListener('select-session', handler as EventListener);
+  }, [sessions]);
 
   const counts = useMemo(() => {
     const all = sessions?.length ?? 0;
