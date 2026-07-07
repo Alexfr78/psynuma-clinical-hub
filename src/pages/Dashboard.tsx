@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -110,6 +110,39 @@ export default function Dashboard() {
   const { data: stats, isLoading: statsLoading } = useDashboardStats();
   const { data: todaySessions, isLoading: sessionsLoading } = useTodaySessions();
   const [selectedSession, setSelectedSession] = useState<any | null>(null);
+
+  useEffect(() => {
+    const handleSelectSession = async (event: Event) => {
+      const { sessionId } = (event as CustomEvent<{ sessionId?: string }>).detail || {};
+      if (!sessionId) return;
+
+      const sessionInList = todaySessions?.find((session: any) => session.id === sessionId);
+      if (sessionInList) {
+        setSelectedSession(sessionInList);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('sessions')
+        .select(`
+          *,
+          patient:patients!sessions_patient_id_fkey(id, first_name, last_name, email, phone),
+          professional:profiles!sessions_professional_id_fkey(id, first_name, last_name, email)
+        `)
+        .eq('id', sessionId)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Error fetching selected session:', error);
+        return;
+      }
+
+      if (data) setSelectedSession(data);
+    };
+
+    window.addEventListener('select-session', handleSelectSession);
+    return () => window.removeEventListener('select-session', handleSelectSession);
+  }, [todaySessions]);
 
   const statCards = [
     {
