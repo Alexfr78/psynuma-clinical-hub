@@ -492,20 +492,27 @@ export function useInvoiceStats() {
 
       const { data, error } = await supabase
         .from('invoices')
-        .select('total, status')
+        .select('total, status, is_valid')
         .gte('issue_date', startOfMonth)
         .lte('issue_date', endOfMonth);
 
       if (error) throw error;
 
+      // Exclude cancelled invoices and originals that were replaced/annulled
+      // by a rectificativa (is_valid=false). Rectificativas themselves keep
+      // their net amount (negative for substitution, delta for differences).
+      const effective = data.filter(
+        (inv: any) => inv.status !== 'cancelled' && inv.is_valid !== false
+      );
+
       const stats = {
         totalIssued: 0,
         totalPaid: 0,
         totalPending: 0,
-        count: data.length,
+        count: effective.length,
       };
 
-      data.forEach((inv) => {
+      effective.forEach((inv) => {
         if (inv.status === 'issued' || inv.status === 'paid') {
           stats.totalIssued += Number(inv.total);
         }
@@ -516,6 +523,7 @@ export function useInvoiceStats() {
           stats.totalPending += Number(inv.total);
         }
       });
+
 
       return stats;
     },
