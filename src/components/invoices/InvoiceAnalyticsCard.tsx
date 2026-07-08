@@ -132,7 +132,7 @@ function getPresetRange(preset: 'current-month' | 'previous-month' | 'quarter' |
 }
 
 function isBillableInvoice(invoice: InvoiceWithPatient) {
-  return invoice.is_valid !== false && (invoice.status === 'issued' || invoice.status === 'paid');
+  return invoice.status === 'issued' || invoice.status === 'paid';
 }
 
 export function InvoiceAnalyticsCard({

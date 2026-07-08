@@ -492,17 +492,14 @@ export function useInvoiceStats() {
 
       const { data, error } = await supabase
         .from('invoices')
-        .select('total, status, is_valid')
+        .select('total, status')
         .gte('issue_date', startOfMonth)
         .lte('issue_date', endOfMonth);
 
       if (error) throw error;
 
-      // Exclude cancelled invoices and originals that were replaced/annulled
-      // by a rectificativa (is_valid=false). Rectificativas themselves keep
-      // their net amount (negative for substitution, delta for differences).
       const effective = data.filter(
-        (inv: any) => inv.status !== 'cancelled' && inv.is_valid !== false
+        (inv: any) => inv.status === 'issued' || inv.status === 'paid'
       );
 
       const stats = {
