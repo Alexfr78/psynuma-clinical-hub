@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { FileText, Plus, RefreshCw, ArrowUpDown, Hash, Calendar, Search, Download, AlertTriangle } from 'lucide-react';
 import { endOfMonth, format as formatDate, startOfMonth } from 'date-fns';
 import { Input } from '@/components/ui/input';
@@ -34,7 +34,11 @@ import { CreateRectificativaDialog } from '@/components/invoices/CreateRectifica
 import { SendInvoiceDialog } from '@/components/invoices/SendInvoiceDialog';
 import { LinkPaymentsToInvoiceDialog } from '@/components/invoices/LinkPaymentsToInvoiceDialog';
 import { ExportInvoicesDialog } from '@/components/invoices/ExportInvoicesDialog';
-import { InvoiceAnalyticsCard, type InvoiceDateRange } from '@/components/invoices/InvoiceAnalyticsCard';
+import {
+  InvoiceAnalyticsCard,
+  type InvoiceDateRange,
+  type InvoiceGroupBy,
+} from '@/components/invoices/InvoiceAnalyticsCard';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { hasInvoiceAeatRegistration } from '@/lib/invoice-immutability';
@@ -48,19 +52,73 @@ const getCurrentMonthRange = (): InvoiceDateRange => {
   };
 };
 
+const INVOICE_PREFERENCES_STORAGE_KEY = 'psycma:invoices:preferences:v1';
+
+type InvoicePreferences = {
+  dateRange: InvoiceDateRange;
+  groupBy: InvoiceGroupBy;
+  statusFilter: string;
+  sortBy: InvoiceSortField;
+  sortDirection: SortDirection;
+};
+
+const validStatuses = new Set(['all', 'draft', 'issued', 'paid', 'verifactu_pending']);
+const validGroupings = new Set<InvoiceGroupBy>(['day', 'week', 'month']);
+const validSortFields = new Set<InvoiceSortField>(['issue_date', 'invoice_number']);
+const validSortDirections = new Set<SortDirection>(['asc', 'desc']);
+
+const isDateInputValue = (value: unknown): value is string =>
+  typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
+
+const getInitialInvoicePreferences = (): InvoicePreferences => {
+  const dateRange = getCurrentMonthRange();
+  const defaults: InvoicePreferences = {
+    dateRange,
+    groupBy: 'day',
+    statusFilter: 'all',
+    sortBy: 'issue_date',
+    sortDirection: 'desc',
+  };
+
+  try {
+    const rawPreferences = localStorage.getItem(INVOICE_PREFERENCES_STORAGE_KEY);
+    if (!rawPreferences) return defaults;
+
+    const saved = JSON.parse(rawPreferences) as Partial<InvoicePreferences>;
+    const savedRange = saved.dateRange;
+    const hasValidRange =
+      isDateInputValue(savedRange?.startDate) &&
+      isDateInputValue(savedRange?.endDate);
+
+    return {
+      dateRange: hasValidRange ? savedRange : defaults.dateRange,
+      groupBy: saved.groupBy && validGroupings.has(saved.groupBy) ? saved.groupBy : defaults.groupBy,
+      statusFilter: saved.statusFilter && validStatuses.has(saved.statusFilter) ? saved.statusFilter : defaults.statusFilter,
+      sortBy: saved.sortBy && validSortFields.has(saved.sortBy) ? saved.sortBy : defaults.sortBy,
+      sortDirection:
+        saved.sortDirection && validSortDirections.has(saved.sortDirection)
+          ? saved.sortDirection
+          : defaults.sortDirection,
+    };
+  } catch {
+    return defaults;
+  }
+};
+
 export default function Invoices() {
+  const [initialPreferences] = useState(getInitialInvoicePreferences);
   const [simpleOpen, setSimpleOpen] = useState(false);
   const [recapOpen, setRecapOpen] = useState(false);
   const [rectificativaOpen, setRectificativaOpen] = useState(false);
   const [selectedInvoiceForRectificativa, setSelectedInvoiceForRectificativa] = useState<InvoiceWithPatient | null>(null);
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>(initialPreferences.statusFilter);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [invoiceToCancel, setInvoiceToCancel] = useState<{ id: string; number: string } | null>(null);
   const [newInvoiceMenuOpen, setNewInvoiceMenuOpen] = useState(false);
   
   // Sort state
-  const [sortBy, setSortBy] = useState<InvoiceSortField>('issue_date');
-  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+  const [sortBy, setSortBy] = useState<InvoiceSortField>(initialPreferences.sortBy);
+  const [sortDirection, setSortDirection] = useState<SortDirection>(initialPreferences.sortDirection);
   
   // Detail dialog state
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
@@ -79,8 +137,25 @@ export default function Invoices() {
   
   // Export dialog state
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
-  const [invoiceDateRange, setInvoiceDateRange] = useState<InvoiceDateRange>(() => getCurrentMonthRange());
+  const [invoiceDateRange, setInvoiceDateRange] = useState<InvoiceDateRange>(initialPreferences.dateRange);
+  const [invoiceGroupBy, setInvoiceGroupBy] = useState<InvoiceGroupBy>(initialPreferences.groupBy);
   const [selectedChartBucket, setSelectedChartBucket] = useState<(InvoiceDateRange & { label: string }) | null>(null);
+
+  useEffect(() => {
+    const preferences: InvoicePreferences = {
+      dateRange: invoiceDateRange,
+      groupBy: invoiceGroupBy,
+      statusFilter,
+      sortBy,
+      sortDirection,
+    };
+
+    try {
+      localStorage.setItem(INVOICE_PREFERENCES_STORAGE_KEY, JSON.stringify(preferences));
+    } catch {
+      // The page still works when browser storage is disabled or unavailable.
+    }
+  }, [invoiceDateRange, invoiceGroupBy, sortBy, sortDirection, statusFilter]);
 
   const listDateRange = selectedChartBucket || invoiceDateRange;
 
@@ -418,8 +493,10 @@ export default function Invoices() {
         payments={analyticsPayments}
         isLoading={analyticsInvoicesLoading || analyticsPaymentsLoading}
         range={invoiceDateRange}
+        groupBy={invoiceGroupBy}
         selectedBucket={selectedChartBucket}
         onRangeChange={setInvoiceDateRange}
+        onGroupByChange={setInvoiceGroupBy}
         onSelectedBucketChange={setSelectedChartBucket}
       />
 

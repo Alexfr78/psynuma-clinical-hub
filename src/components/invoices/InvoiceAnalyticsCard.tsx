@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { addDays, endOfMonth, endOfQuarter, endOfWeek, endOfYear, format, parseISO, startOfMonth, startOfQuarter, startOfWeek, startOfYear, subMonths } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Bar, CartesianGrid, ComposedChart, Line, XAxis, YAxis } from 'recharts';
@@ -24,7 +24,7 @@ export type InvoiceDateRange = {
   endDate: string;
 };
 
-type GroupBy = 'day' | 'week' | 'month';
+export type InvoiceGroupBy = 'day' | 'week' | 'month';
 
 type SelectedInvoiceBucket = InvoiceDateRange & {
   label: string;
@@ -35,8 +35,10 @@ type InvoiceAnalyticsCardProps = {
   payments?: PaymentWithRelations[];
   isLoading?: boolean;
   range: InvoiceDateRange;
+  groupBy: InvoiceGroupBy;
   selectedBucket: SelectedInvoiceBucket | null;
   onRangeChange: (range: InvoiceDateRange) => void;
+  onGroupByChange: (groupBy: InvoiceGroupBy) => void;
   onSelectedBucketChange: (bucket: SelectedInvoiceBucket | null) => void;
 };
 
@@ -67,35 +69,25 @@ function clampRange(range: InvoiceDateRange): InvoiceDateRange {
   return { startDate: range.endDate, endDate: range.startDate };
 }
 
-function getDefaultGroupBy(range: InvoiceDateRange): GroupBy {
-  const start = parseISO(range.startDate);
-  const end = parseISO(range.endDate);
-  const days = Math.ceil((end.getTime() - start.getTime()) / 86400000) + 1;
-
-  if (days <= 45) return 'day';
-  if (days <= 180) return 'week';
-  return 'month';
-}
-
-function getBucketStart(date: Date, groupBy: GroupBy) {
+function getBucketStart(date: Date, groupBy: InvoiceGroupBy) {
   if (groupBy === 'month') return startOfMonth(date);
   if (groupBy === 'week') return startOfWeek(date, { weekStartsOn: 1 });
   return date;
 }
 
-function getBucketEnd(date: Date, groupBy: GroupBy) {
+function getBucketEnd(date: Date, groupBy: InvoiceGroupBy) {
   if (groupBy === 'month') return endOfMonth(date);
   if (groupBy === 'week') return endOfWeek(date, { weekStartsOn: 1 });
   return date;
 }
 
-function getNextBucket(date: Date, groupBy: GroupBy) {
+function getNextBucket(date: Date, groupBy: InvoiceGroupBy) {
   if (groupBy === 'month') return startOfMonth(new Date(date.getFullYear(), date.getMonth() + 1, 1));
   if (groupBy === 'week') return addDays(date, 7);
   return addDays(date, 1);
 }
 
-function getBucketLabel(date: Date, groupBy: GroupBy) {
+function getBucketLabel(date: Date, groupBy: InvoiceGroupBy) {
   if (groupBy === 'month') return format(date, 'MMM yyyy', { locale: es });
   if (groupBy === 'week') return format(date, "'Sem.' d MMM", { locale: es });
   return format(date, 'd MMM', { locale: es });
@@ -141,16 +133,13 @@ export function InvoiceAnalyticsCard({
   payments = [],
   isLoading,
   range,
+  groupBy,
   selectedBucket,
   onRangeChange,
+  onGroupByChange,
   onSelectedBucketChange,
 }: InvoiceAnalyticsCardProps) {
   const normalizedRange = clampRange(range);
-  const [groupBy, setGroupBy] = useState<GroupBy>(() => getDefaultGroupBy(normalizedRange));
-
-  useEffect(() => {
-    setGroupBy(getDefaultGroupBy(normalizedRange));
-  }, [normalizedRange.endDate, normalizedRange.startDate]);
 
   const [chartData, totals] = useMemo(() => {
     const start = parseISO(normalizedRange.startDate);
@@ -301,7 +290,7 @@ export function InvoiceAnalyticsCard({
               <label className="text-xs font-medium text-muted-foreground" htmlFor="invoice-chart-group">
                 Agrupación
               </label>
-              <Select value={groupBy} onValueChange={(value) => setGroupBy(value as GroupBy)}>
+              <Select value={groupBy} onValueChange={(value) => onGroupByChange(value as InvoiceGroupBy)}>
                 <SelectTrigger id="invoice-chart-group">
                   <SelectValue />
                 </SelectTrigger>
