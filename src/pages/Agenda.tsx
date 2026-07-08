@@ -31,6 +31,7 @@ import { useScheduleExceptions } from '@/hooks/useScheduleExceptions';
 import { useSpecialDays } from '@/hooks/useSpecialDays';
 import { useProfessionals } from '@/hooks/useProfessionals';
 import { checkSessionConflicts, ConflictResult } from '@/lib/conflicts';
+import { syncZoomMeetingDateTime } from '@/lib/zoom-sync';
 
 export default function Agenda() {
   const isMobile = useIsMobile();
@@ -447,6 +448,16 @@ export default function Agenda() {
         ...(session.status === 'confirmed' && { status: 'scheduled' }),
       });
 
+      try {
+        await syncZoomMeetingDateTime(session, newDate, newStartTime, newEndTime);
+      } catch (zoomError) {
+        console.error('Error syncing to Zoom:', zoomError);
+        toast({
+          title: 'Sesion movida',
+          description: 'La cita se actualizo, pero Zoom no pudo sincronizarse.',
+        });
+      }
+
       // Sync to Google Calendar immediately with await
       try {
         const result = await syncMoveToGoogle(session, newDate, newStartTime, newEndTime);
@@ -505,6 +516,11 @@ export default function Agenda() {
         await supabase.from('sessions').update({ status: 'scheduled' }).eq('id', sessionId);
       }
       queryClient.invalidateQueries({ queryKey: ['sessions'] });
+      try {
+        await syncZoomMeetingDateTime(session, newDate, newStartTime, newEndTime);
+      } catch (zoomError) {
+        console.error('Error syncing forced move to Zoom:', zoomError);
+      }
       try {
         await syncMoveToGoogle(session, newDate, newStartTime, newEndTime);
       } catch {}

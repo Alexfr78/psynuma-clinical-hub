@@ -826,7 +826,7 @@ serve(async (req) => {
       // Verify session belongs to patient
       const { data: existingSession } = await supabase
         .from("sessions")
-        .select("id, patient_id, session_date, start_time, end_time, status, session_type, session_modality, location_id, professional_id, center_id, cancellation_policy, google_calendar_event_id")
+        .select("id, patient_id, session_date, start_time, end_time, status, session_type, session_modality, location_id, professional_id, center_id, cancellation_policy, google_calendar_event_id, zoom_meeting_id")
         .eq("id", sessionId)
         .eq("patient_id", session.patientId)
         .single();
@@ -1019,6 +1019,31 @@ serve(async (req) => {
           JSON.stringify({ error: "Error al reprogramar la cita" }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
+      }
+
+      if (newModality === 'zoom' && existingSession.zoom_meeting_id) {
+        try {
+          const zoomSyncResponse = await fetch(`${supabaseUrl}/functions/v1/update-zoom-meeting`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${supabaseServiceKey}`,
+              "apikey": supabaseServiceKey,
+            },
+            body: JSON.stringify({
+              professional_id: existingSession.professional_id,
+              meeting_id: existingSession.zoom_meeting_id,
+              session_date: newDate,
+              start_time: newStartTime,
+              end_time: newEndTime,
+            }),
+          });
+          if (!zoomSyncResponse.ok) {
+            console.error("[PORTAL-RESCHEDULE] Zoom sync failed:", await zoomSyncResponse.text());
+          }
+        } catch (zoomError) {
+          console.error("[PORTAL-RESCHEDULE] Error syncing to Zoom:", zoomError);
+        }
       }
 
       // Build human-readable location string for Google Calendar

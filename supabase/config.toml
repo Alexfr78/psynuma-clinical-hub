@@ -27,6 +27,8 @@ project_id = "zprkdxmluvirxfhswrzq"
     verify_jwt = true
   [functions.delete-zoom-meeting]
     verify_jwt = true
+  [functions.update-zoom-meeting]
+    verify_jwt = true
   [functions.encrypt-certificate]
     verify_jwt = true
   [functions.export-verifactu-records]

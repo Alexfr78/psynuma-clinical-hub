@@ -74,7 +74,8 @@ Deno.serve(async (req) => {
         session_modality,
         cancellation_policy,
         price,
-        google_calendar_event_id
+        google_calendar_event_id,
+        zoom_meeting_id
       `)
       .eq("access_token", token)
       .maybeSingle();
@@ -557,6 +558,31 @@ Deno.serve(async (req) => {
           zoom_password: null,
         }).eq('id', session.id);
         console.log(`[RESCHEDULE] Cleared video fields for in_person transition`);
+      }
+
+      if (newModality === 'zoom' && session.zoom_meeting_id) {
+        try {
+          const zoomSyncResponse = await fetch(`${supabaseUrl}/functions/v1/update-zoom-meeting`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${serviceKey}`,
+              'apikey': serviceKey,
+            },
+            body: JSON.stringify({
+              professional_id: session.professional_id,
+              meeting_id: session.zoom_meeting_id,
+              session_date: newDate,
+              start_time: newStartTime,
+              end_time: newEndTime,
+            }),
+          });
+          if (!zoomSyncResponse.ok) {
+            console.error('[RESCHEDULE] Zoom sync failed:', await zoomSyncResponse.text());
+          }
+        } catch (zoomError) {
+          console.error('[RESCHEDULE] Error syncing to Zoom:', zoomError);
+        }
       }
 
 

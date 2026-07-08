@@ -78,6 +78,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
+import { syncZoomMeetingDateTime } from '@/lib/zoom-sync';
 import { useToast } from '@/hooks/use-toast';
 import { SessionWithRelations, useUpdateSession, useDeleteSession } from '@/hooks/useSessions';
 import {
@@ -603,6 +604,18 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
       if (sessionData.isGoogleEvent) {
         toast({ title: 'Evento actualizado', description: 'El bloqueo de Google Calendar se ha actualizado.' });
       } else {
+        try {
+          await syncZoomMeetingDateTime(
+            session,
+            dateTimeValue.date,
+            dateTimeValue.startTime,
+            dateTimeValue.endTime,
+          );
+        } catch (zoomError) {
+          console.error('Zoom sync failed:', zoomError);
+          toast({ title: 'Fecha actualizada', description: 'Error sincronizando con Zoom.' });
+        }
+
         // Sync date/time changes to Google Calendar immediately
         try {
           const result = await syncMoveToGoogle(
