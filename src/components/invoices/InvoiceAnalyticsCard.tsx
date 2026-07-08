@@ -164,6 +164,7 @@ export function InvoiceAnalyticsCard({
         endDate: string;
         invoiced: number;
         collected: number;
+        retained: number;
         invoiceCount: number;
       }
     >();
@@ -181,6 +182,7 @@ export function InvoiceAnalyticsCard({
         endDate: toDateInputValue(bucketEnd),
         invoiced: 0,
         collected: 0,
+        retained: 0,
         invoiceCount: 0,
       });
     }
@@ -197,8 +199,10 @@ export function InvoiceAnalyticsCard({
       if (!bucket) return;
 
       // "Facturado" = importe bruto (base + IVA), sin descontar retención IRPF
-      const gross = Number(invoice.total) + Number(invoice.retention_amount ?? 0);
+      const retention = Number(invoice.retention_amount ?? 0);
+      const gross = Number(invoice.total) + retention;
       bucket.invoiced += gross;
+      bucket.retained += retention;
       bucket.invoiceCount += 1;
     });
 
@@ -212,6 +216,7 @@ export function InvoiceAnalyticsCard({
     const rows = Array.from(buckets.values());
     const totalInvoiced = rows.reduce((sum, row) => sum + row.invoiced, 0);
     const totalCollected = rows.reduce((sum, row) => sum + row.collected, 0);
+    const totalRetained = rows.reduce((sum, row) => sum + row.retained, 0);
     const totalInvoices = rows.reduce((sum, row) => sum + row.invoiceCount, 0);
 
     return [
@@ -219,7 +224,8 @@ export function InvoiceAnalyticsCard({
       {
         invoiced: totalInvoiced,
         collected: totalCollected,
-        pending: Math.max(totalInvoiced - totalCollected, 0),
+        retained: totalRetained,
+        pending: Math.max(totalInvoiced - totalCollected - totalRetained, 0),
         invoiceCount: totalInvoices,
       },
     ];
@@ -311,7 +317,7 @@ export function InvoiceAnalyticsCard({
       </CardHeader>
 
       <CardContent className="space-y-4">
-        <div className="grid gap-3 sm:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <div className="rounded-lg border p-3">
             <p className="text-xs text-muted-foreground">Facturado</p>
             <p className="font-mono text-lg font-semibold tabular-nums">{currencyFormatter.format(totals.invoiced)}</p>
@@ -319,6 +325,10 @@ export function InvoiceAnalyticsCard({
           <div className="rounded-lg border p-3">
             <p className="text-xs text-muted-foreground">Cobrado</p>
             <p className="font-mono text-lg font-semibold tabular-nums text-green-600">{currencyFormatter.format(totals.collected)}</p>
+          </div>
+          <div className="rounded-lg border p-3">
+            <p className="text-xs text-muted-foreground">Retenciones IRPF</p>
+            <p className="font-mono text-lg font-semibold tabular-nums text-blue-600">{currencyFormatter.format(totals.retained)}</p>
           </div>
           <div className="rounded-lg border p-3">
             <p className="text-xs text-muted-foreground">Pendiente estimado</p>
