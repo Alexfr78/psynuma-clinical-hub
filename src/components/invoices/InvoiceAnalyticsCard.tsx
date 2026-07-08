@@ -317,7 +317,7 @@ export function InvoiceAnalyticsCard({
       </CardHeader>
 
       <CardContent className="space-y-4">
-        <div className="grid gap-3 sm:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <div className="rounded-lg border p-3">
             <p className="text-xs text-muted-foreground">Facturado</p>
             <p className="font-mono text-lg font-semibold tabular-nums">{currencyFormatter.format(totals.invoiced)}</p>
@@ -325,6 +325,10 @@ export function InvoiceAnalyticsCard({
           <div className="rounded-lg border p-3">
             <p className="text-xs text-muted-foreground">Cobrado</p>
             <p className="font-mono text-lg font-semibold tabular-nums text-green-600">{currencyFormatter.format(totals.collected)}</p>
+          </div>
+          <div className="rounded-lg border p-3">
+            <p className="text-xs text-muted-foreground">Retenciones IRPF</p>
+            <p className="font-mono text-lg font-semibold tabular-nums text-blue-600">{currencyFormatter.format(totals.retained)}</p>
           </div>
           <div className="rounded-lg border p-3">
             <p className="text-xs text-muted-foreground">Pendiente estimado</p>
