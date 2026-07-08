@@ -196,7 +196,9 @@ export function InvoiceAnalyticsCard({
       const bucket = findBucket(invoice.issue_date);
       if (!bucket) return;
 
-      bucket.invoiced += Number(invoice.total);
+      // "Facturado" = importe bruto (base + IVA), sin descontar retención IRPF
+      const gross = Number(invoice.total) + Number(invoice.retention_amount ?? 0);
+      bucket.invoiced += gross;
       bucket.invoiceCount += 1;
     });
 
