@@ -1,47 +1,39 @@
-
 ## Diagnóstico
 
-**Sesiones (8):**
-| Sesión | Estado | Precio | payment_status | Factura | Deuda |
-|---|---|---|---|---|---|
-| 2bd2bd02 | completed | 0 € | pending | — | — (ok) |
-| 7a2e74e4 (22-jun) | completed | 75 | **pending ✗** | SP260038 paid | paid |
-| 6b054bc3 (10-jun) | completed | 75 | **pending ✗** | SP260037 paid | paid |
-| c3a61291 (4-jun) | completed | 75 | **pending ✗** | SP260035 paid | paid |
-| 82a9d9f6 (2-mar) | completed | 75 | paid | SP260013 paid (+ SP260011 anulada) | paid |
-| 0a93374f (30-jun) | confirmed | 75 | pending | SP260041 emitida | **2 deudas duplicadas** |
-| ff945d0c | confirmed | 75 | pending | — | pending |
-| 5dc7d192 | confirmed | 75 | pending | — | pending |
+Las tarjetas superiores de `/facturas` ("Facturado este mes", "Facturas pagadas", "Pendiente de cobro") se calculan en `useInvoiceStats` (`src/hooks/useInvoices.tsx`, líneas 479–524). Actualmente **suman todas las facturas del mes** sin filtrar por validez ni por estado cancelado.
 
-**Problemas detectados:**
+Datos comprobados en BD para las facturas mencionadas:
 
-1. **Desincronización `sessions.payment_status`** — tres sesiones (7a2e74e4, 6b054bc3, c3a61291) tienen su factura y su deuda marcadas como `paid`, pero la sesión sigue en `pending`. Por eso "no cuadra": Cobros/agenda las siguen mostrando como pendientes aunque ya están cobradas.
+| Nº | Total | Estado | is_valid | Rectificada por |
+|---|---|---|---|---|
+| SP260022 | +75 € | paid | **false** | RS260002 (−75 €, sustitución) |
+| SF260053 | +75 € | paid | **false** | RP260002 (−10 €, diferencias) |
 
-2. **Deuda duplicada en sesión 0a93374f (30-jun)** — hay dos filas en `debts` para la misma sesión:
-   - `f364eaa8` creada 7-abr por el cron automático (sin factura, pending)
-   - `61e91d6c` creada 30-jun al emitir la factura SP260041 (vinculada a factura, pending)
-   Se contabiliza la deuda dos veces (150 € en lugar de 75 €).
+Al sumarse los cuatro (75 − 75 + 75 − 10 = **65 €**) sobre el mes, aparece el desajuste que se observa en las tarjetas: las originales anuladas siguen contando y las rectificativas negativas restan encima, dando un resultado que no refleja la realidad fiscal.
 
-## Plan de corrección
+## Cambio propuesto
 
-### 1. Sincronizar `sessions.payment_status`
-Actualizar a `paid` las tres sesiones cuya factura/deuda ya están cobradas:
-- `7a2e74e4-da68-4063-ae5f-204c2f65bcf7`
-- `6b054bc3-561e-40a5-bd2f-66c10ad81809`
-- `c3a61291-3b2c-4790-a3f7-cf8e12312e6f`
+En `useInvoiceStats` (`src/hooks/useInvoices.tsx`), al leer la tabla `invoices`:
 
-### 2. Eliminar deuda duplicada de la sesión 0a93374f
-Borrar la deuda huérfana `f364eaa8-24ec-48b5-8f8a-f8f203598a67` (la creada por el cron sin factura). La deuda `61e91d6c` vinculada a SP260041 queda como única representación válida.
+1. Traer también los campos `is_valid` y `rectification_type`.
+2. Excluir del cómputo:
+   - Facturas con `status = 'cancelled'`.
+   - Facturas con `is_valid = false` (originales que fueron sustituidas/anuladas por una rectificativa).
+3. Para el resto (incluidas las rectificativas, que ya llevan el importe neto correcto — negativo en sustituciones, delta en "diferencias"), mantener la lógica actual de acumulación por estado (`issued` / `paid`).
 
-### 3. Verificación post-fix
-Volver a listar sesiones + deudas + facturas para confirmar:
-- Deuda pendiente total = 75 (SP260041) + 75 (ff945d0c) + 75 (5dc7d192) = **225 €**
-- Sesiones completadas y cobradas coherentes con facturas.
+Resultado esperado en las tarjetas del mes de abril 2026 con las facturas mencionadas:
+- La original SP260022 (+75, anulada) deja de contar.
+- La rectificativa RS260002 (−75, sustitución) sí cuenta → efecto neto correcto: −75 € (anulación total).
+- La original SF260053 (+75, anulada) deja de contar.
+- La rectificativa RP260002 (−10, diferencias) sí cuenta → efecto neto correcto: −10 € (ajuste a la baja).
 
-### Notas técnicas
-- Se hará vía migración (UPDATE + DELETE), ya que `psql` en este entorno es solo lectura/insert.
-- No se toca ninguna factura emitida (protegidas por `protect_issued_invoices`).
-- No se altera la sesión 82a9d9f6 ni la factura anulada SP260011 (situación válida: reemisión).
+Es decir, el "Facturado este mes" reflejará el saldo fiscal real emitido, sin duplicar los importes anulados.
 
-### Fuera de alcance (a decidir aparte)
-Las dos sesiones futuras/confirmadas (`ff945d0c`, `5dc7d192`) tienen deuda ya generada por el cron aunque aún no se hayan completado. Si prefieres que no se generen deudas hasta que la sesión esté `completed`, sería un cambio en el cron `generate_daily_debts` — dímelo y lo abordamos en un plan separado.
+## Alcance
+
+- **Archivos modificados:** solo `src/hooks/useInvoices.tsx` (función `useInvoiceStats`).
+- **Sin cambios** en la tabla, políticas RLS, listado de facturas ni en el gráfico "Evolución de facturación" (ese usa otra query — si más adelante ves el mismo desfase allí, lo abordamos aparte).
+
+## Confirmación
+
+¿Quieres que aplique este criterio (excluir originales anuladas + canceladas, mantener rectificativas con su importe neto)? Con la evolución de facturación (gráfico inferior con los 1400 € / 2921 €) puedo revisar si presenta el mismo problema y arreglarlo en el mismo cambio si lo pides.
