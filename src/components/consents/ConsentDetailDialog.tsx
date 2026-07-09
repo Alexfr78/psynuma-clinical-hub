@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Consent, useConsentSignatures } from '@/hooks/useConsents';
-import { Download, ExternalLink, Loader2, CheckCircle2, XCircle } from 'lucide-react';
+import { Download, ExternalLink, Loader2, CheckCircle2, XCircle, Phone } from 'lucide-react';
 import { toast } from 'sonner';
 import { useState, useEffect, useRef } from 'react';
 import { format } from 'date-fns';
@@ -40,7 +40,7 @@ function useConsentDetail(consentId: string) {
         .from('consents')
         .select(`
           *,
-          template:consent_templates(name, verification_checkboxes)
+          template:consent_templates(name, verification_checkboxes, requires_emergency_contact)
         `)
         .eq('id', consentId)
         .single();
@@ -97,6 +97,41 @@ function renderContentWithVerifications(
   return result;
 }
 
+// Helper to replace the emergency contact placeholder with the saved values in content
+function renderContentWithEmergencyContact(
+  content: string,
+  requiresEmergencyContact: boolean,
+  emergencyContactName: string | null,
+  emergencyContactPhone: string | null
+): string {
+  if (!requiresEmergencyContact || (!emergencyContactName && !emergencyContactPhone)) {
+    return content.replace(/\{contacto_emergencia\}/gi, '');
+  }
+
+  const infoHtml = `<div style="margin: 8px 0; padding: 8px; background: #f8fafc; border-radius: 4px; border-left: 3px solid #64748b">
+    <span style="font-weight: 500">Contacto de emergencia:</span>
+    ${emergencyContactName || '—'} · ${emergencyContactPhone || '—'}
+  </div>`;
+
+  const patterns = [
+    /<div[^>]*>\s*<span[^>]*>\s*\{contacto_emergencia\}\s*<\/span>\s*<\/div>/gi,
+    /<span[^>]*>\s*\{contacto_emergencia\}\s*<\/span>/gi,
+    /<div[^>]*>\s*\{contacto_emergencia\}\s*<\/div>/gi,
+    /<p[^>]*>\s*\{contacto_emergencia\}\s*<\/p>/gi,
+    /\{contacto_emergencia\}/gi,
+  ];
+
+  let result = content;
+  for (const pattern of patterns) {
+    if (pattern.test(result)) {
+      result = result.replace(pattern, infoHtml);
+      break;
+    }
+  }
+
+  return result;
+}
+
 export function ConsentDetailDialog({
   consent,
   open,
@@ -142,14 +177,23 @@ export function ConsentDetailDialog({
     }
   };
   
-  const verificationCheckboxes = (fullConsent?.template as any)?.verification_checkboxes || [];
+  const templateData = fullConsent?.template as { verification_checkboxes: string[] | null; requires_emergency_contact: boolean | null } | undefined;
+  const verificationCheckboxes = templateData?.verification_checkboxes || [];
   const verificationResponses = (fullConsent?.verification_responses as Record<string, boolean>) || null;
-  
-  // Render content with verification responses
-  const renderedContent = renderContentWithVerifications(
-    consent.content_snapshot,
-    verificationCheckboxes,
-    verificationResponses
+  const requiresEmergencyContact = Boolean(templateData?.requires_emergency_contact);
+  const emergencyContactName = fullConsent?.emergency_contact_name ?? null;
+  const emergencyContactPhone = fullConsent?.emergency_contact_phone ?? null;
+
+  // Render content with verification responses and emergency contact
+  const renderedContent = renderContentWithEmergencyContact(
+    renderContentWithVerifications(
+      consent.content_snapshot,
+      verificationCheckboxes,
+      verificationResponses
+    ),
+    requiresEmergencyContact,
+    emergencyContactName,
+    emergencyContactPhone
   );
 
   return (
@@ -260,6 +304,20 @@ export function ConsentDetailDialog({
                     </div>
                   );
                 })}
+              </div>
+            </div>
+          )}
+
+          {/* Emergency Contact */}
+          {requiresEmergencyContact && (emergencyContactName || emergencyContactPhone) && (
+            <div className="space-y-3">
+              <p className="font-medium">Contacto de emergencia</p>
+              <div className="flex items-start gap-3 rounded-md border p-3">
+                <Phone className="h-5 w-5 shrink-0 text-muted-foreground" />
+                <div>
+                  <p className="text-sm">{emergencyContactName || 'No indicado'}</p>
+                  <p className="text-xs text-muted-foreground">{emergencyContactPhone || 'No indicado'}</p>
+                </div>
               </div>
             </div>
           )}

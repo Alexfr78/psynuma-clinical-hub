@@ -28,6 +28,7 @@ const schema = z.object({
   name: z.string().min(1, 'El nombre es obligatorio'),
   content_html: z.string().min(10, 'El contenido es obligatorio'),
   requires_guardian_signature: z.boolean(),
+  requires_emergency_contact: z.boolean(),
   is_active: z.boolean(),
   verification_checkboxes: z.array(z.string()),
 });
@@ -71,6 +72,7 @@ export function CreateTemplateDialog({
       name: '',
       content_html: defaultContent,
       requires_guardian_signature: false,
+      requires_emergency_contact: false,
       is_active: true,
       verification_checkboxes: [],
     },
@@ -82,6 +84,7 @@ export function CreateTemplateDialog({
         name: template.name,
         content_html: template.content_html,
         requires_guardian_signature: template.requires_guardian_signature,
+        requires_emergency_contact: template.requires_emergency_contact,
         is_active: template.is_active,
         verification_checkboxes: template.verification_checkboxes || [],
       });
@@ -90,6 +93,7 @@ export function CreateTemplateDialog({
         name: '',
         content_html: defaultContent,
         requires_guardian_signature: false,
+        requires_emergency_contact: false,
         is_active: true,
         verification_checkboxes: [],
       });
@@ -117,6 +121,7 @@ export function CreateTemplateDialog({
         name: values.name,
         content_html: values.content_html,
         requires_guardian_signature: values.requires_guardian_signature,
+        requires_emergency_contact: values.requires_emergency_contact,
         is_active: values.is_active,
         verification_checkboxes: values.verification_checkboxes,
       });
@@ -209,6 +214,31 @@ export function CreateTemplateDialog({
                 </Button>
               </div>
             </div>
+
+            <FormField
+              control={form.control}
+              name="requires_emergency_contact"
+              render={({ field }) => (
+                <FormItem className="flex items-center gap-3 space-y-0 rounded-lg border p-3">
+                  <FormControl>
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                  <div>
+                    <FormLabel className="cursor-pointer">
+                      Solicitar contacto de emergencia
+                    </FormLabel>
+                    <FormDescription className="text-xs">
+                      Muestra un campo de nombre y teléfono de contacto de emergencia al firmar,
+                      precargado desde la ficha del contacto. Coloca <code>{'{contacto_emergencia}'}</code> en
+                      el documento para elegir dónde se muestra (opcional; si no lo añades, se muestra al final).
+                    </FormDescription>
+                  </div>
+                </FormItem>
+              )}
+            />
 
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <FormField

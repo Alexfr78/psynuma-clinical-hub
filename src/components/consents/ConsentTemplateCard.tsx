@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FileText, Edit2, Trash2, MoreVertical, Copy, Users } from 'lucide-react';
+import { FileText, Edit2, Trash2, MoreVertical, Copy, Users, Phone } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -39,6 +39,7 @@ export function ConsentTemplateCard({ template }: ConsentTemplateCardProps) {
       name: `${template.name} (copia)`,
       content_html: template.content_html,
       requires_guardian_signature: template.requires_guardian_signature,
+      requires_emergency_contact: template.requires_emergency_contact,
       is_active: true,
       verification_checkboxes: template.verification_checkboxes || [],
     });
@@ -99,6 +100,12 @@ export function ConsentTemplateCard({ template }: ConsentTemplateCardProps) {
               <Badge variant="outline" className="gap-1">
                 <Users className="h-3 w-3" />
                 Requiere tutor
+              </Badge>
+            )}
+            {template.requires_emergency_contact && (
+              <Badge variant="outline" className="gap-1">
+                <Phone className="h-3 w-3" />
+                Contacto emergencia
               </Badge>
             )}
           </div>

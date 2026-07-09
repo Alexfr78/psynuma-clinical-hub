@@ -15,6 +15,8 @@ export interface Consent {
   access_token: string;
   content_snapshot: string;
   requires_guardian: boolean;
+  emergency_contact_name: string | null;
+  emergency_contact_phone: string | null;
   expires_at: string;
   signed_at: string | null;
   revoked_at: string | null;
@@ -91,18 +93,22 @@ export function useConsents(patientId?: string) {
       content_snapshot,
       requires_guardian,
       cancellation_policy_version_id,
+      emergency_contact_name,
+      emergency_contact_phone,
     }: {
       patient_id: string;
       template_id: string;
       content_snapshot: string;
       requires_guardian: boolean;
       cancellation_policy_version_id?: string | null;
+      emergency_contact_name?: string | null;
+      emergency_contact_phone?: string | null;
     }) => {
       if (!profile?.center_id || !profile?.id) throw new Error('No center or profile');
-      
+
       const expirationDays = center?.consent_expiration_days || 7;
       const expires_at = addDays(new Date(), expirationDays).toISOString();
-      
+
       const { data, error } = await supabase
         .from('consents')
         .insert({
@@ -114,6 +120,8 @@ export function useConsents(patientId?: string) {
           requires_guardian,
           expires_at,
           cancellation_policy_version_id: cancellation_policy_version_id || null,
+          emergency_contact_name: emergency_contact_name || null,
+          emergency_contact_phone: emergency_contact_phone || null,
         })
         .select()
         .single();

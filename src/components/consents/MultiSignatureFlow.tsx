@@ -4,6 +4,7 @@ import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { SignatureCanvas, SignatureCanvasRef } from './SignatureCanvas';
 import { PublicConsent, usePublicConsent } from '@/hooks/usePublicConsent';
@@ -18,146 +19,185 @@ interface MultiSignatureFlowProps {
 
 const VERIFICATION_PLACEHOLDER = '{campos_verificacion}';
 const CHECKBOX_MARKER = '<!--VERIFICATION_CHECKBOXES-->';
+const EMERGENCY_CONTACT_PLACEHOLDER = '{contacto_emergencia}';
+const EMERGENCY_CONTACT_MARKER = '<!--EMERGENCY_CONTACT-->';
 
-// Function to replace the placeholder along with its containing HTML structure
-function replaceVerificationPlaceholder(html: string): string {
+// Inserts `marker` at the position of `placeholder` in the document (handling
+// common wrapper tags around it). Returns found: false if the placeholder
+// isn't present, so the caller can fall back to appending the marker instead.
+function insertMarker(html: string, placeholder: string, marker: string): { html: string; found: boolean } {
+  const escaped = placeholder.replace(/[{}]/g, '\\$&');
   const patterns = [
-    /<div[^>]*>\s*<span[^>]*>\s*\{campos_verificacion\}\s*<\/span>\s*<\/div>/i,
-    /<span[^>]*>\s*\{campos_verificacion\}\s*<\/span>/i,
-    /<div[^>]*>\s*\{campos_verificacion\}\s*<\/div>/i,
-    /<p[^>]*>\s*\{campos_verificacion\}\s*<\/p>/i,
-    /\{campos_verificacion\}/i,
+    new RegExp(`<div[^>]*>\\s*<span[^>]*>\\s*${escaped}\\s*</span>\\s*</div>`, 'i'),
+    new RegExp(`<span[^>]*>\\s*${escaped}\\s*</span>`, 'i'),
+    new RegExp(`<div[^>]*>\\s*${escaped}\\s*</div>`, 'i'),
+    new RegExp(`<p[^>]*>\\s*${escaped}\\s*</p>`, 'i'),
+    new RegExp(escaped, 'i'),
   ];
-  
-  let result = html;
+
   for (const pattern of patterns) {
-    if (pattern.test(result)) {
-      result = result.replace(pattern, CHECKBOX_MARKER);
-      break;
+    if (pattern.test(html)) {
+      return { html: html.replace(pattern, marker), found: true };
     }
   }
-  return result;
+  return { html, found: false };
 }
 
 // Type for verification responses: 'authorized' | 'not_authorized' | undefined
 type VerificationResponse = 'authorized' | 'not_authorized' | undefined;
 
-// Component to render document with inline verification checkboxes
-interface DocumentWithVerificationsProps {
+// Renders the document, inserting the verification checkboxes and/or the
+// emergency contact fields either at their placeholder position in the
+// content, or appended at the end if no placeholder was used.
+interface DocumentWithFieldsProps {
   content: string;
   verificationCheckboxes: string[];
   verificationResponses: Record<number, VerificationResponse>;
   setVerificationResponses: React.Dispatch<React.SetStateAction<Record<number, VerificationResponse>>>;
-  hasPlaceholder: boolean;
-  prefix: string;
-  readOnly?: boolean;
+  requiresEmergencyContact: boolean;
+  emergencyContactName: string;
+  emergencyContactPhone: string;
+  setEmergencyContactName: (value: string) => void;
+  setEmergencyContactPhone: (value: string) => void;
 }
 
-function DocumentWithVerifications({
+function DocumentWithFields({
   content,
   verificationCheckboxes,
   verificationResponses,
   setVerificationResponses,
-  hasPlaceholder,
-  prefix,
-  readOnly = false,
-}: DocumentWithVerificationsProps) {
-  const processedContent = replaceVerificationPlaceholder(content);
-  const cleanContent = processedContent.replace(CHECKBOX_MARKER, '');
-  
-  // If no verification checkboxes, just render the content
-  if (verificationCheckboxes.length === 0) {
+  requiresEmergencyContact,
+  emergencyContactName,
+  emergencyContactPhone,
+  setEmergencyContactName,
+  setEmergencyContactPhone,
+}: DocumentWithFieldsProps) {
+  if (verificationCheckboxes.length === 0 && !requiresEmergencyContact) {
     return (
       <div
         className="prose prose-sm max-w-none dark:prose-invert"
-        dangerouslySetInnerHTML={{ __html: sanitizeHtml(cleanContent) }}
+        dangerouslySetInnerHTML={{ __html: sanitizeHtml(content) }}
       />
     );
   }
 
-  const VerificationFields = (
-    <div className="my-4 space-y-4 rounded-lg border-2 border-primary/30 bg-muted/30 p-4 not-prose">
-      {verificationCheckboxes.map((checkbox, index) => (
-        <div key={index} className="space-y-2">
-          <p className="text-sm font-medium">{checkbox}</p>
-          <RadioGroup
-            value={verificationResponses[index] || ''}
-            onValueChange={(value) => {
-              if (!readOnly) {
-                setVerificationResponses(prev => ({
-                  ...prev,
-                  [index]: value as VerificationResponse
-                }));
-              }
-            }}
-            disabled={readOnly}
-            className="flex gap-6"
-          >
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="authorized" id={`${prefix}-auth-${index}`} />
-              <Label 
-                htmlFor={`${prefix}-auth-${index}`} 
-                className="text-sm font-medium text-green-700 dark:text-green-400 cursor-pointer"
-              >
-                ✓ Autorizo
-              </Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="not_authorized" id={`${prefix}-notauth-${index}`} />
-              <Label 
-                htmlFor={`${prefix}-notauth-${index}`} 
-                className="text-sm font-medium text-red-700 dark:text-red-400 cursor-pointer"
-              >
-                ✗ No autorizo
-              </Label>
-            </div>
-          </RadioGroup>
-        </div>
-      ))}
-    </div>
-  );
-
-  // If placeholder exists, insert at that position
-  if (hasPlaceholder && processedContent.includes(CHECKBOX_MARKER)) {
-    const parts = processedContent.split(CHECKBOX_MARKER);
-    return (
-      <div className="prose prose-sm max-w-none dark:prose-invert">
-        <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(parts[0]) }} />
-        {VerificationFields}
-        {parts[1] && <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(parts[1]) }} />}
-      </div>
-    );
+  let processed = content;
+  if (verificationCheckboxes.length > 0) {
+    const result = insertMarker(processed, VERIFICATION_PLACEHOLDER, CHECKBOX_MARKER);
+    processed = result.found ? result.html : `${processed}${CHECKBOX_MARKER}`;
+  }
+  if (requiresEmergencyContact) {
+    const result = insertMarker(processed, EMERGENCY_CONTACT_PLACEHOLDER, EMERGENCY_CONTACT_MARKER);
+    processed = result.found ? result.html : `${processed}${EMERGENCY_CONTACT_MARKER}`;
   }
 
-  // No placeholder - render content then verification fields
+  const segments = processed.split(new RegExp(`(${CHECKBOX_MARKER}|${EMERGENCY_CONTACT_MARKER})`));
+
   return (
     <div className="prose prose-sm max-w-none dark:prose-invert">
-      <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(cleanContent) }} />
-      {VerificationFields}
+      {segments.map((segment, index) => {
+        if (segment === CHECKBOX_MARKER) {
+          return (
+            <div key={index} className="my-4 space-y-4 rounded-lg border-2 border-primary/30 bg-muted/30 p-4 not-prose">
+              {verificationCheckboxes.map((checkbox, cIndex) => (
+                <div key={cIndex} className="space-y-2">
+                  <p className="text-sm font-medium">{checkbox}</p>
+                  <RadioGroup
+                    value={verificationResponses[cIndex] || ''}
+                    onValueChange={(value) =>
+                      setVerificationResponses((prev) => ({ ...prev, [cIndex]: value as VerificationResponse }))
+                    }
+                    className="flex gap-6"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="authorized" id={`verif-auth-${cIndex}`} />
+                      <Label
+                        htmlFor={`verif-auth-${cIndex}`}
+                        className="text-sm font-medium text-green-700 dark:text-green-400 cursor-pointer"
+                      >
+                        ✓ Autorizo
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="not_authorized" id={`verif-notauth-${cIndex}`} />
+                      <Label
+                        htmlFor={`verif-notauth-${cIndex}`}
+                        className="text-sm font-medium text-red-700 dark:text-red-400 cursor-pointer"
+                      >
+                        ✗ No autorizo
+                      </Label>
+                    </div>
+                  </RadioGroup>
+                </div>
+              ))}
+            </div>
+          );
+        }
+
+        if (segment === EMERGENCY_CONTACT_MARKER) {
+          return (
+            <div key={index} className="my-4 space-y-3 rounded-lg border-2 border-primary/30 bg-muted/30 p-4 not-prose">
+              <p className="text-sm font-medium">Contacto de emergencia</p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1">
+                  <Label htmlFor="emergency-contact-name" className="text-xs text-muted-foreground">
+                    Nombre
+                  </Label>
+                  <Input
+                    id="emergency-contact-name"
+                    value={emergencyContactName}
+                    onChange={(e) => setEmergencyContactName(e.target.value)}
+                    placeholder="Nombre y apellidos"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="emergency-contact-phone" className="text-xs text-muted-foreground">
+                    Teléfono
+                  </Label>
+                  <Input
+                    id="emergency-contact-phone"
+                    type="tel"
+                    value={emergencyContactPhone}
+                    onChange={(e) => setEmergencyContactPhone(e.target.value)}
+                    placeholder="Teléfono de contacto"
+                  />
+                </div>
+              </div>
+            </div>
+          );
+        }
+
+        return segment ? <div key={index} dangerouslySetInnerHTML={{ __html: sanitizeHtml(segment) }} /> : null;
+      })}
     </div>
   );
 }
 
 export function MultiSignatureFlow({ consent, token }: MultiSignatureFlowProps) {
-  const { addSignature, markAsSigned, saveVerificationResponses } = usePublicConsent(token);
+  const { addSignature, markAsSigned, saveVerificationResponses, updateEmergencyContact } = usePublicConsent(token);
   const signatureRef = useRef<SignatureCanvasRef>(null);
 
   const [currentStep, setCurrentStep] = useState<'document' | 'guardian' | 'patient' | 'complete'>('document');
   const [hasSignature, setHasSignature] = useState(false);
   const [acceptedGdpr, setAcceptedGdpr] = useState(false);
   const [verificationResponses, setVerificationResponses] = useState<Record<number, VerificationResponse>>({});
+  const [emergencyContactName, setEmergencyContactName] = useState(consent.emergency_contact_name || '');
+  const [emergencyContactPhone, setEmergencyContactPhone] = useState(consent.emergency_contact_phone || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
-  
+
   const verificationCheckboxes = consent.template?.verification_checkboxes || [];
-  
+  const requiresEmergencyContact = consent.template?.requires_emergency_contact ?? false;
+
   // Check if all verification fields are answered (not just true, but answered)
-  const allVerificationsAnswered = verificationCheckboxes.length === 0 || 
+  const allVerificationsAnswered = verificationCheckboxes.length === 0 ||
     verificationCheckboxes.every((_, index) => verificationResponses[index] !== undefined);
 
-  // Check if placeholder exists in content
-  const hasPlaceholderInContent = consent.content_snapshot.includes(VERIFICATION_PLACEHOLDER);
+  const emergencyContactComplete = !requiresEmergencyContact ||
+    (emergencyContactName.trim() !== '' && emergencyContactPhone.trim() !== '');
+
+  const canProceedFromDocument = allVerificationsAnswered && emergencyContactComplete;
 
   const needsGuardian = consent.requires_guardian;
   const guardianSigned = consent.signatures?.some((s) => s.signer_role === 'guardian');
@@ -172,16 +212,17 @@ export function MultiSignatureFlow({ consent, token }: MultiSignatureFlowProps) 
   };
 
   const handleProceedToSign = async () => {
-    // First save the verification responses
+    setIsSubmitting(true);
+
+    // Save the verification responses, if any
     if (verificationCheckboxes.length > 0) {
-      setIsSubmitting(true);
       try {
         // Convert to boolean format for storage
         const responsesToSave: Record<string, boolean> = {};
         Object.entries(verificationResponses).forEach(([key, value]) => {
           responsesToSave[key] = value === 'authorized';
         });
-        
+
         await saveVerificationResponses.mutateAsync({
           consentId: consent.id,
           responses: responsesToSave,
@@ -191,9 +232,25 @@ export function MultiSignatureFlow({ consent, token }: MultiSignatureFlowProps) 
         setIsSubmitting(false);
         return;
       }
-      setIsSubmitting(false);
     }
-    
+
+    // Save the emergency contact, if required by the template
+    if (requiresEmergencyContact) {
+      try {
+        await updateEmergencyContact.mutateAsync({
+          consentId: consent.id,
+          emergencyContactName: emergencyContactName.trim(),
+          emergencyContactPhone: emergencyContactPhone.trim(),
+        });
+      } catch (error) {
+        console.error('Error saving emergency contact:', error);
+        setIsSubmitting(false);
+        return;
+      }
+    }
+
+    setIsSubmitting(false);
+
     if (needsGuardian && !guardianSigned) {
       setCurrentStep('guardian');
     } else {
@@ -319,16 +376,19 @@ export function MultiSignatureFlow({ consent, token }: MultiSignatureFlowProps) 
       {currentStep === 'document' && (
         <>
           <Card className="max-h-[400px] overflow-auto p-6">
-            <DocumentWithVerifications 
+            <DocumentWithFields
               content={consent.content_snapshot}
               verificationCheckboxes={verificationCheckboxes}
               verificationResponses={verificationResponses}
               setVerificationResponses={setVerificationResponses}
-              hasPlaceholder={hasPlaceholderInContent}
-              prefix="document"
+              requiresEmergencyContact={requiresEmergencyContact}
+              emergencyContactName={emergencyContactName}
+              emergencyContactPhone={emergencyContactPhone}
+              setEmergencyContactName={setEmergencyContactName}
+              setEmergencyContactPhone={setEmergencyContactPhone}
             />
           </Card>
-          
+
           {/* Warning if not all answered */}
           {verificationCheckboxes.length > 0 && !allVerificationsAnswered && (
             <div className="flex items-center gap-2 rounded-md border border-amber-500/50 bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-400">
@@ -336,11 +396,18 @@ export function MultiSignatureFlow({ consent, token }: MultiSignatureFlowProps) 
               <span>Debes indicar si autorizas o no cada uno de los campos de autorización antes de continuar.</span>
             </div>
           )}
-          
+
+          {requiresEmergencyContact && !emergencyContactComplete && (
+            <div className="flex items-center gap-2 rounded-md border border-amber-500/50 bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-400">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              <span>Debes indicar el nombre y teléfono del contacto de emergencia antes de continuar.</span>
+            </div>
+          )}
+
           <div className="flex justify-end">
-            <Button 
+            <Button
               onClick={handleProceedToSign}
-              disabled={!allVerificationsAnswered || isSubmitting}
+              disabled={!canProceedFromDocument || isSubmitting}
             >
               {isSubmitting ? (
                 <>

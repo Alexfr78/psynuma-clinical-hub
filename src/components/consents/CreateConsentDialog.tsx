@@ -26,7 +26,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
-import { Loader2, AlertCircle, Users } from 'lucide-react';
+import { Loader2, AlertCircle, Users, Phone } from 'lucide-react';
 import { useConsentTemplates } from '@/hooks/useConsentTemplates';
 import { useConsents } from '@/hooks/useConsents';
 import { useCenter } from '@/hooks/useCenter';
@@ -117,6 +117,8 @@ export function CreateConsentDialog({
       template_id: values.template_id,
       content_snapshot: preview,
       requires_guardian: requiresGuardian || (selectedTemplate?.requires_guardian_signature ?? false),
+      emergency_contact_name: patient.emergency_contact_name,
+      emergency_contact_phone: patient.emergency_contact_phone,
     });
 
     onOpenChange(false);
@@ -142,6 +144,18 @@ export function CreateConsentDialog({
               </Badge>
               <span className="text-xs text-muted-foreground">
                 Requiere firma del tutor: {patient.guardian_name || 'No configurado'}
+              </span>
+            </div>
+          )}
+          {selectedTemplate?.requires_emergency_contact && (
+            <div className="mt-2 flex items-center gap-2">
+              <Badge variant="outline" className="gap-1">
+                <Phone className="h-3 w-3" />
+                Contacto de emergencia
+              </Badge>
+              <span className="text-xs text-muted-foreground">
+                Se precargará: {patient.emergency_contact_name || 'No configurado'}
+                {patient.emergency_contact_phone ? ` · ${patient.emergency_contact_phone}` : ''}
               </span>
             </div>
           )}

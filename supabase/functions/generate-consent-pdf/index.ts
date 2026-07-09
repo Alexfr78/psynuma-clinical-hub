@@ -13,6 +13,8 @@ interface ConsentData {
   center_id: string;
   signed_at: string | null;
   verification_responses: Record<string, boolean> | null;
+  emergency_contact_name: string | null;
+  emergency_contact_phone: string | null;
   patient: {
     first_name: string;
     last_name: string;
@@ -24,6 +26,7 @@ interface ConsentData {
   template: {
     name: string;
     verification_checkboxes: string[] | null;
+    requires_emergency_contact: boolean | null;
   };
   center: {
     name: string;
@@ -124,6 +127,38 @@ function replaceVerificationPlaceholder(
   for (const pattern of patterns) {
     if (pattern.test(result)) {
       result = result.replace(pattern, `<p>${responsesText}</p>`);
+      break;
+    }
+  }
+
+  return result;
+}
+
+// Replace emergency contact placeholder with the saved contact details
+function replaceEmergencyContactPlaceholder(
+  html: string,
+  requiresEmergencyContact: boolean | null,
+  emergencyContactName: string | null,
+  emergencyContactPhone: string | null
+): string {
+  if (!requiresEmergencyContact || (!emergencyContactName && !emergencyContactPhone)) {
+    return html.replace(/\{contacto_emergencia\}/gi, '');
+  }
+
+  const contactText = `Contacto de emergencia: ${emergencyContactName || '-'} - ${emergencyContactPhone || '-'}`;
+
+  const patterns = [
+    /<div[^>]*>\s*<span[^>]*>\s*\{contacto_emergencia\}\s*<\/span>\s*<\/div>/gi,
+    /<span[^>]*>\s*\{contacto_emergencia\}\s*<\/span>/gi,
+    /<div[^>]*>\s*\{contacto_emergencia\}\s*<\/div>/gi,
+    /<p[^>]*>\s*\{contacto_emergencia\}\s*<\/p>/gi,
+    /\{contacto_emergencia\}/gi,
+  ];
+
+  let result = html;
+  for (const pattern of patterns) {
+    if (pattern.test(result)) {
+      result = result.replace(pattern, `<p>${contactText}</p>`);
       break;
     }
   }
@@ -281,9 +316,11 @@ serve(async (req) => {
         center_id,
         signed_at,
         verification_responses,
+        emergency_contact_name,
+        emergency_contact_phone,
         patient:patients(first_name, last_name),
         professional:profiles(first_name, last_name),
-        template:consent_templates(name, verification_checkboxes),
+        template:consent_templates(name, verification_checkboxes, requires_emergency_contact),
         center:centers(name, address, city, postal_code, invoice_logo_url)
       `)
       .eq('id', consent_id)
@@ -482,13 +519,19 @@ serve(async (req) => {
 
     currentY -= boxHeight + 30;
 
-    // Document content - replace verification placeholder with actual responses
+    // Document content - replace verification and emergency contact placeholders with actual values
     const contentWithVerifications = replaceVerificationPlaceholder(
       typedConsent.content_snapshot || '',
       typedConsent.template?.verification_checkboxes || null,
       typedConsent.verification_responses || null
     );
-    const plainText = htmlToPlainText(contentWithVerifications);
+    const contentWithEmergencyContact = replaceEmergencyContactPlaceholder(
+      contentWithVerifications,
+      typedConsent.template?.requires_emergency_contact || null,
+      typedConsent.emergency_contact_name || null,
+      typedConsent.emergency_contact_phone || null
+    );
+    const plainText = htmlToPlainText(contentWithEmergencyContact);
     const result = drawTextWithPageBreaks(
       pdfDoc,
       pages,

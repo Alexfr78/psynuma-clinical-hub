@@ -9,6 +9,8 @@ export interface PublicConsent {
   access_token: string;
   content_snapshot: string;
   requires_guardian: boolean;
+  emergency_contact_name: string | null;
+  emergency_contact_phone: string | null;
   expires_at: string;
   signed_at: string | null;
   verification_responses: Record<string, boolean> | null;
@@ -25,6 +27,7 @@ export interface PublicConsent {
   template: {
     name: string;
     verification_checkboxes: string[] | null;
+    requires_emergency_contact: boolean;
   };
   signatures: {
     id: string;
@@ -51,12 +54,14 @@ export function usePublicConsent(token: string | undefined) {
           access_token,
           content_snapshot,
           requires_guardian,
+          emergency_contact_name,
+          emergency_contact_phone,
           expires_at,
           signed_at,
           verification_responses,
           patient:patients(first_name, last_name, guardian_name, guardian_relationship),
           professional:profiles(first_name, last_name),
-          template:consent_templates(name, verification_checkboxes),
+          template:consent_templates(name, verification_checkboxes, requires_emergency_contact),
           signatures:consent_signatures(id, signer_role, signature_order, signed_at)
         `)
         .eq('access_token', token)
@@ -144,6 +149,42 @@ export function usePublicConsent(token: string | undefined) {
     },
   });
 
+  const updateEmergencyContact = useMutation({
+    mutationFn: async ({
+      consentId,
+      emergencyContactName,
+      emergencyContactPhone,
+    }: {
+      consentId: string;
+      emergencyContactName: string;
+      emergencyContactPhone: string;
+    }) => {
+      if (!token) throw new Error('No token');
+
+      const { data, error } = await supabase.functions.invoke('update-consent-emergency-contact', {
+        body: {
+          consent_id: consentId,
+          emergency_contact_name: emergencyContactName,
+          emergency_contact_phone: emergencyContactPhone,
+        },
+        headers: {
+          'x-consent-token': token,
+        },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['public-consent', token] });
+    },
+    onError: (error) => {
+      toast.error('Error al guardar el contacto de emergencia');
+      console.error(error);
+    },
+  });
+
   const markAsSigned = useMutation({
     mutationFn: async (consentId: string) => {
       if (!token) throw new Error('No token');
@@ -191,6 +232,7 @@ export function usePublicConsent(token: string | undefined) {
     isExpired,
     addSignature,
     saveVerificationResponses,
+    updateEmergencyContact,
     markAsSigned,
   };
 }
