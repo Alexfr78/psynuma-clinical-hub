@@ -59,7 +59,7 @@ export function ConsentTemplateCard({ template }: ConsentTemplateCardProps) {
               <FileText className="h-5 w-5 text-primary" />
             </div>
             <div className="min-w-0 flex-1">
-              <h3 className="truncate font-semibold">{template.name}</h3>
+              <h3 className="font-semibold break-words">{template.name}</h3>
               <p className="text-xs text-muted-foreground">
                 {format(new Date(template.created_at), "d MMM yyyy", { locale: es })}
               </p>
