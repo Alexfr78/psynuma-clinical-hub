@@ -2152,6 +2152,7 @@ export type Database = {
           id: string
           is_active: boolean | null
           name: string
+          requires_emergency_contact: boolean
           requires_guardian_signature: boolean | null
           updated_at: string | null
           verification_checkboxes: Json | null
@@ -2163,6 +2164,7 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           name: string
+          requires_emergency_contact?: boolean
           requires_guardian_signature?: boolean | null
           updated_at?: string | null
           verification_checkboxes?: Json | null
@@ -2174,6 +2176,7 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           name?: string
+          requires_emergency_contact?: boolean
           requires_guardian_signature?: boolean | null
           updated_at?: string | null
           verification_checkboxes?: Json | null
@@ -2209,6 +2212,8 @@ export type Database = {
           center_id: string
           content_snapshot: string
           created_at: string | null
+          emergency_contact_name: string | null
+          emergency_contact_phone: string | null
           expires_at: string
           id: string
           patient_id: string
@@ -2231,6 +2236,8 @@ export type Database = {
           center_id: string
           content_snapshot: string
           created_at?: string | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
           expires_at: string
           id?: string
           patient_id: string
@@ -2253,6 +2260,8 @@ export type Database = {
           center_id?: string
           content_snapshot?: string
           created_at?: string | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
           expires_at?: string
           id?: string
           patient_id?: string
