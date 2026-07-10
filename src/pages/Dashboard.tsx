@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { format } from 'date-fns';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/useAuth';
@@ -22,9 +23,10 @@ function useDashboardStats() {
   return useQuery({
     queryKey: ['dashboard-stats'],
     queryFn: async () => {
-      const today = new Date().toISOString().split('T')[0];
-      const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
-      const endOfMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString().split('T')[0];
+      const now = new Date();
+      const today = format(now, 'yyyy-MM-dd');
+      const startOfMonth = format(new Date(now.getFullYear(), now.getMonth(), 1), 'yyyy-MM-dd');
+      const endOfMonth = format(new Date(now.getFullYear(), now.getMonth() + 1, 0), 'yyyy-MM-dd');
 
       const [patientsRes, todaySessionsRes, monthInvoicesRes, debtsRes, issuedInvoicesRes, allDebtInvoiceIdsRes] = await Promise.all([
         supabase.from('patients').select('id', { count: 'exact', head: true }).eq('status', 'active'),
@@ -79,7 +81,7 @@ function useTodaySessions() {
   return useQuery({
     queryKey: ['today-sessions'],
     queryFn: async () => {
-      const today = new Date().toISOString().split('T')[0];
+      const today = format(new Date(), 'yyyy-MM-dd');
 
       const { data, error } = await supabase
         .from('sessions')
