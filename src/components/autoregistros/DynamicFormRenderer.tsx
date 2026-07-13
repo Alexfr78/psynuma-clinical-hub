@@ -230,9 +230,21 @@ export function DynamicFormRenderer({ fields, onSubmit, isSubmitting, initialVal
                   onValueChange={([v]) => setValue(field.label, v)}
                 />
                 <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>{field.minLabel || scaleMin}</span>
+                  <button
+                    type="button"
+                    onClick={() => setValue(field.label, scaleMin)}
+                    className="rounded px-1 py-0.5 text-left transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    {field.minLabel || scaleMin}
+                  </button>
                   <span className="font-medium text-foreground">{values[field.label] ?? getScaleDefault(field)}</span>
-                  <span>{field.maxLabel || scaleMax}</span>
+                  <button
+                    type="button"
+                    onClick={() => setValue(field.label, scaleMax)}
+                    className="rounded px-1 py-0.5 text-right transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    {field.maxLabel || scaleMax}
+                  </button>
                 </div>
               </div>
             )}
