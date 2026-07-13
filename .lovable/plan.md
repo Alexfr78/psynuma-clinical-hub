@@ -1,36 +1,31 @@
 ## Diagnóstico
 
-He comprobado abril 2026 en la base de datos:
+Zeus Lara confirmó su sesión de mañana desde el enlace público `/cita/:token` (el que llega en el recordatorio de WhatsApp), no respondiendo "SÍ" por WhatsApp.
 
-- Sumando todas las facturas emitidas/pagadas del mes: **1550 €**.
-- Con la lógica actual de la app: **1400 €**.
-- La diferencia viene de que ahora se excluyen las originales marcadas como no válidas y además se siguen sumando las rectificativas negativas:
-  - `SP260022` +75 € está excluida.
-  - `SF260053` +75 € está excluida.
-  - `RS260002` -75 € se resta.
-  - `RP260002` -10 € se resta.
+- El estado en base de datos sí se actualizó a `confirmed` a las 08:06 (verificado en la BD).
+- Pero el flujo que usa esa página (`useUpdatePublicSession` en `src/hooks/usePublicSession.tsx`) actualiza la tabla `sessions` **directamente desde el navegador** con un token, y **nunca invoca** `update-google-calendar-event`. Por eso el evento en Google Calendar no cambia al color verde salvia.
 
-Por eso el total baja artificialmente. Para el indicador que estás mirando, el criterio correcto es **total bruto facturado del mes**, no saldo fiscal neto.
+En cambio:
+- La confirmación por respuesta "SÍ" en WhatsApp (`wasender-webhook`) sí llama a `update-google-calendar-event` con `color_id: "2"`.
+- La confirmación desde la UI interna (agenda/drawer) también sincroniza vía `useGoogleCalendarUpdate.syncToGoogle`.
 
-## Plan de cambio
+Solo falta el camino público del paciente.
 
-1. **Actualizar el cálculo de las tarjetas superiores en `/facturas`**
-   - En `useInvoiceStats`, sumar las facturas con estado `issued` o `paid` del mes.
-   - No excluir por `is_valid = false`.
-   - No restar rectificativas negativas del total facturado.
-   - Mantener fuera solo facturas `draft` y `cancelled`.
+## Cambios
 
-2. **Alinear “Facturas pagadas” y “Pendiente de cobro”**
-   - Aplicar el mismo criterio bruto:
-     - `totalIssued`: suma de `issued` + `paid`.
-     - `totalPaid`: suma de `paid`.
-     - `totalPending`: suma de `issued`.
-   - Así abril mostrará **1550 €** en lugar de 1400 €.
+1. **`supabase/functions/public-session-reschedule/index.ts`** — añadir una nueva `action: "confirm"` que:
+   - Valide el token (misma verificación que ya usan `reschedule`/`cancel`).
+   - Actualice `sessions.status = 'confirmed'` con service role.
+   - Si la sesión tiene `google_calendar_event_id`, llame a `update-google-calendar-event` con `color_id: "2"` y `psycma_session_id`, replicando el patrón del bloque `reschedule` (líneas 605–625) y del webhook de Wasender.
+   - Devuelva la fila actualizada.
 
-3. **Revisar el gráfico “Evolución de facturación”**
-   - Ahora mismo también filtra `is_valid !== false`, por lo que puede mostrar un criterio distinto o seguir descontando importes.
-   - Ajustarlo al mismo criterio bruto para que el gráfico y las tarjetas cuadren.
+2. **`src/hooks/usePublicSession.tsx`** — reescribir `useUpdatePublicSession` para que, cuando `status === 'confirmed'`, invoque la nueva acción del edge function en lugar del `UPDATE` directo. Los otros estados (`cancelled`, `reschedule_requested`) siguen usando sus flujos actuales (la cancelación ya está cubierta por `action: "cancel"` en el edge function; conviene alinearla también si no lo está).
 
-4. **Validación**
-   - Verificar con los datos de abril que el total mostrado sea 1550 €.
-   - Comprobar que el listado de facturas no cambia; solo cambia el cálculo de importes agregados.
+3. No se toca la UI de `SessionManagement.tsx` — sigue llamando a `updateSession.mutate({ token, status: 'confirmed' })`.
+
+## Notas técnicas
+
+- El edge function ya tiene `SUPABASE_SERVICE_ROLE_KEY` y `supabaseUrl` disponibles y ya sabe hacer fetch a `update-google-calendar-event` (bloque de reschedule).
+- No hace falta migración de BD.
+- No hay cambios en logs ni en el webhook de Wasender.
+- Retroactivo para Zeus: una vez desplegado, se puede forzar la sincronización volviendo a poner la sesión en "Programada" y luego "Confirmada" desde la agenda, o simplemente esperando al siguiente cambio; opcionalmente puedo lanzar una llamada puntual al edge function para su evento actual.

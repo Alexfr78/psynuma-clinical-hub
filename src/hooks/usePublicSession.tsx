@@ -120,6 +120,18 @@ export function useUpdatePublicSession() {
       status: string;
       cancellation_reason?: string;
     }) => {
+      // Confirmations must go through the edge function so Google Calendar
+      // gets the sage-green color update. Other statuses keep the direct
+      // token-authenticated write.
+      if (status === 'confirmed') {
+        const { data, error } = await supabase.functions.invoke('public-session-reschedule', {
+          body: { action: 'confirm', token },
+        });
+        if (error) throw error;
+        if (data?.error) throw new Error(data.error);
+        return data?.session ?? data;
+      }
+
       const updateData: Record<string, string> = { status };
       if (cancellation_reason) {
         updateData.cancellation_reason = cancellation_reason;
@@ -135,6 +147,7 @@ export function useUpdatePublicSession() {
 
       if (error) throw error;
       return data;
+
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['public-session', variables.token] });
