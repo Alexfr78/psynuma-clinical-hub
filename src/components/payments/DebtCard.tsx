@@ -1,6 +1,6 @@
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { AlertCircle, User, FileText, Clock, Trash2, MessageCircle } from 'lucide-react';
+import { AlertCircle, User, FileText, Clock, Trash2, MessageCircle, Package } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -16,6 +16,7 @@ interface DebtCardProps {
   }) => void;
   onDelete?: (debtId: string) => void;
   onSendReminder?: (debt: DebtWithRelations) => void;
+  onAssignBono?: (debt: DebtWithRelations) => void;
 }
 
 const statusConfig = {
@@ -25,10 +26,16 @@ const statusConfig = {
   cancelled: { label: 'Cancelada', variant: 'secondary' as const },
 };
 
-export function DebtCard({ debt, onRecordPayment, onDelete, onSendReminder }: DebtCardProps) {
+export function DebtCard({ debt, onRecordPayment, onDelete, onSendReminder, onAssignBono }: DebtCardProps) {
   const status = statusConfig[debt.status] || statusConfig.pending;
   const remaining = Number(debt.amount) - Number(debt.paid_amount);
   const isOverdue = debt.due_date && new Date(debt.due_date) < new Date();
+  const canAssignBono =
+    !!debt.session_id &&
+    !debt.bono_id &&
+    !debt.invoice_id &&
+    Number(debt.paid_amount || 0) === 0 &&
+    debt.status === 'pending';
 
   return (
     <Card className={isOverdue ? 'border-destructive/50' : ''}>
@@ -91,6 +98,16 @@ export function DebtCard({ debt, onRecordPayment, onDelete, onSendReminder }: De
                 >
                   <MessageCircle className="h-4 w-4 mr-2" />
                   Recordar
+                </Button>
+              )}
+              {canAssignBono && onAssignBono && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onAssignBono(debt)}
+                >
+                  <Package className="h-4 w-4 mr-2" />
+                  Asignar bono
                 </Button>
               )}
               <Button 

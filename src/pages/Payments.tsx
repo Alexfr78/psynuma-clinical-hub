@@ -20,6 +20,7 @@ import { usePayments, usePaymentStats, useDeletePayment, PaymentWithRelations } 
 import { DebtCard } from '@/components/payments/DebtCard';
 import { PaymentHistoryTable } from '@/components/payments/PaymentHistoryTable';
 import { RecordPaymentDialog } from '@/components/payments/RecordPaymentDialog';
+import { AssignBonoToDebtDialog } from '@/components/payments/AssignBonoToDebtDialog';
 import { EditPaymentDialog } from '@/components/payments/EditPaymentDialog';
 import { SendPaymentReminderDialog } from '@/components/payments/SendPaymentReminderDialog';
 import { LinkPaymentToInvoiceDialog } from '@/components/payments/LinkPaymentToInvoiceDialog';
@@ -27,6 +28,14 @@ import { CancellationChargesPanel } from '@/components/payments/CancellationChar
 import { SendInvoiceDialog } from '@/components/invoices/SendInvoiceDialog';
 import { useCancellationCharges } from '@/hooks/useCancellationCharges';
 import { format } from 'date-fns';
+
+type InvoicePatient = {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email?: string | null;
+  phone?: string | null;
+};
 
 export default function Payments() {
   const [paymentOpen, setPaymentOpen] = useState(false);
@@ -44,6 +53,8 @@ export default function Payments() {
   const [debtToDelete, setDebtToDelete] = useState<DebtWithRelations | null>(null);
   const [reminderDialogOpen, setReminderDialogOpen] = useState(false);
   const [selectedDebtForReminder, setSelectedDebtForReminder] = useState<DebtWithRelations | null>(null);
+  const [assignBonoDialogOpen, setAssignBonoDialogOpen] = useState(false);
+  const [selectedDebtForBono, setSelectedDebtForBono] = useState<DebtWithRelations | null>(null);
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
   const [paymentToLink, setPaymentToLink] = useState<PaymentWithRelations | null>(null);
   const [sendInvoiceDialogOpen, setSendInvoiceDialogOpen] = useState(false);
@@ -128,6 +139,11 @@ export default function Payments() {
   const handleSendReminder = (debt: DebtWithRelations) => {
     setSelectedDebtForReminder(debt);
     setReminderDialogOpen(true);
+  };
+
+  const handleAssignBono = (debt: DebtWithRelations) => {
+    setSelectedDebtForBono(debt);
+    setAssignBonoDialogOpen(true);
   };
 
   return (
@@ -242,6 +258,7 @@ export default function Payments() {
                   onRecordPayment={handleRecordPayment}
                   onDelete={() => handleDeleteDebt(debt)}
                   onSendReminder={handleSendReminder}
+                  onAssignBono={handleAssignBono}
                 />
               ))}
             </div>
@@ -290,11 +307,12 @@ export default function Payments() {
             .eq('id', invoiceId)
             .single();
           if (data) {
+            const invoicePatient = data.patients as unknown as InvoicePatient;
             setCreatedInvoice({
               id: data.id,
               invoice_number: data.invoice_number || '',
               total: Number(data.total),
-              patients: data.patients as any,
+              patients: invoicePatient,
             });
             setSendInvoiceDialogOpen(true);
           }
@@ -305,6 +323,15 @@ export default function Payments() {
         open={reminderDialogOpen}
         onOpenChange={setReminderDialogOpen}
         debt={selectedDebtForReminder}
+      />
+
+      <AssignBonoToDebtDialog
+        open={assignBonoDialogOpen}
+        onOpenChange={(open) => {
+          setAssignBonoDialogOpen(open);
+          if (!open) setSelectedDebtForBono(null);
+        }}
+        debt={selectedDebtForBono}
       />
 
       <EditPaymentDialog

@@ -30,6 +30,15 @@ export interface DebtWithRelations extends Debt {
   invoices: {
     id: string;
     invoice_number: string;
+    is_valid?: boolean;
+  } | null;
+  sessions: {
+    id: string;
+    session_date: string;
+    session_type: string | null;
+    bono_id: string | null;
+    price: number | null;
+    payment_status: string | null;
   } | null;
 }
 
@@ -53,7 +62,8 @@ export function useDebts(filters?: { patientId?: string; status?: string }) {
         .select(`
           *,
           patients (id, first_name, last_name, phone, email),
-          invoices (id, invoice_number, is_valid)
+          invoices (id, invoice_number, is_valid),
+          sessions (id, session_date, session_type, bono_id, price, payment_status)
         `)
         .order('created_at', { ascending: false });
 
@@ -74,14 +84,15 @@ export function useDebts(filters?: { patientId?: string; status?: string }) {
       // These debts should have status='refunded' from the RPC, but as a safety
       // net we also filter client-side to prevent stale data from showing up
       // as operational pending debts.
-      const filtered = (data as any[]).filter((debt) => {
+      const debts = (data ?? []) as unknown as DebtWithRelations[];
+      const filtered = debts.filter((debt) => {
         if (debt.invoices && debt.invoices.is_valid === false) {
           return false;
         }
         return true;
       });
 
-      return filtered as DebtWithRelations[];
+      return filtered;
     },
     enabled: !!profile?.center_id,
   });
