@@ -244,6 +244,72 @@ Deno.serve(async (req) => {
       );
     }
 
+    if (action === "confirm") {
+      if (session.status === "cancelled") {
+        return new Response(
+          JSON.stringify({ error: "Cannot confirm cancelled sessions" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Update session status to confirmed
+      const { data: updated, error: updateError } = await supabase
+        .from("sessions")
+        .update({ status: "confirmed" })
+        .eq("id", session.id)
+        .select()
+        .single();
+
+      if (updateError) {
+        console.error("[CONFIRM] Error updating session status:", updateError);
+        return new Response(
+          JSON.stringify({ error: "No se pudo confirmar la cita" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Sync confirmation color (sage green) to Google Calendar if linked
+      if (session.google_calendar_event_id) {
+        try {
+          const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+          const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+          const gcalResp = await fetch(`${supabaseUrl}/functions/v1/update-google-calendar-event`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${serviceKey}`,
+              "apikey": serviceKey,
+            },
+            body: JSON.stringify({
+              professional_id: session.professional_id,
+              event_id: session.google_calendar_event_id,
+              psycma_session_id: session.id,
+              session_date: session.session_date,
+              start_time: session.start_time,
+              end_time: session.end_time,
+              color_id: "2",
+              create_if_not_exists: false,
+            }),
+          });
+          const gcalResult = await gcalResp.json().catch(() => ({}));
+          if (!gcalResp.ok || gcalResult?.success === false) {
+            console.error("[CONFIRM] Google Calendar sync failed:", gcalResult);
+          } else {
+            console.log(`[CONFIRM] Google Calendar event ${session.google_calendar_event_id} updated to confirmed color`);
+          }
+        } catch (gcalErr) {
+          console.error("[CONFIRM] Exception syncing to Google Calendar:", gcalErr);
+        }
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, session: updated }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+
+
     if (action === "get-locations") {
       const { data: rows, error: locErr } = await supabase
         .from("center_locations")
