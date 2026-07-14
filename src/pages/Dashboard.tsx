@@ -146,6 +146,16 @@ export default function Dashboard() {
     return () => window.removeEventListener('select-session', handleSelectSession);
   }, [todaySessions]);
 
+  // Keep selectedSession in sync with the refreshed today's list (e.g., after applying a bono)
+  useEffect(() => {
+    if (selectedSession && todaySessions) {
+      const updated = (todaySessions as any[]).find((s) => s.id === selectedSession.id);
+      if (updated && JSON.stringify(updated) !== JSON.stringify(selectedSession)) {
+        setSelectedSession(updated);
+      }
+    }
+  }, [todaySessions, selectedSession]);
+
   const statCards = [
     {
       title: 'Contactos Activos',
