@@ -79,7 +79,7 @@ function useTodaySessions() {
   const { profile } = useAuth();
 
   return useQuery({
-    queryKey: ['today-sessions'],
+    queryKey: ['sessions', 'today'],
     queryFn: async () => {
       const today = format(new Date(), 'yyyy-MM-dd');
 
