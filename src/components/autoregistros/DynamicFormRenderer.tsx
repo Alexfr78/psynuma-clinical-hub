@@ -5,6 +5,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import {
   Select,
   SelectContent,
@@ -115,6 +116,9 @@ export function DynamicFormRenderer({ fields, onSubmit, isSubmitting, initialVal
         const scaleMin = getScaleMin(field);
         const scaleMax = getScaleMax(field);
         const scaleStep = getScaleStep(field);
+        const scaleValue = field.type === 'scale'
+          ? values[field.label] ?? getScaleDefault(field)
+          : undefined;
         const isCustomSelected = field.allowCustomValue && values[field.label] === CUSTOM_VALUE_KEY;
 
         return (
@@ -221,30 +225,46 @@ export function DynamicFormRenderer({ fields, onSubmit, isSubmitting, initialVal
             )}
 
             {field.type === 'scale' && (
-              <div className="space-y-2 pt-1">
-                <Slider
-                  min={scaleMin}
-                  max={scaleMax}
-                  step={scaleStep}
-                  value={[values[field.label] ?? getScaleDefault(field)]}
-                  onValueChange={([v]) => setValue(field.label, v)}
-                />
-                <div className="flex justify-between text-xs text-muted-foreground">
+              <div className="space-y-3 pt-1">
+                <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 text-xs">
                   <button
                     type="button"
-                    onClick={() => setValue(field.label, scaleMin)}
-                    className="rounded px-1 py-0.5 text-left transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setValue(field.label, scaleMin);
+                    }}
+                    className={cn(
+                      'min-h-10 rounded-md border border-input px-2 py-2 text-left text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                      scaleValue === scaleMin && 'border-primary bg-primary/10 text-primary'
+                    )}
                   >
                     {field.minLabel || scaleMin}
                   </button>
-                  <span className="font-medium text-foreground">{values[field.label] ?? getScaleDefault(field)}</span>
+                  <span className="min-w-10 text-center font-medium text-foreground">{scaleValue}</span>
                   <button
                     type="button"
-                    onClick={() => setValue(field.label, scaleMax)}
-                    className="rounded px-1 py-0.5 text-right transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setValue(field.label, scaleMax);
+                    }}
+                    className={cn(
+                      'min-h-10 rounded-md border border-input px-2 py-2 text-right text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                      scaleValue === scaleMax && 'border-primary bg-primary/10 text-primary'
+                    )}
                   >
                     {field.maxLabel || scaleMax}
                   </button>
+                </div>
+                <div className="px-1 pt-1">
+                  <Slider
+                    min={scaleMin}
+                    max={scaleMax}
+                    step={scaleStep}
+                    value={[scaleValue ?? getScaleDefault(field)]}
+                    onValueChange={([v]) => setValue(field.label, v)}
+                  />
                 </div>
               </div>
             )}
