@@ -79,7 +79,7 @@ function useTodaySessions() {
   const { profile } = useAuth();
 
   return useQuery({
-    queryKey: ['today-sessions'],
+    queryKey: ['sessions', 'today'],
     queryFn: async () => {
       const today = format(new Date(), 'yyyy-MM-dd');
 
@@ -145,6 +145,16 @@ export default function Dashboard() {
     window.addEventListener('select-session', handleSelectSession);
     return () => window.removeEventListener('select-session', handleSelectSession);
   }, [todaySessions]);
+
+  // Keep selectedSession in sync with the refreshed today's list (e.g., after applying a bono)
+  useEffect(() => {
+    if (selectedSession && todaySessions) {
+      const updated = (todaySessions as any[]).find((s) => s.id === selectedSession.id);
+      if (updated && JSON.stringify(updated) !== JSON.stringify(selectedSession)) {
+        setSelectedSession(updated);
+      }
+    }
+  }, [todaySessions, selectedSession]);
 
   const statCards = [
     {
