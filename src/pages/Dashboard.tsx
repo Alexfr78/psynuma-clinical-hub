@@ -312,7 +312,7 @@ export default function Dashboard() {
       <SessionDetailDrawer
         session={selectedSession}
         open={!!selectedSession}
-        onOpenChange={(open) => !open && setSelectedSession(null)}
+        onOpenChange={(open) => !open && setSelectedSessionId(null)}
       />
     </div>
   );
