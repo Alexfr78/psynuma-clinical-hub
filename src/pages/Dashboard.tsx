@@ -111,50 +111,41 @@ export default function Dashboard() {
   const { profile } = useAuth();
   const { data: stats, isLoading: statsLoading } = useDashboardStats();
   const { data: todaySessions, isLoading: sessionsLoading } = useTodaySessions();
-  const [selectedSession, setSelectedSession] = useState<any | null>(null);
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
 
-  useEffect(() => {
-    const handleSelectSession = async (event: Event) => {
-      const { sessionId } = (event as CustomEvent<{ sessionId?: string }>).detail || {};
-      if (!sessionId) return;
-
-      const sessionInList = todaySessions?.find((session: any) => session.id === sessionId);
-      if (sessionInList) {
-        setSelectedSession(sessionInList);
-        return;
-      }
-
+  // Always read the selected session fresh from the DB so edits (date, price,
+  // status, patient...) are reflected in the drawer and its actions (WhatsApp,
+  // Google sync, etc.). Any invalidation of ['sessions'] refetches this too.
+  const { data: selectedSession } = useQuery({
+    queryKey: ['sessions', 'detail', selectedSessionId],
+    queryFn: async () => {
+      if (!selectedSessionId) return null;
       const { data, error } = await supabase
         .from('sessions')
         .select(`
           *,
-          patient:patients!sessions_patient_id_fkey(id, first_name, last_name, email, phone),
+          patient:patients!sessions_patient_id_fkey(id, first_name, last_name, email, phone, auto_invoice_on_complete),
           professional:profiles!sessions_professional_id_fkey(id, first_name, last_name, email)
         `)
-        .eq('id', sessionId)
+        .eq('id', selectedSessionId)
         .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!selectedSessionId,
+  });
 
-      if (error) {
-        console.error('Error fetching selected session:', error);
-        return;
-      }
-
-      if (data) setSelectedSession(data);
+  useEffect(() => {
+    const handleSelectSession = (event: Event) => {
+      const { sessionId } = (event as CustomEvent<{ sessionId?: string }>).detail || {};
+      if (!sessionId) return;
+      setSelectedSessionId(sessionId);
     };
 
     window.addEventListener('select-session', handleSelectSession);
     return () => window.removeEventListener('select-session', handleSelectSession);
-  }, [todaySessions]);
+  }, []);
 
-  // Keep selectedSession in sync with the refreshed today's list (e.g., after applying a bono)
-  useEffect(() => {
-    if (selectedSession && todaySessions) {
-      const updated = (todaySessions as any[]).find((s) => s.id === selectedSession.id);
-      if (updated && JSON.stringify(updated) !== JSON.stringify(selectedSession)) {
-        setSelectedSession(updated);
-      }
-    }
-  }, [todaySessions, selectedSession]);
 
   const statCards = [
     {
@@ -226,7 +217,7 @@ export default function Dashboard() {
               {todaySessions.map((session: any) => (
                 <div
                   key={session.id}
-                  onClick={() => setSelectedSession(session)}
+                  onClick={() => setSelectedSessionId(session.id)}
                   className="flex items-center justify-between rounded-lg border p-3 cursor-pointer transition-colors hover:bg-muted"
                 >
                   <div className="flex items-center gap-3">
@@ -321,7 +312,7 @@ export default function Dashboard() {
       <SessionDetailDrawer
         session={selectedSession}
         open={!!selectedSession}
-        onOpenChange={(open) => !open && setSelectedSession(null)}
+        onOpenChange={(open) => !open && setSelectedSessionId(null)}
       />
     </div>
   );
