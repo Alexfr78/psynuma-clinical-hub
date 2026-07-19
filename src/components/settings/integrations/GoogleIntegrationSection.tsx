@@ -13,7 +13,7 @@ import { useProfessionalIntegrations } from "@/hooks/useProfessionalIntegrations
 import { useAuth } from "@/hooks/useAuth";
 import { useCenter } from "@/hooks/useCenter";
 import { useGoogleCalendarWatch } from "@/hooks/useGoogleCalendarWatch";
-import { Calendar, Video, ExternalLink, CheckCircle2, AlertCircle, Loader2, Settings2, Zap, RefreshCw, Activity, Clock, Database, Trash2, Download, Copy, FileJson, Bug } from "lucide-react";
+import { Calendar, Video, ExternalLink, CheckCircle2, AlertCircle, Loader2, Settings2, Zap, RefreshCw, Activity, Clock, Database, Trash2, Download, Copy, FileJson, Bug, ShieldCheck } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
@@ -813,11 +813,21 @@ export function GoogleIntegrationSection() {
                             2 vías (Bidireccional)
                           </Label>
                           <p className="text-xs text-muted-foreground">
-                            Los eventos de Google se importan como citas bloqueadas
+                            Los cambios de horario se aplican en ambos sentidos de forma segura
                           </p>
                         </div>
                       </div>
                     </RadioGroup>
+                    {syncMode === 'two_way' && (
+                      <Alert>
+                        <ShieldCheck className="h-4 w-4" />
+                        <AlertDescription className="text-xs leading-relaxed">
+                          Si una cita cambia solo en Google, Psycma actualizará su horario. Si la
+                          misma cita cambia a la vez en ambos calendarios, se conservarán las dos
+                          versiones y se marcará el conflicto sin sobrescribir ninguna.
+                        </AlertDescription>
+                      </Alert>
+                    )}
                   </div>
 
                   {/* Health Dashboard */}

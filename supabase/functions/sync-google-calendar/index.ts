@@ -7,6 +7,10 @@ import {
   isPsycmaGoogleEvent,
   shouldTreatGoogleEventAsExisting,
 } from "../_shared/googleSyncSafety.ts";
+import {
+  decideThreeWayScheduleSync,
+  type CalendarSchedule,
+} from "../_shared/googleThreeWaySync.ts";
 import { notifyProfessionalBooking } from "../_shared/professionalNotification.ts";
 
 // ============================================================
@@ -22,7 +26,7 @@ async function alertProfessionalSyncChange(
     centerId: string;
     patientId: string;
     sessionId: string;
-    outcome: 'applied' | 'blocked_large_move' | 'blocked_overlap';
+    outcome: 'applied' | 'blocked_large_move' | 'blocked_overlap' | 'conflict';
     oldDate: string;
     oldTime: string;
     newDate: string;
@@ -36,12 +40,16 @@ async function alertProfessionalSyncChange(
   try {
     const title = outcome === 'applied'
       ? '⚠️ Google Calendar movió una sesión'
+      : outcome === 'conflict'
+        ? 'Conflicto de horario entre Google y Psycma'
       : outcome === 'blocked_large_move'
         ? '🛡️ Cambio grande bloqueado en Google Calendar'
         : '🛡️ Solapamiento bloqueado en Google Calendar';
 
     const body = outcome === 'applied'
       ? `Una sesión se movió desde Google Calendar de ${oldDate} ${oldTime} a ${newDate} ${newTime}. Revisa la agenda.`
+      : outcome === 'conflict'
+        ? `La misma sesión cambió en Google Calendar y Psycma. Se conservaron ambas versiones sin sobrescribirlas. Revisa la agenda.`
       : `Se intentó mover una sesión desde Google Calendar de ${oldDate} ${oldTime} a ${newDate} ${newTime}. Bloqueado para proteger los datos. Revisa la agenda.`;
 
     await supabase.from('notifications').insert({
@@ -67,12 +75,14 @@ async function alertProfessionalSyncChange(
       professionalId,
       patientId,
       sessionId,
-      eventType: outcome === 'applied' ? 'rescheduled' : 'rescheduled',
+      eventType: 'rescheduled',
       sessionDate: newDate,
       startTime: newTime,
       oldDate,
       oldTime,
-      reason: outcome === 'blocked_large_move'
+      reason: outcome === 'conflict'
+        ? 'Conflicto detectado: la sesión cambió simultáneamente en Google Calendar y Psycma'
+        : outcome === 'blocked_large_move'
         ? 'Cambio bloqueado automáticamente (movimiento grande detectado en Google Calendar)'
         : outcome === 'blocked_overlap'
           ? 'Cambio bloqueado automáticamente (solapamiento con otra sesión)'
@@ -702,8 +712,9 @@ async function updateGoogleCalendarEvent(
   titleFormat?: string,
   descriptionFormat?: string,
   location?: any,
-  bono?: any
-): Promise<boolean> {
+  bono?: any,
+  expectedEtag?: string | null,
+): Promise<any | null> {
   const startDateTime = `${session.session_date}T${session.start_time}`;
   const endDateTime = `${session.session_date}T${session.end_time}`;
 
@@ -732,7 +743,11 @@ async function updateGoogleCalendarEvent(
     `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${eventId}`,
     {
       method: 'PATCH',
-      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+        ...(expectedEtag ? { 'If-Match': expectedEtag } : {}),
+      },
       body: JSON.stringify(event),
     },
     { correlationId, step: 'update_event' }
@@ -744,7 +759,7 @@ async function updateGoogleCalendarEvent(
     return false;
   }
 
-  return true;
+  return await response.json();
 }
 
 async function deleteGoogleCalendarEvent(
@@ -783,6 +798,55 @@ function parseGoogleDateTimeToMadrid(dateTimeStr: string): { date: string; time:
   const minute = parts.find(p => p.type === 'minute')?.value || '00';
   
   return { date: `${year}-${month}-${day}`, time: `${hour}:${minute}` };
+}
+
+function sessionSchedule(session: any): CalendarSchedule {
+  return {
+    date: session.session_date,
+    start: session.start_time,
+    end: session.end_time,
+  };
+}
+
+function googleSchedule(event: any): CalendarSchedule {
+  const start = parseGoogleDateTimeToMadrid(event.start.dateTime);
+  const end = parseGoogleDateTimeToMadrid(event.end.dateTime);
+  return { date: start.date, start: start.time, end: end.time };
+}
+
+function stateSchedule(state: any): CalendarSchedule {
+  return {
+    date: state.baseline_date,
+    start: state.baseline_start,
+    end: state.baseline_end,
+  };
+}
+
+async function saveGoogleSyncState(
+  supabase: any,
+  session: any,
+  event: any,
+  schedule: CalendarSchedule,
+  status: 'synced' | 'conflict' | 'error' = 'synced',
+  conflictPayload: Record<string, unknown> | null = null,
+): Promise<void> {
+  const now = new Date().toISOString();
+  const { error } = await supabase.from('google_session_sync_state').upsert({
+    session_id: session.id,
+    professional_id: session.professional_id,
+    google_event_id: session.google_calendar_event_id,
+    baseline_date: schedule.date,
+    baseline_start: schedule.start,
+    baseline_end: schedule.end,
+    google_etag: event?.etag ?? null,
+    google_updated_at: event?.updated ?? null,
+    status,
+    conflict_payload: conflictPayload,
+    last_synced_at: status === 'synced' ? now : undefined,
+    updated_at: now,
+  }, { onConflict: 'session_id' });
+
+  if (error) throw new Error(`Could not persist Google sync state: ${error.message}`);
 }
 
 async function renewChannelIfExpiring(
@@ -971,6 +1035,118 @@ async function upsertCalendarEvents(
   return result;
 }
 
+async function syncLinkedSessionSchedule(params: {
+  supabase: any; session: any; googleEvent: any; syncState: any;
+  integrations: any; accessToken: string; calendarId: string; professional: any;
+  professionalId: string; correlationId: string; titleFormat: string;
+  descriptionFormat: string; result: SyncResult;
+}): Promise<void> {
+  const {
+    supabase, session, googleEvent, integrations, accessToken, calendarId,
+    professional, professionalId, correlationId, titleFormat, descriptionFormat, result,
+  } = params;
+  const psycmaValue = sessionSchedule(session);
+  const googleValue = googleSchedule(googleEvent);
+
+  if (!params.syncState) {
+    const schedulesAgree = decideThreeWayScheduleSync(psycmaValue, psycmaValue, googleValue) === 'noop';
+    await saveGoogleSyncState(
+      supabase, session, googleEvent, psycmaValue,
+      schedulesAgree ? 'synced' : 'conflict',
+      schedulesAgree ? null : { reason: 'missing_baseline', psycma: psycmaValue, google: googleValue },
+    );
+    if (!schedulesAgree) result.warnings?.push(`Google sync conflict for session ${session.id}: missing baseline`);
+    return;
+  }
+
+  const baseline = stateSchedule(params.syncState);
+  const decision = decideThreeWayScheduleSync(baseline, psycmaValue, googleValue);
+  console.log(`[SYNC:${correlationId}] Three-way decision for ${session.id}: ${decision}`);
+
+  if (decision === 'noop') return;
+  if (decision === 'already_converged') {
+    await saveGoogleSyncState(supabase, session, googleEvent, psycmaValue);
+    return;
+  }
+
+  if (integrations?.google_calendar_sync_mode !== 'two_way' || decision === 'push_psycma') {
+    const updatedEvent = await updateGoogleCalendarEvent(
+      accessToken, calendarId, session.google_calendar_event_id, session,
+      session.patient, professional, correlationId, titleFormat, descriptionFormat,
+      session.location, session.bono, googleEvent.etag,
+    );
+    if (updatedEvent) {
+      await saveGoogleSyncState(supabase, session, updatedEvent, psycmaValue);
+      result.updated++;
+    } else {
+      await saveGoogleSyncState(supabase, session, googleEvent, baseline, 'conflict', {
+        reason: 'google_precondition_failed', psycma: psycmaValue, google: googleValue,
+      });
+      result.warnings?.push(`Google changed concurrently for session ${session.id}; no data overwritten`);
+    }
+    return;
+  }
+
+  if (decision === 'conflict') {
+    await saveGoogleSyncState(supabase, session, googleEvent, baseline, 'conflict', {
+      reason: 'simultaneous_change', psycma: psycmaValue, google: googleValue,
+    });
+    result.warnings?.push(`Simultaneous Google/Psycma change preserved for session ${session.id}`);
+    await alertProfessionalSyncChange(supabase, {
+      professionalId, centerId: professional?.center_id, patientId: session.patient_id,
+      sessionId: session.id, outcome: 'conflict', oldDate: psycmaValue.date,
+      oldTime: psycmaValue.start, newDate: googleValue.date, newTime: googleValue.start,
+      correlationId,
+    });
+    return;
+  }
+
+  const { data: overlap } = await supabase
+    .from('sessions').select('id')
+    .eq('professional_id', professionalId)
+    .eq('session_date', googleValue.date)
+    .neq('status', 'cancelled').neq('id', session.id)
+    .lt('start_time', googleValue.end).gt('end_time', googleValue.start)
+    .limit(1);
+
+  if (overlap?.length) {
+    await saveGoogleSyncState(supabase, session, googleEvent, baseline, 'conflict', {
+      reason: 'overlap', conflicting_session_id: overlap[0].id,
+      psycma: psycmaValue, google: googleValue,
+    });
+    result.warnings?.push(`Google change overlaps another session for ${session.id}; both values preserved`);
+    await alertProfessionalSyncChange(supabase, {
+      professionalId, centerId: professional?.center_id, patientId: session.patient_id,
+      sessionId: session.id, outcome: 'conflict', oldDate: psycmaValue.date,
+      oldTime: psycmaValue.start, newDate: googleValue.date, newTime: googleValue.start,
+      correlationId,
+    });
+    return;
+  }
+
+  const { data: updatedSessions, error: updateError } = await supabase
+    .from('sessions')
+    .update({ session_date: googleValue.date, start_time: googleValue.start, end_time: googleValue.end })
+    .eq('id', session.id).eq('updated_at', session.updated_at).select('id');
+
+  if (updateError || !updatedSessions?.length) {
+    await saveGoogleSyncState(supabase, session, googleEvent, baseline, 'conflict', {
+      reason: 'psycma_compare_and_swap_failed', psycma: psycmaValue, google: googleValue,
+    });
+    result.warnings?.push(`Psycma changed concurrently for session ${session.id}; no data overwritten`);
+    return;
+  }
+
+  await saveGoogleSyncState(supabase, session, googleEvent, googleValue);
+  result.updated++;
+  await alertProfessionalSyncChange(supabase, {
+    professionalId, centerId: professional?.center_id, patientId: session.patient_id,
+    sessionId: session.id, outcome: 'applied', oldDate: psycmaValue.date,
+    oldTime: psycmaValue.start, newDate: googleValue.date, newTime: googleValue.start,
+    correlationId,
+  });
+}
+
 async function syncProfessional(
   supabase: any,
   professionalId: string,
@@ -1116,6 +1292,23 @@ async function syncProfessional(
   const titleFormat = integrations?.google_event_title_format || '{tipo} - {paciente}';
   const descriptionFormat = integrations?.google_event_description_format || 'Profesional: {profesional}\nTipo: {tipo}\nNotas: {notas}';
 
+  const sessionIds = (sessions || []).map((session: any) => session.id);
+  const { data: syncStates, error: syncStatesError } = sessionIds.length > 0
+    ? await supabase
+        .from('google_session_sync_state')
+        .select('*')
+        .in('session_id', sessionIds)
+    : { data: [], error: null };
+
+  if (syncStatesError) {
+    result.errors.push(`Error fetching Google sync state: ${syncStatesError.message}`);
+    return result;
+  }
+
+  const syncStateBySessionId = new Map(
+    (syncStates || []).map((state: any) => [state.session_id, state]),
+  );
+
   // Track event checks to limit API calls
   let eventChecksCount = 0;
 
@@ -1130,12 +1323,14 @@ async function syncProfessional(
 
       if (eventId) {
         await supabase.from('sessions').update({ google_calendar_event_id: eventId }).eq('id', session.id);
+        session.google_calendar_event_id = eventId;
+        await saveGoogleSyncState(supabase, session, null, sessionSchedule(session));
         result.created++;
       } else {
         result.errors.push(`Failed to create event for session ${session.id}`);
       }
     } else {
-      const googleEvent = googleEventMap.get(session.google_calendar_event_id);
+      let googleEvent = googleEventMap.get(session.google_calendar_event_id);
       // Incremental responses contain only changed events. If an event is
       // absent there, it is unchanged rather than deleted.
       let eventExists = shouldTreatGoogleEventAsExisting(googleEvent, fullSync);
@@ -1165,6 +1360,27 @@ async function syncProfessional(
         console.log(`[SYNC:${correlationId}] Event ${session.google_calendar_event_id} not in list, recreating (check limit reached)`);
         eventExists = false;
       }
+
+      // Incremental responses omit unchanged Google events. If Psycma changed
+      // since the common baseline, fetch that single event so the outgoing
+      // update can still use a fresh schedule and ETag.
+      const currentSyncState = syncStateBySessionId.get(session.id);
+      if (
+        !googleEvent && eventExists && currentSyncState &&
+        decideThreeWayScheduleSync(
+          stateSchedule(currentSyncState),
+          sessionSchedule(session),
+          stateSchedule(currentSyncState),
+        ) === 'push_psycma'
+      ) {
+        const response = await googleFetch(
+          `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${session.google_calendar_event_id}`,
+          { headers: { Authorization: `Bearer ${accessToken}` } },
+          { correlationId, step: 'fetch_changed_psycma_event' },
+        );
+        if (response.ok) googleEvent = await response.json();
+        else result.warnings?.push(`Could not verify Google event for changed Psycma session ${session.id}`);
+      }
       
       if (!eventExists) {
         // Recreate event
@@ -1176,11 +1392,32 @@ async function syncProfessional(
 
         if (newEventId) {
           await supabase.from('sessions').update({ google_calendar_event_id: newEventId }).eq('id', session.id);
+          session.google_calendar_event_id = newEventId;
+          await saveGoogleSyncState(supabase, session, null, sessionSchedule(session));
           result.created++;
         } else {
           result.errors.push(`Failed to recreate event for session ${session.id}`);
         }
       } else if (googleEvent) {
+        await syncLinkedSessionSchedule({
+          supabase,
+          session,
+          googleEvent,
+          syncState: currentSyncState,
+          integrations,
+          accessToken,
+          calendarId,
+          professional,
+          professionalId,
+          correlationId,
+          titleFormat,
+          descriptionFormat,
+          result,
+        });
+        continue;
+
+        /* Legacy resolver retained temporarily below for deployment diff safety.
+         * It is unreachable: the three-way resolver above is authoritative. */
         // ============================================================
         // CONFLICT RESOLUTION (two-way sync) — defensive logic
         // ============================================================
@@ -1233,7 +1470,7 @@ async function syncProfessional(
                 // Restaurar el evento Google a los valores Psycma (Psycma manda en cambios grandes).
                 try {
                   await updateGoogleCalendarEvent(
-                    accessToken, calendarId, session.google_calendar_event_id, session,
+                    accessToken!, calendarId, session.google_calendar_event_id, session,
                     session.patient, professional, correlationId, titleFormat, descriptionFormat,
                     session.location, session.bono
                   );
@@ -1283,7 +1520,7 @@ async function syncProfessional(
                 console.warn(`[SYNC:${correlationId}] BLOCKED Google→Psycma update for session ${session.id}: would overlap session ${overlap[0].id}`);
                 try {
                   await updateGoogleCalendarEvent(
-                    accessToken, calendarId, session.google_calendar_event_id, session,
+                    accessToken!, calendarId, session.google_calendar_event_id, session,
                     session.patient, professional, correlationId, titleFormat, descriptionFormat,
                     session.location, session.bono
                   );
@@ -1367,7 +1604,7 @@ async function syncProfessional(
 
         // Update event in Google
         const updated = await updateGoogleCalendarEvent(
-          accessToken, calendarId, session.google_calendar_event_id, session,
+          accessToken!, calendarId, session.google_calendar_event_id, session,
           session.patient, professional, correlationId, titleFormat, descriptionFormat,
           session.location, session.bono
         );
@@ -1469,7 +1706,38 @@ async function syncProfessionalWithLock(
   console.log(`[SYNC:${correlationId}] Lock acquired for ${professionalId}`);
 
   try {
-    return await syncProfessional(supabase, professionalId, dateFrom, dateTo, correlationId);
+    const firstPassStartedAt = new Date().toISOString();
+    const combined = await syncProfessional(supabase, professionalId, dateFrom, dateTo, correlationId);
+
+    // A webhook can arrive after the incremental read while this lock is held.
+    // Consume that durable pending flag once before releasing the lock so the
+    // final change cannot be stranded waiting for another webhook.
+    const { data: pendingWebhook } = await supabase
+      .from('google_sync_debounce')
+      .select('last_webhook_at, pending')
+      .eq('professional_id', professionalId)
+      .eq('pending', true)
+      .gt('last_webhook_at', firstPassStartedAt)
+      .maybeSingle();
+
+    if (pendingWebhook) {
+      await supabase
+        .from('google_sync_debounce')
+        .update({ pending: false, updated_at: new Date().toISOString() })
+        .eq('professional_id', professionalId)
+        .eq('pending', true);
+
+      console.log(`[SYNC:${correlationId}] Webhook arrived during sync; running one catch-up pass`);
+      const catchUp = await syncProfessional(supabase, professionalId, dateFrom, dateTo, correlationId);
+      combined.created += catchUp.created;
+      combined.updated += catchUp.updated;
+      combined.deleted += catchUp.deleted;
+      combined.calendarEventsImported = (combined.calendarEventsImported || 0) + (catchUp.calendarEventsImported || 0);
+      combined.errors.push(...catchUp.errors);
+      combined.warnings?.push(...(catchUp.warnings || []));
+    }
+
+    return combined;
   } finally {
     const { error: releaseError } = await supabase.rpc(
       'release_google_sync_lock',

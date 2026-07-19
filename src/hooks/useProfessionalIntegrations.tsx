@@ -20,6 +20,7 @@ export interface ProfessionalIntegration {
   // Google Calendar
   google_calendar_enabled: boolean;
   google_calendar_sync_mode: 'one_way' | 'two_way';
+  google_calendar_conflict_mode: 'psycma_wins' | 'safe_two_way' | 'google_wins_legacy';
   last_google_sync_at: string | null;
   google_event_title_format: string | null;
   google_event_description_format: string | null;
