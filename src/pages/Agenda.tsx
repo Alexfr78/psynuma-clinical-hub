@@ -382,12 +382,18 @@ export default function Agenda() {
           return;
         }
         
-        // Update the local calendar_events table
+        // Update the local calendar_events table.
+        // IMPORTANT: build ISO strings from the browser's local time so the
+        // timestamptz column stores the correct UTC instant (otherwise a naive
+        // "YYYY-MM-DDTHH:MM:00" is interpreted as UTC and the event appears
+        // shifted by the Madrid offset on re-render).
+        const startIso = new Date(`${newDate}T${newStartTime}:00`).toISOString();
+        const endIso = new Date(`${newDate}T${newEndTime}:00`).toISOString();
         await supabase
           .from('calendar_events')
           .update({
-            start_at: `${newDate}T${newStartTime}:00`,
-            end_at: `${newDate}T${newEndTime}:00`,
+            start_at: startIso,
+            end_at: endIso,
           })
           .eq('id', sessionId);
         
