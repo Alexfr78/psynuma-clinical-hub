@@ -256,6 +256,11 @@ function sanitizeNombreSistemaInformatico(input: unknown): string {
 
 // Determine invoice type based on series invoice_type and other factors
 function determineInvoiceType(invoice: any): string {
+  const explicitType = String(invoice.verifactu_invoice_type || '').trim().toUpperCase();
+  if (['F1', 'F2', 'F3', 'R1', 'R2', 'R3', 'R4', 'R5'].includes(explicitType)) {
+    return explicitType;
+  }
+
   // Check if it's a simplified invoice based on series type
   const isSimplified = invoice.series?.invoice_type === 'simplified';
   
@@ -450,6 +455,7 @@ function buildRegistroAltaXML(
   generationTimestamp: string, 
   invoiceHash: string,
   rectifiedInvoice: { id: string; invoice_number: string; issue_date: string } | null,
+  substitutedInvoices: Array<{ invoice_number: string; issue_date: string }>,
   previousInvoiceNumber?: string,
   previousInvoiceDate?: string
 ): string {
@@ -461,8 +467,13 @@ function buildRegistroAltaXML(
   const numSerieFactura = sanitizeNumSerieFactura(invoice.invoice_number);
   
   // Use normalizeNifForAEAT to handle ES prefix (Error 1100 fix)
-  const patientTaxId = normalizeNifForAEAT(patient?.tax_id);
-  const patientName = patient ? `${patient.first_name} ${patient.last_name}`.trim() : 'Cliente';
+  const recipientSnapshot = invoice.recipient_snapshot && typeof invoice.recipient_snapshot === 'object'
+    ? invoice.recipient_snapshot
+    : null;
+  const patientTaxId = normalizeNifForAEAT(recipientSnapshot?.tax_id || patient?.tax_id);
+  const patientName = String(
+    recipientSnapshot?.name || (patient ? `${patient.first_name} ${patient.last_name}`.trim() : 'Cliente')
+  ).trim();
   
   // Build DescripcionOperacion - ALWAYS required, never empty
   // Use triple fallback: item description -> rectification message -> generic invoice message
@@ -558,6 +569,27 @@ function buildRegistroAltaXML(
           </sum1:FacturasRectificadas>`;
   }
 
+  let facturasSustituidasXML = '';
+  if (tipoFactura === 'F3' && substitutedInvoices.length > 0) {
+    facturasSustituidasXML = `
+          <sum1:FacturasSustituidas>${substitutedInvoices.map((substituted) => `
+            <sum1:IDFacturaSustituida>
+              <sum1:IDEmisorFactura>${nifEmisor}</sum1:IDEmisorFactura>
+              <sum1:NumSerieFactura>${sanitizeNumSerieFactura(substituted.invoice_number)}</sum1:NumSerieFactura>
+              <sum1:FechaExpedicionFactura>${formatDateVerifactu(substituted.issue_date)}</sum1:FechaExpedicionFactura>
+            </sum1:IDFacturaSustituida>`).join('')}
+          </sum1:FacturasSustituidas>`;
+  }
+
+  if (tipoFactura === 'F3' && substitutedInvoices.length === 0) {
+    throw new Error('Las facturas F3 deben identificar al menos una factura simplificada sustituida');
+  }
+
+  const fechaOperacionXML = invoice.operation_date
+    ? `
+          <sum1:FechaOperacion>${formatDateVerifactu(invoice.operation_date)}</sum1:FechaOperacion>`
+    : '';
+
   // Build TipoRectificativa for rectifying invoices
   // XSD ORDER: TipoRectificativa comes AFTER TipoFactura and BEFORE FacturasRectificadas
   let tipoRectificativaXML = '';
@@ -637,7 +669,7 @@ function buildRegistroAltaXML(
           </sum1:IDFactura>
           <sum1:NombreRazonEmisor>${escapeXML(nombreEmisor)}</sum1:NombreRazonEmisor>
           <sum1:TipoFactura>${tipoFactura}</sum1:TipoFactura>
-${tipoRectificativaXML}${facturasRectificadasXML}${importeRectificacionXML}          <sum1:DescripcionOperacion>${descripcionOperacion}</sum1:DescripcionOperacion>
+${tipoRectificativaXML}${facturasRectificadasXML}${facturasSustituidasXML}${importeRectificacionXML}${fechaOperacionXML}          <sum1:DescripcionOperacion>${descripcionOperacion}</sum1:DescripcionOperacion>
 ${destinatariosXML}          <sum1:Desglose>
 ${desgloseXML}
           </sum1:Desglose>
@@ -864,7 +896,6 @@ async function sendToAEAT(
         'SOAPAction': SOAP_ACTION_ALTA
       },
       body: signedXml,
-      // @ts-expect-error - Deno specific option for mTLS
       client: client
     });
 
@@ -1055,6 +1086,32 @@ serve(async (req) => {
       user_id: fiscalAccess.context.userId,
       center_id: fiscalAccess.context.centerId,
     });
+
+    // Idempotency guard: a client retry after a timeout must never submit a second alta.
+    const { data: acceptedRecord } = await supabase
+      .from("verifactu_records")
+      .select("hash, aeat_csv, created_at, environment")
+      .eq("invoice_id", invoice_id)
+      .eq("record_type", "alta")
+      .eq("aeat_status", "accepted")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (acceptedRecord) {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          already_registered: true,
+          invoice_number: invoice.invoice_number,
+          hash: acceptedRecord.hash,
+          csv: acceptedRecord.aeat_csv,
+          timestamp: acceptedRecord.created_at,
+          environment: acceptedRecord.environment,
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
 
     const center = invoice.centers;
     const patient = invoice.patients;
@@ -1263,8 +1320,41 @@ serve(async (req) => {
       }
     }
 
+    let substitutedInvoices: Array<{ invoice_number: string; issue_date: string }> = [];
+    if (determineInvoiceType(invoice) === 'F3') {
+      const { data: substitutions, error: substitutionsError } = await supabase
+        .from('invoice_substitutions')
+        .select('substituted_invoice:invoices!substituted_invoice_id(invoice_number, issue_date)')
+        .eq('replacement_invoice_id', invoice_id);
+
+      if (substitutionsError) {
+        throw new Error(`Error cargando facturas sustituidas: ${substitutionsError.message}`);
+      }
+
+      const joinedSubstitutions = (substitutions || []) as unknown as Array<{
+        substituted_invoice: { invoice_number: string; issue_date: string } | null;
+      }>;
+      substitutedInvoices = joinedSubstitutions
+        .map((row) => row.substituted_invoice)
+        .filter((row): row is { invoice_number: string; issue_date: string } =>
+          Boolean(row?.invoice_number && row?.issue_date)
+        );
+    }
+
     // Build XML body
-    const xmlBody = buildRegistroAltaXML(invoice, center, patient, invoiceItems, previousHash, generationTimestamp, invoiceHash, rectifiedInvoice, previousInvoiceNumber, previousInvoiceDate);
+    const xmlBody = buildRegistroAltaXML(
+      invoice,
+      center,
+      patient,
+      invoiceItems,
+      previousHash,
+      generationTimestamp,
+      invoiceHash,
+      rectifiedInvoice,
+      substitutedInvoices,
+      previousInvoiceNumber,
+      previousInvoiceDate,
+    );
     console.log("Built XML body, length:", xmlBody.length);
     
     // CRITICAL VERIFICATION: Ensure Desglose block is present and contains DetalleDesglose
@@ -1368,6 +1458,18 @@ serve(async (req) => {
           })
           .eq("id", invoice_id);
 
+        if (invoice.correction_operation_id) {
+          await supabase
+            .from('invoice_correction_operations')
+            .update({
+              status: 'rejected',
+              error_code: aeatErrorCode,
+              error_message: aeatResult.error || 'Error permanente de AEAT',
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', invoice.correction_operation_id);
+        }
+
         return new Response(
           JSON.stringify({ 
             error: `Error de AEAT: ${aeatResult.error}`,
@@ -1390,6 +1492,17 @@ serve(async (req) => {
           verifactu_retry_count: (invoice.verifactu_retry_count || 0) + 1
         })
         .eq("id", invoice_id);
+
+      if (invoice.correction_operation_id) {
+        await supabase
+          .from('invoice_correction_operations')
+          .update({
+            status: 'pending_aeat',
+            error_message: aeatResult.error || null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', invoice.correction_operation_id);
+      }
 
       // Return different response based on error type
       if (isTemporaryUnavailable) {
@@ -1559,6 +1672,18 @@ serve(async (req) => {
     }
 
     console.log(`Chain status updated: NIF=${nifEmisor}, Sistema=${idSistemaInformatico}, Instalacion=${numeroInstalacion}, Hash=${invoiceHash.substring(0, 16)}...`);
+
+    if (invoice.correction_operation_id) {
+      await supabase
+        .from('invoice_correction_operations')
+        .update({
+          status: 'registered',
+          error_code: null,
+          error_message: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', invoice.correction_operation_id);
+    }
 
     console.log("Invoice signed and registered successfully");
 

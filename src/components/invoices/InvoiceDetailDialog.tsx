@@ -10,7 +10,8 @@ import {
   Calendar, 
   Receipt,
   RefreshCw,
-  AlertTriangle
+  AlertTriangle,
+  Wrench
 } from 'lucide-react';
 import {
   ResponsiveDialog as Dialog,
@@ -28,6 +29,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { QRCodeSVG } from 'qrcode.react';
 import { hasInvoiceAeatRegistration, isInvoiceFiscalLocked } from '@/lib/invoice-immutability';
+import { useAuth } from '@/hooks/useAuth';
+import { FixInvoiceTypeDialog } from '@/components/invoices/FixInvoiceTypeDialog';
 
 interface InvoiceDetailDialogProps {
   open: boolean;
@@ -46,6 +49,8 @@ export function InvoiceDetailDialog({ open, onOpenChange, invoiceId }: InvoiceDe
   const { data: invoice, isLoading: invoiceLoading, refetch: refetchInvoice } = useInvoice(invoiceId || undefined);
   const { data: items, isLoading: itemsLoading } = useInvoiceItems(invoiceId || undefined);
   const [retrying, setRetrying] = useState(false);
+  const [fixTypeOpen, setFixTypeOpen] = useState(false);
+  const { isAdmin } = useAuth();
 
   const isLoading = invoiceLoading || itemsLoading;
   const isFiscalLocked = isInvoiceFiscalLocked(invoice);
@@ -53,6 +58,13 @@ export function InvoiceDetailDialog({ open, onOpenChange, invoiceId }: InvoiceDe
   const isPendingVerifactu = !!invoice?.verifactu_pending && !hasAeatRegistration;
   const isPermanentError = !!invoice?.verifactu_error_permanent && !hasAeatRegistration;
   const permanentErrorMessage = invoice?.verifactu_error_message;
+  const canFixInvoiceType = !!invoice
+    && isAdmin
+    && (invoice.status === 'issued' || invoice.status === 'paid')
+    && invoice.is_valid
+    && !invoice.rectified_invoice_id
+    && isFiscalLocked
+    && !isPendingVerifactu;
 
   const handleRetryVerifactu = async () => {
     if (!invoiceId) return;
@@ -93,6 +105,7 @@ export function InvoiceDetailDialog({ open, onOpenChange, invoiceId }: InvoiceDe
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
@@ -371,6 +384,29 @@ export function InvoiceDetailDialog({ open, onOpenChange, invoiceId }: InvoiceDe
               </>
             )}
 
+            {canFixInvoiceType && (
+              <>
+                <Separator />
+                <div className="space-y-3">
+                  <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">
+                    Acciones fiscales
+                  </h3>
+                  <div className="rounded-lg border p-4 sm:flex sm:items-center sm:justify-between sm:gap-4">
+                    <div>
+                      <p className="text-sm font-medium">¿Se emitió con un tipo incorrecto?</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Emite una rectificativa sustitutiva o una factura completa F3 sin duplicar cobros.
+                      </p>
+                    </div>
+                    <Button className="mt-3 min-h-11 sm:mt-0" variant="outline" onClick={() => setFixTypeOpen(true)}>
+                      <Wrench className="mr-2 h-4 w-4" />
+                      Corregir tipo de factura
+                    </Button>
+                  </div>
+                </div>
+              </>
+            )}
+
             {/* Notes */}
             {invoice.notes && (
               <>
@@ -391,5 +427,14 @@ export function InvoiceDetailDialog({ open, onOpenChange, invoiceId }: InvoiceDe
         )}
       </DialogContent>
     </Dialog>
+    {invoice && (
+      <FixInvoiceTypeDialog
+        open={fixTypeOpen}
+        onOpenChange={setFixTypeOpen}
+        invoice={invoice}
+        onCompleted={() => refetchInvoice()}
+      />
+    )}
+    </>
   );
 }

@@ -32,6 +32,12 @@ export interface Invoice {
   verifactu_error_permanent: boolean | null;
   verifactu_error_message: string | null;
   rectified_invoice_id: string | null;
+  rectification_type: string | null;
+  rectification_reason_code: string | null;
+  verifactu_invoice_type: string | null;
+  operation_date: string | null;
+  recipient_snapshot: Record<string, unknown> | null;
+  correction_operation_id: string | null;
   created_at: string;
   updated_at: string;
 }

@@ -33,6 +33,8 @@ project_id = "zprkdxmluvirxfhswrzq"
     verify_jwt = true
   [functions.export-verifactu-records]
     verify_jwt = true
+  [functions.fix-invoice-type]
+    verify_jwt = true
   [functions.generate-assessment-pdf]
     verify_jwt = true
   [functions.generate-consent-pdf]

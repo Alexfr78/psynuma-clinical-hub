@@ -13,6 +13,7 @@ export interface InvoiceForLabel {
   is_recapitulative?: boolean | null;
   rectified_invoice_id?: string | null;
   rectification_type?: 'differences' | 'substitution' | string | null;
+  verifactu_invoice_type?: string | null;
 }
 
 export interface InvoiceDocumentTypeResult {
@@ -51,6 +52,19 @@ export function getInvoiceDocumentType(
   invoice: InvoiceForLabel,
   series: InvoiceSeries | null | undefined
 ): InvoiceDocumentTypeResult {
+  if (invoice.verifactu_invoice_type === 'F3') {
+    return {
+      label: 'FACTURA COMPLETA EN SUSTITUCIÓN DE FACTURA SIMPLIFICADA',
+      shortLabel: 'Factura completa F3',
+      flags: {
+        isSimplified: false,
+        isRectifying: false,
+        isSubstitution: true,
+        isRecapitulativa: false,
+      },
+    };
+  }
+
   const isSimplified = series?.invoice_type === 'simplified';
   const isRectifying = 
     !!invoice.rectified_invoice_id || 

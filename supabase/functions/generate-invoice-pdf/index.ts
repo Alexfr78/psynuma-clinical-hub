@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { encode as base64Encode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
-import QRCode from "https://esm.sh/qrcode@1.5.4";
+import * as QRCode from "https://esm.sh/qrcode@1.5.4";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { logAuditEvent } from "../_shared/auditLogger.ts";
 
@@ -31,6 +31,15 @@ interface InvoiceData {
   is_recapitulative: boolean | null;
   rectified_invoice_id: string | null;
   rectification_type: string | null;
+  verifactu_invoice_type: string | null;
+  recipient_snapshot: {
+    name?: string | null;
+    tax_id?: string | null;
+    address?: string | null;
+    city?: string | null;
+    postal_code?: string | null;
+    email?: string | null;
+  } | null;
   series_id: string | null;
   patients: {
     first_name: string;
@@ -71,14 +80,21 @@ interface RectifiedInvoice {
   issue_date: string;
 }
 
+interface InvoiceSubstitutionJoin {
+  substituted_invoice: RectifiedInvoice | null;
+}
+
 /**
  * Unified invoice document type label logic
  * Must match the frontend implementation in src/lib/invoiceDocumentType.ts
  */
 function getInvoiceDocumentTypeLabel(
-  invoice: { is_recapitulative?: boolean | null; rectified_invoice_id?: string | null; rectification_type?: string | null },
+  invoice: { is_recapitulative?: boolean | null; rectified_invoice_id?: string | null; rectification_type?: string | null; verifactu_invoice_type?: string | null },
   series: InvoiceSeries | null
 ): string {
+  if (invoice.verifactu_invoice_type === 'F3') {
+    return 'FACTURA COMPLETA EN SUSTITUCIÓN DE FACTURA SIMPLIFICADA';
+  }
   const isSimplified = series?.invoice_type === 'simplified';
   const isRectifying = !!invoice.rectified_invoice_id || series?.series_type === 'rectifying';
   const isSubstitution = invoice.rectification_type === 'substitution';
@@ -235,6 +251,17 @@ serve(async (req) => {
       rectifiedInvoice = rectified;
     }
 
+    let substitutedInvoices: RectifiedInvoice[] = [];
+    if (invoice.verifactu_invoice_type === 'F3') {
+      const { data: substitutions } = await supabase
+        .from('invoice_substitutions')
+        .select('substituted_invoice:invoices!substituted_invoice_id(invoice_number, issue_date)')
+        .eq('replacement_invoice_id', invoice_id);
+      substitutedInvoices = ((substitutions || []) as unknown as InvoiceSubstitutionJoin[])
+        .map((row) => row.substituted_invoice)
+        .filter((row): row is RectifiedInvoice => Boolean(row?.invoice_number && row?.issue_date));
+    }
+
     const invoiceData = invoice as InvoiceData;
     const invoiceItems = (items || []) as InvoiceItem[];
 
@@ -253,7 +280,7 @@ serve(async (req) => {
     }
 
     // Generate HTML for PDF with unified label logic
-    const html = generateInvoiceHTML(invoiceData, invoiceItems, rectifiedInvoice, qrBase64, logoBase64, series);
+    const html = generateInvoiceHTML(invoiceData, invoiceItems, rectifiedInvoice, substitutedInvoices, qrBase64, logoBase64, series);
 
     // Audit: invoice PDF downloaded
     logAuditEvent({
@@ -294,6 +321,7 @@ function generateInvoiceHTML(
   invoice: InvoiceData, 
   items: InvoiceItem[], 
   rectifiedInvoice: RectifiedInvoice | null,
+  substitutedInvoices: RectifiedInvoice[],
   qrBase64: string, 
   logoBase64: string,
   series: InvoiceSeries | null
@@ -311,7 +339,8 @@ function generateInvoiceHTML(
   const invoiceTypeLabel = getInvoiceDocumentTypeLabel(invoice, series);
 
   // Build badge HTML for document type flags
-  const isSimplified = series?.invoice_type === 'simplified';
+  const isF3 = invoice.verifactu_invoice_type === 'F3';
+  const isSimplified = series?.invoice_type === 'simplified' && !isF3;
   const isRectifying = !!invoice.rectified_invoice_id || series?.series_type === 'rectifying';
   const isSubstitution = invoice.rectification_type === 'substitution';
   const isRecapitulativa = !!invoice.is_recapitulative;
@@ -320,12 +349,29 @@ function generateInvoiceHTML(
   if (isSimplified) flagBadges += '<span class="badge">Simplificada</span>';
   if (isRectifying) flagBadges += `<span class="badge">${isSubstitution ? 'Sustitutiva' : 'Por diferencias'}</span>`;
   if (isRecapitulativa) flagBadges += '<span class="badge">Recapitulativa</span>';
+  if (isF3) flagBadges += '<span class="badge">F3 · Sustituye simplificada</span>';
 
   const rectifiedSection = rectifiedInvoice ? `
     <div class="rectified-info">
       <p><strong>Factura rectificada:</strong> ${rectifiedInvoice.invoice_number} del ${formatDate(rectifiedInvoice.issue_date)}</p>
     </div>
   ` : '';
+
+  const substitutedSection = substitutedInvoices.length > 0 ? `
+    <div class="rectified-info">
+      <p><strong>Factura${substitutedInvoices.length > 1 ? 's' : ''} simplificada${substitutedInvoices.length > 1 ? 's' : ''} sustituida${substitutedInvoices.length > 1 ? 's' : ''}:</strong>
+        ${substitutedInvoices.map((item) => `${item.invoice_number} del ${formatDate(item.issue_date)}`).join(', ')}</p>
+    </div>
+  ` : '';
+
+  const recipient = invoice.recipient_snapshot || {
+    name: `${invoice.patients.first_name} ${invoice.patients.last_name}`.trim(),
+    tax_id: invoice.patients.tax_id,
+    address: invoice.patients.address,
+    city: invoice.patients.city,
+    postal_code: invoice.patients.postal_code,
+    email: invoice.patients.email,
+  };
 
   const totalTax = items.reduce((sum, item) => sum + (Number(item.tax_amount) || 0), 0);
   const totalRetention = items.reduce((sum, item) => sum + (Number(item.retention_amount) || 0), 0);
@@ -505,16 +551,17 @@ function generateInvoiceHTML(
         </div>
 
         ${rectifiedSection}
+        ${substitutedSection}
 
         <!-- Client info -->
         <div class="client-box">
           <h3>Datos del cliente</h3>
           <div class="info">
-            <p class="name">${invoice.patients.first_name} ${invoice.patients.last_name}</p>
-            ${invoice.patients.tax_id ? `<p>NIF/CIF: ${invoice.patients.tax_id}</p>` : ''}
-            ${invoice.patients.address ? `<p>${invoice.patients.address}</p>` : ''}
-            ${invoice.patients.city || invoice.patients.postal_code ? `<p>${[invoice.patients.postal_code, invoice.patients.city].filter(Boolean).join(' ')}</p>` : ''}
-            ${invoice.patients.email ? `<p>${invoice.patients.email}</p>` : ''}
+            <p class="name">${recipient.name || 'Cliente'}</p>
+            ${recipient.tax_id ? `<p>NIF/CIF: ${recipient.tax_id}</p>` : ''}
+            ${recipient.address ? `<p>${recipient.address}</p>` : ''}
+            ${recipient.city || recipient.postal_code ? `<p>${[recipient.postal_code, recipient.city].filter(Boolean).join(' ')}</p>` : ''}
+            ${recipient.email ? `<p>${recipient.email}</p>` : ''}
           </div>
         </div>
 

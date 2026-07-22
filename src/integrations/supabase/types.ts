@@ -2973,6 +2973,7 @@ export type Database = {
           access_token: string | null
           base_rectificada: number | null
           center_id: string
+          correction_operation_id: string | null
           created_at: string
           cuota_recargo_rectificado: number | null
           cuota_rectificada: number | null
@@ -2984,11 +2985,13 @@ export type Database = {
           is_valid: boolean
           issue_date: string
           notes: string | null
+          operation_date: string | null
           patient_id: string
           previous_invoice_hash: string | null
           rectification_reason_code: string | null
           rectification_type: string | null
           rectified_invoice_id: string | null
+          recipient_snapshot: Json | null
           retention_amount: number | null
           retention_rate: number | null
           series_id: string | null
@@ -3001,6 +3004,7 @@ export type Database = {
           verifactu_error_message: string | null
           verifactu_error_permanent: boolean | null
           verifactu_hash: string | null
+          verifactu_invoice_type: string | null
           verifactu_pending: boolean | null
           verifactu_qr: string | null
           verifactu_registration_id: string | null
@@ -3011,6 +3015,7 @@ export type Database = {
           access_token?: string | null
           base_rectificada?: number | null
           center_id: string
+          correction_operation_id?: string | null
           created_at?: string
           cuota_recargo_rectificado?: number | null
           cuota_rectificada?: number | null
@@ -3022,11 +3027,13 @@ export type Database = {
           is_valid?: boolean
           issue_date?: string
           notes?: string | null
+          operation_date?: string | null
           patient_id: string
           previous_invoice_hash?: string | null
           rectification_reason_code?: string | null
           rectification_type?: string | null
           rectified_invoice_id?: string | null
+          recipient_snapshot?: Json | null
           retention_amount?: number | null
           retention_rate?: number | null
           series_id?: string | null
@@ -3039,6 +3046,7 @@ export type Database = {
           verifactu_error_message?: string | null
           verifactu_error_permanent?: boolean | null
           verifactu_hash?: string | null
+          verifactu_invoice_type?: string | null
           verifactu_pending?: boolean | null
           verifactu_qr?: string | null
           verifactu_registration_id?: string | null
@@ -3049,6 +3057,7 @@ export type Database = {
           access_token?: string | null
           base_rectificada?: number | null
           center_id?: string
+          correction_operation_id?: string | null
           created_at?: string
           cuota_recargo_rectificado?: number | null
           cuota_rectificada?: number | null
@@ -3060,11 +3069,13 @@ export type Database = {
           is_valid?: boolean
           issue_date?: string
           notes?: string | null
+          operation_date?: string | null
           patient_id?: string
           previous_invoice_hash?: string | null
           rectification_reason_code?: string | null
           rectification_type?: string | null
           rectified_invoice_id?: string | null
+          recipient_snapshot?: Json | null
           retention_amount?: number | null
           retention_rate?: number | null
           series_id?: string | null
@@ -3077,6 +3088,7 @@ export type Database = {
           verifactu_error_message?: string | null
           verifactu_error_permanent?: boolean | null
           verifactu_hash?: string | null
+          verifactu_invoice_type?: string | null
           verifactu_pending?: boolean | null
           verifactu_qr?: string | null
           verifactu_registration_id?: string | null
@@ -6605,6 +6617,10 @@ export type Database = {
         }[]
       }
       get_safe_center: { Args: { p_center_id: string }; Returns: Json }
+      get_invoice_type_correction_context: {
+        Args: { p_original_invoice_id: string }
+        Returns: Json
+      }
       get_session_token: { Args: never; Returns: string }
       get_user_center_id: { Args: { _user_id: string }; Returns: string }
       handle_google_webhook_debounce: {
@@ -6617,6 +6633,26 @@ export type Database = {
       }
       handle_rectificativa_payments: {
         Args: { p_original_invoice_id: string }
+        Returns: Json
+      }
+      create_rectificativa_substitution: {
+        Args: {
+          p_idempotency_key: string
+          p_original_invoice_id: string
+          p_recipient: Json
+          p_series_id: string
+          p_update_patient: boolean
+        }
+        Returns: Json
+      }
+      create_f3_replacement: {
+        Args: {
+          p_idempotency_key: string
+          p_original_invoice_id: string
+          p_recipient: Json
+          p_series_id: string
+          p_update_patient: boolean
+        }
         Returns: Json
       }
       has_role: {
