@@ -31,16 +31,18 @@ function useDashboardStats() {
       const [patientsRes, todaySessionsRes, monthInvoicesRes, debtsRes, issuedInvoicesRes, allDebtInvoiceIdsRes] = await Promise.all([
         supabase.from('patients').select('id', { count: 'exact', head: true }).eq('status', 'active'),
         supabase.from('sessions').select('id', { count: 'exact', head: true }).eq('session_date', today).neq('status', 'cancelled').neq('status', 'no_show').neq('status', 'blocked'),
-        supabase.from('invoices').select('total, status').gte('issue_date', startOfMonth).lte('issue_date', endOfMonth),
+        supabase.from('invoices').select('total, status, retention_amount').gte('issue_date', startOfMonth).lte('issue_date', endOfMonth),
         supabase.from('debts').select('amount, paid_amount, invoice_id').in('status', ['pending', 'partial']),
         supabase.from('invoices').select('id, total').eq('status', 'issued').eq('is_valid', true),
         // All debts with invoice_id (any status) to know which invoices already have debt records
         supabase.from('debts').select('invoice_id').not('invoice_id', 'is', null),
       ]);
 
-      const monthlyRevenue = monthInvoicesRes.data
-        ?.filter(inv => inv.status === 'issued' || inv.status === 'paid')
-        .reduce((sum, inv) => sum + Number(inv.total), 0) || 0;
+      const monthEffective = monthInvoicesRes.data?.filter(inv => inv.status === 'issued' || inv.status === 'paid') || [];
+      const monthlyRevenueNet = monthEffective.reduce((sum, inv: any) => sum + Number(inv.total), 0);
+      const monthlyRetained = monthEffective.reduce((sum, inv: any) => sum + Number(inv.retention_amount ?? 0), 0);
+      const monthlyRevenue = monthlyRevenueNet + monthlyRetained;
+
 
       // Exclude debts whose invoice has been invalidated by a rectificativa
       const debtInvoiceIds = new Set(debtsRes.data?.map(d => d.invoice_id).filter(Boolean) as string[]);
@@ -68,8 +70,11 @@ function useDashboardStats() {
         activePatients: patientsRes.count || 0,
         todaySessions: todaySessionsRes.count || 0,
         monthlyRevenue,
+        monthlyRevenueNet,
+        monthlyRetained,
         pendingDebts: debtsPending + invoicesWithoutDebt,
       };
+
     },
     enabled: !!profile?.center_id,
   });
@@ -163,16 +168,18 @@ export default function Dashboard() {
       href: '/agenda',
     },
     {
-      title: 'Facturación Mes',
-      value: `${(stats?.monthlyRevenue || 0).toFixed(0)}€`,
-      description: 'Ingresos del mes',
+
+      title: 'Facturación Mes (bruto)',
+      value: `${(stats?.monthlyRevenue || 0).toFixed(2)}€`,
+      description: `Neto ${(stats?.monthlyRevenueNet || 0).toFixed(2)}€ · Retenciones ${(stats?.monthlyRetained || 0).toFixed(2)}€`,
       icon: Receipt,
       href: '/facturas',
     },
     {
       title: 'Pendientes Cobro',
-      value: `${(stats?.pendingDebts || 0).toFixed(0)}€`,
+      value: `${(stats?.pendingDebts || 0).toFixed(2)}€`,
       description: 'Deudas pendientes',
+
       icon: AlertCircle,
       href: '/cobros',
       alert: (stats?.pendingDebts || 0) > 0,
