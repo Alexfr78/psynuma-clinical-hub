@@ -334,6 +334,31 @@ export function useCreateBonoTemplate() {
   });
 }
 
+export function useUpdateBonoTemplate() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, ...updates }: Partial<BonoTemplateInsert> & { id: string }) => {
+      const { data, error } = await supabase
+        .from('bono_templates')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['bono-templates'] });
+      toast.success('Plantilla actualizada correctamente');
+    },
+    onError: (error) => {
+      toast.error('Error al actualizar la plantilla: ' + error.message);
+    },
+  });
+}
+
 export function useDeleteBonoTemplate() {
   const queryClient = useQueryClient();
 
