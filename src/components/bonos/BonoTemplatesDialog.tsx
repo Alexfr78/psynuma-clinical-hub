@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Settings, Plus, Trash2 } from 'lucide-react';
+import { Settings, Plus, Trash2, Pencil } from 'lucide-react';
 import {
   ResponsiveDialog as Dialog,
   ResponsiveDialogContent as DialogContent,
@@ -21,7 +21,12 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
-import { useBonoTemplates, useCreateBonoTemplate, useDeleteBonoTemplate } from '@/hooks/useBonos';
+import {
+  useBonoTemplates,
+  useCreateBonoTemplate,
+  useUpdateBonoTemplate,
+  useDeleteBonoTemplate,
+} from '@/hooks/useBonos';
 
 const formSchema = z.object({
   name: z.string().min(1, 'El nombre es obligatorio'),
@@ -42,8 +47,10 @@ interface BonoTemplatesDialogProps {
 export function BonoTemplatesDialog({ open, onOpenChange }: BonoTemplatesDialogProps) {
   const { data: templates, isLoading } = useBonoTemplates();
   const createTemplate = useCreateBonoTemplate();
+  const updateTemplate = useUpdateBonoTemplate();
   const deleteTemplate = useDeleteBonoTemplate();
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -63,22 +70,61 @@ export function BonoTemplatesDialog({ open, onOpenChange }: BonoTemplatesDialogP
   // Auto-calculate total
   const calculatedTotal = watchSessions * watchPricePerSession;
 
+  const resetForm = () => {
+    form.reset({
+      name: '',
+      total_sessions: 10,
+      price_per_session: 50,
+      total_price: 500,
+      validity_days: 90,
+      is_public: false,
+    });
+    setEditingId(null);
+    setShowForm(false);
+  };
+
+  const handleEdit = (template: any) => {
+    form.reset({
+      name: template.name,
+      total_sessions: template.total_sessions,
+      price_per_session: Number(template.price_per_session),
+      total_price: Number(template.total_price),
+      validity_days: template.validity_days ?? 0,
+      is_public: !!template.is_public,
+    });
+    setEditingId(template.id);
+    setShowForm(true);
+  };
+
   const onSubmit = async (values: FormValues) => {
-    await createTemplate.mutateAsync({
+    const payload = {
       name: values.name,
       total_sessions: values.total_sessions,
       price_per_session: values.price_per_session,
       total_price: calculatedTotal,
       validity_days: values.validity_days || null,
       is_public: values.is_public,
-    });
-    form.reset();
-    setShowForm(false);
+    };
+
+    if (editingId) {
+      await updateTemplate.mutateAsync({ id: editingId, ...payload });
+    } else {
+      await createTemplate.mutateAsync(payload);
+    }
+    resetForm();
   };
 
   const handleDelete = async (id: string) => {
     await deleteTemplate.mutateAsync(id);
+    if (editingId === id) resetForm();
   };
+
+  useEffect(() => {
+    if (!open) resetForm();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  const isSaving = createTemplate.isPending || updateTemplate.isPending;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -185,11 +231,15 @@ export function BonoTemplatesDialog({ open, onOpenChange }: BonoTemplatesDialogP
                     />
 
                     <div className="flex justify-end gap-2">
-                      <Button type="button" variant="ghost" onClick={() => setShowForm(false)}>
+                      <Button type="button" variant="ghost" onClick={resetForm}>
                         Cancelar
                       </Button>
-                      <Button type="submit" disabled={createTemplate.isPending}>
-                        {createTemplate.isPending ? 'Guardando...' : 'Guardar plantilla'}
+                      <Button type="submit" disabled={isSaving}>
+                        {isSaving
+                          ? 'Guardando...'
+                          : editingId
+                          ? 'Actualizar plantilla'
+                          : 'Guardar plantilla'}
                       </Button>
                     </div>
                   </form>
@@ -208,23 +258,34 @@ export function BonoTemplatesDialog({ open, onOpenChange }: BonoTemplatesDialogP
               <div className="space-y-2">
                 {templates?.map((template) => (
                   <Card key={template.id}>
-                    <CardContent className="p-3 flex items-center justify-between">
-                      <div>
-                        <p className="font-medium">{template.name}</p>
+                    <CardContent className="p-3 flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="font-medium truncate">{template.name}</p>
                         <p className="text-sm text-muted-foreground">
-                          {template.total_sessions} sesiones · {Number(template.price_per_session).toFixed(2)}€/sesión · 
+                          {template.total_sessions} sesiones · {Number(template.price_per_session).toFixed(2)}€/sesión ·
                           Total: {Number(template.total_price).toFixed(2)}€
                           {template.validity_days && ` · ${template.validity_days} días`}
                         </p>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDelete(template.id)}
-                        disabled={deleteTemplate.isPending}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleEdit(template)}
+                          aria-label="Editar plantilla"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDelete(template.id)}
+                          disabled={deleteTemplate.isPending}
+                          aria-label="Eliminar plantilla"
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
                     </CardContent>
                   </Card>
                 ))}
