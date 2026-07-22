@@ -492,7 +492,7 @@ export function useInvoiceStats() {
 
       const { data, error } = await supabase
         .from('invoices')
-        .select('total, status')
+        .select('total, status, retention_amount')
         .gte('issue_date', startOfMonth)
         .lte('issue_date', endOfMonth);
 
@@ -503,23 +503,30 @@ export function useInvoiceStats() {
       );
 
       const stats = {
-        totalIssued: 0,
+        totalIssued: 0,      // bruto (base + IVA, sin descontar retención)
+        totalIssuedNet: 0,   // neto (lo que cobras: total ya descuenta la retención)
         totalPaid: 0,
         totalPending: 0,
+        totalRetained: 0,
         count: effective.length,
       };
 
-      effective.forEach((inv) => {
-        if (inv.status === 'issued' || inv.status === 'paid') {
-          stats.totalIssued += Number(inv.total);
-        }
+      effective.forEach((inv: any) => {
+        const net = Number(inv.total);
+        const retention = Number(inv.retention_amount ?? 0);
+        const gross = net + retention;
+        stats.totalIssued += gross;
+        stats.totalIssuedNet += net;
+        stats.totalRetained += retention;
         if (inv.status === 'paid') {
-          stats.totalPaid += Number(inv.total);
+          stats.totalPaid += net;
         }
         if (inv.status === 'issued') {
-          stats.totalPending += Number(inv.total);
+          stats.totalPending += net;
         }
       });
+
+
 
 
       return stats;
