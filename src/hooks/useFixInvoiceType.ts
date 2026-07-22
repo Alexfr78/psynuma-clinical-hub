@@ -62,7 +62,7 @@ export function useInvoiceTypeCorrectionContext(invoiceId: string | null, enable
     queryKey: ['invoice-type-correction-context', invoiceId],
     enabled: enabled && !!invoiceId,
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_invoice_type_correction_context', {
+      const { data, error } = await supabase.rpc('get_invoice_type_correction_context' as any, {
         p_original_invoice_id: invoiceId!,
       });
       if (error) throw error;

@@ -254,7 +254,7 @@ export function useUpdateCustomPrice() {
 
       const { data, error } = await supabase
         .from('patient_custom_prices')
-        .update(updatePayload)
+        .update(updatePayload as any)
         .eq('id', input.id)
         .select()
         .single();

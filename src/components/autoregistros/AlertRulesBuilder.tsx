@@ -172,15 +172,16 @@ export default function AlertRulesBuilder({ templateId, fields }: Props) {
       if (editingRule) {
         const { error } = await supabase
           .from('autoregistro_alert_rules')
-          .update(payload)
+          .update(payload as any)
           .eq('id', editingRule.id);
         if (error) throw error;
       } else {
         const { error } = await supabase
           .from('autoregistro_alert_rules')
-          .insert(payload);
+          .insert(payload as any);
         if (error) throw error;
       }
+
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['alert-rules', templateId] });

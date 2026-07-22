@@ -349,7 +349,7 @@ export function InvoiceAnalyticsCard({
           </div>
         ) : (
           <ChartContainer config={chartConfig} className="h-[280px] w-full">
-            <ComposedChart data={chartData} onClick={handleChartClick} margin={{ left: 8, right: 8, top: 12, bottom: 0 }}>
+            <ComposedChart data={chartData} onClick={handleChartClick as any} margin={{ left: 8, right: 8, top: 12, bottom: 0 }}>
               <CartesianGrid vertical={false} />
               <XAxis
                 dataKey="label"
