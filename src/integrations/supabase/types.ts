@@ -6927,6 +6927,7 @@ export type Database = {
         Args: { professional_uuid: string }
         Returns: boolean
       }
+      weekly_db_maintenance: { Args: never; Returns: Json }
     }
     Enums: {
       app_role: "admin" | "professional" | "patient"
