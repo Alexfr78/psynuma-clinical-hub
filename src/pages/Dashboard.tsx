@@ -168,7 +168,7 @@ export default function Dashboard() {
       href: '/agenda',
     },
     {
-    {
+
       title: 'Facturación Mes (bruto)',
       value: `${(stats?.monthlyRevenue || 0).toFixed(2)}€`,
       description: `Neto ${(stats?.monthlyRevenueNet || 0).toFixed(2)}€ · Retenciones ${(stats?.monthlyRetained || 0).toFixed(2)}€`,
