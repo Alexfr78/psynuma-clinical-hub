@@ -70,8 +70,11 @@ function useDashboardStats() {
         activePatients: patientsRes.count || 0,
         todaySessions: todaySessionsRes.count || 0,
         monthlyRevenue,
+        monthlyRevenueNet,
+        monthlyRetained,
         pendingDebts: debtsPending + invoicesWithoutDebt,
       };
+
     },
     enabled: !!profile?.center_id,
   });
