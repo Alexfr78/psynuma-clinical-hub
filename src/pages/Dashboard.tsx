@@ -168,16 +168,18 @@ export default function Dashboard() {
       href: '/agenda',
     },
     {
-      title: 'Facturación Mes',
-      value: `${(stats?.monthlyRevenue || 0).toFixed(0)}€`,
-      description: 'Ingresos del mes',
+    {
+      title: 'Facturación Mes (bruto)',
+      value: `${(stats?.monthlyRevenue || 0).toFixed(2)}€`,
+      description: `Neto ${(stats?.monthlyRevenueNet || 0).toFixed(2)}€ · Retenciones ${(stats?.monthlyRetained || 0).toFixed(2)}€`,
       icon: Receipt,
       href: '/facturas',
     },
     {
       title: 'Pendientes Cobro',
-      value: `${(stats?.pendingDebts || 0).toFixed(0)}€`,
+      value: `${(stats?.pendingDebts || 0).toFixed(2)}€`,
       description: 'Deudas pendientes',
+
       icon: AlertCircle,
       href: '/cobros',
       alert: (stats?.pendingDebts || 0) > 0,
