@@ -247,7 +247,6 @@ export function useCanInvoiceSession(sessionId: string | undefined) {
   return useQuery({
     queryKey: ['can-invoice-session', sessionId],
     queryFn: async () => {
-      // Check if there's a billable event with pending status
       const { data: billableEvent, error: beError } = await supabase
         .from('billable_events')
         .select('id, billing_status')
@@ -256,37 +255,43 @@ export function useCanInvoiceSession(sessionId: string | undefined) {
 
       if (beError) throw beError;
 
-      // If no billable event, session can potentially be invoiced (event will be created)
       if (!billableEvent) {
         return { canInvoice: true, reason: 'no_event' };
       }
 
-      // If billable event is settled, cannot create new invoice
-      if (billableEvent.billing_status === 'settled') {
-        return { canInvoice: false, reason: 'settled' };
-      }
-
-      // Event is pending, check if there's a valid invoice already
       const { data: invoiceItems, error: iiError } = await supabase
         .from('invoice_items')
         .select(`
           invoices!inner (
             id,
+            total,
             is_valid,
-            status
+            status,
+            rectified_invoice_id
           )
         `)
         .eq('billable_event_id', billableEvent.id);
 
       if (iiError) throw iiError;
 
-      // Check if any valid, non-cancelled invoice exists
-      const hasValidInvoice = invoiceItems.some(item => {
-        const inv = item.invoices as any;
-        return inv.is_valid && inv.status !== 'cancelled';
+      const invoices = (invoiceItems || [])
+        .map((it: any) => it.invoices)
+        .filter(Boolean) as Array<{ id: string; total: number; is_valid: boolean; status: string; rectified_invoice_id: string | null }>;
+
+      // Find any "live" invoice: an original whose net (original + rectificativas) is not zero
+      const hasLive = invoices.some((inv) => {
+        if (!inv.is_valid || inv.status === 'cancelled') return false;
+        if (inv.rectified_invoice_id) {
+          // Orphan rectificativa still counts as live
+          return !invoices.some((o) => o.id === inv.rectified_invoice_id);
+        }
+        const rectSum = invoices
+          .filter((r) => r.rectified_invoice_id === inv.id && r.status !== 'cancelled')
+          .reduce((acc, r) => acc + Number(r.total || 0), 0);
+        return Math.abs(Number(inv.total || 0) + rectSum) > 0.005;
       });
 
-      if (hasValidInvoice) {
+      if (hasLive) {
         return { canInvoice: false, reason: 'has_valid_invoice' };
       }
 
@@ -295,3 +300,4 @@ export function useCanInvoiceSession(sessionId: string | undefined) {
     enabled: !!sessionId,
   });
 }
+
