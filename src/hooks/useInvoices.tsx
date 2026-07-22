@@ -650,7 +650,7 @@ export function useSessionInvoiceStatus(sessionId: string | undefined) {
       return {
         isInvoiced: invoices.length > 0,
         hasValidInvoice: !!effectiveLive,
-        canCreateInvoice: billableEvent.billing_status === 'pending' && !effectiveLive,
+        canCreateInvoice: !effectiveLive,
         invoices,
         billableEventId: billableEvent.id,
         billingStatus: billableEvent.billing_status,
