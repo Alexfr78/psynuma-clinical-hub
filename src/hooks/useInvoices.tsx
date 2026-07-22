@@ -183,7 +183,7 @@ export function useInvoice(invoiceId: string | undefined) {
         .single();
 
       if (error) throw error;
-      return data as InvoiceWithPatient;
+      return data as unknown as InvoiceWithPatient;
     },
     enabled: !!invoiceId,
   });
