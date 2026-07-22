@@ -621,23 +621,45 @@ export function useSessionInvoiceStatus(sessionId: string | undefined) {
       });
       const invoices = Array.from(invoicesMap.values());
 
-      // Check if there's a valid, non-cancelled invoice
-      const validInvoice = invoices.find((inv) =>
-        inv.is_valid && inv.status !== 'cancelled'
+      // Compute "live" invoices: original invoices whose net (original + rectificativas) is not zero,
+      // and that haven't been superseded. An original whose rectificativas fully annul it (net = 0)
+      // should NOT block re-invoicing the underlying session.
+      const rectifierIds = new Set(
+        invoices.filter((i) => i.rectified_invoice_id).map((i) => i.rectified_invoice_id as string)
       );
+      const liveInvoice = invoices.find((inv) => {
+        if (!inv.is_valid || inv.status === 'cancelled') return false;
+        // Skip rectificativas themselves; live-ness is measured on originals
+        if (inv.rectified_invoice_id) return false;
+        // Sum rectificativas that target this original
+        const rectSum = invoices
+          .filter((r) => r.rectified_invoice_id === inv.id && r.status !== 'cancelled')
+          .reduce((acc, r) => acc + Number(r.total || 0), 0);
+        const net = Number(inv.total || 0) + rectSum;
+        return Math.abs(net) > 0.005; // net still alive
+      });
+
+      // Also consider any standalone rectificativa without a paired original as "live"
+      const orphanRectLive = invoices.find(
+        (inv) => inv.rectified_invoice_id && inv.is_valid && inv.status !== 'cancelled'
+          && !invoices.some((o) => o.id === inv.rectified_invoice_id)
+      );
+
+      const effectiveLive = liveInvoice || orphanRectLive || null;
 
       return {
         isInvoiced: invoices.length > 0,
-        hasValidInvoice: !!validInvoice,
-        canCreateInvoice: billableEvent.billing_status === 'pending' && !validInvoice,
+        hasValidInvoice: !!effectiveLive,
+        canCreateInvoice: !effectiveLive,
         invoices,
         billableEventId: billableEvent.id,
         billingStatus: billableEvent.billing_status,
         // Legacy fields for backward compatibility
-        invoiceId: validInvoice?.id || invoices[0]?.id || null,
-        invoiceNumber: validInvoice?.invoice_number || invoices[0]?.invoice_number || null,
-        invoiceStatus: validInvoice?.status || invoices[0]?.status || null,
+        invoiceId: effectiveLive?.id || invoices[0]?.id || null,
+        invoiceNumber: effectiveLive?.invoice_number || invoices[0]?.invoice_number || null,
+        invoiceStatus: effectiveLive?.status || invoices[0]?.status || null,
       };
+
     },
     enabled: !!sessionId,
   });
