@@ -453,10 +453,13 @@ export default function Invoices() {
       <div className="grid gap-3 grid-cols-1 sm:grid-cols-3">
         <Card>
           <CardHeader className="pb-1 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
-            <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">Facturado este mes</CardTitle>
+            <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">Facturado este mes (bruto)</CardTitle>
           </CardHeader>
           <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
-            <p className="text-lg sm:text-2xl font-bold">{stats?.totalIssued.toFixed(0) || '0'}€</p>
+            <p className="text-lg sm:text-2xl font-bold">{(stats?.totalIssued ?? 0).toFixed(2)}€</p>
+            <p className="text-[11px] sm:text-xs text-muted-foreground mt-1">
+              Neto: {(stats?.totalIssuedNet ?? 0).toFixed(2)}€ · Retenciones IRPF: {(stats?.totalRetained ?? 0).toFixed(2)}€
+            </p>
           </CardContent>
         </Card>
         <Card>
@@ -464,7 +467,7 @@ export default function Invoices() {
             <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">Facturas pagadas</CardTitle>
           </CardHeader>
           <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
-            <p className="text-lg sm:text-2xl font-bold text-green-600">{stats?.totalPaid.toFixed(0) || '0'}€</p>
+            <p className="text-lg sm:text-2xl font-bold text-green-600">{(stats?.totalPaid ?? 0).toFixed(2)}€</p>
           </CardContent>
         </Card>
         <Card>
@@ -472,10 +475,11 @@ export default function Invoices() {
             <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">Pendiente de cobro</CardTitle>
           </CardHeader>
           <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
-            <p className="text-lg sm:text-2xl font-bold text-amber-600">{stats?.totalPending.toFixed(0) || '0'}€</p>
+            <p className="text-lg sm:text-2xl font-bold text-amber-600">{(stats?.totalPending ?? 0).toFixed(2)}€</p>
           </CardContent>
         </Card>
       </div>
+
 
       {orphanCount > 0 && (
         <Alert variant="destructive" className="border-amber-500 bg-amber-50 dark:bg-amber-950/20">
