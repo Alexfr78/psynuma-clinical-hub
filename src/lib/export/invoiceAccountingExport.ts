@@ -50,6 +50,10 @@ export interface AccountingExportInvoice {
     id?: string | null;
     invoice_number?: string | null;
     issue_date?: string | null;
+    series?: {
+      name?: string | null;
+      invoice_type?: string | null;
+    } | null;
   } | null;
   invoice_items: Array<{
     description: string;
@@ -297,17 +301,44 @@ function inferInvoiceType(
   invoice: AccountingExportInvoice,
   snapshot: FiscalRecipientSnapshot | null,
 ): string {
-  if (invoice.verifactu_invoice_type) return invoice.verifactu_invoice_type;
   if (invoice.rectified_invoice_id) {
+    const originalSeriesType = invoice.rectified_invoice?.series?.invoice_type;
+    const originalNumber = invoice.rectified_invoice?.invoice_number || '';
+    const originalWasSimplified = originalSeriesType === 'simplified'
+      || (!originalSeriesType && originalNumber.startsWith('SP'));
+    const originalWasComplete = originalSeriesType === 'complete'
+      || (!originalSeriesType && originalNumber.startsWith('SF'));
+
+    if (originalWasSimplified) return 'R5';
+    if (originalWasComplete) {
+      if (invoice.rectification_reason_code?.match(/^R[1-4]$/)) {
+        return invoice.rectification_reason_code;
+      }
+      if (invoice.verifactu_invoice_type?.match(/^R[1-4]$/)) {
+        return invoice.verifactu_invoice_type;
+      }
+      return '';
+    }
+
     if (invoice.rectification_reason_code?.match(/^R[1-5]$/)) {
       return invoice.rectification_reason_code;
     }
     return invoice.series?.invoice_type === 'simplified' ? 'R5' : 'R1';
   }
+  if (invoice.verifactu_invoice_type) return invoice.verifactu_invoice_type;
   if (invoice.series?.invoice_type === 'simplified') {
     return hasInvoiceFiscalRecipient(snapshot) ? 'F1' : 'F2';
   }
   return 'F1';
+}
+
+function getRectificationReasonCode(
+  invoice: AccountingExportInvoice,
+  fiscalInvoiceType: string,
+): string {
+  if (!invoice.rectified_invoice_id) return invoice.rectification_reason_code || '';
+  if (fiscalInvoiceType === 'R5') return 'R5';
+  return fiscalInvoiceType.match(/^R[1-4]$/) ? fiscalInvoiceType : '';
 }
 
 function getCorrectionKind(invoice: AccountingExportInvoice, fiscalType: string): string {
@@ -352,13 +383,17 @@ function normalizeSubmissionStatus(
   invoice: AccountingExportInvoice,
   record: AccountingVerifactuRecord | undefined,
   event: AccountingVerifactuEvent | undefined,
+  expectedRecordType: 'alta' | 'anulacion',
 ): string {
   const responseStatus = extractXmlValue(
     record?.aeat_response_xml || event?.aeat_response_xml,
     'EstadoRegistro',
   ).toLowerCase();
 
-  if (responseStatus.includes('error')) return 'accepted_with_errors';
+  if (responseStatus.includes('aceptado') && responseStatus.includes('error')) {
+    return 'accepted_with_errors';
+  }
+  if (responseStatus.includes('incorrect') || responseStatus.includes('rechaz')) return 'rejected';
   if (record?.aeat_status === 'accepted') return 'accepted';
   if (record?.aeat_status === 'rejected') return 'rejected';
   if (record?.aeat_status === 'not_sent') return 'not_sent';
@@ -366,7 +401,8 @@ function normalizeSubmissionStatus(
   if (event?.event_type === 'error' && (event.aeat_response_code || event.aeat_response_xml)) {
     return 'rejected';
   }
-  if (event?.event_type === 'alta' || event?.event_type === 'anulacion') return 'accepted';
+  if (event?.aeat_csv) return 'accepted';
+  if (expectedRecordType === 'anulacion') return '';
   if (invoice.verifactu_pending) return 'pending';
   if (invoice.verifactu_registration_id) return 'accepted';
   return '';
@@ -375,11 +411,35 @@ function normalizeSubmissionStatus(
 function findRecordEvent(
   record: AccountingVerifactuRecord | undefined,
   events: AccountingVerifactuEvent[],
+  expectedRecordType: 'alta' | 'anulacion',
 ): AccountingVerifactuEvent | undefined {
-  if (!record) return events[events.length - 1];
-  const sameType = events.filter((event) => event.event_type === record.record_type);
+  const recordType = record?.record_type || expectedRecordType;
+  const sameType = events.filter((event) => event.event_type === recordType);
+  if (!record) {
+    const errorEvents = events.filter((event) => event.event_type === 'error');
+    return sameType[sameType.length - 1] || errorEvents[errorEvents.length - 1];
+  }
   const precedingEvents = sameType.filter((event) => event.created_at <= record.created_at);
   return precedingEvents[precedingEvents.length - 1] || sameType[sameType.length - 1];
+}
+
+function normalizeVerifactuRecordType(
+  fiscalStatus: string,
+  record: AccountingVerifactuRecord | undefined,
+  event: AccountingVerifactuEvent | undefined,
+): 'alta' | 'anulacion' | '' {
+  if (record?.record_type === 'alta' || record?.record_type === 'anulacion') {
+    return record.record_type;
+  }
+
+  if (fiscalStatus === 'cancelled') {
+    return event?.event_type === 'anulacion' ? 'anulacion' : '';
+  }
+
+  // Every non-cancelled row originates from issuing a normal or rectifying
+  // invoice. Historical rows may predate persisted record_type metadata, but
+  // their fiscal operation is still unequivocally an alta.
+  return 'alta';
 }
 
 export function buildInvoiceAccountingRows(
@@ -477,15 +537,18 @@ export function buildInvoiceAccountingRows(
     const records = recordsByInvoice.get(invoice.id) || [];
     const events = eventsByInvoice.get(invoice.id) || [];
     const altaRecords = records.filter((record) => record.record_type === 'alta');
+    const historicalUntypedRecords = records.filter((record) => !record.record_type);
     const cancellationRecords = records.filter((record) => record.record_type === 'anulacion');
-    const altaRecord = altaRecords[altaRecords.length - 1];
+    const altaRecord = altaRecords[altaRecords.length - 1]
+      || historicalUntypedRecords[historicalUntypedRecords.length - 1];
     const canonicalRecord = fiscalStatus === 'cancelled'
       ? cancellationRecords[cancellationRecords.length - 1]
       : altaRecord;
     const rowRecords: Array<AccountingVerifactuRecord | undefined> = [canonicalRecord];
 
     return rowRecords.map((record) => {
-      const event = findRecordEvent(record, events);
+      const expectedRecordType = fiscalStatus === 'cancelled' ? 'anulacion' : 'alta';
+      const event = findRecordEvent(record, events, expectedRecordType);
       const fiscalXml = (record?.record_type === 'alta' ? record.xml_sent : altaRecord?.xml_sent)
         || record?.xml_sent
         || '';
@@ -495,6 +558,7 @@ export function buildInvoiceAccountingRows(
         ?? invoice.invoice_items.find((item) => item.tax_rate !== null && item.tax_rate !== undefined)?.tax_rate
         ?? 0;
       const isCancellation = record?.record_type === 'anulacion';
+      const normalizedRecordType = normalizeVerifactuRecordType(fiscalStatus, record, event);
 
       return {
         invoice_number: invoice.invoice_number || '',
@@ -513,7 +577,7 @@ export function buildInvoiceAccountingRows(
         fiscal_invoice_type: fiscalInvoiceType,
         correction_kind: correctionKind,
         rectification_type: normalizeRectificationType(invoice.rectification_type),
-        rectification_reason_code: invoice.rectification_reason_code || '',
+        rectification_reason_code: getRectificationReasonCode(invoice, fiscalInvoiceType),
         replaced_invoice_numbers: references.map((reference) => reference.invoice_number).join('; '),
         replaced_invoice_dates: references.map((reference) => reference.issue_date).filter(Boolean).join('; '),
         net_amount: formatDecimal(netAmount),
@@ -540,21 +604,30 @@ export function buildInvoiceAccountingRows(
         operation_qualification: xmlQualification,
         tax_exemption_code: exemptionCode,
         fiscal_status: fiscalStatus,
-        verifactu_record_type: record?.record_type || '',
+        verifactu_record_type: normalizedRecordType,
         cancellation_date: fiscalStatus === 'cancelled'
           ? invoice.cancellation_date || (isCancellation ? record.created_at.slice(0, 10) : '')
           : '',
         cancellation_reason: fiscalStatus === 'cancelled' ? invoice.cancellation_reason || '' : '',
         rectified_psycma_invoice_ids: references.map((reference) => reference.id).filter(Boolean).join('; '),
-        verifactu_generated_at: record?.record_type === 'alta'
-          ? invoice.verifactu_timestamp || record.created_at
-          : record?.created_at || invoice.verifactu_timestamp || '',
+        verifactu_generated_at: normalizedRecordType === 'alta'
+          ? invoice.verifactu_timestamp || record?.created_at || ''
+          : record?.created_at || '',
         verifactu_sent_at: event?.created_at || '',
-        verifactu_submission_status: normalizeSubmissionStatus(invoice, record, event),
-        verifactu_hash: record?.hash || invoice.verifactu_hash || invoice.invoice_hash || '',
-        previous_record_hash: record?.previous_hash || invoice.previous_invoice_hash || '',
+        verifactu_submission_status: normalizeSubmissionStatus(
+          invoice,
+          record,
+          event,
+          expectedRecordType,
+        ),
+        verifactu_hash: record?.hash
+          || (fiscalStatus === 'cancelled' ? '' : invoice.verifactu_hash || invoice.invoice_hash || ''),
+        previous_record_hash: record?.previous_hash
+          || (fiscalStatus === 'cancelled' ? '' : invoice.previous_invoice_hash || ''),
         aeat_response_code: event?.aeat_response_code || '',
-        aeat_csv: record?.aeat_csv || event?.aeat_csv || invoice.verifactu_registration_id || '',
+        aeat_csv: record?.aeat_csv
+          || event?.aeat_csv
+          || (fiscalStatus === 'cancelled' ? '' : invoice.verifactu_registration_id || ''),
       };
     });
   });

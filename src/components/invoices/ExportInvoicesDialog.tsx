@@ -94,7 +94,10 @@ export function ExportInvoicesDialog({ open, onOpenChange }: ExportInvoicesDialo
           patient_id,
           patients:patient_id (first_name, last_name, tax_id, address, city, postal_code, email),
           series:series_id (name, invoice_type, series_type),
-          rectified_invoice:rectified_invoice_id (id, invoice_number, issue_date),
+          rectified_invoice:rectified_invoice_id (
+            id, invoice_number, issue_date,
+            series:series_id (name, invoice_type)
+          ),
           invoice_items (
             description, quantity, unit_price, total, tax_rate, session_id, bono_id,
             session:session_id (session_date),

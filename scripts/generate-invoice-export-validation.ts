@@ -10,7 +10,7 @@ import {
 const outputPath = resolve(
   process.cwd(),
   'validation',
-  'invoice-export-2026-02-01-to-2026-07-18-v2.csv',
+  'invoice-export-2026-02-01-to-2026-07-25-v2.csv',
 );
 
 function invoice(
@@ -67,18 +67,23 @@ function rectifyingInvoice(
   seriesName: 'RP' | 'RS',
   originalNumber: string,
   originalId: string,
-  fiscalType: 'R1' | 'R4' | 'R5',
+  storedFiscalType: 'R1' | 'R4' | 'R5',
 ): AccountingExportInvoice {
+  const originalInvoiceType = originalNumber.startsWith('SP') ? 'simplified' : 'complete';
   return invoice(`validation-${invoiceNumber}`, invoiceNumber, seriesName, {
-    verifactu_invoice_type: fiscalType,
+    verifactu_invoice_type: storedFiscalType,
     rectified_invoice_id: originalId,
-    rectification_type: fiscalType === 'R4' ? 'substitution' : 'differences',
-    rectification_reason_code: fiscalType,
+    rectification_type: storedFiscalType === 'R4' ? 'substitution' : 'differences',
+    rectification_reason_code: storedFiscalType,
     correction_operation_id: `validation-operation-${invoiceNumber}`,
     rectified_invoice: {
       id: originalId,
       invoice_number: originalNumber,
       issue_date: '2026-06-01',
+      series: {
+        name: originalNumber.slice(0, 2),
+        invoice_type: originalInvoiceType,
+      },
     },
   });
 }
@@ -105,9 +110,11 @@ const invoices: AccountingExportInvoice[] = [
   invoice('validation-sp', 'SP-VALIDATION-001', 'SP'),
   rectifyingInvoice('RP260001', 'RP', 'SP260004', 'validation-original-SP260004', 'R5'),
   rectifyingInvoice('RP260002', 'RP', 'SP260022', 'validation-original-SP260022', 'R5'),
-  rectifyingInvoice('RS260002', 'RS', 'SF260053', 'validation-original-SF260053', 'R1'),
+  // These mirror the invalid historic R5 value found on complete rectifications.
+  // The exporter must leave the fiscal cause empty instead of inventing R1-R4.
+  rectifyingInvoice('RS260002', 'RS', 'SF260053', 'validation-original-SF260053', 'R5'),
   rectifyingInvoice('RP260003', 'RP', 'SP260033', 'validation-original-SP260033', 'R5'),
-  rectifyingInvoice('RS260003', 'RS', 'SF260087', 'validation-original-SF260087', 'R4'),
+  rectifyingInvoice('RS260003', 'RS', 'SF260087', 'validation-original-SF260087', 'R5'),
   invoice('validation-sp-260011', 'SP260011', 'SP', {
     status: 'cancelled',
     is_valid: false,
@@ -117,6 +124,20 @@ const invoices: AccountingExportInvoice[] = [
 ];
 
 const records: AccountingVerifactuRecord[] = [
+  ...invoices
+    .filter((invoice) => invoice.status !== 'cancelled')
+    .map((invoice, index) => ({
+      id: `validation-untyped-alta-${invoice.id}`,
+      invoice_id: invoice.id,
+      record_type: '',
+      hash: `VALIDATION_ONLY_ALTA_HASH_${index + 1}`,
+      previous_hash: index === 0 ? null : `VALIDATION_ONLY_ALTA_HASH_${index}`,
+      aeat_status: 'accepted',
+      aeat_csv: `VALIDATION_ONLY_ALTA_CSV_${index + 1}`,
+      aeat_response_xml: '<EstadoRegistro>Correcto</EstadoRegistro>',
+      xml_sent: '<RegistroFacturacionAlta><OperacionExenta>E1</OperacionExenta></RegistroFacturacionAlta>',
+      created_at: `2026-07-${String(index + 10).padStart(2, '0')}T10:00:00+02:00`,
+    })),
   {
     id: 'validation-sp-260011-alta',
     invoice_id: 'validation-sp-260011',

@@ -228,7 +228,102 @@ describe('buildInvoiceAccountingRows', () => {
       }),
     ], [])[0];
 
-    expect(row.fiscal_invoice_type).toBe('F2');
+    expect(row).toMatchObject({
+      fiscal_invoice_type: 'F2',
+      verifactu_record_type: 'alta',
+    });
+  });
+
+  it.each(['F1', 'F2', 'F3'] as const)(
+    'exports an accepted %s invoice as an alta when historical record_type is absent',
+    (fiscalType) => {
+      const row = buildInvoiceAccountingRows([
+        makeInvoice({
+          verifactu_invoice_type: fiscalType,
+          verifactu_registration_id: `CSV-${fiscalType}`,
+          verifactu_hash: `HASH-${fiscalType}`,
+        }),
+      ], [])[0];
+
+      expect(row).toMatchObject({
+        fiscal_invoice_type: fiscalType,
+        verifactu_record_type: 'alta',
+        verifactu_submission_status: 'accepted',
+        aeat_csv: `CSV-${fiscalType}`,
+        verifactu_hash: `HASH-${fiscalType}`,
+      });
+    },
+  );
+
+  it('preserves accepted metadata from a historical alta record whose record_type is empty', () => {
+    const row = buildInvoiceAccountingRows(
+      [makeInvoice({ verifactu_timestamp: '2026-03-01T10:00:00+01:00' })],
+      [],
+      [makeRecord({
+        record_type: '',
+        hash: 'HISTORICAL-HASH',
+        previous_hash: 'HISTORICAL-PREVIOUS-HASH',
+        aeat_csv: 'HISTORICAL-CSV',
+      })],
+      [makeEvent()],
+    )[0];
+
+    expect(row).toMatchObject({
+      verifactu_record_type: 'alta',
+      verifactu_generated_at: '2026-03-01T10:00:00+01:00',
+      verifactu_submission_status: 'accepted',
+      verifactu_hash: 'HISTORICAL-HASH',
+      previous_record_hash: 'HISTORICAL-PREVIOUS-HASH',
+      aeat_csv: 'HISTORICAL-CSV',
+    });
+  });
+
+  it.each(['R1', 'R2', 'R3', 'R4', 'R5'] as const)(
+    'exports an accepted %s rectificativa as an alta',
+    (fiscalType) => {
+      const simplified = fiscalType === 'R5';
+      const row = buildInvoiceAccountingRows([
+        makeInvoice({
+          invoice_number: `${simplified ? 'RP' : 'RS'}-${fiscalType}`,
+          verifactu_invoice_type: fiscalType,
+          rectification_reason_code: fiscalType,
+          rectified_invoice_id: `original-${fiscalType}`,
+          rectified_invoice: {
+            id: `original-${fiscalType}`,
+            invoice_number: `${simplified ? 'SP' : 'SF'}-${fiscalType}`,
+            issue_date: '2026-06-01',
+            series: {
+              name: simplified ? 'SP' : 'SF',
+              invoice_type: simplified ? 'simplified' : 'complete',
+            },
+          },
+          verifactu_registration_id: `CSV-${fiscalType}`,
+        }),
+      ], [])[0];
+
+      expect(row).toMatchObject({
+        fiscal_invoice_type: fiscalType,
+        fiscal_status: 'valid',
+        verifactu_record_type: 'alta',
+        verifactu_submission_status: 'accepted',
+      });
+    },
+  );
+
+  it('keeps a rectified original in the fiscal history as an alta, not an anulacion', () => {
+    const row = buildInvoiceAccountingRows([
+      makeInvoice({
+        invoice_number: 'SF260053',
+        is_valid: false,
+        verifactu_registration_id: 'CSV-ORIGINAL',
+      }),
+    ], [])[0];
+
+    expect(row).toMatchObject({
+      psycma_is_valid: 'false',
+      fiscal_status: 'rectified',
+      verifactu_record_type: 'alta',
+    });
   });
 
   it('does not turn F2 into F1 when the NIF exists only on the contact', () => {
@@ -408,6 +503,31 @@ describe('buildInvoiceAccountingRows', () => {
     });
   });
 
+  it('never exports R5 for a complete original when no valid R1-R4 cause is stored', () => {
+    const row = buildInvoiceAccountingRows([
+      makeInvoice({
+        invoice_number: 'RS260002',
+        verifactu_invoice_type: 'R5',
+        rectification_reason_code: 'R5',
+        rectified_invoice_id: 'original-sf-260053',
+        rectified_invoice: {
+          id: 'original-sf-260053',
+          invoice_number: 'SF260053',
+          issue_date: '2026-04-21',
+          series: { name: 'SF', invoice_type: 'complete' },
+        },
+        series: { name: 'RS', invoice_type: 'complete', series_type: 'rectifying' },
+      }),
+    ], [])[0];
+
+    expect(row).toMatchObject({
+      fiscal_invoice_type: '',
+      rectification_reason_code: '',
+      replaced_invoice_numbers: 'SF260053',
+      rectified_psycma_invoice_ids: 'original-sf-260053',
+    });
+  });
+
   it('keeps a cancelled invoice and exports only its canonical anulacion record', () => {
     const records = [
       makeRecord(),
@@ -459,6 +579,73 @@ describe('buildInvoiceAccountingRows', () => {
       verifactu_hash: 'persisted-cancel-hash',
       previous_record_hash: 'persisted-alta-hash',
       aeat_csv: 'CSV-CANCEL',
+    });
+  });
+
+  it('does not reuse alta metadata when a cancelled invoice has no anulacion record', () => {
+    const row = buildInvoiceAccountingRows(
+      [makeInvoice({
+        invoice_number: 'SP260011',
+        status: 'cancelled',
+        invoice_hash: 'legacy-alta-invoice-hash',
+        previous_invoice_hash: 'legacy-alta-previous-hash',
+        verifactu_hash: 'legacy-alta-verifactu-hash',
+        verifactu_registration_id: 'LEGACY-ALTA-CSV',
+        verifactu_timestamp: '2026-03-02T10:00:00+01:00',
+      })],
+      [],
+      [makeRecord({
+        record_type: 'alta',
+        hash: 'canonical-alta-hash',
+        aeat_csv: 'CANONICAL-ALTA-CSV',
+      })],
+      [makeEvent({
+        event_type: 'anulacion',
+        aeat_csv: null,
+        aeat_response_xml: null,
+        created_at: '2026-03-07T09:33:51+00:00',
+      })],
+    )[0];
+
+    expect(row).toMatchObject({
+      verifactu_record_type: 'anulacion',
+      verifactu_generated_at: '',
+      verifactu_sent_at: '2026-03-07T09:33:51+00:00',
+      verifactu_submission_status: '',
+      verifactu_hash: '',
+      previous_record_hash: '',
+      aeat_csv: '',
+    });
+  });
+
+  it('does not infer anulacion from an unrelated historical error timestamp', () => {
+    const row = buildInvoiceAccountingRows(
+      [makeInvoice({
+        invoice_number: 'SP260011',
+        status: 'cancelled',
+      })],
+      [],
+      [makeRecord({ record_type: 'alta' })],
+      [makeEvent({
+        event_type: 'error',
+        aeat_response_code: null,
+        aeat_response_xml: null,
+        aeat_csv: null,
+        created_at: '2026-03-07T09:33:51.090611+00:00',
+      })],
+    )[0];
+
+    expect(row).toMatchObject({
+      fiscal_status: 'cancelled',
+      psycma_is_valid: 'false',
+      verifactu_record_type: '',
+      verifactu_generated_at: '',
+      verifactu_sent_at: '2026-03-07T09:33:51.090611+00:00',
+      verifactu_submission_status: '',
+      verifactu_hash: '',
+      previous_record_hash: '',
+      aeat_response_code: '',
+      aeat_csv: '',
     });
   });
 
@@ -521,6 +708,7 @@ describe('buildInvoiceAccountingRows', () => {
     expect(csv).toContain('"García, Ana ""Luz"""');
     expect(csv).toContain('"Calle ""Mayor"", 10"');
     expect(csv).toContain('"Línea uno\nLínea dos"');
+    expect(csv.charCodeAt(0)).toBe(0xfeff);
     expect(csv.split('\r\n')[0]).toContain('"invoice_number"');
 
     const records = parseCsvRecords(csv);
@@ -549,7 +737,7 @@ describe('buildInvoiceAccountingRows', () => {
       operation_date: '',
       operation_qualification: '',
       tax_exemption_code: '',
-      verifactu_record_type: '',
+      verifactu_record_type: 'alta',
       verifactu_submission_status: '',
       verifactu_hash: '',
       previous_record_hash: '',
@@ -573,8 +761,10 @@ describe('buildInvoiceAccountingRows', () => {
     )[0];
 
     expect(row).toMatchObject({
+      verifactu_record_type: 'alta',
       verifactu_submission_status: 'rejected',
       aeat_response_code: '1238',
+      aeat_csv: '',
     });
   });
 

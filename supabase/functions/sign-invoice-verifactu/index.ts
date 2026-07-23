@@ -257,24 +257,43 @@ function sanitizeNombreSistemaInformatico(input: unknown): string {
 // Determine invoice type based on series invoice_type and other factors
 function determineInvoiceType(invoice: any): string {
   const explicitType = String(invoice.verifactu_invoice_type || '').trim().toUpperCase();
-  if (['F1', 'F2', 'F3', 'R1', 'R2', 'R3', 'R4', 'R5'].includes(explicitType)) {
+
+  // Rectifying invoices
+  if (invoice.rectified_invoice_id) {
+    const originalSeriesType = invoice.rectified_invoice?.series?.invoice_type;
+    const originalNumber = String(invoice.rectified_invoice?.invoice_number || '');
+    const originalWasSimplified = originalSeriesType === 'simplified'
+      || (!originalSeriesType && originalNumber.startsWith('SP'));
+    const originalWasComplete = originalSeriesType === 'complete'
+      || (!originalSeriesType && originalNumber.startsWith('SF'));
+
+    if (originalWasSimplified) return 'R5';
+    if (originalWasComplete) {
+      if (/^R[1-4]$/.test(explicitType)) return explicitType;
+      const reasonCode = String(invoice.rectification_reason_code || '').trim().toUpperCase();
+      if (/^R[1-4]$/.test(reasonCode)) return reasonCode;
+      throw new Error(
+        `La rectificativa completa ${invoice.invoice_number} no tiene una causa R1-R4 válida`,
+      );
+    }
+
+    if (/^R[1-5]$/.test(explicitType)) return explicitType;
+    const reasonCode = String(invoice.rectification_reason_code || '').trim().toUpperCase();
+    if (/^R[1-5]$/.test(reasonCode)) return reasonCode;
+    if (invoice.series?.invoice_type === 'simplified') {
+      return 'R5';
+    }
+    throw new Error(
+      `No se puede determinar el tipo fiscal de la rectificativa ${invoice.invoice_number}`,
+    );
+  }
+
+  if (['F1', 'F2', 'F3'].includes(explicitType)) {
     return explicitType;
   }
 
   // Check if it's a simplified invoice based on series type
   const isSimplified = invoice.series?.invoice_type === 'simplified';
-  
-  // Rectifying invoices
-  if (invoice.rectified_invoice_id) {
-    if (invoice.rectification_reason_code) {
-      return invoice.rectification_reason_code; // R1, R2, R3, R4, or R5
-    }
-    // Legacy fallback
-    if (invoice.rectification_type === 'S') {
-      return 'R1'; // Rectificativa por sustitución
-    }
-    return isSimplified ? 'R5' : 'R1';
-  }
   
   // Recapitulative invoices (factura que agrupa simplificadas)
   if (invoice.is_recapitulative) {
@@ -1052,7 +1071,10 @@ serve(async (req) => {
         *,
         patients (id, first_name, last_name, tax_id, address, city, postal_code),
         invoice_items (*),
-        rectified_invoice:invoices!rectified_invoice_id (id, invoice_number, issue_date),
+        rectified_invoice:invoices!rectified_invoice_id (
+          id, invoice_number, issue_date,
+          series:invoice_series!series_id (id, invoice_type)
+        ),
         series:invoice_series!series_id (id, invoice_type, series_type),
         centers (
           id, name, tax_id,

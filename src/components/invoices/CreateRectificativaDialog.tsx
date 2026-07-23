@@ -210,7 +210,7 @@ export function CreateRectificativaDialog({
       };
 
       // Prepare invoice data
-      const invoiceData: any = {
+      const invoiceData = {
         center_id: center.id,
         patient_id: originalInvoice.patient_id,
         invoice_number: invoiceNumber,
@@ -226,14 +226,15 @@ export function CreateRectificativaDialog({
         rectified_invoice_id: originalInvoice.id,
         rectification_type: rectificationTypeMap[values.rectification_type],
         rectification_reason_code: values.rectification_reason_code,
+        verifactu_invoice_type: values.rectification_reason_code,
         notes: values.notes || `Rectificación ${values.rectification_reason_code} tipo ${values.rectification_type === 'I' ? 'por diferencias' : 'sustitutiva'} de ${originalInvoice.invoice_number}`,
+        ...(values.rectification_type === 'S'
+          ? {
+              base_rectificada: values.base_rectificada,
+              cuota_rectificada: values.cuota_rectificada,
+            }
+          : {}),
       };
-
-      // Add substitution-specific fields
-      if (values.rectification_type === 'S') {
-        invoiceData.base_rectificada = values.base_rectificada;
-        invoiceData.cuota_rectificada = values.cuota_rectificada;
-      }
 
       // Create the rectificativa invoice
       const { data: invoice, error: invoiceError } = await supabase
