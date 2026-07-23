@@ -95,7 +95,11 @@ export function ExportInvoicesDialog({ open, onOpenChange }: ExportInvoicesDialo
           patients:patient_id (first_name, last_name, tax_id, address, city, postal_code, email),
           series:series_id (name, invoice_type, series_type),
           rectified_invoice:rectified_invoice_id (id, invoice_number, issue_date),
-          invoice_items (description, quantity, unit_price, total, tax_rate),
+          invoice_items (
+            description, quantity, unit_price, total, tax_rate, session_id, bono_id,
+            session:session_id (session_date),
+            bono:bono_id (created_at)
+          ),
           payments (amount, payment_date, payment_method, notes, reference)
         `)
         .eq('center_id', center.id)

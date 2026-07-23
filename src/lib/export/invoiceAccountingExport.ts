@@ -55,6 +55,14 @@ export interface AccountingExportInvoice {
     unit_price: number;
     total: number;
     tax_rate?: number | null;
+    session_id?: string | null;
+    bono_id?: string | null;
+    session?: {
+      session_date?: string | null;
+    } | null;
+    bono?: {
+      created_at?: string | null;
+    } | null;
   }>;
   payments: Array<{
     amount: number;
@@ -96,14 +104,26 @@ export interface AccountingVerifactuEvent {
 }
 
 export interface InvoiceExportRow {
-  // The first 23 fields are the immutable expense-scribe v1 contract.
+  // The first 37 fields are the immutable accounting export contract.
   invoice_number: string;
   invoice_date: string;
   due_date: string;
+  operation_date: string;
   description: string;
   client_name: string;
   client_tax_id: string;
+  client_address: string;
+  client_city: string;
+  client_postal_code: string;
+  client_email: string;
   client_country: string;
+  fiscal_recipient_source: string;
+  fiscal_invoice_type: string;
+  correction_kind: string;
+  rectification_type: string;
+  rectification_reason_code: string;
+  replaced_invoice_numbers: string;
+  replaced_invoice_dates: string;
   net_amount: string;
   vat_amount: string;
   irpf_retention: string;
@@ -120,23 +140,20 @@ export interface InvoiceExportRow {
   psycma_center_id: string;
   psycma_series_id: string;
   psycma_status: string;
+  psycma_is_valid: string;
+  psycma_correction_operation_id: string;
 
-  // Accounting export schema v2 fields. Append only.
+  // Accounting export schema v2 fields. These 17 fields are append-only.
   export_schema_version: string;
   invoice_series: string;
-  invoice_type: string;
-  fiscal_status: string;
-  verifactu_record_type: string;
-  operation_date: string;
   vat_rate: string;
   operation_qualification: string;
   tax_exemption_code: string;
-  rectification_type: string;
-  rectified_invoice_number: string;
-  rectified_invoice_date: string;
-  rectified_psycma_invoice_id: string;
+  fiscal_status: string;
+  verifactu_record_type: string;
   cancellation_date: string;
   cancellation_reason: string;
+  rectified_psycma_invoice_ids: string;
   verifactu_generated_at: string;
   verifactu_sent_at: string;
   verifactu_submission_status: string;
@@ -147,6 +164,7 @@ export interface InvoiceExportRow {
 }
 
 export const INVOICE_CSV_COLUMNS: Array<{ key: keyof InvoiceExportRow; header: string }> = [
+  // Original 23 expense-scribe fields.
   { key: 'invoice_number', header: 'invoice_number' },
   { key: 'invoice_date', header: 'invoice_date' },
   { key: 'due_date', header: 'due_date' },
@@ -170,21 +188,34 @@ export const INVOICE_CSV_COLUMNS: Array<{ key: keyof InvoiceExportRow; header: s
   { key: 'psycma_center_id', header: 'psycma_center_id' },
   { key: 'psycma_series_id', header: 'psycma_series_id' },
   { key: 'psycma_status', header: 'psycma_status' },
+
+  // Original fiscal traceability fields (24-37). Do not reorder.
+  { key: 'operation_date', header: 'operation_date' },
+  { key: 'client_address', header: 'client_address' },
+  { key: 'client_city', header: 'client_city' },
+  { key: 'client_postal_code', header: 'client_postal_code' },
+  { key: 'client_email', header: 'client_email' },
+  { key: 'fiscal_recipient_source', header: 'fiscal_recipient_source' },
+  { key: 'fiscal_invoice_type', header: 'fiscal_invoice_type' },
+  { key: 'correction_kind', header: 'correction_kind' },
+  { key: 'rectification_type', header: 'rectification_type' },
+  { key: 'rectification_reason_code', header: 'rectification_reason_code' },
+  { key: 'replaced_invoice_numbers', header: 'replaced_invoice_numbers' },
+  { key: 'replaced_invoice_dates', header: 'replaced_invoice_dates' },
+  { key: 'psycma_is_valid', header: 'psycma_is_valid' },
+  { key: 'psycma_correction_operation_id', header: 'psycma_correction_operation_id' },
+
+  // Schema v2 fields (38-54). Append only.
   { key: 'export_schema_version', header: 'export_schema_version' },
   { key: 'invoice_series', header: 'invoice_series' },
-  { key: 'invoice_type', header: 'invoice_type' },
-  { key: 'fiscal_status', header: 'fiscal_status' },
-  { key: 'verifactu_record_type', header: 'verifactu_record_type' },
-  { key: 'operation_date', header: 'operation_date' },
   { key: 'vat_rate', header: 'vat_rate' },
   { key: 'operation_qualification', header: 'operation_qualification' },
   { key: 'tax_exemption_code', header: 'tax_exemption_code' },
-  { key: 'rectification_type', header: 'rectification_type' },
-  { key: 'rectified_invoice_number', header: 'rectified_invoice_number' },
-  { key: 'rectified_invoice_date', header: 'rectified_invoice_date' },
-  { key: 'rectified_psycma_invoice_id', header: 'rectified_psycma_invoice_id' },
+  { key: 'fiscal_status', header: 'fiscal_status' },
+  { key: 'verifactu_record_type', header: 'verifactu_record_type' },
   { key: 'cancellation_date', header: 'cancellation_date' },
   { key: 'cancellation_reason', header: 'cancellation_reason' },
+  { key: 'rectified_psycma_invoice_ids', header: 'rectified_psycma_invoice_ids' },
   { key: 'verifactu_generated_at', header: 'verifactu_generated_at' },
   { key: 'verifactu_sent_at', header: 'verifactu_sent_at' },
   { key: 'verifactu_submission_status', header: 'verifactu_submission_status' },
@@ -197,6 +228,10 @@ export const INVOICE_CSV_COLUMNS: Array<{ key: keyof InvoiceExportRow; header: s
 type FiscalRecipientSnapshot = {
   name?: string | null;
   tax_id?: string | null;
+  address?: string | null;
+  city?: string | null;
+  postal_code?: string | null;
+  email?: string | null;
 };
 
 function getRecipientSnapshot(value: unknown): FiscalRecipientSnapshot | null {
@@ -210,9 +245,34 @@ function extractXmlValue(xml: string | null | undefined, tag: string): string {
   return match?.[1]?.trim() || '';
 }
 
+function hasText(value: string | null | undefined): boolean {
+  return Boolean(value?.trim());
+}
+
+function hasInvoiceFiscalRecipient(snapshot: FiscalRecipientSnapshot | null): boolean {
+  return Boolean(snapshot && hasText(snapshot.name) && hasText(snapshot.tax_id));
+}
+
+function getFiscalRecipientSource(
+  snapshot: FiscalRecipientSnapshot | null,
+  patient: AccountingExportPatient | null,
+): 'invoice' | 'contact' | 'none' {
+  if (snapshot && Object.values(snapshot).some((value) => hasText(value))) return 'invoice';
+  if (patient && [
+    patient.first_name,
+    patient.last_name,
+    patient.tax_id,
+    patient.address,
+    patient.city,
+    patient.postal_code,
+    patient.email,
+  ].some((value) => hasText(value))) return 'contact';
+  return 'none';
+}
+
 function inferInvoiceType(
   invoice: AccountingExportInvoice,
-  clientTaxId: string,
+  snapshot: FiscalRecipientSnapshot | null,
 ): string {
   if (invoice.verifactu_invoice_type) return invoice.verifactu_invoice_type;
   if (invoice.rectified_invoice_id) {
@@ -222,9 +282,17 @@ function inferInvoiceType(
     return invoice.series?.invoice_type === 'simplified' ? 'R5' : 'R1';
   }
   if (invoice.series?.invoice_type === 'simplified') {
-    return clientTaxId ? 'F1' : 'F2';
+    return hasInvoiceFiscalRecipient(snapshot) ? 'F1' : 'F2';
   }
   return 'F1';
+}
+
+function getCorrectionKind(invoice: AccountingExportInvoice, fiscalType: string): string {
+  if (fiscalType === 'F3') return 'f3_replacement';
+  if (!invoice.rectified_invoice_id) return '';
+  return normalizeRectificationType(invoice.rectification_type) === 'S'
+    ? 'rectificativa_substitution'
+    : 'rectificativa_differences';
 }
 
 function normalizeRectificationType(value: string | null | undefined): string {
@@ -236,6 +304,25 @@ function normalizeRectificationType(value: string | null | undefined): string {
 function formatDecimal(value: number): string {
   if (!Number.isFinite(value)) return '0';
   return String(Number(value.toFixed(2)));
+}
+
+function resolveOperationDate(invoice: AccountingExportInvoice): string {
+  const sessionDates = [...new Set(
+    invoice.invoice_items
+      .map((item) => item.session?.session_date?.slice(0, 10))
+      .filter((value): value is string => Boolean(value)),
+  )];
+  if (sessionDates.length === 1) return sessionDates[0];
+
+  const bonoDates = [...new Set(
+    invoice.invoice_items
+      .filter((item) => item.bono_id)
+      .map((item) => item.bono?.created_at?.slice(0, 10))
+      .filter((value): value is string => Boolean(value)),
+  )];
+  if (sessionDates.length === 0 && bonoDates.length === 1) return bonoDates[0];
+
+  return invoice.operation_date?.slice(0, 10) || '';
 }
 
 function normalizeSubmissionStatus(
@@ -251,6 +338,7 @@ function normalizeSubmissionStatus(
   if (responseStatus.includes('error')) return 'accepted_with_errors';
   if (record?.aeat_status === 'accepted') return 'accepted';
   if (record?.aeat_status === 'rejected') return 'rejected';
+  if (record?.aeat_status === 'not_sent') return 'not_sent';
   if (record?.aeat_status === 'pending' || record?.aeat_status === 'error') return 'pending';
   if (event?.event_type === 'error' && (event.aeat_response_code || event.aeat_response_xml)) {
     return 'rejected';
@@ -258,7 +346,7 @@ function normalizeSubmissionStatus(
   if (event?.event_type === 'alta' || event?.event_type === 'anulacion') return 'accepted';
   if (invoice.verifactu_pending) return 'pending';
   if (invoice.verifactu_registration_id) return 'accepted';
-  return 'not_sent';
+  return '';
 }
 
 function findRecordEvent(
@@ -305,9 +393,11 @@ export function buildInvoiceAccountingRows(
     const patient = invoice.patients;
     const snapshot = getRecipientSnapshot(invoice.recipient_snapshot);
     const contactName = [patient?.first_name, patient?.last_name].filter(Boolean).join(' ').trim();
+    const recipientSource = getFiscalRecipientSource(snapshot, patient);
     const clientName = snapshot?.name?.trim() || contactName;
     const clientTaxId = snapshot?.tax_id?.trim() || patient?.tax_id || '';
-    const invoiceType = inferInvoiceType(invoice, clientTaxId);
+    const fiscalInvoiceType = inferInvoiceType(invoice, snapshot);
+    const correctionKind = getCorrectionKind(invoice, fiscalInvoiceType);
     const f3References = substitutionsByReplacement.get(invoice.id) || [];
     const directReference = invoice.rectified_invoice?.invoice_number
       ? [{
@@ -358,6 +448,8 @@ export function buildInvoiceAccountingRows(
       : !invoice.is_valid
         ? 'rectified'
         : 'valid';
+    const operationDate = resolveOperationDate(invoice);
+    const effectivePsycmaValidity = fiscalStatus === 'cancelled' ? false : invoice.is_valid;
 
     const records = recordsByInvoice.get(invoice.id) || [];
     const events = eventsByInvoice.get(invoice.id) || [];
@@ -381,10 +473,22 @@ export function buildInvoiceAccountingRows(
         invoice_number: invoice.invoice_number || '',
         invoice_date: invoice.issue_date || '',
         due_date: invoice.due_date || '',
+        operation_date: operationDate,
         description,
         client_name: clientName,
         client_tax_id: clientTaxId,
+        client_address: snapshot?.address?.trim() || patient?.address || '',
+        client_city: snapshot?.city?.trim() || patient?.city || '',
+        client_postal_code: snapshot?.postal_code?.trim() || patient?.postal_code || '',
+        client_email: snapshot?.email?.trim() || patient?.email || '',
         client_country: 'ES',
+        fiscal_recipient_source: recipientSource,
+        fiscal_invoice_type: fiscalInvoiceType,
+        correction_kind: correctionKind,
+        rectification_type: normalizeRectificationType(invoice.rectification_type),
+        rectification_reason_code: invoice.rectification_reason_code || '',
+        replaced_invoice_numbers: references.map((reference) => reference.invoice_number).join('; '),
+        replaced_invoice_dates: references.map((reference) => reference.issue_date).filter(Boolean).join('; '),
         net_amount: formatDecimal(netAmount),
         vat_amount: formatDecimal(vatAmount),
         irpf_retention: formatDecimal(retentionAmount),
@@ -401,23 +505,20 @@ export function buildInvoiceAccountingRows(
         psycma_center_id: invoice.center_id,
         psycma_series_id: invoice.series_id || '',
         psycma_status: invoice.status || '',
+        psycma_is_valid: effectivePsycmaValidity ? 'true' : 'false',
+        psycma_correction_operation_id: invoice.correction_operation_id || '',
         export_schema_version: '2',
         invoice_series: invoice.series?.name || '',
-        invoice_type: invoiceType,
-        fiscal_status: fiscalStatus,
-        verifactu_record_type: record?.record_type || 'alta',
-        operation_date: invoice.operation_date || invoice.issue_date || '',
         vat_rate: formatDecimal(Number(inferredVatRate) || 0),
-        operation_qualification: xmlQualification || (exemptionCode ? '' : (vatAmount !== 0 ? 'S1' : '')),
-        tax_exemption_code: exemptionCode || (!xmlQualification && vatAmount === 0 ? 'E1' : ''),
-        rectification_type: normalizeRectificationType(invoice.rectification_type),
-        rectified_invoice_number: references.map((reference) => reference.invoice_number).join('; '),
-        rectified_invoice_date: references.map((reference) => reference.issue_date).filter(Boolean).join('; '),
-        rectified_psycma_invoice_id: references.map((reference) => reference.id).filter(Boolean).join('; '),
-        cancellation_date: isCancellation
-          ? invoice.cancellation_date || record.created_at.slice(0, 10)
+        operation_qualification: xmlQualification,
+        tax_exemption_code: exemptionCode,
+        fiscal_status: fiscalStatus,
+        verifactu_record_type: record?.record_type || '',
+        cancellation_date: fiscalStatus === 'cancelled'
+          ? invoice.cancellation_date || (isCancellation ? record.created_at.slice(0, 10) : '')
           : '',
-        cancellation_reason: isCancellation ? invoice.cancellation_reason || '' : '',
+        cancellation_reason: fiscalStatus === 'cancelled' ? invoice.cancellation_reason || '' : '',
+        rectified_psycma_invoice_ids: references.map((reference) => reference.id).filter(Boolean).join('; '),
         verifactu_generated_at: record?.record_type === 'alta'
           ? invoice.verifactu_timestamp || record.created_at
           : record?.created_at || invoice.verifactu_timestamp || '',
