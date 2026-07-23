@@ -5,7 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { CalendarIcon, User, Globe, ChevronDown, Plus, Video, MapPin, Ban, Settings2, Package, CreditCard, AlertCircle, Search } from 'lucide-react';
+import { CalendarIcon, User, Globe, ChevronDown, Plus, Video, MapPin, Ban, Settings2, Package, CreditCard, AlertCircle, Search, TriangleAlert } from 'lucide-react';
 import { isDateBlocked, ScheduleException } from '@/lib/schedule-exceptions';
 import { useScheduleExceptions } from '@/hooks/useScheduleExceptions';
 import { useSpecialDays } from '@/hooks/useSpecialDays';
@@ -14,6 +14,16 @@ import { Calendar } from '@/components/ui/calendar';
 import { Link } from 'react-router-dom';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import {
   ResponsiveDialog as Dialog,
   ResponsiveDialogContent as DialogContent,
@@ -154,7 +164,7 @@ export function QuickCreateSessionDialog({
   initialEndTime,
 }: QuickCreateSessionDialogProps) {
   const { toast } = useToast();
-  const { user, profile } = useAuth();
+  const { user, profile, isAdmin } = useAuth();
   const createSession = useCreateSession();
   const updateSession = useUpdateSession();
   const createRecurringSeries = useCreateRecurringSeries();
@@ -203,6 +213,11 @@ export function QuickCreateSessionDialog({
   const [pendingFormValues, setPendingFormValues] = useState<{ values: QuickSessionFormValues; asDraft: boolean } | null>(null);
   const [allSessionsToCreate, setAllSessionsToCreate] = useState<SessionToCheck[]>([]);
   const [isCheckingConflicts, setIsCheckingConflicts] = useState(false);
+  const [centerClosureOverride, setCenterClosureOverride] = useState<{
+    values: QuickSessionFormValues;
+    asDraft: boolean;
+    reason: string;
+  } | null>(null);
 
   const form = useForm<QuickSessionFormValues>({
     resolver: zodResolver(quickSessionSchema),
@@ -742,20 +757,60 @@ export function QuickCreateSessionDialog({
     }
   };
 
-  const onSubmit = async (values: QuickSessionFormValues, asDraft: boolean) => {
-    const selectedSessionType = sessionTypes?.find(t => t.id === values.session_type);
-    
-    // Validate and fix end_time if it's equal or less than start_time
-    if (values.end_time <= values.start_time) {
-      const duration = selectedSessionType?.duration_minutes || 60;
-      values.end_time = calculateEndTime(values.start_time, duration);
+  const checkConflictsAndCreate = async (values: QuickSessionFormValues, asDraft: boolean) => {
+    const [startH, startM] = values.start_time.split(':').map(Number);
+    const [endH, endM] = values.end_time.split(':').map(Number);
+    const durationMinutes = (endH * 60 + endM) - (startH * 60 + startM);
+    const sessionsToCheck = buildSessionsToCheck(values, durationMinutes > 0 ? durationMinutes : 60);
+
+    setIsCheckingConflicts(true);
+    try {
+      const conflicts = await checkSessionConflicts({
+        centerId: center?.id || '',
+        professionalId: values.professional_id,
+        sessionsToCheck,
+      });
+
+      if (conflicts.length > 0) {
+        setDetectedConflicts(conflicts);
+        setAllSessionsToCreate(sessionsToCheck);
+        setPendingFormValues({ values, asDraft });
+        setConflictsDialogOpen(true);
+      } else {
+        await executeSessionCreation(values, asDraft);
+      }
+    } catch (error) {
+      console.error('Error checking conflicts:', error);
+      await executeSessionCreation(values, asDraft);
+    } finally {
+      setIsCheckingConflicts(false);
     }
-    
-    // Check schedule exceptions (blocked dates)
+  };
+
+  const validateAvailabilityAndCreate = async (
+    values: QuickSessionFormValues,
+    asDraft: boolean,
+    allowCenterClosureOverride = false,
+  ) => {
+    // Once an administrator confirms the override, center closures are ignored,
+    // while any professional-level unavailability remains enforced.
     const dateStr = format(values.session_date, 'yyyy-MM-dd');
     if (scheduleExceptions && scheduleExceptions.length > 0) {
-      const blocked = isDateBlocked(dateStr, values.start_time, values.end_time, values.professional_id, scheduleExceptions);
+      const applicableExceptions = allowCenterClosureOverride
+        ? scheduleExceptions.filter((exception) => exception.scope !== 'center')
+        : scheduleExceptions;
+      const blocked = isDateBlocked(
+        dateStr,
+        values.start_time,
+        values.end_time,
+        values.professional_id,
+        applicableExceptions,
+      );
       if (blocked) {
+        if (blocked.scope === 'center' && isAdmin) {
+          setCenterClosureOverride({ values, asDraft, reason: blocked.reason });
+          return;
+        }
         const scopeLabel = blocked.scope === 'center' ? 'El centro está cerrado' : 'El profesional no está disponible';
         toast({
           title: 'Fecha bloqueada',
@@ -768,8 +823,23 @@ export function QuickCreateSessionDialog({
 
     // Check special days (closed or custom schedule outside slots)
     if (specialDays && specialDays.length > 0) {
-      const blocked = isDateBlockedBySpecialDay(dateStr, values.start_time, values.end_time, values.professional_id, specialDays);
+      const applicableSpecialDays = allowCenterClosureOverride
+        ? specialDays.filter(
+            (specialDay) => !(specialDay.scope === 'center' && specialDay.type === 'closed'),
+          )
+        : specialDays;
+      const blocked = isDateBlockedBySpecialDay(
+        dateStr,
+        values.start_time,
+        values.end_time,
+        values.professional_id,
+        applicableSpecialDays,
+      );
       if (blocked) {
+        if (blocked.scope === 'center' && blocked.specialDay.type === 'closed' && isAdmin) {
+          setCenterClosureOverride({ values, asDraft, reason: blocked.reason });
+          return;
+        }
         const scopeLabel = blocked.scope === 'center' ? 'Día especial del centro' : 'Día especial del profesional';
         toast({
           title: 'Horario no disponible',
@@ -780,39 +850,19 @@ export function QuickCreateSessionDialog({
       }
     }
 
-    const [startH, startM] = values.start_time.split(':').map(Number);
-    const [endH, endM] = values.end_time.split(':').map(Number);
-    const durationMinutes = (endH * 60 + endM) - (startH * 60 + startM);
-    
-    // Build sessions to check
-    const sessionsToCheck = buildSessionsToCheck(values, durationMinutes > 0 ? durationMinutes : 60);
-    
-    // Check for conflicts
-    setIsCheckingConflicts(true);
-    try {
-      const conflicts = await checkSessionConflicts({
-        centerId: center?.id || '',
-        professionalId: values.professional_id,
-        sessionsToCheck,
-      });
-      
-      if (conflicts.length > 0) {
-        // Store state for conflict resolution
-        setDetectedConflicts(conflicts);
-        setAllSessionsToCreate(sessionsToCheck);
-        setPendingFormValues({ values, asDraft });
-        setConflictsDialogOpen(true);
-      } else {
-        // No conflicts, proceed directly
-        await executeSessionCreation(values, asDraft);
-      }
-    } catch (error) {
-      console.error('Error checking conflicts:', error);
-      // If conflict check fails, proceed anyway
-      await executeSessionCreation(values, asDraft);
-    } finally {
-      setIsCheckingConflicts(false);
+    await checkConflictsAndCreate(values, asDraft);
+  };
+
+  const onSubmit = async (values: QuickSessionFormValues, asDraft: boolean) => {
+    const selectedSessionType = sessionTypes?.find(t => t.id === values.session_type);
+
+    // Validate and fix end_time if it's equal or less than start_time
+    if (values.end_time <= values.start_time) {
+      const duration = selectedSessionType?.duration_minutes || 60;
+      values.end_time = calculateEndTime(values.start_time, duration);
     }
+
+    await validateAvailabilityAndCreate(values, asDraft);
   };
 
   // Conflict dialog handlers
@@ -909,6 +959,45 @@ export function QuickCreateSessionDialog({
         onCreateNonConflicting={handleCreateNonConflicting}
         onForceCreate={handleForceCreate}
       />
+
+      <AlertDialog
+        open={!!centerClosureOverride}
+        onOpenChange={(isOpen) => {
+          if (!isOpen) setCenterClosureOverride(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300">
+                <TriangleAlert className="h-5 w-5" aria-hidden="true" />
+              </div>
+              <AlertDialogTitle>El centro está cerrado</AlertDialogTitle>
+            </div>
+            <AlertDialogDescription className="pt-2">
+              La fecha seleccionada está dentro de un periodo de cierre ({centerClosureOverride?.reason}).
+              Como administrador, puedes crear la cita de todos modos.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Volver y revisar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (!centerClosureOverride) return;
+                const pendingOverride = centerClosureOverride;
+                setCenterClosureOverride(null);
+                void validateAvailabilityAndCreate(
+                  pendingOverride.values,
+                  pendingOverride.asDraft,
+                  true,
+                );
+              }}
+            >
+              Crear cita de todos modos
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 
