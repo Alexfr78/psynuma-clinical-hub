@@ -2818,6 +2818,87 @@ export type Database = {
           },
         ]
       }
+      invoice_correction_operations: {
+        Row: {
+          center_id: string
+          created_at: string
+          error_code: string | null
+          error_message: string | null
+          id: string
+          idempotency_key: string
+          operation_type: string
+          original_invoice_id: string
+          requested_by: string | null
+          resulting_invoice_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          center_id: string
+          created_at?: string
+          error_code?: string | null
+          error_message?: string | null
+          id?: string
+          idempotency_key: string
+          operation_type: string
+          original_invoice_id: string
+          requested_by?: string | null
+          resulting_invoice_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          center_id?: string
+          created_at?: string
+          error_code?: string | null
+          error_message?: string | null
+          id?: string
+          idempotency_key?: string
+          operation_type?: string
+          original_invoice_id?: string
+          requested_by?: string | null
+          resulting_invoice_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_correction_operations_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_correction_operations_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_correction_operations_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "portal_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_correction_operations_original_invoice_id_fkey"
+            columns: ["original_invoice_id"]
+            isOneToOne: true
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_correction_operations_resulting_invoice_id_fkey"
+            columns: ["resulting_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invoice_items: {
         Row: {
           billable_event_id: string | null
@@ -3002,6 +3083,20 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "invoice_substitutions_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_substitutions_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "portal_centers"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "invoice_substitutions_replacement_invoice_id_fkey"
             columns: ["replacement_invoice_id"]
             isOneToOne: false
@@ -3037,10 +3132,10 @@ export type Database = {
           operation_date: string | null
           patient_id: string
           previous_invoice_hash: string | null
+          recipient_snapshot: Json | null
           rectification_reason_code: string | null
           rectification_type: string | null
           rectified_invoice_id: string | null
-          recipient_snapshot: Json | null
           retention_amount: number | null
           retention_rate: number | null
           series_id: string | null
@@ -3050,10 +3145,10 @@ export type Database = {
           tax_rate: number | null
           total: number
           updated_at: string
-          verifactu_invoice_type: string | null
           verifactu_error_message: string | null
           verifactu_error_permanent: boolean | null
           verifactu_hash: string | null
+          verifactu_invoice_type: string | null
           verifactu_pending: boolean | null
           verifactu_qr: string | null
           verifactu_registration_id: string | null
@@ -3079,10 +3174,10 @@ export type Database = {
           operation_date?: string | null
           patient_id: string
           previous_invoice_hash?: string | null
+          recipient_snapshot?: Json | null
           rectification_reason_code?: string | null
           rectification_type?: string | null
           rectified_invoice_id?: string | null
-          recipient_snapshot?: Json | null
           retention_amount?: number | null
           retention_rate?: number | null
           series_id?: string | null
@@ -3092,10 +3187,10 @@ export type Database = {
           tax_rate?: number | null
           total?: number
           updated_at?: string
-          verifactu_invoice_type?: string | null
           verifactu_error_message?: string | null
           verifactu_error_permanent?: boolean | null
           verifactu_hash?: string | null
+          verifactu_invoice_type?: string | null
           verifactu_pending?: boolean | null
           verifactu_qr?: string | null
           verifactu_registration_id?: string | null
@@ -3121,10 +3216,10 @@ export type Database = {
           operation_date?: string | null
           patient_id?: string
           previous_invoice_hash?: string | null
+          recipient_snapshot?: Json | null
           rectification_reason_code?: string | null
           rectification_type?: string | null
           rectified_invoice_id?: string | null
-          recipient_snapshot?: Json | null
           retention_amount?: number | null
           retention_rate?: number | null
           series_id?: string | null
@@ -3134,10 +3229,10 @@ export type Database = {
           tax_rate?: number | null
           total?: number
           updated_at?: string
-          verifactu_invoice_type?: string | null
           verifactu_error_message?: string | null
           verifactu_error_permanent?: boolean | null
           verifactu_hash?: string | null
+          verifactu_invoice_type?: string | null
           verifactu_pending?: boolean | null
           verifactu_qr?: string | null
           verifactu_registration_id?: string | null
@@ -3164,6 +3259,13 @@ export type Database = {
             columns: ["center_id"]
             isOneToOne: false
             referencedRelation: "portal_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_correction_operation_id_fkey"
+            columns: ["correction_operation_id"]
+            isOneToOne: false
+            referencedRelation: "invoice_correction_operations"
             referencedColumns: ["id"]
           },
           {
@@ -6485,6 +6587,26 @@ export type Database = {
         }
         Returns: Json
       }
+      create_f3_replacement: {
+        Args: {
+          p_idempotency_key: string
+          p_original_invoice_id: string
+          p_recipient: Json
+          p_series_id: string
+          p_update_patient: boolean
+        }
+        Returns: Json
+      }
+      create_rectificativa_substitution: {
+        Args: {
+          p_idempotency_key: string
+          p_original_invoice_id: string
+          p_recipient: Json
+          p_series_id: string
+          p_update_patient: boolean
+        }
+        Returns: Json
+      }
       create_session_type_with_order: {
         Args: {
           p_center_id: string
@@ -6516,6 +6638,15 @@ export type Database = {
       enqueue_email: {
         Args: { payload: Json; queue_name: string }
         Returns: number
+      }
+      format_invoice_number_from_series: {
+        Args: {
+          p_format: string
+          p_issue_date: string
+          p_next_number: number
+          p_series_name: string
+        }
+        Returns: string
       }
       generate_pending_debts_db: { Args: never; Returns: Json }
       get_assessment_token: { Args: never; Returns: string }
@@ -6591,6 +6722,10 @@ export type Database = {
         Returns: string
       }
       get_invoice_token: { Args: never; Returns: string }
+      get_invoice_type_correction_context: {
+        Args: { p_original_invoice_id: string }
+        Returns: Json
+      }
       get_patient_for_session_token: {
         Args: { p_session_id: string }
         Returns: Json
@@ -6717,6 +6852,10 @@ export type Database = {
           p_primary_id: string
           p_secondary_id: string
         }
+        Returns: Json
+      }
+      move_invoice_financials_for_replacement: {
+        Args: { p_original_invoice_id: string; p_target_invoice_id: string }
         Returns: Json
       }
       move_to_dlq: {
