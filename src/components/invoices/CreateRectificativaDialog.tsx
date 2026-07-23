@@ -33,6 +33,7 @@ import { Loader2, AlertTriangle, Info } from 'lucide-react';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import type { TablesInsert } from '@/integrations/supabase/types';
 import { useCenter } from '@/hooks/useCenter';
 import { useInvoiceSeries } from '@/hooks/useInvoiceSeries';
 import type { InvoiceWithPatient } from '@/hooks/useInvoices';
@@ -234,12 +235,12 @@ export function CreateRectificativaDialog({
               cuota_rectificada: values.cuota_rectificada,
             }
           : {}),
-      };
+      } satisfies TablesInsert<'invoices'>;
 
       // Create the rectificativa invoice
       const { data: invoice, error: invoiceError } = await supabase
         .from('invoices')
-        .insert(invoiceData as any)
+        .insert(invoiceData)
         .select()
         .single();
 
