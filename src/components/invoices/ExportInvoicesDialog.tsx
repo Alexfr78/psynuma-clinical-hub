@@ -22,11 +22,10 @@ import {
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useCenter } from '@/hooks/useCenter';
-import { buildCsv } from '@/lib/export/buildCsv';
 import { downloadFile } from '@/lib/export/downloadFile';
 import {
-  buildInvoiceAccountingRows,
-  INVOICE_CSV_COLUMNS,
+  createInvoiceAccountingExport,
+  filterInvoicesForAccountingExport,
   type AccountingExportInvoice,
   type AccountingSubstitutionReference,
   type AccountingVerifactuEvent,
@@ -43,6 +42,7 @@ export function ExportInvoicesDialog({ open, onOpenChange }: ExportInvoicesDialo
   const { center } = useCenter();
   const [dateFrom, setDateFrom] = useState<Date | undefined>();
   const [dateTo, setDateTo] = useState<Date | undefined>();
+  const [includeCancelled, setIncludeCancelled] = useState(false);
   const [includeDrafts, setIncludeDrafts] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
@@ -58,8 +58,8 @@ export function ExportInvoicesDialog({ open, onOpenChange }: ExportInvoicesDialo
       const dateFromStr = format(dateFrom, 'yyyy-MM-dd');
       const dateToStr = format(dateTo, 'yyyy-MM-dd');
 
-      // Build query with filters
-      let query = supabase
+      // The selected range always applies to invoice issue_date.
+      const query = supabase
         .from('invoices')
         .select(`
           id,
@@ -107,22 +107,23 @@ export function ExportInvoicesDialog({ open, onOpenChange }: ExportInvoicesDialo
         .lte('issue_date', dateToStr)
         .order('issue_date', { ascending: true });
 
-      // Cancelled and rectified invoices are fiscal evidence and must never disappear.
-      if (!includeDrafts) {
-        query = query.neq('status', 'draft');
-      }
-
       const { data: invoices, error } = await query;
 
       if (error) throw error;
 
-      if (!invoices || invoices.length === 0) {
+      const exportOptions = { includeCancelled, includeDrafts };
+      const invoicesToExport = filterInvoicesForAccountingExport(
+        (invoices || []) as unknown as AccountingExportInvoice[],
+        exportOptions,
+      );
+
+      if (invoicesToExport.length === 0) {
         toast.warning('No hay facturas en el rango seleccionado');
         setIsExporting(false);
         return;
       }
 
-      const invoiceIds = invoices.map((invoice) => invoice.id);
+      const invoiceIds = invoicesToExport.map((invoice) => invoice.id);
       let substitutionReferences: AccountingSubstitutionReference[] = [];
       let verifactuRecords: AccountingVerifactuRecord[] = [];
       let verifactuEvents: AccountingVerifactuEvent[] = [];
@@ -176,15 +177,14 @@ export function ExportInvoicesDialog({ open, onOpenChange }: ExportInvoicesDialo
         verifactuEvents = (events || []) as AccountingVerifactuEvent[];
       }
 
-      const rows = buildInvoiceAccountingRows(
-        invoices as unknown as AccountingExportInvoice[],
+      const { rows, csv: csvContent } = createInvoiceAccountingExport(
+        invoicesToExport,
         substitutionReferences,
         verifactuRecords,
         verifactuEvents,
+        exportOptions,
       );
 
-      // Build CSV and download
-      const csvContent = buildCsv(rows, INVOICE_CSV_COLUMNS, { quoteAllText: true });
       const filename = `psycma_invoices_${dateFromStr}_to_${dateToStr}.csv`;
       downloadFile(csvContent, filename);
 
@@ -271,8 +271,19 @@ export function ExportInvoicesDialog({ open, onOpenChange }: ExportInvoicesDialo
           {/* Checkboxes */}
           <div className="space-y-3 pt-2">
             <p className="text-xs text-muted-foreground">
-              Las facturas anuladas y rectificadas se incluyen siempre por trazabilidad fiscal.
+              El rango se aplica a la fecha de expedición. Las facturas originales
+              sustituidas se conservan por trazabilidad fiscal.
             </p>
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="include-cancelled"
+                checked={includeCancelled}
+                onCheckedChange={(checked) => setIncludeCancelled(checked === true)}
+              />
+              <Label htmlFor="include-cancelled" className="text-sm font-normal cursor-pointer">
+                Incluir canceladas
+              </Label>
+            </div>
             <div className="flex items-center space-x-2">
               <Checkbox
                 id="include-drafts"

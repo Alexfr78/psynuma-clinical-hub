@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { buildCsv } from '@/lib/export/buildCsv';
 import {
   buildInvoiceAccountingRows,
+  createInvoiceAccountingExport,
   INVOICE_CSV_COLUMNS,
   type AccountingExportInvoice,
   type AccountingVerifactuEvent,
@@ -148,6 +149,40 @@ describe('buildInvoiceAccountingRows', () => {
     ]);
     expect(INVOICE_CSV_COLUMNS).toHaveLength(54);
   });
+
+  it.each([
+    { includeCancelled: false, includeDrafts: false },
+    { includeCancelled: true, includeDrafts: false },
+    { includeCancelled: false, includeDrafts: true },
+    { includeCancelled: true, includeDrafts: true },
+  ])(
+    'uses the identical 54-column generator with options %o',
+    (options) => {
+      const invoices = [
+        makeInvoice({ id: 'valid-invoice', invoice_number: 'SF260001' }),
+        makeInvoice({
+          id: 'cancelled-invoice',
+          invoice_number: 'SP260011',
+          status: 'cancelled',
+        }),
+        makeInvoice({
+          id: 'draft-invoice',
+          invoice_number: 'BORRADOR-1',
+          status: 'draft',
+        }),
+      ];
+
+      const result = createInvoiceAccountingExport(invoices, [], [], [], options);
+      const records = parseCsvRecords(result.csv);
+
+      expect(records[0]).toEqual(INVOICE_CSV_COLUMNS.map((column) => column.header));
+      expect(records.every((record) => record.length === 54)).toBe(true);
+      expect(result.rows.some((row) => row.invoice_number === 'SP260011'))
+        .toBe(options.includeCancelled);
+      expect(result.rows.some((row) => row.invoice_number === 'BORRADOR-1'))
+        .toBe(options.includeDrafts);
+    },
+  );
 
   it('classifies F1 with fiscal NIF and address captured on the invoice', () => {
     const complete = buildInvoiceAccountingRows([
@@ -331,7 +366,49 @@ describe('buildInvoiceAccountingRows', () => {
     });
   });
 
-  it('keeps a cancelled invoice and emits both alta and anulacion records', () => {
+  it('preserves the original invoice IDs for historical RP and RS rectificativas', () => {
+    const mappings = [
+      ['RP260001', 'SP260004', 'original-sp-260004', 'R5'],
+      ['RP260002', 'SP260022', 'original-sp-260022', 'R5'],
+      ['RS260002', 'SF260053', 'original-sf-260053', 'R1'],
+      ['RP260003', 'SP260033', 'original-sp-260033', 'R5'],
+      ['RS260003', 'SF260087', 'original-sf-260087', 'R4'],
+    ] as const;
+    const invoices = mappings.map(([number, replacedNumber, replacedId, fiscalType]) =>
+      makeInvoice({
+        id: `rectifying-${number}`,
+        invoice_number: number,
+        verifactu_invoice_type: fiscalType,
+        rectified_invoice_id: replacedId,
+        rectification_type: fiscalType === 'R4' ? 'substitution' : 'differences',
+        correction_operation_id: `operation-${number}`,
+        rectified_invoice: {
+          id: replacedId,
+          invoice_number: replacedNumber,
+          issue_date: '2026-06-01',
+        },
+        series: {
+          name: number.startsWith('RP') ? 'RP' : 'RS',
+          invoice_type: number.startsWith('RP') ? 'simplified' : 'complete',
+          series_type: 'rectifying',
+        },
+      }),
+    );
+
+    const rows = buildInvoiceAccountingRows(invoices, []);
+
+    expect(rows).toHaveLength(mappings.length);
+    mappings.forEach(([number, replacedNumber, replacedId, fiscalType]) => {
+      expect(rows.find((row) => row.invoice_number === number)).toMatchObject({
+        fiscal_invoice_type: fiscalType,
+        replaced_invoice_numbers: replacedNumber,
+        rectified_psycma_invoice_ids: replacedId,
+        psycma_correction_operation_id: `operation-${number}`,
+      });
+    });
+  });
+
+  it('keeps a cancelled invoice and exports only its canonical anulacion record', () => {
     const records = [
       makeRecord(),
       makeRecord({
@@ -366,16 +443,17 @@ describe('buildInvoiceAccountingRows', () => {
       events,
     );
 
-    expect(rows).toHaveLength(2);
-    expect(rows.map((row) => row.verifactu_record_type)).toEqual(['alta', 'anulacion']);
-    expect(rows.every((row) => row.fiscal_status === 'cancelled')).toBe(true);
-    expect(rows.every((row) => row.psycma_is_valid === 'false')).toBe(true);
+    expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({
       invoice_number: 'SP260011',
-      cancellation_date: '2026-07-24',
-      cancellation_reason: 'Factura emitida por duplicado',
-    });
-    expect(rows[1]).toMatchObject({
+      psycma_status: 'cancelled',
+      psycma_is_valid: 'false',
+      fiscal_status: 'cancelled',
+      verifactu_record_type: 'anulacion',
+      export_schema_version: '2',
+      invoice_series: 'SP',
+      vat_rate: '0',
+      tax_exemption_code: 'E1',
       cancellation_date: '2026-07-24',
       cancellation_reason: 'Factura emitida por duplicado',
       verifactu_hash: 'persisted-cancel-hash',

@@ -1,9 +1,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
-import { buildCsv } from '../src/lib/export/buildCsv.ts';
 import {
-  buildInvoiceAccountingRows,
-  INVOICE_CSV_COLUMNS,
+  createInvoiceAccountingExport,
   type AccountingExportInvoice,
   type AccountingVerifactuEvent,
   type AccountingVerifactuRecord,
@@ -12,7 +10,7 @@ import {
 const outputPath = resolve(
   process.cwd(),
   'validation',
-  'invoice-export-validation-v2.csv',
+  'invoice-export-2026-02-01-to-2026-07-18-v2.csv',
 );
 
 function invoice(
@@ -24,8 +22,8 @@ function invoice(
   return {
     id,
     invoice_number: invoiceNumber,
-    issue_date: '2026-07-20',
-    due_date: '2026-07-20',
+    issue_date: '2026-07-18',
+    due_date: '2026-07-18',
     operation_date: null,
     subtotal: 100,
     tax_rate: 0,
@@ -64,6 +62,27 @@ function invoice(
   };
 }
 
+function rectifyingInvoice(
+  invoiceNumber: string,
+  seriesName: 'RP' | 'RS',
+  originalNumber: string,
+  originalId: string,
+  fiscalType: 'R1' | 'R4' | 'R5',
+): AccountingExportInvoice {
+  return invoice(`validation-${invoiceNumber}`, invoiceNumber, seriesName, {
+    verifactu_invoice_type: fiscalType,
+    rectified_invoice_id: originalId,
+    rectification_type: fiscalType === 'R4' ? 'substitution' : 'differences',
+    rectification_reason_code: fiscalType,
+    correction_operation_id: `validation-operation-${invoiceNumber}`,
+    rectified_invoice: {
+      id: originalId,
+      invoice_number: originalNumber,
+      issue_date: '2026-06-01',
+    },
+  });
+}
+
 const invoices: AccountingExportInvoice[] = [
   invoice('validation-sf-260097', 'SF260097', 'SF', {
     recipient_snapshot: {
@@ -84,36 +103,15 @@ const invoices: AccountingExportInvoice[] = [
     }],
   }),
   invoice('validation-sp', 'SP-VALIDATION-001', 'SP'),
-  invoice('validation-rs', 'RS-VALIDATION-001', 'RS', {
-    subtotal: -100,
-    total: -100,
-    verifactu_invoice_type: 'R1',
-    rectified_invoice_id: 'validation-sf-original',
-    rectification_type: 'differences',
-    rectification_reason_code: 'R1',
-    rectified_invoice: {
-      id: 'validation-sf-original',
-      invoice_number: 'SF-VALIDATION-ORIGINAL',
-      issue_date: '2026-07-01',
-    },
-  }),
-  invoice('validation-rp', 'RP-VALIDATION-001', 'RP', {
-    subtotal: 25,
-    total: 25,
-    verifactu_invoice_type: 'R5',
-    rectified_invoice_id: 'validation-sp-original',
-    rectification_type: 'differences',
-    rectification_reason_code: 'R5',
-    rectified_invoice: {
-      id: 'validation-sp-original',
-      invoice_number: 'SP-VALIDATION-ORIGINAL',
-      issue_date: '2026-07-02',
-    },
-  }),
+  rectifyingInvoice('RP260001', 'RP', 'SP260004', 'validation-original-SP260004', 'R5'),
+  rectifyingInvoice('RP260002', 'RP', 'SP260022', 'validation-original-SP260022', 'R5'),
+  rectifyingInvoice('RS260002', 'RS', 'SF260053', 'validation-original-SF260053', 'R1'),
+  rectifyingInvoice('RP260003', 'RP', 'SP260033', 'validation-original-SP260033', 'R5'),
+  rectifyingInvoice('RS260003', 'RS', 'SF260087', 'validation-original-SF260087', 'R4'),
   invoice('validation-sp-260011', 'SP260011', 'SP', {
     status: 'cancelled',
     is_valid: false,
-    cancellation_date: '2026-07-23',
+    cancellation_date: '2026-07-18',
     cancellation_reason: 'Motivo almacenado de validación',
   }),
 ];
@@ -128,8 +126,8 @@ const records: AccountingVerifactuRecord[] = [
     aeat_status: 'accepted',
     aeat_csv: 'VALIDATION_ONLY_ALTA_CSV',
     aeat_response_xml: '<EstadoRegistro>Correcto</EstadoRegistro>',
-    xml_sent: '<RegistroFacturacionAlta />',
-    created_at: '2026-07-20T10:00:00+02:00',
+    xml_sent: '<RegistroFacturacionAlta><OperacionExenta>E1</OperacionExenta></RegistroFacturacionAlta>',
+    created_at: '2026-07-17T10:00:00+02:00',
   },
   {
     id: 'validation-sp-260011-anulacion',
@@ -141,7 +139,7 @@ const records: AccountingVerifactuRecord[] = [
     aeat_csv: 'VALIDATION_ONLY_CANCELLATION_CSV',
     aeat_response_xml: '<EstadoRegistro>Correcto</EstadoRegistro>',
     xml_sent: '<RegistroFacturacionAnulacion />',
-    created_at: '2026-07-23T12:00:00+02:00',
+    created_at: '2026-07-18T12:00:00+02:00',
   },
 ];
 
@@ -153,7 +151,7 @@ const events: AccountingVerifactuEvent[] = [
     aeat_response_code: null,
     aeat_response_xml: '<EstadoRegistro>Correcto</EstadoRegistro>',
     error_details: null,
-    created_at: '2026-07-20T10:00:00+02:00',
+    created_at: '2026-07-17T10:00:00+02:00',
   },
   {
     invoice_id: 'validation-sp-260011',
@@ -162,12 +160,20 @@ const events: AccountingVerifactuEvent[] = [
     aeat_response_code: null,
     aeat_response_xml: '<EstadoRegistro>Correcto</EstadoRegistro>',
     error_details: null,
-    created_at: '2026-07-23T12:00:00+02:00',
+    created_at: '2026-07-18T12:00:00+02:00',
   },
 ];
 
-const rows = buildInvoiceAccountingRows(invoices, [], records, events);
-const csv = buildCsv(rows, INVOICE_CSV_COLUMNS, { quoteAllText: true });
+const { rows, csv } = createInvoiceAccountingExport(
+  invoices,
+  [],
+  records,
+  events,
+  {
+    includeCancelled: true,
+    includeDrafts: false,
+  },
+);
 
 mkdirSync(dirname(outputPath), { recursive: true });
 writeFileSync(outputPath, csv, 'utf8');

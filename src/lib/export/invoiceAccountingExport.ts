@@ -1,3 +1,5 @@
+import { buildCsv } from './buildCsv.ts';
+
 export interface AccountingExportPatient {
   first_name?: string | null;
   last_name?: string | null;
@@ -224,6 +226,27 @@ export const INVOICE_CSV_COLUMNS: Array<{ key: keyof InvoiceExportRow; header: s
   { key: 'aeat_response_code', header: 'aeat_response_code' },
   { key: 'aeat_csv', header: 'aeat_csv' },
 ];
+
+export interface InvoiceAccountingExportOptions {
+  includeCancelled: boolean;
+  includeDrafts: boolean;
+}
+
+export interface InvoiceAccountingExportResult {
+  rows: InvoiceExportRow[];
+  csv: string;
+}
+
+export function filterInvoicesForAccountingExport(
+  invoices: AccountingExportInvoice[],
+  options: InvoiceAccountingExportOptions,
+): AccountingExportInvoice[] {
+  return invoices.filter((invoice) => {
+    if (!options.includeDrafts && invoice.status === 'draft') return false;
+    if (!options.includeCancelled && invoice.status === 'cancelled') return false;
+    return true;
+  });
+}
 
 type FiscalRecipientSnapshot = {
   name?: string | null;
@@ -453,9 +476,13 @@ export function buildInvoiceAccountingRows(
 
     const records = recordsByInvoice.get(invoice.id) || [];
     const events = eventsByInvoice.get(invoice.id) || [];
-    const altaRecord = records.find((record) => record.record_type === 'alta');
-    const rowRecords: Array<AccountingVerifactuRecord | undefined> =
-      records.length > 0 ? records : [undefined];
+    const altaRecords = records.filter((record) => record.record_type === 'alta');
+    const cancellationRecords = records.filter((record) => record.record_type === 'anulacion');
+    const altaRecord = altaRecords[altaRecords.length - 1];
+    const canonicalRecord = fiscalStatus === 'cancelled'
+      ? cancellationRecords[cancellationRecords.length - 1]
+      : altaRecord;
+    const rowRecords: Array<AccountingVerifactuRecord | undefined> = [canonicalRecord];
 
     return rowRecords.map((record) => {
       const event = findRecordEvent(record, events);
@@ -531,4 +558,28 @@ export function buildInvoiceAccountingRows(
       };
     });
   });
+}
+
+export function createInvoiceAccountingExport(
+  invoices: AccountingExportInvoice[],
+  substitutions: AccountingSubstitutionReference[],
+  verifactuRecords: AccountingVerifactuRecord[] = [],
+  verifactuEvents: AccountingVerifactuEvent[] = [],
+  options: InvoiceAccountingExportOptions = {
+    includeCancelled: false,
+    includeDrafts: false,
+  },
+): InvoiceAccountingExportResult {
+  const filteredInvoices = filterInvoicesForAccountingExport(invoices, options);
+  const rows = buildInvoiceAccountingRows(
+    filteredInvoices,
+    substitutions,
+    verifactuRecords,
+    verifactuEvents,
+  );
+
+  return {
+    rows,
+    csv: buildCsv(rows, INVOICE_CSV_COLUMNS, { quoteAllText: true }),
+  };
 }
