@@ -3116,6 +3116,8 @@ export type Database = {
         Row: {
           access_token: string | null
           base_rectificada: number | null
+          cancellation_date: string | null
+          cancellation_reason: string | null
           center_id: string
           correction_operation_id: string | null
           created_at: string
@@ -3158,6 +3160,8 @@ export type Database = {
         Insert: {
           access_token?: string | null
           base_rectificada?: number | null
+          cancellation_date?: string | null
+          cancellation_reason?: string | null
           center_id: string
           correction_operation_id?: string | null
           created_at?: string
@@ -3200,6 +3204,8 @@ export type Database = {
         Update: {
           access_token?: string | null
           base_rectificada?: number | null
+          cancellation_date?: string | null
+          cancellation_reason?: string | null
           center_id?: string
           correction_operation_id?: string | null
           created_at?: string
