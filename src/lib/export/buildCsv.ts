@@ -3,7 +3,10 @@
  * - If value contains comma, newline, or double quote, wrap in quotes
  * - Double quotes inside are escaped as ""
  */
-function escapeCSVField(value: string | number | null | undefined): string {
+function escapeCSVField(
+  value: string | number | null | undefined,
+  quoteAllText: boolean,
+): string {
   if (value === null || value === undefined) {
     return '';
   }
@@ -11,7 +14,8 @@ function escapeCSVField(value: string | number | null | undefined): string {
   const stringValue = String(value);
   
   // Check if escaping is needed
-  const needsEscape = stringValue.includes(',') || 
+  const needsEscape = (quoteAllText && typeof value === 'string') ||
+                      stringValue.includes(',') ||
                       stringValue.includes('\n') || 
                       stringValue.includes('\r') || 
                       stringValue.includes('"');
@@ -33,19 +37,21 @@ function escapeCSVField(value: string | number | null | undefined): string {
  */
 export function buildCsv<T extends object>(
   rows: T[],
-  columns: Array<{ key: keyof T; header: string }>
+  columns: Array<{ key: keyof T; header: string }>,
+  options: { quoteAllText?: boolean } = {},
 ): string {
   // UTF-8 BOM for Excel Windows compatibility
   const BOM = '\ufeff';
   
   // Build header row
-  const headerRow = columns.map(col => escapeCSVField(col.header)).join(',');
+  const quoteAllText = options.quoteAllText === true;
+  const headerRow = columns.map(col => escapeCSVField(col.header, quoteAllText)).join(',');
   
   // Build data rows
   const dataRows = rows.map(row => {
     return columns.map(col => {
       const value = row[col.key];
-      return escapeCSVField(value as string | number | null | undefined);
+      return escapeCSVField(value as string | number | null | undefined, quoteAllText);
     }).join(',');
   });
   

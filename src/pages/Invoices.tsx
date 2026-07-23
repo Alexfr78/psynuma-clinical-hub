@@ -114,6 +114,7 @@ export default function Invoices() {
   const [statusFilter, setStatusFilter] = useState<string>(initialPreferences.statusFilter);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [invoiceToCancel, setInvoiceToCancel] = useState<{ id: string; number: string } | null>(null);
+  const [cancellationReason, setCancellationReason] = useState('');
   const [newInvoiceMenuOpen, setNewInvoiceMenuOpen] = useState(false);
   
   // Sort state
@@ -346,17 +347,26 @@ export default function Invoices() {
 
   const handleCancelVerifactuClick = (invoiceId: string, invoiceNumber: string) => {
     setInvoiceToCancel({ id: invoiceId, number: invoiceNumber });
+    setCancellationReason('');
     setCancelDialogOpen(true);
   };
 
   const handleCancelVerifactuConfirm = async () => {
     if (!invoiceToCancel) return;
+    const normalizedReason = cancellationReason.trim();
+    if (!normalizedReason) {
+      toast.error('Indica el motivo de la anulación');
+      return;
+    }
     
     try {
       toast.info('Enviando anulación a AEAT...');
       
       const { data, error } = await supabase.functions.invoke('cancel-registro-facturacion', {
-        body: { invoice_id: invoiceToCancel.id },
+        body: {
+          invoice_id: invoiceToCancel.id,
+          cancellation_reason: normalizedReason,
+        },
       });
 
       if (error) throw error;
@@ -369,6 +379,7 @@ export default function Invoices() {
     } finally {
       setCancelDialogOpen(false);
       setInvoiceToCancel(null);
+      setCancellationReason('');
     }
   };
 
@@ -640,9 +651,20 @@ export default function Invoices() {
                 Esta acción es irreversible y la factura quedará marcada como cancelada.
               </AlertDialogDescription>
             </AlertDialogHeader>
+            <Input
+              value={cancellationReason}
+              onChange={(event) => setCancellationReason(event.target.value)}
+              maxLength={500}
+              placeholder="Motivo de la anulación"
+              aria-label="Motivo de la anulación"
+            />
             <AlertDialogFooter>
               <AlertDialogCancel>Cancelar</AlertDialogCancel>
-              <AlertDialogAction onClick={handleCancelVerifactuConfirm} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              <AlertDialogAction
+                onClick={handleCancelVerifactuConfirm}
+                disabled={!cancellationReason.trim()}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
                 Anular en AEAT
               </AlertDialogAction>
             </AlertDialogFooter>

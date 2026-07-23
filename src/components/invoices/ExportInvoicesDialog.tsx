@@ -29,6 +29,8 @@ import {
   INVOICE_CSV_COLUMNS,
   type AccountingExportInvoice,
   type AccountingSubstitutionReference,
+  type AccountingVerifactuEvent,
+  type AccountingVerifactuRecord,
 } from '@/lib/export/invoiceAccountingExport';
 import { toast } from 'sonner';
 
@@ -41,7 +43,6 @@ export function ExportInvoicesDialog({ open, onOpenChange }: ExportInvoicesDialo
   const { center } = useCenter();
   const [dateFrom, setDateFrom] = useState<Date | undefined>();
   const [dateTo, setDateTo] = useState<Date | undefined>();
-  const [includeCancelled, setIncludeCancelled] = useState(false);
   const [includeDrafts, setIncludeDrafts] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
@@ -65,15 +66,24 @@ export function ExportInvoicesDialog({ open, onOpenChange }: ExportInvoicesDialo
           invoice_number,
           issue_date,
           due_date,
+          cancellation_date,
+          cancellation_reason,
           operation_date,
           subtotal,
+          tax_rate,
           tax_amount,
           retention_amount,
           total,
           notes,
           status,
           is_valid,
+          invoice_hash,
+          previous_invoice_hash,
+          verifactu_hash,
           verifactu_invoice_type,
+          verifactu_pending,
+          verifactu_registration_id,
+          verifactu_timestamp,
           rectification_type,
           rectification_reason_code,
           rectified_invoice_id,
@@ -83,9 +93,9 @@ export function ExportInvoicesDialog({ open, onOpenChange }: ExportInvoicesDialo
           center_id,
           patient_id,
           patients:patient_id (first_name, last_name, tax_id, address, city, postal_code, email),
-          series:series_id (invoice_type, series_type),
-          rectified_invoice:rectified_invoice_id (invoice_number, issue_date),
-          invoice_items (description, quantity, unit_price, total),
+          series:series_id (name, invoice_type, series_type),
+          rectified_invoice:rectified_invoice_id (id, invoice_number, issue_date),
+          invoice_items (description, quantity, unit_price, total, tax_rate),
           payments (amount, payment_date, payment_method, notes, reference)
         `)
         .eq('center_id', center.id)
@@ -93,12 +103,7 @@ export function ExportInvoicesDialog({ open, onOpenChange }: ExportInvoicesDialo
         .lte('issue_date', dateToStr)
         .order('issue_date', { ascending: true });
 
-      // Apply status filters
-      if (!includeCancelled) {
-        query = query.neq('status', 'cancelled').eq('is_valid', true);
-      } else {
-        query = query.or('is_valid.eq.true,status.eq.cancelled');
-      }
+      // Cancelled and rectified invoices are fiscal evidence and must never disappear.
       if (!includeDrafts) {
         query = query.neq('status', 'draft');
       }
@@ -115,36 +120,67 @@ export function ExportInvoicesDialog({ open, onOpenChange }: ExportInvoicesDialo
 
       const invoiceIds = invoices.map((invoice) => invoice.id);
       let substitutionReferences: AccountingSubstitutionReference[] = [];
+      let verifactuRecords: AccountingVerifactuRecord[] = [];
+      let verifactuEvents: AccountingVerifactuEvent[] = [];
 
       if (invoiceIds.length > 0) {
-        const { data: substitutions, error: substitutionsError } = await supabase
-          .from('invoice_substitutions')
-          .select(`
-            replacement_invoice_id,
-            substituted_invoice:substituted_invoice_id (invoice_number, issue_date)
-          `)
-          .in('replacement_invoice_id', invoiceIds);
+        const [
+          { data: substitutions, error: substitutionsError },
+          { data: records, error: recordsError },
+          { data: events, error: eventsError },
+        ] = await Promise.all([
+          supabase
+            .from('invoice_substitutions')
+            .select(`
+              replacement_invoice_id, substituted_invoice_id,
+              substituted_invoice:substituted_invoice_id (invoice_number, issue_date)
+            `)
+            .in('replacement_invoice_id', invoiceIds),
+          supabase
+            .from('verifactu_records')
+            .select(`
+              id, invoice_id, record_type, hash, previous_hash, aeat_status,
+              aeat_csv, aeat_response_xml, xml_sent, created_at
+            `)
+            .in('invoice_id', invoiceIds)
+            .order('created_at', { ascending: true }),
+          supabase
+            .from('verifactu_events')
+            .select(`
+              invoice_id, event_type, aeat_csv, aeat_response_code,
+              aeat_response_xml, error_details, created_at
+            `)
+            .in('invoice_id', invoiceIds)
+            .order('created_at', { ascending: true }),
+        ]);
 
         if (substitutionsError) throw substitutionsError;
+        if (recordsError) throw recordsError;
+        if (eventsError) throw eventsError;
 
         substitutionReferences = (substitutions || []).flatMap((substitution) => {
           const replaced = substitution.substituted_invoice;
           if (!replaced?.invoice_number || !replaced.issue_date) return [];
           return [{
             replacement_invoice_id: substitution.replacement_invoice_id,
+            substituted_invoice_id: substitution.substituted_invoice_id,
             invoice_number: replaced.invoice_number,
             issue_date: replaced.issue_date,
           }];
         });
+        verifactuRecords = (records || []) as AccountingVerifactuRecord[];
+        verifactuEvents = (events || []) as AccountingVerifactuEvent[];
       }
 
       const rows = buildInvoiceAccountingRows(
         invoices as unknown as AccountingExportInvoice[],
         substitutionReferences,
+        verifactuRecords,
+        verifactuEvents,
       );
 
       // Build CSV and download
-      const csvContent = buildCsv(rows, INVOICE_CSV_COLUMNS);
+      const csvContent = buildCsv(rows, INVOICE_CSV_COLUMNS, { quoteAllText: true });
       const filename = `psycma_invoices_${dateFromStr}_to_${dateToStr}.csv`;
       downloadFile(csvContent, filename);
 
@@ -230,16 +266,9 @@ export function ExportInvoicesDialog({ open, onOpenChange }: ExportInvoicesDialo
 
           {/* Checkboxes */}
           <div className="space-y-3 pt-2">
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="include-cancelled"
-                checked={includeCancelled}
-                onCheckedChange={(checked) => setIncludeCancelled(checked === true)}
-              />
-              <Label htmlFor="include-cancelled" className="text-sm font-normal cursor-pointer">
-                Incluir canceladas (no incluye originales sustituidas)
-              </Label>
-            </div>
+            <p className="text-xs text-muted-foreground">
+              Las facturas anuladas y rectificadas se incluyen siempre por trazabilidad fiscal.
+            </p>
             <div className="flex items-center space-x-2">
               <Checkbox
                 id="include-drafts"

@@ -513,7 +513,7 @@ serve(async (req) => {
   const supabase = createClient(supabaseUrl, supabaseKey);
 
   try {
-    const { invoice_id } = await req.json();
+    const { invoice_id, cancellation_reason } = await req.json();
 
     if (!invoice_id) {
       return new Response(
@@ -749,7 +749,13 @@ serve(async (req) => {
     // Update invoice status to cancelled
     const { error: updateError } = await supabase
       .from("invoices")
-      .update({ status: 'cancelled' })
+      .update({
+        status: 'cancelled',
+        cancellation_date: new Date().toISOString().slice(0, 10),
+        cancellation_reason: typeof cancellation_reason === 'string'
+          ? cancellation_reason.trim().slice(0, 500) || null
+          : null,
+      })
       .eq("id", invoice_id);
 
     if (updateError) {
