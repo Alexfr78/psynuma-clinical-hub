@@ -257,7 +257,7 @@ export function buildInvoiceAccountingRows(
       currency: 'EUR',
       payment_status: paymentStatus,
       payment_method: paymentMethod,
-      payment_date: paymentDates.at(-1) || '',
+      payment_date: paymentDates[paymentDates.length - 1] || '',
       payment_notes: paymentNotes,
       vat_zone: '',
       vat_due_mode: '',
