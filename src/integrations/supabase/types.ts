@@ -2968,11 +2968,61 @@ export type Database = {
           },
         ]
       }
+      invoice_substitutions: {
+        Row: {
+          center_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          replacement_invoice_id: string
+          substituted_invoice_id: string
+        }
+        Insert: {
+          center_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          replacement_invoice_id: string
+          substituted_invoice_id: string
+        }
+        Update: {
+          center_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          replacement_invoice_id?: string
+          substituted_invoice_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_substitutions_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_substitutions_replacement_invoice_id_fkey"
+            columns: ["replacement_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_substitutions_substituted_invoice_id_fkey"
+            columns: ["substituted_invoice_id"]
+            isOneToOne: true
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invoices: {
         Row: {
           access_token: string | null
           base_rectificada: number | null
           center_id: string
+          correction_operation_id: string | null
           created_at: string
           cuota_recargo_rectificado: number | null
           cuota_rectificada: number | null
@@ -2984,11 +3034,13 @@ export type Database = {
           is_valid: boolean
           issue_date: string
           notes: string | null
+          operation_date: string | null
           patient_id: string
           previous_invoice_hash: string | null
           rectification_reason_code: string | null
           rectification_type: string | null
           rectified_invoice_id: string | null
+          recipient_snapshot: Json | null
           retention_amount: number | null
           retention_rate: number | null
           series_id: string | null
@@ -2998,6 +3050,7 @@ export type Database = {
           tax_rate: number | null
           total: number
           updated_at: string
+          verifactu_invoice_type: string | null
           verifactu_error_message: string | null
           verifactu_error_permanent: boolean | null
           verifactu_hash: string | null
@@ -3011,6 +3064,7 @@ export type Database = {
           access_token?: string | null
           base_rectificada?: number | null
           center_id: string
+          correction_operation_id?: string | null
           created_at?: string
           cuota_recargo_rectificado?: number | null
           cuota_rectificada?: number | null
@@ -3022,11 +3076,13 @@ export type Database = {
           is_valid?: boolean
           issue_date?: string
           notes?: string | null
+          operation_date?: string | null
           patient_id: string
           previous_invoice_hash?: string | null
           rectification_reason_code?: string | null
           rectification_type?: string | null
           rectified_invoice_id?: string | null
+          recipient_snapshot?: Json | null
           retention_amount?: number | null
           retention_rate?: number | null
           series_id?: string | null
@@ -3036,6 +3092,7 @@ export type Database = {
           tax_rate?: number | null
           total?: number
           updated_at?: string
+          verifactu_invoice_type?: string | null
           verifactu_error_message?: string | null
           verifactu_error_permanent?: boolean | null
           verifactu_hash?: string | null
@@ -3049,6 +3106,7 @@ export type Database = {
           access_token?: string | null
           base_rectificada?: number | null
           center_id?: string
+          correction_operation_id?: string | null
           created_at?: string
           cuota_recargo_rectificado?: number | null
           cuota_rectificada?: number | null
@@ -3060,11 +3118,13 @@ export type Database = {
           is_valid?: boolean
           issue_date?: string
           notes?: string | null
+          operation_date?: string | null
           patient_id?: string
           previous_invoice_hash?: string | null
           rectification_reason_code?: string | null
           rectification_type?: string | null
           rectified_invoice_id?: string | null
+          recipient_snapshot?: Json | null
           retention_amount?: number | null
           retention_rate?: number | null
           series_id?: string | null
@@ -3074,6 +3134,7 @@ export type Database = {
           tax_rate?: number | null
           total?: number
           updated_at?: string
+          verifactu_invoice_type?: string | null
           verifactu_error_message?: string | null
           verifactu_error_permanent?: boolean | null
           verifactu_hash?: string | null

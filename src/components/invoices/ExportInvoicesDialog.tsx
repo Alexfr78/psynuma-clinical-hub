@@ -24,64 +24,18 @@ import { supabase } from '@/integrations/supabase/client';
 import { useCenter } from '@/hooks/useCenter';
 import { buildCsv } from '@/lib/export/buildCsv';
 import { downloadFile } from '@/lib/export/downloadFile';
+import {
+  buildInvoiceAccountingRows,
+  INVOICE_CSV_COLUMNS,
+  type AccountingExportInvoice,
+  type AccountingSubstitutionReference,
+} from '@/lib/export/invoiceAccountingExport';
 import { toast } from 'sonner';
 
 interface ExportInvoicesDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
-
-interface InvoiceExportRow {
-  invoice_number: string;
-  invoice_date: string;
-  due_date: string;
-  description: string;
-  client_name: string;
-  client_tax_id: string;
-  client_country: string;
-  net_amount: string;
-  vat_amount: string;
-  irpf_retention: string;
-  total_amount: string;
-  currency: string;
-  payment_status: string;
-  payment_method: string;
-  payment_date: string;
-  payment_notes: string;
-  vat_zone: string;
-  vat_due_mode: string;
-  import_format: string;
-  psycma_invoice_id: string;
-  psycma_center_id: string;
-  psycma_series_id: string;
-  psycma_status: string;
-}
-
-const CSV_COLUMNS: Array<{ key: keyof InvoiceExportRow; header: string }> = [
-  { key: 'invoice_number', header: 'invoice_number' },
-  { key: 'invoice_date', header: 'invoice_date' },
-  { key: 'due_date', header: 'due_date' },
-  { key: 'description', header: 'description' },
-  { key: 'client_name', header: 'client_name' },
-  { key: 'client_tax_id', header: 'client_tax_id' },
-  { key: 'client_country', header: 'client_country' },
-  { key: 'net_amount', header: 'net_amount' },
-  { key: 'vat_amount', header: 'vat_amount' },
-  { key: 'irpf_retention', header: 'irpf_retention' },
-  { key: 'total_amount', header: 'total_amount' },
-  { key: 'currency', header: 'currency' },
-  { key: 'payment_status', header: 'payment_status' },
-  { key: 'payment_method', header: 'payment_method' },
-  { key: 'payment_date', header: 'payment_date' },
-  { key: 'payment_notes', header: 'payment_notes' },
-  { key: 'vat_zone', header: 'vat_zone' },
-  { key: 'vat_due_mode', header: 'vat_due_mode' },
-  { key: 'import_format', header: 'import_format' },
-  { key: 'psycma_invoice_id', header: 'psycma_invoice_id' },
-  { key: 'psycma_center_id', header: 'psycma_center_id' },
-  { key: 'psycma_series_id', header: 'psycma_series_id' },
-  { key: 'psycma_status', header: 'psycma_status' },
-];
 
 export function ExportInvoicesDialog({ open, onOpenChange }: ExportInvoicesDialogProps) {
   const { center } = useCenter();
@@ -111,6 +65,7 @@ export function ExportInvoicesDialog({ open, onOpenChange }: ExportInvoicesDialo
           invoice_number,
           issue_date,
           due_date,
+          operation_date,
           subtotal,
           tax_amount,
           retention_amount,
@@ -118,10 +73,18 @@ export function ExportInvoicesDialog({ open, onOpenChange }: ExportInvoicesDialo
           notes,
           status,
           is_valid,
+          verifactu_invoice_type,
+          rectification_type,
+          rectification_reason_code,
+          rectified_invoice_id,
+          correction_operation_id,
+          recipient_snapshot,
           series_id,
           center_id,
           patient_id,
-          patients:patient_id (first_name, last_name, tax_id),
+          patients:patient_id (first_name, last_name, tax_id, address, city, postal_code, email),
+          series:series_id (invoice_type, series_type),
+          rectified_invoice:rectified_invoice_id (invoice_number, issue_date),
           invoice_items (description, quantity, unit_price, total),
           payments (amount, payment_date, payment_method, notes, reference)
         `)
@@ -133,6 +96,8 @@ export function ExportInvoicesDialog({ open, onOpenChange }: ExportInvoicesDialo
       // Apply status filters
       if (!includeCancelled) {
         query = query.neq('status', 'cancelled').eq('is_valid', true);
+      } else {
+        query = query.or('is_valid.eq.true,status.eq.cancelled');
       }
       if (!includeDrafts) {
         query = query.neq('status', 'draft');
@@ -148,81 +113,38 @@ export function ExportInvoicesDialog({ open, onOpenChange }: ExportInvoicesDialo
         return;
       }
 
-      // Transform invoices to export format
-      const rows: InvoiceExportRow[] = invoices.map((inv) => {
-        const patient = inv.patients as { first_name?: string; last_name?: string; tax_id?: string } | null;
-        const items = (inv.invoice_items || []) as Array<{ description: string; quantity: number; unit_price: number; total: number }>;
-        const payments = (inv.payments || []) as Array<{ amount: number; payment_date: string; payment_method: string; notes?: string; reference?: string }>;
+      const invoiceIds = invoices.map((invoice) => invoice.id);
+      let substitutionReferences: AccountingSubstitutionReference[] = [];
 
-        // Build description from items
-        const description = items.length > 0
-          ? items.map(it => `${it.description} x${it.quantity} (${it.unit_price}€)`).join('; ')
-          : inv.notes || '';
+      if (invoiceIds.length > 0) {
+        const { data: substitutions, error: substitutionsError } = await supabase
+          .from('invoice_substitutions')
+          .select(`
+            replacement_invoice_id,
+            substituted_invoice:substituted_invoice_id (invoice_number, issue_date)
+          `)
+          .in('replacement_invoice_id', invoiceIds);
 
-        // Calculate payment status
-        const totalPaid = payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
-        const invoiceTotal = Number(inv.total) || 0;
-        let paymentStatus = 'unpaid';
-        if (totalPaid >= invoiceTotal && invoiceTotal > 0) {
-          paymentStatus = 'paid';
-        } else if (totalPaid > 0) {
-          paymentStatus = 'partial';
-        }
+        if (substitutionsError) throw substitutionsError;
 
-        // Get payment method(s)
-        let paymentMethod = '';
-        if (payments.length > 0) {
-          const methods = [...new Set(payments.map(p => p.payment_method))];
-          paymentMethod = methods.length === 1 ? methods[0] : 'mixed';
-        }
+        substitutionReferences = (substitutions || []).flatMap((substitution) => {
+          const replaced = substitution.substituted_invoice;
+          if (!replaced?.invoice_number || !replaced.issue_date) return [];
+          return [{
+            replacement_invoice_id: substitution.replacement_invoice_id,
+            invoice_number: replaced.invoice_number,
+            issue_date: replaced.issue_date,
+          }];
+        });
+      }
 
-        // Get last payment date
-        let paymentDate = '';
-        if (payments.length > 0) {
-          const dates = payments.map(p => p.payment_date).filter(Boolean).sort();
-          paymentDate = dates.length > 0 ? dates[dates.length - 1] : '';
-        }
-
-        // Concatenate payment notes
-        const paymentNotes = payments
-          .map(p => [p.reference, p.notes].filter(Boolean).join(' - '))
-          .filter(Boolean)
-          .join('; ');
-
-        const clientName = [patient?.first_name, patient?.last_name]
-          .filter(Boolean)
-          .join(' ')
-          .trim();
-
-        return {
-          invoice_number: inv.invoice_number || '',
-          invoice_date: inv.issue_date || '',
-          due_date: inv.due_date || '',
-          description,
-          client_name: clientName,
-          client_tax_id: patient?.tax_id || '',
-          client_country: 'ES',
-          net_amount: String(Number(inv.subtotal) || 0),
-          vat_amount: String(Number(inv.tax_amount) || 0),
-          irpf_retention: String(Number(inv.retention_amount) || 0),
-          total_amount: String(Number(inv.total) || 0),
-          currency: 'EUR',
-          payment_status: paymentStatus,
-          payment_method: paymentMethod,
-          payment_date: paymentDate,
-          payment_notes: paymentNotes,
-          vat_zone: '',
-          vat_due_mode: '',
-          import_format: 'psycma',
-          psycma_invoice_id: inv.id,
-          psycma_center_id: inv.center_id,
-          psycma_series_id: inv.series_id || '',
-          psycma_status: inv.status || '',
-        };
-      });
+      const rows = buildInvoiceAccountingRows(
+        invoices as unknown as AccountingExportInvoice[],
+        substitutionReferences,
+      );
 
       // Build CSV and download
-      const csvContent = buildCsv(rows, CSV_COLUMNS);
+      const csvContent = buildCsv(rows, INVOICE_CSV_COLUMNS);
       const filename = `psycma_invoices_${dateFromStr}_to_${dateToStr}.csv`;
       downloadFile(csvContent, filename);
 
@@ -315,7 +237,7 @@ export function ExportInvoicesDialog({ open, onOpenChange }: ExportInvoicesDialo
                 onCheckedChange={(checked) => setIncludeCancelled(checked === true)}
               />
               <Label htmlFor="include-cancelled" className="text-sm font-normal cursor-pointer">
-                Incluir anuladas/canceladas
+                Incluir canceladas (no incluye originales sustituidas)
               </Label>
             </div>
             <div className="flex items-center space-x-2">
