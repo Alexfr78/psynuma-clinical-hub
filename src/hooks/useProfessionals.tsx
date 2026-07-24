@@ -1,9 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
-import type { Tables, TablesInsert, TablesUpdate } from '@/integrations/supabase/types';
+import type { Enums, Tables, TablesInsert, TablesUpdate } from '@/integrations/supabase/types';
 
 export type Profile = Tables<'profiles'>;
+export type AppRole = Enums<'app_role'>;
+export type Professional = Profile & { roles: AppRole[] };
 export type ProfileUpdate = TablesUpdate<'profiles'>;
 export type Availability = Tables<'availability'>;
 export type AvailabilityInsert = TablesInsert<'availability'>;
@@ -31,6 +33,45 @@ export function useProfessionals() {
 
       if (error) throw error;
       return data as Profile[];
+    },
+    enabled: !!profile?.center_id,
+  });
+}
+
+export function useProfessionalsWithRoles() {
+  const { profile } = useAuth();
+
+  return useQuery({
+    queryKey: ['professionals', 'with-roles', profile?.center_id],
+    queryFn: async () => {
+      if (!profile?.center_id) throw new Error('No center_id');
+
+      const [profilesResult, rolesResult] = await Promise.all([
+        supabase
+          .from('profiles')
+          .select('*')
+          .eq('center_id', profile.center_id)
+          .order('first_name', { ascending: true }),
+        supabase
+          .from('user_roles')
+          .select('user_id, role')
+          .eq('center_id', profile.center_id),
+      ]);
+
+      if (profilesResult.error) throw profilesResult.error;
+      if (rolesResult.error) throw rolesResult.error;
+
+      const rolesByUser = new Map<string, AppRole[]>();
+      for (const userRole of rolesResult.data) {
+        const roles = rolesByUser.get(userRole.user_id) ?? [];
+        roles.push(userRole.role);
+        rolesByUser.set(userRole.user_id, roles);
+      }
+
+      return profilesResult.data.map((professional) => ({
+        ...professional,
+        roles: rolesByUser.get(professional.id) ?? [],
+      })) as Professional[];
     },
     enabled: !!profile?.center_id,
   });

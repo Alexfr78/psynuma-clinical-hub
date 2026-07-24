@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Search, Loader2, UserCog, UserPlus } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { useProfessionals } from '@/hooks/useProfessionals';
+import { useProfessionalsWithRoles } from '@/hooks/useProfessionals';
 import { ProfessionalCard } from '@/components/professionals/ProfessionalCard';
 import { ProfessionalDetailDialog } from '@/components/professionals/ProfessionalDetailDialog';
 import { InviteProfessionalDialog } from '@/components/professionals/InviteProfessionalDialog';
@@ -13,7 +13,7 @@ export default function Professionals() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
 
-  const { data: professionals = [], isLoading } = useProfessionals();
+  const { data: professionals = [], isLoading } = useProfessionalsWithRoles();
 
   const filteredProfessionals = professionals.filter((prof) => {
     const fullName = `${prof.first_name || ''} ${prof.last_name || ''}`.toLowerCase();
