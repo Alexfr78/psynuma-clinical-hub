@@ -9,6 +9,12 @@ export type Availability = Tables<'availability'>;
 export type AvailabilityInsert = TablesInsert<'availability'>;
 export type AvailabilityUpdate = TablesUpdate<'availability'>;
 
+export interface InviteProfessionalInput {
+  first_name: string;
+  last_name: string;
+  email: string;
+}
+
 export function useProfessionals() {
   const { profile } = useAuth();
 
@@ -67,6 +73,35 @@ export function useUpdateProfessional() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['professionals'] });
       queryClient.invalidateQueries({ queryKey: ['professional'] });
+    },
+  });
+}
+
+export function useInviteProfessional() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: InviteProfessionalInput) => {
+      const { data, error } = await supabase.functions.invoke('invite-professional', {
+        body: input,
+      });
+
+      if (error) {
+        let message = data?.error;
+        const response = 'context' in error ? error.context : null;
+
+        if (!message && response instanceof Response) {
+          const errorBody = await response.clone().json().catch(() => null);
+          message = errorBody?.error;
+        }
+
+        throw new Error(message || 'No se pudo enviar la invitación');
+      }
+
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['professionals'] });
     },
   });
 }

@@ -53,6 +53,8 @@ project_id = "zprkdxmluvirxfhswrzq"
     verify_jwt = true
   [functions.interpret-pai-results]
     verify_jwt = true
+  [functions.invite-professional]
+    verify_jwt = true
   [functions.list-google-calendars]
     verify_jwt = true
   [functions.oauth-google-callback]

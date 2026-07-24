@@ -1,14 +1,17 @@
 import { useState } from 'react';
-import { Search, Loader2, UserCog } from 'lucide-react';
+import { Search, Loader2, UserCog, UserPlus } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { useProfessionals } from '@/hooks/useProfessionals';
 import { ProfessionalCard } from '@/components/professionals/ProfessionalCard';
 import { ProfessionalDetailDialog } from '@/components/professionals/ProfessionalDetailDialog';
+import { InviteProfessionalDialog } from '@/components/professionals/InviteProfessionalDialog';
 
 export default function Professionals() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProfessionalId, setSelectedProfessionalId] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
 
   const { data: professionals = [], isLoading } = useProfessionals();
 
@@ -36,6 +39,10 @@ export default function Professionals() {
             Gestiona los profesionales del centro
           </p>
         </div>
+        <Button onClick={() => setInviteDialogOpen(true)} className="w-full sm:w-auto">
+          <UserPlus className="mr-2 h-4 w-4" aria-hidden="true" />
+          Invitar profesional
+        </Button>
       </div>
 
       <div className="relative">
@@ -78,6 +85,10 @@ export default function Professionals() {
         professionalId={selectedProfessionalId}
         open={dialogOpen}
         onOpenChange={setDialogOpen}
+      />
+      <InviteProfessionalDialog
+        open={inviteDialogOpen}
+        onOpenChange={setInviteDialogOpen}
       />
     </div>
   );
