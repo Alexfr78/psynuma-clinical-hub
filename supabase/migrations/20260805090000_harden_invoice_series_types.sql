@@ -14,23 +14,18 @@ ALTER TABLE public.invoices
 COMMENT ON COLUMN public.invoices.invoice_type IS
   'Immutable complete/simplified type captured from the selected series. NULL is reserved for legacy invoices.';
 
--- Backfill only where the historical fiscal type is unambiguous. Unsigned
--- issued legacy invoices deliberately remain NULL and continue using their
--- now-protected series as a compatibility fallback.
-UPDATE public.invoices
-SET invoice_type = CASE
-  WHEN verifactu_invoice_type IN ('F2', 'R5') THEN 'simplified'
-  WHEN verifactu_invoice_type IN ('F1', 'F3', 'R1', 'R2', 'R3', 'R4') THEN 'complete'
-  ELSE invoice_type
-END
-WHERE invoice_type IS NULL
-  AND verifactu_invoice_type IN ('F1', 'F2', 'F3', 'R1', 'R2', 'R3', 'R4', 'R5');
-
+-- Issued invoices are intentionally untouched: the existing fiscal
+-- immutability trigger must remain authoritative. Legacy issued documents
+-- continue using their now-protected series as a compatibility fallback.
+-- Only mutable, unsigned drafts receive the snapshot before issuance.
 UPDATE public.invoices AS invoice
 SET invoice_type = series.invoice_type
 FROM public.invoice_series AS series
 WHERE invoice.invoice_type IS NULL
   AND invoice.status = 'draft'
+  AND invoice.invoice_hash IS NULL
+  AND invoice.verifactu_hash IS NULL
+  AND invoice.verifactu_registration_id IS NULL
   AND invoice.series_id = series.id;
 
 DROP INDEX IF EXISTS public.idx_invoice_series_default_per_type;
