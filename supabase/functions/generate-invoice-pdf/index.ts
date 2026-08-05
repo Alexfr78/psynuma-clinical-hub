@@ -405,14 +405,26 @@ function generateInvoiceHTML(
     .space-y-8 > * + * { margin-top: 32px; }
 
     /* Header */
-    .header { display: flex; justify-content: space-between; gap: 24px; }
-    .header-left { flex: 1; }
+    .header {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+      align-items: start;
+      gap: 24px;
+    }
+    .header-left { min-width: 0; }
     .header-left img { max-height: 64px; object-fit: contain; margin-bottom: 16px; }
     .header-left h2 { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
     .header-left .meta { font-size: 13px; color: #64748b; }
     .header-left .meta p { margin-bottom: 2px; }
-    .header-right { text-align: right; flex-shrink: 0; }
-    .header-right h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+    .header-right { min-width: 0; width: 100%; text-align: right; }
+    .header-right h1 {
+      max-width: 100%;
+      font-size: 22px;
+      line-height: 1.2;
+      font-weight: 700;
+      margin-bottom: 8px;
+      overflow-wrap: anywhere;
+    }
     .header-right .inv-number { font-size: 20px; font-weight: 600; color: #2563eb; margin-bottom: 8px; }
     .header-right .dates { font-size: 13px; color: #64748b; }
     .header-right .dates p { margin-bottom: 4px; }
@@ -516,8 +528,18 @@ function generateInvoiceHTML(
     }
 
     @media print {
-      body { background: #fff; padding: 16px; }
+      @page { size: A4 portrait; margin: 12mm; }
+      html, body { width: 100%; }
+      body { background: #fff; padding: 0; }
+      .container { width: 100%; max-width: none; }
       .card { box-shadow: none; border: none; padding: 0; }
+      .header { grid-template-columns: minmax(0, 1fr) minmax(72mm, 92mm); }
+      .header-right h1 { font-size: 18px; }
+      .client-box, .rectified-info, .items-table, .totals-wrapper,
+      .notes, .qr-section, .footer, .data-protection {
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
     }
   </style>
 </head>
