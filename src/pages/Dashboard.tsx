@@ -181,12 +181,12 @@ export default function Dashboard() {
     },
     {
       title: 'Pendientes Cobro',
-      value: `${(stats?.pendingDebts || 0).toFixed(2)}€`,
+      value: `${pendingDebts.toFixed(2)}€`,
       description: 'Deudas pendientes',
 
       icon: AlertCircle,
       href: '/cobros',
-      alert: (stats?.pendingDebts || 0) > 0,
+      alert: pendingDebts > 0,
     },
   ];
 
