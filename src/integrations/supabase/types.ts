@@ -6731,6 +6731,10 @@ export type Database = {
         Returns: string
       }
       get_invoice_token: { Args: never; Returns: string }
+      get_patient_for_invoice_token: {
+        Args: { p_token: string }
+        Returns: Json
+      }
       get_invoice_type_correction_context: {
         Args: { p_original_invoice_id: string }
         Returns: Json

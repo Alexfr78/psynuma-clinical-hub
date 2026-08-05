@@ -1,5 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import {
+  resolvePublicInvoiceRecipient,
+  type PublicInvoiceRecipient,
+} from '@/lib/publicInvoiceRecipient';
 
 interface InvoiceItem {
   id: string;
@@ -44,16 +48,7 @@ interface PublicInvoice {
   series_id: string | null;
   rectified_invoice_id: string | null;
   rectification_type: 'differences' | 'substitution' | null;
-  patient: {
-    first_name: string;
-    last_name: string;
-    email: string | null;
-    phone: string | null;
-    address: string | null;
-    city: string | null;
-    postal_code: string | null;
-    tax_id: string | null;
-  };
+  patient: PublicInvoiceRecipient;
   center: {
     name: string;
     address: string | null;
@@ -101,6 +96,7 @@ export function usePublicInvoice(token: string | undefined) {
           series_id,
           rectified_invoice_id,
           rectification_type,
+          recipient_snapshot,
           patient_id,
           center_id
         `)
@@ -113,13 +109,14 @@ export function usePublicInvoice(token: string | undefined) {
         return null;
       }
 
-      // Fetch patient data with invoice token header
-      const { data: patient } = await supabase
-        .from('patients')
-        .select('first_name, last_name, email, phone, address, city, postal_code, tax_id')
-        .eq('id', invoice.patient_id)
-        .setHeader('x-invoice-token', token)
-        .single();
+      // Direct anonymous reads from patients are intentionally blocked. This RPC
+      // only returns the recipient linked to the exact invoice access token.
+      const { data: patient, error: patientError } = await supabase
+        .rpc('get_patient_for_invoice_token', { p_token: token });
+
+      if (patientError) {
+        console.error('Error fetching invoice recipient:', patientError);
+      }
 
       // Fetch center data via safe RPC (no credentials exposed)
       const { data: centerData } = await supabase
@@ -162,16 +159,7 @@ export function usePublicInvoice(token: string | undefined) {
         ...invoice,
         invoice_type: invoiceType,
         rectification_type: invoice.rectification_type as 'differences' | 'substitution' | null,
-        patient: patient || {
-          first_name: '',
-          last_name: '',
-          email: null,
-          phone: null,
-          address: null,
-          city: null,
-          postal_code: null,
-          tax_id: null,
-        },
+        patient: resolvePublicInvoiceRecipient(invoice.recipient_snapshot, patient),
         center: center || {
           name: '',
           address: null,

@@ -97,6 +97,7 @@ export default function InvoiceView() {
   };
 
   const status = statusConfig[invoice.status || 'draft'] || statusConfig.draft;
+  const hasClientData = Object.values(invoice.patient).some(Boolean);
 
   return (
     <div className="min-h-screen bg-muted/30">
@@ -205,18 +206,24 @@ export default function InvoiceView() {
             {/* Client Info */}
             <div className="border rounded-lg p-4 bg-muted/30">
               <h3 className="font-semibold mb-2">Datos del cliente</h3>
-              <div className="text-sm space-y-1">
-                <p className="font-medium">
-                  {invoice.patient.first_name} {invoice.patient.last_name}
+              {hasClientData ? (
+                <div className="text-sm space-y-1 break-words">
+                  {invoice.patient.name && (
+                    <p className="font-medium">{invoice.patient.name}</p>
+                  )}
+                  {invoice.patient.tax_id && <p>NIF/CIF: {invoice.patient.tax_id}</p>}
+                  {invoice.patient.address && <p>{invoice.patient.address}</p>}
+                  {(invoice.patient.postal_code || invoice.patient.city) && (
+                    <p>{[invoice.patient.postal_code, invoice.patient.city].filter(Boolean).join(' ')}</p>
+                  )}
+                  {invoice.patient.email && <p>{invoice.patient.email}</p>}
+                  {invoice.patient.phone && <p>Tel: {invoice.patient.phone}</p>}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Los datos del cliente no están disponibles en esta factura.
                 </p>
-                {invoice.patient.tax_id && <p>NIF/CIF: {invoice.patient.tax_id}</p>}
-                {invoice.patient.address && <p>{invoice.patient.address}</p>}
-                {(invoice.patient.postal_code || invoice.patient.city) && (
-                  <p>{[invoice.patient.postal_code, invoice.patient.city].filter(Boolean).join(' ')}</p>
-                )}
-                {invoice.patient.email && <p>{invoice.patient.email}</p>}
-                {invoice.patient.phone && <p>Tel: {invoice.patient.phone}</p>}
-              </div>
+              )}
             </div>
 
             {/* Items Table */}
