@@ -6529,10 +6529,6 @@ export type Database = {
         Args: { p_invoice_id: string; p_operation: string }
         Returns: undefined
       }
-      set_default_invoice_series: {
-        Args: { p_series_id: string }
-        Returns: Database["public"]["Tables"]["invoice_series"]["Row"][]
-      }
       auto_complete_past_sessions: { Args: never; Returns: Json }
       bootstrap_create_center: {
         Args: {
@@ -6991,6 +6987,28 @@ export type Database = {
         Returns: Json
       }
       sanitize_error_payload: { Args: { payload: Json }; Returns: Json }
+      set_default_invoice_series: {
+        Args: { p_series_id: string }
+        Returns: {
+          center_id: string
+          created_at: string
+          format: string
+          id: string
+          invoice_type: string
+          is_archived: boolean | null
+          is_default: boolean | null
+          name: string
+          next_number: number
+          series_type: string
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "invoice_series"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       set_patient_discharged: { Args: { p_patient_id: string }; Returns: Json }
       try_acquire_google_sync_lock: {
         Args: {
