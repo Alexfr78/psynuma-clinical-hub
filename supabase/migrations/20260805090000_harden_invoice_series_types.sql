@@ -29,6 +29,7 @@ WHERE invoice.invoice_type IS NULL
   AND invoice.series_id = series.id;
 
 DROP INDEX IF EXISTS public.idx_invoice_series_default_per_type;
+DROP INDEX IF EXISTS public.idx_invoice_series_default_per_document_type;
 
 CREATE UNIQUE INDEX idx_invoice_series_default_per_document_type
 ON public.invoice_series (center_id, series_type, invoice_type)
