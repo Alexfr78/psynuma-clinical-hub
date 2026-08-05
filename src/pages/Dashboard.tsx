@@ -115,6 +115,9 @@ function useTodaySessions() {
 export default function Dashboard() {
   const { profile } = useAuth();
   const { data: stats, isLoading: statsLoading } = useDashboardStats();
+  // Usa la misma fuente que la página de Cobros/Deudas para evitar discrepancias
+  const { data: debtStats } = useDebtStats();
+  const pendingDebts = debtStats?.totalPending ?? stats?.pendingDebts ?? 0;
   const { data: todaySessions, isLoading: sessionsLoading } = useTodaySessions();
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
 
