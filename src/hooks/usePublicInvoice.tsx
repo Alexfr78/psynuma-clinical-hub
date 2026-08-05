@@ -154,8 +154,13 @@ export function usePublicInvoice(token: string | undefined) {
         }
       }
 
+      const invoiceType = invoice.invoice_type === 'simplified' || invoice.invoice_type === 'complete'
+        ? invoice.invoice_type
+        : null;
+
       return {
         ...invoice,
+        invoice_type: invoiceType,
         rectification_type: invoice.rectification_type as 'differences' | 'substitution' | null,
         patient: patient || {
           first_name: '',
