@@ -67,7 +67,11 @@ export function InviteProfessionalDialog({
 
   const onSubmit = async (values: InviteProfessionalValues) => {
     try {
-      await inviteProfessional.mutateAsync(values);
+      await inviteProfessional.mutateAsync({
+        first_name: values.first_name,
+        last_name: values.last_name,
+        email: values.email,
+      });
       toast.success(`Invitación enviada a ${values.email.trim().toLowerCase()}`);
       onOpenChange(false);
     } catch (error) {
