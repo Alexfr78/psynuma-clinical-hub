@@ -7,6 +7,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { SessionDetailDrawer } from '@/components/agenda/SessionDetailDrawer';
+import { useDebtStats } from '@/hooks/useDebts';
 import {
   Users,
   Calendar,
@@ -115,6 +116,9 @@ function useTodaySessions() {
 export default function Dashboard() {
   const { profile } = useAuth();
   const { data: stats, isLoading: statsLoading } = useDashboardStats();
+  // Usa la misma fuente que la página de Cobros/Deudas para evitar discrepancias
+  const { data: debtStats } = useDebtStats();
+  const pendingDebts = debtStats?.totalPending ?? stats?.pendingDebts ?? 0;
   const { data: todaySessions, isLoading: sessionsLoading } = useTodaySessions();
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
 
@@ -177,12 +181,12 @@ export default function Dashboard() {
     },
     {
       title: 'Pendientes Cobro',
-      value: `${(stats?.pendingDebts || 0).toFixed(2)}€`,
+      value: `${pendingDebts.toFixed(2)}€`,
       description: 'Deudas pendientes',
 
       icon: AlertCircle,
       href: '/cobros',
-      alert: (stats?.pendingDebts || 0) > 0,
+      alert: pendingDebts > 0,
     },
   ];
 
