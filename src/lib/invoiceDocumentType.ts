@@ -10,6 +10,7 @@ export interface InvoiceSeries {
 }
 
 export interface InvoiceForLabel {
+  invoice_type?: 'simplified' | 'complete' | null;
   is_recapitulative?: boolean | null;
   rectified_invoice_id?: string | null;
   rectification_type?: 'differences' | 'substitution' | string | null;
@@ -65,7 +66,7 @@ export function getInvoiceDocumentType(
     };
   }
 
-  const isSimplified = series?.invoice_type === 'simplified';
+  const isSimplified = (invoice.invoice_type ?? series?.invoice_type) === 'simplified';
   const isRectifying = 
     !!invoice.rectified_invoice_id || 
     series?.series_type === 'rectifying';

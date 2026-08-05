@@ -78,6 +78,7 @@ export function ExportInvoicesDialog({ open, onOpenChange }: ExportInvoicesDialo
           status,
           is_valid,
           invoice_hash,
+          invoice_type,
           previous_invoice_hash,
           verifactu_hash,
           verifactu_invoice_type,
@@ -95,7 +96,7 @@ export function ExportInvoicesDialog({ open, onOpenChange }: ExportInvoicesDialo
           patients:patient_id (first_name, last_name, tax_id, address, city, postal_code, email),
           series:series_id (name, invoice_type, series_type),
           rectified_invoice:rectified_invoice_id (
-            id, invoice_number, issue_date,
+            id, invoice_number, issue_date, invoice_type,
             series:series_id (name, invoice_type)
           ),
           invoice_items (

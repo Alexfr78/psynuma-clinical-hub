@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useCenter } from './useCenter';
-import { useInvoiceSeries } from './useInvoiceSeries';
+import { assertInvoiceSeriesMatches, selectAutomaticInvoiceSeries, type SelectableInvoiceSeries } from '@/lib/invoice-series';
 import { toast } from 'sonner';
 
 interface InvoiceItem {
@@ -45,13 +45,7 @@ interface CreateSignedInvoiceResult {
 export function useCreateSignedInvoice() {
   const queryClient = useQueryClient();
   const { center } = useCenter();
-  const { series } = useInvoiceSeries();
   
-
-  const getDefaultSeries = (type: 'simplified' | 'complete') => {
-    const seriesType = type === 'simplified' ? 'simplified' : 'complete';
-    return series?.find(s => s.invoice_type === seriesType && !s.is_archived);
-  };
 
   const mutation = useMutation({
     mutationFn: async (params: CreateSignedInvoiceParams): Promise<CreateSignedInvoiceResult> => {
@@ -81,7 +75,23 @@ export function useCreateSignedInvoice() {
       };
 
       // 1. Get series
-      const targetSeriesId = seriesId || getDefaultSeries(invoiceType)?.id;
+      let targetSeriesId = seriesId;
+      if (!targetSeriesId) {
+        const { data: compatibleSeries, error: compatibleSeriesError } = await supabase
+          .from('invoice_series')
+          .select('*')
+          .eq('center_id', center.id)
+          .eq('series_type', 'ordinary')
+          .eq('invoice_type', invoiceType)
+          .eq('is_archived', false)
+          .order('name');
+
+        if (compatibleSeriesError) throw compatibleSeriesError;
+        targetSeriesId = selectAutomaticInvoiceSeries(
+          compatibleSeries as unknown as SelectableInvoiceSeries[],
+          invoiceType,
+        ).id;
+      }
       if (!targetSeriesId) {
         throw new Error('No hay una serie de facturación configurada. Configúrala en Ajustes > Facturación.');
       }
@@ -95,6 +105,11 @@ export function useCreateSignedInvoice() {
 
       if (seriesError || !seriesData) {
         throw new Error('Error al obtener la serie de facturación');
+      }
+
+      assertInvoiceSeriesMatches(seriesData as unknown as SelectableInvoiceSeries, invoiceType, 'ordinary');
+      if (seriesData.center_id !== center.id) {
+        throw new Error('La serie de facturación seleccionada pertenece a otro centro.');
       }
 
       // 2. Generate invoice number from series format (or BORRADOR for drafts)
@@ -128,6 +143,7 @@ export function useCreateSignedInvoice() {
           center_id: center.id,
           patient_id: patientId,
           series_id: targetSeriesId,
+          invoice_type: invoiceType,
           invoice_number: invoiceNumber,
           status: isDraft ? 'draft' : 'issued',
           issue_date: new Date().toISOString().split('T')[0],

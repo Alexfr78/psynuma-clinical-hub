@@ -13,6 +13,7 @@ export interface AccountingExportPatient {
 export interface AccountingExportInvoice {
   id: string;
   invoice_number: string;
+  invoice_type?: 'simplified' | 'complete' | null;
   issue_date: string;
   due_date: string | null;
   cancellation_date?: string | null;
@@ -50,6 +51,7 @@ export interface AccountingExportInvoice {
     id?: string | null;
     invoice_number?: string | null;
     issue_date?: string | null;
+    invoice_type?: 'simplified' | 'complete' | null;
     series?: {
       name?: string | null;
       invoice_type?: string | null;
@@ -302,7 +304,8 @@ function inferInvoiceType(
   snapshot: FiscalRecipientSnapshot | null,
 ): string {
   if (invoice.rectified_invoice_id) {
-    const originalSeriesType = invoice.rectified_invoice?.series?.invoice_type;
+    const originalSeriesType = invoice.rectified_invoice?.invoice_type
+      ?? invoice.rectified_invoice?.series?.invoice_type;
     const originalNumber = invoice.rectified_invoice?.invoice_number || '';
     const originalWasSimplified = originalSeriesType === 'simplified'
       || (!originalSeriesType && originalNumber.startsWith('SP'));
@@ -323,10 +326,10 @@ function inferInvoiceType(
     if (invoice.rectification_reason_code?.match(/^R[1-5]$/)) {
       return invoice.rectification_reason_code;
     }
-    return invoice.series?.invoice_type === 'simplified' ? 'R5' : 'R1';
+    return (invoice.invoice_type ?? invoice.series?.invoice_type) === 'simplified' ? 'R5' : 'R1';
   }
   if (invoice.verifactu_invoice_type) return invoice.verifactu_invoice_type;
-  if (invoice.series?.invoice_type === 'simplified') {
+  if ((invoice.invoice_type ?? invoice.series?.invoice_type) === 'simplified') {
     return hasInvoiceFiscalRecipient(snapshot) ? 'F1' : 'F2';
   }
   return 'F1';

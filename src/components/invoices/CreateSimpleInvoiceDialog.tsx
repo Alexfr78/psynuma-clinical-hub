@@ -179,11 +179,14 @@ export function CreateSimpleInvoiceDialog({ open, onOpenChange, preselectedPatie
 
   // Set default series when type changes or series are loaded
   useEffect(() => {
-    const defaultSeries = availableSeries.find(s => s.is_default);
+    const compatibleSeries = ordinarySeries.filter(
+      s => s.invoice_type === invoiceType && !s.is_archived
+    );
+    const defaultSeries = compatibleSeries.find(s => s.is_default);
     if (defaultSeries) {
       setSelectedSeriesId(defaultSeries.id);
-    } else if (availableSeries.length > 0) {
-      setSelectedSeriesId(availableSeries[0].id);
+    } else if (compatibleSeries.length === 1) {
+      setSelectedSeriesId(compatibleSeries[0].id);
     } else {
       setSelectedSeriesId('');
     }
@@ -348,6 +351,7 @@ export function CreateSimpleInvoiceDialog({ open, onOpenChange, preselectedPatie
       const result = await createInvoice.mutateAsync({
         invoice: {
           patient_id: patientData.id,
+          invoice_type: invoiceType,
           issue_date: format(issueDate, 'yyyy-MM-dd'),
           subtotal: invoiceTotals.subtotal,
           tax_rate: 0,
@@ -671,23 +675,33 @@ export function CreateSimpleInvoiceDialog({ open, onOpenChange, preselectedPatie
                 </p>
               )}
               {availableSeries.length > 0 ? (
-                <Select value={selectedSeriesId} onValueChange={setSelectedSeriesId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecciona una serie" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableSeries.map((series) => (
-                      <SelectItem key={series.id} value={series.id}>
-                        <span className="flex items-center gap-2">
-                          {series.name}
-                          {series.is_default && (
-                            <span className="text-xs text-muted-foreground">(por defecto)</span>
-                          )}
-                        </span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <>
+                  {!selectedSeriesId && availableSeries.length > 1 && (
+                    <Alert className="border-amber-500/50 bg-amber-500/10">
+                      <AlertTriangle className="h-4 w-4 text-amber-600" />
+                      <AlertDescription>
+                        Hay varias series compatibles sin una predeterminada. Selecciona una para esta factura o configura la predeterminada en Ajustes.
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                  <Select value={selectedSeriesId} onValueChange={setSelectedSeriesId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecciona una serie" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableSeries.map((series) => (
+                        <SelectItem key={series.id} value={series.id}>
+                          <span className="flex items-center gap-2">
+                            {series.name}
+                            {series.is_default && (
+                              <span className="text-xs text-muted-foreground">(por defecto)</span>
+                            )}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </>
               ) : (
                 <Alert>
                   <AlertTriangle className="h-4 w-4" />

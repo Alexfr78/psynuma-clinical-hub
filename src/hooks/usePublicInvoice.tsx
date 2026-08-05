@@ -25,6 +25,7 @@ interface InvoiceSeries {
 interface PublicInvoice {
   id: string;
   invoice_number: string;
+  invoice_type: 'simplified' | 'complete' | null;
   issue_date: string;
   due_date: string | null;
   subtotal: number;
@@ -82,6 +83,7 @@ export function usePublicInvoice(token: string | undefined) {
         .select(`
           id,
           invoice_number,
+          invoice_type,
           issue_date,
           due_date,
           subtotal,

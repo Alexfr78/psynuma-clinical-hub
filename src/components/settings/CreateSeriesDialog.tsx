@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Loader2 } from 'lucide-react';
+import { AlertTriangle, Loader2 } from 'lucide-react';
 import {
   ResponsiveDialog as Dialog,
   ResponsiveDialogContent as DialogContent,
@@ -22,7 +22,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { useInvoiceSeries, InvoiceSeries } from '@/hooks/useInvoiceSeries';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { useInvoiceSeries, useInvoiceSeriesUsage, InvoiceSeries } from '@/hooks/useInvoiceSeries';
 
 const seriesSchema = z.object({
   name: z.string().min(1, 'El nombre es obligatorio').max(200),
@@ -44,6 +45,8 @@ interface CreateSeriesDialogProps {
 export function CreateSeriesDialog({ open, onOpenChange, editingSeries }: CreateSeriesDialogProps) {
   const { createSeries, updateSeries } = useInvoiceSeries();
   const isEditing = !!editingSeries;
+  const { data: invoiceCount = 0, isLoading: isUsageLoading } = useInvoiceSeriesUsage(editingSeries?.id);
+  const classificationLocked = isEditing && (isUsageLoading || invoiceCount > 0);
 
   const form = useForm<SeriesFormValues>({
     resolver: zodResolver(seriesSchema),
@@ -144,11 +147,21 @@ export function CreateSeriesDialog({ open, onOpenChange, editingSeries }: Create
           </div>
 
           <div className="grid gap-4 grid-cols-2">
+            {invoiceCount > 0 && (
+              <Alert className="col-span-2 border-amber-500/50 bg-amber-500/10">
+                <AlertTriangle className="h-4 w-4 text-amber-600" />
+                <AlertDescription>
+                  Esta serie ya tiene {invoiceCount} {invoiceCount === 1 ? 'factura vinculada' : 'facturas vinculadas'}.
+                  Sus tipos fiscal y documental no se pueden cambiar. Si necesitas otra clasificación, archiva esta serie y crea una nueva.
+                </AlertDescription>
+              </Alert>
+            )}
             <div className="space-y-2">
               <Label htmlFor="series_type">Tipo de serie</Label>
               <Select
                 value={form.watch('series_type')}
                 onValueChange={(value: 'ordinary' | 'rectifying') => form.setValue('series_type', value)}
+                disabled={classificationLocked}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -165,6 +178,7 @@ export function CreateSeriesDialog({ open, onOpenChange, editingSeries }: Create
               <Select
                 value={form.watch('invoice_type')}
                 onValueChange={(value: 'simplified' | 'complete') => form.setValue('invoice_type', value)}
+                disabled={classificationLocked}
               >
                 <SelectTrigger>
                   <SelectValue />

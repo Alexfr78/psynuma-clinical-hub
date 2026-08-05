@@ -216,6 +216,7 @@ export function CreateRectificativaDialog({
         patient_id: originalInvoice.patient_id,
         invoice_number: invoiceNumber,
         series_id: values.series_id,
+        invoice_type: series.invoice_type,
         status: 'issued',
         issue_date: new Date().toISOString().split('T')[0],
         subtotal: baseAmount,

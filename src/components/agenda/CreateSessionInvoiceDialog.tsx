@@ -196,11 +196,14 @@ export function CreateSessionInvoiceDialog({
 
   // Set default series when type changes or series are loaded
   useEffect(() => {
-    const defaultSeries = availableSeries.find(s => s.is_default);
+    const compatibleSeries = ordinarySeries.filter(
+      s => s.invoice_type === invoiceType && !s.is_archived
+    );
+    const defaultSeries = compatibleSeries.find(s => s.is_default);
     if (defaultSeries) {
       setSelectedSeriesId(defaultSeries.id);
-    } else if (availableSeries.length > 0) {
-      setSelectedSeriesId(availableSeries[0].id);
+    } else if (compatibleSeries.length === 1) {
+      setSelectedSeriesId(compatibleSeries[0].id);
     } else {
       setSelectedSeriesId('');
     }
@@ -392,6 +395,7 @@ export function CreateSessionInvoiceDialog({
       const result = await createInvoice.mutateAsync({
         invoice: {
           patient_id: patientData.id,
+          invoice_type: invoiceType,
           subtotal: invoiceTotals.subtotal,
           tax_rate: 0,
           tax_amount: invoiceTotals.taxAmount,
@@ -669,7 +673,25 @@ export function CreateSessionInvoiceDialog({
           </Alert>
         )}
         
-        <Select value={selectedSeriesId} onValueChange={setSelectedSeriesId}>
+        {!selectedSeriesId && availableSeries.length > 1 && (
+          <Alert className="border-amber-500/50 bg-amber-500/10">
+            <AlertTriangle className="h-4 w-4 text-amber-600" />
+            <AlertDescription>
+              Hay varias series compatibles sin una predeterminada. Selecciona una para esta factura o configura la predeterminada en Ajustes.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {availableSeries.length === 0 && (
+          <Alert>
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>
+              No hay una serie activa para este tipo de factura. Créala en Ajustes → Facturación → Series de facturas.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        <Select value={selectedSeriesId} onValueChange={setSelectedSeriesId} disabled={availableSeries.length === 0}>
           <SelectTrigger>
             <SelectValue placeholder="Seleccionar serie" />
           </SelectTrigger>

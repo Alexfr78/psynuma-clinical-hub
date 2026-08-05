@@ -260,7 +260,8 @@ function determineInvoiceType(invoice: any): string {
 
   // Rectifying invoices
   if (invoice.rectified_invoice_id) {
-    const originalSeriesType = invoice.rectified_invoice?.series?.invoice_type;
+    const originalSeriesType = invoice.rectified_invoice?.invoice_type
+      ?? invoice.rectified_invoice?.series?.invoice_type;
     const originalNumber = String(invoice.rectified_invoice?.invoice_number || '');
     const originalWasSimplified = originalSeriesType === 'simplified'
       || (!originalSeriesType && originalNumber.startsWith('SP'));
@@ -280,7 +281,7 @@ function determineInvoiceType(invoice: any): string {
     if (/^R[1-5]$/.test(explicitType)) return explicitType;
     const reasonCode = String(invoice.rectification_reason_code || '').trim().toUpperCase();
     if (/^R[1-5]$/.test(reasonCode)) return reasonCode;
-    if (invoice.series?.invoice_type === 'simplified') {
+    if ((invoice.invoice_type ?? invoice.series?.invoice_type) === 'simplified') {
       return 'R5';
     }
     throw new Error(
@@ -293,7 +294,7 @@ function determineInvoiceType(invoice: any): string {
   }
 
   // Check if it's a simplified invoice based on series type
-  const isSimplified = invoice.series?.invoice_type === 'simplified';
+  const isSimplified = (invoice.invoice_type ?? invoice.series?.invoice_type) === 'simplified';
   
   // Recapitulative invoices (factura que agrupa simplificadas)
   if (invoice.is_recapitulative) {
@@ -458,7 +459,7 @@ async function calculateInvoiceHash(invoice: any, center: any, previousHash: str
   ].join('&');
   
   console.log("Hash input data (AEAT format):", dataToHash);
-  console.log("Invoice type for hash:", tipoFactura, "(series invoice_type:", invoice.series?.invoice_type || 'N/A', ")");
+  console.log("Invoice type for hash:", tipoFactura, "(stored invoice_type:", invoice.invoice_type || 'legacy', ")");
   return await generateSHA256(dataToHash);
 }
 
@@ -567,7 +568,7 @@ function buildRegistroAltaXML(
 
   // Determine invoice type using the unified function
   const tipoFactura = determineInvoiceType(invoice);
-  console.log(`Invoice type determined: ${tipoFactura} (series invoice_type: ${invoice.series?.invoice_type || 'N/A'})`);
+  console.log(`Invoice type determined: ${tipoFactura} (stored invoice_type: ${invoice.invoice_type || 'legacy'})`);
 
   // Build rectified invoice reference if applicable
   let facturasRectificadasXML = '';
@@ -1072,7 +1073,7 @@ serve(async (req) => {
         patients (id, first_name, last_name, tax_id, address, city, postal_code),
         invoice_items (*),
         rectified_invoice:invoices!rectified_invoice_id (
-          id, invoice_number, issue_date,
+          id, invoice_number, issue_date, invoice_type,
           series:invoice_series!series_id (id, invoice_type)
         ),
         series:invoice_series!series_id (id, invoice_type, series_type),

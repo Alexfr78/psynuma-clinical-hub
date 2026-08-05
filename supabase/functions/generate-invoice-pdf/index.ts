@@ -15,6 +15,7 @@ interface InvoiceSeries {
 interface InvoiceData {
   id: string;
   invoice_number: string;
+  invoice_type: 'simplified' | 'complete' | null;
   issue_date: string;
   due_date: string | null;
   subtotal: number;
@@ -89,13 +90,13 @@ interface InvoiceSubstitutionJoin {
  * Must match the frontend implementation in src/lib/invoiceDocumentType.ts
  */
 function getInvoiceDocumentTypeLabel(
-  invoice: { is_recapitulative?: boolean | null; rectified_invoice_id?: string | null; rectification_type?: string | null; verifactu_invoice_type?: string | null },
+  invoice: { invoice_type?: 'simplified' | 'complete' | null; is_recapitulative?: boolean | null; rectified_invoice_id?: string | null; rectification_type?: string | null; verifactu_invoice_type?: string | null },
   series: InvoiceSeries | null
 ): string {
   if (invoice.verifactu_invoice_type === 'F3') {
     return 'FACTURA COMPLETA EN SUSTITUCIÓN DE FACTURA SIMPLIFICADA';
   }
-  const isSimplified = series?.invoice_type === 'simplified';
+  const isSimplified = (invoice.invoice_type ?? series?.invoice_type) === 'simplified';
   const isRectifying = !!invoice.rectified_invoice_id || series?.series_type === 'rectifying';
   const isSubstitution = invoice.rectification_type === 'substitution';
   const isRecapitulativa = !!invoice.is_recapitulative;
@@ -340,7 +341,7 @@ function generateInvoiceHTML(
 
   // Build badge HTML for document type flags
   const isF3 = invoice.verifactu_invoice_type === 'F3';
-  const isSimplified = series?.invoice_type === 'simplified' && !isF3;
+  const isSimplified = (invoice.invoice_type ?? series?.invoice_type) === 'simplified' && !isF3;
   const isRectifying = !!invoice.rectified_invoice_id || series?.series_type === 'rectifying';
   const isSubstitution = invoice.rectification_type === 'substitution';
   const isRecapitulativa = !!invoice.is_recapitulative;

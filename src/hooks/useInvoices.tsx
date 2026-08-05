@@ -3,6 +3,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { type Center } from './useCenter';
 import { toast } from 'sonner';
+import {
+  assertInvoiceSeriesMatches,
+  selectAutomaticInvoiceSeries,
+  type InvoiceDocumentType,
+  type SelectableInvoiceSeries,
+} from '@/lib/invoice-series';
 
 export interface Invoice {
   id: string;
@@ -10,6 +16,7 @@ export interface Invoice {
   patient_id: string;
   center_id: string;
   series_id: string | null;
+  invoice_type: InvoiceDocumentType | null;
   issue_date: string;
   due_date: string | null;
   subtotal: number;
@@ -77,6 +84,7 @@ export interface InvoiceItem {
 export interface InvoiceInsert {
   patient_id: string;
   series_id?: string | null;
+  invoice_type?: InvoiceDocumentType | null;
   issue_date?: string;
   due_date?: string | null;
   subtotal: number;
@@ -278,7 +286,7 @@ export function useCreateInvoiceWithSeries() {
       items, 
       seriesId 
     }: { 
-      invoice: InvoiceInsert; 
+      invoice: InvoiceInsert & { invoice_type: InvoiceDocumentType };
       items: (Omit<InvoiceItemInsert, 'invoice_id'> & { session_id?: string })[]; 
       seriesId: string;
     }) => {
@@ -290,6 +298,11 @@ export function useCreateInvoiceWithSeries() {
         .single();
 
       if (seriesError) throw seriesError;
+
+      assertInvoiceSeriesMatches(series as unknown as SelectableInvoiceSeries, invoice.invoice_type, 'ordinary');
+      if (series.center_id !== profile!.center_id) {
+        throw new Error('La serie de facturación seleccionada pertenece a otro centro.');
+      }
 
       // Generate invoice number from series format
       // Format example: {SERIE}-{AAAA}-{NNNNN}
@@ -383,7 +396,7 @@ export function useUpdateInvoiceStatus() {
       // Get current invoice with Verifactu fields
       const { data: currentInvoice, error: fetchError } = await supabase
         .from('invoices')
-        .select('invoice_number, series_id, status, verifactu_hash, verifactu_pending')
+        .select('invoice_number, series_id, invoice_type, status, verifactu_hash, verifactu_pending')
         .eq('id', id)
         .single();
 
@@ -407,7 +420,7 @@ export function useUpdateInvoiceStatus() {
         }
       }
 
-      const updateData: { status: Invoice['status']; invoice_number?: string } = { status };
+      const updateData: { status: Invoice['status']; invoice_number?: string; series_id?: string } = { status };
 
       // If issuing a draft, assign proper series number
       if (status === 'issued' && currentInvoice?.invoice_number?.startsWith('BORRADOR-')) {
@@ -423,21 +436,38 @@ export function useUpdateInvoiceStatus() {
           if (seriesError) throw seriesError;
           series = seriesData;
         } else {
-          const { data: defaultSeries, error: defaultError } = await supabase
+          if (!currentInvoice.invoice_type) {
+            throw new Error('El borrador no tiene tipo ni serie asignados. Selecciona una serie antes de emitirlo.');
+          }
+
+          const { data: compatibleSeries, error: defaultError } = await supabase
             .from('invoice_series')
             .select('*')
             .eq('center_id', profile!.center_id!)
             .eq('series_type', 'ordinary')
-            .eq('is_default', true)
+            .eq('invoice_type', currentInvoice.invoice_type)
             .eq('is_archived', false)
-            .maybeSingle();
+            .order('name');
 
           if (defaultError) throw defaultError;
           
-          if (!defaultSeries) {
-            throw new Error('No hay una serie de facturación configurada. Por favor, crea una serie en Configuración > Facturación > Series y numeración.');
-          }
-          series = defaultSeries;
+          series = selectAutomaticInvoiceSeries(
+            compatibleSeries as unknown as SelectableInvoiceSeries[],
+            currentInvoice.invoice_type as InvoiceDocumentType,
+          );
+          updateData.series_id = series.id;
+        }
+
+        if (!currentInvoice.invoice_type) {
+          throw new Error('El borrador no tiene un tipo de factura guardado. Revísalo antes de emitirlo.');
+        }
+        assertInvoiceSeriesMatches(
+          series as unknown as SelectableInvoiceSeries,
+          currentInvoice.invoice_type as InvoiceDocumentType,
+          'ordinary',
+        );
+        if (series.center_id !== profile!.center_id) {
+          throw new Error('La serie de facturación pertenece a otro centro.');
         }
 
         const year = new Date().getFullYear();

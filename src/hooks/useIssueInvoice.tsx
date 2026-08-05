@@ -1,8 +1,8 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useCenter } from './useCenter';
-import { useInvoiceSeries } from './useInvoiceSeries';
 import { toast } from 'sonner';
+import { assertInvoiceSeriesMatches, type SelectableInvoiceSeries } from '@/lib/invoice-series';
 
 interface IssueInvoiceResult {
   success: boolean;
@@ -19,7 +19,6 @@ interface IssueInvoiceResult {
 export function useIssueInvoice() {
   const queryClient = useQueryClient();
   const { center } = useCenter();
-  const { series } = useInvoiceSeries();
 
   return useMutation({
     mutationFn: async (invoiceId: string): Promise<IssueInvoiceResult> => {
@@ -67,6 +66,18 @@ export function useIssueInvoice() {
 
       if (seriesError || !seriesData) {
         throw new Error('Error al obtener la serie de facturación');
+      }
+
+      if (!invoice.invoice_type) {
+        throw new Error('El borrador no tiene un tipo de factura guardado. Revísalo antes de emitirlo.');
+      }
+      assertInvoiceSeriesMatches(
+        seriesData as unknown as SelectableInvoiceSeries,
+        invoice.invoice_type,
+        'ordinary',
+      );
+      if (seriesData.center_id !== center.id) {
+        throw new Error('La serie de facturación pertenece a otro centro.');
       }
 
       // Generate invoice number from series format

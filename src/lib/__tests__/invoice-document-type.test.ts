@@ -2,6 +2,16 @@ import { describe, expect, it } from 'vitest';
 import { getInvoiceDocumentType } from '@/lib/invoiceDocumentType';
 
 describe('getInvoiceDocumentType', () => {
+  it('prefers the immutable invoice snapshot over a changed series classification', () => {
+    const result = getInvoiceDocumentType(
+      { invoice_type: 'simplified' },
+      { invoice_type: 'complete', series_type: 'ordinary' },
+    );
+
+    expect(result.label).toBe('FACTURA SIMPLIFICADA');
+    expect(result.flags.isSimplified).toBe(true);
+  });
+
   it('labels an explicit F3 independently from the ordinary complete series', () => {
     const result = getInvoiceDocumentType(
       { verifactu_invoice_type: 'F3' },

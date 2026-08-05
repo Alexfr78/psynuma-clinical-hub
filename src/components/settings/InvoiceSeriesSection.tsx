@@ -36,7 +36,7 @@ export function InvoiceSeriesSection() {
   const missingBillingInfo = !center?.tax_id || !center?.address;
 
   const handleSetDefault = (series: InvoiceSeries) => {
-    setDefaultSeries.mutate({ id: series.id, seriesType: series.series_type });
+    setDefaultSeries.mutate(series.id);
   };
 
   const handleArchive = (series: InvoiceSeries) => {

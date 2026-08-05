@@ -20,6 +20,22 @@ export interface InvoiceSeries {
 export type CreateInvoiceSeriesInput = Omit<InvoiceSeries, 'id' | 'center_id' | 'created_at' | 'updated_at' | 'is_archived'> & { is_archived?: boolean };
 export type UpdateInvoiceSeriesInput = Partial<CreateInvoiceSeriesInput>;
 
+export function useInvoiceSeriesUsage(seriesId?: string) {
+  return useQuery({
+    queryKey: ['invoice-series-usage', seriesId],
+    queryFn: async () => {
+      if (!seriesId) return 0;
+      const { count, error } = await supabase
+        .from('invoices')
+        .select('id', { count: 'exact', head: true })
+        .eq('series_id', seriesId);
+      if (error) throw error;
+      return count ?? 0;
+    },
+    enabled: !!seriesId,
+  });
+}
+
 export function useInvoiceSeries(showArchived: boolean = false) {
   const { centerId } = useCenter();
   const queryClient = useQueryClient();
@@ -51,17 +67,29 @@ export function useInvoiceSeries(showArchived: boolean = false) {
   const createSeries = useMutation({
     mutationFn: async (input: CreateInvoiceSeriesInput) => {
       if (!centerId) throw new Error('No center ID');
+
+      const { is_default: shouldSetDefault, ...seriesInput } = input;
       
       const { data, error } = await supabase
         .from('invoice_series')
         .insert({
-          ...input,
+          ...seriesInput,
           center_id: centerId,
+          is_default: false,
         })
         .select()
         .single();
 
       if (error) throw error;
+
+      if (shouldSetDefault) {
+        const { data: defaultSeries, error: defaultError } = await supabase
+          .rpc('set_default_invoice_series', { p_series_id: data.id })
+          .single();
+        if (defaultError) throw defaultError;
+        return defaultSeries;
+      }
+
       return data;
     },
     onSuccess: () => {
@@ -75,14 +103,40 @@ export function useInvoiceSeries(showArchived: boolean = false) {
 
   const updateSeries = useMutation({
     mutationFn: async ({ id, ...updates }: UpdateInvoiceSeriesInput & { id: string }) => {
+      const { data: current, error: currentError } = await supabase
+        .from('invoice_series')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (currentError) throw currentError;
+
+      const classificationChanges =
+        (updates.invoice_type !== undefined && updates.invoice_type !== current.invoice_type)
+        || (updates.series_type !== undefined && updates.series_type !== current.series_type);
+      const shouldSetDefault = updates.is_default === true
+        || (updates.is_default === undefined && current.is_default && classificationChanges);
+
       const { data, error } = await supabase
         .from('invoice_series')
-        .update(updates)
+        .update({
+          ...updates,
+          ...(shouldSetDefault ? { is_default: false } : {}),
+        })
         .eq('id', id)
         .select()
         .single();
 
       if (error) throw error;
+
+      if (shouldSetDefault) {
+        const { data: defaultSeries, error: defaultError } = await supabase
+          .rpc('set_default_invoice_series', { p_series_id: id })
+          .single();
+        if (defaultError) throw defaultError;
+        return defaultSeries;
+      }
+
       return data;
     },
     onSuccess: () => {
@@ -116,23 +170,11 @@ export function useInvoiceSeries(showArchived: boolean = false) {
   });
 
   const setDefaultSeries = useMutation({
-    mutationFn: async ({ id, seriesType }: { id: string; seriesType: string }) => {
+    mutationFn: async (id: string) => {
       if (!centerId) throw new Error('No center ID');
 
-      // First, unset any existing default for this type
-      await supabase
-        .from('invoice_series')
-        .update({ is_default: false })
-        .eq('center_id', centerId)
-        .eq('series_type', seriesType)
-        .eq('is_archived', false);
-
-      // Then set the new default
       const { data, error } = await supabase
-        .from('invoice_series')
-        .update({ is_default: true })
-        .eq('id', id)
-        .select()
+        .rpc('set_default_invoice_series', { p_series_id: id })
         .single();
 
       if (error) throw error;

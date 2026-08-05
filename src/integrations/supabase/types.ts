@@ -3127,6 +3127,7 @@ export type Database = {
           id: string
           invoice_hash: string | null
           invoice_number: string
+          invoice_type: string | null
           is_recapitulative: boolean | null
           is_valid: boolean
           issue_date: string
@@ -3171,6 +3172,7 @@ export type Database = {
           id?: string
           invoice_hash?: string | null
           invoice_number: string
+          invoice_type?: string | null
           is_recapitulative?: boolean | null
           is_valid?: boolean
           issue_date?: string
@@ -3215,6 +3217,7 @@ export type Database = {
           id?: string
           invoice_hash?: string | null
           invoice_number?: string
+          invoice_type?: string | null
           is_recapitulative?: boolean | null
           is_valid?: boolean
           issue_date?: string
@@ -6525,6 +6528,10 @@ export type Database = {
       assert_invoice_items_mutable: {
         Args: { p_invoice_id: string; p_operation: string }
         Returns: undefined
+      }
+      set_default_invoice_series: {
+        Args: { p_series_id: string }
+        Returns: Database["public"]["Tables"]["invoice_series"]["Row"][]
       }
       auto_complete_past_sessions: { Args: never; Returns: Json }
       bootstrap_create_center: {

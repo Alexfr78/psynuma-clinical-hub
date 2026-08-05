@@ -26,6 +26,8 @@ interface InvoiceSeries {
   format: string;
   next_number: number;
   invoice_type: string;
+  series_type: string;
+  is_default: boolean;
   is_archived: boolean;
 }
 
@@ -55,21 +57,27 @@ async function createInvoice(
     }
 
     // Get default simplified series
-    const { data: seriesData, error: seriesError } = await supabase
+    const { data: compatibleSeries, error: seriesError } = await supabase
       .from('invoice_series')
       .select('*')
       .eq('center_id', centerId)
+      .eq('series_type', 'ordinary')
       .eq('invoice_type', 'simplified')
       .eq('is_archived', false)
-      .limit(1)
-      .single();
+      .order('name');
 
-    if (seriesError || !seriesData) {
+    if (seriesError || !compatibleSeries || compatibleSeries.length === 0) {
       console.error('No invoice series found:', seriesError);
       return { invoiceId: null, accessToken: null };
     }
 
-    const series = seriesData as InvoiceSeries;
+    const defaultSeries = compatibleSeries.find((candidate: InvoiceSeries) => candidate.is_default);
+    if (!defaultSeries && compatibleSeries.length > 1) {
+      console.error('Several simplified series exist but none is configured as default');
+      return { invoiceId: null, accessToken: null };
+    }
+
+    const series = (defaultSeries || compatibleSeries[0]) as InvoiceSeries;
 
     // Generate invoice number
     const year = new Date().getFullYear();
@@ -97,6 +105,7 @@ async function createInvoice(
         center_id: centerId,
         patient_id: patientId,
         series_id: series.id,
+        invoice_type: 'simplified',
         invoice_number: invoiceNumber,
         status: 'paid',
         issue_date: new Date().toISOString().split('T')[0],
