@@ -5438,6 +5438,42 @@ export type Database = {
           },
         ]
       }
+      stripe_webhook_events: {
+        Row: {
+          attempts: number
+          connected_account_id: string | null
+          created_at: string
+          event_id: string
+          event_type: string
+          last_error: string | null
+          processed_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          connected_account_id?: string | null
+          created_at?: string
+          event_id: string
+          event_type: string
+          last_error?: string | null
+          processed_at?: string | null
+          status: string
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          connected_account_id?: string | null
+          created_at?: string
+          event_id?: string
+          event_type?: string
+          last_error?: string | null
+          processed_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       suppressed_emails: {
         Row: {
           created_at: string
@@ -6542,6 +6578,14 @@ export type Database = {
         }
         Returns: string
       }
+      claim_stripe_webhook_event: {
+        Args: {
+          p_connected_account_id?: string
+          p_event_id: string
+          p_event_type: string
+        }
+        Returns: boolean
+      }
       cleanup_old_rate_limit_entries: { Args: never; Returns: undefined }
       collect_session_payment_v2: {
         Args: {
@@ -6556,6 +6600,10 @@ export type Database = {
         Returns: Json
       }
       compute_patient_status: { Args: { p_patient_id: string }; Returns: Json }
+      confirm_cancellation_charge: {
+        Args: { p_amount: number; p_charge_id: string; p_review_note?: string }
+        Returns: string
+      }
       convert_calendar_event_to_session:
         | {
             Args: {
