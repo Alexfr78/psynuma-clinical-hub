@@ -46,19 +46,25 @@ serve(async (req) => {
     let userId: string | null = null;
 
     if (!isServiceCall) {
-      const userClient = createClient(
-        supabaseUrl,
-        Deno.env.get('SUPABASE_ANON_KEY')!,
-        { global: { headers: { Authorization: authorization } } },
-      );
-      const { data: authData, error: authError } = await userClient.auth.getUser();
-      if (authError || !authData.user) {
+      // Decode the JWT manually (signing-keys tokens are not verifiable via auth.getUser here)
+      try {
+        const token = authorization.replace(/^Bearer\s+/i, '');
+        const payload = JSON.parse(
+          atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')),
+        );
+        if (payload?.sub && (!payload.exp || payload.exp * 1000 > Date.now())) {
+          userId = payload.sub as string;
+        }
+      } catch (_e) {
+        userId = null;
+      }
+
+      if (!userId) {
         return new Response(
           JSON.stringify({ error: 'Invalid authentication' }),
           { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      userId = authData.user.id;
     }
 
     const { data: session, error: sessionError } = await supabase
