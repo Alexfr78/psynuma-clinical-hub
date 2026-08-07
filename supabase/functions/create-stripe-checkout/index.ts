@@ -46,25 +46,15 @@ serve(async (req) => {
     let userId: string | null = null;
 
     if (!isServiceCall) {
-      // Decode the JWT manually (signing-keys tokens are not verifiable via auth.getUser here)
-      try {
-        const token = authorization.replace(/^Bearer\s+/i, '');
-        const payload = JSON.parse(
-          atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')),
-        );
-        if (payload?.sub && (!payload.exp || payload.exp * 1000 > Date.now())) {
-          userId = payload.sub as string;
-        }
-      } catch (_e) {
-        userId = null;
-      }
-
-      if (!userId) {
+      const token = authorization.slice('Bearer '.length);
+      const { data: authData, error: authError } = await supabase.auth.getUser(token);
+      if (authError || !authData.user) {
         return new Response(
           JSON.stringify({ error: 'Invalid authentication' }),
           { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
+      userId = authData.user.id;
     }
 
     const { data: session, error: sessionError } = await supabase

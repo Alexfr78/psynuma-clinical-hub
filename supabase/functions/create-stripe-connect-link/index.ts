@@ -28,29 +28,22 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Decode the JWT manually (signing-keys tokens are not verifiable via auth.getUser here)
     const authorization = req.headers.get('Authorization') || '';
-    let requesterId: string | null = null;
-    try {
-      const token = authorization.replace(/^Bearer\s+/i, '');
-      if (token) {
-        const payload = JSON.parse(
-          atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')),
-        );
-        if (payload?.sub && (!payload.exp || payload.exp * 1000 > Date.now())) {
-          requesterId = payload.sub as string;
-        }
-      }
-    } catch (_e) {
-      requesterId = null;
-    }
-
-    if (!requesterId) {
+    if (!authorization.startsWith('Bearer ')) {
       return new Response(
         JSON.stringify({ error: 'Authentication required' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+    const token = authorization.slice('Bearer '.length);
+    const { data: authData, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !authData.user) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid authentication' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    const requesterId = authData.user.id;
 
     // Get professional's center and Stripe credentials
     const { data: profile } = await supabase
