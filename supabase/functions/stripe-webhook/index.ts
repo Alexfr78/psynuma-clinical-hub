@@ -584,51 +584,91 @@ async function handleSessionCheckout(
 
   console.log('Processing session checkout:', sessionId);
 
-  // Update session payment status
-  await supabase
+  // Fetch and validate the session before applying any payment metadata.
+  const { data: sessionData, error: sessionError } = await supabase
+    .from('sessions')
+    .select('patient_id, price, center_id, session_type, session_date')
+    .eq('id', sessionId)
+    .single();
+
+  if (sessionError || !sessionData) {
+    console.error('Session not found:', sessionError);
+    throw new Error('Session checkout could not find its session');
+  }
+
+  const expectedAmount = Number(sessionData.price ?? 0);
+  if (!Number.isFinite(expectedAmount) || Math.abs(paymentAmount - expectedAmount) > 0.01) {
+    console.error('Session checkout amount mismatch:', { expectedAmount, paymentAmount, sessionId });
+    throw new Error('Session checkout amount does not match session price');
+  }
+
+  const { data: updatedSession, error: sessionUpdateError } = await supabase
     .from('sessions')
     .update({
       payment_status: 'paid',
       stripe_payment_status: 'paid',
       status: 'confirmed',
     })
-    .eq('id', sessionId);
-
-  // Get session details
-  const { data: sessionData } = await supabase
-    .from('sessions')
-    .select('patient_id, price, center_id, session_type, session_date')
     .eq('id', sessionId)
+    .select('id')
     .single();
 
-  if (!sessionData) {
-    console.error('Session not found');
-    return;
+  if (sessionUpdateError || !updatedSession) {
+    console.error('Failed to mark Stripe session as paid:', sessionUpdateError);
+    throw new Error('Failed to mark session as paid');
   }
 
-  // Create payment record
-  await supabase
+  // Create the payment exactly once. Retries reuse the payment already linked
+  // to this Checkout Session instead of creating a duplicate.
+  const { data: existingPayment, error: existingPaymentError } = await supabase
     .from('payments')
-    .insert({
-      patient_id: sessionData.patient_id,
-      center_id: sessionData.center_id,
-      session_id: sessionId,
-      amount: paymentAmount,
-      payment_method: 'stripe',
-      payment_date: new Date().toISOString().split('T')[0],
-      reference: stripeSessionId,
-      notes: `Pago online - Stripe Checkout`,
-    });
+    .select('id, invoice_id')
+    .eq('reference', stripeSessionId)
+    .maybeSingle();
+
+  if (existingPaymentError) {
+    console.error('Failed to check existing Stripe payment:', existingPaymentError);
+    throw new Error('Failed to check existing Stripe payment');
+  }
+
+  let paymentRecord = existingPayment;
+  if (!paymentRecord) {
+    const { data: insertedPayment, error: paymentInsertError } = await supabase
+      .from('payments')
+      .insert({
+        patient_id: sessionData.patient_id,
+        center_id: sessionData.center_id,
+        session_id: sessionId,
+        amount: paymentAmount,
+        payment_method: 'stripe',
+        payment_date: new Date().toISOString().split('T')[0],
+        reference: stripeSessionId,
+        notes: `Pago online - Stripe Checkout`,
+      })
+      .select('id, invoice_id')
+      .single();
+
+    if (paymentInsertError || !insertedPayment) {
+      console.error('Failed to register Stripe payment:', paymentInsertError);
+      throw new Error('Failed to register Stripe payment');
+    }
+    paymentRecord = insertedPayment;
+  }
 
   // Update debt if exists
-  const { data: debtData } = await supabase
+  const { data: debtData, error: debtLookupError } = await supabase
     .from('debts')
     .select('id')
     .eq('session_id', sessionId)
     .maybeSingle();
 
+  if (debtLookupError) {
+    console.error('Failed to find session debt:', debtLookupError);
+    throw new Error('Failed to find session debt');
+  }
+
   if (debtData) {
-    await supabase
+    const { error: debtUpdateError } = await supabase
       .from('debts')
       .update({
         status: 'paid',
@@ -637,36 +677,142 @@ async function handleSessionCheckout(
         stripe_checkout_session_id: stripeSessionId,
       })
       .eq('id', debtData.id);
+
+    if (debtUpdateError) {
+      console.error('Failed to reconcile session debt:', debtUpdateError);
+      throw new Error('Failed to reconcile session debt');
+    }
   }
 
   // Check center settings for auto-invoicing
-  const { data: center } = await supabase
+  const { data: center, error: centerError } = await supabase
     .from('centers')
     .select('id, invoice_on_payment_mode, invoice_send_channel, verifactu_auto_enabled, verifactu_certificate_base64, default_tax_rate')
     .eq('id', sessionData.center_id)
     .single();
 
-  if (center && center.invoice_on_payment_mode === 'auto') {
+  if (centerError || !center) {
+    console.error('Failed to load invoice automation settings:', centerError);
+    throw new Error('Failed to load invoice automation settings');
+  }
+
+  if (center.invoice_on_payment_mode === 'auto') {
+    const { data: existingInvoiceItem, error: invoiceLookupError } = await supabase
+      .from('invoice_items')
+      .select('invoice_id')
+      .eq('session_id', sessionId)
+      .limit(1)
+      .maybeSingle();
+
+    if (invoiceLookupError) {
+      console.error('Failed to check existing session invoice:', invoiceLookupError);
+      throw new Error('Failed to check existing session invoice');
+    }
+
     const date = new Date(sessionData.session_date).toLocaleDateString('es-ES');
     const description = `Sesión de ${sessionData.session_type || 'terapia'} - ${date}`;
     
-    const { invoiceId } = await createInvoice(
-      supabase,
-      sessionData.center_id,
-      sessionData.patient_id,
-      description,
-      paymentAmount,
-      sessionId,
-      null
-    );
+    let invoiceId = existingInvoiceItem?.invoice_id || null;
 
-    if (invoiceId && debtData) {
-      await supabase
+    if (!invoiceId) {
+      const invoiceResult = await createInvoice(
+        supabase,
+        sessionData.center_id,
+        sessionData.patient_id,
+        description,
+        paymentAmount,
+        sessionId,
+        null
+      );
+      invoiceId = invoiceResult.invoiceId;
+
+      if (!invoiceId) {
+        throw new Error('Automatic invoice creation failed');
+      }
+    }
+
+    if (paymentRecord.invoice_id !== invoiceId) {
+      const { error: paymentInvoiceError } = await supabase
+        .from('payments')
+        .update({ invoice_id: invoiceId })
+        .eq('id', paymentRecord.id);
+
+      if (paymentInvoiceError) {
+        console.error('Failed to link Stripe payment to invoice:', paymentInvoiceError);
+        throw new Error('Failed to link Stripe payment to invoice');
+      }
+    }
+
+    if (debtData) {
+      const { error: debtInvoiceError } = await supabase
         .from('debts')
         .update({ invoice_id: invoiceId })
         .eq('id', debtData.id);
+
+      if (debtInvoiceError) {
+        console.error('Failed to link session debt to invoice:', debtInvoiceError);
+        throw new Error('Failed to link session debt to invoice');
+      }
     }
   }
+}
+
+async function sessionCheckoutNeedsReconciliation(
+  supabase: any,
+  checkoutSession: Stripe.Checkout.Session,
+): Promise<boolean> {
+  const metadata = checkoutSession.metadata || {};
+  if (metadata.payment_type === 'debt_payment' || metadata.payment_type === 'bono_purchase') {
+    return false;
+  }
+
+  const sessionId = metadata.session_id;
+  if (!sessionId) return false;
+
+  const [sessionResult, paymentResult] = await Promise.all([
+    supabase
+      .from('sessions')
+      .select('payment_status, stripe_payment_status, status, center_id')
+      .eq('id', sessionId)
+      .maybeSingle(),
+    supabase
+      .from('payments')
+      .select('id, invoice_id')
+      .eq('reference', checkoutSession.id)
+      .maybeSingle(),
+  ]);
+
+  if (sessionResult.error) throw sessionResult.error;
+  if (paymentResult.error) throw paymentResult.error;
+  if (!sessionResult.data || !paymentResult.data) return true;
+
+  const session = sessionResult.data;
+  if (
+    session.payment_status !== 'paid'
+    || session.stripe_payment_status !== 'paid'
+    || session.status !== 'confirmed'
+  ) {
+    return true;
+  }
+
+  const { data: center, error: centerError } = await supabase
+    .from('centers')
+    .select('invoice_on_payment_mode')
+    .eq('id', session.center_id)
+    .single();
+
+  if (centerError || !center) throw centerError || new Error('Center not found');
+  if (center.invoice_on_payment_mode !== 'auto') return false;
+
+  const { data: invoiceItem, error: invoiceItemError } = await supabase
+    .from('invoice_items')
+    .select('invoice_id')
+    .eq('session_id', sessionId)
+    .limit(1)
+    .maybeSingle();
+
+  if (invoiceItemError) throw invoiceItemError;
+  return !invoiceItem || paymentResult.data.invoice_id !== invoiceItem.invoice_id;
 }
 
 serve(async (req) => {
@@ -777,10 +923,33 @@ serve(async (req) => {
     });
     if (claimError) throw claimError;
     if (!claimed) {
-      return new Response(
-        JSON.stringify({ received: true, duplicate: true }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      const checkoutSession = event.type === 'checkout.session.completed'
+        ? event.data.object as Stripe.Checkout.Session
+        : null;
+      const needsReconciliation = checkoutSession
+        ? await sessionCheckoutNeedsReconciliation(supabase, checkoutSession)
+        : false;
+
+      if (!needsReconciliation) {
+        return new Response(
+          JSON.stringify({ received: true, duplicate: true }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      console.warn('Reprocessing completed Stripe event with incomplete local state', {
+        event_id: event.id,
+        checkout_session_id: checkoutSession?.id,
+      });
+      const { error: reopenError } = await supabase
+        .from('stripe_webhook_events')
+        .update({
+          status: 'processing',
+          last_error: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('event_id', event.id);
+      if (reopenError) throw reopenError;
     }
     claimedEventId = event.id;
 
@@ -854,10 +1023,14 @@ serve(async (req) => {
         console.log('Unhandled event type:', event.type);
     }
 
-    await supabase
+    const { error: completionError } = await supabase
       .from('stripe_webhook_events')
       .update({ status: 'completed', processed_at: new Date().toISOString(), updated_at: new Date().toISOString() })
       .eq('event_id', event.id);
+
+    if (completionError) {
+      throw completionError;
+    }
 
     return new Response(
       JSON.stringify({ received: true }),

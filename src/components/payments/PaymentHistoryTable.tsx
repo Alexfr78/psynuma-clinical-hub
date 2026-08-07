@@ -29,6 +29,7 @@ interface PaymentHistoryTableProps {
 const methodConfig: Record<string, { label: string; icon: React.ReactNode }> = {
   cash: { label: 'Efectivo', icon: <Banknote className="h-4 w-4" /> },
   card: { label: 'Tarjeta', icon: <CreditCard className="h-4 w-4" /> },
+  stripe: { label: 'Stripe (tarjeta online)', icon: <CreditCard className="h-4 w-4" /> },
   transfer: { label: 'Transferencia', icon: <ArrowRightLeft className="h-4 w-4" /> },
   bizum: { label: 'Bizum', icon: <Smartphone className="h-4 w-4" /> },
 };
