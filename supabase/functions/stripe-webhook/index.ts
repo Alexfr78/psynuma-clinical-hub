@@ -4,7 +4,7 @@ import Stripe from "https://esm.sh/stripe@14.9.0";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, stripe-signature',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, stripe-signature, x-cron-secret',
 };
 
 // Initialize Stripe with the secret key
@@ -815,6 +815,181 @@ async function sessionCheckoutNeedsReconciliation(
   return !invoiceItem || paymentResult.data.invoice_id !== invoiceItem.invoice_id;
 }
 
+interface PendingStripeSession {
+  id: string;
+  professional_id: string;
+  stripe_checkout_session_id: string;
+}
+
+async function retrieveCheckoutSession(
+  checkoutSessionId: string,
+  connectedAccountId: string,
+  secretKey: string,
+): Promise<Stripe.Checkout.Session> {
+  const response = await fetch(
+    `https://api.stripe.com/v1/checkout/sessions/${encodeURIComponent(checkoutSessionId)}`,
+    {
+      headers: {
+        Authorization: `Bearer ${secretKey}`,
+        'Stripe-Account': connectedAccountId,
+      },
+    },
+  );
+
+  if (!response.ok) {
+    console.error('Stripe Checkout retrieval failed during reconciliation', {
+      checkout_session_id: checkoutSessionId,
+      connected_account_id: connectedAccountId,
+      status: response.status,
+    });
+    throw new Error(`Stripe Checkout retrieval failed (${response.status})`);
+  }
+
+  const checkoutSession = await response.json() as Stripe.Checkout.Session;
+  if (checkoutSession.id !== checkoutSessionId || checkoutSession.object !== 'checkout.session') {
+    throw new Error('Stripe returned an unexpected Checkout Session');
+  }
+  return checkoutSession;
+}
+
+async function reconcilePendingSessionCheckouts(
+  supabase: any,
+  secretKey: string,
+  requestedLimit: unknown,
+): Promise<Record<string, unknown>> {
+  const parsedLimit = Number(requestedLimit ?? 50);
+  const limit = Number.isInteger(parsedLimit) ? Math.min(Math.max(parsedLimit, 1), 100) : 50;
+
+  const { data: pendingSessions, error: pendingError } = await supabase
+    .from('sessions')
+    .select('id, professional_id, stripe_checkout_session_id')
+    .eq('stripe_payment_status', 'pending')
+    .not('stripe_checkout_session_id', 'is', null)
+    .order('updated_at', { ascending: true })
+    .limit(limit);
+
+  if (pendingError) throw pendingError;
+
+  const result = {
+    inspected: 0,
+    reconciled: 0,
+    still_pending: 0,
+    skipped: 0,
+    failed: 0,
+    reconciled_checkout_ids: [] as string[],
+  };
+
+  for (const pending of (pendingSessions || []) as PendingStripeSession[]) {
+    result.inspected += 1;
+    const checkoutSessionId = pending.stripe_checkout_session_id;
+    const reconciliationEventId = `reconcile:${checkoutSessionId}`;
+
+    try {
+      const { data: connection, error: connectionError } = await supabase
+        .from('oauth_connections')
+        .select('stripe_account_id, stripe_account_status')
+        .eq('professional_id', pending.professional_id)
+        .eq('provider', 'stripe')
+        .maybeSingle();
+
+      if (connectionError) throw connectionError;
+      if (!connection?.stripe_account_id || connection.stripe_account_status !== 'active') {
+        console.warn('Stripe reconciliation skipped: connected account is not active', {
+          session_id: pending.id,
+          checkout_session_id: checkoutSessionId,
+        });
+        result.skipped += 1;
+        continue;
+      }
+
+      const checkoutSession = await retrieveCheckoutSession(
+        checkoutSessionId,
+        connection.stripe_account_id,
+        secretKey,
+      );
+
+      if (checkoutSession.metadata?.session_id !== pending.id) {
+        throw new Error('Checkout metadata does not match the pending session');
+      }
+
+      if (checkoutSession.status !== 'complete' || checkoutSession.payment_status !== 'paid') {
+        result.still_pending += 1;
+        continue;
+      }
+
+      const { data: claimed, error: claimError } = await supabase.rpc('claim_stripe_webhook_event', {
+        p_event_id: reconciliationEventId,
+        p_event_type: 'checkout.session.reconciled',
+        p_connected_account_id: connection.stripe_account_id,
+      });
+      if (claimError) throw claimError;
+
+      if (!claimed) {
+        const needsReconciliation = await sessionCheckoutNeedsReconciliation(supabase, checkoutSession);
+        if (!needsReconciliation) {
+          result.skipped += 1;
+          continue;
+        }
+
+        const { error: reopenError } = await supabase
+          .from('stripe_webhook_events')
+          .update({
+            status: 'processing',
+            last_error: null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('event_id', reconciliationEventId);
+        if (reopenError) throw reopenError;
+      }
+
+      const amountTotal = Number(checkoutSession.amount_total ?? 0) / 100;
+      await handleSessionCheckout(
+        supabase,
+        checkoutSession.metadata || {},
+        amountTotal,
+        checkoutSession.id,
+      );
+
+      const { error: completionError } = await supabase
+        .from('stripe_webhook_events')
+        .update({
+          status: 'completed',
+          processed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('event_id', reconciliationEventId);
+      if (completionError) throw completionError;
+
+      result.reconciled += 1;
+      result.reconciled_checkout_ids.push(checkoutSessionId);
+      console.log('Paid Stripe Checkout reconciled successfully', {
+        session_id: pending.id,
+        checkout_session_id: checkoutSessionId,
+        connected_account_id: connection.stripe_account_id,
+      });
+    } catch (error) {
+      result.failed += 1;
+      const message = error instanceof Error ? error.message : String(error);
+      console.error('Stripe Checkout reconciliation failed', {
+        session_id: pending.id,
+        checkout_session_id: checkoutSessionId,
+        message,
+      });
+      await supabase
+        .from('stripe_webhook_events')
+        .upsert({
+          event_id: reconciliationEventId,
+          event_type: 'checkout.session.reconciled',
+          status: 'failed',
+          last_error: message,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'event_id' });
+    }
+  }
+
+  return result;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -825,6 +1000,47 @@ serve(async (req) => {
 
   try {
     const body = await req.text();
+
+    // Recovery endpoint for paid Checkout Sessions whose webhook was never
+    // delivered. It is backend-only and processes only Stripe-confirmed paid
+    // sessions through the same idempotent handler as the webhook.
+    let recoveryRequest: { action?: unknown; limit?: unknown } | null = null;
+    try {
+      recoveryRequest = JSON.parse(body) as { action?: unknown; limit?: unknown };
+    } catch {
+      recoveryRequest = null;
+    }
+
+    if (recoveryRequest?.action === 'reconcile_pending') {
+      const cronSecret = Deno.env.get('CRON_SECRET');
+      const suppliedSecret = req.headers.get('x-cron-secret');
+      if (!cronSecret || !suppliedSecret || suppliedSecret !== cronSecret) {
+        return new Response(
+          JSON.stringify({ error: 'Unauthorized' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
+      if (!stripeSecretKey) {
+        return new Response(
+          JSON.stringify({ error: 'Stripe not configured' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
+
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+      const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+      const supabase = createClient(supabaseUrl, supabaseKey);
+      const reconciliation = await reconcilePendingSessionCheckouts(
+        supabase,
+        stripeSecretKey,
+        recoveryRequest.limit,
+      );
+      return new Response(
+        JSON.stringify({ success: true, ...reconciliation }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+
     const signature = req.headers.get('stripe-signature');
     
     console.log('Stripe webhook received, signature present:', !!signature);
