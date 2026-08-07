@@ -32,6 +32,7 @@ import {
   FileSignature,
   ClipboardCheck,
   NotebookPen,
+  Copy,
 } from 'lucide-react';
 import {
   Sheet,
@@ -1772,39 +1773,56 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                 </p>
               )}
 
-              {/* Payment Link */}
-              {paymentStatus?.isCollectable && localPrice > 0 && !localBonoId && (
-                <div className="flex items-center gap-2 text-sm">
-                  <LinkIcon className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-muted-foreground">Link de pago:</span>
-                  <Button 
-                    variant="link" 
-                    size="sm" 
-                    className="h-auto p-0 text-primary"
-                    disabled={isGeneratingPaymentLink}
-                    onClick={handleGeneratePaymentLink}
-                  >
-                    {isGeneratingPaymentLink ? (
-                      <>
-                        <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                        Generando...
-                      </>
-                    ) : paymentLinkUrl ? (
-                      'Copiar link'
-                    ) : (
-                      'Generar link'
-                    )}
-                  </Button>
-                  {paymentLinkUrl && (
-                    <a 
-                      href={paymentLinkUrl} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="text-primary hover:underline"
+              {/* A session can be payable before a debt row exists. Keep the
+                  online-payment action visible for every unpaid priced session. */}
+              {!paymentStatus?.isPaid && localPrice > 0 && !localBonoId && !session.bono_id && (
+                <div className="rounded-lg border bg-muted/30 p-3 space-y-3">
+                  <div className="flex items-start gap-2">
+                    <LinkIcon className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
+                    <div>
+                      <p className="text-sm font-medium">Enlace de pago online</p>
+                      <p className="text-xs text-muted-foreground">
+                        Genéralo para enviárselo al contacto.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      className="h-11 flex-1"
+                      disabled={isGeneratingPaymentLink}
+                      onClick={handleGeneratePaymentLink}
                     >
-                      <ExternalLink className="h-3 w-3" />
-                    </a>
-                  )}
+                      {isGeneratingPaymentLink ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Generando...
+                        </>
+                      ) : paymentLinkUrl ? (
+                        <>
+                          <Copy className="h-4 w-4 mr-2" />
+                          Copiar enlace
+                        </>
+                      ) : (
+                        <>
+                          <LinkIcon className="h-4 w-4 mr-2" />
+                          Generar enlace
+                        </>
+                      )}
+                    </Button>
+                    {paymentLinkUrl && (
+                      <Button variant="outline" size="icon" className="h-11 w-11 shrink-0" asChild>
+                        <a
+                          href={paymentLinkUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          aria-label="Abrir enlace de pago en una pestaña nueva"
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                        </a>
+                      </Button>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
