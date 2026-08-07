@@ -627,14 +627,18 @@ serve(async (req) => {
       );
     }
 
-    const webhookSecrets = [...new Set(
-      [webhookSecret, connectWebhookSecret].filter((secret): secret is string => Boolean(secret))
-    )];
+    const webhookSecrets = [
+      { destination: 'account', secret: webhookSecret },
+      { destination: 'connect', secret: connectWebhookSecret },
+    ].filter((entry): entry is { destination: string; secret: string } => Boolean(entry.secret));
 
     if (webhookSecrets.length === 0) {
       console.error('No Stripe webhook secret configured');
       return new Response(
-        JSON.stringify({ error: 'Webhook secret not configured' }),
+        JSON.stringify({
+          error: 'Webhook secret not configured',
+          configured_destinations: { account: false, connect: false },
+        }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -656,25 +660,36 @@ serve(async (req) => {
     // Account and Connect destinations have different signing secrets. Accept
     // only payloads signed by one of the explicitly configured destinations.
     let event: Stripe.Event | null = null;
-    for (const secret of webhookSecrets) {
+    let verifiedDestination: string | null = null;
+    for (const { destination, secret } of webhookSecrets) {
       try {
         event = await stripe.webhooks.constructEventAsync(body, signature, secret);
+        verifiedDestination = destination;
         break;
-      } catch {
-        // Try the next configured endpoint secret.
+      } catch (verificationError) {
+        console.warn(`Stripe signature did not match ${destination} destination`, {
+          message: verificationError instanceof Error ? verificationError.message : String(verificationError),
+        });
       }
     }
 
     if (!event) {
       console.error('Stripe webhook signature verification failed for every configured destination');
       return new Response(
-        JSON.stringify({ error: 'Invalid signature' }),
+        JSON.stringify({
+          error: 'Invalid signature',
+          configured_destinations: {
+            account: Boolean(webhookSecret),
+            connect: Boolean(connectWebhookSecret),
+          },
+        }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     console.log('Webhook signature verified successfully', {
       source: event.account ? 'connected_account' : 'platform_account',
+      verified_destination: verifiedDestination,
     });
 
     console.log('Verified webhook event type:', event.type);
