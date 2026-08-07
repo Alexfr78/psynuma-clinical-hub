@@ -60,14 +60,14 @@ serve(async (req) => {
       .single();
 
     const [{ data: requesterProfile }, { data: requesterRoles }] = await Promise.all([
-      supabase.from('profiles').select('center_id').eq('id', authData.user.id).single(),
-      supabase.from('user_roles').select('role').eq('user_id', authData.user.id),
+      supabase.from('profiles').select('center_id').eq('id', requesterId).single(),
+      supabase.from('user_roles').select('role').eq('user_id', requesterId),
     ]);
     const isAdmin = (requesterRoles || []).some((row: { role: string }) => row.role === 'admin');
     if (
       !profile?.center_id
       || requesterProfile?.center_id !== profile.center_id
-      || (authData.user.id !== professional_id && !isAdmin)
+      || (requesterId !== professional_id && !isAdmin)
     ) {
       return new Response(
         JSON.stringify({ error: 'Not authorized for this professional' }),
