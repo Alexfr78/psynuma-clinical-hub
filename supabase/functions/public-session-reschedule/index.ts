@@ -9,7 +9,7 @@ import {
   minutesToTime as coreMinutesToTime,
   APP_TZ,
 } from "../_shared/special-days-adapter.ts";
-import { resolveSignedCancellationPolicyVersion } from "../_shared/cancellationPolicy.ts";
+import { resolveSignedCancellationPolicyVersionForSession } from "../_shared/cancellationPolicy.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -73,6 +73,7 @@ Deno.serve(async (req) => {
         session_type_id,
         session_modality,
         cancellation_policy,
+        cancellation_policy_version_id,
         price,
         google_calendar_event_id,
         zoom_meeting_id
@@ -174,9 +175,10 @@ Deno.serve(async (req) => {
     const professionalName = professional ? `${professional.first_name} ${professional.last_name}` : undefined;
 
     async function buildCancellationPolicyPreview() {
-      const signedCancellationPolicy = await resolveSignedCancellationPolicyVersion(supabase, {
+      const signedCancellationPolicy = await resolveSignedCancellationPolicyVersionForSession(supabase, {
         centerId: sessionRow.center_id,
         patientId: sessionRow.patient_id,
+        policyVersionId: sessionRow.cancellation_policy_version_id,
         versionSelect: "id, rules, penalty_invoice_concept",
       });
 
@@ -826,6 +828,7 @@ Deno.serve(async (req) => {
         .from("sessions")
         .update({
           status: "cancelled",
+          cancellation_origin: "patient",
           cancellation_reason: cancellation_reason || "Cancelada por el paciente",
         })
         .eq("id", session.id);

@@ -14,6 +14,7 @@ export interface PublicConsent {
   expires_at: string;
   signed_at: string | null;
   verification_responses: Record<string, boolean> | null;
+  cancellation_policy_version_id: string | null;
   patient: {
     first_name: string;
     last_name: string;
@@ -59,6 +60,7 @@ export function usePublicConsent(token: string | undefined) {
           expires_at,
           signed_at,
           verification_responses,
+          cancellation_policy_version_id,
           patient:patients(first_name, last_name, guardian_name, guardian_relationship),
           professional:profiles(first_name, last_name),
           template:consent_templates(name, verification_checkboxes, requires_emergency_contact),
@@ -185,44 +187,6 @@ export function usePublicConsent(token: string | undefined) {
     },
   });
 
-  const markAsSigned = useMutation({
-    mutationFn: async (consentId: string) => {
-      if (!token) throw new Error('No token');
-      
-      const { data, error } = await supabase
-        .from('consents')
-        .update({
-          status: 'signed',
-          signed_at: new Date().toISOString(),
-        })
-        .eq('id', consentId)
-        .setHeader('x-consent-token', token)
-        .select()
-        .single();
-      
-      if (error) throw error;
-      
-      // Generate PDF
-      try {
-        await supabase.functions.invoke('generate-consent-pdf', {
-          body: { consent_id: consentId },
-        });
-      } catch (pdfError) {
-        console.error('Error generating PDF:', pdfError);
-      }
-      
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['public-consent', token] });
-      toast.success('Documento firmado correctamente');
-    },
-    onError: (error) => {
-      toast.error('Error al completar la firma');
-      console.error(error);
-    },
-  });
-
   const isExpired = consent ? new Date(consent.expires_at) < new Date() : false;
 
   return {
@@ -233,6 +197,5 @@ export function usePublicConsent(token: string | undefined) {
     addSignature,
     saveVerificationResponses,
     updateEmergencyContact,
-    markAsSigned,
   };
 }

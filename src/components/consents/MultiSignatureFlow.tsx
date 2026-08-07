@@ -11,6 +11,11 @@ import { PublicConsent, usePublicConsent } from '@/hooks/usePublicConsent';
 import { Loader2, CheckCircle2, ArrowRight, Download, AlertCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { sanitizeHtml } from '@/lib/sanitize';
+import {
+  areVerificationResponsesComplete,
+  isCancellationPolicyAccepted,
+  VerificationResponse,
+} from '@/lib/consent-acceptance';
 
 interface MultiSignatureFlowProps {
   consent: PublicConsent;
@@ -42,9 +47,6 @@ function insertMarker(html: string, placeholder: string, marker: string): { html
   }
   return { html, found: false };
 }
-
-// Type for verification responses: 'authorized' | 'not_authorized' | undefined
-type VerificationResponse = 'authorized' | 'not_authorized' | undefined;
 
 // Renders the document, inserting the verification checkboxes and/or the
 // emergency contact fields either at their placeholder position in the
@@ -174,7 +176,7 @@ function DocumentWithFields({
 }
 
 export function MultiSignatureFlow({ consent, token }: MultiSignatureFlowProps) {
-  const { addSignature, markAsSigned, saveVerificationResponses, updateEmergencyContact } = usePublicConsent(token);
+  const { addSignature, saveVerificationResponses, updateEmergencyContact } = usePublicConsent(token);
   const signatureRef = useRef<SignatureCanvasRef>(null);
 
   const [currentStep, setCurrentStep] = useState<'document' | 'guardian' | 'patient' | 'complete'>('document');
@@ -190,14 +192,22 @@ export function MultiSignatureFlow({ consent, token }: MultiSignatureFlowProps) 
   const verificationCheckboxes = consent.template?.verification_checkboxes || [];
   const requiresEmergencyContact = consent.template?.requires_emergency_contact ?? false;
 
-  // Check if all verification fields are answered (not just true, but answered)
-  const allVerificationsAnswered = verificationCheckboxes.length === 0 ||
-    verificationCheckboxes.every((_, index) => verificationResponses[index] !== undefined);
+  const allVerificationsAnswered = areVerificationResponsesComplete(
+    verificationCheckboxes.length,
+    verificationResponses,
+  );
+  const isCancellationPolicy = Boolean(consent.cancellation_policy_version_id);
+  const cancellationPolicyAccepted = !isCancellationPolicy || isCancellationPolicyAccepted(
+    verificationCheckboxes.length,
+    verificationResponses,
+  );
 
   const emergencyContactComplete = !requiresEmergencyContact ||
     (emergencyContactName.trim() !== '' && emergencyContactPhone.trim() !== '');
 
-  const canProceedFromDocument = allVerificationsAnswered && emergencyContactComplete;
+  const canProceedFromDocument = allVerificationsAnswered
+    && cancellationPolicyAccepted
+    && emergencyContactComplete;
 
   const needsGuardian = consent.requires_guardian;
   const guardianSigned = consent.signatures?.some((s) => s.signer_role === 'guardian');
@@ -292,8 +302,7 @@ export function MultiSignatureFlow({ consent, token }: MultiSignatureFlowProps) 
       if (role === 'guardian') {
         setCurrentStep('patient');
       } else {
-        // All signatures complete, mark as signed
-        await markAsSigned.mutateAsync(consent.id);
+        // The signature endpoint validates and completes the consent atomically.
         setCurrentStep('complete');
       }
     } finally {
@@ -394,6 +403,19 @@ export function MultiSignatureFlow({ consent, token }: MultiSignatureFlowProps) 
             <div className="flex items-center gap-2 rounded-md border border-amber-500/50 bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-400">
               <AlertCircle className="h-4 w-4 shrink-0" />
               <span>Debes indicar si autorizas o no cada uno de los campos de autorización antes de continuar.</span>
+            </div>
+          )}
+
+          {isCancellationPolicy && allVerificationsAnswered && !cancellationPolicyAccepted && (
+            <div
+              role="alert"
+              className="flex items-start gap-2 rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive"
+            >
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>
+                Para firmar esta política debes aceptarla expresamente. Si no estás de acuerdo,
+                no se registrará como aceptada y puedes contactar con el centro.
+              </span>
             </div>
           )}
 

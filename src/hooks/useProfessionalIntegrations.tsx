@@ -28,7 +28,7 @@ export interface ProfessionalIntegration {
   google_sync_days_future: number;
   // Stripe
   stripe_enabled: boolean;
-  stripe_payment_mode: 'required_now' | 'post_pay' | 'scheduled_before';
+  stripe_payment_mode: 'required_now' | 'post_session' | 'scheduled_before';
   stripe_scheduled_hours_before: number;
   created_at: string;
   updated_at: string;

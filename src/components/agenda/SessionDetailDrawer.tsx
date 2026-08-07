@@ -976,20 +976,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
 
     setIsGeneratingPaymentLink(true);
     try {
-      const patientName = session.patient 
-        ? `${session.patient.first_name} ${session.patient.last_name}`.trim() 
-        : 'Contacto';
-      
-      const checkoutUrl = await createStripeCheckout(
-        session.id,
-        session.professional_id,
-        session.patient_id,
-        session.patient?.email || null,
-        patientName,
-        localPrice,
-        session.session_type || 'individual',
-        session.session_date
-      );
+      const checkoutUrl = await createStripeCheckout(session.id);
 
       if (checkoutUrl) {
         setPaymentLinkUrl(checkoutUrl);

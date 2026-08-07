@@ -108,6 +108,12 @@ export function useUpdateSession() {
   return useMutation({
     mutationFn: async ({ id, ...updates }: SessionUpdate & { id: string }) => {
       let updatesWithPolicy = updates;
+      if (updates.status === 'cancelled' && updates.cancellation_origin == null) {
+        updatesWithPolicy = {
+          ...updates,
+          cancellation_origin: 'professional',
+        };
+      }
       if (updates.patient_id !== undefined) {
         const { data: currentSession, error: currentSessionError } = await supabase
           .from('sessions')
@@ -143,7 +149,10 @@ export function useUpdateSession() {
 
       if (error) throw error;
 
-      if (updatesWithPolicy.status === 'cancelled') {
+      if (
+        updatesWithPolicy.status === 'cancelled'
+        && updatesWithPolicy.cancellation_origin === 'patient'
+      ) {
         await createCancellationChargeForSessionCancellation(
           id,
           typeof updatesWithPolicy.cancellation_reason === 'string'

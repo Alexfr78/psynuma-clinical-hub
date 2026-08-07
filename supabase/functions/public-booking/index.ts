@@ -5,7 +5,7 @@ import { queueAndSendPatientBookingNotification } from "../_shared/bookingPatien
 import { notifyProfessionalBooking } from "../_shared/professionalNotification.ts";
 import { evaluateCancellationCharge, resolveCancellationBasePrice, resolvePaymentRules } from "../_shared/paymentRules.ts";
 import { autoApplyAvailableBonoToSession } from "../_shared/bonoAutomation.ts";
-import { resolvePatientCancellationPolicyForSession, resolveSignedCancellationPolicyVersion } from "../_shared/cancellationPolicy.ts";
+import { resolvePatientCancellationPolicyForSession, resolveSignedCancellationPolicyVersionForSession } from "../_shared/cancellationPolicy.ts";
 import { isValidEmail, isValidDate, isValidTime, isValidName } from "../_shared/validation.ts";
 import { checkIpRateLimit, getClientIp } from "../_shared/rateLimiter.ts";
 import { resolveDayAvailability } from "../_shared/availability-core.ts";
@@ -1577,7 +1577,7 @@ serve(async (req) => {
       // Get session
       const { data: session } = await supabase
         .from("sessions")
-        .select("id, patient_id, professional_id, center_id, session_date, start_time, session_type, session_type_id, status, cancellation_policy, google_calendar_event_id, price")
+        .select("id, patient_id, professional_id, center_id, session_date, start_time, session_type, session_type_id, status, cancellation_policy, cancellation_policy_version_id, google_calendar_event_id, price")
         .eq("id", tokenData.sessionId)
         .eq("patient_id", tokenData.patientId)
         .single();
@@ -1600,9 +1600,10 @@ serve(async (req) => {
       const sessionDateTime = new Date(`${session.session_date}T${session.start_time}`);
       const now = new Date();
 
-      const signedCancellationPolicy = await resolveSignedCancellationPolicyVersion(supabase, {
+      const signedCancellationPolicy = await resolveSignedCancellationPolicyVersionForSession(supabase, {
         centerId: session.center_id,
         patientId: session.patient_id,
+        policyVersionId: session.cancellation_policy_version_id,
         versionSelect: "id, rules, penalty_invoice_concept",
       });
 
@@ -1639,6 +1640,7 @@ serve(async (req) => {
         .from("sessions")
         .update({
           status: "cancelled",
+          cancellation_origin: "patient",
           cancellation_reason: reason || "Cancelada por el paciente desde reserva pública"
         })
         .eq("id", session.id);

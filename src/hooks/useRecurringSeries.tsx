@@ -6,7 +6,6 @@ import { toast } from 'sonner';
 import { RecurringSeries, RecurringSeriesInsert, RecurringSeriesUpdate, EditScope, RecurrenceConfig } from '@/types/recurring';
 import { generateRecurrenceOccurrences } from '@/lib/recurrence-utils';
 import { format } from 'date-fns';
-import { createCancellationChargeForSessionCancellation } from './useCancellationCharges';
 
 interface CreateRecurringSeriesParams {
   seriesData: Omit<RecurringSeriesInsert, 'center_id' | 'created_by'>;
@@ -278,6 +277,8 @@ export function useCancelRecurringSession() {
             .from('sessions')
             .update({
               status: 'cancelled',
+              cancellation_origin: 'professional',
+              cancellation_reason: 'Cancelación recurrente registrada por el profesional',
               is_exception: true,
               updated_at: new Date().toISOString(),
             })
@@ -286,9 +287,6 @@ export function useCancelRecurringSession() {
             .single();
 
           if (error) throw error;
-          if (data?.id) {
-            await createCancellationChargeForSessionCancellation(data.id, 'Cancelacion recurrente registrada por el profesional');
-          }
           return { cancelled: 1 };
         }
 
@@ -307,6 +305,8 @@ export function useCancelRecurringSession() {
             .from('sessions')
             .update({
               status: 'cancelled',
+              cancellation_origin: 'professional',
+              cancellation_reason: 'Cancelación recurrente registrada por el profesional',
               updated_at: new Date().toISOString(),
             })
             .eq('recurring_series_id', seriesId)
@@ -315,11 +315,6 @@ export function useCancelRecurringSession() {
             .select();
 
           if (error) throw error;
-          await Promise.all(
-            (cancelled ?? []).map((session) =>
-              createCancellationChargeForSessionCancellation(session.id, 'Cancelacion recurrente registrada por el profesional')
-            )
-          );
           return { cancelled: cancelled?.length || 0 };
         }
 
@@ -366,6 +361,8 @@ export function useCancelRecurringSession() {
             .from('sessions')
             .update({
               status: 'cancelled',
+              cancellation_origin: 'professional',
+              cancellation_reason: 'Cancelación recurrente registrada por el profesional',
               updated_at: new Date().toISOString(),
             })
             .eq('recurring_series_id', seriesId)
@@ -374,11 +371,6 @@ export function useCancelRecurringSession() {
             .select();
 
           if (error) throw error;
-          await Promise.all(
-            (cancelled ?? []).map((session) =>
-              createCancellationChargeForSessionCancellation(session.id, 'Cancelacion recurrente registrada por el profesional')
-            )
-          );
           return { cancelled: cancelled?.length || 0 };
         }
 

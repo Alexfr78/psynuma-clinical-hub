@@ -6,7 +6,7 @@ import { queueAndSendPatientBookingNotification } from "../_shared/bookingPatien
 import { notifyProfessionalBooking } from "../_shared/professionalNotification.ts";
 import { evaluateCancellationCharge, resolveCancellationBasePrice, resolvePaymentRules } from "../_shared/paymentRules.ts";
 import { autoApplyAvailableBonoToSession } from "../_shared/bonoAutomation.ts";
-import { resolvePatientCancellationPolicyForSession, resolveSignedCancellationPolicyVersion } from "../_shared/cancellationPolicy.ts";
+import { resolvePatientCancellationPolicyForSession, resolveSignedCancellationPolicyVersionForSession } from "../_shared/cancellationPolicy.ts";
 import {
   buildFreeWindows,
   generateScoredSlots,
@@ -505,9 +505,10 @@ serve(async (req) => {
         return { existingSession: null, signedCancellationPolicy: null, signedPolicyEvaluation: null, response: null };
       }
 
-      const signedCancellationPolicy = await resolveSignedCancellationPolicyVersion(supabase, {
+      const signedCancellationPolicy = await resolveSignedCancellationPolicyVersionForSession(supabase, {
         centerId: existingSession.center_id,
         patientId: session.patientId,
+        policyVersionId: existingSession.cancellation_policy_version_id,
         versionSelect: "id, rules, penalty_invoice_concept",
       });
 
@@ -620,6 +621,7 @@ serve(async (req) => {
         .from("sessions")
         .update({ 
           status: "cancelled",
+          cancellation_origin: "patient",
           cancellation_reason: reason || "Cancelada por el paciente desde el portal"
         })
         .eq("id", sessionId);

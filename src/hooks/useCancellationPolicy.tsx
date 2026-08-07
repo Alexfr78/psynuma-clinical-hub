@@ -277,6 +277,32 @@ export async function resolveSignedCancellationPolicyVersion(
     : null;
 }
 
+export async function resolveSignedCancellationPolicyVersionForSession(
+  centerId: string,
+  patientId: string | null | undefined,
+  sessionPolicyVersionId: string | null | undefined,
+) {
+  if (!patientId) return null;
+
+  if (sessionPolicyVersionId) {
+    const { data: exactConsent, error } = await supabase
+      .from('consents')
+      .select('id')
+      .eq('center_id', centerId)
+      .eq('patient_id', patientId)
+      .eq('cancellation_policy_version_id', sessionPolicyVersionId)
+      .eq('status', 'signed')
+      .limit(1)
+      .maybeSingle();
+
+    if (error) throw error;
+    return exactConsent ? sessionPolicyVersionId : null;
+  }
+
+  // Compatibility for sessions created before policy snapshots existed.
+  return resolveSignedCancellationPolicyVersion(centerId, patientId);
+}
+
 export async function resolvePatientCancellationPolicyForSession(
   centerId: string,
   patientId: string | null | undefined,

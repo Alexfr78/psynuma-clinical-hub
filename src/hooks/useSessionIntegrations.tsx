@@ -150,23 +150,14 @@ export async function handleStripePayment(
   }
 
   // Use session-specific payment mode, or fall back to professional's default
-  const paymentMode = session.payment_mode || professionalIntegrations.stripe_payment_mode || 'post_pay';
+  const paymentMode = session.payment_mode || professionalIntegrations.stripe_payment_mode || 'post_session';
   
   // Only create checkout for required_now mode during session creation
   if (paymentMode === 'required_now') {
     try {
       console.log('Creating Stripe checkout (required_now mode)...');
       const { data, error } = await supabase.functions.invoke('create-stripe-checkout', {
-        body: {
-          professional_id: session.professional_id,
-          session_id: session.id,
-          patient_id: session.patient_id,
-          patient_email: patient.email,
-          patient_name: `${patient.first_name} ${patient.last_name}`,
-          amount: session.price || 0,
-          session_type: session.session_type,
-          session_date: session.session_date,
-        },
+        body: { session_id: session.id },
       });
 
       if (error) throw error;
@@ -185,36 +176,20 @@ export async function handleStripePayment(
   } else if (paymentMode === 'scheduled_before') {
     // For scheduled mode, we'll create checkout later via a scheduled job
     // Mark session with the payment mode for later processing
-    return { payment_status: 'scheduled' };
+    return { payment_status: 'pending' };
   } else {
-    // post_pay mode - no checkout needed now
-    return { payment_status: 'post_pay' };
+    // post_session mode - no checkout needed now
+    return { payment_status: 'not_required' };
   }
 }
 
 // Create checkout session on demand
 export async function createStripeCheckout(
   sessionId: string,
-  professionalId: string,
-  patientId: string,
-  patientEmail: string | null,
-  patientName: string,
-  amount: number,
-  sessionType: string,
-  sessionDate: string
 ): Promise<string | null> {
   try {
     const { data, error } = await supabase.functions.invoke('create-stripe-checkout', {
-      body: {
-        professional_id: professionalId,
-        session_id: sessionId,
-        patient_id: patientId,
-        patient_email: patientEmail,
-        patient_name: patientName,
-        amount,
-        session_type: sessionType,
-        session_date: sessionDate,
-      },
+      body: { session_id: sessionId },
     });
 
     if (error) throw error;

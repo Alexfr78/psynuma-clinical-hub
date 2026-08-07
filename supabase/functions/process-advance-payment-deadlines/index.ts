@@ -248,7 +248,7 @@ serve(async (req) => {
           .update({
             status: "cancelled",
             cancellation_reason: "Falta de pago",
-            cancellation_origin: "patient",
+          cancellation_origin: "system",
             cancelled_for_non_payment: true,
             payment_status: "overdue",
             updated_at: nowIso,

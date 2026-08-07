@@ -86,6 +86,7 @@ export function PendingApprovalsPanel() {
         .from('sessions')
         .update({ 
           status: 'cancelled',
+          cancellation_origin: 'professional',
           cancellation_reason: 'Rechazada por el profesional'
         })
         .eq('id', sessionId);

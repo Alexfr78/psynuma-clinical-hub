@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
-import { resolveSignedCancellationPolicyVersion } from './useCancellationPolicy';
+import { resolveSignedCancellationPolicyVersionForSession } from './useCancellationPolicy';
 
 export interface CancellationCharge {
   id: string;
@@ -128,14 +128,19 @@ export async function createCancellationChargeForSessionCancellation(sessionId: 
 
   const { data: session, error: sessionError } = await supabase
     .from('sessions')
-    .select('id, center_id, patient_id, session_date, start_time, session_type, session_type_id, price')
+    .select('id, center_id, patient_id, session_date, start_time, session_type, session_type_id, price, cancellation_origin, cancellation_policy_version_id')
     .eq('id', sessionId)
     .maybeSingle();
 
   if (sessionError) throw sessionError;
   if (!session?.patient_id || !session.center_id) return null;
+  if (session.cancellation_origin !== 'patient') return null;
 
-  const signedPolicyVersionId = await resolveSignedCancellationPolicyVersion(session.center_id, session.patient_id);
+  const signedPolicyVersionId = await resolveSignedCancellationPolicyVersionForSession(
+    session.center_id,
+    session.patient_id,
+    session.cancellation_policy_version_id,
+  );
   if (!signedPolicyVersionId) return null;
 
   const { data: signedPolicy, error: policyError } = await supabase
@@ -211,7 +216,6 @@ export function useCancellationCharges(status: CancellationCharge['status'] = 'p
 }
 
 export function useConfirmCancellationCharge() {
-  const { profile } = useAuth();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -229,44 +233,18 @@ export function useConfirmCancellationCharge() {
         throw new Error('El importe debe ser mayor que 0 para generar una deuda');
       }
 
-      const debtNotes = [
-        charge.concept,
-        `Origen: cancelación fuera de plazo según política aceptada.`,
-        `Importe revisado: ${finalAmount.toFixed(2)} EUR. Importe estimado inicial: ${Number(charge.original_amount || charge.amount).toFixed(2)} EUR.`,
-        `Cálculo inicial: ${charge.percentage}% de ${Number(charge.base_session_price || 0).toFixed(2)} EUR.`,
-        reviewNote?.trim() ? `Resolución profesional: ${reviewNote.trim()}` : null,
-      ].filter(Boolean).join('\n');
+      const confirmCharge = supabase.rpc as unknown as (
+        functionName: string,
+        args: Record<string, unknown>,
+      ) => Promise<{ data: unknown; error: { message: string } | null }>;
+      const { data: debtId, error } = await confirmCharge('confirm_cancellation_charge', {
+        p_charge_id: charge.id,
+        p_amount: finalAmount,
+        p_review_note: reviewNote?.trim() || null,
+      });
 
-      const { data: debt, error: debtError } = await supabase
-        .from('debts')
-        .insert({
-          center_id: charge.center_id,
-          patient_id: charge.patient_id,
-          session_id: charge.session_id,
-          amount: finalAmount,
-          paid_amount: 0,
-          status: 'pending',
-          notes: debtNotes,
-        })
-        .select('id')
-        .single();
-
-      if (debtError) throw debtError;
-
-      const { error: chargeError } = await supabase
-        .from('cancellation_charges')
-        .update({
-          status: 'confirmed',
-          amount: finalAmount,
-          debt_id: debt.id,
-          review_note: reviewNote?.trim() || charge.review_note,
-          reviewed_by: profile?.id || null,
-          reviewed_at: new Date().toISOString(),
-        })
-        .eq('id', charge.id);
-
-      if (chargeError) throw chargeError;
-      return debt;
+      if (error) throw error;
+      return { id: debtId as string };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['cancellation-charges'] });

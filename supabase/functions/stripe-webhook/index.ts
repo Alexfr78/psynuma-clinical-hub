@@ -31,6 +31,14 @@ interface InvoiceSeries {
   is_archived: boolean;
 }
 
+interface WebhookEventClient {
+  from(table: string): {
+    update(values: Record<string, unknown>): {
+      eq(column: string, value: string): PromiseLike<unknown>;
+    };
+  };
+}
+
 // Helper function to create invoice
 async function createInvoice(
   supabase: any,
@@ -597,6 +605,9 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  let claimedEventId: string | null = null;
+  let serviceClient: WebhookEventClient | null = null;
+
   try {
     const body = await req.text();
     const signature = req.headers.get('stripe-signature');
@@ -657,6 +668,21 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
+    serviceClient = supabase as unknown as WebhookEventClient;
+
+    const { data: claimed, error: claimError } = await supabase.rpc('claim_stripe_webhook_event', {
+      p_event_id: event.id,
+      p_event_type: event.type,
+      p_connected_account_id: event.account || null,
+    });
+    if (claimError) throw claimError;
+    if (!claimed) {
+      return new Response(
+        JSON.stringify({ received: true, duplicate: true }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    claimedEventId = event.id;
 
     // Handle different event types
     switch (event.type) {
@@ -728,6 +754,11 @@ serve(async (req) => {
         console.log('Unhandled event type:', event.type);
     }
 
+    await supabase
+      .from('stripe_webhook_events')
+      .update({ status: 'completed', processed_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+      .eq('event_id', event.id);
+
     return new Response(
       JSON.stringify({ received: true }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -735,6 +766,16 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Webhook error:', error);
+    if (serviceClient && claimedEventId) {
+      await serviceClient
+        .from('stripe_webhook_events')
+        .update({
+          status: 'failed',
+          last_error: error instanceof Error ? error.message : String(error),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('event_id', claimedEventId);
+    }
     return new Response(
       JSON.stringify({ error: "Error interno del servidor" }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

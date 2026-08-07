@@ -21,7 +21,7 @@ export function StripeIntegrationSection() {
   const [searchParams, setSearchParams] = useSearchParams();
   
   const [enabled, setEnabled] = useState(false);
-  const [paymentMode, setPaymentMode] = useState<'required_now' | 'post_pay' | 'scheduled_before'>('post_pay');
+  const [paymentMode, setPaymentMode] = useState<'required_now' | 'post_session' | 'scheduled_before'>('post_session');
   const [scheduledHours, setScheduledHours] = useState(24);
   const [isSaving, setIsSaving] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
@@ -76,7 +76,7 @@ export function StripeIntegrationSection() {
     }
   };
 
-  const handlePaymentModeChange = async (value: 'required_now' | 'post_pay' | 'scheduled_before') => {
+  const handlePaymentModeChange = async (value: 'required_now' | 'post_session' | 'scheduled_before') => {
     setPaymentMode(value);
     setIsSaving(true);
     try {
@@ -108,11 +108,7 @@ export function StripeIntegrationSection() {
     setIsConnecting(true);
     try {
       const { data, error } = await supabase.functions.invoke('create-stripe-connect-link', {
-        body: { 
-          professional_id: profile.id,
-          return_url: `${window.location.origin}/configuracion?oauth=success&provider=stripe`,
-          refresh_url: `${window.location.origin}/configuracion?oauth=refresh&provider=stripe`,
-        },
+        body: { professional_id: profile.id },
       });
 
       if (error) throw error;
@@ -295,7 +291,7 @@ export function StripeIntegrationSection() {
             {accountStatus === 'active' && enabled && (
               <div className="space-y-4">
                 <Label className="text-base font-medium">Modo de cobro por defecto</Label>
-                <RadioGroup value={paymentMode} onValueChange={(v) => handlePaymentModeChange(v as 'required_now' | 'post_pay' | 'scheduled_before')}>
+                <RadioGroup value={paymentMode} onValueChange={(v) => handlePaymentModeChange(v as 'required_now' | 'post_session' | 'scheduled_before')}>
                   <div className="flex items-start space-x-3 p-3 border rounded-lg cursor-pointer hover:bg-muted/50">
                     <RadioGroupItem value="required_now" id="payment-required" className="mt-0.5" />
                     <div className="flex-1">
@@ -308,7 +304,7 @@ export function StripeIntegrationSection() {
                     </div>
                   </div>
                   <div className="flex items-start space-x-3 p-3 border rounded-lg cursor-pointer hover:bg-muted/50">
-                    <RadioGroupItem value="post_pay" id="payment-post" className="mt-0.5" />
+                    <RadioGroupItem value="post_session" id="payment-post" className="mt-0.5" />
                     <div className="flex-1">
                       <Label htmlFor="payment-post" className="cursor-pointer font-medium text-sm">
                         Post-pago

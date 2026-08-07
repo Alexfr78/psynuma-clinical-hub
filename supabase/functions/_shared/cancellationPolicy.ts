@@ -83,6 +83,40 @@ export async function resolveSignedCancellationPolicyVersion(
   return hasLegacyPolicyConsent ? activePolicy : null;
 }
 
+export async function resolveSignedCancellationPolicyVersionForSession(
+  supabase: SupabaseClient,
+  args: {
+    centerId: string;
+    patientId?: string | null;
+    policyVersionId?: string | null;
+    versionSelect?: string;
+  },
+) {
+  if (!args.patientId) return null;
+
+  if (args.policyVersionId) {
+    const versionSelect = args.versionSelect || "id";
+    const { data: exactConsent, error } = await supabase
+      .from("consents")
+      .select(`cancellation_policy_versions(${versionSelect})`)
+      .eq("center_id", args.centerId)
+      .eq("patient_id", args.patientId)
+      .eq("cancellation_policy_version_id", args.policyVersionId)
+      .eq("status", "signed")
+      .limit(1)
+      .maybeSingle();
+
+    if (error) throw error;
+    const version = Array.isArray(exactConsent?.cancellation_policy_versions)
+      ? exactConsent.cancellation_policy_versions[0]
+      : exactConsent?.cancellation_policy_versions;
+    return version || null;
+  }
+
+  // Compatibility for sessions created before policy snapshots existed.
+  return resolveSignedCancellationPolicyVersion(supabase, args);
+}
+
 export async function resolvePatientCancellationPolicyForSession(
   supabase: SupabaseClient,
   args: {

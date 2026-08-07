@@ -28,7 +28,8 @@ export interface ResolvedPaymentSettings {
 }
 
 function asPaymentMode(value?: string | null): PaymentMode | null {
-  return value && PAYMENT_MODES.has(value as PaymentMode) ? (value as PaymentMode) : null;
+  const normalized = value === 'post_pay' ? 'post_session' : value;
+  return normalized && PAYMENT_MODES.has(normalized as PaymentMode) ? (normalized as PaymentMode) : null;
 }
 
 function resolveSource(input: ResolvePaymentSettingsInput): Pick<ResolvedPaymentSettings, 'paymentMode' | 'source'> {

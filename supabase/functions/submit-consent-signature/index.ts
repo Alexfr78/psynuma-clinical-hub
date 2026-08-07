@@ -52,7 +52,7 @@ Deno.serve(async (req) => {
     // Verify that the consent exists and matches the token
     const { data: consent, error: consentError } = await supabase
       .from("consents")
-      .select("id, status, expires_at")
+      .select("id, status, expires_at, requires_guardian, cancellation_policy_version_id, verification_responses, template:consent_templates(verification_checkboxes)")
       .eq("id", consent_id)
       .eq("access_token", consentToken)
       .single();
@@ -79,6 +79,51 @@ Deno.serve(async (req) => {
       );
     }
 
+    if (signer_role !== "patient" && signer_role !== "guardian") {
+      return new Response(
+        JSON.stringify({ error: "Invalid signer role" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // A cancellation policy is only valid when every verification is an
+    // explicit affirmative answer. The server enforces this independently of
+    // the browser so a refusal can never be stored as a signed policy.
+    if (signer_role === "patient" && consent.cancellation_policy_version_id) {
+      const template = Array.isArray(consent.template) ? consent.template[0] : consent.template;
+      const checkboxes = Array.isArray(template?.verification_checkboxes)
+        ? template.verification_checkboxes
+        : [];
+      const responses = consent.verification_responses && typeof consent.verification_responses === "object"
+        ? consent.verification_responses as Record<string, unknown>
+        : {};
+      const accepted = checkboxes.length > 0
+        && checkboxes.every((_: unknown, index: number) => responses[String(index)] === true);
+
+      if (!accepted) {
+        return new Response(
+          JSON.stringify({ error: "La política de cancelación requiere una aceptación expresa" }),
+          { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
+    if (signer_role === "patient" && consent.requires_guardian) {
+      const { data: guardianSignature } = await supabase
+        .from("consent_signatures")
+        .select("id")
+        .eq("consent_id", consent_id)
+        .eq("signer_role", "guardian")
+        .maybeSingle();
+
+      if (!guardianSignature) {
+        return new Response(
+          JSON.stringify({ error: "Guardian signature is required first" }),
+          { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
     // Insert the signature with the real IP address
     const { data: signature, error: insertError } = await supabase
       .from("consent_signatures")
@@ -102,8 +147,25 @@ Deno.serve(async (req) => {
       );
     }
 
+    if (signer_role === "patient") {
+      const { error: completeError } = await supabase
+        .from("consents")
+        .update({ status: "signed", signed_at: new Date().toISOString() })
+        .eq("id", consent_id)
+        .eq("status", "pending");
+
+      if (completeError) {
+        console.error("Error completing consent:", completeError);
+        await supabase.from("consent_signatures").delete().eq("id", signature.id);
+        return new Response(
+          JSON.stringify({ error: "Failed to complete consent" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
     return new Response(
-      JSON.stringify({ success: true, data: signature }),
+      JSON.stringify({ success: true, data: signature, consent_completed: signer_role === "patient" }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
 
