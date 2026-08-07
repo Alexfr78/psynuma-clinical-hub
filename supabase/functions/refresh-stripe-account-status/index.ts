@@ -27,14 +27,24 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    // Decode the JWT manually (signing-keys tokens are not verifiable via auth.getUser here)
     const authorization = req.headers.get('Authorization') || '';
-    const userClient = createClient(
-      supabaseUrl,
-      Deno.env.get('SUPABASE_ANON_KEY')!,
-      { global: { headers: { Authorization: authorization } } },
-    );
-    const { data: authData, error: authError } = await userClient.auth.getUser();
-    if (authError || !authData.user) {
+    let requesterId: string | null = null;
+    try {
+      const token = authorization.replace(/^Bearer\s+/i, '');
+      if (token) {
+        const payload = JSON.parse(
+          atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')),
+        );
+        if (payload?.sub && (!payload.exp || payload.exp * 1000 > Date.now())) {
+          requesterId = payload.sub as string;
+        }
+      }
+    } catch (_e) {
+      requesterId = null;
+    }
+
+    if (!requesterId) {
       return new Response(
         JSON.stringify({ error: 'Authentication required' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -49,14 +59,14 @@ serve(async (req) => {
       .single();
 
     const [{ data: requesterProfile }, { data: requesterRoles }] = await Promise.all([
-      supabase.from('profiles').select('center_id').eq('id', authData.user.id).single(),
-      supabase.from('user_roles').select('role').eq('user_id', authData.user.id),
+      supabase.from('profiles').select('center_id').eq('id', requesterId).single(),
+      supabase.from('user_roles').select('role').eq('user_id', requesterId),
     ]);
     const isAdmin = (requesterRoles || []).some((row: { role: string }) => row.role === 'admin');
     if (
       !profile?.center_id
       || requesterProfile?.center_id !== profile.center_id
-      || (authData.user.id !== professional_id && !isAdmin)
+      || (requesterId !== professional_id && !isAdmin)
     ) {
       return new Response(
         JSON.stringify({ error: 'Not authorized for this professional' }),
