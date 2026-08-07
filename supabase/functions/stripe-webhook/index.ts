@@ -523,6 +523,7 @@ async function handleSessionCheckout(
   await supabase
     .from('sessions')
     .update({
+      payment_status: 'paid',
       stripe_payment_status: 'paid',
       status: 'confirmed',
     })
@@ -547,7 +548,7 @@ async function handleSessionCheckout(
       patient_id: sessionData.patient_id,
       center_id: sessionData.center_id,
       session_id: sessionId,
-      amount: sessionData.price,
+      amount: paymentAmount,
       payment_method: 'stripe',
       payment_date: new Date().toISOString().split('T')[0],
       reference: stripeSessionId,
@@ -566,7 +567,9 @@ async function handleSessionCheckout(
       .from('debts')
       .update({
         status: 'paid',
-        paid_amount: sessionData.price,
+        paid_amount: paymentAmount,
+        stripe_payment_status: 'paid',
+        stripe_checkout_session_id: stripeSessionId,
       })
       .eq('id', debtData.id);
   }
@@ -587,7 +590,7 @@ async function handleSessionCheckout(
       sessionData.center_id,
       sessionData.patient_id,
       description,
-      sessionData.price,
+      paymentAmount,
       sessionId,
       null
     );
