@@ -677,10 +677,9 @@ export function QuickCreateSessionDialog({
 
               if (stripeResult.checkout_url) {
                 toast({
-                  title: 'Sesión creada',
-                  description: 'Redirigiendo al pago...',
+                  title: 'Sesión y enlace de pago creados',
+                  description: 'Puedes copiar el enlace desde el detalle de la sesión.',
                 });
-                window.open(stripeResult.checkout_url, '_blank');
               }
             }
           }
