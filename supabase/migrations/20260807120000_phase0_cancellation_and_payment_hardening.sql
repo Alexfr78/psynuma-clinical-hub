@@ -1,6 +1,14 @@
 -- Phase 0: preserve cancellation intent, remove legacy payment-mode naming,
 -- and make cancellation charge confirmation idempotent and transactional.
 
+-- Drop the legacy checks before translating their legacy value. PostgreSQL
+-- validates UPDATEs against the current constraint immediately.
+ALTER TABLE public.professional_integrations
+  DROP CONSTRAINT IF EXISTS professional_integrations_stripe_payment_mode_check;
+
+ALTER TABLE public.sessions
+  DROP CONSTRAINT IF EXISTS sessions_stripe_payment_mode_check;
+
 UPDATE public.professional_integrations
 SET stripe_payment_mode = 'post_session'
 WHERE stripe_payment_mode = 'post_pay';
@@ -14,15 +22,9 @@ SET stripe_payment_mode = 'post_session'
 WHERE stripe_payment_mode = 'post_pay';
 
 ALTER TABLE public.professional_integrations
-  DROP CONSTRAINT IF EXISTS professional_integrations_stripe_payment_mode_check;
-
-ALTER TABLE public.professional_integrations
   ALTER COLUMN stripe_payment_mode SET DEFAULT 'post_session',
   ADD CONSTRAINT professional_integrations_stripe_payment_mode_check
     CHECK (stripe_payment_mode IN ('required_now', 'post_session', 'scheduled_before'));
-
-ALTER TABLE public.sessions
-  DROP CONSTRAINT IF EXISTS sessions_stripe_payment_mode_check;
 
 ALTER TABLE public.sessions
   ADD CONSTRAINT sessions_stripe_payment_mode_check
