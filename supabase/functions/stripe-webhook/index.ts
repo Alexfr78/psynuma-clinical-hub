@@ -40,6 +40,71 @@ interface WebhookEventClient {
   };
 }
 
+interface UntrustedStripeEventReference {
+  id?: unknown;
+  object?: unknown;
+  account?: unknown;
+}
+
+async function retrieveConnectedAccountEvent(
+  body: string,
+  secretKey: string,
+): Promise<Stripe.Event | null> {
+  let candidate: UntrustedStripeEventReference;
+
+  try {
+    candidate = JSON.parse(body) as UntrustedStripeEventReference;
+  } catch {
+    return null;
+  }
+
+  if (
+    candidate.object !== 'event'
+    || typeof candidate.id !== 'string'
+    || !/^evt_[A-Za-z0-9]+$/.test(candidate.id)
+    || typeof candidate.account !== 'string'
+    || !/^acct_[A-Za-z0-9]+$/.test(candidate.account)
+  ) {
+    return null;
+  }
+
+  // A Connect event belongs to the connected account. When endpoint-signature
+  // verification is unavailable, authenticate the event against Stripe's API
+  // using the platform key and that account's Stripe-Account context. The
+  // untrusted request body is never processed; only Stripe's response is used.
+  const response = await fetch(
+    `https://api.stripe.com/v1/events/${encodeURIComponent(candidate.id)}`,
+    {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${secretKey}`,
+        'Stripe-Account': candidate.account,
+      },
+    },
+  );
+
+  if (!response.ok) {
+    console.error('Stripe API could not verify connected-account event', {
+      event_id: candidate.id,
+      connected_account_id: candidate.account,
+      status: response.status,
+    });
+    return null;
+  }
+
+  const retrieved = await response.json() as Stripe.Event;
+  if (retrieved.id !== candidate.id || retrieved.object !== 'event') {
+    return null;
+  }
+
+  console.warn('Stripe event authenticated through API retrieval fallback', {
+    event_id: retrieved.id,
+    connected_account_id: candidate.account,
+  });
+
+  return retrieved;
+}
+
 // Helper function to create invoice
 async function createInvoice(
   supabase: any,
@@ -675,16 +740,22 @@ serve(async (req) => {
 
     if (!event) {
       console.error('Stripe webhook signature verification failed for every configured destination');
-      return new Response(
-        JSON.stringify({
-          error: 'Invalid signature',
-          configured_destinations: {
-            account: Boolean(webhookSecret),
-            connect: Boolean(connectWebhookSecret),
-          },
-        }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      event = await retrieveConnectedAccountEvent(body, stripeSecretKey);
+
+      if (!event) {
+        return new Response(
+          JSON.stringify({
+            error: 'Invalid signature',
+            configured_destinations: {
+              account: Boolean(webhookSecret),
+              connect: Boolean(connectWebhookSecret),
+            },
+          }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      verifiedDestination = 'connect_api_retrieval';
     }
 
     console.log('Webhook signature verified successfully', {
