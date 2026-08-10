@@ -88,6 +88,25 @@ export function useSessionPaymentStatus(sessionId: string | undefined) {
 
       if (debtsError) throw debtsError;
 
+      // A Stripe Checkout can settle a session without a debt row ever being
+      // created. Read the session flags and its actual payment records as
+      // independent accounting evidence instead of treating "no debt" as
+      // "not paid".
+      const [sessionResult, paymentsResult] = await Promise.all([
+        supabase
+          .from('sessions')
+          .select('price, payment_status, stripe_payment_status')
+          .eq('id', sessionId!)
+          .single(),
+        supabase
+          .from('payments')
+          .select('amount')
+          .eq('session_id', sessionId!),
+      ]);
+
+      if (sessionResult.error) throw sessionResult.error;
+      if (paymentsResult.error) throw paymentsResult.error;
+
       // Filter out debts whose invoice has is_valid=false
       let activeDebt: SessionPaymentStatus['activeDebt'] = null;
       if (debts && debts.length > 0) {
@@ -117,13 +136,30 @@ export function useSessionPaymentStatus(sessionId: string | undefined) {
 
       // 3. Calculate real remaining
       const debtAmount = activeDebt ? Number(activeDebt.amount) : 0;
-      const paidAmount = activeDebt ? Number(activeDebt.paid_amount) : 0;
-      const remainingAmount = Math.max(debtAmount - paidAmount, 0);
+      const debtPaidAmount = activeDebt ? Number(activeDebt.paid_amount) : 0;
+      const sessionAmount = Number(sessionResult.data.price ?? 0);
+      const recordedPaymentAmount = (paymentsResult.data || [])
+        .reduce((total, payment) => total + Number(payment.amount || 0), 0);
+      const balanceAmount = debtAmount > 0 ? debtAmount : sessionAmount;
+      const creditedAmount = Math.max(debtPaidAmount, recordedPaymentAmount);
+      const remainingAmount = Math.max(balanceAmount - creditedAmount, 0);
 
-      const isPaid = activeDebt?.status === 'paid' || (debtAmount > 0 && remainingAmount < 0.01);
-      const isPartial = activeDebt?.status === 'partial' || (paidAmount > 0 && remainingAmount >= 0.01);
-      const hasPendingPayment = activeDebt ? activeDebt.status !== 'paid' : false;
-      const isCollectable = remainingAmount > 0.01;
+      const sessionPaymentStatus = (sessionResult.data.payment_status || '').toLowerCase();
+      const stripePaymentStatus = (sessionResult.data.stripe_payment_status || '').toLowerCase();
+      const isRefunded = sessionPaymentStatus === 'refunded' || stripePaymentStatus === 'refunded';
+      const isPaid = !isRefunded && (
+        sessionPaymentStatus === 'paid'
+        || sessionPaymentStatus === 'bono'
+        || stripePaymentStatus === 'paid'
+        || activeDebt?.status === 'paid'
+        || (balanceAmount > 0 && creditedAmount >= balanceAmount - 0.01)
+      );
+      const isPartial = !isPaid && !isRefunded && (
+        activeDebt?.status === 'partial'
+        || (creditedAmount > 0 && remainingAmount >= 0.01)
+      );
+      const hasPendingPayment = !isPaid && !isRefunded && balanceAmount > 0;
+      const isCollectable = hasPendingPayment && remainingAmount > 0.01;
 
       return {
         hasPendingPayment,
