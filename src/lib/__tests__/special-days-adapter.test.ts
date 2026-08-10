@@ -12,6 +12,7 @@ import {
   type RawLocationSchedule,
   type BuildDayInputArgs,
 } from "../../../supabase/functions/_shared/special-days-adapter.ts";
+import { resolveDayAvailability } from "../../../supabase/functions/_shared/availability-core.ts";
 
 const PROF = "prof-1";
 const DATE = "2026-04-20";
@@ -159,6 +160,58 @@ describe("buildDayScheduleInput", () => {
       endMin: timeToMinutes("12:00"),
       source: "exception",
     });
+  });
+
+  it("un cierre general de día completo elimina todos los huecos públicos", () => {
+    const closure: RawScheduleException = {
+      id: "center-closed",
+      scope: "center",
+      professional_id: null,
+      start_date: DATE,
+      end_date: DATE,
+      all_day: true,
+      start_time: null,
+      end_time: null,
+      affects_booking: true,
+    };
+    const input = buildDayScheduleInput(baseArgs({
+      locationSchedules: [
+        { start_time: "09:00:00", end_time: "18:00:00", is_open: true },
+      ],
+      scheduleExceptions: [closure],
+    }));
+
+    expect(resolveDayAvailability(input, {
+      durationMin: 60,
+      stepMin: 30,
+      minPublicDurationMin: 60,
+    })).toEqual([]);
+  });
+
+  it("un día especial cerrado que afecta al portal elimina todos los huecos", () => {
+    const closure: RawSpecialDay = {
+      id: "special-closed",
+      scope: "center",
+      professional_id: null,
+      type: "closed",
+      start_date: DATE,
+      end_date: DATE,
+      affects_public_booking: true,
+      created_at: "2026-04-01T00:00:00Z",
+      special_day_slots: [],
+    };
+    const input = buildDayScheduleInput(baseArgs({
+      locationSchedules: [
+        { start_time: "09:00:00", end_time: "18:00:00", is_open: true },
+      ],
+      specialDays: [closure],
+    }));
+
+    expect(resolveDayAvailability(input, {
+      durationMin: 60,
+      stepMin: 30,
+      minPublicDurationMin: 60,
+    })).toEqual([]);
   });
 
   it("caso 7: calendar event bloquea correctamente", () => {

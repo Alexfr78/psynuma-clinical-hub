@@ -8,14 +8,8 @@ import { evaluateCancellationCharge, resolveCancellationBasePrice, resolvePaymen
 import { autoApplyAvailableBonoToSession } from "../_shared/bonoAutomation.ts";
 import { resolvePatientCancellationPolicyForSession, resolveSignedCancellationPolicyVersionForSession } from "../_shared/cancellationPolicy.ts";
 import { getPublicCancellationPolicy, hasAcceptedCancellationPolicy, recordPortalCancellationPolicyClickwrap } from "../_shared/cancellationPolicyClickwrap.ts";
-import {
-  buildFreeWindows,
-  generateScoredSlots,
-  countOptimalSlots,
-  timeToMinutes as ttm,
-  minutesToTime as mtt,
-  getLocalTimeMinutes as gltm,
-} from "../_shared/availability.ts";
+import { resolveDayAvailability } from "../_shared/availability-core.ts";
+import { APP_TZ, buildDayScheduleInput } from "../_shared/special-days-adapter.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -24,6 +18,10 @@ const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 
 // Use SUPABASE_SERVICE_ROLE_KEY as HMAC secret for verifying tokens
 const TOKEN_SECRET = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+function createServiceClient() {
+  return createClient(supabaseUrl, supabaseServiceKey);
+}
 
 // Helper functions for time conversion
 function timeToMinutes(time: string): number {
@@ -37,19 +35,114 @@ function minutesToTime(minutes: number): string {
   return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
 }
 
-// Convert UTC timestamp to local time minutes for a given timezone
-function getLocalTimeMinutes(isoDatetime: string, timezone: string): number {
-  const date = new Date(isoDatetime);
-  const formatter = new Intl.DateTimeFormat('en-US', {
-    hour: 'numeric',
-    minute: 'numeric',
-    hour12: false,
-    timeZone: timezone
+type PortalDayAvailabilityParams = {
+  supabase: ReturnType<typeof createServiceClient>;
+  centerId: string;
+  professionalId: string;
+  locationId: string;
+  date: string;
+  serviceDuration: number;
+  step: number;
+  minPublicDuration?: number;
+  excludeSessionId?: string;
+};
+
+/**
+ * Single source of truth for patient-portal availability on one day.
+ * It deliberately mirrors public-booking, including general closures,
+ * professional exceptions and public special-day overrides.
+ */
+async function resolvePortalDayAvailability({
+  supabase,
+  centerId,
+  professionalId,
+  locationId,
+  date,
+  serviceDuration,
+  step,
+  minPublicDuration = serviceDuration,
+  excludeSessionId,
+}: PortalDayAvailabilityParams) {
+  const dayOfWeek = new Date(`${date}T12:00:00`).getDay();
+  const startOfDay = `${date}T00:00:00`;
+  const endOfDay = `${date}T23:59:59`;
+
+  let sessionsQuery = supabase
+    .from("sessions")
+    .select("id, start_time, end_time")
+    .eq("professional_id", professionalId)
+    .eq("session_date", date)
+    .not("status", "in", '("cancelled","no_show")');
+  if (excludeSessionId) sessionsQuery = sessionsQuery.neq("id", excludeSessionId);
+
+  const results = await Promise.all([
+    supabase
+      .from("availability")
+      .select("start_time, end_time")
+      .eq("professional_id", professionalId)
+      .eq("day_of_week", dayOfWeek)
+      .eq("is_available", true),
+    supabase
+      .from("location_schedules")
+      .select("start_time, end_time, is_open")
+      .eq("location_id", locationId)
+      .eq("day_of_week", dayOfWeek),
+    sessionsQuery,
+    supabase
+      .from("calendar_events")
+      .select("id, start_at, end_at, status, all_day, is_converted, deleted")
+      .eq("professional_id", professionalId)
+      .eq("deleted", false)
+      .gte("start_at", startOfDay)
+      .lte("start_at", endOfDay),
+    supabase
+      .from("schedule_exceptions")
+      .select("id, scope, professional_id, start_date, end_date, all_day, start_time, end_time, affects_booking")
+      .eq("center_id", centerId)
+      .eq("affects_booking", true)
+      .lte("start_date", date)
+      .gte("end_date", date),
+    supabase
+      .from("special_days")
+      .select("id, scope, professional_id, type, start_date, end_date, affects_public_booking, created_at, special_day_slots(start_time, end_time)")
+      .eq("center_id", centerId)
+      .eq("affects_public_booking", true)
+      .lte("start_date", date)
+      .gte("end_date", date),
+  ]);
+
+  const failed = results.find((result) => result.error);
+  if (failed?.error) throw failed.error;
+
+  const [availability, locationSchedules, sessions, calendarEvents, scheduleExceptions, specialDays] = results;
+  const input = buildDayScheduleInput({
+    date,
+    professionalId,
+    isPublicContext: true,
+    weeklyAvailability: availability.data ?? [],
+    locationSchedules: locationSchedules.data ?? [],
+    specialDays: specialDays.data ?? [],
+    scheduleExceptions: scheduleExceptions.data ?? [],
+    sessions: sessions.data ?? [],
+    calendarEvents: calendarEvents.data ?? [],
+    timezone: APP_TZ,
   });
-  const parts = formatter.formatToParts(date);
-  const hours = parseInt(parts.find(p => p.type === 'hour')?.value || '0');
-  const minutes = parseInt(parts.find(p => p.type === 'minute')?.value || '0');
-  return hours * 60 + minutes;
+
+  return resolveDayAvailability(input, {
+    durationMin: serviceDuration,
+    stepMin: step,
+    minPublicDurationMin: minPublicDuration,
+  });
+}
+
+function containsRequestedSlot(
+  slots: { startMin: number; endMin: number }[],
+  startTime: string,
+  endTime: string,
+) {
+  const startMin = timeToMinutes(startTime);
+  const endMin = timeToMinutes(endTime);
+  return slots.some((slot) => slot.startMin === startMin && slot.endMin === endMin);
 }
 
 // Cryptographic token verification using HMAC-SHA256
@@ -101,7 +194,7 @@ serve(async (req) => {
   }
 
   try {
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = createServiceClient();
     const { action, sessionToken, ...params } = await req.json();
     const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0].trim()
       || req.headers.get('x-real-ip')
@@ -289,101 +382,20 @@ serve(async (req) => {
         );
       }
 
-      // ANTI-RACE-CONDITION: Re-validate slot availability
-      const dayOfWeek = new Date(sessionDate).getDay();
-      const slotStartMinutes = timeToMinutes(startTime);
-      const slotEndMinutes = timeToMinutes(endTime);
+      // ANTI-RACE-CONDITION: use the same resolver as the availability UI.
+      // This also enforces center/professional closures and public special days.
       const serviceDuration = sessionType.duration_minutes;
-
-      // Check professional availability
-      const { data: profAvailability } = await supabase
-        .from("availability")
-        .select("start_time, end_time")
-        .eq("professional_id", finalProfessionalId)
-        .eq("day_of_week", dayOfWeek)
-        .eq("is_available", true);
-
-      const profAvailable = profAvailability?.some(slot => {
-        const profStart = timeToMinutes(slot.start_time);
-        const profEnd = timeToMinutes(slot.end_time);
-        return slotStartMinutes >= profStart && slotEndMinutes <= profEnd;
+      const resolvedSlots = await resolvePortalDayAvailability({
+        supabase,
+        centerId: session.centerId!,
+        professionalId: finalProfessionalId,
+        locationId,
+        date: sessionDate,
+        serviceDuration,
+        step: 1,
       });
 
-      if (!profAvailable) {
-        return new Response(
-          JSON.stringify({ error: "Ese horario ya no está disponible. Por favor, elige otro." }),
-          { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      // Check location schedule
-      const { data: locationSchedule } = await supabase
-        .from("location_schedules")
-        .select("start_time, end_time")
-        .eq("location_id", locationId)
-        .eq("day_of_week", dayOfWeek)
-        .eq("is_open", true);
-
-      const locationOpen = locationSchedule?.some(schedule => {
-        const locStart = timeToMinutes(schedule.start_time);
-        const locEnd = timeToMinutes(schedule.end_time);
-        return slotStartMinutes >= locStart && slotEndMinutes <= locEnd;
-      });
-
-      if (!locationOpen) {
-        return new Response(
-          JSON.stringify({ error: "La ubicación no está disponible en ese horario." }),
-          { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      // Check for conflicts with existing sessions
-      const { data: existingSessions } = await supabase
-        .from("sessions")
-        .select("start_time, end_time")
-        .eq("professional_id", finalProfessionalId)
-        .eq("session_date", sessionDate)
-        .not("status", "in", '("cancelled","no_show")');
-
-      const hasSessionConflict = existingSessions?.some(s => {
-        const sessionStart = timeToMinutes(s.start_time.substring(0, 5));
-        const sessionEnd = timeToMinutes(s.end_time.substring(0, 5));
-        return slotStartMinutes < sessionEnd && slotEndMinutes > sessionStart;
-      });
-
-      if (hasSessionConflict) {
-        return new Response(
-          JSON.stringify({ error: "Ese hueco acaba de ocuparse. Por favor, elige otro horario." }),
-          { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      // Check for conflicts with calendar events (Google Calendar)
-      const startOfDay = `${sessionDate}T00:00:00`;
-      const endOfDay = `${sessionDate}T23:59:59`;
-
-      const { data: calendarEvents } = await supabase
-        .from("calendar_events")
-        .select("start_at, end_at, status, all_day")
-        .eq("professional_id", finalProfessionalId)
-        .eq("deleted", false)
-        .gte("start_at", startOfDay)
-        .lte("start_at", endOfDay);
-
-      // Use Europe/Madrid timezone for calendar events conversion
-      const centerTimezone = 'Europe/Madrid';
-
-      const hasCalendarConflict = calendarEvents?.some(event => {
-        if (event.status === 'cancelled') return false;
-        if (event.all_day) return true;
-
-        const eventStartMinutes = getLocalTimeMinutes(event.start_at, centerTimezone);
-        const eventEndMinutes = getLocalTimeMinutes(event.end_at, centerTimezone);
-
-        return slotStartMinutes < eventEndMinutes && slotEndMinutes > eventStartMinutes;
-      });
-
-      if (hasCalendarConflict) {
+      if (!containsRequestedSlot(resolvedSlots, startTime, endTime)) {
         return new Response(
           JSON.stringify({ error: "Ese hueco acaba de ocuparse. Por favor, elige otro horario." }),
           { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -1048,67 +1060,22 @@ serve(async (req) => {
         }
       }
 
-      // Validate new slot availability (anti-race-condition)
-      const newSlotStart = timeToMinutes(newStartTime);
-      const newSlotEnd = timeToMinutes(newEndTime);
-      const newDayOfWeek = new Date(newDate).getDay();
+      // Validate against the same complete rules used by the portal calendar.
+      const requestedDuration = timeToMinutes(newEndTime) - timeToMinutes(newStartTime);
+      const resolvedSlots = targetLocationId && requestedDuration > 0
+        ? await resolvePortalDayAvailability({
+            supabase,
+            centerId: session.centerId!,
+            professionalId: existingSession.professional_id,
+            locationId: targetLocationId,
+            date: newDate,
+            serviceDuration: requestedDuration,
+            step: 1,
+            excludeSessionId: sessionId,
+          })
+        : [];
 
-      // Check professional availability
-      const { data: profAvailability } = await supabase
-        .from("availability")
-        .select("start_time, end_time")
-        .eq("professional_id", existingSession.professional_id)
-        .eq("day_of_week", newDayOfWeek)
-        .eq("is_available", true);
-
-      const profAvailable = profAvailability?.some(slot => {
-        return newSlotStart >= timeToMinutes(slot.start_time) && newSlotEnd <= timeToMinutes(slot.end_time);
-      });
-
-      if (!profAvailable) {
-        return new Response(
-          JSON.stringify({ error: "Ese horario ya no está disponible" }),
-          { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      // Check the slot is open at the TARGET location
-      if (targetLocationId) {
-        const { data: locSched } = await supabase
-          .from("location_schedules")
-          .select("start_time, end_time")
-          .eq("location_id", targetLocationId)
-          .eq("day_of_week", newDayOfWeek)
-          .eq("is_open", true);
-        const locationOpen = locSched?.some(sl => {
-          const s = timeToMinutes(sl.start_time);
-          const e = timeToMinutes(sl.end_time);
-          return newSlotStart >= s && newSlotEnd <= e;
-        });
-        if (!locationOpen) {
-          return new Response(
-            JSON.stringify({ error: "La ubicación no está disponible en ese horario." }),
-            { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
-        }
-      }
-
-      // Check for conflicts with existing sessions (exclude current session)
-      const { data: conflictingSessions } = await supabase
-        .from("sessions")
-        .select("start_time, end_time")
-        .eq("professional_id", existingSession.professional_id)
-        .eq("session_date", newDate)
-        .neq("id", sessionId)
-        .not("status", "in", '("cancelled","no_show")');
-
-      const hasConflict = conflictingSessions?.some(s => {
-        const sStart = timeToMinutes(s.start_time.substring(0, 5));
-        const sEnd = timeToMinutes(s.end_time.substring(0, 5));
-        return newSlotStart < sEnd && newSlotEnd > sStart;
-      });
-
-      if (hasConflict) {
+      if (!containsRequestedSlot(resolvedSlots, newStartTime, newEndTime)) {
         return new Response(
           JSON.stringify({ error: "Ese hueco acaba de ocuparse. Elige otro horario." }),
           { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -1390,11 +1357,10 @@ serve(async (req) => {
       // Get all location schedules (all days)
       const { data: locationSchedule } = await supabase
         .from("location_schedules")
-        .select("day_of_week, start_time, end_time")
-        .eq("location_id", locationId)
-        .eq("is_open", true);
+        .select("day_of_week, start_time, end_time, is_open")
+        .eq("location_id", locationId);
 
-      if (!profAvailability?.length || !locationSchedule?.length) {
+      if (!locationSchedule?.length) {
         return new Response(
           JSON.stringify({ availability: {} }),
           { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -1403,14 +1369,14 @@ serve(async (req) => {
 
       // Build day-of-week lookups
       const profByDay: Record<number, { start_time: string; end_time: string }[]> = {};
-      for (const slot of profAvailability) {
+      for (const slot of profAvailability || []) {
         if (!profByDay[slot.day_of_week]) profByDay[slot.day_of_week] = [];
         profByDay[slot.day_of_week].push({ start_time: slot.start_time, end_time: slot.end_time });
       }
-      const locByDay: Record<number, { start_time: string; end_time: string }[]> = {};
+      const locByDay: Record<number, { start_time: string; end_time: string; is_open: boolean | null }[]> = {};
       for (const slot of locationSchedule) {
         if (!locByDay[slot.day_of_week]) locByDay[slot.day_of_week] = [];
-        locByDay[slot.day_of_week].push({ start_time: slot.start_time, end_time: slot.end_time });
+        locByDay[slot.day_of_week].push({ start_time: slot.start_time, end_time: slot.end_time, is_open: slot.is_open });
       }
 
       // Generate all dates in the month
@@ -1427,7 +1393,7 @@ serve(async (req) => {
 
       const { data: existingSessions } = await supabase
         .from("sessions")
-        .select("session_date, start_time, end_time")
+        .select("id, session_date, start_time, end_time")
         .eq("professional_id", professionalId)
         .gte("session_date", monthStartStr)
         .lte("session_date", monthEndStr)
@@ -1435,11 +1401,27 @@ serve(async (req) => {
 
       const { data: calendarEvents } = await supabase
         .from("calendar_events")
-        .select("start_at, end_at, status, all_day")
+        .select("id, start_at, end_at, status, all_day, is_converted, deleted")
         .eq("professional_id", professionalId)
         .eq("deleted", false)
         .gte("start_at", `${monthStartStr}T00:00:00`)
         .lte("start_at", `${monthEndStr}T23:59:59`);
+
+      const { data: scheduleExceptions } = await supabase
+        .from("schedule_exceptions")
+        .select("id, scope, professional_id, start_date, end_date, all_day, start_time, end_time, affects_booking")
+        .eq("center_id", session.centerId)
+        .eq("affects_booking", true)
+        .lte("start_date", monthEndStr)
+        .gte("end_date", monthStartStr);
+
+      const { data: specialDays } = await supabase
+        .from("special_days")
+        .select("id, scope, professional_id, type, start_date, end_date, affects_public_booking, created_at, special_day_slots(start_time, end_time)")
+        .eq("center_id", session.centerId)
+        .eq("affects_public_booking", true)
+        .lte("start_date", monthEndStr)
+        .gte("end_date", monthStartStr);
 
       const centerTimezone = 'Europe/Madrid';
       const availability: Record<string, number> = {};
@@ -1450,9 +1432,8 @@ serve(async (req) => {
         const dateStr = `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, "0")}-${d.getDate().toString().padStart(2, "0")}`;
         const dayOfWeek = d.getDay();
 
-        const profSlots = profByDay[dayOfWeek];
-        const locSlots = locByDay[dayOfWeek];
-        if (!profSlots || !locSlots) continue;
+        const profSlots = profByDay[dayOfWeek] || [];
+        const locSlots = locByDay[dayOfWeek] || [];
 
         const daySessions = existingSessions?.filter(s => s.session_date === dateStr) || [];
         const dayEvents = calendarEvents?.filter(e => {
@@ -1461,16 +1442,25 @@ serve(async (req) => {
           return formatter.format(eventDate) === dateStr;
         }) || [];
 
-        // Build free windows using shared helper
-        const freeWindows = buildFreeWindows(
-          profSlots,
-          locSlots,
-          daySessions,
-          dayEvents,
-          centerTimezone
-        );
-
-        const slotCount = countOptimalSlots(freeWindows, serviceDuration, slotDuration, minPublicDuration);
+        const input = buildDayScheduleInput({
+          date: dateStr,
+          professionalId,
+          isPublicContext: true,
+          weeklyAvailability: profSlots,
+          locationSchedules: locSlots,
+          specialDays: specialDays ?? [],
+          scheduleExceptions: scheduleExceptions ?? [],
+          sessions: daySessions,
+          calendarEvents: dayEvents,
+          timezone: APP_TZ,
+        });
+        const slots = resolveDayAvailability(input, {
+          durationMin: serviceDuration,
+          stepMin: slotDuration,
+          minPublicDurationMin: minPublicDuration,
+        });
+        const optimalCount = slots.filter((slot) => slot.isOptimal).length;
+        const slotCount = optimalCount > 0 ? optimalCount : slots.length;
 
         if (slotCount > 0) {
           availability[dateStr] = slotCount;
@@ -1529,52 +1519,6 @@ serve(async (req) => {
 
       const serviceDuration = sessionType.duration_minutes;
       const slotDuration = center?.reschedule_slot_duration || 30;
-      const dayOfWeek = new Date(date).getDay();
-
-      // Get professional availability
-      const { data: profAvailability } = await supabase
-        .from("availability")
-        .select("start_time, end_time")
-        .eq("professional_id", professionalId)
-        .eq("day_of_week", dayOfWeek)
-        .eq("is_available", true);
-
-      // Get location schedule
-      const { data: locationSchedule } = await supabase
-        .from("location_schedules")
-        .select("start_time, end_time")
-        .eq("location_id", locationId)
-        .eq("day_of_week", dayOfWeek)
-        .eq("is_open", true);
-
-      if (!profAvailability?.length || !locationSchedule?.length) {
-        return new Response(
-          JSON.stringify({ slots: [] }),
-          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      // Get existing sessions
-      const { data: existingSessions } = await supabase
-        .from("sessions")
-        .select("start_time, end_time")
-        .eq("professional_id", professionalId)
-        .eq("session_date", date)
-        .not("status", "in", '("cancelled","no_show")');
-
-      // Get calendar events
-      const startOfDay = `${date}T00:00:00`;
-      const endOfDay = `${date}T23:59:59`;
-
-      const { data: calendarEvents } = await supabase
-        .from("calendar_events")
-        .select("start_at, end_at, status, all_day")
-        .eq("professional_id", professionalId)
-        .eq("deleted", false)
-        .gte("start_at", startOfDay)
-        .lte("start_at", endOfDay);
-
-      const centerTimezone = 'Europe/Madrid';
 
       // Get minPublicDuration for scoring
       const { data: allPublicTypes } = await supabase
@@ -1587,27 +1531,27 @@ serve(async (req) => {
         ? Math.min(...allPublicTypes.map((t: any) => t.duration_minutes))
         : serviceDuration;
 
-      // Build free windows and generate scored slots
-      const freeWindows = buildFreeWindows(
-        profAvailability,
-        locationSchedule,
-        existingSessions,
-        calendarEvents,
-        centerTimezone
-      );
-
-      const scoredSlots = generateScoredSlots(freeWindows, serviceDuration, slotDuration, minPublicDuration);
+      const resolvedSlots = await resolvePortalDayAvailability({
+        supabase,
+        centerId: session.centerId!,
+        professionalId,
+        locationId,
+        date,
+        serviceDuration,
+        step: slotDuration,
+        minPublicDuration,
+      });
 
       // Filter past slots
       const now = new Date();
-      const futureSlots = scoredSlots.filter(s => {
-        const slotDateTime = new Date(`${date}T${s.startTime}:00`);
+      const futureSlots = resolvedSlots.filter((slot) => {
+        const slotDateTime = new Date(`${date}T${minutesToTime(slot.startMin)}:00`);
         return slotDateTime > now;
       });
 
       return new Response(
         JSON.stringify({ 
-          slots: futureSlots.map(s => s.startTime),
+          slots: futureSlots.map((slot) => minutesToTime(slot.startMin)),
           serviceDuration,
           step: slotDuration
         }),
