@@ -1331,12 +1331,32 @@ serve(async (req) => {
       // ===== Create session =====
       const sessionModality = location.location_type === 'online' ? 'online' : 'in_person';
       const status = center.portal_require_approval ? "pending_approval" : "scheduled";
+      const { data: stripePaymentDefaults, error: stripeDefaultsError } = await supabase
+        .from('professional_integrations')
+        .select('stripe_enabled, stripe_payment_mode, stripe_scheduled_hours_before')
+        .eq('professional_id', finalProfessionalId)
+        .maybeSingle();
+
+      if (stripeDefaultsError) {
+        console.error('[create-booking] could not load professional Stripe payment defaults', {
+          professionalId: finalProfessionalId,
+          message: stripeDefaultsError.message,
+        });
+      }
+
+      const professionalStripeMode = stripePaymentDefaults?.stripe_enabled
+        ? stripePaymentDefaults.stripe_payment_mode
+        : null;
       const paymentRules = resolvePaymentRules({
         patientPaymentMode: existingPatient?.payment_mode,
         patientRequireAdvancePaymentAlways: existingPatient?.require_advance_payment_always,
-        centerDefaultPaymentMode: center.default_payment_mode,
+        // A patient override remains the highest priority. Otherwise use the
+        // selected professional's Stripe setting before the center fallback.
+        centerDefaultPaymentMode: professionalStripeMode || center.default_payment_mode,
         centerDefaultAdvancePaymentLimitHours: center.default_advance_payment_limit_hours,
-        centerDefaultScheduledHoursBefore: center.default_scheduled_hours_before,
+        centerDefaultScheduledHoursBefore:
+          stripePaymentDefaults?.stripe_scheduled_hours_before
+          ?? center.default_scheduled_hours_before,
         sessionDate,
         startTime,
         price: sessionType.default_price || 0,
