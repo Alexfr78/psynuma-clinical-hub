@@ -424,6 +424,9 @@ export function PortalBooking({
   const cancellationSummary = cancellationPolicy
     ? `Puedes cancelar o cambiar tu cita sin coste hasta ${cancellationPolicy.cancellationWindowHours} horas antes. Después podría aplicarse un cargo del ${cancellationPolicy.lateCancellationPercentage}%.`
     : null;
+  const compactCancellationSummary = cancellationPolicy
+    ? `Sin coste hasta ${cancellationPolicy.cancellationWindowHours} h antes; después, cargo de hasta el ${cancellationPolicy.lateCancellationPercentage}%.`
+    : null;
 
   // Calendar modifiers for available days
   const availableDates = useMemo(() => {
@@ -683,43 +686,50 @@ export function PortalBooking({
           </div>
         )}
 
-        {!isRescheduleMode && cancellationPolicy && (
+        {selectedSlot && !isRescheduleMode && cancellationPolicy && (
           <div className={cn(
-            'rounded-lg border p-4',
+            'rounded-lg border p-3',
             hasAcceptedCancellationPolicy
               ? 'border-green-500/30 bg-green-500/5'
-              : 'bg-muted/30',
+              : 'bg-background',
           )}>
             {hasAcceptedCancellationPolicy ? (
-              <div className="flex items-start gap-3">
-                <CheckCircle className="mt-0.5 h-5 w-5 shrink-0 text-green-600" aria-hidden="true" />
-                <div className="space-y-1">
-                  <p className="text-sm font-medium">Política de cancelación aceptada</p>
-                  <p className="text-sm text-muted-foreground">
-                    Ya aceptaste {cancellationPolicy.name}, versión {cancellationPolicy.versionNumber}. No necesitas volver a hacerlo.
-                  </p>
-                </div>
+              <div className="flex min-h-11 items-center gap-3">
+                <CheckCircle className="h-5 w-5 shrink-0 text-green-600" aria-hidden="true" />
+                <p className="text-sm font-medium">Política de cancelación ya aceptada</p>
               </div>
             ) : (
-              <div className="flex items-start gap-3">
-                <Checkbox
-                  id="portal-cancellation-policy"
-                  checked={acceptCancellationPolicy}
-                  onCheckedChange={(checked) => setAcceptCancellationPolicy(Boolean(checked))}
-                />
-                <div className="space-y-1">
-                  <Label htmlFor="portal-cancellation-policy" className="text-sm font-normal leading-5">
+              <>
+                <div className="flex min-h-11 items-center gap-3">
+                  <Checkbox
+                    id="portal-cancellation-policy"
+                    checked={acceptCancellationPolicy}
+                    onCheckedChange={(checked) => setAcceptCancellationPolicy(Boolean(checked))}
+                    aria-describedby="portal-cancellation-policy-summary"
+                  />
+                  <Label
+                    htmlFor="portal-cancellation-policy"
+                    className="flex min-h-11 flex-1 cursor-pointer items-center text-sm font-medium leading-5"
+                  >
                     He leído y acepto la política de cancelación *
                   </Label>
-                  <p className="text-sm leading-5 text-muted-foreground">{cancellationSummary}</p>
                 </div>
-              </div>
+                <p
+                  id="portal-cancellation-policy-summary"
+                  className="pl-8 text-xs leading-5 text-muted-foreground sm:text-sm"
+                >
+                  {compactCancellationSummary}
+                </p>
+              </>
             )}
 
             <Dialog>
               <DialogTrigger asChild>
-                <button type="button" className="mt-2 text-sm font-medium text-primary underline underline-offset-2 hover:no-underline">
-                  Consultar la política completa
+                <button
+                  type="button"
+                  className="ml-8 mt-1 inline-flex min-h-11 items-center text-sm font-medium text-primary underline underline-offset-2 hover:no-underline"
+                >
+                  Ver política completa
                 </button>
               </DialogTrigger>
               <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto">
