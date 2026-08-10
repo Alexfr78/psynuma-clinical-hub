@@ -455,8 +455,12 @@ serve(async (req) => {
         `[patient-portal-otp] Lookup completed for channel ${channel}: ${patients.length} match(es)`,
       );
 
-      if (!matchError && patients.length === 1) {
-        const patient = patients[0];
+      if (!matchError && patients.length >= 1) {
+        // Con duplicados (mismo teléfono/email) la RPC devuelve el candidato
+        // más relevante primero: activo y con actividad más reciente.
+        const patient = patients.find((candidate) =>
+          channel === "email" ? !!candidate.email : !!candidate.phone
+        ) ?? patients[0];
         const code = generateOtp();
         const now = new Date();
         const expiresAt = new Date(now.getTime() + OTP_EXPIRY_MS);
