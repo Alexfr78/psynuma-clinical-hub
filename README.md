@@ -84,3 +84,4 @@ The following environment variables must be configured as Supabase Secrets for t
 | `CRON_SECRET` | Shared secret for authenticating cron-triggered edge functions |
 | `WASENDER_WEBHOOK_SECRET` | Webhook secret for WasenderAPI incoming events |
 | `CERTIFICATE_ENCRYPTION_KEY` | 32+ character key for encrypting stored certificates |
+| `STRIPE_APPLICATION_FEE_BPS` | Optional Stripe Connect platform fee in basis points (`0` disables it; `250` means 2.5%). Missing or invalid values default to `0`. |

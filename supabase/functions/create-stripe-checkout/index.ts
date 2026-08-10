@@ -1,5 +1,9 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import {
+  calculateStripeApplicationFeeAmount,
+  getStripePlatformFeeConfig,
+} from "../_shared/stripePlatformFee.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -137,11 +141,20 @@ serve(async (req) => {
       : `${siteUrl}/agenda`;
     
     // Create checkout session on connected account
+    const amountInCents = Math.round(amount * 100);
+    const platformFee = getStripePlatformFeeConfig(
+      Deno.env.get('STRIPE_APPLICATION_FEE_BPS'),
+    );
+    const applicationFeeAmount = calculateStripeApplicationFeeAmount(
+      amountInCents,
+      platformFee.bps,
+    );
+
     const checkoutParams = new URLSearchParams({
       'mode': 'payment',
       'payment_method_types[0]': 'card',
       'line_items[0][price_data][currency]': 'eur',
-      'line_items[0][price_data][unit_amount]': String(Math.round(amount * 100)),
+      'line_items[0][price_data][unit_amount]': String(amountInCents),
       'line_items[0][price_data][product_data][name]': `Sesión de ${session.session_type || 'psicología'}`,
       'line_items[0][price_data][product_data][description]': `Sesión del ${session.session_date}`,
       'line_items[0][quantity]': '1',
@@ -150,15 +163,23 @@ serve(async (req) => {
       'metadata[session_id]': session.id,
       'metadata[patient_id]': session.patient_id,
       'metadata[professional_id]': session.professional_id,
+      'metadata[platform_fee_bps]': String(platformFee.bps),
+      'metadata[platform_fee_amount]': String(applicationFeeAmount),
+      'metadata[platform_fee_rule_version]': platformFee.version,
     });
 
     if (patient?.email) {
       checkoutParams.append('customer_email', patient.email);
     }
 
-    // Application fee (platform takes 2.5%)
-    const applicationFee = Math.round(amount * 100 * 0.025);
-    checkoutParams.append('payment_intent_data[application_fee_amount]', String(applicationFee));
+    // A zero fee is intentionally omitted so Stripe does not create an
+    // application fee for the platform. The value is controlled server-side.
+    if (applicationFeeAmount > 0) {
+      checkoutParams.append(
+        'payment_intent_data[application_fee_amount]',
+        String(applicationFeeAmount),
+      );
+    }
 
     const checkoutResponse = await fetch('https://api.stripe.com/v1/checkout/sessions', {
       method: 'POST',
@@ -166,7 +187,7 @@ serve(async (req) => {
         'Authorization': `Bearer ${stripeSecretKey}`,
         'Content-Type': 'application/x-www-form-urlencoded',
         'Stripe-Account': connection.stripe_account_id,
-        'Idempotency-Key': `session-checkout-${session.id}-${Math.round(amount * 100)}`,
+        'Idempotency-Key': `session-checkout-${session.id}-${amountInCents}-${platformFee.version}`,
       },
       body: checkoutParams,
     });
