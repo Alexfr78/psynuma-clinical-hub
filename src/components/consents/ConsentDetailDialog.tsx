@@ -55,7 +55,7 @@ function useConsentDetail(consentId: string) {
 function renderContentWithVerifications(
   content: string, 
   verificationCheckboxes: string[] | null,
-  verificationResponses: Record<string, boolean> | null
+  verificationResponses: Record<string, unknown> | null
 ): string {
   if (!verificationCheckboxes || verificationCheckboxes.length === 0) {
     // Just remove the placeholder
@@ -179,7 +179,8 @@ export function ConsentDetailDialog({
   
   const templateData = fullConsent?.template as { verification_checkboxes: string[] | null; requires_emergency_contact: boolean | null } | undefined;
   const verificationCheckboxes = templateData?.verification_checkboxes || [];
-  const verificationResponses = (fullConsent?.verification_responses as Record<string, boolean>) || null;
+  const verificationResponses = (fullConsent?.verification_responses as Record<string, unknown>) || null;
+  const isPublicBookingAcceptance = fullConsent?.source === 'public_booking_checkbox';
   const requiresEmergencyContact = Boolean(templateData?.requires_emergency_contact);
   const emergencyContactName = fullConsent?.emergency_contact_name ?? null;
   const emergencyContactPhone = fullConsent?.emergency_contact_phone ?? null;
@@ -333,16 +334,37 @@ export function ConsentDetailDialog({
             </Card>
           </div>
 
-          {/* Signatures - AFTER Document Content */}
+          {/* Signatures / electronic acceptance - AFTER Document Content */}
           {consent.status === 'signed' && (
             <div className="space-y-3">
-              <p className="font-medium">Firmas</p>
+              <p className="font-medium">
+                {isPublicBookingAcceptance ? 'Evidencia de aceptación' : 'Firmas'}
+              </p>
               {signaturesLoading ? (
                 <div className="flex justify-center py-4">
                   <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                 </div>
               ) : (
                 <div className="space-y-2">
+                  {isPublicBookingAcceptance && signatures.length === 0 && (
+                    <Card className="border-green-500/30 bg-green-500/5 p-3">
+                      <div className="flex items-start gap-3">
+                        <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-green-600" />
+                        <div>
+                          <p className="font-medium">Aceptación electrónica durante la reserva</p>
+                          <p className="text-xs text-muted-foreground">
+                            El contacto marcó expresamente la casilla de aceptación el{' '}
+                            {consent.signed_at
+                              ? format(new Date(consent.signed_at), "d MMM yyyy, HH:mm", { locale: es })
+                              : 'momento de la reserva'}.
+                          </p>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            Este consentimiento se registró mediante casilla, sin firma manuscrita.
+                          </p>
+                        </div>
+                      </div>
+                    </Card>
+                  )}
                   {signatures.map((sig) => {
                     // Handle "undefined undefined" from legacy signatures
                     const displayName = sig.signer_name === 'undefined undefined' 

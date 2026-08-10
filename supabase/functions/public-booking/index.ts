@@ -158,6 +158,7 @@ async function recordPublicCancellationAcceptance(supabase: any, args: {
       source: 'public_booking_checkbox',
       requires_guardian: false,
       verification_responses: {
+        '0': true,
         accepted: true,
         acceptance_method: 'checkbox',
         accepted_at: acceptedAt.toISOString(),
