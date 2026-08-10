@@ -35,6 +35,7 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const authorization = req.headers.get('Authorization') || '';
     if (!authorization.startsWith('Bearer ')) {
+      console.error('Stripe checkout rejected: authorization header missing');
       return new Response(
         JSON.stringify({ error: 'Authentication required' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -49,6 +50,7 @@ serve(async (req) => {
       const token = authorization.slice('Bearer '.length);
       const { data: authData, error: authError } = await supabase.auth.getUser(token);
       if (authError || !authData.user) {
+        console.error('Stripe checkout rejected: bearer token is not a valid user or service credential');
         return new Response(
           JSON.stringify({ error: 'Invalid authentication' }),
           { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -68,6 +70,7 @@ serve(async (req) => {
       .single();
 
     if (sessionError || !session) {
+      console.error('Stripe checkout rejected: session not found', { session_id });
       return new Response(
         JSON.stringify({ error: 'Session not found' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -82,6 +85,7 @@ serve(async (req) => {
       const isAdmin = (roleRows || []).some((row: { role: string }) => row.role === 'admin');
       const ownsSession = profile?.id === session.professional_id;
       if (!profile || profile.center_id !== session.center_id || (!isAdmin && !ownsSession)) {
+        console.error('Stripe checkout rejected: authenticated user cannot manage the session', { session_id });
         return new Response(
           JSON.stringify({ error: 'Not authorized for this session' }),
           { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -91,6 +95,11 @@ serve(async (req) => {
 
     const amount = Number(session.price ?? 0);
     if (!Number.isFinite(amount) || amount <= 0 || session.status === 'cancelled') {
+      console.error('Stripe checkout rejected: session is not payable', {
+        session_id,
+        has_positive_amount: Number.isFinite(amount) && amount > 0,
+        is_cancelled: session.status === 'cancelled',
+      });
       return new Response(
         JSON.stringify({ error: 'Session is not payable' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -108,6 +117,11 @@ serve(async (req) => {
       .maybeSingle();
 
     if (!connection?.stripe_account_id || connection.stripe_account_status !== 'active') {
+      console.error('Stripe checkout rejected: connected account is not active', {
+        session_id,
+        has_account_id: Boolean(connection?.stripe_account_id),
+        account_status: connection?.stripe_account_status || null,
+      });
       return new Response(
         JSON.stringify({ error: 'Stripe account not active' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

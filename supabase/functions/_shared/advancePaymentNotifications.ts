@@ -154,7 +154,16 @@ async function createStripeCheckoutUrl(
   }
 
   try {
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     const { data, error } = await supabase.functions.invoke("create-stripe-checkout", {
+      ...(serviceRoleKey
+        ? {
+            headers: {
+              Authorization: `Bearer ${serviceRoleKey}`,
+              apikey: serviceRoleKey,
+            },
+          }
+        : {}),
       body: {
         professional_id: session.professional_id,
         session_id: session.id,

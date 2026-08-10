@@ -1429,7 +1429,13 @@ serve(async (req) => {
         try {
           const { data: checkoutData, error: checkoutInvokeError } = await supabase.functions.invoke(
             'create-stripe-checkout',
-            { body: { session_id: newSession.id } },
+            {
+              headers: {
+                Authorization: `Bearer ${supabaseServiceKey}`,
+                apikey: supabaseServiceKey,
+              },
+              body: { session_id: newSession.id },
+            },
           );
 
           if (checkoutInvokeError || !checkoutData?.checkout_url) {
