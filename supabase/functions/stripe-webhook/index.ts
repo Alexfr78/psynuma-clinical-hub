@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import Stripe from "https://esm.sh/stripe@14.9.0";
+import { queueAndSendPatientBookingNotification } from "../_shared/bookingPatientNotifications.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -587,7 +588,7 @@ async function handleSessionCheckout(
   // Fetch and validate the session before applying any payment metadata.
   const { data: sessionData, error: sessionError } = await supabase
     .from('sessions')
-    .select('patient_id, price, center_id, session_type, session_date')
+    .select('patient_id, price, center_id, session_type, session_date, start_time, session_modality, location_id, access_token')
     .eq('id', sessionId)
     .single();
 
@@ -755,6 +756,84 @@ async function handleSessionCheckout(
       }
     }
   }
+
+  await sendStripePaymentConfirmation(supabase, sessionId, sessionData);
+}
+
+async function sendStripePaymentConfirmation(
+  supabase: any,
+  sessionId: string,
+  sessionData: {
+    patient_id: string;
+    center_id: string;
+    session_type: string | null;
+    session_date: string;
+    start_time: string;
+    session_modality: string | null;
+    location_id: string | null;
+    access_token: string | null;
+  },
+): Promise<void> {
+  const claimedAt = new Date().toISOString();
+  const { data: claimedSession, error: claimError } = await supabase
+    .from('sessions')
+    .update({ stripe_payment_confirmation_sent_at: claimedAt })
+    .eq('id', sessionId)
+    .is('stripe_payment_confirmation_sent_at', null)
+    .select('id')
+    .maybeSingle();
+
+  if (claimError) {
+    console.error('Failed to claim Stripe payment confirmation:', claimError);
+    throw new Error('Failed to claim Stripe payment confirmation');
+  }
+
+  // A prior webhook/reconciliation already queued the confirmation.
+  if (!claimedSession) return;
+
+  let locationName: string | undefined;
+  if (sessionData.location_id) {
+    const { data: location, error: locationError } = await supabase
+      .from('center_locations')
+      .select('name')
+      .eq('id', sessionData.location_id)
+      .maybeSingle();
+
+    if (locationError) {
+      console.warn('Could not load location for Stripe confirmation:', locationError);
+    } else {
+      locationName = location?.name || undefined;
+    }
+  }
+
+  const queued = await queueAndSendPatientBookingNotification({
+    supabase,
+    centerId: sessionData.center_id,
+    patientId: sessionData.patient_id,
+    sessionId,
+    eventType: 'created',
+    sessionDate: sessionData.session_date,
+    startTime: sessionData.start_time,
+    sessionType: sessionData.session_type || undefined,
+    sessionModality: sessionData.session_modality || undefined,
+    locationName,
+    manageUrl: sessionData.access_token ? `/cita/${sessionData.access_token}` : undefined,
+    includeAdvancePaymentBlock: false,
+  });
+
+  if (queued) return;
+
+  // Release the claim so a Stripe retry or reconciliation can try again.
+  const { error: releaseError } = await supabase
+    .from('sessions')
+    .update({ stripe_payment_confirmation_sent_at: null })
+    .eq('id', sessionId)
+    .eq('stripe_payment_confirmation_sent_at', claimedAt);
+
+  if (releaseError) {
+    console.error('Failed to release Stripe confirmation claim:', releaseError);
+  }
+  throw new Error('Failed to queue Stripe payment confirmation');
 }
 
 async function sessionCheckoutNeedsReconciliation(

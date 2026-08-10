@@ -61,7 +61,7 @@ function translateModality(modality: string | null | undefined): string {
   return map[modality] || modality;
 }
 
-export async function queueAndSendPatientBookingNotification(args: BookingNotificationArgs): Promise<void> {
+export async function queueAndSendPatientBookingNotification(args: BookingNotificationArgs): Promise<boolean> {
   const { supabase, centerId, patientId, sessionId, eventType } = args;
 
   try {
@@ -82,7 +82,7 @@ export async function queueAndSendPatientBookingNotification(args: BookingNotifi
 
     if (centerError || !center) {
       console.error(`[patient-confirmation] Center not found: ${centerId}`, centerError);
-      return;
+      return false;
     }
 
     // 2. Load patient data
@@ -94,7 +94,7 @@ export async function queueAndSendPatientBookingNotification(args: BookingNotifi
 
     if (patientError || !patient) {
       console.error(`[patient-confirmation] Patient not found: ${patientId}`, patientError);
-      return;
+      return false;
     }
 
     // 3. Load session data if not fully provided
@@ -179,7 +179,7 @@ export async function queueAndSendPatientBookingNotification(args: BookingNotifi
           'El paciente no tiene email ni telefono para enviar el aviso de pago anticipado',
         );
       }
-      return;
+      return false;
     }
 
     console.log(`[patient-confirmation] Channel=${channel} patient=${patientId} eventType=${eventType}`);
@@ -274,7 +274,7 @@ export async function queueAndSendPatientBookingNotification(args: BookingNotifi
           insertError?.message || 'No se pudo crear la notificacion de pago anticipado',
         );
       }
-      return;
+      return false;
     }
 
     console.log(`[patient-confirmation] Notification created id=${notification.id}`);
@@ -298,8 +298,13 @@ export async function queueAndSendPatientBookingNotification(args: BookingNotifi
       console.error(`[patient-confirmation] Exception invoking send-notification:`, sendError);
     }
 
+    // The durable notification record exists. Delivery can be retried by the
+    // notification pipeline even if the immediate invocation failed.
+    return true;
+
   } catch (error) {
     console.error(`[patient-confirmation] Unexpected error:`, error);
     // Never throw - don't break the main operation
+    return false;
   }
 }

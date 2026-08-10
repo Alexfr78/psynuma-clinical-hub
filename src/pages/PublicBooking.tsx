@@ -11,7 +11,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { toast } from 'sonner';
 import { format, addDays, isBefore, startOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Loader2, MapPin, Video, Clock, User, CheckCircle, ArrowLeft, ArrowRight, Copy, AlertCircle, RefreshCw } from 'lucide-react';
+import { Loader2, MapPin, Video, Clock, User, CheckCircle, ArrowLeft, ArrowRight, Copy, AlertCircle, RefreshCw, CreditCard } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ClosedAgendaScreen } from '@/components/booking/ClosedAgendaScreen';
 
@@ -130,15 +130,30 @@ export default function PublicBooking() {
 
     if (result?.success) {
       if (result.paymentRequired && result.checkoutUrl) {
+        // Keep a usable fallback on screen before leaving. Public booking is
+        // commonly embedded in an iframe, while Stripe Checkout must open at
+        // the top level rather than inside that frame.
+        setBookingResult(result);
+        setStep('confirmation');
         toast.info('Abriendo el pago seguro de Stripe...');
-        window.location.assign(result.checkoutUrl);
+
+        try {
+          if (isEmbed && window.top && window.top !== window) {
+            window.top.location.href = result.checkoutUrl;
+          } else {
+            window.location.assign(result.checkoutUrl);
+          }
+        } catch (navigationError) {
+          console.warn('No se pudo abrir Stripe automáticamente:', navigationError);
+          toast.warning('Pulsa "Ir al pago seguro" para continuar.');
+        }
         return;
       }
 
       setBookingResult(result);
       setStep('confirmation');
       if (result.paymentRequired) {
-        toast.warning('La reserva está pendiente de pago. Revisa el enlace enviado.');
+        toast.error('No se pudo iniciar el pago. Contacta con el centro para completarlo.');
       } else {
         toast.success(result.message);
       }
@@ -277,6 +292,11 @@ export default function PublicBooking() {
                   : `¡Reserva ${config?.requireApproval ? 'solicitada' : 'confirmada'}!`}
               </CardTitle>
               <CardDescription>{bookingResult.message}</CardDescription>
+              {bookingResult.paymentRequired && bookingResult.checkoutError && (
+                <p className="text-sm text-destructive mt-2">
+                  No hemos podido iniciar Stripe. La cita aún no está confirmada.
+                </p>
+              )}
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="bg-muted p-4 rounded-lg space-y-2">
@@ -286,6 +306,15 @@ export default function PublicBooking() {
                 <p><strong>Ubicación:</strong> {selectedLocationData?.name}</p>
               </div>
               <div className="flex flex-col gap-2">
+                {bookingResult.paymentRequired && bookingResult.checkoutUrl && (
+                  <Button
+                    onClick={() => window.open(bookingResult.checkoutUrl, isEmbed ? '_top' : '_self')}
+                    className="w-full"
+                  >
+                    <CreditCard className="h-4 w-4 mr-2" />
+                    Ir al pago seguro
+                  </Button>
+                )}
                 <Button variant="outline" onClick={copyManageLink} className="w-full">
                   <Copy className="h-4 w-4 mr-2" />
                   Copiar enlace de gestión

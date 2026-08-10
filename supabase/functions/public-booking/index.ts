@@ -1464,12 +1464,18 @@ serve(async (req) => {
       const professionalName = prof ? `${prof.first_name} ${prof.last_name}` : 'Sin asignar';
       const locationName = loc?.name || 'Sin especificar';
       
-      const alertSubject = status === "pending_approval" 
+      const alertSubject = status === "pending_approval"
         ? `Nueva solicitud de cita — ${patient.firstName} ${patient.lastName} — ${sessionDate} ${startTime}`
-        : `Nueva cita reservada — ${patient.firstName} ${patient.lastName} — ${sessionDate} ${startTime}`;
+        : paymentRequiredNow
+          ? `Nueva reserva pendiente de pago — ${patient.firstName} ${patient.lastName} — ${sessionDate} ${startTime}`
+          : `Nueva cita reservada — ${patient.firstName} ${patient.lastName} — ${sessionDate} ${startTime}`;
       
       const alertMessage = buildAlertMessage({
-        eventType: status === "pending_approval" ? 'Nueva solicitud de cita (reserva pública)' : 'Nueva cita reservada (reserva pública)',
+        eventType: status === "pending_approval"
+          ? 'Nueva solicitud de cita (reserva pública)'
+          : paymentRequiredNow
+            ? 'Nueva reserva pendiente de pago (reserva pública)'
+            : 'Nueva cita reservada (reserva pública)',
         patientName: `${patient.firstName} ${patient.lastName}`,
         patientEmail: patient.email,
         patientPhone: patient.phone,
@@ -1478,7 +1484,11 @@ serve(async (req) => {
         professionalName,
         modality: sessionModality,
         locationName,
-        status: status === "pending_approval" ? 'Pendiente de aprobación' : 'Confirmada',
+        status: status === "pending_approval"
+          ? 'Pendiente de aprobación'
+          : paymentRequiredNow
+            ? 'Pendiente de pago'
+            : 'Confirmada',
       });
 
       await sendAdminAlert({
@@ -1498,32 +1508,12 @@ serve(async (req) => {
 
       console.log(`[create-booking] success sessionId=${newSession.id} status=${status}`);
 
-      // Send patient confirmation notification
-      await queueAndSendPatientBookingNotification({
-        supabase,
-        centerId: center.id,
-        patientId,
-        sessionId: newSession.id,
-        eventType: 'created',
-        sessionDate,
-        startTime,
-        sessionType: sessionType.name,
-        sessionModality,
-        locationName,
-        manageUrl,
-        includeAdvancePaymentBlock: status !== "pending_approval" && !bonoResult.applied,
-        extraMessage: bonoMessage,
-      });
-
-      // Wait 6s to respect WasenderAPI rate limit (1 msg per 5s)
-      await new Promise(resolve => setTimeout(resolve, 6000));
-
-      // Notify professional (email or WhatsApp depending on center config)
-      if (finalProfessionalId) {
-        await notifyProfessionalBooking({
+      if (!paymentRequiredNow) {
+        // Required Stripe payments are confirmed by stripe-webhook only after
+        // Checkout is paid. This prevents premature confirmation messages.
+        await queueAndSendPatientBookingNotification({
           supabase,
           centerId: center.id,
-          professionalId: finalProfessionalId,
           patientId,
           sessionId: newSession.id,
           eventType: 'created',
@@ -1532,7 +1522,30 @@ serve(async (req) => {
           sessionType: sessionType.name,
           sessionModality,
           locationName,
+          manageUrl,
+          includeAdvancePaymentBlock: status !== "pending_approval" && !bonoResult.applied,
+          extraMessage: bonoMessage,
         });
+
+        // Wait 6s to respect WasenderAPI rate limit (1 msg per 5s)
+        await new Promise(resolve => setTimeout(resolve, 6000));
+
+        // Notify professional (email or WhatsApp depending on center config)
+        if (finalProfessionalId) {
+          await notifyProfessionalBooking({
+            supabase,
+            centerId: center.id,
+            professionalId: finalProfessionalId,
+            patientId,
+            sessionId: newSession.id,
+            eventType: 'created',
+            sessionDate,
+            startTime,
+            sessionType: sessionType.name,
+            sessionModality,
+            locationName,
+          });
+        }
       }
 
       return new Response(
@@ -1549,7 +1562,7 @@ serve(async (req) => {
             : paymentRequiredNow
               ? checkoutUrl
                 ? "Continúa con el pago seguro para confirmar tu cita."
-                : "La cita está pendiente de pago. Usa el enlace enviado para completarlo."
+                : "La cita está pendiente. Contacta con el centro para completar el pago."
               : "¡Cita reservada correctamente!"
         }),
         { status: 201, headers: { ...corsHeaders, "Content-Type": "application/json" } }
