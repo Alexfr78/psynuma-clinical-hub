@@ -7140,6 +7140,7 @@ export type Database = {
           start_time: string
           status: Database["public"]["Enums"]["session_status"] | null
           stripe_checkout_session_id: string | null
+          stripe_payment_confirmation_sent_at: string | null
           stripe_payment_mode: string | null
           stripe_payment_status: string | null
           tariff_plan_assignment_id_snapshot: string | null
