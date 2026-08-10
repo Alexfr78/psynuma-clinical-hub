@@ -1021,7 +1021,11 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
           showLabel={!isMobile}
         />
         <PaymentStatusIndicator
-          paymentStatus={session.payment_status}
+          paymentStatus={paymentStatus?.isPaid
+            ? 'paid'
+            : paymentStatus?.isPartial
+              ? 'partial'
+              : session.payment_status}
           price={session.price}
           bonoId={session.bono_id}
           showLabel={!isMobile}
@@ -1650,6 +1654,21 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                   </div>
                 )}
               </div>
+
+              {paymentStatus?.isPaid
+                && invoiceStatus
+                && !invoiceStatus.hasValidInvoice
+                && !localBonoId
+                && localPrice > 0 && (
+                  <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100">
+                    <p className="font-medium">Pago recibido · factura pendiente</p>
+                    <p className="mt-1 text-xs">
+                      {center?.invoice_on_payment_mode === 'auto'
+                        ? 'La factura automática no se ha generado. Puedes crearla ahora y revisar la automatización.'
+                        : 'La generación automática de facturas no está activada. Puedes crearla ahora con el botón inferior.'}
+                    </p>
+                  </div>
+                )}
 
               {/* Action Buttons */}
               <div className="flex flex-wrap gap-2">
