@@ -169,42 +169,60 @@ export function usePatientPortal(centerSlug?: string) {
     }
   };
 
-  const sendMagicLink = async (email: string): Promise<{ success: boolean; error?: string }> => {
+  const requestAccessCode = async (
+    identifier: string,
+    channel: 'whatsapp' | 'email',
+  ): Promise<{
+    success: boolean;
+    requestId?: string;
+    resendAfterSeconds?: number;
+    error?: string;
+  }> => {
     try {
-      const { data, error } = await supabase.functions.invoke('patient-portal-auth', {
-        body: { action: 'send-link', email, centerSlug },
+      const { data, error } = await supabase.functions.invoke('patient-portal-otp', {
+        body: { action: 'request-code', identifier, channel, centerSlug },
       });
 
-      if (error) {
-        return { success: false, error: 'Error al enviar el enlace' };
+      if (error || !data?.success || !data?.requestId) {
+        return { success: false, error: data?.error || 'No se ha podido enviar el código' };
       }
 
-      return { success: true };
+      return {
+        success: true,
+        requestId: data.requestId,
+        resendAfterSeconds: data.resendAfterSeconds ?? 60,
+      };
     } catch (error) {
-      console.error('Error sending magic link:', error);
+      console.error('Error requesting portal access code:', error);
       return { success: false, error: 'Error de conexión' };
     }
   };
 
-  const register = async (data: {
-    firstName: string;
-    lastName: string;
-    email: string;
-    phone?: string;
-    dateOfBirth?: string;
-  }): Promise<{ success: boolean; error?: string; token?: string }> => {
+  const verifyAccessCode = async (
+    requestId: string,
+    code: string,
+  ): Promise<{ success: boolean; error?: string }> => {
     try {
-      const { data: result, error } = await supabase.functions.invoke('patient-portal-register', {
-        body: { centerSlug, ...data },
+      const { data, error } = await supabase.functions.invoke('patient-portal-otp', {
+        body: { action: 'verify-code', requestId, code },
       });
 
-      if (error || !result?.success) {
-        return { success: false, error: result?.error || 'Error al crear la cuenta' };
+      if (error || !data?.success || !data?.sessionToken) {
+        return { success: false, error: data?.error || 'Código incorrecto o caducado' };
       }
 
-      return { success: true, token: result.token };
+      localStorage.setItem(`portal_session_${centerSlug}`, data.sessionToken);
+      setState({
+        isAuthenticated: true,
+        isLoading: false,
+        patient: data.patient,
+        center: data.center,
+        sessionToken: data.sessionToken,
+      });
+
+      return { success: true };
     } catch (error) {
-      console.error('Error registering:', error);
+      console.error('Error verifying portal access code:', error);
       return { success: false, error: 'Error de conexión' };
     }
   };
@@ -463,8 +481,8 @@ export function usePatientPortal(centerSlug?: string) {
     sessions,
     sessionsLoading,
     verifyMagicLink,
-    sendMagicLink,
-    register,
+    requestAccessCode,
+    verifyAccessCode,
     logout,
     fetchSessions,
     createSession,

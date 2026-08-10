@@ -151,6 +151,15 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     const { action, ...params } = await req.json();
 
+    if (action === "send-link") {
+      return new Response(
+        JSON.stringify({
+          error: "El acceso mediante enlace ha sido sustituido por un código de verificación.",
+        }),
+        { status: 410, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
     if (action === 'send-link') {
       const ip = getClientIp(req);
       const rl = await checkIpRateLimit(supabase, ip, 'portal-login', 5, 15);
