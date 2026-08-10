@@ -6,12 +6,13 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
 import { toast } from 'sonner';
 import { format, addDays, isBefore, startOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Loader2, MapPin, Video, Clock, User, CheckCircle, ArrowLeft, ArrowRight, Copy, AlertCircle, RefreshCw, CreditCard } from 'lucide-react';
+import { Loader2, MapPin, Video, Clock, User, CheckCircle, ArrowLeft, ArrowRight, Copy, AlertCircle, RefreshCw, CreditCard, ExternalLink, ShieldCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ClosedAgendaScreen } from '@/components/booking/ClosedAgendaScreen';
 
@@ -45,6 +46,7 @@ export default function PublicBooking() {
   
   const [patient, setPatient] = useState({ firstName: '', lastName: '', email: '', phone: '' });
   const [acceptPrivacy, setAcceptPrivacy] = useState(false);
+  const [acceptCancellationPolicy, setAcceptCancellationPolicy] = useState(false);
   const [notes, setNotes] = useState('');
   
   const [bookingResult, setBookingResult] = useState<any>(null);
@@ -125,6 +127,8 @@ export default function PublicBooking() {
       endTime: selectedSlot.endTime,
       patient,
       acceptPrivacy,
+      acceptCancellationPolicy,
+      cancellationPolicyVersionId: config?.cancellationPolicy?.id,
       notes: notes || undefined
     });
 
@@ -161,6 +165,19 @@ export default function PublicBooking() {
       toast.error(error || 'Error al crear la reserva');
     }
   };
+
+  const privacyPolicyUrl = config?.privacyPolicyUrl || (() => {
+    try {
+      return document.referrer ? `${new URL(document.referrer).origin}/politica-de-privacidad/` : '/politica-de-privacidad/';
+    } catch {
+      return '/politica-de-privacidad/';
+    }
+  })();
+
+  const cancellationPolicy = config?.cancellationPolicy;
+  const cancellationSummary = cancellationPolicy
+    ? `Puedes cancelar o cambiar tu cita sin coste hasta ${cancellationPolicy.cancellationWindowHours} horas antes. Después podría aplicarse un cargo del ${cancellationPolicy.lateCancellationPercentage}%.`
+    : null;
 
   const copyManageLink = () => {
     if (bookingResult?.manageUrl) {
@@ -531,11 +548,66 @@ export default function PublicBooking() {
                     <Label htmlFor="notes">Notas o motivo de consulta</Label>
                     <Textarea id="notes" value={notes} onChange={e => setNotes(e.target.value)} placeholder="Opcional" />
                   </div>
-                  <div className="flex items-start gap-2">
-                    <Checkbox id="privacy" checked={acceptPrivacy} onCheckedChange={c => setAcceptPrivacy(!!c)} />
-                    <Label htmlFor="privacy" className="text-sm leading-tight">
-                      Acepto la política de privacidad y el tratamiento de mis datos *
-                    </Label>
+                  <div className="space-y-3 rounded-lg border bg-muted/30 p-4" aria-label="Consentimientos obligatorios">
+                    <div className="flex items-start gap-3">
+                      <Checkbox id="privacy" checked={acceptPrivacy} onCheckedChange={c => setAcceptPrivacy(!!c)} />
+                      <Label htmlFor="privacy" className="text-sm font-normal leading-5">
+                        Acepto el tratamiento de mis datos conforme a la{' '}
+                        <a
+                          href={privacyPolicyUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 font-medium text-primary underline underline-offset-2 hover:no-underline"
+                          onClick={event => event.stopPropagation()}
+                        >
+                          política de privacidad
+                          <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+                        </a>{' '}*
+                      </Label>
+                    </div>
+
+                    {cancellationPolicy && (
+                      <div className="flex items-start gap-3 border-t pt-3">
+                        <Checkbox
+                          id="cancellation-policy"
+                          checked={acceptCancellationPolicy}
+                          onCheckedChange={c => setAcceptCancellationPolicy(!!c)}
+                        />
+                        <div className="space-y-1">
+                          <Label htmlFor="cancellation-policy" className="text-sm font-normal leading-5">
+                            He leído y acepto la política de cancelación *
+                          </Label>
+                          <p className="text-sm leading-5 text-muted-foreground">{cancellationSummary}</p>
+                          <Dialog>
+                            <DialogTrigger asChild>
+                              <button type="button" className="text-sm font-medium text-primary underline underline-offset-2 hover:no-underline">
+                                Consultar la política completa
+                              </button>
+                            </DialogTrigger>
+                            <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto">
+                              <DialogHeader>
+                                <DialogTitle className="flex items-center gap-2">
+                                  <ShieldCheck className="h-5 w-5 text-primary" aria-hidden="true" />
+                                  Política de cancelación
+                                </DialogTitle>
+                                <DialogDescription>
+                                  {cancellationPolicy.name} · Versión {cancellationPolicy.versionNumber}
+                                </DialogDescription>
+                              </DialogHeader>
+                              <div className="space-y-4 text-sm leading-6">
+                                <div className="rounded-md bg-muted p-3 font-medium">{cancellationSummary}</div>
+                                {cancellationPolicy.noShowPercentage > 0 && (
+                                  <p>Si no acudes a la cita sin avisar, podría aplicarse un cargo del {cancellationPolicy.noShowPercentage}%.</p>
+                                )}
+                                {cancellationPolicy.policyText && (
+                                  <p className="whitespace-pre-wrap text-muted-foreground">{cancellationPolicy.policyText}</p>
+                                )}
+                              </div>
+                            </DialogContent>
+                          </Dialog>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -550,7 +622,7 @@ export default function PublicBooking() {
                   {step === 'patient' ? (
                     <Button 
                       onClick={handleSubmit} 
-                      disabled={loading || !patient.firstName || !patient.lastName || !patient.email || !acceptPrivacy}
+                      disabled={loading || !patient.firstName || !patient.lastName || !patient.email || !acceptPrivacy || (!!cancellationPolicy && !acceptCancellationPolicy)}
                     >
                       {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                       Confirmar reserva

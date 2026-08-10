@@ -12,6 +12,16 @@ interface CenterConfig {
   slotDuration: number;
   maxDaysAhead: number;
   agendaClosed: boolean;
+  privacyPolicyUrl: string | null;
+  cancellationPolicy: {
+    id: string;
+    name: string;
+    versionNumber: number;
+    policyText: string | null;
+    cancellationWindowHours: number;
+    lateCancellationPercentage: number;
+    noShowPercentage: number;
+  } | null;
 }
 
 interface Service {
@@ -249,6 +259,8 @@ export function usePublicBooking(centerSlug: string) {
     endTime: string;
     patient: { firstName: string; lastName: string; email: string; phone?: string };
     acceptPrivacy: boolean;
+    acceptCancellationPolicy: boolean;
+    cancellationPolicyVersionId?: string;
     notes?: string;
   }): Promise<BookingResult | null> => {
     setLoading(true);

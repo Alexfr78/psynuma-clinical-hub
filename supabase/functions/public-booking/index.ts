@@ -23,6 +23,157 @@ const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 // This is secure because the service key is never exposed to clients
 const TOKEN_SECRET = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
+type PublicCancellationPolicy = {
+  id: string;
+  name: string;
+  versionNumber: number;
+  policyText: string | null;
+  cancellationWindowHours: number;
+  lateCancellationPercentage: number;
+  noShowPercentage: number;
+};
+
+function buildPrivacyPolicyUrl(domain: string | null): string | null {
+  if (!domain?.trim()) return null;
+  try {
+    const url = new URL(/^https?:\/\//i.test(domain) ? domain : `https://${domain}`);
+    return `${url.origin}/politica-de-privacidad/`;
+  } catch {
+    return null;
+  }
+}
+
+async function getPublicCancellationPolicy(supabase: any, centerId: string): Promise<PublicCancellationPolicy | null> {
+  const { data, error } = await supabase
+    .from('cancellation_policy_versions')
+    .select('id, name, version_number, policy_text, rules')
+    .eq('center_id', centerId)
+    .eq('is_active', true)
+    .order('version_number', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    console.error('[public-booking] could not load cancellation policy', { centerId, message: error.message });
+    throw new Error('No se pudo cargar la política de cancelación');
+  }
+  if (!data) return null;
+
+  const rules = (data.rules && typeof data.rules === 'object') ? data.rules as Record<string, unknown> : {};
+  return {
+    id: data.id,
+    name: data.name,
+    versionNumber: data.version_number,
+    policyText: data.policy_text,
+    cancellationWindowHours: Number(rules.cancellation_window_hours ?? 24),
+    lateCancellationPercentage: Number(rules.late_cancel_penalty_percentage ?? 100),
+    noShowPercentage: Number(rules.no_show_percentage ?? 100),
+  };
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
+
+async function recordPublicCancellationAcceptance(supabase: any, args: {
+  centerId: string;
+  patientId: string;
+  professionalId: string;
+  policy: PublicCancellationPolicy;
+  patientName: string;
+  clientIp: string;
+  userAgent: string | null;
+}) {
+  const { data: existingConsent, error: existingError } = await supabase
+    .from('consents')
+    .select('id')
+    .eq('center_id', args.centerId)
+    .eq('patient_id', args.patientId)
+    .eq('cancellation_policy_version_id', args.policy.id)
+    .eq('status', 'signed')
+    .limit(1)
+    .maybeSingle();
+
+  if (existingError) throw existingError;
+  if (existingConsent) return existingConsent.id;
+
+  const templateName = `${args.policy.name} v${args.policy.versionNumber}`;
+  const simpleSummary = `Cancelación sin coste hasta ${args.policy.cancellationWindowHours} horas antes. Después podría aplicarse un cargo del ${args.policy.lateCancellationPercentage}%.`;
+  const contentSnapshot = [
+    `<h1>${escapeHtml(args.policy.name)}</h1>`,
+    `<p><strong>${escapeHtml(simpleSummary)}</strong></p>`,
+    args.policy.noShowPercentage > 0
+      ? `<p>La no asistencia sin aviso podría suponer un cargo del ${args.policy.noShowPercentage}%.</p>`
+      : '',
+    args.policy.policyText ? `<p>${escapeHtml(args.policy.policyText).replaceAll('\n', '<br>')}</p>` : '',
+  ].join('');
+
+  const { data: existingTemplate, error: templateError } = await supabase
+    .from('consent_templates')
+    .select('id')
+    .eq('center_id', args.centerId)
+    .eq('name', templateName)
+    .limit(1)
+    .maybeSingle();
+  if (templateError) throw templateError;
+
+  let templateId = existingTemplate?.id;
+  if (!templateId) {
+    const { data: createdTemplate, error: createTemplateError } = await supabase
+      .from('consent_templates')
+      .insert({
+        center_id: args.centerId,
+        name: templateName,
+        content_html: contentSnapshot,
+        requires_guardian_signature: false,
+        is_active: true,
+        verification_checkboxes: ['He leído y acepto la política de cancelación'],
+      })
+      .select('id')
+      .single();
+    if (createTemplateError) throw createTemplateError;
+    templateId = createdTemplate.id;
+  }
+
+  const acceptedAt = new Date();
+  const expiresAt = new Date(acceptedAt);
+  expiresAt.setDate(expiresAt.getDate() + 7);
+  const { data: consent, error: consentError } = await supabase
+    .from('consents')
+    .insert({
+      center_id: args.centerId,
+      patient_id: args.patientId,
+      professional_id: args.professionalId,
+      template_id: templateId,
+      content_snapshot: contentSnapshot,
+      cancellation_policy_version_id: args.policy.id,
+      status: 'signed',
+      signed_at: acceptedAt.toISOString(),
+      expires_at: expiresAt.toISOString(),
+      source: 'public_booking_checkbox',
+      requires_guardian: false,
+      verification_responses: {
+        accepted: true,
+        acceptance_method: 'checkbox',
+        accepted_at: acceptedAt.toISOString(),
+        policy_version_id: args.policy.id,
+        policy_version_number: args.policy.versionNumber,
+        patient_name: args.patientName,
+        ip_address: args.clientIp,
+        user_agent: args.userAgent,
+      },
+    })
+    .select('id')
+    .single();
+  if (consentError) throw consentError;
+  return consent.id;
+}
+
 // ===== Helper functions (reused from patient-portal-sessions) =====
 
 function timeToMinutes(time: string): number {
@@ -244,11 +395,11 @@ serve(async (req) => {
     const { action, centerSlug, ...params } = await req.json();
 
     console.log(`[public-booking] action=${action} centerSlug=${centerSlug}`);
+    const clientIp = getClientIp(req);
 
     // Per-action rate limiting: strict for write/sensitive, generous for read.
     // Keys are scoped per action so reads don't starve writes and vice-versa.
     {
-      const ip = getClientIp(req);
       const writeActions = new Set([
         'create-booking',
         'submit-intake-request',
@@ -260,9 +411,9 @@ serve(async (req) => {
       const rlAction = `public-booking:${isWrite ? 'write' : 'read'}`;
       // reads: 120 / 10min, writes: 10 / 10min
       const maxReq = isWrite ? 10 : 120;
-      const rl = await checkIpRateLimit(supabase, ip, rlAction, maxReq, 10);
+      const rl = await checkIpRateLimit(supabase, clientIp, rlAction, maxReq, 10);
       if (!rl.allowed) {
-        console.warn(`[public-booking] rate-limit hit ip=${ip} action=${action} bucket=${rlAction}`);
+        console.warn(`[public-booking] rate-limit hit ip=${clientIp} action=${action} bucket=${rlAction}`);
         return new Response(
           JSON.stringify({
             error: 'Demasiadas solicitudes. Inténtalo de nuevo en unos minutos.',
@@ -295,7 +446,8 @@ serve(async (req) => {
           id, name, logo_url,
           public_booking_enabled, portal_require_approval,
           portal_allow_professional_selection, portal_default_professional_id,
-          reschedule_slot_duration, reschedule_max_days, portal_agenda_closed
+          reschedule_slot_duration, reschedule_max_days, portal_agenda_closed,
+          custom_domain, public_domain
         `)
         .eq("portal_slug", centerSlug)
         .single();
@@ -315,6 +467,7 @@ serve(async (req) => {
         );
       }
 
+      const cancellationPolicy = await getPublicCancellationPolicy(supabase, center.id);
       const config = {
         centerId: center.id,
         name: center.name,
@@ -326,6 +479,8 @@ serve(async (req) => {
         slotDuration: center.reschedule_slot_duration || 30,
         maxDaysAhead: center.reschedule_max_days ?? 90,
         agendaClosed: center.portal_agenda_closed ?? false,
+        privacyPolicyUrl: buildPrivacyPolicyUrl(center.public_domain || center.custom_domain),
+        cancellationPolicy,
       };
 
       // If agenda is closed we don't need to load the rest — frontend will show ClosedAgendaScreen
@@ -402,7 +557,8 @@ serve(async (req) => {
           id, name, logo_url,
           public_booking_enabled, portal_require_approval,
           portal_allow_professional_selection, portal_default_professional_id,
-          reschedule_slot_duration, reschedule_max_days, portal_agenda_closed
+          reschedule_slot_duration, reschedule_max_days, portal_agenda_closed,
+          custom_domain, public_domain
         `)
         .eq("portal_slug", centerSlug)
         .single();
@@ -424,6 +580,7 @@ serve(async (req) => {
       // Debug logging for portal_agenda_closed
       console.log(`[public-booking:get-config] centerSlug=${centerSlug} portal_agenda_closed=${center.portal_agenda_closed} (type: ${typeof center.portal_agenda_closed})`);
 
+      const cancellationPolicy = await getPublicCancellationPolicy(supabase, center.id);
       return new Response(
         JSON.stringify({
           centerId: center.id,
@@ -435,7 +592,9 @@ serve(async (req) => {
           defaultProfessionalId: center.portal_default_professional_id,
           slotDuration: center.reschedule_slot_duration || 30,
           maxDaysAhead: center.reschedule_max_days ?? 90,
-          agendaClosed: center.portal_agenda_closed ?? false
+          agendaClosed: center.portal_agenda_closed ?? false,
+          privacyPolicyUrl: buildPrivacyPolicyUrl(center.public_domain || center.custom_domain),
+          cancellationPolicy,
         }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
@@ -1031,7 +1190,7 @@ serve(async (req) => {
       const { 
         sessionTypeId, locationId, professionalId, 
         sessionDate, startTime, endTime,
-        patient, acceptPrivacy, notes 
+        patient, acceptPrivacy, acceptCancellationPolicy, cancellationPolicyVersionId, notes
       } = params;
 
       // Validate required fields
@@ -1097,6 +1256,20 @@ serve(async (req) => {
         return new Response(
           JSON.stringify({ error: "Reservas no habilitadas", disabled: true }),
           { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const activeCancellationPolicy = await getPublicCancellationPolicy(supabase, center.id);
+      if (activeCancellationPolicy && !acceptCancellationPolicy) {
+        return new Response(
+          JSON.stringify({ error: "Debe aceptar la política de cancelación" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      if (activeCancellationPolicy && cancellationPolicyVersionId !== activeCancellationPolicy.id) {
+        return new Response(
+          JSON.stringify({ error: "La política de cancelación ha cambiado. Recarga la página para revisarla." }),
+          { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
@@ -1326,6 +1499,30 @@ serve(async (req) => {
         }
 
         patientId = newPatient.id;
+      }
+
+      if (activeCancellationPolicy) {
+        try {
+          await recordPublicCancellationAcceptance(supabase, {
+            centerId: center.id,
+            patientId,
+            professionalId: finalProfessionalId,
+            policy: activeCancellationPolicy,
+            patientName: `${patient.firstName.trim()} ${patient.lastName.trim()}`,
+            clientIp,
+            userAgent: req.headers.get('user-agent'),
+          });
+        } catch (acceptanceError) {
+          console.error('[create-booking] could not record cancellation acceptance', {
+            patientId,
+            policyVersionId: activeCancellationPolicy.id,
+            message: acceptanceError instanceof Error ? acceptanceError.message : String(acceptanceError),
+          });
+          return new Response(
+            JSON.stringify({ error: "No se pudo registrar la aceptación de la política. Inténtalo de nuevo." }),
+            { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
       }
 
       // ===== Create session =====
