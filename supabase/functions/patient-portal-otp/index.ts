@@ -12,6 +12,7 @@ const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const tokenSecret = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const resendApiKey = Deno.env.get("RESEND_API_KEY");
 const wasenderPersonalToken = Deno.env.get("WASENDER_PERSONAL_ACCESS_TOKEN");
+const WASENDER_API_URL = "https://www.wasenderapi.com/api";
 
 const OTP_EXPIRY_MS = 5 * 60 * 1000;
 const SESSION_EXPIRY_MS = 60 * 60 * 1000;
@@ -202,43 +203,52 @@ async function sendEmailCode(
   }
 }
 
-async function getWasenderSessionKey(
-  supabase: SupabaseClient,
-  centerId: string,
-): Promise<string | null> {
-  const { data: session } = await supabase
-    .from("whatsapp_sessions")
-    .select("api_key, status, wasender_session_id")
-    .eq("center_id", centerId)
-    .maybeSingle();
-
-  if (
-    !session || session.status !== "connected" || !session.wasender_session_id
-  ) return null;
-  if (session.api_key) return session.api_key;
-  if (!wasenderPersonalToken) return null;
-
-  const response = await fetch(
-    `https://api.wasenderapi.com/api/whatsapp-sessions/${session.wasender_session_id}`,
-    {
-      headers: {
-        Authorization: `Bearer ${wasenderPersonalToken}`,
-        Accept: "application/json",
+async function sendWhatsAppViaWasender(
+  phone: string,
+  message: string,
+  wasenderToken: string,
+  sessionApiKey?: string,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const response = await fetch(
+      `${WASENDER_API_URL}/send-message`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${sessionApiKey || wasenderToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          to: `+${normalizePhone(phone)}`,
+          text: message,
+        }),
       },
-    },
-  );
-  if (!response.ok) return null;
+    );
 
-  const result = await response.json();
-  const apiKey = result.data?.api_key || result.api_key;
-  if (!apiKey) return null;
+    const responseText = await response.text();
+    let result: { success?: boolean; message?: string; error?: string } | null =
+      null;
+    try {
+      result = responseText ? JSON.parse(responseText) : null;
+    } catch {
+      // Wasender can occasionally return a non-JSON gateway response.
+    }
 
-  await supabase
-    .from("whatsapp_sessions")
-    .update({ api_key: apiKey, updated_at: new Date().toISOString() })
-    .eq("center_id", centerId);
+    if (!response.ok || result?.success === false) {
+      return {
+        success: false,
+        error: result?.message || result?.error ||
+          `HTTP ${response.status}: ${responseText.slice(0, 200)}`,
+      };
+    }
 
-  return apiKey;
+    return { success: true };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
 }
 
 async function sendWhatsAppCode(
@@ -248,36 +258,66 @@ async function sendWhatsAppCode(
   code: string,
   centerName: string,
 ): Promise<boolean> {
-  try {
-    const sessionKey = await getWasenderSessionKey(supabase, centerId);
-    if (!sessionKey) return false;
-
-    const response = await fetch(
-      "https://www.wasenderapi.com/api/send-message",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${sessionKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          to: `+${normalizePhone(phone)}`,
-          text:
-            `${centerName}: tu código de acceso es ${code}. Caduca en 5 minutos. No lo compartas con nadie.`,
-        }),
-      },
-    );
-
-    if (!response.ok) return false;
-    const result = await response.json().catch(() => null);
-    return result?.success !== false;
-  } catch (error) {
+  if (!wasenderPersonalToken) {
     console.error(
-      "[patient-portal-otp] WhatsApp delivery failed",
-      error instanceof Error ? error.message : "Unknown error",
+      "[patient-portal-otp] WASENDER_PERSONAL_ACCESS_TOKEN is not configured",
     );
     return false;
   }
+
+  const { data: whatsappSession, error: sessionError } = await supabase
+    .from("whatsapp_sessions")
+    .select("wasender_session_id, status, api_key")
+    .eq("center_id", centerId)
+    .maybeSingle();
+
+  if (sessionError) {
+    console.error(
+      "[patient-portal-otp] Could not load WhatsApp session",
+      sessionError.message,
+    );
+    return false;
+  }
+  if (
+    !whatsappSession?.wasender_session_id ||
+    whatsappSession.status !== "connected"
+  ) {
+    console.error(
+      "[patient-portal-otp] WhatsApp session is not connected for center",
+      centerId,
+    );
+    return false;
+  }
+
+  const message =
+    `${centerName}: tu código de acceso es ${code}. Caduca en 5 minutos. No lo compartas con nadie.`;
+  let result = await sendWhatsAppViaWasender(
+    phone,
+    message,
+    wasenderPersonalToken,
+    whatsappSession.api_key || undefined,
+  );
+
+  if (!result.success) {
+    console.warn(
+      `[patient-portal-otp] Wasender attempt 1 failed: ${result.error}. Retrying in 3s`,
+    );
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+    result = await sendWhatsAppViaWasender(
+      phone,
+      message,
+      wasenderPersonalToken,
+      whatsappSession.api_key || undefined,
+    );
+  }
+
+  if (!result.success) {
+    console.error(
+      "[patient-portal-otp] Wasender delivery failed definitively",
+      result.error,
+    );
+  }
+  return result.success;
 }
 
 async function ensureRateLimit(
@@ -411,6 +451,9 @@ serve(async (req) => {
         );
       }
       const patients = (matches || []) as PatientMatch[];
+      console.log(
+        `[patient-portal-otp] Lookup completed for channel ${channel}: ${patients.length} match(es)`,
+      );
 
       if (!matchError && patients.length === 1) {
         const patient = patients[0];
@@ -449,6 +492,11 @@ serve(async (req) => {
               code,
               center.name,
             );
+            console.log(
+              `[patient-portal-otp] WhatsApp delivery ${
+                sentByWhatsApp ? "succeeded" : "failed"
+              }`,
+            );
             if (!sentByWhatsApp && patient.email) {
               const sentByEmail = await sendEmailCode(
                 patient.email,
@@ -456,10 +504,17 @@ serve(async (req) => {
                 center.name,
               );
               if (sentByEmail) {
+                console.log(
+                  "[patient-portal-otp] Email fallback delivery succeeded",
+                );
                 await supabase
                   .from("patient_portal_otp_codes")
                   .update({ channel: "email" })
                   .eq("id", requestId);
+              } else {
+                console.error(
+                  "[patient-portal-otp] Email fallback delivery failed",
+                );
               }
             }
           }
