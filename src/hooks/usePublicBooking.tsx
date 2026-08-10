@@ -55,6 +55,9 @@ interface BookingResult {
   session: any;
   bookingToken: string;
   manageUrl: string;
+  paymentRequired?: boolean;
+  checkoutUrl?: string | null;
+  checkoutError?: string | null;
   message: string;
 }
 

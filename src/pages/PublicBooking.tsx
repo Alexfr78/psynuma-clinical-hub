@@ -129,9 +129,19 @@ export default function PublicBooking() {
     });
 
     if (result?.success) {
+      if (result.paymentRequired && result.checkoutUrl) {
+        toast.info('Abriendo el pago seguro de Stripe...');
+        window.location.assign(result.checkoutUrl);
+        return;
+      }
+
       setBookingResult(result);
       setStep('confirmation');
-      toast.success(result.message);
+      if (result.paymentRequired) {
+        toast.warning('La reserva está pendiente de pago. Revisa el enlace enviado.');
+      } else {
+        toast.success(result.message);
+      }
     } else {
       toast.error(error || 'Error al crear la reserva');
     }
@@ -256,8 +266,16 @@ export default function PublicBooking() {
         {step === 'confirmation' && bookingResult ? (
           <Card>
             <CardHeader className="text-center">
-              <CheckCircle className="h-16 w-16 text-success mx-auto mb-4" />
-              <CardTitle>¡Reserva {config?.requireApproval ? 'solicitada' : 'confirmada'}!</CardTitle>
+              {bookingResult.paymentRequired ? (
+                <Clock className="h-16 w-16 text-warning mx-auto mb-4" />
+              ) : (
+                <CheckCircle className="h-16 w-16 text-success mx-auto mb-4" />
+              )}
+              <CardTitle>
+                {bookingResult.paymentRequired
+                  ? 'Reserva pendiente de pago'
+                  : `¡Reserva ${config?.requireApproval ? 'solicitada' : 'confirmada'}!`}
+              </CardTitle>
               <CardDescription>{bookingResult.message}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">

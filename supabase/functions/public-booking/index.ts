@@ -1363,6 +1363,7 @@ serve(async (req) => {
           session_modality: sessionModality,
           location_id: locationId,
           price: sessionType.default_price || 0,
+          payment_mode: paymentRules.paymentMode,
           payment_status: paymentRules.paymentStatus,
           advance_payment_limit_hours: paymentRules.advancePaymentLimitHours,
           advance_payment_due_at: paymentRules.advancePaymentDueAt,
@@ -1393,6 +1394,43 @@ serve(async (req) => {
       const bonoMessage = bonoResult.applied
         ? `Se ha descontado esta cita de tu bono. Sesiones pendientes: ${bonoResult.remainingSessions ?? 0}.`
         : undefined;
+
+      // Required payment continues directly to Stripe. The newly-created
+      // session reserves the slot while Checkout is in progress; only the
+      // Stripe webhook confirms it after a successful card payment.
+      const paymentRequiredNow = status !== "pending_approval"
+        && !bonoResult.applied
+        && paymentRules.paymentMode === 'required_now'
+        && Number(sessionType.default_price || 0) > 0;
+      let checkoutUrl: string | null = null;
+      let checkoutError: string | null = null;
+
+      if (paymentRequiredNow) {
+        try {
+          const { data: checkoutData, error: checkoutInvokeError } = await supabase.functions.invoke(
+            'create-stripe-checkout',
+            { body: { session_id: newSession.id } },
+          );
+
+          if (checkoutInvokeError || !checkoutData?.checkout_url) {
+            checkoutError = checkoutInvokeError?.message || checkoutData?.error || 'No se pudo iniciar el pago seguro';
+            console.error('[create-booking] required Stripe Checkout failed', {
+              sessionId: newSession.id,
+              message: checkoutError,
+            });
+          } else {
+            checkoutUrl = checkoutData.checkout_url;
+          }
+        } catch (checkoutException) {
+          checkoutError = checkoutException instanceof Error
+            ? checkoutException.message
+            : 'No se pudo iniciar el pago seguro';
+          console.error('[create-booking] required Stripe Checkout exception', {
+            sessionId: newSession.id,
+            message: checkoutError,
+          });
+        }
+      }
 
       // Send admin alert for new booking (replaces the empty recipient notification)
       const prof = Array.isArray(newSession.professional) ? newSession.professional[0] : newSession.professional;
@@ -1477,9 +1515,16 @@ serve(async (req) => {
           session: newSession,
           bookingToken,
           manageUrl,
+          paymentRequired: paymentRequiredNow,
+          checkoutUrl,
+          checkoutError,
           message: center.portal_require_approval
             ? "Cita solicitada. Recibirás confirmación pronto."
-            : "¡Cita reservada correctamente!"
+            : paymentRequiredNow
+              ? checkoutUrl
+                ? "Continúa con el pago seguro para confirmar tu cita."
+                : "La cita está pendiente de pago. Usa el enlace enviado para completarlo."
+              : "¡Cita reservada correctamente!"
         }),
         { status: 201, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
