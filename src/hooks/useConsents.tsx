@@ -23,7 +23,7 @@ export interface Consent {
   revocation_reason: string | null;
   signed_pdf_url: string | null;
   uploaded_file_url: string | null;
-  source: 'digital' | 'uploaded' | 'public_booking_checkbox' | null;
+  source: 'digital' | 'uploaded' | 'public_booking_checkbox' | 'portal_booking_checkbox' | null;
   cancellation_policy_version_id: string | null;
   created_at: string;
   updated_at: string;

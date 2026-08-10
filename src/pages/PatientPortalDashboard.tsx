@@ -40,6 +40,7 @@ export default function PatientPortalDashboard() {
     rescheduleSession,
     getMonthAvailability,
     createSession,
+    getBookingRequirements,
     getAvailability,
   } = usePatientPortal(slug);
 
@@ -287,6 +288,7 @@ export default function PatientPortalDashboard() {
               centerSlug={slug!}
               onComplete={handleBookingComplete}
               createSession={createSession}
+              getBookingRequirements={getBookingRequirements}
               getAvailability={getAvailability}
               getMonthAvailability={getMonthAvailability}
               rescheduleSession={rescheduleSession}

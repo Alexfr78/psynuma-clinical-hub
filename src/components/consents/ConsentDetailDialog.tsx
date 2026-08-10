@@ -180,7 +180,8 @@ export function ConsentDetailDialog({
   const templateData = fullConsent?.template as { verification_checkboxes: string[] | null; requires_emergency_contact: boolean | null } | undefined;
   const verificationCheckboxes = templateData?.verification_checkboxes || [];
   const verificationResponses = (fullConsent?.verification_responses as Record<string, unknown>) || null;
-  const isPublicBookingAcceptance = fullConsent?.source === 'public_booking_checkbox';
+  const isBookingClickwrapAcceptance = fullConsent?.source === 'public_booking_checkbox'
+    || fullConsent?.source === 'portal_booking_checkbox';
   const requiresEmergencyContact = Boolean(templateData?.requires_emergency_contact);
   const emergencyContactName = fullConsent?.emergency_contact_name ?? null;
   const emergencyContactPhone = fullConsent?.emergency_contact_phone ?? null;
@@ -338,7 +339,7 @@ export function ConsentDetailDialog({
           {consent.status === 'signed' && (
             <div className="space-y-3">
               <p className="font-medium">
-                {isPublicBookingAcceptance ? 'Evidencia de aceptación' : 'Firmas'}
+                {isBookingClickwrapAcceptance ? 'Evidencia de aceptación' : 'Firmas'}
               </p>
               {signaturesLoading ? (
                 <div className="flex justify-center py-4">
@@ -346,7 +347,7 @@ export function ConsentDetailDialog({
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {isPublicBookingAcceptance && signatures.length === 0 && (
+                  {isBookingClickwrapAcceptance && signatures.length === 0 && (
                     <Card className="border-green-500/30 bg-green-500/5 p-3">
                       <div className="flex items-start gap-3">
                         <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-green-600" />

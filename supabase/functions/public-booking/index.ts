@@ -1548,13 +1548,14 @@ serve(async (req) => {
       const paymentRules = resolvePaymentRules({
         patientPaymentMode: existingPatient?.payment_mode,
         patientRequireAdvancePaymentAlways: existingPatient?.require_advance_payment_always,
-        // A patient override remains the highest priority. Otherwise use the
-        // selected professional's Stripe setting before the center fallback.
-        centerDefaultPaymentMode: professionalStripeMode || center.default_payment_mode,
+        // A patient override remains the highest priority. "Use center settings"
+        // must honor the center payment policy; the per-professional Stripe value
+        // is retained only as a legacy fallback for centers without a setting.
+        centerDefaultPaymentMode: center.default_payment_mode || professionalStripeMode,
         centerDefaultAdvancePaymentLimitHours: center.default_advance_payment_limit_hours,
         centerDefaultScheduledHoursBefore:
-          stripePaymentDefaults?.stripe_scheduled_hours_before
-          ?? center.default_scheduled_hours_before,
+          center.default_scheduled_hours_before
+          ?? stripePaymentDefaults?.stripe_scheduled_hours_before,
         sessionDate,
         startTime,
         price: sessionType.default_price || 0,

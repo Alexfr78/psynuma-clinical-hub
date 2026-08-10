@@ -7,6 +7,7 @@ import { notifyProfessionalBooking } from "../_shared/professionalNotification.t
 import { evaluateCancellationCharge, resolveCancellationBasePrice, resolvePaymentRules } from "../_shared/paymentRules.ts";
 import { autoApplyAvailableBonoToSession } from "../_shared/bonoAutomation.ts";
 import { resolvePatientCancellationPolicyForSession, resolveSignedCancellationPolicyVersionForSession } from "../_shared/cancellationPolicy.ts";
+import { getPublicCancellationPolicy, hasAcceptedCancellationPolicy, recordPortalCancellationPolicyClickwrap } from "../_shared/cancellationPolicyClickwrap.ts";
 import {
   buildFreeWindows,
   generateScoredSlots,
@@ -102,6 +103,9 @@ serve(async (req) => {
   try {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     const { action, sessionToken, ...params } = await req.json();
+    const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0].trim()
+      || req.headers.get('x-real-ip')
+      || 'unknown';
 
     // Validate session token cryptographically
     const session = await validateSession(sessionToken);
@@ -167,8 +171,27 @@ serve(async (req) => {
       );
     }
 
+    if (action === "get-booking-requirements") {
+      const activePolicy = await getPublicCancellationPolicy(supabase, session.centerId!);
+      const hasAcceptedPolicy = activePolicy
+        ? await hasAcceptedCancellationPolicy(supabase, {
+            centerId: session.centerId!,
+            patientId: session.patientId,
+            policyVersionId: activePolicy.id,
+          })
+        : false;
+
+      return new Response(
+        JSON.stringify({ cancellationPolicy: activePolicy, hasAcceptedCancellationPolicy: hasAcceptedPolicy }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
     if (action === "create") {
-      const { professionalId, sessionTypeId, sessionDate, startTime, endTime, locationId } = params;
+      const {
+        professionalId, sessionTypeId, sessionDate, startTime, endTime, locationId,
+        acceptCancellationPolicy, cancellationPolicyVersionId,
+      } = params;
 
       if (!sessionDate || !startTime || !endTime || !sessionTypeId || !locationId) {
         return new Response(
@@ -222,6 +245,32 @@ serve(async (req) => {
         return new Response(
           JSON.stringify({ error: "No hay profesional asignado. Contacta con el centro." }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const activeCancellationPolicy = await getPublicCancellationPolicy(supabase, session.centerId!);
+      const alreadyAcceptedPolicy = activeCancellationPolicy
+        ? await hasAcceptedCancellationPolicy(supabase, {
+            centerId: session.centerId!,
+            patientId: session.patientId,
+            policyVersionId: activeCancellationPolicy.id,
+          })
+        : false;
+
+      if (activeCancellationPolicy && !alreadyAcceptedPolicy && !acceptCancellationPolicy) {
+        return new Response(
+          JSON.stringify({ error: "Debes aceptar la política de cancelación" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+      if (
+        activeCancellationPolicy
+        && !alreadyAcceptedPolicy
+        && cancellationPolicyVersionId !== activeCancellationPolicy.id
+      ) {
+        return new Response(
+          JSON.stringify({ error: "La política de cancelación ha cambiado. Revísala de nuevo." }),
+          { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
       }
 
@@ -341,6 +390,46 @@ serve(async (req) => {
         );
       }
 
+      const { data: patientData } = await supabase
+        .from("patients")
+        .select("first_name, last_name, email, phone")
+        .eq("id", session.patientId)
+        .single();
+
+      if (activeCancellationPolicy && !alreadyAcceptedPolicy) {
+        try {
+          await recordPortalCancellationPolicyClickwrap(supabase, {
+            centerId: session.centerId!,
+            patientId: session.patientId,
+            professionalId: finalProfessionalId,
+            policy: activeCancellationPolicy,
+            patientName: patientData
+              ? `${patientData.first_name} ${patientData.last_name}`.trim()
+              : 'Contacto del portal',
+            clientIp,
+            userAgent: req.headers.get('user-agent'),
+          });
+        } catch (acceptanceError) {
+          console.error('[patient-portal-sessions] could not record policy acceptance', acceptanceError);
+          return new Response(
+            JSON.stringify({ error: "No se pudo registrar la aceptación de la política" }),
+            { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          );
+        }
+      }
+
+      const { data: stripePaymentDefaults, error: stripeDefaultsError } = await supabase
+        .from('professional_integrations')
+        .select('stripe_enabled, stripe_payment_mode, stripe_scheduled_hours_before')
+        .eq('professional_id', finalProfessionalId)
+        .maybeSingle();
+      if (stripeDefaultsError) {
+        console.error('[patient-portal-sessions] could not load Stripe payment defaults', stripeDefaultsError);
+      }
+      const professionalStripeMode = stripePaymentDefaults?.stripe_enabled
+        ? stripePaymentDefaults.stripe_payment_mode
+        : null;
+
       // Determine session modality based on location type
       const sessionModality = location.location_type === 'online' ? 'online' : 'in_person';
 
@@ -349,9 +438,13 @@ serve(async (req) => {
       const paymentRules = resolvePaymentRules({
         patientPaymentMode: patientPayment?.payment_mode,
         patientRequireAdvancePaymentAlways: patientPayment?.require_advance_payment_always,
-        centerDefaultPaymentMode: center?.default_payment_mode,
+        // Keep the same precedence as every other session-creation flow:
+        // patient override, then center policy, then the legacy Stripe default.
+        centerDefaultPaymentMode: center?.default_payment_mode || professionalStripeMode,
         centerDefaultAdvancePaymentLimitHours: center?.default_advance_payment_limit_hours,
-        centerDefaultScheduledHoursBefore: center?.default_scheduled_hours_before,
+        centerDefaultScheduledHoursBefore:
+          center?.default_scheduled_hours_before
+          ?? stripePaymentDefaults?.stripe_scheduled_hours_before,
         sessionDate,
         startTime,
         price: sessionType.default_price || 0,
@@ -375,6 +468,7 @@ serve(async (req) => {
           session_modality: sessionModality,
           location_id: locationId,
           price: sessionType.default_price || 0,
+          payment_mode: paymentRules.paymentMode,
           payment_status: paymentRules.paymentStatus,
           advance_payment_limit_hours: paymentRules.advancePaymentLimitHours,
           advance_payment_due_at: paymentRules.advancePaymentDueAt,
@@ -402,16 +496,49 @@ serve(async (req) => {
         ? `Se ha descontado esta cita de tu bono. Sesiones pendientes: ${bonoResult.remainingSessions ?? 0}.`
         : undefined;
 
-      // Send admin alert for portal session created
-      const { data: patientData } = await supabase
-        .from("patients")
-        .select("first_name, last_name, email, phone")
-        .eq("id", session.patientId)
-        .single();
+      const paymentRequiredNow = status !== 'pending_approval'
+        && !bonoResult.applied
+        && paymentRules.paymentMode === 'required_now'
+        && Number(sessionType.default_price || 0) > 0;
+      let checkoutUrl: string | null = null;
+      let checkoutError: string | null = null;
 
+      if (paymentRequiredNow) {
+        const { data: checkoutData, error: checkoutInvokeError } = await supabase.functions.invoke(
+          'create-stripe-checkout',
+          {
+            headers: {
+              Authorization: `Bearer ${supabaseServiceKey}`,
+              apikey: supabaseServiceKey,
+            },
+            body: { session_id: newSession.id },
+          },
+        );
+        if (checkoutInvokeError || !checkoutData?.checkout_url) {
+          checkoutError = checkoutInvokeError?.message || checkoutData?.error || 'No se pudo iniciar el pago seguro';
+          console.error('[patient-portal-sessions] required Stripe Checkout failed', {
+            sessionId: newSession.id,
+            message: checkoutError,
+          });
+        } else {
+          checkoutUrl = checkoutData.checkout_url;
+        }
+      }
+
+      // Send admin alert for portal session created
       if (patientData) {
+        const portalEventType = status === "pending_approval"
+          ? 'Nueva solicitud de cita (portal paciente)'
+          : paymentRequiredNow
+            ? 'Nueva reserva pendiente de pago (portal paciente)'
+            : 'Nueva cita reservada (portal paciente)';
+        const portalStatus = status === "pending_approval"
+          ? 'Pendiente de aprobación'
+          : paymentRequiredNow
+            ? 'Pendiente de pago'
+            : 'Confirmada';
         const alertMessage = buildAlertMessage({
-          eventType: status === "pending_approval" ? 'Nueva solicitud de cita (portal paciente)' : 'Nueva cita reservada (portal paciente)',
+          eventType: portalEventType,
           patientName: `${patientData.first_name} ${patientData.last_name}`,
           patientEmail: patientData.email,
           patientPhone: patientData.phone,
@@ -419,7 +546,7 @@ serve(async (req) => {
           sessionTime: startTime,
           modality: sessionModality,
           locationName: location.name,
-          status: status === "pending_approval" ? 'Pendiente de aprobación' : 'Confirmada',
+          status: portalStatus,
         });
 
         await sendAdminAlert({
@@ -434,31 +561,12 @@ serve(async (req) => {
         });
       }
 
-      // Wait 6s to respect WasenderAPI rate limit (1 msg per 5s)
-      await new Promise(resolve => setTimeout(resolve, 6000));
-
-      // Send patient confirmation notification
-      await queueAndSendPatientBookingNotification({
-        supabase,
-        centerId: session.centerId!,
-        patientId: session.patientId!,
-        sessionId: newSession.id,
-        eventType: 'created',
-        sessionDate,
-        startTime,
-        sessionType: sessionType.name,
-        sessionModality,
-        locationName: location.name,
-        includeAdvancePaymentBlock: status !== "pending_approval" && !bonoResult.applied,
-        extraMessage: bonoMessage,
-      });
-
-      // Notify professional (email or WhatsApp depending on center config)
-      if (finalProfessionalId) {
-        await notifyProfessionalBooking({
+      if (!paymentRequiredNow) {
+        // Stripe payments are confirmed and notified only after the webhook marks them paid.
+        await new Promise(resolve => setTimeout(resolve, 6000));
+        await queueAndSendPatientBookingNotification({
           supabase,
           centerId: session.centerId!,
-          professionalId: finalProfessionalId,
           patientId: session.patientId!,
           sessionId: newSession.id,
           eventType: 'created',
@@ -467,7 +575,25 @@ serve(async (req) => {
           sessionType: sessionType.name,
           sessionModality,
           locationName: location.name,
+          includeAdvancePaymentBlock: status !== "pending_approval" && !bonoResult.applied,
+          extraMessage: bonoMessage,
         });
+
+        if (finalProfessionalId) {
+          await notifyProfessionalBooking({
+            supabase,
+            centerId: session.centerId!,
+            professionalId: finalProfessionalId,
+            patientId: session.patientId!,
+            sessionId: newSession.id,
+            eventType: 'created',
+            sessionDate,
+            startTime,
+            sessionType: sessionType.name,
+            sessionModality,
+            locationName: location.name,
+          });
+        }
       }
 
       // Audit: patient created a session
@@ -485,9 +611,14 @@ serve(async (req) => {
         JSON.stringify({ 
           success: true, 
           session: newSession,
-          message: center?.portal_require_approval 
-            ? "Cita solicitada. Recibirás confirmación pronto." 
-            : "Cita creada correctamente."
+          paymentRequired: paymentRequiredNow,
+          checkoutUrl,
+          checkoutError,
+          message: center?.portal_require_approval
+            ? "Cita solicitada. Recibirás confirmación pronto."
+            : paymentRequiredNow && checkoutError
+              ? "Reserva pendiente de pago. No se pudo abrir Stripe; contacta con el centro para completarlo."
+              : "Cita creada correctamente."
         }),
         { status: 201, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );

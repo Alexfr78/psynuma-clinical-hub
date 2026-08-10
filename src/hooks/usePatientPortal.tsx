@@ -1,6 +1,30 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
+export interface PortalCancellationPolicy {
+  id: string;
+  name: string;
+  versionNumber: number;
+  policyText: string | null;
+  cancellationWindowHours: number;
+  lateCancellationPercentage: number;
+  noShowPercentage: number;
+}
+
+export interface PortalBookingRequirements {
+  cancellationPolicy: PortalCancellationPolicy | null;
+  hasAcceptedCancellationPolicy: boolean;
+}
+
+export interface PortalCreateSessionResult {
+  success: boolean;
+  error?: string;
+  message?: string;
+  paymentRequired?: boolean;
+  checkoutUrl?: string | null;
+  checkoutError?: string | null;
+}
+
 interface Patient {
   id: string;
   firstName: string;
@@ -229,7 +253,9 @@ export function usePatientPortal(centerSlug?: string) {
     startTime: string;
     endTime: string;
     locationId: string;
-  }): Promise<{ success: boolean; error?: string; message?: string }> => {
+    acceptCancellationPolicy?: boolean;
+    cancellationPolicyVersionId?: string;
+  }): Promise<PortalCreateSessionResult> => {
     if (!state.sessionToken) {
       return { success: false, error: 'Sesión no válida' };
     }
@@ -244,10 +270,35 @@ export function usePatientPortal(centerSlug?: string) {
       }
 
       await fetchSessions();
-      return { success: true, message: data.message };
+      return {
+        success: true,
+        message: data.message,
+        paymentRequired: data.paymentRequired,
+        checkoutUrl: data.checkoutUrl,
+        checkoutError: data.checkoutError,
+      };
     } catch (error) {
       console.error('Error creating session:', error);
       return { success: false, error: 'Error de conexión' };
+    }
+  };
+
+  const getBookingRequirements = async (): Promise<PortalBookingRequirements> => {
+    if (!state.sessionToken) {
+      return { cancellationPolicy: null, hasAcceptedCancellationPolicy: false };
+    }
+    try {
+      const { data, error } = await supabase.functions.invoke('patient-portal-sessions', {
+        body: { action: 'get-booking-requirements', sessionToken: state.sessionToken },
+      });
+      if (error || data?.error) throw error || new Error(data.error);
+      return {
+        cancellationPolicy: data?.cancellationPolicy || null,
+        hasAcceptedCancellationPolicy: Boolean(data?.hasAcceptedCancellationPolicy),
+      };
+    } catch (error) {
+      console.error('Error getting booking requirements:', error);
+      throw error;
     }
   };
 
@@ -417,6 +468,7 @@ export function usePatientPortal(centerSlug?: string) {
     logout,
     fetchSessions,
     createSession,
+    getBookingRequirements,
     cancelSession,
     getCancellationPreview,
     confirmSession,

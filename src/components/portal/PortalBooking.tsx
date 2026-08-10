@@ -1,12 +1,14 @@
 import { useState, useEffect, useMemo } from 'react';
 import { format, addDays, startOfDay, isBefore, startOfMonth, addMonths } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Loader2, Calendar as CalendarIcon, CheckCircle, Video, MapPin, AlertCircle } from 'lucide-react';
+import { Loader2, Calendar as CalendarIcon, CheckCircle, Video, MapPin, AlertCircle, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Calendar } from '@/components/ui/calendar';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -22,6 +24,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { formatLocationLine, type RescheduleLocation } from '@/lib/reschedule-helpers';
+import type { PortalBookingRequirements, PortalCreateSessionResult } from '@/hooks/usePatientPortal';
 
 interface RescheduleTarget {
   sessionId: string;
@@ -40,7 +43,10 @@ interface PortalBookingProps {
     startTime: string;
     endTime: string;
     locationId: string;
-  }) => Promise<{ success: boolean; error?: string; message?: string }>;
+    acceptCancellationPolicy?: boolean;
+    cancellationPolicyVersionId?: string;
+  }) => Promise<PortalCreateSessionResult>;
+  getBookingRequirements: () => Promise<PortalBookingRequirements>;
   getAvailability: (params: {
     professionalId?: string;
     date: string;
@@ -90,6 +96,7 @@ export function PortalBooking({
   centerSlug,
   onComplete,
   createSession,
+  getBookingRequirements,
   getAvailability,
   getMonthAvailability,
   rescheduleSession,
@@ -99,6 +106,9 @@ export function PortalBooking({
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const [bookingRequirements, setBookingRequirements] = useState<PortalBookingRequirements | null>(null);
+  const [bookingRequirementsLoaded, setBookingRequirementsLoaded] = useState(false);
+  const [acceptCancellationPolicy, setAcceptCancellationPolicy] = useState(false);
 
   const [centerConfig, setCenterConfig] = useState<CenterConfig | null>(null);
   const [professionals, setProfessionals] = useState<Professional[]>([]);
@@ -172,6 +182,10 @@ export function PortalBooking({
         .rpc('portal_list_locations', { p_center_slug: centerSlug });
       
       setLocations((locs || []) as Location[]);
+
+      const requirements = await getBookingRequirements();
+      setBookingRequirements(requirements);
+      setBookingRequirementsLoaded(true);
     } catch (error) {
       console.error('Error fetching data:', error);
       toast.error('Error al cargar los datos');
@@ -338,13 +352,23 @@ export function PortalBooking({
       return;
     }
 
+    const requiresPolicyAcceptance = Boolean(
+      !isRescheduleMode
+      && bookingRequirements?.cancellationPolicy
+      && !bookingRequirements.hasAcceptedCancellationPolicy,
+    );
+    if (requiresPolicyAcceptance && !acceptCancellationPolicy) {
+      toast.error('Debes aceptar la política de cancelación');
+      return;
+    }
+
     setSubmitting(true);
 
     const [hours, mins] = selectedSlot.time.split(':').map(Number);
     const endMinutes = hours * 60 + mins + serviceDuration;
     const endTime = `${Math.floor(endMinutes / 60).toString().padStart(2, '0')}:${(endMinutes % 60).toString().padStart(2, '0')}`;
 
-    let result: { success: boolean; error?: string; message?: string };
+    let result: PortalCreateSessionResult;
 
     if (isRescheduleMode && rescheduleSession && rescheduleTarget) {
       const locationChanged = selectedLocation && selectedLocation !== rescheduleTarget.locationId;
@@ -363,12 +387,23 @@ export function PortalBooking({
         startTime: selectedSlot.time,
         endTime,
         locationId: selectedLocation,
+        acceptCancellationPolicy: requiresPolicyAcceptance ? acceptCancellationPolicy : undefined,
+        cancellationPolicyVersionId: bookingRequirements?.cancellationPolicy?.id,
       });
     }
 
     setSubmitting(false);
 
     if (result.success) {
+      if (result.paymentRequired && result.checkoutUrl) {
+        window.location.assign(result.checkoutUrl);
+        return;
+      }
+      if (result.paymentRequired && result.checkoutError) {
+        toast.error('La cita está creada, pero no se pudo abrir el pago', {
+          description: result.checkoutError,
+        });
+      }
       setSuccess(true);
       setSuccessMessage(result.message || (isRescheduleMode ? 'Cita reprogramada correctamente' : 'Cita solicitada correctamente'));
       toast.success(result.message || (isRescheduleMode ? 'Cita reprogramada' : 'Cita solicitada'));
@@ -381,6 +416,14 @@ export function PortalBooking({
   const canSelectService = selectedLocation !== '';
   const canSelectProfessional = selectedSessionType !== '';
   const canSelectDate = selectedSessionType !== '' && selectedLocation !== '';
+  const cancellationPolicy = bookingRequirements?.cancellationPolicy || null;
+  const hasAcceptedCancellationPolicy = Boolean(bookingRequirements?.hasAcceptedCancellationPolicy);
+  const requiresCancellationAcceptance = Boolean(
+    !isRescheduleMode && cancellationPolicy && !hasAcceptedCancellationPolicy,
+  );
+  const cancellationSummary = cancellationPolicy
+    ? `Puedes cancelar o cambiar tu cita sin coste hasta ${cancellationPolicy.cancellationWindowHours} horas antes. Después podría aplicarse un cargo del ${cancellationPolicy.lateCancellationPercentage}%.`
+    : null;
 
   // Calendar modifiers for available days
   const availableDates = useMemo(() => {
@@ -640,6 +683,76 @@ export function PortalBooking({
           </div>
         )}
 
+        {!isRescheduleMode && cancellationPolicy && (
+          <div className={cn(
+            'rounded-lg border p-4',
+            hasAcceptedCancellationPolicy
+              ? 'border-green-500/30 bg-green-500/5'
+              : 'bg-muted/30',
+          )}>
+            {hasAcceptedCancellationPolicy ? (
+              <div className="flex items-start gap-3">
+                <CheckCircle className="mt-0.5 h-5 w-5 shrink-0 text-green-600" aria-hidden="true" />
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">Política de cancelación aceptada</p>
+                  <p className="text-sm text-muted-foreground">
+                    Ya aceptaste {cancellationPolicy.name}, versión {cancellationPolicy.versionNumber}. No necesitas volver a hacerlo.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-start gap-3">
+                <Checkbox
+                  id="portal-cancellation-policy"
+                  checked={acceptCancellationPolicy}
+                  onCheckedChange={(checked) => setAcceptCancellationPolicy(Boolean(checked))}
+                />
+                <div className="space-y-1">
+                  <Label htmlFor="portal-cancellation-policy" className="text-sm font-normal leading-5">
+                    He leído y acepto la política de cancelación *
+                  </Label>
+                  <p className="text-sm leading-5 text-muted-foreground">{cancellationSummary}</p>
+                </div>
+              </div>
+            )}
+
+            <Dialog>
+              <DialogTrigger asChild>
+                <button type="button" className="mt-2 text-sm font-medium text-primary underline underline-offset-2 hover:no-underline">
+                  Consultar la política completa
+                </button>
+              </DialogTrigger>
+              <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <ShieldCheck className="h-5 w-5 text-primary" aria-hidden="true" />
+                    Política de cancelación
+                  </DialogTitle>
+                  <DialogDescription>
+                    {cancellationPolicy.name} · Versión {cancellationPolicy.versionNumber}
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 text-sm leading-6">
+                  <div className="rounded-md bg-muted p-3 font-medium">{cancellationSummary}</div>
+                  {cancellationPolicy.noShowPercentage > 0 && (
+                    <p>Si no acudes sin avisar, podría aplicarse un cargo del {cancellationPolicy.noShowPercentage}%.</p>
+                  )}
+                  {cancellationPolicy.policyText && (
+                    <p className="whitespace-pre-wrap text-muted-foreground">{cancellationPolicy.policyText}</p>
+                  )}
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+        )}
+
+        {!isRescheduleMode && !bookingRequirementsLoaded && (
+          <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-sm text-amber-800">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+            No se pudieron verificar las condiciones de la reserva. Recarga la página antes de continuar.
+          </div>
+        )}
+
         {/* Submit */}
         <Button
           className="w-full"
@@ -657,7 +770,14 @@ export function PortalBooking({
             }
             handleSubmit();
           }}
-          disabled={!selectedSlot || !selectedSessionType || !selectedLocation || submitting}
+          disabled={
+            !selectedSlot
+            || !selectedSessionType
+            || !selectedLocation
+            || submitting
+            || (!isRescheduleMode && !bookingRequirementsLoaded)
+            || (requiresCancellationAcceptance && !acceptCancellationPolicy)
+          }
         >
           {submitting ? (
             <Loader2 className="h-4 w-4 animate-spin mr-2" />
