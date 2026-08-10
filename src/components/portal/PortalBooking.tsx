@@ -168,22 +168,13 @@ export function PortalBooking({
         setProfessionals(profs || []);
       }
 
-      const { data: types } = await supabase
-        .from('session_types')
-        .select('id, name, duration_minutes')
-        .eq('center_id', center.id)
-        .eq('is_active', true)
-        .order('display_order', { ascending: true })
-        .order('name', { ascending: true });
-
-      setSessionTypes(types || []);
-
       const { data: locs } = await supabase
         .rpc('portal_list_locations', { p_center_slug: centerSlug });
       
       setLocations((locs || []) as Location[]);
 
       const requirements = await getBookingRequirements();
+      setSessionTypes(requirements.sessionTypes);
       setBookingRequirements(requirements);
       setBookingRequirementsLoaded(true);
     } catch (error) {
@@ -562,6 +553,13 @@ export function PortalBooking({
           <div className="p-3 rounded-lg bg-muted text-sm flex items-center gap-2">
             <Video className="h-4 w-4 text-muted-foreground" />
             <span>Sesión online</span>
+          </div>
+        )}
+
+        {canSelectService && sessionTypes.length === 0 && (
+          <div className="flex items-center gap-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-700">
+            <AlertCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
+            <span>No hay tipos de sesión disponibles para reservar</span>
           </div>
         )}
 

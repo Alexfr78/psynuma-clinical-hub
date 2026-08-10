@@ -265,7 +265,18 @@ serve(async (req) => {
     }
 
     if (action === "get-booking-requirements") {
-      const activePolicy = await getPublicCancellationPolicy(supabase, session.centerId!);
+      const [activePolicy, sessionTypesResult] = await Promise.all([
+        getPublicCancellationPolicy(supabase, session.centerId!),
+        supabase
+          .from("session_types")
+          .select("id, name, duration_minutes")
+          .eq("center_id", session.centerId!)
+          .eq("is_active", true)
+          .order("display_order", { ascending: true })
+          .order("name", { ascending: true }),
+      ]);
+      if (sessionTypesResult.error) throw sessionTypesResult.error;
+
       const hasAcceptedPolicy = activePolicy
         ? await hasAcceptedCancellationPolicy(supabase, {
             centerId: session.centerId!,
@@ -275,7 +286,11 @@ serve(async (req) => {
         : false;
 
       return new Response(
-        JSON.stringify({ cancellationPolicy: activePolicy, hasAcceptedCancellationPolicy: hasAcceptedPolicy }),
+        JSON.stringify({
+          cancellationPolicy: activePolicy,
+          hasAcceptedCancellationPolicy: hasAcceptedPolicy,
+          sessionTypes: sessionTypesResult.data ?? [],
+        }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }

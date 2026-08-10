@@ -14,6 +14,11 @@ export interface PortalCancellationPolicy {
 export interface PortalBookingRequirements {
   cancellationPolicy: PortalCancellationPolicy | null;
   hasAcceptedCancellationPolicy: boolean;
+  sessionTypes: Array<{
+    id: string;
+    name: string;
+    duration_minutes: number;
+  }>;
 }
 
 export interface PortalCreateSessionResult {
@@ -303,7 +308,7 @@ export function usePatientPortal(centerSlug?: string) {
 
   const getBookingRequirements = async (): Promise<PortalBookingRequirements> => {
     if (!state.sessionToken) {
-      return { cancellationPolicy: null, hasAcceptedCancellationPolicy: false };
+      return { cancellationPolicy: null, hasAcceptedCancellationPolicy: false, sessionTypes: [] };
     }
     try {
       const { data, error } = await supabase.functions.invoke('patient-portal-sessions', {
@@ -313,6 +318,7 @@ export function usePatientPortal(centerSlug?: string) {
       return {
         cancellationPolicy: data?.cancellationPolicy || null,
         hasAcceptedCancellationPolicy: Boolean(data?.hasAcceptedCancellationPolicy),
+        sessionTypes: data?.sessionTypes || [],
       };
     } catch (error) {
       console.error('Error getting booking requirements:', error);
