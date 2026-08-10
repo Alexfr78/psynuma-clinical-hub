@@ -3844,6 +3844,78 @@ export type Database = {
           },
         ]
       }
+      patient_portal_otp_codes: {
+        Row: {
+          center_id: string
+          channel: string
+          code_hash: string
+          created_at: string
+          expires_at: string
+          failed_attempts: number
+          id: string
+          patient_id: string
+          used_at: string | null
+        }
+        Insert: {
+          center_id: string
+          channel: string
+          code_hash: string
+          created_at?: string
+          expires_at: string
+          failed_attempts?: number
+          id?: string
+          patient_id: string
+          used_at?: string | null
+        }
+        Update: {
+          center_id?: string
+          channel?: string
+          code_hash?: string
+          created_at?: string
+          expires_at?: string
+          failed_attempts?: number
+          id?: string
+          patient_id?: string
+          used_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_portal_otp_codes_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_portal_otp_codes_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_portal_otp_codes_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "portal_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_portal_otp_codes_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_portal_otp_codes_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       patient_tariff_plan_assignments: {
         Row: {
           center_id: string
@@ -6699,6 +6771,16 @@ export type Database = {
         Args: { payload: Json; queue_name: string }
         Returns: number
       }
+      find_portal_patient_by_identifier: {
+        Args: { p_center_id: string; p_channel: string; p_identifier: string }
+        Returns: {
+          email: string
+          first_name: string
+          id: string
+          last_name: string
+          phone: string
+        }[]
+      }
       format_invoice_number_from_series: {
         Args: {
           p_format: string
@@ -6931,6 +7013,7 @@ export type Database = {
         }
         Returns: number
       }
+      normalize_portal_phone: { Args: { p_phone: string }; Returns: string }
       portal_list_locations: {
         Args: {
           p_center_slug: string
