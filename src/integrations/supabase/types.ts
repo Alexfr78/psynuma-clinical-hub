@@ -1190,7 +1190,6 @@ export type Database = {
           price_per_session: number
           pricing_source: string | null
           status: Database["public"]["Enums"]["bono_status"] | null
-          stripe_checkout_session_id: string | null
           tariff_plan_assignment_id_snapshot: string | null
           tariff_plan_id_snapshot: string | null
           template_id: string | null
@@ -1211,7 +1210,6 @@ export type Database = {
           price_per_session: number
           pricing_source?: string | null
           status?: Database["public"]["Enums"]["bono_status"] | null
-          stripe_checkout_session_id?: string | null
           tariff_plan_assignment_id_snapshot?: string | null
           tariff_plan_id_snapshot?: string | null
           template_id?: string | null
@@ -1232,7 +1230,6 @@ export type Database = {
           price_per_session?: number
           pricing_source?: string | null
           status?: Database["public"]["Enums"]["bono_status"] | null
-          stripe_checkout_session_id?: string | null
           tariff_plan_assignment_id_snapshot?: string | null
           tariff_plan_id_snapshot?: string | null
           template_id?: string | null
