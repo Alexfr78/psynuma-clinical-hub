@@ -1,6 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
-import Stripe from "https://esm.sh/stripe@14.9.0";
+import {
+  buildConnectedCheckoutIdempotencyKey,
+  createConnectedCheckoutSession,
+  selectPaymentProfessionalId,
+} from "../_shared/stripeConnectedCheckout.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -11,8 +15,6 @@ const stripeSecretKey = Deno.env.get('STRIPE_SECRET_KEY');
 
 interface CheckoutRequest {
   debt_id: string;
-  success_url?: string;
-  cancel_url?: string;
 }
 
 serve(async (req) => {
@@ -21,7 +23,7 @@ serve(async (req) => {
   }
 
   try {
-    const { debt_id, success_url, cancel_url } = await req.json() as CheckoutRequest;
+    const { debt_id } = await req.json() as CheckoutRequest;
 
     if (!debt_id) {
       return new Response(
@@ -47,8 +49,8 @@ serve(async (req) => {
       .from('debts')
       .select(`
         *,
-        patients (id, first_name, last_name, email),
-        sessions (id, session_date, session_type)
+        patients (id, first_name, last_name, email, assigned_professional_id),
+        sessions (id, session_date, session_type, professional_id)
       `)
       .eq('id', debt_id)
       .single();
@@ -64,7 +66,7 @@ serve(async (req) => {
     // Get center info with public_domain
     const { data: center, error: centerError } = await supabase
       .from('centers')
-      .select('id, name, public_domain')
+      .select('id, name, public_domain, portal_default_professional_id')
       .eq('id', debt.center_id)
       .single();
 
@@ -78,12 +80,37 @@ serve(async (req) => {
     // Calculate pending amount
     const pendingAmount = Number(debt.amount) - Number(debt.paid_amount);
     const amountInCents = Math.round(pendingAmount * 100);
+    if (amountInCents <= 0) {
+      return new Response(
+        JSON.stringify({ error: 'La deuda no tiene importe pendiente' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
-    // Initialize Stripe
-    const stripe = new Stripe(stripeSecretKey, {
-      apiVersion: '2023-10-16',
-      httpClient: Stripe.createFetchHttpClient(),
-    });
+    const professionalId = selectPaymentProfessionalId(
+      debt.sessions?.professional_id,
+      debt.patients?.assigned_professional_id,
+      center.portal_default_professional_id,
+    );
+    if (!professionalId) {
+      return new Response(
+        JSON.stringify({ error: 'No hay profesional asignado para recibir el pago' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const { data: connection } = await supabase
+      .from('oauth_connections')
+      .select('stripe_account_id, stripe_account_status')
+      .eq('professional_id', professionalId)
+      .eq('provider', 'stripe')
+      .maybeSingle();
+    if (!connection?.stripe_account_id || connection.stripe_account_status !== 'active') {
+      return new Response(
+        JSON.stringify({ error: 'El profesional no tiene una cuenta Stripe activa' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     // Format description
     const sessionInfo = debt.sessions 
@@ -102,32 +129,30 @@ serve(async (req) => {
     const defaultCancelUrl = `${baseUrl}/pagar/${debt.access_token}`;
 
     // Create Stripe Checkout Session
-    const checkoutSession = await stripe.checkout.sessions.create({
-      payment_method_types: ['card'],
-      mode: 'payment',
-      customer_email: debt.patients?.email || undefined,
-      line_items: [
-        {
-          price_data: {
-            currency: 'eur',
-            product_data: {
-              name: sessionInfo,
-              description: `Pago a ${center.name}`,
-            },
-            unit_amount: amountInCents,
-          },
-          quantity: 1,
-        },
-      ],
+    const feeBpsRaw = Deno.env.get('STRIPE_APPLICATION_FEE_BPS');
+    const checkoutSession = await createConnectedCheckoutSession({
+      stripeSecretKey,
+      connectedAccountId: connection.stripe_account_id,
+      customerEmail: debt.patients?.email,
+      lineItem: {
+        name: sessionInfo,
+        description: `Pago a ${center.name}`,
+        amountInCents,
+      },
       metadata: {
         debt_id: debt.id,
         patient_id: debt.patient_id,
         center_id: debt.center_id,
         session_id: debt.session_id || '',
+        professional_id: professionalId,
         payment_type: 'debt_payment',
       },
-      success_url: success_url || defaultSuccessUrl,
-      cancel_url: cancel_url || defaultCancelUrl,
+      successUrl: defaultSuccessUrl,
+      cancelUrl: defaultCancelUrl,
+      applicationFeeBpsRaw: feeBpsRaw,
+      idempotencyKey: buildConnectedCheckoutIdempotencyKey(
+        'debt', debt.id, amountInCents, feeBpsRaw,
+      ),
     });
 
     console.log('Checkout session created:', checkoutSession.id);

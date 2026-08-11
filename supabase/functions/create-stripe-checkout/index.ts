@@ -1,9 +1,9 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import {
-  calculateStripeApplicationFeeAmount,
-  getStripePlatformFeeConfig,
-} from "../_shared/stripePlatformFee.ts";
+  buildConnectedCheckoutIdempotencyKey,
+  createConnectedCheckoutSession,
+} from "../_shared/stripeConnectedCheckout.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -142,65 +142,29 @@ serve(async (req) => {
     
     // Create checkout session on connected account
     const amountInCents = Math.round(amount * 100);
-    const platformFee = getStripePlatformFeeConfig(
-      Deno.env.get('STRIPE_APPLICATION_FEE_BPS'),
-    );
-    const applicationFeeAmount = calculateStripeApplicationFeeAmount(
-      amountInCents,
-      platformFee.bps,
-    );
-
-    const checkoutParams = new URLSearchParams({
-      'mode': 'payment',
-      'payment_method_types[0]': 'card',
-      'line_items[0][price_data][currency]': 'eur',
-      'line_items[0][price_data][unit_amount]': String(amountInCents),
-      'line_items[0][price_data][product_data][name]': `Sesión de ${session.session_type || 'psicología'}`,
-      'line_items[0][price_data][product_data][description]': `Sesión del ${session.session_date}`,
-      'line_items[0][quantity]': '1',
-      'success_url': successUrl,
-      'cancel_url': cancelUrl,
-      'metadata[session_id]': session.id,
-      'metadata[patient_id]': session.patient_id,
-      'metadata[professional_id]': session.professional_id,
-      'metadata[platform_fee_bps]': String(platformFee.bps),
-      'metadata[platform_fee_amount]': String(applicationFeeAmount),
-      'metadata[platform_fee_rule_version]': platformFee.version,
-    });
-
-    if (patient?.email) {
-      checkoutParams.append('customer_email', patient.email);
-    }
-
-    // A zero fee is intentionally omitted so Stripe does not create an
-    // application fee for the platform. The value is controlled server-side.
-    if (applicationFeeAmount > 0) {
-      checkoutParams.append(
-        'payment_intent_data[application_fee_amount]',
-        String(applicationFeeAmount),
-      );
-    }
-
-    const checkoutResponse = await fetch('https://api.stripe.com/v1/checkout/sessions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${stripeSecretKey}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Stripe-Account': connection.stripe_account_id,
-        'Idempotency-Key': `session-checkout-${session.id}-${amountInCents}-${platformFee.version}`,
+    const feeBpsRaw = Deno.env.get('STRIPE_APPLICATION_FEE_BPS');
+    const checkoutData = await createConnectedCheckoutSession({
+      stripeSecretKey,
+      connectedAccountId: connection.stripe_account_id,
+      successUrl,
+      cancelUrl,
+      customerEmail: patient?.email,
+      lineItem: {
+        name: `Sesión de ${session.session_type || 'psicología'}`,
+        description: `Sesión del ${session.session_date}`,
+        amountInCents,
       },
-      body: checkoutParams,
+      metadata: {
+        payment_type: 'session_payment',
+        session_id: session.id,
+        patient_id: session.patient_id,
+        professional_id: session.professional_id,
+      },
+      applicationFeeBpsRaw: feeBpsRaw,
+      idempotencyKey: buildConnectedCheckoutIdempotencyKey(
+        'session', session.id, amountInCents, feeBpsRaw,
+      ),
     });
-
-    const checkoutData = await checkoutResponse.json();
-
-    if (!checkoutResponse.ok) {
-      console.error('Stripe checkout error:', checkoutData);
-      return new Response(
-        JSON.stringify({ error: checkoutData.error?.message || 'Checkout creation failed' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
 
     // Update session with checkout info
     await supabase

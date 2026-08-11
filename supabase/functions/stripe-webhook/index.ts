@@ -2,6 +2,10 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import Stripe from "https://esm.sh/stripe@14.9.0";
 import { queueAndSendPatientBookingNotification } from "../_shared/bookingPatientNotifications.ts";
+import {
+  getStripePaymentOutcome,
+  shouldReprocessClaimedStripeEvent,
+} from "../_shared/stripeWebhookPolicy.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -291,7 +295,7 @@ async function handleDebtPayment(
   // SECURITY: Re-validate entities from database - don't trust metadata alone
   const { data: debt, error: debtError } = await supabase
     .from('debts')
-    .select('id, patient_id, center_id, session_id, amount, status, stripe_checkout_session_id')
+    .select('id, patient_id, center_id, session_id, amount, paid_amount, status, invoice_id, stripe_checkout_session_id')
     .eq('id', debtId)
     .single();
 
@@ -311,18 +315,21 @@ async function handleDebtPayment(
     throw new Error('Center mismatch - potential fraud attempt');
   }
 
-  // SECURITY: Verify payment amount matches expected debt amount (with small tolerance for rounding)
-  const expectedAmount = debt.amount;
-  const amountDifference = Math.abs(paymentAmount - expectedAmount);
-  if (amountDifference > 0.01) { // Allow 1 cent tolerance for rounding
-    console.error('Amount mismatch:', { expected: expectedAmount, received: paymentAmount });
-    throw new Error('Payment amount does not match debt amount');
-  }
+  const { data: existingPayment, error: existingPaymentError } = await supabase
+    .from('payments')
+    .select('id, invoice_id')
+    .eq('reference', stripeSessionId)
+    .maybeSingle();
+  if (existingPaymentError) throw existingPaymentError;
 
-  // SECURITY: Check if already paid (idempotency)
-  if (debt.status === 'paid') {
-    console.log('Debt already paid, skipping duplicate webhook:', debtId);
-    return;
+  if (!existingPayment) {
+    // SECURITY: Checkout charges the remaining balance, not the original debt.
+    const expectedAmount = Number(debt.amount) - Number(debt.paid_amount || 0);
+    const amountDifference = Math.abs(paymentAmount - expectedAmount);
+    if (amountDifference > 0.01) { // Allow 1 cent tolerance for rounding
+      console.error('Amount mismatch:', { expected: expectedAmount, received: paymentAmount });
+      throw new Error('Payment amount does not match pending debt amount');
+    }
   }
 
   // Update debt to paid
@@ -330,31 +337,38 @@ async function handleDebtPayment(
     .from('debts')
     .update({
       status: 'paid',
-      paid_amount: paymentAmount,
+      paid_amount: debt.amount,
       stripe_payment_status: 'paid',
       stripe_checkout_session_id: stripeSessionId,
     })
-    .eq('id', debtId)
-    .eq('status', 'pending'); // Only update if still pending (prevent race condition)
+    .eq('id', debtId);
 
   if (updateError) {
     console.error('Error updating debt:', updateError);
     throw new Error('Failed to update debt');
   }
 
-  // Create payment record
-  await supabase
-    .from('payments')
-    .insert({
-      patient_id: patientId,
-      center_id: centerId,
-      session_id: sessionId || null,
-      amount: paymentAmount,
-      payment_method: 'stripe',
-      payment_date: new Date().toISOString().split('T')[0],
-      reference: stripeSessionId,
-      notes: 'Pago online de deuda pendiente',
-    });
+  // Create the payment exactly once. If a previous attempt stopped after
+  // updating the debt, the retry resumes here instead of skipping accounting.
+  let paymentRecord = existingPayment;
+  if (!paymentRecord) {
+    const { data: insertedPayment, error: paymentError } = await supabase
+      .from('payments')
+      .insert({
+        patient_id: patientId,
+        center_id: centerId,
+        session_id: sessionId || null,
+        amount: paymentAmount,
+        payment_method: 'stripe',
+        payment_date: new Date().toISOString().split('T')[0],
+        reference: stripeSessionId,
+        notes: 'Pago online de deuda pendiente',
+      })
+      .select('id, invoice_id')
+      .single();
+    if (paymentError || !insertedPayment) throw paymentError || new Error('Failed to create payment');
+    paymentRecord = insertedPayment;
+  }
 
   // Update session if exists
   if (sessionId) {
@@ -383,22 +397,26 @@ async function handleDebtPayment(
   }
 
   // Create invoice
-  const { invoiceId } = await createInvoice(
-    supabase,
-    centerId,
-    patientId,
-    description,
-    paymentAmount,
-    sessionId,
-    null
-  );
+  let invoiceId = debt.invoice_id || paymentRecord.invoice_id || null;
+  if (!invoiceId) {
+    const invoiceResult = await createInvoice(
+      supabase,
+      centerId,
+      patientId,
+      description,
+      paymentAmount,
+      sessionId,
+      null
+    );
+    invoiceId = invoiceResult.invoiceId;
+  }
 
   // Link invoice to debt
   if (invoiceId) {
-    await supabase
-      .from('debts')
-      .update({ invoice_id: invoiceId })
-      .eq('id', debtId);
+    await Promise.all([
+      supabase.from('debts').update({ invoice_id: invoiceId }).eq('id', debtId),
+      supabase.from('payments').update({ invoice_id: invoiceId }).eq('id', paymentRecord.id),
+    ]);
   }
 
   console.log('Debt payment processed successfully');
@@ -465,47 +483,82 @@ async function handleBonoPurchase(
     throw new Error('Payment amount does not match bono price');
   }
 
-  // Calculate expiration date
-  const expiresAt = new Date();
-  expiresAt.setDate(expiresAt.getDate() + validityDays);
-
-  // Create the bono
-  const { data: bonoData, error: bonoError } = await supabase
+  const { data: existingBono, error: existingBonoError } = await supabase
     .from('bonos')
-    .insert({
-      center_id: centerId,
-      patient_id: patientId,
-      name: bonoName,
-      total_sessions: totalSessions,
-      used_sessions: 0,
-      total_price: paymentAmount,
-      price_per_session: pricePerSession,
-      status: 'active',
-      expires_at: expiresAt.toISOString(),
-    })
-    .select()
-    .single();
+    .select('id')
+    .eq('stripe_checkout_session_id', stripeSessionId)
+    .maybeSingle();
+  if (existingBonoError) throw existingBonoError;
 
-  if (bonoError || !bonoData) {
-    console.error('Error creating bono:', bonoError);
-    throw new Error('Failed to create bono');
+  let bonoData = existingBono;
+  if (!bonoData) {
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + validityDays);
+
+    const { data: insertedBono, error: bonoError } = await supabase
+      .from('bonos')
+      .insert({
+        center_id: centerId,
+        patient_id: patientId,
+        template_id: metadata.bono_template_id || null,
+        name: bonoName,
+        total_sessions: totalSessions,
+        used_sessions: 0,
+        total_price: paymentAmount,
+        price_per_session: pricePerSession,
+        status: 'active',
+        expires_at: expiresAt.toISOString(),
+        stripe_checkout_session_id: stripeSessionId,
+      })
+      .select('id')
+      .single();
+
+    if (bonoError || !insertedBono) {
+      console.error('Error creating bono:', bonoError);
+      throw new Error('Failed to create bono');
+    }
+    bonoData = insertedBono;
   }
 
-  console.log('Bono created:', bonoData.id);
+  console.log('Bono ready:', bonoData.id);
 
-  // Create payment record for bono
-  await supabase
+  const { data: existingPayment, error: existingPaymentError } = await supabase
     .from('payments')
-    .insert({
-      patient_id: patientId,
-      center_id: centerId,
+    .select('id, invoice_id')
+    .eq('reference', stripeSessionId)
+    .maybeSingle();
+  if (existingPaymentError) throw existingPaymentError;
+
+  let paymentRecord = existingPayment;
+  if (!paymentRecord) {
+    const { data: insertedPayment, error: paymentError } = await supabase
+      .from('payments')
+      .insert({
+        patient_id: patientId,
+        center_id: centerId,
+        amount: paymentAmount,
+        payment_method: 'stripe',
+        payment_date: new Date().toISOString().split('T')[0],
+        reference: stripeSessionId,
+        notes: `Compra de bono: ${bonoName} (${bonoData.id})`,
+      })
+      .select('id, invoice_id')
+      .single();
+    if (paymentError || !insertedPayment) throw paymentError || new Error('Failed to create payment');
+    paymentRecord = insertedPayment;
+  }
+
+  await supabase
+    .from('debts')
+    .update({
       bono_id: bonoData.id,
-      amount: paymentAmount,
-      payment_method: 'stripe',
-      payment_date: new Date().toISOString().split('T')[0],
-      reference: stripeSessionId,
-      notes: `Compra de bono: ${bonoName}`,
-    });
+      status: 'paid',
+      paid_amount: 0,
+      stripe_payment_status: 'paid',
+      stripe_checkout_session_id: stripeSessionId,
+      notes: `Liquidada con bono ${bonoName}`,
+    })
+    .eq('id', debtId);
 
   // If there's a session associated, apply bono to it
   if (sessionId) {
@@ -520,51 +573,64 @@ async function handleBonoPurchase(
 
     if (applyError) {
       console.error('Error applying bono to session:', applyError);
-      // Fallback: manually update
-      await supabase
+      const { data: existingItem } = await supabase
         .from('bono_items')
-        .insert({
-          bono_id: bonoData.id,
-          session_id: sessionId,
-          used_at: new Date().toISOString(),
-        });
+        .select('id')
+        .eq('bono_id', bonoData.id)
+        .eq('session_id', sessionId)
+        .maybeSingle();
 
-      await supabase
-        .from('bonos')
-        .update({ used_sessions: 1 })
-        .eq('id', bonoData.id);
+      if (!existingItem) {
+        await supabase
+          .from('bono_items')
+          .insert({
+            bono_id: bonoData.id,
+            session_id: sessionId,
+            used_at: new Date().toISOString(),
+          });
 
-      await supabase
-        .from('sessions')
-        .update({
-          bono_id: bonoData.id,
-          payment_status: 'bono',
-        })
-        .eq('id', sessionId);
+        await supabase
+          .from('bonos')
+          .update({ used_sessions: 1 })
+          .eq('id', bonoData.id);
+
+        await supabase
+          .from('sessions')
+          .update({
+            bono_id: bonoData.id,
+            payment_status: 'bono',
+          })
+          .eq('id', sessionId);
+      }
     }
-
-    // Delete or mark the original debt as paid
-    await supabase
-      .from('debts')
-      .update({
-        status: 'paid',
-        paid_amount: 0, // Paid via bono, not money
-        notes: `Liquidada con bono ${bonoName}`,
-      })
-      .eq('id', debtId);
   }
 
-  // Create invoice for bono purchase
-  const description = `${bonoName} - ${totalSessions} sesiones`;
-  await createInvoice(
-    supabase,
-    centerId,
-    patientId,
-    description,
-    paymentAmount,
-    null,
-    bonoData.id
-  );
+  const { data: existingInvoiceItem, error: invoiceLookupError } = await supabase
+    .from('invoice_items')
+    .select('invoice_id')
+    .eq('bono_id', bonoData.id)
+    .limit(1)
+    .maybeSingle();
+  if (invoiceLookupError) throw invoiceLookupError;
+
+  let invoiceId = existingInvoiceItem?.invoice_id || paymentRecord.invoice_id || null;
+  if (!invoiceId) {
+    const description = `${bonoName} - ${totalSessions} sesiones`;
+    const invoiceResult = await createInvoice(
+      supabase,
+      centerId,
+      patientId,
+      description,
+      paymentAmount,
+      null,
+      bonoData.id
+    );
+    invoiceId = invoiceResult.invoiceId;
+  }
+
+  if (invoiceId) {
+    await supabase.from('payments').update({ invoice_id: invoiceId }).eq('id', paymentRecord.id);
+  }
 
   console.log('Bono purchase processed successfully');
 }
@@ -1237,7 +1303,7 @@ serve(async (req) => {
         ? await sessionCheckoutNeedsReconciliation(supabase, checkoutSession)
         : false;
 
-      if (!needsReconciliation) {
+      if (!shouldReprocessClaimedStripeEvent(event.type, needsReconciliation)) {
         return new Response(
           JSON.stringify({ received: true, duplicate: true }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -1259,6 +1325,10 @@ serve(async (req) => {
       if (reopenError) throw reopenError;
     }
     claimedEventId = event.id;
+    const paymentOutcome = getStripePaymentOutcome(event.type);
+    if (paymentOutcome) {
+      console.log('Stripe payment outcome:', paymentOutcome);
+    }
 
     // Handle different event types
     switch (event.type) {
@@ -1309,6 +1379,7 @@ serve(async (req) => {
         const paymentIntent = event.data.object as Stripe.PaymentIntent;
         const metadata = paymentIntent.metadata || {};
         const sessionId = metadata.session_id;
+        const debtId = metadata.debt_id;
         
         if (sessionId) {
           console.log('Payment failed for session:', sessionId);
@@ -1317,12 +1388,56 @@ serve(async (req) => {
             .update({ stripe_payment_status: 'failed' })
             .eq('id', sessionId);
         }
+
+        if (debtId) {
+          console.log('Payment failed for debt:', debtId);
+          await supabase
+            .from('debts')
+            .update({ stripe_payment_status: 'failed' })
+            .eq('id', debtId);
+        }
         break;
       }
 
       case 'charge.refunded': {
         const charge = event.data.object as Stripe.Charge;
+        const metadata = charge.metadata || {};
+        const sessionId = metadata.session_id;
+        const debtId = metadata.debt_id;
         console.log('Refund processed for charge:', charge.id);
+
+        if (sessionId) {
+          await supabase
+            .from('sessions')
+            .update({ stripe_payment_status: 'refunded' })
+            .eq('id', sessionId);
+        }
+
+        if (debtId) {
+          const { data: refundedDebt } = await supabase
+            .from('debts')
+            .select('bono_id')
+            .eq('id', debtId)
+            .maybeSingle();
+
+          await supabase
+            .from('debts')
+            .update({
+              stripe_payment_status: 'refunded',
+              status: 'refunded',
+            })
+            .eq('id', debtId);
+
+          if (metadata.payment_type === 'bono_purchase' && refundedDebt?.bono_id) {
+            // A purchased bono can be cancelled automatically only while it is
+            // unused. Once consumed, refund reconciliation requires review.
+            await supabase
+              .from('bonos')
+              .update({ status: 'cancelled' })
+              .eq('id', refundedDebt.bono_id)
+              .eq('used_sessions', 0);
+          }
+        }
         break;
       }
 
