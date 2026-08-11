@@ -6,9 +6,10 @@
 -- Before this job can authenticate, Supabase Vault must contain a secret named
 -- payment_automation_cron_secret with the same value as the Edge Function
 -- secret CRON_SECRET.
-CREATE EXTENSION IF NOT EXISTS pg_net SCHEMA extensions;
-CREATE EXTENSION IF NOT EXISTS pg_cron;
-CREATE EXTENSION IF NOT EXISTS supabase_vault;
+-- Lovable Cloud provisions pg_cron, pg_net and Vault. Re-running CREATE
+-- EXTENSION from its SQL editor can fail while its managed privilege hook
+-- attempts to grant permissions that already exist, so this migration only
+-- configures the job itself.
 
 DO $$
 BEGIN
