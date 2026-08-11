@@ -2214,7 +2214,7 @@ export type Database = {
           created_at: string | null
           emergency_contact_name: string | null
           emergency_contact_phone: string | null
-          expires_at: string
+          expires_at: string | null
           id: string
           patient_id: string
           professional_id: string
@@ -2238,7 +2238,7 @@ export type Database = {
           created_at?: string | null
           emergency_contact_name?: string | null
           emergency_contact_phone?: string | null
-          expires_at: string
+          expires_at?: string | null
           id?: string
           patient_id: string
           professional_id: string
@@ -2262,7 +2262,7 @@ export type Database = {
           created_at?: string | null
           emergency_contact_name?: string | null
           emergency_contact_phone?: string | null
-          expires_at?: string
+          expires_at?: string | null
           id?: string
           patient_id?: string
           professional_id?: string
@@ -5124,6 +5124,7 @@ export type Database = {
           advance_payment_notification_error: string | null
           advance_payment_notification_failed_at: string | null
           advance_payment_notification_sent_at: string | null
+          advance_payment_send_at: string | null
           ai_summary_clinical: string | null
           ai_summary_patient: string | null
           base_price_snapshot: number | null
@@ -5185,6 +5186,7 @@ export type Database = {
           advance_payment_notification_error?: string | null
           advance_payment_notification_failed_at?: string | null
           advance_payment_notification_sent_at?: string | null
+          advance_payment_send_at?: string | null
           ai_summary_clinical?: string | null
           ai_summary_patient?: string | null
           base_price_snapshot?: number | null
@@ -5246,6 +5248,7 @@ export type Database = {
           advance_payment_notification_error?: string | null
           advance_payment_notification_failed_at?: string | null
           advance_payment_notification_sent_at?: string | null
+          advance_payment_send_at?: string | null
           ai_summary_clinical?: string | null
           ai_summary_patient?: string | null
           base_price_snapshot?: number | null
@@ -7181,6 +7184,7 @@ export type Database = {
           advance_payment_notification_error: string | null
           advance_payment_notification_failed_at: string | null
           advance_payment_notification_sent_at: string | null
+          advance_payment_send_at: string | null
           ai_summary_clinical: string | null
           ai_summary_patient: string | null
           base_price_snapshot: number | null

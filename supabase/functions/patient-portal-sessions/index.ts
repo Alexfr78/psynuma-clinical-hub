@@ -498,6 +498,7 @@ serve(async (req) => {
           payment_mode: paymentRules.paymentMode,
           payment_status: paymentRules.paymentStatus,
           advance_payment_limit_hours: paymentRules.advancePaymentLimitHours,
+          advance_payment_send_at: paymentRules.advancePaymentSendAt,
           advance_payment_due_at: paymentRules.advancePaymentDueAt,
           ...cancellationPolicyState,
           notes: "Cita solicitada desde el portal de pacientes",
@@ -602,7 +603,10 @@ serve(async (req) => {
           sessionType: sessionType.name,
           sessionModality,
           locationName: location.name,
-          includeAdvancePaymentBlock: status !== "pending_approval" && !bonoResult.applied,
+          includeAdvancePaymentBlock:
+            status !== "pending_approval"
+            && !bonoResult.applied
+            && paymentRules.paymentMode !== "scheduled_before",
           extraMessage: bonoMessage,
         });
 

@@ -26,6 +26,7 @@ export interface ResolvedPaymentRules {
   paymentStatus: 'pending' | 'paid';
   requiresAdvancePayment: boolean;
   advancePaymentLimitHours: number | null;
+  advancePaymentSendAt: string | null;
   advancePaymentDueAt: string | null;
 }
 
@@ -57,7 +58,34 @@ function buildSessionDateTime(sessionDate?: string | Date | null, startTime?: st
       ].join('-')
     : sessionDate;
 
-  const dateTime = new Date(`${datePart}T${startTime}`);
+  const [year, month, day] = datePart.split('-').map(Number);
+  const [hour, minute, second = 0] = startTime.split(':').map(Number);
+  if (![year, month, day, hour, minute, second].every(Number.isFinite)) return null;
+
+  // Sessions are entered in the center's Spanish local time. Convert that
+  // wall-clock value explicitly so Edge Functions behave the same in UTC and
+  // during daylight-saving time.
+  const utcGuess = Date.UTC(year, month - 1, day, hour, minute, second);
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Madrid',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(new Date(utcGuess));
+  const value = (type: Intl.DateTimeFormatPartTypes) => Number(parts.find((part) => part.type === type)?.value);
+  const madridAtGuessAsUtc = Date.UTC(
+    value('year'),
+    value('month') - 1,
+    value('day'),
+    value('hour'),
+    value('minute'),
+    value('second'),
+  );
+  const dateTime = new Date(utcGuess - (madridAtGuessAsUtc - utcGuess));
   return Number.isNaN(dateTime.getTime()) ? null : dateTime;
 }
 
@@ -79,6 +107,15 @@ export function resolvePaymentRules(input: ResolvePaymentRulesInput): ResolvedPa
     : null;
 
   const sessionDateTime = buildSessionDateTime(input.sessionDate, input.startTime);
+  const scheduledHoursBefore = Math.max(
+    input.centerDefaultScheduledHoursBefore ?? 24,
+    (advancePaymentLimitHours ?? 0) + 1,
+  );
+  const advancePaymentSendAt = requiresAdvancePayment
+    && paymentMode === 'scheduled_before'
+    && sessionDateTime
+      ? new Date(sessionDateTime.getTime() - scheduledHoursBefore * 60 * 60 * 1000).toISOString()
+      : null;
   const advancePaymentDueAt = requiresAdvancePayment && sessionDateTime && advancePaymentLimitHours !== null
     ? new Date(sessionDateTime.getTime() - advancePaymentLimitHours * 60 * 60 * 1000).toISOString()
     : null;
@@ -89,6 +126,7 @@ export function resolvePaymentRules(input: ResolvePaymentRulesInput): ResolvedPa
     paymentStatus,
     requiresAdvancePayment,
     advancePaymentLimitHours,
+    advancePaymentSendAt,
     advancePaymentDueAt,
   };
 }

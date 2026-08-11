@@ -65,11 +65,20 @@ export function PaymentSettingsSection() {
       setReminderIntervalHours(center.payment_reminder_interval_hours || 48);
       setPublicDomain(center.public_domain || '');
       setBizumPhone(center.bizum_phone || '');
-      setBankTransferInfo((center as any).bank_transfer_info || '');
+      setBankTransferInfo(center.bank_transfer_info || '');
     }
   }, [center]);
 
   const handleSave = async () => {
+    if (paymentMode === 'scheduled_before' && scheduledHoursBefore <= advancePaymentLimitHours) {
+      toast({
+        title: 'Revisa los plazos',
+        description: 'El enlace de pago debe enviarse antes de que venza el límite para pagar.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setIsSaving(true);
     try {
       await updateCenter.mutateAsync({
@@ -85,7 +94,7 @@ export function PaymentSettingsSection() {
         public_domain: publicDomain || null,
         bizum_phone: bizumPhone || null,
         bank_transfer_info: bankTransferInfo || null,
-      } as any);
+      });
       toast({
         title: 'Configuración guardada',
         description: 'Los ajustes de pago se han actualizado correctamente.',
@@ -180,7 +189,8 @@ export function PaymentSettingsSection() {
             Modo de Pago Predeterminado
           </CardTitle>
           <CardDescription>
-            Define cómo se gestiona el pago por defecto en las nuevas sesiones
+            Configuración principal para las nuevas reservas públicas, del portal y creadas por el centro.
+            Solo se sustituye cuando un contacto o una sesión tienen una regla específica.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -220,6 +230,11 @@ export function PaymentSettingsSection() {
                 />
                 <span className="text-sm text-muted-foreground">horas</span>
               </div>
+              {scheduledHoursBefore <= advancePaymentLimitHours && (
+                <p className="text-sm text-destructive">
+                  El enlace debe enviarse antes del límite de pago. Usa un valor superior a {advancePaymentLimitHours} horas.
+                </p>
+              )}
             </div>
           )}
 
@@ -366,7 +381,10 @@ export function PaymentSettingsSection() {
           <Separator />
 
           <div className="flex justify-end">
-            <Button onClick={handleSave} disabled={isSaving}>
+            <Button
+              onClick={handleSave}
+              disabled={isSaving || (paymentMode === 'scheduled_before' && scheduledHoursBefore <= advancePaymentLimitHours)}
+            >
               {isSaving ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (

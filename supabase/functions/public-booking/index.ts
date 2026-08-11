@@ -141,8 +141,6 @@ async function recordPublicCancellationAcceptance(supabase: any, args: {
   }
 
   const acceptedAt = new Date();
-  const expiresAt = new Date(acceptedAt);
-  expiresAt.setDate(expiresAt.getDate() + 7);
   const { data: consent, error: consentError } = await supabase
     .from('consents')
     .insert({
@@ -154,7 +152,7 @@ async function recordPublicCancellationAcceptance(supabase: any, args: {
       cancellation_policy_version_id: args.policy.id,
       status: 'signed',
       signed_at: acceptedAt.toISOString(),
-      expires_at: expiresAt.toISOString(),
+      expires_at: null,
       source: 'public_booking_checkbox',
       requires_guardian: false,
       verification_responses: {
@@ -1585,6 +1583,7 @@ serve(async (req) => {
           payment_mode: paymentRules.paymentMode,
           payment_status: paymentRules.paymentStatus,
           advance_payment_limit_hours: paymentRules.advancePaymentLimitHours,
+          advance_payment_send_at: paymentRules.advancePaymentSendAt,
           advance_payment_due_at: paymentRules.advancePaymentDueAt,
           ...cancellationPolicyState,
           notes: sessionNotes,
@@ -1722,7 +1721,10 @@ serve(async (req) => {
           sessionModality,
           locationName,
           manageUrl,
-          includeAdvancePaymentBlock: status !== "pending_approval" && !bonoResult.applied,
+          includeAdvancePaymentBlock:
+            status !== "pending_approval"
+            && !bonoResult.applied
+            && paymentRules.paymentMode !== "scheduled_before",
           extraMessage: bonoMessage,
         });
 

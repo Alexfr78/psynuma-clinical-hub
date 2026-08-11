@@ -963,6 +963,18 @@ async function reconcilePendingSessionCheckouts(
     const checkoutSessionId = pending.stripe_checkout_session_id;
     const reconciliationEventId = `reconcile:${checkoutSessionId}`;
 
+    const keyIsTest = secretKey.startsWith('sk_test_');
+    const checkoutIsTest = checkoutSessionId.startsWith('cs_test_');
+    if (keyIsTest !== checkoutIsTest) {
+      console.log('Stripe reconciliation skipped: Checkout mode does not match configured key', {
+        session_id: pending.id,
+        checkout_session_id: checkoutSessionId,
+        configured_mode: keyIsTest ? 'test' : 'live',
+      });
+      result.skipped += 1;
+      continue;
+    }
+
     try {
       const { data: connection, error: connectionError } = await supabase
         .from('oauth_connections')

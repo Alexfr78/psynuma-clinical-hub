@@ -23,6 +23,8 @@ interface SessionPaymentData {
   access_token?: string | null;
   price: number | string | null;
   payment_status: string | null;
+  payment_mode: string | null;
+  advance_payment_send_at: string | null;
   advance_payment_due_at: string | null;
 }
 
@@ -196,12 +198,20 @@ export async function buildAdvancePaymentBlock(
 
   const { data: sessionRow } = await supabase
     .from("sessions")
-    .select("id, center_id, patient_id, professional_id, session_date, session_type, access_token, price, payment_status, advance_payment_due_at")
+    .select("id, center_id, patient_id, professional_id, session_date, session_type, access_token, price, payment_status, payment_mode, advance_payment_send_at, advance_payment_due_at")
     .eq("id", sessionId)
     .single();
   const session = sessionRow as SessionPaymentData | null;
 
   if (!session || !isAdvancePaymentPending(session)) {
+    return { block: "", hasPaymentInstructions: false, stripeError: null };
+  }
+
+  if (
+    session.payment_mode === "scheduled_before"
+    && session.advance_payment_send_at
+    && new Date(session.advance_payment_send_at).getTime() > Date.now()
+  ) {
     return { block: "", hasPaymentInstructions: false, stripeError: null };
   }
 

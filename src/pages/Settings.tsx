@@ -429,7 +429,7 @@ export default function Settings() {
       case 'integraciones-google':
         return <GoogleIntegrationSection />;
       case 'integraciones-stripe':
-        return <StripeIntegrationSection />;
+        return <StripeIntegrationSection onOpenPaymentSettings={() => setActiveSection('pagos-config')} />;
       case 'integraciones-ia':
         return <AISettingsSection />;
       case 'seguridad':

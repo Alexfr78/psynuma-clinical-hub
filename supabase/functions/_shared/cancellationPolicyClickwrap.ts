@@ -125,8 +125,6 @@ export async function recordPortalCancellationPolicyClickwrap(
   }
 
   const acceptedAt = new Date();
-  const expiresAt = new Date(acceptedAt);
-  expiresAt.setDate(expiresAt.getDate() + 7);
   const { data: consent, error: consentError } = await supabase
     .from('consents')
     .insert({
@@ -138,7 +136,7 @@ export async function recordPortalCancellationPolicyClickwrap(
       cancellation_policy_version_id: args.policy.id,
       status: 'signed',
       signed_at: acceptedAt.toISOString(),
-      expires_at: expiresAt.toISOString(),
+      expires_at: null,
       source: 'portal_booking_checkbox',
       requires_guardian: false,
       verification_responses: {

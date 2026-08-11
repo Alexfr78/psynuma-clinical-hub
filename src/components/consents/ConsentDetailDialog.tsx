@@ -142,7 +142,11 @@ export function ConsentDetailDialog({
   const { logView } = useAuditLog();
   const hasLogged = useRef(false);
   const status = statusConfig[consent.status] || statusConfig.pending;
-  const isExpired = new Date(consent.expires_at) < new Date() && consent.status === 'pending';
+  const isExpired = Boolean(
+    consent.expires_at
+      && new Date(consent.expires_at) < new Date()
+      && consent.status === 'pending',
+  );
   const [generatingPdf, setGeneratingPdf] = useState(false);
 
   useEffect(() => {
@@ -236,14 +240,16 @@ export function ConsentDetailDialog({
                 })}
               </p>
             </div>
-            <div>
-              <p className="font-medium text-muted-foreground">Expira</p>
-              <p>
-                {format(new Date(consent.expires_at), "d 'de' MMMM 'de' yyyy", {
-                  locale: es,
-                })}
-              </p>
-            </div>
+            {consent.status === 'pending' && consent.expires_at && (
+              <div>
+                <p className="font-medium text-muted-foreground">Plazo para firmar</p>
+                <p>
+                  {format(new Date(consent.expires_at), "d 'de' MMMM 'de' yyyy", {
+                    locale: es,
+                  })}
+                </p>
+              </div>
+            )}
             {consent.signed_at && (
               <div>
                 <p className="font-medium text-muted-foreground">Firmado</p>

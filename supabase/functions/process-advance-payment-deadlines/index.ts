@@ -22,6 +22,7 @@ interface OverdueSession {
   session_modality: string | null;
   location_id: string | null;
   payment_status: string | null;
+  advance_payment_send_at: string | null;
   advance_payment_due_at: string | null;
   advance_payment_notification_sent_at: string | null;
   advance_payment_notification_failed_at: string | null;
@@ -188,6 +189,49 @@ serve(async (req) => {
   try {
     const nowIso = new Date().toISOString();
 
+    const { data: scheduledPayments, error: scheduledPaymentsError } = await supabase
+      .from("sessions")
+      .select("id, center_id, patient_id, session_date, start_time, session_type, session_modality")
+      .eq("status", "scheduled")
+      .eq("payment_mode", "scheduled_before")
+      .in("payment_status", ["pending", "reminder_sent"])
+      .not("advance_payment_send_at", "is", null)
+      .lte("advance_payment_send_at", nowIso)
+      .is("advance_payment_notification_sent_at", null);
+
+    if (scheduledPaymentsError) throw scheduledPaymentsError;
+
+    let scheduledPaymentLinksSent = 0;
+    let scheduledPaymentLinkFailures = 0;
+
+    for (const scheduled of scheduledPayments || []) {
+      const sent = await queueAndSendPatientBookingNotification({
+        supabase,
+        centerId: scheduled.center_id,
+        patientId: scheduled.patient_id,
+        sessionId: scheduled.id,
+        eventType: "created",
+        sessionDate: scheduled.session_date,
+        startTime: scheduled.start_time,
+        sessionType: scheduled.session_type || undefined,
+        sessionModality: scheduled.session_modality || undefined,
+        includeAdvancePaymentBlock: true,
+        extraMessage: "Ya puedes completar el pago de esta cita con el enlace que encontrarás a continuación.",
+      });
+
+      const { data: notificationState } = await supabase
+        .from("sessions")
+        .select("advance_payment_notification_sent_at")
+        .eq("id", scheduled.id)
+        .maybeSingle();
+
+      if (sent && notificationState?.advance_payment_notification_sent_at) {
+        scheduledPaymentLinksSent++;
+      } else {
+        scheduledPaymentLinkFailures++;
+      }
+    }
+
     const { data: sessions, error } = await supabase
       .from("sessions")
       .select(`
@@ -201,6 +245,7 @@ serve(async (req) => {
         session_modality,
         location_id,
         payment_status,
+        advance_payment_send_at,
         advance_payment_due_at,
         advance_payment_notification_sent_at,
         advance_payment_notification_failed_at,
@@ -308,14 +353,40 @@ serve(async (req) => {
       therapistAlerts++;
     }
 
+    let reconciliation: Record<string, unknown> | null = null;
+    try {
+      const reconcileResponse = await fetch(
+        `${Deno.env.get("SUPABASE_URL")}/functions/v1/stripe-webhook`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-cron-secret": expectedSecret,
+          },
+          body: JSON.stringify({ action: "reconcile_pending", limit: 100 }),
+        },
+      );
+      reconciliation = await reconcileResponse.json();
+      if (!reconcileResponse.ok) {
+        console.error("[advance-payment] Stripe reconciliation failed:", reconciliation);
+      }
+    } catch (reconciliationError) {
+      console.error("[advance-payment] Stripe reconciliation exception:", reconciliationError);
+      reconciliation = { success: false, error: "Stripe reconciliation request failed" };
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
+        scheduled_payment_links_checked: scheduledPayments?.length || 0,
+        scheduled_payment_links_sent: scheduledPaymentLinksSent,
+        scheduled_payment_link_failures: scheduledPaymentLinkFailures,
         checked: sessions?.length || 0,
         marked_overdue: markedOverdue,
         cancelled,
         therapist_alerts: therapistAlerts,
         skipped_without_patient_notice: skippedWithoutPatientNotice,
+        stripe_reconciliation: reconciliation,
         timestamp: nowIso,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
