@@ -1606,6 +1606,38 @@ serve(async (req) => {
               });
             }
           }
+
+          if (
+            !paymentRefund.fullyRefunded
+            && metadata.payment_type === 'bono_purchase'
+            && refundedDebt?.bono_id
+          ) {
+            // Partial refund of a bono: per product decision we do not alter the
+            // bono's available sessions automatically; we register a visible
+            // notice so the professional reviews it manually.
+            const { data: bono, error: bonoLookupError } = await supabase
+              .from('bonos')
+              .select('id, name')
+              .eq('id', refundedDebt.bono_id)
+              .maybeSingle();
+            if (bonoLookupError) throw bonoLookupError;
+            if (bono) {
+              const professionalId = await resolveProfessionalIdForConnectedAccount(supabase, event.account || null);
+              await logStripeIntegrationError(supabase, {
+                professionalId,
+                step: 'bono_partial_refund_review',
+                errorCode: 'bono_partial_refund_needs_review',
+                message: `Bono "${bono.name}" con reembolso parcial de ${paymentRefund.refundDelta.toFixed(2)} €: revisa manualmente las sesiones disponibles.`,
+                raw: {
+                  bono_id: bono.id,
+                  refund_delta: paymentRefund.refundDelta,
+                  refunded_amount: paymentRefund.refundedAmount,
+                  charge_id: charge.id,
+                  debt_id: debtId,
+                },
+              });
+            }
+          }
         }
         break;
       }

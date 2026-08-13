@@ -19,6 +19,10 @@ const CODE_META: Record<string, { label: string; icon: React.ReactNode }> = {
     label: 'Bono reembolsado a revisar',
     icon: <AlertTriangle className="h-4 w-4 text-amber-600" />,
   },
+  bono_partial_refund_needs_review: {
+    label: 'Bono con reembolso parcial a revisar',
+    icon: <AlertTriangle className="h-4 w-4 text-amber-600" />,
+  },
 };
 
 function metaFor(entry: StripeDiagnosticEntry) {
