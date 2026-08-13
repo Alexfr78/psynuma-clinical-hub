@@ -5,18 +5,12 @@ import { Calendar, AlertTriangle, User } from 'lucide-react';
 import { format, differenceInDays, isPast } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { BonoWithPatient } from '@/hooks/useBonos';
+import { getBonoStatusDisplay } from '@/lib/payment-status';
 
 interface BonoCardProps {
   bono: BonoWithPatient;
   onClick?: () => void;
 }
-
-const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
-  active: { label: 'Activo', variant: 'default' },
-  exhausted: { label: 'Agotado', variant: 'secondary' },
-  expired: { label: 'Expirado', variant: 'destructive' },
-  cancelled: { label: 'Cancelado', variant: 'outline' },
-};
 
 export function BonoCard({ bono, onClick }: BonoCardProps) {
   const usedSessions = bono.used_sessions || 0;
@@ -29,7 +23,7 @@ export function BonoCard({ bono, onClick }: BonoCardProps) {
 
   const isExpired = bono.expires_at && isPast(new Date(bono.expires_at));
   
-  const status = statusConfig[bono.status || 'active'] || statusConfig.active;
+  const status = getBonoStatusDisplay(bono.status);
 
   return (
     <Card 

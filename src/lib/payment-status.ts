@@ -23,3 +23,20 @@ export const DEBT_STATUS_DISPLAY: Record<SettlementStatus, SettlementStatusDispl
 export function getDebtStatusDisplay(status: string | null | undefined): SettlementStatusDisplay {
   return DEBT_STATUS_DISPLAY[status as SettlementStatus] ?? DEBT_STATUS_DISPLAY.pending;
 }
+
+// --- Bono lifecycle status (distinct from settlement) ---
+// Shared by BonoCard and BonoDetailDialog, which previously each kept their own
+// identical copy of this map.
+
+export type BonoStatus = 'active' | 'exhausted' | 'expired' | 'cancelled';
+
+export const BONO_STATUS_DISPLAY: Record<BonoStatus, SettlementStatusDisplay> = {
+  active: { label: 'Activo', variant: 'default' },
+  exhausted: { label: 'Agotado', variant: 'secondary' },
+  expired: { label: 'Expirado', variant: 'destructive' },
+  cancelled: { label: 'Cancelado', variant: 'outline' },
+};
+
+export function getBonoStatusDisplay(status: string | null | undefined): SettlementStatusDisplay {
+  return BONO_STATUS_DISPLAY[status as BonoStatus] ?? BONO_STATUS_DISPLAY.active;
+}

@@ -11,6 +11,7 @@ import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import { getBonoStatusDisplay } from '@/lib/payment-status';
 import {
   Calendar,
   User,
@@ -31,13 +32,6 @@ interface BonoDetailDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
-  active: { label: 'Activo', variant: 'default' },
-  exhausted: { label: 'Agotado', variant: 'secondary' },
-  expired: { label: 'Expirado', variant: 'destructive' },
-  cancelled: { label: 'Cancelado', variant: 'outline' },
-};
-
 const sessionStatusConfig: Record<string, { label: string; className: string }> = {
   scheduled: { label: 'Programada', className: 'text-blue-600 dark:text-blue-400' },
   confirmed: { label: 'Confirmada', className: 'text-emerald-600 dark:text-emerald-400' },
@@ -55,7 +49,7 @@ export function BonoDetailDialog({ bono, open, onOpenChange }: BonoDetailDialogP
   const usedSessions = bono.used_sessions || 0;
   const availableSessions = bono.total_sessions - usedSessions;
   const progress = (usedSessions / bono.total_sessions) * 100;
-  const status = statusConfig[bono.status || 'active'] || statusConfig.active;
+  const status = getBonoStatusDisplay(bono.status);
 
   const isExpired = bono.expires_at && isPast(new Date(bono.expires_at));
   const daysUntilExpiry = bono.expires_at 
