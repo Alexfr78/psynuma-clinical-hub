@@ -110,6 +110,14 @@ serve(async (req) => {
       );
     }
 
+    if (!session.professional_id) {
+      console.error('Stripe checkout rejected: session has no professional assigned', { session_id });
+      return new Response(
+        JSON.stringify({ error: 'No hay profesional asignado para recibir el pago' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const patient = Array.isArray(session.patient) ? session.patient[0] : session.patient;
 
     // Get professional's Stripe account
