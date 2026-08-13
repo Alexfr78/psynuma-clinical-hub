@@ -369,13 +369,31 @@ export default function Invoices() {
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        let message = error.message;
+        const context = 'context' in error ? error.context : null;
+
+        if (context instanceof Response) {
+          try {
+            const payload = await context.clone().json() as {
+              error?: string;
+              details?: string;
+              message?: string;
+            };
+            message = payload.error || payload.details || payload.message || message;
+          } catch {
+            // Keep the SDK error when the Edge Function did not return JSON.
+          }
+        }
+
+        throw new Error(message);
+      }
 
       toast.success(`Factura ${data.invoice_number} anulada correctamente en AEAT`);
       refetch();
     } catch (error) {
       console.error('Error cancelling in Verifactu:', error);
-      toast.error('Error al anular en AEAT');
+      toast.error(error instanceof Error ? error.message : 'Error al anular en AEAT');
     } finally {
       setCancelDialogOpen(false);
       setInvoiceToCancel(null);

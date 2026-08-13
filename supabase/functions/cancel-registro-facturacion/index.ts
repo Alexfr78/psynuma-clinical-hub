@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { authorizeFiscalInvoiceRequest } from "../_shared/fiscalAuth.ts";
+import { buildVerifactuCancellationInvoiceIdXml } from "../_shared/verifactuCancellation.ts";
 
 // Dynamic import of node-forge with bundle for Deno compatibility
 const forgeModule = await import("https://esm.sh/node-forge@1.3.1?bundle");
@@ -166,6 +167,11 @@ function buildRegistroBajaXML(
   const softwareVersion = center.verifactu_software_version || '1.0.0';
   const softwareNif = center.verifactu_software_nif || nifEmisor;
   const numeroInstalacion = String(center.verifactu_numero_instalacion || 1);
+  const cancelledInvoiceIdXML = buildVerifactuCancellationInvoiceIdXml({
+    issuerTaxId: nifEmisor,
+    invoiceNumber: escapeXML(invoice.invoice_number),
+    issueDate: fechaExpedicion,
+  });
 
   // Build encadenamiento (chaining) for cancellation - Art. 11.2.c RRSIF
   let encadenamientoXML = '';
@@ -198,11 +204,7 @@ function buildRegistroBajaXML(
       <sum:RegistroFactura>
         <sum1:RegistroAnulacion>
           <sum1:IDVersion>1.0</sum1:IDVersion>
-          <sum1:IDFactura>
-            <sum1:IDEmisorFactura>${nifEmisor}</sum1:IDEmisorFactura>
-            <sum1:NumSerieFactura>${escapeXML(invoice.invoice_number)}</sum1:NumSerieFactura>
-            <sum1:FechaExpedicionFactura>${fechaExpedicion}</sum1:FechaExpedicionFactura>
-          </sum1:IDFactura>${encadenamientoXML}
+          ${cancelledInvoiceIdXML}${encadenamientoXML}
           <sum1:SistemaInformatico>
             <sum1:NombreRazon>${escapeXML(softwareName)}</sum1:NombreRazon>
             <sum1:NIF>${softwareNif}</sum1:NIF>
@@ -410,7 +412,6 @@ async function sendToAEAT(
         'SOAPAction': SOAP_ACTION_BAJA
       },
       body: signedXml,
-      // @ts-expect-error - Deno specific option for mTLS
       client: client
     });
 
