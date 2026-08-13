@@ -17,7 +17,7 @@ export default function PayDebt() {
   const showBonoOption = searchParams.get('bono') === '1';
   
   const { data: debt, isLoading, error } = usePublicDebt(token);
-  const { data: bonoTemplates = [] } = usePublicBonoTemplates(debt?.center_id);
+  const { data: bonoTemplates = [] } = usePublicBonoTemplates(token);
   
   const [selectedBono, setSelectedBono] = useState<string | null>(null);
   const [processingPayment, setProcessingPayment] = useState<'session' | 'bono' | null>(null);

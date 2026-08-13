@@ -7,7 +7,6 @@ interface PublicDebt {
   paid_amount: number | null;
   status: string;
   created_at: string;
-  access_token: string;
   center_id: string;
   patient: {
     first_name: string;
@@ -40,84 +39,39 @@ export function usePublicDebt(token: string | undefined) {
     queryFn: async (): Promise<PublicDebt | null> => {
       if (!token) return null;
 
-      // Fetch debt by access_token
+      // Resolve a minimal token-scoped projection. Anonymous table reads stay
+      // blocked because debts and patients contain sensitive information.
       const { data: debt, error: debtError } = await supabase
-        .from('debts')
-        .select(`
-          id,
-          amount,
-          paid_amount,
-          status,
-          created_at,
-          access_token,
-          center_id,
-          patient_id,
-          session_id
-        `)
-        .eq('access_token', token)
-        .single();
+        .rpc('get_public_debt_by_token', { p_token: token });
 
       if (debtError || !debt) {
         console.error('Error fetching debt:', debtError);
         return null;
       }
 
-      // Fetch patient
-      const { data: patient } = await supabase
-        .from('patients')
-        .select('first_name, last_name')
-        .eq('id', debt.patient_id)
-        .single();
-
-      // Fetch session if exists
-      let session = null;
-      if (debt.session_id) {
-        const { data: sessionData } = await supabase
-          .from('sessions')
-          .select('id, session_date, session_type')
-          .eq('id', debt.session_id)
-          .single();
-        session = sessionData;
-      }
-
-      // Fetch center via safe RPC (no credentials exposed)
-      const { data: centerData } = await supabase
-        .rpc('get_center_for_debt', { p_center_id: debt.center_id });
-      const center = centerData as unknown as { id: string; name: string; bizum_phone: string | null; has_stripe: boolean } | null;
-
-      return {
-        ...debt,
-        patient: patient || { first_name: '', last_name: '' },
-        session,
-        center: center || { id: '', name: '', bizum_phone: null, has_stripe: false },
-      };
+      return debt as unknown as PublicDebt;
     },
     enabled: !!token,
     staleTime: 1000 * 60 * 5,
   });
 }
 
-export function usePublicBonoTemplates(centerId: string | undefined) {
+export function usePublicBonoTemplates(token: string | undefined) {
   return useQuery({
-    queryKey: ['public-bono-templates', centerId],
+    queryKey: ['public-bono-templates', token],
     queryFn: async (): Promise<BonoTemplate[]> => {
-      if (!centerId) return [];
+      if (!token) return [];
 
       const { data, error } = await supabase
-        .from('bono_templates')
-        .select('id, name, total_sessions, total_price, price_per_session')
-        .eq('center_id', centerId)
-        .eq('is_active', true)
-        .eq('is_public', true)
-        .order('total_sessions');
+        .rpc('get_public_bono_templates_for_debt', { p_token: token });
 
       if (error) {
         console.error('Error fetching bono templates:', error);
         return [];
       }
 
-      return data || [];
+      return (data || []) as unknown as BonoTemplate[];
     },
-    enabled: !!centerId,
+    enabled: !!token,
   });
 }
