@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { authorizeFiscalInvoiceRequest } from "../_shared/fiscalAuth.ts";
 import {
+  buildVerifactuCancellationHashInput,
   buildVerifactuCancellationInvoiceIdXml,
   formatVerifactuTimestamp,
   sanitizeVerifactuSystemName,
@@ -133,10 +134,13 @@ async function calculateCancellationHash(invoice: any, center: any, previousHash
   const nifEmisor = normalizeNifForAEAT(center.tax_id);
   const numSerie = invoice.invoice_number || '';
   const fechaExpedicion = formatDateVerifactu(invoice.issue_date);
-  const huellaAnterior = previousHash || '';
-  
-  // Hash for cancellation: NIF + NumSerie + FechaExpedicion + HuellaAnterior + Timestamp
-  const dataToHash = nifEmisor + numSerie + fechaExpedicion + huellaAnterior + timestamp;
+  const dataToHash = buildVerifactuCancellationHashInput({
+    issuerTaxId: nifEmisor,
+    invoiceNumber: numSerie,
+    issueDate: fechaExpedicion,
+    previousHash,
+    generationTimestamp: timestamp,
+  });
   
   console.log("Cancellation hash input data:", dataToHash);
   return await generateSHA256(dataToHash);

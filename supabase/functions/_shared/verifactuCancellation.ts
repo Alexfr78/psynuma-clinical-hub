@@ -4,6 +4,25 @@ export type VerifactuCancellationInvoiceIdInput = {
   issueDate: string;
 };
 
+export type VerifactuCancellationHashInput = VerifactuCancellationInvoiceIdInput & {
+  previousHash: string | null;
+  generationTimestamp: string;
+};
+
+export function buildVerifactuCancellationHashInput({
+  issuerTaxId,
+  invoiceNumber,
+  issueDate,
+  previousHash,
+  generationTimestamp,
+}: VerifactuCancellationHashInput): string {
+  return `IDEmisorFacturaAnulada=${issuerTaxId.trim()}`
+    + `&NumSerieFacturaAnulada=${invoiceNumber.trim()}`
+    + `&FechaExpedicionFacturaAnulada=${issueDate.trim()}`
+    + `&Huella=${(previousHash ?? '').trim()}`
+    + `&FechaHoraHusoGenRegistro=${generationTimestamp.trim()}`;
+}
+
 export function sanitizeVerifactuSystemName(input: unknown): string {
   let value = (input ?? '').toString();
   value = value.replace(/[\r\n\t]+/g, ' ').trim();
