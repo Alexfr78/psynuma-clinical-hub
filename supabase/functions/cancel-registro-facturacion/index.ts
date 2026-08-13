@@ -570,6 +570,53 @@ serve(async (req) => {
       );
     }
 
+    // An AEAT-accepted cancellation is canonical. Reconcile local state without
+    // ever submitting the same cancellation to AEAT again.
+    const { data: existingCancellation, error: existingCancellationError } = await supabase
+      .from("verifactu_records")
+      .select("aeat_csv, environment, created_at")
+      .eq("invoice_id", invoice_id)
+      .eq("record_type", "anulacion")
+      .eq("aeat_status", "accepted")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (existingCancellationError) {
+      throw new Error(`No se pudo comprobar si la factura ya estaba anulada: ${existingCancellationError.message}`);
+    }
+
+    if (existingCancellation) {
+      if (invoice.status !== 'cancelled') {
+        const { error: reconciliationError } = await supabase
+          .from("invoices")
+          .update({
+            status: 'cancelled',
+            cancellation_date: existingCancellation.created_at.slice(0, 10),
+            cancellation_reason: typeof cancellation_reason === 'string'
+              ? cancellation_reason.trim().slice(0, 500) || null
+              : null,
+          })
+          .eq("id", invoice_id);
+
+        if (reconciliationError) {
+          throw new Error(`La anulaciÃ³n estÃ¡ aceptada por AEAT, pero no se pudo reconciliar la factura local: ${reconciliationError.message}`);
+        }
+      }
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          already_cancelled: true,
+          invoice_number: invoice.invoice_number,
+          csv: existingCancellation.aeat_csv,
+          environment: existingCancellation.environment,
+          message: "La factura ya estaba anulada en AEAT y su estado local estÃ¡ reconciliado",
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const center = invoice.centers;
     const environment = center?.verifactu_environment || 'test';
 
@@ -748,22 +795,6 @@ serve(async (req) => {
       );
     }
 
-    // Update invoice status to cancelled
-    const { error: updateError } = await supabase
-      .from("invoices")
-      .update({
-        status: 'cancelled',
-        cancellation_date: new Date().toISOString().slice(0, 10),
-        cancellation_reason: typeof cancellation_reason === 'string'
-          ? cancellation_reason.trim().slice(0, 500) || null
-          : null,
-      })
-      .eq("id", invoice_id);
-
-    if (updateError) {
-      console.error("Error updating invoice status:", updateError);
-    }
-
     const { data: verifactuRecord, error: recordInsertError } = await supabase
       .from("verifactu_records")
       .insert({
@@ -854,6 +885,46 @@ serve(async (req) => {
         JSON.stringify({
           error: chainError,
           chain_update_failed: true,
+          invoice_number: invoice.invoice_number,
+          csv,
+          environment
+        }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const { error: updateError } = await supabase
+      .from("invoices")
+      .update({
+        status: 'cancelled',
+        cancellation_date: new Date().toISOString().slice(0, 10),
+        cancellation_reason: typeof cancellation_reason === 'string'
+          ? cancellation_reason.trim().slice(0, 500) || null
+          : null,
+      })
+      .eq("id", invoice_id);
+
+    if (updateError) {
+      const reconciliationError = `AnulaciÃ³n registrada en AEAT, pero no se pudo actualizar el estado local: ${updateError.message}`;
+      console.error("[VERIFACTU:INVOICE]", reconciliationError);
+
+      await logVerifactuEvent(supabase, {
+        invoice_id,
+        center_id: invoice.center_id,
+        event_type: 'error',
+        aeat_csv: csv,
+        aeat_response_message: reconciliationError,
+        aeat_response_xml: aeatResult.response,
+        xml_sent: signedXml,
+        environment,
+        http_status: aeatResult.httpStatus,
+        error_details: reconciliationError
+      });
+
+      return new Response(
+        JSON.stringify({
+          error: reconciliationError,
+          local_reconciliation_failed: true,
           invoice_number: invoice.invoice_number,
           csv,
           environment
