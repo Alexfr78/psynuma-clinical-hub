@@ -19,6 +19,11 @@ const stripeSecretKey = Deno.env.get('STRIPE_SECRET_KEY');
 const webhookSecret = Deno.env.get('STRIPE_WEBHOOK_SECRET');
 const connectWebhookSecret = Deno.env.get('STRIPE_CONNECT_WEBHOOK_SECRET');
 
+// After this many failed processing attempts, surface a visible notice in
+// Settings → External connections so persistent webhook failures don't stay
+// hidden in logs.
+const WEBHOOK_FAILURE_ALERT_THRESHOLD = 3;
+
 interface Center {
   id: string;
   invoice_on_payment_mode: string | null;
@@ -37,14 +42,6 @@ interface InvoiceSeries {
   series_type: string;
   is_default: boolean;
   is_archived: boolean;
-}
-
-interface WebhookEventClient {
-  from(table: string): {
-    update(values: Record<string, unknown>): {
-      eq(column: string, value: string): PromiseLike<unknown>;
-    };
-  };
 }
 
 interface UntrustedStripeEventReference {
@@ -1267,7 +1264,7 @@ serve(async (req) => {
   }
 
   let claimedEventId: string | null = null;
-  let serviceClient: WebhookEventClient | null = null;
+  let serviceClient: SupabaseClient | null = null;
 
   try {
     const body = await req.text();
@@ -1401,7 +1398,7 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
-    serviceClient = supabase as unknown as WebhookEventClient;
+    serviceClient = supabase;
 
     const { data: claimed, error: claimError } = await supabase.rpc('claim_stripe_webhook_event', {
       p_event_id: event.id,
@@ -1634,14 +1631,33 @@ serve(async (req) => {
   } catch (error) {
     console.error('Webhook error:', error);
     if (serviceClient && claimedEventId) {
-      await serviceClient
+      const message = error instanceof Error ? error.message : String(error);
+      const { data: failedEvent } = await serviceClient
         .from('stripe_webhook_events')
         .update({
           status: 'failed',
-          last_error: error instanceof Error ? error.message : String(error),
+          last_error: message,
           updated_at: new Date().toISOString(),
         })
-        .eq('event_id', claimedEventId);
+        .eq('event_id', claimedEventId)
+        .select('attempts, connected_account_id')
+        .maybeSingle();
+
+      // Escalate to a visible notice once failures persist across Stripe retries.
+      const attempts = Number(failedEvent?.attempts ?? 0);
+      if (attempts >= WEBHOOK_FAILURE_ALERT_THRESHOLD) {
+        const professionalId = await resolveProfessionalIdForConnectedAccount(
+          serviceClient,
+          failedEvent?.connected_account_id ?? null,
+        );
+        await logStripeIntegrationError(serviceClient, {
+          professionalId,
+          step: 'webhook_processing',
+          errorCode: 'webhook_repeated_failure',
+          message: `El webhook ${claimedEventId} ha fallado ${attempts} veces: ${message}`,
+          raw: { event_id: claimedEventId, attempts },
+        });
+      }
     }
     return new Response(
       JSON.stringify({ error: "Error interno del servidor" }),
