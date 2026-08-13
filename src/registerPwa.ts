@@ -8,7 +8,7 @@ let hasControllerChanged = false;
  *  - Lovable preview / sandbox hosts
  *  - Inside an iframe (e.g. embedded public booking widget)
  *  - Public embed routes (?embed=1 or /reservas|/book)
- *  - Public invoice links, which must always load current fiscal data
+ *  - Public invoice and payment links, which must always load current data
  */
 function shouldSkipServiceWorker(): boolean {
   if (typeof window === "undefined") return true;
@@ -40,6 +40,7 @@ function shouldSkipServiceWorker(): boolean {
   if (search.includes("embed=1")) return true;
   if (path.startsWith("/reservas") || path.startsWith("/book")) return true;
   if (path.startsWith("/factura/")) return true;
+  if (path.startsWith("/pagar/")) return true;
 
   return false;
 }

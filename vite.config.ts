@@ -51,9 +51,9 @@ export default defineConfig(({ mode }) => ({
       workbox: {
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5MB
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
-        // Public invoice links contain fiscal data and must never be served by
-        // a stale SPA navigation fallback, especially on iOS Safari.
-        navigateFallbackDenylist: [/^\/factura\//],
+        // Public invoice and payment links must never be served by a stale SPA
+        // navigation fallback, especially on installed PWAs and iOS Safari.
+        navigateFallbackDenylist: [/^\/factura\//, /^\/pagar\//],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
