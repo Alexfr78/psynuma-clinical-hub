@@ -110,6 +110,10 @@ import { useCenter } from '@/hooks/useCenter';
 import { DEFAULT_TEMPLATES } from '@/hooks/useCommunicationTemplates';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { openWhatsAppSmart } from '@/lib/whatsapp';
+import {
+  getPaymentLinkUrlForSession,
+} from '@/lib/session-payment-link';
+import type { SessionPaymentLink } from '@/lib/session-payment-link';
 import { createStripeCheckout } from '@/hooks/useSessionIntegrations';
 import { useGoogleCalendarUpdate } from '@/hooks/useGoogleCalendarUpdate';
 import { PatientSelector } from './PatientSelector';
@@ -228,7 +232,10 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
   } | null>(null);
   const [showConvertDialog, setShowConvertDialog] = useState(false);
   const [isGeneratingPaymentLink, setIsGeneratingPaymentLink] = useState(false);
-  const [paymentLinkUrl, setPaymentLinkUrl] = useState<string | null>(null);
+  const [paymentLink, setPaymentLink] = useState<SessionPaymentLink | null>(null);
+  const paymentLinkRequestRef = useRef(0);
+  const activeSessionIdRef = useRef(session?.id);
+  const paymentLinkUrl = getPaymentLinkUrlForSession(paymentLink, session?.id);
   const [dateTimeValue, setDateTimeValue] = useState({
     date: '',
     startTime: '',
@@ -299,6 +306,13 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
       setSelectedInvoiceId(null);
     }
   }, [session?.id, session?.bono_id, session?.price, session?.session_date, session?.start_time, session?.end_time, session?.status, (session as any)?.session_modality, (session as any)?.video_call_link, open]);
+
+  useEffect(() => {
+    activeSessionIdRef.current = session?.id;
+    paymentLinkRequestRef.current += 1;
+    setPaymentLink(null);
+    setIsGeneratingPaymentLink(false);
+  }, [session?.id, open]);
 
   if (!session) return null;
 
@@ -975,12 +989,19 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
       return;
     }
 
+    const requestedSessionId = session.id;
+    const requestId = paymentLinkRequestRef.current + 1;
+    paymentLinkRequestRef.current = requestId;
     setIsGeneratingPaymentLink(true);
     try {
-      const checkoutUrl = await createStripeCheckout(session.id);
+      const checkoutUrl = await createStripeCheckout(requestedSessionId);
 
-      if (checkoutUrl) {
-        setPaymentLinkUrl(checkoutUrl);
+      const isCurrentRequest =
+        paymentLinkRequestRef.current === requestId &&
+        activeSessionIdRef.current === requestedSessionId;
+
+      if (checkoutUrl && isCurrentRequest) {
+        setPaymentLink({ sessionId: requestedSessionId, url: checkoutUrl });
         await navigator.clipboard.writeText(checkoutUrl);
         toast({ title: 'Link de pago generado y copiado al portapapeles' });
       }
@@ -991,7 +1012,9 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
         variant: 'destructive' 
       });
     } finally {
-      setIsGeneratingPaymentLink(false);
+      if (paymentLinkRequestRef.current === requestId) {
+        setIsGeneratingPaymentLink(false);
+      }
     }
   };
 
