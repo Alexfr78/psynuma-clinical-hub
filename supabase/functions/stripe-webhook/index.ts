@@ -6,6 +6,7 @@ import {
   getStripePaymentOutcome,
   shouldReprocessClaimedStripeEvent,
 } from "../_shared/stripeWebhookPolicy.ts";
+import { resolveRefundMetadata } from "../_shared/stripeRefundResolution.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -1401,7 +1402,12 @@ serve(async (req) => {
 
       case 'charge.refunded': {
         const charge = event.data.object as Stripe.Charge;
-        const metadata = charge.metadata || {};
+        const metadata = await resolveRefundMetadata({
+          chargeMetadata: charge.metadata || {},
+          paymentIntent: charge.payment_intent,
+          connectedAccountId: event.account || null,
+          stripeSecretKey,
+        });
         const sessionId = metadata.session_id;
         const debtId = metadata.debt_id;
         console.log('Refund processed for charge:', charge.id);
