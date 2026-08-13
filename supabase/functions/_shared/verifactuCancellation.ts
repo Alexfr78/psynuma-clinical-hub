@@ -18,6 +18,18 @@ export function sanitizeVerifactuSystemName(input: unknown): string {
   return value.slice(0, 30).trim();
 }
 
+export function formatVerifactuTimestamp(date: Date): string {
+  const pad = (value: number) => String(value).padStart(2, '0');
+  const timezoneOffset = -date.getTimezoneOffset();
+  const offsetSign = timezoneOffset >= 0 ? '+' : '-';
+  const offsetHours = pad(Math.floor(Math.abs(timezoneOffset) / 60));
+  const offsetMinutes = pad(Math.abs(timezoneOffset) % 60);
+
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+    + `T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
+    + `${offsetSign}${offsetHours}:${offsetMinutes}`;
+}
+
 export function buildVerifactuCancellationInvoiceIdXml({
   issuerTaxId,
   invoiceNumber,

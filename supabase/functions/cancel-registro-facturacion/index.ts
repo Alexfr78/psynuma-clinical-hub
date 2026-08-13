@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { authorizeFiscalInvoiceRequest } from "../_shared/fiscalAuth.ts";
 import {
   buildVerifactuCancellationInvoiceIdXml,
+  formatVerifactuTimestamp,
   sanitizeVerifactuSystemName,
 } from "../_shared/verifactuCancellation.ts";
 
@@ -97,16 +98,6 @@ function formatDateVerifactu(dateStr: string): string {
   const month = (date.getMonth() + 1).toString().padStart(2, '0');
   const year = date.getFullYear();
   return `${day}-${month}-${year}`;
-}
-
-function formatTimestampVerifactu(date: Date): string {
-  const day = date.getDate().toString().padStart(2, '0');
-  const month = (date.getMonth() + 1).toString().padStart(2, '0');
-  const year = date.getFullYear();
-  const hours = date.getHours().toString().padStart(2, '0');
-  const minutes = date.getMinutes().toString().padStart(2, '0');
-  const seconds = date.getSeconds().toString().padStart(2, '0');
-  return `${day}-${month}-${year}T${hours}:${minutes}:${seconds}`;
 }
 
 function escapeXML(str: string): string {
@@ -618,7 +609,7 @@ serve(async (req) => {
     }
 
     // Generate timestamp
-    const generationTimestamp = formatTimestampVerifactu(new Date());
+    const generationTimestamp = formatVerifactuTimestamp(new Date());
 
     const nifEmisor = normalizeNifForAEAT(center.tax_id);
     const idSistemaInformatico = '01';

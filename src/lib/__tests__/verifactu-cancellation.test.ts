@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildVerifactuCancellationInvoiceIdXml,
+  formatVerifactuTimestamp,
   sanitizeVerifactuSystemName,
 } from '../../../supabase/functions/_shared/verifactuCancellation';
 
@@ -27,5 +28,12 @@ describe('Verifactu cancellation XML', () => {
       'JOSE ALEJANDRO FERNANDEZ RODRI',
     );
     expect(sanitizeVerifactuSystemName('')).toBe('PSYCMA');
+  });
+
+  it('formats the generation timestamp as AEAT ISO 8601 with a timezone offset', () => {
+    const timestamp = formatVerifactuTimestamp(new Date(2026, 7, 13, 14, 5, 9));
+
+    expect(timestamp).toMatch(/^2026-08-13T14:05:09[+-]\d{2}:\d{2}$/);
+    expect(timestamp).not.toMatch(/^13-08-2026/);
   });
 });
