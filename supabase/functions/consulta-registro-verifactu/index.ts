@@ -174,7 +174,9 @@ function extractCertificatesFromPKCS12(certificateBase64: string, certificatePas
         endEntityCert = cert;
         break;
       }
-    } catch (e) {}
+    } catch {
+      // El certificado no coincide con la clave privada; probar el siguiente
+    }
   }
 
   if (!endEntityCert) {

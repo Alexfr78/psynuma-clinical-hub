@@ -531,7 +531,9 @@ export default function Agenda() {
       }
       try {
         await syncMoveToGoogle(session, newDate, newStartTime, newEndTime);
-      } catch {}
+      } catch {
+        // Sincronización con Google es best-effort; no debe bloquear el movimiento
+      }
       toast({ title: 'Sesión movida', description: `Movida a ${newDate} ${newStartTime} (con conflicto)` });
     } catch (err) {
       console.error('executeForceDragMove error:', err);

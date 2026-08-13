@@ -219,7 +219,7 @@ export function generateWeeklyOccurrences(
   
   if (sortedDays.length === 0) return occurrences;
   
-  let currentWeekStart = new Date(startDate);
+  const currentWeekStart = new Date(startDate);
   currentWeekStart.setDate(currentWeekStart.getDate() - currentWeekStart.getDay());
   
   let count = 0;

@@ -60,7 +60,9 @@ async function generateHash(data: string): Promise<string> {
 function sanitizeForPdf(text: string): string {
   return text
     // Remove zero-width and invisible Unicode characters
-    .replace(/[\u200B\u200C\u200D\u200E\u200F\uFEFF\u00AD\u2028\u2029\u202A-\u202F\u2060-\u206F]/g, '')
+    // ZWJ (\u200D) se elimina por separado para evitar no-misleading-character-class
+    .replace(/\u200D/g, '')
+    .replace(/[\u200B\u200C\u200E\u200F\uFEFF\u00AD\u2028\u2029\u202A-\u202F\u2060-\u206F]/g, '')
     // Replace common Unicode symbols with ASCII equivalents
     .replace(/✓/g, '[X]')
     .replace(/✗/g, '[ ]')

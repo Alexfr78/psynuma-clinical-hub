@@ -42,7 +42,7 @@ export function validateSpanishTaxId(taxId: string | null | undefined): NifValid
     return { valid: true }; // Empty is OK (optional field)
   }
 
-  const normalized = taxId.replace(/[\s\-\.]/g, '').toUpperCase();
+  const normalized = taxId.replace(/[\s\-.]/g, '').toUpperCase();
 
   if (normalized.length < 8 || normalized.length > 9) {
     return { valid: false, message: 'El NIF/NIE debe tener 8-9 caracteres' };

@@ -334,7 +334,7 @@ serve(async (req) => {
     console.log(`[CLEANUP] Psycma events found: ${psycmaEvents.length}`);
 
     let eventsToDelete: GoogleEvent[] = [];
-    let duplicateGroups: DuplicateGroup[] = [];
+    const duplicateGroups: DuplicateGroup[] = [];
 
     if (mode === 'all') {
       // Delete ALL psycma events (original behavior)

@@ -273,7 +273,7 @@ function expandEventToDates(
     ) : eventEndDate;
   
   // Generate all dates from clampedStart to clampedEnd (inclusive)
-  let currentDate = new Date(clampedStart + 'T12:00:00Z'); // Noon to avoid DST issues
+  const currentDate = new Date(clampedStart + 'T12:00:00Z'); // Noon to avoid DST issues
   const endDate = new Date((eventEndDate >= monthEnd ? monthEnd : eventEndDate) + 'T12:00:00Z');
   
   while (currentDate <= endDate) {
@@ -1439,7 +1439,7 @@ serve(async (req) => {
       const normalizedEmail = patient.email.toLowerCase().trim();
       const normalizedPhone = (() => {
         if (!patient.phone) return null;
-        let p = patient.phone.replace(/\s+/g, '').replace(/^\+34/, '');
+        const p = patient.phone.replace(/\s+/g, '').replace(/^\+34/, '');
         return p.length >= 9 ? p : null;
       })();
 

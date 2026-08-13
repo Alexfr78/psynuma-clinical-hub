@@ -1212,7 +1212,7 @@ serve(async (req) => {
       }
 
       // Get location name for notification (use the *new* one)
-      let locationName: string | undefined = targetLocation?.name;
+      const locationName: string | undefined = targetLocation?.name;
       let oldLocationName: string | undefined;
       if (oldLocationId && oldLocationId !== targetLocationId) {
         const { data: oldLoc } = await supabase

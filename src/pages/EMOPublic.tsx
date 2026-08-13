@@ -481,7 +481,11 @@ export default function EMOPublic() {
         onOpenChange={(open) => {
           setExpandedFigures(prev => {
             const next = new Set(prev);
-            open ? next.add(figure.id) : next.delete(figure.id);
+            if (open) {
+              next.add(figure.id);
+            } else {
+              next.delete(figure.id);
+            }
             return next;
           });
         }}

@@ -11,7 +11,7 @@ function normalizeScaleConfig(field: AutoregistroField): Partial<AutoregistroFie
   let max = Number.isFinite(field.max) ? field.max! : 10;
   if (min >= max) { min = 0; max = 10; }
 
-  let step = Number.isFinite(field.step) && field.step! > 0 ? field.step! : 1;
+  const step = Number.isFinite(field.step) && field.step! > 0 ? field.step! : 1;
 
   let defaultValue = Number.isFinite(field.defaultValue) ? field.defaultValue! : Math.round((min + max) / 2);
   if (defaultValue < min) defaultValue = min;
