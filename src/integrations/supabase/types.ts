@@ -4165,7 +4165,11 @@ export type Database = {
           payment_date: string
           payment_method: string | null
           reference: string | null
+          refunded_amount: number
+          refunded_at: string | null
           session_id: string | null
+          status: Database["public"]["Enums"]["payment_status"]
+          stripe_charge_id: string | null
           updated_at: string
         }
         Insert: {
@@ -4179,7 +4183,11 @@ export type Database = {
           payment_date?: string
           payment_method?: string | null
           reference?: string | null
+          refunded_amount?: number
+          refunded_at?: string | null
           session_id?: string | null
+          status?: Database["public"]["Enums"]["payment_status"]
+          stripe_charge_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -4193,7 +4201,11 @@ export type Database = {
           payment_date?: string
           payment_method?: string | null
           reference?: string | null
+          refunded_amount?: number
+          refunded_at?: string | null
           session_id?: string | null
+          status?: Database["public"]["Enums"]["payment_status"]
+          stripe_charge_id?: string | null
           updated_at?: string
         }
         Relationships: [
