@@ -11,6 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
+import { StripeDiagnosticsPanel } from "./StripeDiagnosticsPanel";
 
 interface StripeIntegrationSectionProps {
   onOpenPaymentSettings?: () => void;
@@ -279,6 +280,8 @@ export function StripeIntegrationSection({ onOpenPaymentSettings }: StripeIntegr
                 </AlertDescription>
               </Alert>
             )}
+
+            <StripeDiagnosticsPanel />
           </div>
         )}
       </CardContent>
