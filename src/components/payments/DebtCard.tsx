@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import type { DebtWithRelations } from '@/hooks/useDebts';
+import { getDebtStatusDisplay } from '@/lib/payment-status';
 
 interface DebtCardProps {
   debt: DebtWithRelations;
@@ -19,15 +20,8 @@ interface DebtCardProps {
   onAssignBono?: (debt: DebtWithRelations) => void;
 }
 
-const statusConfig = {
-  pending: { label: 'Pendiente', variant: 'destructive' as const },
-  partial: { label: 'Parcial', variant: 'default' as const },
-  paid: { label: 'Pagada', variant: 'outline' as const },
-  cancelled: { label: 'Cancelada', variant: 'secondary' as const },
-};
-
 export function DebtCard({ debt, onRecordPayment, onDelete, onSendReminder, onAssignBono }: DebtCardProps) {
-  const status = statusConfig[debt.status] || statusConfig.pending;
+  const status = getDebtStatusDisplay(debt.status);
   const remaining = Number(debt.amount) - Number(debt.paid_amount);
   const isOverdue = debt.due_date && new Date(debt.due_date) < new Date();
   const canAssignBono =
