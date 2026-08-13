@@ -322,7 +322,7 @@ export default function EMOPublic() {
           </div>
         );
 
-      case 'checkbox_group':
+      case 'checkbox_group': {
         const selectedOptions = (value as string[]) || [];
         return (
           <div key={questionId} className="space-y-3">
@@ -352,8 +352,9 @@ export default function EMOPublic() {
             </div>
           </div>
         );
+      }
 
-      case 'emotion_matrix':
+      case 'emotion_matrix': {
         const matrix = (value as Record<string, string[]>) || {};
         return (
           <div key={questionId} className="space-y-3">
@@ -391,8 +392,9 @@ export default function EMOPublic() {
             </div>
           </div>
         );
+      }
 
-      case 'adjectives_repeater':
+      case 'adjectives_repeater': {
         const adjectives = (value as EMOAdjective[]) || Array(5).fill(null).map(() => createEmptyAdjective());
         return (
           <div key={questionId} className="space-y-3">
@@ -415,6 +417,7 @@ export default function EMOPublic() {
             </div>
           </div>
         );
+      }
 
       case 'coregulation_repeater':
         return (

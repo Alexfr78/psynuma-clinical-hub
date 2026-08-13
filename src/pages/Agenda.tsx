@@ -89,14 +89,15 @@ export default function Agenda() {
           start: format(currentDate, 'yyyy-MM-dd'),
           end: format(currentDate, 'yyyy-MM-dd'),
         };
-      case 'week':
+      case 'week': {
         const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
         const weekEnd = endOfWeek(currentDate, { weekStartsOn: 1 });
         return {
           start: format(weekStart, 'yyyy-MM-dd'),
           end: format(weekEnd, 'yyyy-MM-dd'),
         };
-      case 'month':
+      }
+      case 'month': {
         const monthStart = startOfMonth(currentDate);
         const monthEnd = endOfMonth(currentDate);
         // Extend to cover full calendar weeks
@@ -106,6 +107,7 @@ export default function Agenda() {
           start: format(calStart, 'yyyy-MM-dd'),
           end: format(calEnd, 'yyyy-MM-dd'),
         };
+      }
       case 'list':
         return {
           start: format(startOfWeek(currentDate, { weekStartsOn: 1 }), 'yyyy-MM-dd'),

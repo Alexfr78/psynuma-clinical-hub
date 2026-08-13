@@ -130,7 +130,7 @@ export function generateOccurrences(
       }
       break;
       
-    case 'WEEKLY':
+    case 'WEEKLY': {
       // For weekly, we need to generate for each selected weekday
       if (!config.byweekday || config.byweekday.length === 0) {
         // Default to same day of week as start date
@@ -187,7 +187,8 @@ export function generateOccurrences(
       occurrences.length = 0;
       occurrences.push(...uniqueDates.sort((a, b) => a.getTime() - b.getTime()).slice(0, targetCount));
       break;
-      
+    }
+
     case 'MONTHLY':
       while (count < targetCount && currentDate <= endDate) {
         occurrences.push(new Date(currentDate));
