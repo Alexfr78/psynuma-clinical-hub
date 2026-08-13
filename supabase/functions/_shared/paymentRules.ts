@@ -1,3 +1,5 @@
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+
 export type PaymentMode = 'required_now' | 'in_session' | 'post_session' | 'scheduled_before';
 
 const PAYMENT_MODES = new Set<PaymentMode>([
@@ -330,7 +332,7 @@ export function evaluateCancellationCharge(input: EvaluateCancellationInput): Ca
 }
 
 export async function resolveCancellationBasePrice(
-  supabase: any,
+  supabase: SupabaseClient,
   input: {
     centerId: string;
     patientId: string;

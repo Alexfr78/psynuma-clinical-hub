@@ -177,9 +177,56 @@ async function reconcileRefundedPayment(
   return refundProgress;
 }
 
+// Resolve which professional owns a Stripe connected account, so integration
+// notices can be attributed even when a refund has no local payment to link to.
+async function resolveProfessionalIdForConnectedAccount(
+  supabase: SupabaseClient,
+  connectedAccountId: string | null,
+): Promise<string | null> {
+  if (!connectedAccountId) return null;
+  const { data } = await supabase
+    .from('oauth_connections')
+    .select('professional_id')
+    .eq('stripe_account_id', connectedAccountId)
+    .eq('provider', 'stripe')
+    .maybeSingle();
+  return data?.professional_id ?? null;
+}
+
+// Best-effort visible notice in Settings → External connections. Never let a
+// logging failure mask the original webhook error.
+async function logStripeIntegrationError(
+  supabase: SupabaseClient,
+  params: {
+    professionalId: string | null;
+    step: string;
+    errorCode: string;
+    message: string;
+    raw: Record<string, unknown>;
+  },
+): Promise<void> {
+  try {
+    if (!params.professionalId) {
+      console.error('integration_errors skipped (no professional_id resolved)', params);
+      return;
+    }
+    await supabase.from('integration_errors').insert({
+      professional_id: params.professionalId,
+      provider: 'stripe',
+      source: 'stripe-webhook',
+      step: params.step,
+      error_code: params.errorCode,
+      message: params.message,
+      raw: params.raw,
+    });
+  } catch (logError) {
+    console.error('Failed to write integration_errors', logError);
+  }
+}
+
 // Helper function to create invoice
 async function createInvoice(
-  supabase: any,
+  supabase: SupabaseClient,
   centerId: string,
   patientId: string,
   description: string,
@@ -347,7 +394,7 @@ async function createInvoice(
 
 // Handle debt payment
 async function handleDebtPayment(
-  supabase: any,
+  supabase: SupabaseClient,
   metadata: Record<string, string>,
   paymentAmount: number,
   stripeSessionId: string
@@ -491,7 +538,7 @@ async function handleDebtPayment(
 
 // Handle bono purchase
 async function handleBonoPurchase(
-  supabase: any,
+  supabase: SupabaseClient,
   metadata: Record<string, string>,
   paymentAmount: number,
   stripeSessionId: string
@@ -704,7 +751,7 @@ async function handleBonoPurchase(
 
 // Handle session checkout payment (existing flow)
 async function handleSessionCheckout(
-  supabase: any,
+  supabase: SupabaseClient,
   metadata: Record<string, string>,
   paymentAmount: number,
   stripeSessionId: string
@@ -894,7 +941,7 @@ async function handleSessionCheckout(
 }
 
 async function sendStripePaymentConfirmation(
-  supabase: any,
+  supabase: SupabaseClient,
   sessionId: string,
   sessionData: {
     patient_id: string;
@@ -970,7 +1017,7 @@ async function sendStripePaymentConfirmation(
 }
 
 async function sessionCheckoutNeedsReconciliation(
-  supabase: any,
+  supabase: SupabaseClient,
   checkoutSession: Stripe.Checkout.Session,
 ): Promise<boolean> {
   const metadata = checkoutSession.metadata || {};
@@ -1065,7 +1112,7 @@ async function retrieveCheckoutSession(
 }
 
 async function reconcilePendingSessionCheckouts(
-  supabase: any,
+  supabase: SupabaseClient,
   secretKey: string,
   requestedLimit: unknown,
 ): Promise<Record<string, unknown>> {
@@ -1478,7 +1525,27 @@ serve(async (req) => {
         const debtId = metadata.debt_id;
         console.log('Refund processed for charge:', charge.id);
 
-        const paymentRefund = await reconcileRefundedPayment(supabase, metadata, charge, event.created);
+        let paymentRefund: { refundedAmount: number; refundDelta: number; fullyRefunded: boolean };
+        try {
+          paymentRefund = await reconcileRefundedPayment(supabase, metadata, charge, event.created);
+        } catch (refundError) {
+          const professionalId = await resolveProfessionalIdForConnectedAccount(supabase, event.account || null);
+          await logStripeIntegrationError(supabase, {
+            professionalId,
+            step: 'refund_reconciliation',
+            errorCode: 'refund_payment_not_found',
+            message: refundError instanceof Error
+              ? refundError.message
+              : 'No se pudo reconciliar el reembolso con un pago local',
+            raw: {
+              charge_id: charge.id,
+              connected_account: event.account || null,
+              metadata,
+            },
+          });
+          // Re-throw so the event is marked failed and Stripe retries.
+          throw refundError;
+        }
 
         if (sessionId) {
           const { error: sessionRefundError } = await supabase
@@ -1511,13 +1578,36 @@ serve(async (req) => {
 
           if (paymentRefund.fullyRefunded && metadata.payment_type === 'bono_purchase' && refundedDebt?.bono_id) {
             // A purchased bono can be cancelled automatically only while it is
-            // unused. Once consumed, refund reconciliation requires review.
-            const { error: bonoRefundError } = await supabase
+            // unused. Once it has consumed sessions, we keep it as-is and raise a
+            // visible notice for manual review instead of silently doing nothing.
+            const { data: bono, error: bonoLookupError } = await supabase
               .from('bonos')
-              .update({ status: 'cancelled' })
+              .select('id, name, used_sessions')
               .eq('id', refundedDebt.bono_id)
-              .eq('used_sessions', 0);
-            if (bonoRefundError) throw bonoRefundError;
+              .maybeSingle();
+            if (bonoLookupError) throw bonoLookupError;
+
+            if (bono && Number(bono.used_sessions || 0) === 0) {
+              const { error: bonoRefundError } = await supabase
+                .from('bonos')
+                .update({ status: 'cancelled' })
+                .eq('id', bono.id);
+              if (bonoRefundError) throw bonoRefundError;
+            } else if (bono) {
+              const professionalId = await resolveProfessionalIdForConnectedAccount(supabase, event.account || null);
+              await logStripeIntegrationError(supabase, {
+                professionalId,
+                step: 'bono_refund_review',
+                errorCode: 'bono_refund_needs_review',
+                message: `Bono "${bono.name}" reembolsado con ${bono.used_sessions} sesión(es) consumida(s): requiere revisión manual (no se canceló automáticamente).`,
+                raw: {
+                  bono_id: bono.id,
+                  used_sessions: bono.used_sessions,
+                  charge_id: charge.id,
+                  debt_id: debtId,
+                },
+              });
+            }
           }
         }
         break;

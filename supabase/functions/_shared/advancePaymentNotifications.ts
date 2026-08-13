@@ -1,7 +1,5 @@
 // Shared helpers for adding advance-payment instructions to session messages.
-
-// deno-lint-ignore no-explicit-any
-type SupabaseClient = any;
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 export type PaymentNotificationChannel = "email" | "whatsapp" | "sms";
 
