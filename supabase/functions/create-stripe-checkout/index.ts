@@ -67,7 +67,7 @@ serve(async (req) => {
       .from('sessions')
       .select(`
         id, center_id, professional_id, patient_id, price, session_type,
-        session_date, access_token, status,
+        session_date, access_token, status, payment_status, stripe_payment_status,
         patient:patients(email, first_name, last_name)
       `)
       .eq('id', session_id)
@@ -106,6 +106,22 @@ serve(async (req) => {
       });
       return new Response(
         JSON.stringify({ error: 'Session is not payable' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (
+      session.payment_status === 'paid'
+      || session.payment_status === 'bono'
+      || session.stripe_payment_status === 'paid'
+    ) {
+      console.error('Stripe checkout rejected: session is already paid', {
+        session_id,
+        payment_status: session.payment_status,
+        stripe_payment_status: session.stripe_payment_status,
+      });
+      return new Response(
+        JSON.stringify({ error: 'Esta sesión ya está pagada' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
