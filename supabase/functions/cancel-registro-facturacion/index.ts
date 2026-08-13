@@ -1,7 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { authorizeFiscalInvoiceRequest } from "../_shared/fiscalAuth.ts";
-import { buildVerifactuCancellationInvoiceIdXml } from "../_shared/verifactuCancellation.ts";
+import {
+  buildVerifactuCancellationInvoiceIdXml,
+  sanitizeVerifactuSystemName,
+} from "../_shared/verifactuCancellation.ts";
 
 // Dynamic import of node-forge with bundle for Deno compatibility
 const forgeModule = await import("https://esm.sh/node-forge@1.3.1?bundle");
@@ -163,7 +166,10 @@ function buildRegistroBajaXML(
   const nifEmisor = normalizeNifForAEAT(center.tax_id);
   const nombreEmisor = center.name || '';
   const fechaExpedicion = formatDateVerifactu(invoice.issue_date);
-  const softwareName = center.verifactu_software_name || 'Psycma';
+  const softwareLegalName = center.verifactu_software_name || nombreEmisor;
+  const softwareSystemName = sanitizeVerifactuSystemName(
+    center.verifactu_sistema_informatico || 'PSYCMA',
+  );
   const softwareVersion = center.verifactu_software_version || '1.0.0';
   const softwareNif = center.verifactu_software_nif || nifEmisor;
   const numeroInstalacion = String(center.verifactu_numero_instalacion || 1);
@@ -206,9 +212,9 @@ function buildRegistroBajaXML(
           <sum1:IDVersion>1.0</sum1:IDVersion>
           ${cancelledInvoiceIdXML}${encadenamientoXML}
           <sum1:SistemaInformatico>
-            <sum1:NombreRazon>${escapeXML(softwareName)}</sum1:NombreRazon>
+            <sum1:NombreRazon>${escapeXML(softwareLegalName)}</sum1:NombreRazon>
             <sum1:NIF>${softwareNif}</sum1:NIF>
-            <sum1:NombreSistemaInformatico>${escapeXML(softwareName)}</sum1:NombreSistemaInformatico>
+            <sum1:NombreSistemaInformatico>${escapeXML(softwareSystemName)}</sum1:NombreSistemaInformatico>
             <sum1:IdSistemaInformatico>01</sum1:IdSistemaInformatico>
             <sum1:Version>${softwareVersion}</sum1:Version>
             <sum1:NumeroInstalacion>${numeroInstalacion}</sum1:NumeroInstalacion>
@@ -532,7 +538,7 @@ serve(async (req) => {
         centers (
           id, name, tax_id,
           verifactu_certificate_base64, verifactu_certificate_password,
-          verifactu_environment, verifactu_software_name, 
+          verifactu_environment, verifactu_software_name, verifactu_sistema_informatico,
           verifactu_software_version, verifactu_software_nif,
           verifactu_numero_instalacion
         )
