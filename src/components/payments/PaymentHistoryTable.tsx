@@ -1,6 +1,6 @@
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { CreditCard, Banknote, ArrowRightLeft, Smartphone, Pencil, Trash2, CalendarDays, Link2 } from 'lucide-react';
+import { CreditCard, Banknote, ArrowRightLeft, Smartphone, Pencil, Trash2, CalendarDays, Link2, RotateCcw } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -18,6 +18,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import type { PaymentWithRelations } from '@/hooks/usePayments';
+import { getNetPaymentAmount, getPaymentRefundState, getRefundedAmount } from '@/lib/payment-refunds';
 
 interface PaymentHistoryTableProps {
   payments: PaymentWithRelations[];
@@ -50,9 +51,13 @@ export function PaymentHistoryTable({ payments, onEdit, onDelete, onLinkToInvoic
         {payments.map((payment) => {
           const method = methodConfig[payment.payment_method] || methodConfig.cash;
           const hasInvoice = !!payment.invoice_id;
+          const refundState = getPaymentRefundState(payment);
+          const refundedAmount = getRefundedAmount(payment);
+          const netAmount = getNetPaymentAmount(payment);
+          const hasRefund = refundState !== 'paid';
 
           return (
-            <div key={payment.id} className="rounded-lg border p-4 space-y-3">
+            <div key={payment.id} className={`rounded-lg border p-4 space-y-3 ${hasRefund ? 'bg-muted/40' : ''}`}>
               <div className="flex items-start justify-between">
                 <div>
                   <p className="font-medium">
@@ -62,7 +67,12 @@ export function PaymentHistoryTable({ payments, onEdit, onDelete, onLinkToInvoic
                     {format(new Date(payment.payment_date), "d MMM yyyy", { locale: es })}
                   </p>
                 </div>
-                <p className="text-lg font-bold">{Number(payment.amount).toFixed(2)}€</p>
+                <div className="text-right tabular-nums">
+                  <p className={hasRefund ? 'text-sm text-muted-foreground line-through' : 'text-lg font-bold'}>
+                    {Number(payment.amount).toFixed(2)}€
+                  </p>
+                  {hasRefund && <p className="font-semibold">Neto {netAmount.toFixed(2)}€</p>}
+                </div>
               </div>
               
               <div className="flex flex-wrap items-center gap-2">
@@ -79,9 +89,21 @@ export function PaymentHistoryTable({ payments, onEdit, onDelete, onLinkToInvoic
                 {payment.invoices?.invoice_number && (
                   <Badge variant="outline">{payment.invoices.invoice_number}</Badge>
                 )}
+                {refundState === 'refunded' && (
+                  <Badge variant="destructive" className="gap-1">
+                    <RotateCcw className="h-3 w-3" />
+                    Reembolsado
+                  </Badge>
+                )}
+                {refundState === 'partial' && (
+                  <Badge variant="secondary" className="gap-1">
+                    <RotateCcw className="h-3 w-3" />
+                    Reembolso parcial: {refundedAmount.toFixed(2)}€
+                  </Badge>
+                )}
               </div>
 
-              <div className="flex items-center gap-2 pt-2 border-t">
+              {!hasRefund && <div className="flex items-center gap-2 pt-2 border-t">
                 {!hasInvoice && onLinkToInvoice && (
                   <Button
                     variant="outline"
@@ -110,7 +132,7 @@ export function PaymentHistoryTable({ payments, onEdit, onDelete, onLinkToInvoic
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>
-              </div>
+              </div>}
             </div>
           );
         })}
@@ -134,9 +156,13 @@ export function PaymentHistoryTable({ payments, onEdit, onDelete, onLinkToInvoic
             {payments.map((payment) => {
               const method = methodConfig[payment.payment_method] || methodConfig.cash;
               const hasInvoice = !!payment.invoice_id;
+              const refundState = getPaymentRefundState(payment);
+              const refundedAmount = getRefundedAmount(payment);
+              const netAmount = getNetPaymentAmount(payment);
+              const hasRefund = refundState !== 'paid';
 
               return (
-                <TableRow key={payment.id}>
+                <TableRow key={payment.id} className={hasRefund ? 'bg-muted/40' : undefined}>
                   <TableCell>
                     {format(new Date(payment.payment_date), "d MMM yyyy", { locale: es })}
                   </TableCell>
@@ -148,6 +174,18 @@ export function PaymentHistoryTable({ payments, onEdit, onDelete, onLinkToInvoic
                       {method.icon}
                       {method.label}
                     </Badge>
+                    {refundState === 'refunded' && (
+                      <Badge variant="destructive" className="ml-2 gap-1">
+                        <RotateCcw className="h-3 w-3" />
+                        Reembolsado
+                      </Badge>
+                    )}
+                    {refundState === 'partial' && (
+                      <Badge variant="secondary" className="ml-2 gap-1">
+                        <RotateCcw className="h-3 w-3" />
+                        -{refundedAmount.toFixed(2)}€
+                      </Badge>
+                    )}
                   </TableCell>
                   <TableCell>
                     {payment.invoices?.invoice_number || '-'}
@@ -160,11 +198,18 @@ export function PaymentHistoryTable({ payments, onEdit, onDelete, onLinkToInvoic
                       </Badge>
                     ) : '-'}
                   </TableCell>
-                  <TableCell className="text-right font-semibold">
-                    {Number(payment.amount).toFixed(2)}€
+                  <TableCell className="text-right font-semibold tabular-nums">
+                    {hasRefund ? (
+                      <div>
+                        <span className="block text-xs font-normal text-muted-foreground line-through">
+                          {Number(payment.amount).toFixed(2)}€
+                        </span>
+                        <span>{netAmount.toFixed(2)}€ neto</span>
+                      </div>
+                    ) : `${Number(payment.amount).toFixed(2)}€`}
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-1">
+                    {!hasRefund && <div className="flex items-center gap-1">
                       {!hasInvoice && onLinkToInvoice && (
                         <Tooltip>
                           <TooltipTrigger asChild>
@@ -206,7 +251,10 @@ export function PaymentHistoryTable({ payments, onEdit, onDelete, onLinkToInvoic
                         </TooltipTrigger>
                         <TooltipContent>Eliminar pago</TooltipContent>
                       </Tooltip>
-                    </div>
+                    </div>}
+                    {hasRefund && (
+                      <span className="text-xs text-muted-foreground">Solo lectura</span>
+                    )}
                   </TableCell>
                 </TableRow>
               );

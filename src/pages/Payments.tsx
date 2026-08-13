@@ -185,7 +185,12 @@ export default function Payments() {
             <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">Cobrado</CardTitle>
           </CardHeader>
           <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
-            <p className="text-lg sm:text-2xl font-bold text-green-600">{paymentStats?.totalAmount.toFixed(0) || '0'}€</p>
+            <p className="text-lg sm:text-2xl font-bold text-green-600 tabular-nums">{paymentStats?.totalAmount.toFixed(0) || '0'}€</p>
+            {!!paymentStats?.refundedAmount && (
+              <p className="text-[10px] sm:text-xs text-destructive tabular-nums">
+                {paymentStats.refundedAmount.toFixed(0)}€ reembolsados
+              </p>
+            )}
           </CardContent>
         </Card>
         <Card>

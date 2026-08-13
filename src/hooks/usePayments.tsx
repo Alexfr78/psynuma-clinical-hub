@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+import { calculateNetPaymentStats } from '@/lib/payment-refunds';
 
 export interface Payment {
   id: string;
@@ -14,6 +15,10 @@ export interface Payment {
   payment_method: string;
   reference: string | null;
   notes: string | null;
+  status: 'pending' | 'paid' | 'partial' | 'refunded';
+  refunded_amount: number;
+  refunded_at: string | null;
+  stripe_charge_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -282,25 +287,13 @@ export function usePaymentStats() {
 
       const { data, error } = await supabase
         .from('payments')
-        .select('amount, payment_method')
+        .select('amount, payment_method, status, refunded_amount')
         .gte('payment_date', startOfMonth)
         .lte('payment_date', endOfMonth);
 
       if (error) throw error;
 
-      const stats = {
-        totalAmount: 0,
-        byMethod: {} as Record<string, number>,
-        count: data.length,
-      };
-
-      data.forEach((payment) => {
-        stats.totalAmount += Number(payment.amount);
-        const method = payment.payment_method || 'cash';
-        stats.byMethod[method] = (stats.byMethod[method] || 0) + Number(payment.amount);
-      });
-
-      return stats;
+      return calculateNetPaymentStats(data);
     },
     enabled: !!profile?.center_id,
   });

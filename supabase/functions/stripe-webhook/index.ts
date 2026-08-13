@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import Stripe from "https://esm.sh/stripe@14.9.0";
 import { queueAndSendPatientBookingNotification } from "../_shared/bookingPatientNotifications.ts";
 import {
@@ -7,6 +7,7 @@ import {
   shouldReprocessClaimedStripeEvent,
 } from "../_shared/stripeWebhookPolicy.ts";
 import { resolveRefundMetadata } from "../_shared/stripeRefundResolution.ts";
+import { calculateStripeRefundProgress } from "../_shared/stripeRefundPayment.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -109,6 +110,71 @@ async function retrieveConnectedAccountEvent(
   });
 
   return retrieved;
+}
+
+async function reconcileRefundedPayment(
+  supabase: SupabaseClient,
+  metadata: Record<string, string>,
+  charge: Stripe.Charge,
+  eventCreated: number,
+): Promise<{ refundedAmount: number; refundDelta: number; fullyRefunded: boolean }> {
+  let checkoutSessionId: string | null = null;
+
+  if (metadata.debt_id) {
+    const { data: debt, error: debtError } = await supabase
+      .from('debts')
+      .select('stripe_checkout_session_id')
+      .eq('id', metadata.debt_id)
+      .maybeSingle();
+    if (debtError) throw debtError;
+    checkoutSessionId = debt?.stripe_checkout_session_id || null;
+  }
+
+  if (!checkoutSessionId && metadata.session_id) {
+    const { data: session, error: sessionError } = await supabase
+      .from('sessions')
+      .select('stripe_checkout_session_id')
+      .eq('id', metadata.session_id)
+      .maybeSingle();
+    if (sessionError) throw sessionError;
+    checkoutSessionId = session?.stripe_checkout_session_id || null;
+  }
+
+  if (!checkoutSessionId) {
+    throw new Error(`Refund ${charge.id} could not resolve its Checkout Session`);
+  }
+
+  const { data: payment, error: paymentLookupError } = await supabase
+    .from('payments')
+    .select('id, amount, refunded_amount')
+    .eq('reference', checkoutSessionId)
+    .eq('payment_method', 'stripe')
+    .maybeSingle();
+
+  if (paymentLookupError) throw paymentLookupError;
+  if (!payment) {
+    throw new Error(`Refund ${charge.id} could not find its local payment`);
+  }
+
+  const refundProgress = calculateStripeRefundProgress({
+    paymentAmount: Number(payment.amount),
+    previousRefundedAmount: Number(payment.refunded_amount || 0),
+    stripeAmountRefunded: charge.amount_refunded / 100,
+    chargeFullyRefunded: charge.refunded,
+  });
+
+  const { error: paymentUpdateError } = await supabase
+    .from('payments')
+    .update({
+      status: refundProgress.fullyRefunded ? 'refunded' : 'paid',
+      refunded_amount: refundProgress.refundedAmount,
+      refunded_at: new Date(eventCreated * 1000).toISOString(),
+      stripe_charge_id: charge.id,
+    })
+    .eq('id', payment.id);
+
+  if (paymentUpdateError) throw paymentUpdateError;
+  return refundProgress;
 }
 
 // Helper function to create invoice
@@ -1412,36 +1478,46 @@ serve(async (req) => {
         const debtId = metadata.debt_id;
         console.log('Refund processed for charge:', charge.id);
 
+        const paymentRefund = await reconcileRefundedPayment(supabase, metadata, charge, event.created);
+
         if (sessionId) {
-          await supabase
+          const { error: sessionRefundError } = await supabase
             .from('sessions')
-            .update({ stripe_payment_status: 'refunded' })
+            .update({
+              payment_status: paymentRefund.fullyRefunded ? 'refunded' : 'partial',
+              stripe_payment_status: paymentRefund.fullyRefunded ? 'refunded' : 'paid',
+            })
             .eq('id', sessionId);
+          if (sessionRefundError) throw sessionRefundError;
         }
 
         if (debtId) {
-          const { data: refundedDebt } = await supabase
+          const { data: refundedDebt, error: refundedDebtError } = await supabase
             .from('debts')
-            .select('bono_id')
+            .select('bono_id, paid_amount')
             .eq('id', debtId)
             .maybeSingle();
+          if (refundedDebtError) throw refundedDebtError;
 
-          await supabase
+          const { error: debtRefundError } = await supabase
             .from('debts')
             .update({
-              stripe_payment_status: 'refunded',
-              status: 'refunded',
+              stripe_payment_status: paymentRefund.fullyRefunded ? 'refunded' : 'paid',
+              status: paymentRefund.fullyRefunded ? 'refunded' : 'partial',
+              paid_amount: Math.max(0, Number(refundedDebt?.paid_amount || 0) - paymentRefund.refundDelta),
             })
             .eq('id', debtId);
+          if (debtRefundError) throw debtRefundError;
 
-          if (metadata.payment_type === 'bono_purchase' && refundedDebt?.bono_id) {
+          if (paymentRefund.fullyRefunded && metadata.payment_type === 'bono_purchase' && refundedDebt?.bono_id) {
             // A purchased bono can be cancelled automatically only while it is
             // unused. Once consumed, refund reconciliation requires review.
-            await supabase
+            const { error: bonoRefundError } = await supabase
               .from('bonos')
               .update({ status: 'cancelled' })
               .eq('id', refundedDebt.bono_id)
               .eq('used_sessions', 0);
+            if (bonoRefundError) throw bonoRefundError;
           }
         }
         break;
