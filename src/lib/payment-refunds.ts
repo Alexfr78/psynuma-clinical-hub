@@ -28,6 +28,8 @@ export function calculateNetPaymentStats<T extends PaymentRefundFields & { payme
     const netAmount = getNetPaymentAmount(payment);
     const method = payment.payment_method || 'cash';
 
+    stats.grossAmount += Math.max(0, Number(payment.amount) || 0);
+    stats.grossCount += 1;
     stats.totalAmount += netAmount;
     stats.refundedAmount += getRefundedAmount(payment);
     stats.byMethod[method] = (stats.byMethod[method] || 0) + netAmount;
@@ -35,6 +37,8 @@ export function calculateNetPaymentStats<T extends PaymentRefundFields & { payme
 
     return stats;
   }, {
+    grossAmount: 0,
+    grossCount: 0,
     totalAmount: 0,
     refundedAmount: 0,
     byMethod: {} as Record<string, number>,

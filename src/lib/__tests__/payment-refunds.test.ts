@@ -32,6 +32,8 @@ describe('payment refunds', () => {
     expect(stats.refundedAmount).toBe(205);
     expect(stats.count).toBe(2);
     expect(stats.byMethod).toEqual({ stripe: 75, card: 50 });
+    expect(stats.grossAmount).toBe(330);
+    expect(stats.grossCount).toBe(3);
   });
 
   it('subtracts only the new amount when Stripe reports cumulative partial refunds', () => {
