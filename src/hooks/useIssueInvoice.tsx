@@ -136,7 +136,7 @@ export function useIssueInvoice() {
             .eq('invoice_id', invoiceId)
             .not('session_id', 'is', null);
           const uniqueSessions = Array.from(
-            new Set((itemSessions || []).map((i: any) => i.session_id).filter(Boolean))
+            new Set((itemSessions || []).map((i) => i.session_id).filter(Boolean))
           );
           if (uniqueSessions.length === 1) {
             sessionId = uniqueSessions[0] as string;

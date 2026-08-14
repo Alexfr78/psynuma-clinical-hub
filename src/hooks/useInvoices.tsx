@@ -535,7 +535,7 @@ export function useInvoiceStats() {
       if (error) throw error;
 
       const effective = data.filter(
-        (inv: any) => inv.status === 'issued' || inv.status === 'paid'
+        (inv) => inv.status === 'issued' || inv.status === 'paid'
       );
 
       const stats = {
@@ -547,7 +547,7 @@ export function useInvoiceStats() {
         count: effective.length,
       };
 
-      effective.forEach((inv: any) => {
+      effective.forEach((inv) => {
         const net = Number(inv.total);
         const retention = Number(inv.retention_amount ?? 0);
         const gross = net + retention;

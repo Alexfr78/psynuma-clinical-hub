@@ -61,9 +61,9 @@ export function PatientInvoices({ patientId, onInvoiceClick }: PatientInvoicesPr
       }
 
       setTimeout(() => URL.revokeObjectURL(url), 60000);
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error generating PDF:', err);
-      toast.error(err?.message || 'Error al generar el PDF');
+      toast.error((err as Error)?.message || 'Error al generar el PDF');
     } finally {
       setDownloadingId(null);
     }
@@ -95,7 +95,7 @@ export function PatientInvoices({ patientId, onInvoiceClick }: PatientInvoicesPr
     <div className="space-y-4">
       {invoices.map((invoice) => {
         const status = statusConfig[invoice.status as keyof typeof statusConfig] || statusConfig.draft;
-        const isInvalidated = (invoice as any).is_valid === false;
+        const isInvalidated = (invoice as { is_valid?: boolean | null }).is_valid === false;
         
         return (
           <Card 

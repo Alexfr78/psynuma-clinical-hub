@@ -40,6 +40,7 @@ export interface Center {
   verifactu_software_name: string | null;
   verifactu_software_version: string | null;
   verifactu_software_nif: string | null;
+  verifactu_sistema_informatico: string | null;
   // Portal/Reschedule configuration
   reschedule_max_days: number | null;
   reschedule_slot_duration: number | null;

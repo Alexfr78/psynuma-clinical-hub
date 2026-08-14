@@ -39,7 +39,7 @@ export function VerifactuConfigSection() {
     values: {
       verifactu_environment: (center?.verifactu_environment as 'test' | 'production') || 'test',
       verifactu_software_name: center?.verifactu_software_name || '',
-      verifactu_sistema_informatico: (center as any)?.verifactu_sistema_informatico || 'PSYCMA',
+      verifactu_sistema_informatico: center?.verifactu_sistema_informatico || 'PSYCMA',
       verifactu_software_version: center?.verifactu_software_version || '1.0.0',
       verifactu_software_nif: center?.verifactu_software_nif || '',
       verifactu_certificate_password: '',

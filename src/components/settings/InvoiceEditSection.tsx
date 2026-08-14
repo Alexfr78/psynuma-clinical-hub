@@ -72,8 +72,8 @@ export function InvoiceEditSection() {
       // Update center with logo URL
       await updateCenter.mutateAsync({ invoice_logo_url: publicUrl });
       toast.success('Logo actualizado correctamente');
-    } catch (error: any) {
-      toast.error('Error al subir el logo: ' + error.message);
+    } catch (error) {
+      toast.error('Error al subir el logo: ' + (error as Error).message);
     } finally {
       setUploading(false);
     }
@@ -93,8 +93,8 @@ export function InvoiceEditSection() {
       // Update center
       await updateCenter.mutateAsync({ invoice_logo_url: null });
       toast.success('Logo eliminado correctamente');
-    } catch (error: any) {
-      toast.error('Error al eliminar el logo: ' + error.message);
+    } catch (error) {
+      toast.error('Error al eliminar el logo: ' + (error as Error).message);
     }
   };
 
