@@ -412,9 +412,9 @@ export default function AssessmentResults() {
                     <h4 className="font-semibold mb-2 text-sm">Parte 1: Ansiedad Estado (A/E)</h4>
                     <div className="grid gap-1">
                       {template.items
-                        .filter((item: any) => item.index >= 1 && item.index <= 20)
-                        .sort((a: any, b: any) => a.index - b.index)
-                        .map((item: any) => {
+                        .filter((item) => item.index >= 1 && item.index <= 20)
+                        .sort((a, b) => a.index - b.index)
+                        .map((item) => {
                           const answer = answers[item.index.toString()];
                           const labels = ['Nada', 'Algo', 'Bastante', 'Mucho'];
                           return (
@@ -439,9 +439,9 @@ export default function AssessmentResults() {
                     <h4 className="font-semibold mb-2 text-sm">Parte 2: Ansiedad Rasgo (A/R)</h4>
                     <div className="grid gap-1">
                       {template.items
-                        .filter((item: any) => item.index >= 21 && item.index <= 40)
-                        .sort((a: any, b: any) => a.index - b.index)
-                        .map((item: any) => {
+                        .filter((item) => item.index >= 21 && item.index <= 40)
+                        .sort((a, b) => a.index - b.index)
+                        .map((item) => {
                           const answer = answers[item.index.toString()];
                           const labels = ['Casi nunca', 'A veces', 'A menudo', 'Casi siempre'];
                           return (

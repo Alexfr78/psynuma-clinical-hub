@@ -8,6 +8,19 @@ interface NetworkStatus {
   lastOfflineAt: Date | null;
 }
 
+// Network Information API (non-standard, not in lib.dom)
+type NetworkConnection = {
+  effectiveType?: string;
+  saveData?: boolean;
+  addEventListener: (type: 'change', listener: () => void) => void;
+  removeEventListener: (type: 'change', listener: () => void) => void;
+};
+type NavigatorWithConnection = Navigator & {
+  connection?: NetworkConnection;
+  mozConnection?: NetworkConnection;
+  webkitConnection?: NetworkConnection;
+};
+
 export function useNetworkStatus() {
   const [status, setStatus] = useState<NetworkStatus>(() => ({
     isOnline: typeof navigator !== 'undefined' ? navigator.onLine : true,
@@ -18,9 +31,9 @@ export function useNetworkStatus() {
   }));
 
   const updateNetworkInfo = useCallback(() => {
-    const connection = (navigator as any).connection || 
-                       (navigator as any).mozConnection || 
-                       (navigator as any).webkitConnection;
+    const connection = (navigator as NavigatorWithConnection).connection || 
+                       (navigator as NavigatorWithConnection).mozConnection || 
+                       (navigator as NavigatorWithConnection).webkitConnection;
 
     const isSlowConnection = connection ? 
       connection.effectiveType === 'slow-2g' || 
@@ -56,7 +69,7 @@ export function useNetworkStatus() {
     window.addEventListener('offline', handleOffline);
 
     // Listen for connection changes
-    const connection = (navigator as any).connection;
+    const connection = (navigator as NavigatorWithConnection).connection;
     if (connection) {
       connection.addEventListener('change', updateNetworkInfo);
     }
