@@ -9,8 +9,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// deno-lint-ignore no-explicit-any
-type SupabaseClient = any;
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 function formatTime(time: string | null): string {
   return time?.substring(0, 5) || "";

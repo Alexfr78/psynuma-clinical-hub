@@ -2,8 +2,7 @@
 // (created / rescheduled / cancelled) stored in `communication_templates`.
 // Falls back to built-in defaults if no template row exists for the center.
 
-// deno-lint-ignore no-explicit-any
-type SupabaseClient = any;
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 export type BookingAudience = 'patient' | 'professional';
 export type BookingEvent = 'created' | 'rescheduled' | 'cancelled';

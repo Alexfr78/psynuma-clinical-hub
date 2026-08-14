@@ -1,7 +1,6 @@
 // System-side bono helpers for patient/public booking flows.
 
-// deno-lint-ignore no-explicit-any
-type SupabaseClient = any;
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 export interface AutoApplyBonoResult {
   applied: boolean;

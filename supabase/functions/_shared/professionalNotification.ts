@@ -5,8 +5,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { renderBookingTemplate } from "./bookingTemplates.ts";
 
-// deno-lint-ignore no-explicit-any
-type SupabaseClient = any;
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 export interface ProfessionalNotificationArgs {
   supabase: SupabaseClient;

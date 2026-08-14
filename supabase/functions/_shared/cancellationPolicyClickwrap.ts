@@ -1,7 +1,6 @@
 // Helpers for patient-portal clickwrap acceptance of an exact cancellation-policy version.
 
-// deno-lint-ignore no-explicit-any
-type SupabaseClient = any;
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 export type PublicCancellationPolicy = {
   id: string;
