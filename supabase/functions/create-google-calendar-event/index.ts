@@ -353,7 +353,7 @@ serve(async (req) => {
       eventDescription = `${eventDescription}\n\n[PSYCMA_SESSION_ID:${session_id}]`;
     }
 
-    const event: any = {
+    const event: Record<string, unknown> = {
       summary: formattedTitle,
       description: eventDescription,
       start: {
@@ -436,7 +436,7 @@ serve(async (req) => {
     let meetLink = null;
     if (eventData.conferenceData?.entryPoints) {
       const videoEntry = eventData.conferenceData.entryPoints.find(
-        (ep: any) => ep.entryPointType === 'video'
+        (ep: { entryPointType?: string; uri?: string }) => ep.entryPointType === 'video'
       );
       meetLink = videoEntry?.uri;
     }

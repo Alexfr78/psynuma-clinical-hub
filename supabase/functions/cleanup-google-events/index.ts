@@ -92,7 +92,7 @@ async function refreshGoogleToken(
 
 async function getValidAccessToken(
   supabase: SupabaseClient,
-  connection: any
+  connection: { expires_at?: string | null; access_token?: string | null; refresh_token?: string | null; professional_id: string }
 ): Promise<string | null> {
   const now = new Date();
   const expiresAt = connection.expires_at ? new Date(connection.expires_at) : null;
@@ -109,7 +109,7 @@ async function getValidAccessToken(
 }
 
 // Check if event is a Psycma-created event and extract session ID if present
-function getPsycmaSessionId(event: any): string | null {
+function getPsycmaSessionId(event: GoogleEvent): string | null {
   // Primary check: extendedProperties
   if (event.extendedProperties?.private?.psycma_session_id) {
     return event.extendedProperties.private.psycma_session_id;
@@ -125,7 +125,7 @@ function getPsycmaSessionId(event: any): string | null {
   return null;
 }
 
-function isPsycmaEvent(event: any): boolean {
+function isPsycmaEvent(event: GoogleEvent): boolean {
   return getPsycmaSessionId(event) !== null || 
          event.extendedProperties?.private?.psycma_created === 'true';
 }
@@ -287,7 +287,7 @@ serve(async (req) => {
       .eq('professional_id', professional_id)
       .not('google_calendar_event_id', 'is', null);
 
-    const linkedEventIds = new Set((sessions || []).map((s: any) => s.google_calendar_event_id));
+    const linkedEventIds = new Set((sessions || []).map((s: { google_calendar_event_id: string | null }) => s.google_calendar_event_id));
     console.log(`[CLEANUP] Found ${linkedEventIds.size} events currently linked to sessions in DB`);
 
     // Fetch all events in range with pagination
@@ -398,7 +398,7 @@ serve(async (req) => {
 
     // If dry_run, just return analysis
     if (dry_run) {
-      const result: any = {
+      const result: Record<string, unknown> = {
         success: true,
         dry_run: true,
         mode,

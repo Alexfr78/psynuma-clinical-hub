@@ -396,7 +396,7 @@ serve(async (req) => {
     }
 
     // CASE 3: Updating existing event
-    const event: any = {};
+    const event: Record<string, unknown> = {};
 
     if (title) event.summary = title;
     if (location !== undefined) event.location = location || '';

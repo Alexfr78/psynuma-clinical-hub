@@ -169,7 +169,7 @@ async function refreshGoogleToken(
 
 async function getValidAccessToken(
   supabase: SupabaseClient,
-  connection: any
+  connection: { expires_at?: string | null; access_token?: string | null; refresh_token?: string | null; professional_id: string }
 ): Promise<string | null> {
   const now = new Date();
   const expiresAt = connection.expires_at ? new Date(connection.expires_at) : null;

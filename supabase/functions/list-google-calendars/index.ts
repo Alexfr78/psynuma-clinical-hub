@@ -205,7 +205,7 @@ serve(async (req) => {
     const calendarData = await calendarListResponse.json();
     
     // Map to simplified format
-    const calendars = (calendarData.items || []).map((cal: any) => ({
+    const calendars = (calendarData.items || []).map((cal: { id: string; summary?: string; description?: string; primary?: boolean; backgroundColor?: string }) => ({
       id: cal.id,
       summary: cal.summary,
       description: cal.description,
