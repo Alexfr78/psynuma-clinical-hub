@@ -10,7 +10,7 @@ function normalizePolicyText(value: unknown): string {
     .toLowerCase();
 }
 
-function looksLikeCancellationPolicyConsent(consent: any): boolean {
+function looksLikeCancellationPolicyConsent(consent: { content_snapshot?: string | null; template?: { name?: string | null } | { name?: string | null }[] | null }): boolean {
   const template = Array.isArray(consent.template) ? consent.template[0] : consent.template;
   const text = normalizePolicyText([
     consent.content_snapshot,

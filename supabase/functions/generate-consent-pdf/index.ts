@@ -336,7 +336,7 @@ serve(async (req) => {
       );
     }
 
-    if (!isAuthed && (!access_token || access_token !== (consent as any).access_token)) {
+    if (!isAuthed && (!access_token || access_token !== (consent as { access_token?: string | null }).access_token)) {
       return unauthorizedResponse(corsHeaders);
     }
 

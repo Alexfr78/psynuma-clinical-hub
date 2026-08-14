@@ -1,8 +1,9 @@
 // Shared helper for sending admin alerts via email
 // This helper sends immediate email notifications to admins/professionals for key events
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 interface AdminAlertParams {
-  supabase: any;
+  supabase: SupabaseClient;
   centerId: string;
   eventKey: string;
   subject: string;
