@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { decryptSecret } from "../_shared/crypto.ts";
 
 const corsHeaders = {
@@ -29,7 +29,7 @@ type GoogleOAuthCreds = {
 };
 
 async function getGoogleOAuthCredentials(
-  supabase: any,
+  supabase: SupabaseClient,
   professionalId: string
 ): Promise<GoogleOAuthCreds | null> {
   const envClientId = Deno.env.get('GOOGLE_CLIENT_ID');
@@ -111,7 +111,7 @@ async function getGoogleOAuthCredentials(
 }
 
 async function refreshGoogleToken(
-  supabase: any,
+  supabase: SupabaseClient,
   professionalId: string,
   refreshToken: string
 ): Promise<{ accessToken: string | null; error?: string; errorDescription?: string }> {

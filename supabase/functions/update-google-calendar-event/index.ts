@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { decryptSecret } from "../_shared/crypto.ts";
 
 const corsHeaders = {
@@ -7,7 +7,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-async function getGoogleOAuthCredentials(supabase: any, professionalId: string): Promise<{ clientId: string; clientSecret: string } | null> {
+async function getGoogleOAuthCredentials(supabase: SupabaseClient, professionalId: string): Promise<{ clientId: string; clientSecret: string } | null> {
   // First try to get credentials from center configuration
   const { data: profile } = await supabase
     .from('profiles')
@@ -47,7 +47,7 @@ async function getGoogleOAuthCredentials(supabase: any, professionalId: string):
 }
 
 async function refreshGoogleToken(
-  supabase: any,
+  supabase: SupabaseClient,
   professionalId: string,
   refreshToken: string
 ): Promise<string | null> {
@@ -128,7 +128,7 @@ async function refreshGoogleToken(
 
 // Refresh token with exponential backoff retries
 async function refreshGoogleTokenWithRetry(
-  supabase: any,
+  supabase: SupabaseClient,
   professionalId: string,
   refreshToken: string,
   maxRetries: number = 3

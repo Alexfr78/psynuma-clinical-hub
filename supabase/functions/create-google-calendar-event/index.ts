@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -31,7 +31,7 @@ async function decryptAES256GCM(encryptedData: string, encryptionKey: string): P
 }
 
 // Get Google OAuth credentials from center config or fallback to env vars
-async function getGoogleOAuthCredentials(supabase: any, centerId: string): Promise<{ clientId: string; clientSecret: string }> {
+async function getGoogleOAuthCredentials(supabase: SupabaseClient, centerId: string): Promise<{ clientId: string; clientSecret: string }> {
   const { data: center } = await supabase
     .from('centers')
     .select('oauth_google_client_id, oauth_google_credentials')
@@ -60,7 +60,7 @@ async function getGoogleOAuthCredentials(supabase: any, centerId: string): Promi
 }
 
 async function refreshGoogleToken(
-  supabase: any, 
+  supabase: SupabaseClient, 
   professionalId: string, 
   refreshToken: string,
   centerId: string

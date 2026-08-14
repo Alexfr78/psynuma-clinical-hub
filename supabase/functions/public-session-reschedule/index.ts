@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendAdminAlert, buildAlertMessage, formatDateSpanish, formatTime } from "../_shared/adminAlerts.ts";
 import { queueAndSendPatientBookingNotification } from "../_shared/bookingPatientNotifications.ts";
 import { notifyProfessionalBooking } from "../_shared/professionalNotification.ts";
@@ -994,7 +994,7 @@ Deno.serve(async (req) => {
 // Reutilizado por getAvailability (devuelve slots) y checkDayHasAvailability
 // (devuelve boolean), garantizando consistencia entre ambos caminos.
 async function loadDayData(
-  supabase: any,
+  supabase: SupabaseClient,
   professionalId: string,
   locationId: string | null,
   centerId: string,
@@ -1068,7 +1068,7 @@ async function loadDayData(
 }
 
 async function getAvailability(
-  supabase: any,
+  supabase: SupabaseClient,
   professionalId: string,
   locationId: string | null,
   centerId: string,
@@ -1127,7 +1127,7 @@ async function getAvailability(
 }
 
 async function checkDayHasAvailability(
-  supabase: any,
+  supabase: SupabaseClient,
   professionalId: string,
   locationId: string | null,
   date: string,

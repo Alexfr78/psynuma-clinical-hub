@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendAdminAlert, buildAlertMessage } from "../_shared/adminAlerts.ts";
 import { queueAndSendPatientBookingNotification } from "../_shared/bookingPatientNotifications.ts";
 import { notifyProfessionalBooking } from "../_shared/professionalNotification.ts";
@@ -43,7 +43,7 @@ function buildPrivacyPolicyUrl(domain: string | null): string | null {
   }
 }
 
-async function getPublicCancellationPolicy(supabase: any, centerId: string): Promise<PublicCancellationPolicy | null> {
+async function getPublicCancellationPolicy(supabase: SupabaseClient, centerId: string): Promise<PublicCancellationPolicy | null> {
   const { data, error } = await supabase
     .from('cancellation_policy_versions')
     .select('id, name, version_number, policy_text, rules')
@@ -80,7 +80,7 @@ function escapeHtml(value: string): string {
     .replaceAll("'", '&#039;');
 }
 
-async function recordPublicCancellationAcceptance(supabase: any, args: {
+async function recordPublicCancellationAcceptance(supabase: SupabaseClient, args: {
   centerId: string;
   patientId: string;
   professionalId: string;

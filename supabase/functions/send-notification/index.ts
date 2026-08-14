@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { decryptSecret } from "../_shared/crypto.ts";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
@@ -188,7 +188,7 @@ function generateWhatsAppWebLink(phone: string, message: string): string {
 // Send WhatsApp via WasenderAPI (direct HTTP call to avoid auth issues in server-to-server context)
 async function sendWhatsAppViaWasender(
   // deno-lint-ignore no-explicit-any
-  supabase: any,
+  supabase: SupabaseClient,
   centerId: string,
   phone: string,
   message: string,
@@ -371,7 +371,7 @@ serve(async (req) => {
 
   try {
     // deno-lint-ignore no-explicit-any
-    const supabase: any = createClient(
+    const supabase: SupabaseClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );

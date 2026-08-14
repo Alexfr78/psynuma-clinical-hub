@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.108.2";
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.108.2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -17,7 +17,7 @@ async function decryptAES256GCM(encryptedData: string, encryptionKey: string): P
   return new TextDecoder().decode(decrypted);
 }
 
-async function getZoomClientCredentials(supabase: any, professionalId: string) {
+async function getZoomClientCredentials(supabase: SupabaseClient, professionalId: string) {
   const { data: profile } = await supabase
     .from("profiles")
     .select("center_id")
@@ -42,7 +42,7 @@ async function getZoomClientCredentials(supabase: any, professionalId: string) {
 }
 
 async function refreshZoomToken(
-  supabase: any,
+  supabase: SupabaseClient,
   professionalId: string,
   refreshToken: string,
 ): Promise<string | null> {
