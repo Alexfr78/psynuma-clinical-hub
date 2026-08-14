@@ -51,8 +51,8 @@ export function SendPaymentReminderDialog({
   // Sync defaults with center configuration when dialog opens
   useEffect(() => {
     if (open && center) {
-      setIncludeTransfer(!!(center as any).bank_transfer_info);
-      setIncludeBizum(!!(center as any).bizum_phone);
+      setIncludeTransfer(!!center.bank_transfer_info);
+      setIncludeBizum(!!center.bizum_phone);
     }
   }, [open, center]);
 
@@ -91,7 +91,7 @@ export function SendPaymentReminderDialog({
     const stripeOptionText = currentTemplate?.payment_option_stripe ?? defaults.payment_option_stripe ?? '';
     const bizumOptionText = currentTemplate?.payment_option_bizum ?? defaults.payment_option_bizum ?? '';
     const bonoOptionText = currentTemplate?.payment_option_bono ?? defaults.payment_option_bono ?? '';
-    const transferOptionText = (currentTemplate as any)?.payment_option_transfer ?? (defaults as any).payment_option_transfer ?? '';
+    const transferOptionText = currentTemplate?.payment_option_transfer ?? defaults.payment_option_transfer ?? '';
 
     // Build payment options array based on selections
     const paymentLines: string[] = [];
@@ -135,7 +135,7 @@ export function SendPaymentReminderDialog({
       : 'N/A';
     
     const bizumPhone = center.bizum_phone || '609555514';
-    const transferInfo = (center as any).bank_transfer_info || '[Configura tus datos bancarios en Configuración → Pagos]';
+    const transferInfo = center.bank_transfer_info || '[Configura tus datos bancarios en Configuración → Pagos]';
     
     const preview = fullMessage
       .replace(/{nombre_paciente}/g, debt.patients.first_name)
@@ -265,7 +265,7 @@ export function SendPaymentReminderDialog({
               <div className="flex-1">
                 <Label htmlFor="bizum" className="flex items-center gap-2 cursor-pointer">
                   <Smartphone className="h-4 w-4 text-green-600" />
-                  Número de Bizum ({(center as any)?.bizum_phone || '609555514'})
+                  Número de Bizum ({center?.bizum_phone || '609555514'})
                 </Label>
                 <p className="text-xs text-muted-foreground">
                   El contacto puede enviar Bizum al número indicado
@@ -285,7 +285,7 @@ export function SendPaymentReminderDialog({
                   Transferencia bancaria
                 </Label>
                 <p className="text-xs text-muted-foreground">
-                  {(center as any)?.bank_transfer_info
+                  {center?.bank_transfer_info
                     ? 'El contacto recibirá tus datos bancarios'
                     : 'Configura tus datos bancarios en Configuración → Pagos'}
                 </p>

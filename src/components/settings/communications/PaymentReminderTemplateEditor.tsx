@@ -73,10 +73,10 @@ export function PaymentReminderTemplateEditor() {
     const template = activeTab === 'email' ? emailTemplate : activeTab === 'whatsapp' ? whatsappTemplate : smsTemplate;
     const defaults = DEFAULT_TEMPLATES[activeTab].payment_reminder;
     
-    setPaymentOptionStripe((template as any)?.payment_option_stripe ?? defaults.payment_option_stripe ?? '');
-    setPaymentOptionBizum((template as any)?.payment_option_bizum ?? defaults.payment_option_bizum ?? '');
-    setPaymentOptionBono((template as any)?.payment_option_bono ?? defaults.payment_option_bono ?? '');
-    setPaymentOptionTransfer((template as any)?.payment_option_transfer ?? (defaults as any).payment_option_transfer ?? '');
+    setPaymentOptionStripe(template?.payment_option_stripe ?? defaults.payment_option_stripe ?? '');
+    setPaymentOptionBizum(template?.payment_option_bizum ?? defaults.payment_option_bizum ?? '');
+    setPaymentOptionBono(template?.payment_option_bono ?? defaults.payment_option_bono ?? '');
+    setPaymentOptionTransfer(template?.payment_option_transfer ?? defaults.payment_option_transfer ?? '');
   }, [activeTab, emailTemplate, whatsappTemplate, smsTemplate]);
 
   const handleVariableClick = (variable: string) => {
@@ -164,7 +164,7 @@ export function PaymentReminderTemplateEditor() {
     setPaymentOptionStripe(defaults.payment_option_stripe ?? '');
     setPaymentOptionBizum(defaults.payment_option_bizum ?? '');
     setPaymentOptionBono(defaults.payment_option_bono ?? '');
-    setPaymentOptionTransfer((defaults as any).payment_option_transfer ?? '');
+    setPaymentOptionTransfer(defaults.payment_option_transfer ?? '');
   };
 
   const highlightVariables = (text: string) => {
