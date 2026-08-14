@@ -30,6 +30,8 @@ export interface SessionPaymentStatus {
   debt: SessionPaymentStatus['activeDebt'];
 }
 
+type SessionInvoiceEmbed = { id: string; is_valid: boolean; status: string; total: number };
+
 export function useSessionPaymentStatus(sessionId: string | undefined) {
   return useQuery({
     queryKey: ['session-payment-status', sessionId],
@@ -44,7 +46,7 @@ export function useSessionPaymentStatus(sessionId: string | undefined) {
       let validInvoice: { id: string; status: string; total: number } | null = null;
       if (invoiceItems) {
         for (const item of invoiceItems) {
-          const inv = item.invoices as any;
+          const inv = item.invoices as unknown as SessionInvoiceEmbed | null;
           if (inv && inv.is_valid === true && inv.status !== 'cancelled') {
             validInvoice = { id: inv.id, status: inv.status, total: Number(inv.total) };
             break;
@@ -69,7 +71,7 @@ export function useSessionPaymentStatus(sessionId: string | undefined) {
 
           if (beInvoiceItems) {
             for (const item of beInvoiceItems) {
-              const inv = item.invoices as any;
+              const inv = item.invoices as unknown as SessionInvoiceEmbed | null;
               if (inv && inv.is_valid === true && inv.status !== 'cancelled') {
                 validInvoice = { id: inv.id, status: inv.status, total: Number(inv.total) };
                 break;

@@ -171,11 +171,11 @@ export function RecordPaymentDialog({
         form.setValue("patient_id", data.patient_id, { shouldValidate: true });
       }
       
-      const sessionData = data.sessions as any;
+      const sessionData = data.sessions as unknown as { session_date: string | null; session_type: string | null; price: number | string | null } | null;
       setDebtInfo({
         hasInvoice: !!data.invoice_id,
         bonoId: data.bono_id,
-        bonoName: (data.bonos as any)?.name || null,
+        bonoName: (data.bonos as unknown as { name: string | null } | null)?.name || null,
         sessionId: data.session_id,
         sessionDate: sessionData?.session_date || null,
         sessionType: sessionData?.session_type || null,
