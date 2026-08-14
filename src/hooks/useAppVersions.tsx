@@ -58,13 +58,13 @@ export function useAppVersions() {
       if (countError) throw countError;
 
       const countMap: Record<string, number> = {};
-      changeCounts?.forEach((c: any) => {
+      changeCounts?.forEach((c: { version_id: string | null }) => {
         if (c.version_id) {
           countMap[c.version_id] = (countMap[c.version_id] || 0) + 1;
         }
       });
 
-      return (versions as any[]).map((v) => ({
+      return (versions ?? []).map((v) => ({
         ...v,
         change_count: countMap[v.id] || 0,
       })) as AppVersion[];
@@ -108,7 +108,7 @@ export function useAppVersions() {
         .insert({
           ...change,
           created_by: user?.id || null,
-        } as any)
+        })
         .select()
         .single();
       if (error) throw error;
@@ -142,7 +142,7 @@ export function useAppVersions() {
     mutationFn: async (id: string) => {
       const { error } = await supabase
         .from('app_change_log')
-        .update({ status: 'archived' } as any)
+        .update({ status: 'archived' })
         .eq('id', id);
       if (error) throw error;
     },
@@ -175,7 +175,7 @@ export function useAppVersions() {
           description: description || null,
           applies_to_verifactu,
           created_by: user?.id || null,
-        } as any)
+        })
         .select()
         .single();
       if (error) throw error;
@@ -184,7 +184,7 @@ export function useAppVersions() {
       if (changeIds.length > 0) {
         const { error: linkError } = await supabase
           .from('app_change_log')
-          .update({ version_id: version.id, status: 'included' } as any)
+          .update({ version_id: version.id, status: 'included' })
           .in('id', changeIds);
         if (linkError) throw linkError;
       }
@@ -204,7 +204,7 @@ export function useAppVersions() {
     mutationFn: async (id: string) => {
       const { error } = await supabase
         .from('app_versions')
-        .update({ status: 'published', published_at: new Date().toISOString() } as any)
+        .update({ status: 'published', published_at: new Date().toISOString() })
         .eq('id', id);
       if (error) throw error;
 
@@ -221,7 +221,7 @@ export function useAppVersions() {
     mutationFn: async (id: string) => {
       const { error } = await supabase
         .from('app_versions')
-        .update({ is_current: true } as any)
+        .update({ is_current: true })
         .eq('id', id);
       if (error) throw error;
 
@@ -242,7 +242,7 @@ export function useAppVersions() {
       // Mark version as synced
       const { error } = await supabase
         .from('app_versions')
-        .update({ verifactu_synced_at: new Date().toISOString() } as any)
+        .update({ verifactu_synced_at: new Date().toISOString() })
         .eq('id', id);
       if (error) throw error;
 
@@ -259,7 +259,7 @@ export function useAppVersions() {
     mutationFn: async (id: string) => {
       const { error } = await supabase
         .from('app_versions')
-        .update({ status: 'archived' } as any)
+        .update({ status: 'archived' })
         .eq('id', id);
       if (error) throw error;
     },
