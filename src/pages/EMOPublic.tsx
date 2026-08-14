@@ -202,7 +202,7 @@ export default function EMOPublic() {
       if (shouldShowQuestion(q)) {
         total++;
         const val = answers[q.id as keyof EMOAnswers];
-        if (val && (typeof val === 'string' ? val.trim() : (val as any[]).length > 0)) filled++;
+        if (val && (typeof val === 'string' ? val.trim() : (val as unknown[]).length > 0)) filled++;
       }
     });
 
@@ -211,7 +211,7 @@ export default function EMOPublic() {
       if (q.type !== 'coregulation_repeater' && shouldShowQuestion(q)) {
         total++;
         const val = answers[q.id as keyof EMOAnswers];
-        if (val && (typeof val === 'string' ? val.trim() : (val as any[]).length > 0)) filled++;
+        if (val && (typeof val === 'string' ? val.trim() : (val as unknown[]).length > 0)) filled++;
       }
     });
 

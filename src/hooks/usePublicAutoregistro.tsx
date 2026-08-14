@@ -60,8 +60,11 @@ export function usePublicAutoregistro(token: string) {
       }
 
       // Backwards-compat: DB may not have patient_feedback_show_date yet
-      let template: any = null;
-      let tError: any = null;
+      let template: {
+        id: string; name: string; description: string | null; fields: unknown;
+        patient_feedback_enabled?: boolean | null; patient_feedback_show_date?: boolean | null;
+      } | null = null;
+      let tError: { message?: string } | null = null;
       {
         const res = await client
           .from('autoregistro_templates')
@@ -91,8 +94,8 @@ export function usePublicAutoregistro(token: string) {
           fields: normalizeAutoregistroFields(
             typeof template.fields === 'string' ? JSON.parse(template.fields) : template.fields
           ),
-          patient_feedback_enabled: !!(template as any).patient_feedback_enabled,
-          patient_feedback_show_date: (template as any).patient_feedback_show_date ?? true,
+          patient_feedback_enabled: !!template.patient_feedback_enabled,
+          patient_feedback_show_date: template.patient_feedback_show_date ?? true,
         },
       };
     },

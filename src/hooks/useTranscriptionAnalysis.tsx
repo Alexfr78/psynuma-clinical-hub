@@ -35,8 +35,8 @@ export function useTranscriptionAnalysis(options: UseTranscriptionAnalysisOption
           .single();
 
         if (data) {
-          const clinical = (data as any).ai_summary_clinical;
-          const patient = (data as any).ai_summary_patient;
+          const clinical = (data as { ai_summary_clinical?: string | null }).ai_summary_clinical;
+          const patient = (data as { ai_summary_patient?: string | null }).ai_summary_patient;
           if (clinical) {
             setBaseAnalysis(clinical);
             setClinicalReport(clinical);
