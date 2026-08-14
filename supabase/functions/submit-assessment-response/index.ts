@@ -125,7 +125,7 @@ serve(async (req) => {
 
     // scoring can be null or malformed depending on how template JSON was saved.
     // Normalize it to a plain object of factors.
-    const scoringRaw: unknown = (template as any).scoring;
+    const scoringRaw: unknown = (template as { scoring?: unknown }).scoring;
     const scoring: Record<string, any> =
       scoringRaw && typeof scoringRaw === 'object' && !Array.isArray(scoringRaw)
         ? (scoringRaw as Record<string, any>)
@@ -612,7 +612,7 @@ serve(async (req) => {
     const userAgent = req.headers.get('user-agent') || 'unknown';
 
     // Build metadata with examples if provided (for DES)
-    const responseMetadata: Record<string, any> = { 
+    const responseMetadata: Record<string, unknown> = {
       userAgent, 
       submittedAt: new Date().toISOString() 
     };
@@ -676,7 +676,7 @@ serve(async (req) => {
       if (patientData) {
         const templateName = Array.isArray(assessmentDetails.template) 
           ? assessmentDetails.template[0]?.name 
-          : (assessmentDetails.template as any)?.name || 'Evaluación';
+          : (assessmentDetails.template as { name?: string })?.name || 'Evaluación';
 
         const alertMessage = buildAlertMessage({
           eventType: 'Evaluación completada por el paciente',

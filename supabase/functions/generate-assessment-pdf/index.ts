@@ -686,7 +686,7 @@ serve(async (req) => {
     }
 
     // Auth: require valid JWT OR matching access_token
-    if (!isAuthed && (!access_token || access_token !== (assessment as any).access_token)) {
+    if (!isAuthed && (!access_token || access_token !== (assessment as { access_token?: string | null }).access_token)) {
       return unauthorizedResponse(corsHeaders);
     }
 
@@ -1026,7 +1026,7 @@ serve(async (req) => {
         <h4>Profesional</h4>
         <p><strong>${escapeHtml(professional?.first_name || '')} ${escapeHtml(professional?.last_name || '')}</strong></p>
         ${professional?.specialty ? `<p>${escapeHtml(professional.specialty)}</p>` : ''}
-        ${(professional as any)?.collegiate_number ? `<p>Nº Colegiado: ${escapeHtml((professional as any).collegiate_number)}</p>` : ''}
+        ${(professional as { collegiate_number?: string })?.collegiate_number ? `<p>Nº Colegiado: ${escapeHtml((professional as { collegiate_number?: string }).collegiate_number ?? '')}</p>` : ''}
       </div>
     </div>
 
@@ -1202,7 +1202,7 @@ function generateDESHTML(factorScores: Record<string, number>, metadata: any, te
     const analysisByCategory: Record<string, any[]> = {};
     if (aiAnalysis.itemAnalysis) {
       for (const [index, analysis] of Object.entries(aiAnalysis.itemAnalysis)) {
-        const cat = (analysis as any).category || 'other';
+        const cat = (analysis as { category?: string }).category || 'other';
         if (!analysisByCategory[cat]) analysisByCategory[cat] = [];
         analysisByCategory[cat].push(analysis);
       }
