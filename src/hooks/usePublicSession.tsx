@@ -139,7 +139,7 @@ export function useUpdatePublicSession() {
 
       const { data, error } = await supabase
         .from('sessions')
-        .update(updateData as any)
+        .update(updateData)
         .eq('access_token', token)
         .setHeader('x-session-token', token)
         .select()

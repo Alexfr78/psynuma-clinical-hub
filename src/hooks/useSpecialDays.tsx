@@ -57,7 +57,7 @@ export function useCreateSpecialDay() {
       const { slots, ...head } = input;
       const { data, error } = await supabase
         .from('special_days')
-        .insert(head as any)
+        .insert(head)
         .select()
         .single();
       if (error) throw error;
@@ -90,7 +90,7 @@ export function useUpdateSpecialDay() {
       const { slots, ...head } = input;
       const { data, error } = await supabase
         .from('special_days')
-        .update(head as any)
+        .update(head)
         .eq('id', id)
         .select()
         .single();

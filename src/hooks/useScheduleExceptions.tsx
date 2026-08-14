@@ -32,7 +32,7 @@ export function useCreateScheduleException() {
     mutationFn: async (exception: Omit<ScheduleException, 'id' | 'created_at' | 'updated_at'>) => {
       const { data, error } = await supabase
         .from('schedule_exceptions')
-        .insert(exception as any)
+        .insert(exception)
         .select()
         .single();
       if (error) throw error;
@@ -56,7 +56,7 @@ export function useUpdateScheduleException() {
     mutationFn: async ({ id, ...updates }: Partial<ScheduleException> & { id: string }) => {
       const { data, error } = await supabase
         .from('schedule_exceptions')
-        .update(updates as any)
+        .update(updates)
         .eq('id', id)
         .select()
         .single();

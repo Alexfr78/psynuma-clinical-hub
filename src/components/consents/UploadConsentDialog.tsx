@@ -106,7 +106,7 @@ export function UploadConsentDialog({
           expires_at: new Date(signedAt).toISOString(), // not relevant for uploaded
           uploaded_file_url: filePath,
           source: 'uploaded',
-        } as any);
+        });
 
       if (insertError) throw insertError;
 
