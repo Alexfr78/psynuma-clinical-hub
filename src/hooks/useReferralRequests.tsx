@@ -39,7 +39,7 @@ export function useReferralRequests() {
     queryFn: async () => {
       if (!centerId) return [];
       const { data, error } = await supabase
-        .from('referral_partner_requests' as any)
+        .from('referral_partner_requests')
         .select('*')
         .eq('center_id', centerId)
         .order('created_at', { ascending: false });
@@ -76,12 +76,12 @@ export function useReferralRequests() {
 
       // Mark request as approved
       const { error: updateError } = await supabase
-        .from('referral_partner_requests' as any)
+        .from('referral_partner_requests')
         .update({
           status: 'approved',
           handled_by: profile.id,
           handled_at: new Date().toISOString(),
-        } as any)
+        })
         .eq('id', request.id);
       if (updateError) throw updateError;
     },
@@ -97,13 +97,13 @@ export function useReferralRequests() {
     mutationFn: async ({ id, reason }: { id: string; reason?: string }) => {
       if (!profile?.id) throw new Error('No user');
       const { error } = await supabase
-        .from('referral_partner_requests' as any)
+        .from('referral_partner_requests')
         .update({
           status: 'rejected',
           handled_by: profile.id,
           handled_at: new Date().toISOString(),
           rejection_reason: reason || null,
-        } as any)
+        })
         .eq('id', id);
       if (error) throw error;
     },

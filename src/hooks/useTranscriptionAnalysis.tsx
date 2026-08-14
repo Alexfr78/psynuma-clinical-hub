@@ -166,7 +166,7 @@ export function useTranscriptionAnalysis(options: UseTranscriptionAnalysisOption
                 ai_summary_clinical: clinical,
                 ai_summary_patient: patient || null,
                 transcript_processed_at: new Date().toISOString(),
-              } as any)
+              })
               .eq('id', sessionId);
           }
           return clinical;
@@ -190,7 +190,7 @@ export function useTranscriptionAnalysis(options: UseTranscriptionAnalysisOption
               notes: content,
               ai_summary_clinical: content,
               transcript_processed_at: new Date().toISOString(),
-            } as any)
+            })
             .eq('id', sessionId);
         }
       } else if (layer === 3) {
@@ -199,7 +199,7 @@ export function useTranscriptionAnalysis(options: UseTranscriptionAnalysisOption
         if (sessionId) {
           await supabase
             .from('sessions')
-            .update({ ai_summary_patient: content } as any)
+            .update({ ai_summary_patient: content })
             .eq('id', sessionId);
         }
       }
@@ -222,7 +222,7 @@ export function useTranscriptionAnalysis(options: UseTranscriptionAnalysisOption
     try {
       await supabase
         .from('sessions')
-        .update({ notes: content, ai_summary_clinical: content } as any)
+        .update({ notes: content, ai_summary_clinical: content })
         .eq('id', sessionId);
       setClinicalReport(content);
       toast.success('Informe clínico guardado');
@@ -239,7 +239,7 @@ export function useTranscriptionAnalysis(options: UseTranscriptionAnalysisOption
     try {
       await supabase
         .from('sessions')
-        .update({ ai_summary_patient: content } as any)
+        .update({ ai_summary_patient: content })
         .eq('id', sessionId);
       setPatientReport(content);
       toast.success('Informe del paciente guardado');

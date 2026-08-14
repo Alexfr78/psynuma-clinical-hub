@@ -72,7 +72,7 @@ export function useCreateRecurringSeries() {
 
       const { data: series, error: seriesError } = await supabase
         .from('recurring_series')
-        .insert(seriesPayload as any)
+        .insert(seriesPayload)
         .select()
         .single();
 
@@ -102,7 +102,7 @@ export function useCreateRecurringSeries() {
       if (sessionsToCreate.length > 0) {
         const { error: sessionsError } = await supabase
           .from('sessions')
-          .insert(sessionsToCreate as any);
+          .insert(sessionsToCreate);
 
         if (sessionsError) throw sessionsError;
       }
@@ -167,7 +167,7 @@ export function useUpdateRecurringSession() {
               location_id: updates.location_id,
               notes_default: updates.notes,
               updated_at: new Date().toISOString(),
-            } as any)
+            })
             .eq('id', seriesId);
 
           if (seriesError) throw seriesError;
@@ -226,7 +226,7 @@ export function useUpdateRecurringSession() {
           await supabase
             .from('recurring_series')
             .update({
-              rrule_json: updatedRrule as any,
+              rrule_json: updatedRrule,
               updated_at: new Date().toISOString(),
             })
             .eq('id', seriesId);
@@ -349,7 +349,7 @@ export function useCancelRecurringSession() {
               await supabase
                 .from('recurring_series')
                 .update({
-                  rrule_json: updatedRrule as any,
+                  rrule_json: updatedRrule,
                   updated_at: new Date().toISOString(),
                 })
                 .eq('id', seriesId);
@@ -487,7 +487,7 @@ export function useEnsureOccurrences() {
 
         const { error: insertError } = await supabase
           .from('sessions')
-          .insert(sessionsToCreate as any);
+          .insert(sessionsToCreate);
 
         if (!insertError) {
           totalGenerated += sessionsToCreate.length;
