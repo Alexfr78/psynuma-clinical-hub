@@ -40,7 +40,7 @@ import { usePublicSession, useUpdatePublicSession, usePublicSessionReschedule } 
 import { useState, useEffect } from 'react';
 import { Textarea } from '@/components/ui/textarea';
 import { formatLocationLine, summarizeLocationChange, isOnlineLocation, type RescheduleLocation } from '@/lib/reschedule-helpers';
-import { SESSION_STATUS_LABELS } from '@/lib/payment-status';
+import { SESSION_STATUS_LABELS, getSessionStatusDisplay } from '@/lib/payment-status';
 
 function extractZoomInfo(videoCallLink: string | null | undefined) {
   if (!videoCallLink || !videoCallLink.includes('zoom.us')) return null;
@@ -494,7 +494,7 @@ export default function SessionManagement() {
             <CalendarIcon className="h-6 w-6 text-primary" />
           </div>
           <CardTitle className="text-xl">Tu cita</CardTitle>
-          <Badge variant={statusInfo.variant} className="mx-auto mt-2 gap-1">
+          <Badge variant="outline" className={`mx-auto mt-2 gap-1 ${getSessionStatusDisplay(status).badgeClass}`}>
             {statusInfo.icon}
             {statusInfo.label}
           </Badge>

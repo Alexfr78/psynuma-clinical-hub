@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { SESSION_STATUS_LABELS } from '@/lib/payment-status';
+import { SESSION_STATUS_LABELS, getSessionStatusDisplay } from '@/lib/payment-status';
 import { 
   Calendar, 
   Clock, 
@@ -123,7 +123,7 @@ export function SessionDetailDialog({ session, open, onOpenChange, onAnalyzeTran
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             Detalle de Sesión
-            <Badge variant={status.variant}>{status.label}</Badge>
+            <Badge variant="outline" className={getSessionStatusDisplay(session.status).badgeClass}>{status.label}</Badge>
           </DialogTitle>
         </DialogHeader>
 

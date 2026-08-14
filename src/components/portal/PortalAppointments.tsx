@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { SESSION_STATUS_LABELS } from '@/lib/payment-status';
+import { SESSION_STATUS_LABELS, getSessionStatusDisplay } from '@/lib/payment-status';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -138,7 +138,7 @@ export function PortalAppointments({
                   {format(new Date(session.session_date), "EEEE, d 'de' MMMM", { locale: es })}
                 </span>
               </div>
-              <Badge variant={status.variant} className="flex items-center gap-1">
+              <Badge variant="outline" className={`flex items-center gap-1 ${getSessionStatusDisplay(session.status).badgeClass}`}>
                 <StatusIcon className="h-3 w-3" />
                 <span className="text-xs">{status.label}</span>
               </Badge>

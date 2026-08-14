@@ -5,7 +5,7 @@ import { Calendar, Clock, Loader2, CheckCircle2, XCircle, AlertCircle, ChevronRi
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { SESSION_STATUS_LABELS } from '@/lib/payment-status';
+import { SESSION_STATUS_LABELS, getSessionStatusDisplay } from '@/lib/payment-status';
 
 interface PatientSessionHistoryProps {
   patientId: string;
@@ -122,7 +122,7 @@ export function PatientSessionHistory({ patientId, currentSessionId, onSessionCl
                 "w-10 h-10 rounded-full flex items-center justify-center",
                 isPast ? 'bg-muted' : 'bg-primary/10'
               )}>
-                <StatusIcon className={cn("h-5 w-5", config.className)} />
+                <StatusIcon className={cn("h-5 w-5", getSessionStatusDisplay(session.status).textClass)} />
               </div>
             </div>
             
@@ -131,7 +131,7 @@ export function PatientSessionHistory({ patientId, currentSessionId, onSessionCl
                 <span className="font-medium text-sm">
                   {format(sessionDate, "d 'de' MMMM, yyyy", { locale: es })}
                 </span>
-                <Badge variant="outline" className={cn("text-xs", config.className)}>
+                <Badge variant="outline" className={cn("text-xs", getSessionStatusDisplay(session.status).textClass)}>
                   {config.label}
                 </Badge>
               </div>

@@ -11,7 +11,7 @@ import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { getBonoStatusDisplay, SESSION_STATUS_LABELS } from '@/lib/payment-status';
+import { getBonoStatusDisplay, SESSION_STATUS_LABELS, getSessionStatusDisplay } from '@/lib/payment-status';
 import {
   Calendar,
   User,
@@ -202,7 +202,7 @@ export function BonoDetailDialog({ bono, open, onOpenChange }: BonoDetailDialogP
                               <span className="font-medium text-sm">
                                 {format(new Date(session.session_date), "EEEE d MMM yyyy", { locale: es })}
                               </span>
-                              <span className={`text-xs ${sessionStatus.className}`}>
+                              <span className={`text-xs ${getSessionStatusDisplay(session.session_status).textClass}`}>
                                 {sessionStatus.label}
                               </span>
                             </div>

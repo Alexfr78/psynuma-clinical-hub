@@ -13,7 +13,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { SESSION_STATUS_LABELS } from '@/lib/payment-status';
+import { SESSION_STATUS_LABELS, getSessionStatusDisplay } from '@/lib/payment-status';
 
 interface BonoSessionsDialogProps {
   bonoId: string | null;
@@ -114,7 +114,7 @@ export function BonoSessionsDialog({
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Badge variant={status.variant}>{status.label}</Badge>
+                      <Badge variant="outline" className={getSessionStatusDisplay(session.status).badgeClass}>{status.label}</Badge>
                       {typeof session.price === 'number' && (
                         <span className="text-sm font-medium">
                           {Number(session.price).toFixed(2)}€

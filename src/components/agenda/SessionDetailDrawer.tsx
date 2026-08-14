@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { format, parse } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { SESSION_STATUS_LABELS } from '@/lib/payment-status';
+import { SESSION_STATUS_LABELS, getSessionStatusDisplay } from '@/lib/payment-status';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import {
@@ -1054,7 +1054,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
           bonoId={session.bono_id}
           showLabel={!isMobile}
         />
-        <Badge className={cn(status.className, "shrink-0")} variant={status.variant}>
+        <Badge className={cn(getSessionStatusDisplay(effectiveStatus).badgeClass, "shrink-0")} variant="outline">
           {status.label}
         </Badge>
       </div>
