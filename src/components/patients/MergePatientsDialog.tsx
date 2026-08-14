@@ -75,8 +75,8 @@ export function MergePatientsDialog({ primaryPatientId, primaryPatientName, trig
   const conflicts = useMemo(() => {
     if (!primaryPatient || !secondaryPatient) return [];
     return MERGE_FIELDS.filter(({ key }) => {
-      const pVal = (primaryPatient as any)[key];
-      const sVal = (secondaryPatient as any)[key];
+      const pVal = (primaryPatient as unknown as Record<string, unknown>)[key];
+      const sVal = (secondaryPatient as unknown as Record<string, unknown>)[key];
       // Both have different non-empty values
       const pEmpty = pVal === null || pVal === undefined || pVal === '';
       const sEmpty = sVal === null || sVal === undefined || sVal === '';
@@ -90,8 +90,8 @@ export function MergePatientsDialog({ primaryPatientId, primaryPatientName, trig
   const autoResolved = useMemo(() => {
     if (!primaryPatient || !secondaryPatient) return [];
     return MERGE_FIELDS.filter(({ key }) => {
-      const pVal = (primaryPatient as any)[key];
-      const sVal = (secondaryPatient as any)[key];
+      const pVal = (primaryPatient as unknown as Record<string, unknown>)[key];
+      const sVal = (secondaryPatient as unknown as Record<string, unknown>)[key];
       const pEmpty = pVal === null || pVal === undefined || pVal === '';
       const sEmpty = sVal === null || sVal === undefined || sVal === '';
       return pEmpty !== sEmpty;
@@ -106,7 +106,7 @@ export function MergePatientsDialog({ primaryPatientId, primaryPatientName, trig
     });
     // Auto-resolve fields where one has value, other doesn't
     autoResolved.forEach(({ key }) => {
-      const pVal = (primaryPatient as any)[key];
+      const pVal = (primaryPatient as unknown as Record<string, unknown>)[key];
       const pEmpty = pVal === null || pVal === undefined || pVal === '';
       initial[key] = pEmpty ? 'secondary' : 'primary';
     });
@@ -174,7 +174,7 @@ export function MergePatientsDialog({ primaryPatientId, primaryPatientName, trig
     [...conflicts, ...autoResolved].forEach(({ key }) => {
       const choice = resolvedFields[key];
       if (choice === 'secondary') {
-        payload[key] = (secondaryPatient as any)[key];
+        payload[key] = (secondaryPatient as unknown as Record<string, unknown>)[key];
       }
       // If 'primary', no need to send — primary already has it
     });
@@ -204,9 +204,9 @@ export function MergePatientsDialog({ primaryPatientId, primaryPatientName, trig
       setOpen(false);
       resetState();
       navigate(`/pacientes/${primaryPatientId}`);
-    } catch (err: any) {
+    } catch (err) {
       toast.error('Error al fusionar contactos', {
-        description: err.message || 'Ha ocurrido un error inesperado.',
+        description: (err as Error).message || 'Ha ocurrido un error inesperado.',
       });
     } finally {
       setIsExecuting(false);
@@ -221,7 +221,7 @@ export function MergePatientsDialog({ primaryPatientId, primaryPatientName, trig
     setHasVerifactu(false);
   };
 
-  const formatValue = (val: any, key?: string): string => {
+  const formatValue = (val: unknown, key?: string): string => {
     if (val === null || val === undefined || val === '') return '—';
     if (typeof val === 'boolean') return val ? 'Sí' : 'No';
     if (key === 'assigned_professional_id') {
@@ -337,8 +337,8 @@ export function MergePatientsDialog({ primaryPatientId, primaryPatientName, trig
                     Los siguientes campos tienen valores distintos. Elige cuál conservar:
                   </p>
                   {conflicts.map(({ key, label }) => {
-                    const pVal = formatValue((primaryPatient as any)[key], key);
-                    const sVal = formatValue((secondaryPatient as any)[key], key);
+                    const pVal = formatValue((primaryPatient as unknown as Record<string, unknown>)[key], key);
+                    const sVal = formatValue((secondaryPatient as unknown as Record<string, unknown>)[key], key);
                     return (
                       <div key={key} className="rounded-lg border p-3 space-y-2">
                         <Label className="text-sm font-medium">{label}</Label>
@@ -375,10 +375,10 @@ export function MergePatientsDialog({ primaryPatientId, primaryPatientName, trig
                   </p>
                   <div className="text-xs text-muted-foreground space-y-1">
                     {autoResolved.map(({ key, label }) => {
-                      const pVal = (primaryPatient as any)[key];
+                      const pVal = (primaryPatient as unknown as Record<string, unknown>)[key];
                       const pEmpty = pVal === null || pVal === undefined || pVal === '';
                       const source = pEmpty ? 'secundario' : 'principal';
-                      const val = pEmpty ? (secondaryPatient as any)[key] : pVal;
+                      const val = pEmpty ? (secondaryPatient as unknown as Record<string, unknown>)[key] : pVal;
                       return (
                         <div key={key} className="flex items-center gap-2">
                           <CheckCircle2 className="h-3 w-3 text-green-500 shrink-0" />
@@ -451,7 +451,7 @@ export function MergePatientsDialog({ primaryPatientId, primaryPatientName, trig
                       .filter(([, v]) => v === 'secondary')
                       .map(([key]) => {
                         const field = MERGE_FIELDS.find(f => f.key === key);
-                        const val = secondaryPatient ? formatValue((secondaryPatient as any)[key], key) : '—';
+                        const val = secondaryPatient ? formatValue((secondaryPatient as unknown as Record<string, unknown>)[key], key) : '—';
                         return (
                           <div key={key} className="flex items-center gap-2">
                             <ArrowRight className="h-3 w-3 text-primary shrink-0" />
