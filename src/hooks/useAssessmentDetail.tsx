@@ -79,23 +79,32 @@ export function useAssessmentDetail(assessmentId: string | undefined) {
         : data.response;
 
       // Parsear JSON fields correctamente
-      const parsedResponse = responseData ? {
-        id: (responseData as any).id,
-        answers: typeof (responseData as any).answers === 'string' 
-          ? JSON.parse((responseData as any).answers) 
-          : (responseData as any).answers || {},
-        factor_scores: typeof (responseData as any).factor_scores === 'string'
-          ? JSON.parse((responseData as any).factor_scores)
-          : (responseData as any).factor_scores || {},
-        flags: typeof (responseData as any).flags === 'string'
-          ? JSON.parse((responseData as any).flags)
-          : (responseData as any).flags || null,
-        metadata: typeof (responseData as any).metadata === 'string'
-          ? JSON.parse((responseData as any).metadata)
-          : (responseData as any).metadata || null,
-        created_at: (responseData as any).created_at,
+      const rawResponse = responseData as unknown as {
+        id: string;
+        answers: string | Record<string, number> | null;
+        factor_scores: string | Record<string, number> | null;
+        flags: string | Record<string, boolean> | null;
+        metadata: string | Record<string, unknown> | null;
+        created_at: string;
+      } | null;
+      const parsedResponse = rawResponse ? {
+        id: rawResponse.id,
+        answers: typeof rawResponse.answers === 'string'
+          ? JSON.parse(rawResponse.answers)
+          : rawResponse.answers || {},
+        factor_scores: typeof rawResponse.factor_scores === 'string'
+          ? JSON.parse(rawResponse.factor_scores)
+          : rawResponse.factor_scores || {},
+        flags: typeof rawResponse.flags === 'string'
+          ? JSON.parse(rawResponse.flags)
+          : rawResponse.flags || null,
+        metadata: typeof rawResponse.metadata === 'string'
+          ? JSON.parse(rawResponse.metadata)
+          : rawResponse.metadata || null,
+        created_at: rawResponse.created_at,
       } as AssessmentDetailResponse : null;
 
+      const tpl = data.template as unknown as Partial<AssessmentDetailTemplate> | null;
       return {
         id: data.id,
         status: data.status,
@@ -105,18 +114,18 @@ export function useAssessmentDetail(assessmentId: string | undefined) {
         expires_at: data.expires_at,
         patient: data.patient as unknown as AssessmentDetailPatient,
         template: {
-          id: (data.template as any)?.id,
-          code: (data.template as any)?.code,
-          name: (data.template as any)?.name,
-          items: (data.template as any)?.items || [],
-          scoring: (data.template as any)?.scoring || {},
-          interpretations: (data.template as any)?.interpretations || null,
-          response_min: (data.template as any)?.response_min ?? 1,
-          response_max: (data.template as any)?.response_max ?? 7,
-          chart_full_mark: (data.template as any)?.chart_full_mark ?? 7,
-          flag_threshold: (data.template as any)?.flag_threshold ?? 4,
-          min_label: (data.template as any)?.min_label ?? null,
-          max_label: (data.template as any)?.max_label ?? null,
+          id: tpl?.id,
+          code: tpl?.code,
+          name: tpl?.name,
+          items: tpl?.items || [],
+          scoring: tpl?.scoring || {},
+          interpretations: tpl?.interpretations || null,
+          response_min: tpl?.response_min ?? 1,
+          response_max: tpl?.response_max ?? 7,
+          chart_full_mark: tpl?.chart_full_mark ?? 7,
+          flag_threshold: tpl?.flag_threshold ?? 4,
+          min_label: tpl?.min_label ?? null,
+          max_label: tpl?.max_label ?? null,
         } as AssessmentDetailTemplate,
         professional: data.professional as unknown as { id: string; first_name: string; last_name: string },
         response: parsedResponse,
