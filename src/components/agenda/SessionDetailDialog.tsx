@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { SESSION_STATUS_LABELS } from '@/lib/payment-status';
 import { 
   Calendar, 
   Clock, 
@@ -41,12 +42,12 @@ interface SessionDetailDialogProps {
 }
 
 const statusConfig = {
-  scheduled: { label: 'Programada', variant: 'secondary' as const, color: 'bg-blue-500' },
-  confirmed: { label: 'Confirmada', variant: 'default' as const, color: 'bg-green-500' },
-  completed: { label: 'Completada', variant: 'outline' as const, color: 'bg-gray-500' },
-  cancelled: { label: 'Cancelada', variant: 'destructive' as const, color: 'bg-red-500' },
-  no_show: { label: 'No asistió', variant: 'destructive' as const, color: 'bg-orange-500' },
-  blocked: { label: 'Bloqueado', variant: 'outline' as const, color: 'bg-purple-500' },
+  scheduled: { label: SESSION_STATUS_LABELS.scheduled, variant: 'secondary' as const, color: 'bg-blue-500' },
+  confirmed: { label: SESSION_STATUS_LABELS.confirmed, variant: 'default' as const, color: 'bg-green-500' },
+  completed: { label: SESSION_STATUS_LABELS.completed, variant: 'outline' as const, color: 'bg-gray-500' },
+  cancelled: { label: SESSION_STATUS_LABELS.cancelled, variant: 'destructive' as const, color: 'bg-red-500' },
+  no_show: { label: SESSION_STATUS_LABELS.no_show, variant: 'destructive' as const, color: 'bg-orange-500' },
+  blocked: { label: SESSION_STATUS_LABELS.blocked, variant: 'outline' as const, color: 'bg-purple-500' },
 };
 
 export function SessionDetailDialog({ session, open, onOpenChange, onAnalyzeTranscription }: SessionDetailDialogProps) {

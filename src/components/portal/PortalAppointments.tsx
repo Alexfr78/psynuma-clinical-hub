@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { SESSION_STATUS_LABELS } from '@/lib/payment-status';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -61,12 +62,12 @@ interface CancellationPolicyPreview {
 }
 
 const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; icon: typeof CheckCircle }> = {
-  scheduled: { label: 'Programada', variant: 'secondary', icon: Calendar },
-  confirmed: { label: 'Confirmada', variant: 'default', icon: CheckCircle },
-  pending_approval: { label: 'Pendiente aprobación', variant: 'outline', icon: AlertCircle },
-  completed: { label: 'Completada', variant: 'default', icon: CheckCircle },
-  cancelled: { label: 'Cancelada', variant: 'destructive', icon: XCircle },
-  no_show: { label: 'No asistió', variant: 'destructive', icon: XCircle },
+  scheduled: { label: SESSION_STATUS_LABELS.scheduled, variant: 'secondary', icon: Calendar },
+  confirmed: { label: SESSION_STATUS_LABELS.confirmed, variant: 'default', icon: CheckCircle },
+  pending_approval: { label: SESSION_STATUS_LABELS.pending_approval, variant: 'outline', icon: AlertCircle },
+  completed: { label: SESSION_STATUS_LABELS.completed, variant: 'default', icon: CheckCircle },
+  cancelled: { label: SESSION_STATUS_LABELS.cancelled, variant: 'destructive', icon: XCircle },
+  no_show: { label: SESSION_STATUS_LABELS.no_show, variant: 'destructive', icon: XCircle },
 };
 
 export function PortalAppointments({

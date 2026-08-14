@@ -40,6 +40,7 @@ import { usePublicSession, useUpdatePublicSession, usePublicSessionReschedule } 
 import { useState, useEffect } from 'react';
 import { Textarea } from '@/components/ui/textarea';
 import { formatLocationLine, summarizeLocationChange, isOnlineLocation, type RescheduleLocation } from '@/lib/reschedule-helpers';
+import { SESSION_STATUS_LABELS } from '@/lib/payment-status';
 
 function extractZoomInfo(videoCallLink: string | null | undefined) {
   if (!videoCallLink || !videoCallLink.includes('zoom.us')) return null;
@@ -48,13 +49,13 @@ function extractZoomInfo(videoCallLink: string | null | undefined) {
 }
 
 const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive'; icon: React.ReactNode }> = {
-  draft: { label: 'Borrador', variant: 'secondary', icon: null },
-  scheduled: { label: 'Programada', variant: 'outline', icon: <Clock className="h-4 w-4" /> },
-  confirmed: { label: 'Confirmada', variant: 'default', icon: <CheckCircle2 className="h-4 w-4" /> },
-  completed: { label: 'Completada', variant: 'secondary', icon: <CheckCircle2 className="h-4 w-4" /> },
-  cancelled: { label: 'Cancelada', variant: 'destructive', icon: <XCircle className="h-4 w-4" /> },
-  no_show: { label: 'No asistió', variant: 'destructive', icon: <XCircle className="h-4 w-4" /> },
-  reschedule_requested: { label: 'Reprogramación solicitada', variant: 'outline', icon: <CalendarClock className="h-4 w-4" /> },
+  draft: { label: SESSION_STATUS_LABELS.draft, variant: 'secondary', icon: null },
+  scheduled: { label: SESSION_STATUS_LABELS.scheduled, variant: 'outline', icon: <Clock className="h-4 w-4" /> },
+  confirmed: { label: SESSION_STATUS_LABELS.confirmed, variant: 'default', icon: <CheckCircle2 className="h-4 w-4" /> },
+  completed: { label: SESSION_STATUS_LABELS.completed, variant: 'secondary', icon: <CheckCircle2 className="h-4 w-4" /> },
+  cancelled: { label: SESSION_STATUS_LABELS.cancelled, variant: 'destructive', icon: <XCircle className="h-4 w-4" /> },
+  no_show: { label: SESSION_STATUS_LABELS.no_show, variant: 'destructive', icon: <XCircle className="h-4 w-4" /> },
+  reschedule_requested: { label: SESSION_STATUS_LABELS.reschedule_requested, variant: 'outline', icon: <CalendarClock className="h-4 w-4" /> },
   blocked: { label: 'Bloqueado', variant: 'outline', icon: <Ban className="h-4 w-4" /> },
 };
 

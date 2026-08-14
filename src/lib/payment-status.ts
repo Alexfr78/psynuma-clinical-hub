@@ -40,3 +40,25 @@ export const BONO_STATUS_DISPLAY: Record<BonoStatus, SettlementStatusDisplay> = 
 export function getBonoStatusDisplay(status: string | null | undefined): SettlementStatusDisplay {
   return BONO_STATUS_DISPLAY[status as BonoStatus] ?? BONO_STATUS_DISPLAY.active;
 }
+
+// --- Session scheduling status LABELS (single source of truth) ---
+// Only the label text is centralised here; each screen keeps its own colours/
+// variants/icons, which differ intentionally by context. This guarantees the
+// wording never drifts between screens.
+
+export const SESSION_STATUS_LABELS: Record<string, string> = {
+  draft: 'Borrador',
+  scheduled: 'Programada',
+  confirmed: 'Confirmada',
+  completed: 'Completada',
+  cancelled: 'Cancelada',
+  no_show: 'No asistió',
+  blocked: 'Bloqueado',
+  rescheduled: 'Reprogramada',
+  reschedule_requested: 'Reprogramación solicitada',
+  pending_approval: 'Pendiente aprobación',
+};
+
+export function getSessionStatusLabel(status: string | null | undefined): string {
+  return SESSION_STATUS_LABELS[status ?? ''] ?? (status ?? '');
+}

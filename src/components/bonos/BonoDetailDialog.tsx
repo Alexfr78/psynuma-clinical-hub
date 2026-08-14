@@ -11,7 +11,7 @@ import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { getBonoStatusDisplay } from '@/lib/payment-status';
+import { getBonoStatusDisplay, SESSION_STATUS_LABELS } from '@/lib/payment-status';
 import {
   Calendar,
   User,
@@ -33,11 +33,11 @@ interface BonoDetailDialogProps {
 }
 
 const sessionStatusConfig: Record<string, { label: string; className: string }> = {
-  scheduled: { label: 'Programada', className: 'text-blue-600 dark:text-blue-400' },
-  confirmed: { label: 'Confirmada', className: 'text-emerald-600 dark:text-emerald-400' },
-  completed: { label: 'Completada', className: 'text-muted-foreground' },
-  cancelled: { label: 'Cancelada', className: 'text-destructive' },
-  no_show: { label: 'No asistió', className: 'text-amber-600 dark:text-amber-400' },
+  scheduled: { label: SESSION_STATUS_LABELS.scheduled, className: 'text-blue-600 dark:text-blue-400' },
+  confirmed: { label: SESSION_STATUS_LABELS.confirmed, className: 'text-emerald-600 dark:text-emerald-400' },
+  completed: { label: SESSION_STATUS_LABELS.completed, className: 'text-muted-foreground' },
+  cancelled: { label: SESSION_STATUS_LABELS.cancelled, className: 'text-destructive' },
+  no_show: { label: SESSION_STATUS_LABELS.no_show, className: 'text-amber-600 dark:text-amber-400' },
 };
 
 export function BonoDetailDialog({ bono, open, onOpenChange }: BonoDetailDialogProps) {

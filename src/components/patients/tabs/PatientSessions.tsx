@@ -10,6 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SessionDetailDrawer } from '@/components/agenda/SessionDetailDrawer';
 import type { SessionWithRelations } from '@/hooks/useSessions';
+import { SESSION_STATUS_LABELS } from '@/lib/payment-status';
 
 interface PatientSessionsProps {
   patientId: string;
@@ -18,12 +19,12 @@ interface PatientSessionsProps {
 type StatusFilter = 'active' | 'cancelled' | 'all';
 
 const statusConfig = {
-  scheduled: { label: 'Programada', variant: 'secondary' as const },
-  confirmed: { label: 'Confirmada', variant: 'default' as const },
-  completed: { label: 'Completada', variant: 'outline' as const },
-  cancelled: { label: 'Cancelada', variant: 'destructive' as const },
-  no_show: { label: 'No asistió', variant: 'destructive' as const },
-  blocked: { label: 'Bloqueado', variant: 'outline' as const },
+  scheduled: { label: SESSION_STATUS_LABELS.scheduled, variant: 'secondary' as const },
+  confirmed: { label: SESSION_STATUS_LABELS.confirmed, variant: 'default' as const },
+  completed: { label: SESSION_STATUS_LABELS.completed, variant: 'outline' as const },
+  cancelled: { label: SESSION_STATUS_LABELS.cancelled, variant: 'destructive' as const },
+  no_show: { label: SESSION_STATUS_LABELS.no_show, variant: 'destructive' as const },
+  blocked: { label: SESSION_STATUS_LABELS.blocked, variant: 'outline' as const },
 };
 
 export function PatientSessions({ patientId }: PatientSessionsProps) {

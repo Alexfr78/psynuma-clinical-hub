@@ -5,6 +5,7 @@ import { Calendar, Clock, Loader2, CheckCircle2, XCircle, AlertCircle, ChevronRi
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { SESSION_STATUS_LABELS } from '@/lib/payment-status';
 
 interface PatientSessionHistoryProps {
   patientId: string;
@@ -29,12 +30,12 @@ interface SessionHistoryItem {
 }
 
 const statusConfig: Record<string, { label: string; icon: typeof CheckCircle2; className: string }> = {
-  completed: { label: 'Completada', icon: CheckCircle2, className: 'text-green-600' },
-  confirmed: { label: 'Confirmada', icon: CheckCircle2, className: 'text-blue-600' },
-  scheduled: { label: 'Programada', icon: Clock, className: 'text-muted-foreground' },
-  cancelled: { label: 'Cancelada', icon: XCircle, className: 'text-red-600' },
-  no_show: { label: 'No asistió', icon: AlertCircle, className: 'text-orange-600' },
-  draft: { label: 'Borrador', icon: Clock, className: 'text-muted-foreground' },
+  completed: { label: SESSION_STATUS_LABELS.completed, icon: CheckCircle2, className: 'text-green-600' },
+  confirmed: { label: SESSION_STATUS_LABELS.confirmed, icon: CheckCircle2, className: 'text-blue-600' },
+  scheduled: { label: SESSION_STATUS_LABELS.scheduled, icon: Clock, className: 'text-muted-foreground' },
+  cancelled: { label: SESSION_STATUS_LABELS.cancelled, icon: XCircle, className: 'text-red-600' },
+  no_show: { label: SESSION_STATUS_LABELS.no_show, icon: AlertCircle, className: 'text-orange-600' },
+  draft: { label: SESSION_STATUS_LABELS.draft, icon: Clock, className: 'text-muted-foreground' },
 };
 
 function usePatientSessionHistory(patientId: string, currentSessionId?: string) {

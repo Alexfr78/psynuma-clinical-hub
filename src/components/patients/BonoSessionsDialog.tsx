@@ -13,6 +13,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { SESSION_STATUS_LABELS } from '@/lib/payment-status';
 
 interface BonoSessionsDialogProps {
   bonoId: string | null;
@@ -23,12 +24,12 @@ interface BonoSessionsDialogProps {
 }
 
 const sessionStatusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
-  scheduled: { label: 'Programada', variant: 'default' },
-  confirmed: { label: 'Confirmada', variant: 'default' },
-  completed: { label: 'Completada', variant: 'secondary' },
-  cancelled: { label: 'Cancelada', variant: 'destructive' },
-  no_show: { label: 'No asistió', variant: 'destructive' },
-  rescheduled: { label: 'Reprogramada', variant: 'outline' },
+  scheduled: { label: SESSION_STATUS_LABELS.scheduled, variant: 'default' },
+  confirmed: { label: SESSION_STATUS_LABELS.confirmed, variant: 'default' },
+  completed: { label: SESSION_STATUS_LABELS.completed, variant: 'secondary' },
+  cancelled: { label: SESSION_STATUS_LABELS.cancelled, variant: 'destructive' },
+  no_show: { label: SESSION_STATUS_LABELS.no_show, variant: 'destructive' },
+  rescheduled: { label: SESSION_STATUS_LABELS.rescheduled, variant: 'outline' },
 };
 
 export function BonoSessionsDialog({

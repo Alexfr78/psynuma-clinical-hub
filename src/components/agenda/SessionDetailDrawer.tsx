@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { format, parse } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { SESSION_STATUS_LABELS } from '@/lib/payment-status';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import {
@@ -150,13 +151,13 @@ interface SessionDetailDrawerProps {
 }
 
 const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; className: string }> = {
-  draft: { label: 'Borrador', variant: 'outline', className: 'border-dashed' },
-  scheduled: { label: 'Programada', variant: 'secondary', className: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' },
-  confirmed: { label: 'Confirmada', variant: 'default', className: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' },
-  completed: { label: 'Completada', variant: 'outline', className: 'bg-muted' },
-  cancelled: { label: 'Cancelada', variant: 'destructive', className: '' },
-  no_show: { label: 'No asistió', variant: 'destructive', className: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200' },
-  blocked: { label: 'Bloqueado', variant: 'outline', className: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200' },
+  draft: { label: SESSION_STATUS_LABELS.draft, variant: 'outline', className: 'border-dashed' },
+  scheduled: { label: SESSION_STATUS_LABELS.scheduled, variant: 'secondary', className: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' },
+  confirmed: { label: SESSION_STATUS_LABELS.confirmed, variant: 'default', className: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' },
+  completed: { label: SESSION_STATUS_LABELS.completed, variant: 'outline', className: 'bg-muted' },
+  cancelled: { label: SESSION_STATUS_LABELS.cancelled, variant: 'destructive', className: '' },
+  no_show: { label: SESSION_STATUS_LABELS.no_show, variant: 'destructive', className: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200' },
+  blocked: { label: SESSION_STATUS_LABELS.blocked, variant: 'outline', className: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200' },
 };
 
 const sessionTypeLabels: Record<string, string> = {
