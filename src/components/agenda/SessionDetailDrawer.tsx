@@ -968,10 +968,10 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
       // Refresh bonos list and payment status
       refetchBonos();
       refetchPaymentStatus();
-    } catch (error: any) {
+    } catch (error) {
       // Revert local state on error
       setLocalBonoId(session.bono_id || null);
-      toast({ title: 'Error al cambiar bono', description: error.message, variant: 'destructive' });
+      toast({ title: 'Error al cambiar bono', description: (error as Error).message, variant: 'destructive' });
     }
   };
 

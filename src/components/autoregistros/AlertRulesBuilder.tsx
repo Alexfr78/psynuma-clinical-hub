@@ -172,13 +172,13 @@ export default function AlertRulesBuilder({ templateId, fields }: Props) {
       if (editingRule) {
         const { error } = await supabase
           .from('autoregistro_alert_rules')
-          .update(payload as any)
+          .update(payload)
           .eq('id', editingRule.id);
         if (error) throw error;
       } else {
         const { error } = await supabase
           .from('autoregistro_alert_rules')
-          .insert(payload as any);
+          .insert(payload);
         if (error) throw error;
       }
 
