@@ -134,7 +134,7 @@ export function usePublicBooking(centerSlug: string) {
   const [error, setError] = useState<string | null>(null);
   const [disabled, setDisabled] = useState(false);
 
-  const invoke = useCallback(async (action: string, params: Record<string, any> = {}) => {
+  const invoke = useCallback(async (action: string, params: Record<string, unknown> = {}) => {
     const { data, error } = await supabase.functions.invoke('public-booking', {
       body: { action, centerSlug, ...params }
     });
@@ -154,8 +154,8 @@ export function usePublicBooking(centerSlug: string) {
       const data = await invoke('get-config');
       setConfig(data);
       return data;
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError((err as Error).message);
       return null;
     } finally {
       setLoading(false);
@@ -178,8 +178,8 @@ export function usePublicBooking(centerSlug: string) {
       setProfessionals(data?.professionals || []);
       setAllowProfessionalSelection(!!data?.allowProfessionalSelection);
       return data;
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError((err as Error).message);
       return null;
     } finally {
       setLoading(false);
@@ -191,8 +191,8 @@ export function usePublicBooking(centerSlug: string) {
       const data = await invoke('list-services');
       setServices(data.services || []);
       return data.services;
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError((err as Error).message);
       return [];
     }
   }, [invoke]);
@@ -202,8 +202,8 @@ export function usePublicBooking(centerSlug: string) {
       const data = await invoke('list-locations');
       setLocations(data.locations || []);
       return data.locations;
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError((err as Error).message);
       return [];
     }
   }, [invoke]);
@@ -214,8 +214,8 @@ export function usePublicBooking(centerSlug: string) {
       setProfessionals(data.professionals || []);
       setAllowProfessionalSelection(data.allowSelection || false);
       return data.professionals;
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError((err as Error).message);
       return [];
     }
   }, [invoke]);
@@ -229,8 +229,8 @@ export function usePublicBooking(centerSlug: string) {
     try {
       const data = await invoke('get-availability', { date, sessionTypeId, locationId, professionalId });
       return { slots: data.slots || [], serviceDuration: data.serviceDuration };
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError((err as Error).message);
       return { slots: [], serviceDuration: 60 };
     }
   }, [invoke]);
@@ -244,8 +244,8 @@ export function usePublicBooking(centerSlug: string) {
     try {
       const data = await invoke('get-availability-month', { month, sessionTypeId, locationId, professionalId });
       return data?.days || [];
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError((err as Error).message);
       return [];
     }
   }, [invoke]);
@@ -268,8 +268,8 @@ export function usePublicBooking(centerSlug: string) {
     try {
       const data = await invoke('create-booking', params);
       return data;
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError((err as Error).message);
       return null;
     } finally {
       setLoading(false);
@@ -286,8 +286,8 @@ export function usePublicBooking(centerSlug: string) {
       if (error) throw new Error(error.message);
       if (data?.error) throw new Error(data.error);
       return data;
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError((err as Error).message);
       return null;
     } finally {
       setLoading(false);
@@ -304,8 +304,8 @@ export function usePublicBooking(centerSlug: string) {
       if (error) throw new Error(error.message);
       if (data?.error) throw new Error(data.error);
       return data.success;
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError((err as Error).message);
       return false;
     } finally {
       setLoading(false);
@@ -327,8 +327,8 @@ export function usePublicBooking(centerSlug: string) {
       if (error) throw new Error(error.message);
       if (data?.error) throw new Error(data.error);
       return data.success;
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError((err as Error).message);
       return false;
     } finally {
     setLoading(false);
@@ -358,8 +358,8 @@ export function usePublicBooking(centerSlug: string) {
         recommendedPartnerIds: data.recommendedPartnerIds,
       });
       return result?.success ?? false;
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError((err as Error).message);
       return false;
     } finally {
       setLoading(false);
@@ -374,7 +374,7 @@ export function usePublicBooking(centerSlug: string) {
         provinces: data.provinces || [],
         cities: data.cities || []
       };
-    } catch (err: any) {
+    } catch (err) {
       console.error('[listReferralFilters] Error:', err);
       return { specialties: [], provinces: [], cities: [] };
     }
@@ -389,7 +389,7 @@ export function usePublicBooking(centerSlug: string) {
     try {
       const data = await invoke('get-referral-recommendations', { modality, specialty, province, city });
       return data.partners || [];
-    } catch (err: any) {
+    } catch (err) {
       console.error('[getReferralRecommendations] Error:', err);
       return [];
     }
