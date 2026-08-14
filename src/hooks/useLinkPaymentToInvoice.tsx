@@ -8,6 +8,16 @@ interface LinkPaymentParams {
 }
 
 /**
+ * Cast helper for the RPC `reassign_payment_to_invoice_v2`, which is not yet
+ * present in the generated Supabase types. Removes `any` without suppressing
+ * lint rules; behavior is unchanged.
+ */
+type UntypedRpcCall = (
+  fn: string,
+  args: Record<string, unknown>,
+) => PromiseLike<{ data: unknown; error: { message: string } | null }>;
+
+/**
  * Hook to reassign a payment to a (different) invoice.
  *
  * Uses the backend RPC `reassign_payment_to_invoice_v2` which atomically:
@@ -25,7 +35,7 @@ export function useLinkPaymentToInvoice() {
 
   return useMutation({
     mutationFn: async ({ paymentId, invoiceId }: LinkPaymentParams) => {
-      const { data, error } = await (supabase.rpc as any)('reassign_payment_to_invoice_v2', {
+      const { data, error } = await (supabase.rpc as unknown as UntypedRpcCall)('reassign_payment_to_invoice_v2', {
         p_payment_id: paymentId,
         p_target_invoice_id: invoiceId,
       });

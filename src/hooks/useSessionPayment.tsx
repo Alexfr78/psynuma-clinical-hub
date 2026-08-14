@@ -32,6 +32,16 @@ export interface SessionPaymentStatus {
 
 type SessionInvoiceEmbed = { id: string; is_valid: boolean; status: string; total: number };
 
+/**
+ * Cast helper for RPCs whose args pass explicit null for defaulted params
+ * (the generated typed `.rpc()` overload rejects `null` for optional args).
+ * Preserves runtime behavior (still sends null) without resorting to `any`.
+ */
+type UntypedRpcCall = (
+  fn: string,
+  args: Record<string, unknown>,
+) => PromiseLike<{ data: unknown; error: { message: string } | null }>;
+
 export function useSessionPaymentStatus(sessionId: string | undefined) {
   return useQuery({
     queryKey: ['session-payment-status', sessionId],
@@ -206,7 +216,7 @@ export function useCollectSessionPayment() {
 
   return useMutation({
     mutationFn: async (params: CollectSessionPaymentParams) => {
-      const { data, error } = await (supabase.rpc as any)('collect_session_payment_v2', {
+      const { data, error } = await (supabase.rpc as unknown as UntypedRpcCall)('collect_session_payment_v2', {
         p_session_id: params.sessionId,
         p_patient_id: params.patientId,
         p_amount: params.amount,
