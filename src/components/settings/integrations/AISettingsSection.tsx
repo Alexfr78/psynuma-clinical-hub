@@ -46,8 +46,8 @@ export function AISettingsSection() {
   const [verifyResult, setVerifyResult] = useState<'ok' | 'error' | null>(null);
   const [verifyError, setVerifyError] = useState<string | null>(null);
 
-  const openaiConfigured = !!(center as any)?.openai_api_key_encrypted;
-  const geminiConfigured = !!(center as any)?.gemini_api_key_encrypted;
+  const openaiConfigured = !!center?.openai_api_key_encrypted;
+  const geminiConfigured = !!center?.gemini_api_key_encrypted;
 
   const OPENAI_MODELS = ['gpt-4.1', 'gpt-4.1-mini', 'gpt-4.1-nano', 'gpt-4o', 'o1'];
   const GEMINI_MODELS = ['gemini-2.5-pro', 'gemini-2.0-flash', 'gemini-1.5-pro'];
@@ -57,7 +57,7 @@ export function AISettingsSection() {
 
   useEffect(() => {
     if (center) {
-      const c = center as any;
+      const c = center;
       setAiProvider(c.ai_provider || 'openai');
       const om = c.openai_model || 'gpt-4.1';
       if (OPENAI_MODELS.includes(om)) {

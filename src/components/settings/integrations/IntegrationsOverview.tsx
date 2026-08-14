@@ -149,8 +149,8 @@ export function IntegrationsOverview() {
           icon={<Brain className="h-5 w-5" />}
           name="Inteligencia Artificial"
           description="Análisis de transcripciones y generación de informes"
-          enabled={!!((center as any)?.openai_api_key_encrypted || (center as any)?.gemini_api_key_encrypted)}
-          connected={!!((center as any)?.openai_api_key_encrypted || (center as any)?.gemini_api_key_encrypted)}
+          enabled={!!(center?.openai_api_key_encrypted || center?.gemini_api_key_encrypted)}
+          connected={!!(center?.openai_api_key_encrypted || center?.gemini_api_key_encrypted)}
         />
 
         {bothVideoEnabled && (

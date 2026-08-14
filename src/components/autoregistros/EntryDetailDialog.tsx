@@ -23,7 +23,7 @@ interface EntryDetailDialogProps {
 }
 
 export function EntryDetailDialog({ open, onOpenChange, entry, allEntries }: EntryDetailDialogProps) {
-  const rawFields: AutoregistroField[] = (entry?.template as any)?.fields ?? [];
+  const rawFields: AutoregistroField[] = (entry?.template as { fields?: AutoregistroField[] })?.fields ?? [];
   const fields = normalizeAutoregistroFields(rawFields);
   const sorted = useMemo(() => [...fields].sort((a, b) => a.order - b.order), [fields]);
 
@@ -78,10 +78,10 @@ export function EntryDetailDialog({ open, onOpenChange, entry, allEntries }: Ent
 
         <div className="space-y-1 mb-4">
           <p className="text-sm font-medium">
-            {(entry.patient as any)?.first_name} {(entry.patient as any)?.last_name}
+            {(entry.patient as { first_name?: string; last_name?: string })?.first_name} {(entry.patient as { first_name?: string; last_name?: string })?.last_name}
           </p>
           <p className="text-xs text-muted-foreground">
-            {(entry.template as any)?.name} · {format(new Date(entry.submitted_at), "dd MMM yyyy 'a las' HH:mm", { locale: es })}
+            {(entry.template as { name?: string })?.name} · {format(new Date(entry.submitted_at), "dd MMM yyyy 'a las' HH:mm", { locale: es })}
           </p>
         </div>
 
