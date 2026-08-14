@@ -194,8 +194,8 @@ serve(async (req) => {
   if (!jwt) return unauthorizedResponse(corsHeaders);
   const authClient = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!);
   const { data: claimsData, error: claimsError } = await authClient.auth.getClaims(jwt);
-  const role = (claimsData?.claims as any)?.role;
-  const userId = (claimsData?.claims as any)?.sub as string | undefined;
+  const role = (claimsData?.claims as { role?: string; sub?: string })?.role;
+  const userId = (claimsData?.claims as { role?: string; sub?: string })?.sub;
   if (claimsError || (role !== 'authenticated' && role !== 'service_role')) {
     return unauthorizedResponse(corsHeaders);
   }
@@ -214,7 +214,7 @@ serve(async (req) => {
     if (role === 'authenticated' && centerId && userId) {
       const svc = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
       const { data: prof } = await svc.from('profiles').select('center_id').eq('id', userId).maybeSingle();
-      if (!prof || (prof as any).center_id !== centerId) {
+      if (!prof || (prof as { center_id: string | null }).center_id !== centerId) {
         return new Response(
           JSON.stringify({ error: 'Forbidden' }),
           { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

@@ -48,7 +48,7 @@ serve(async (req) => {
       if (fetchErr) {
         console.error("[EMO-INTERPRET] DB fetch error:", fetchErr);
       } else if (resp) {
-        const parse = (v: any) => (typeof v === "string" ? JSON.parse(v) : v) || {};
+        const parse = (v: unknown) => (typeof v === "string" ? JSON.parse(v) : v) || {};
         resolvedAnswers = parse(resp.answers);
         resolvedFactorScores = parse(resp.factor_scores);
         resolvedFigures = resolvedAnswers.figures || [];
@@ -149,10 +149,22 @@ serve(async (req) => {
     const FEELINGS_POSITIVE = ['Entendido', 'Aceptado', 'Valorado', 'Especial', 'Importante', 'Protegido', 'Apoyado', 'Seguro'];
     const FEELINGS_NEGATIVE = ['Rechazado', 'Atemorizado', 'Inseguro', 'Invisible', 'Avergonzado', 'Humillado', 'Traicionado', 'Inútil', 'Ridículo', 'Culpable'];
 
-    const figuresSummary = figuresData.map((f: any) => {
+    const figuresSummary = figuresData.map((f: {
+      figure_feelings_words?: string[] | null;
+      figure_reactions_to_your_emotion?: string[] | null;
+      figure_adjectives?: { adjective?: string }[] | null;
+      figure_name?: string | null;
+      figure_relation?: string | null;
+      figure_first_memory?: string | null;
+      figure_face_expression?: string | null;
+      figure_still_in_life?: string | null;
+      figure_current_relationship?: string | null;
+      figure_worst_emotion_self?: string | null;
+      figure_worst_emotion_you?: string | null;
+    }) => {
       const feelings = f.figure_feelings_words || [];
       const reactions = f.figure_reactions_to_your_emotion || [];
-      const adjectives = (f.figure_adjectives || []).filter((a: any) => a.adjective).map((a: any) => a.adjective);
+      const adjectives = (f.figure_adjectives || []).filter((a) => a.adjective).map((a) => a.adjective);
       const posCount = feelings.filter((w: string) => FEELINGS_POSITIVE.includes(w)).length;
       const negCount = feelings.filter((w: string) => FEELINGS_NEGATIVE.includes(w)).length;
 
@@ -233,10 +245,10 @@ INSTRUCCIONES IMPORTANTES:
     let coregSection = '';
     const moments = emo.momentos_coregulacion || [];
     if (moments.length > 0) {
-      const validMoments = moments.filter((m: any) => m.who || m.emotion || m.whatHelped);
+      const validMoments = moments.filter((m: { who?: string; emotion?: string; whatHelped?: string }) => m.who || m.emotion || m.whatHelped);
       if (validMoments.length > 0) {
         coregSection = 'Momentos de corregulación recordados:\n';
-        validMoments.forEach((m: any) => {
+        validMoments.forEach((m: { who?: string; emotion?: string; whatHelped?: string }) => {
           coregSection += `  - Quién: ${m.who || '?'}, Emoción: ${m.emotion || '?'}, Qué ayudó: ${m.whatHelped || '?'}\n`;
         });
       }
@@ -246,7 +258,7 @@ INSTRUCCIONES IMPORTANTES:
     let figuresSection = '';
     if (figuresSummary.length > 0) {
       figuresSection = 'Análisis de figuras vinculares:\n';
-      figuresSummary.forEach((f: any) => {
+      figuresSummary.forEach((f) => {
         figuresSection += `\n### ${f.nombre} (${f.relacion})\n`;
         figuresSection += `  - Sentimientos positivos: ${f.sentimientos_positivos}, negativos: ${f.sentimientos_negativos}\n`;
         if (f.adjetivos.length > 0) figuresSection += `  - Adjetivos: ${f.adjetivos.join(', ')}\n`;
