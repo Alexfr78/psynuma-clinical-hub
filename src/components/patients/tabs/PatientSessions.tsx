@@ -10,22 +10,13 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SessionDetailDrawer } from '@/components/agenda/SessionDetailDrawer';
 import type { SessionWithRelations } from '@/hooks/useSessions';
-import { SESSION_STATUS_LABELS } from '@/lib/payment-status';
+import { getSessionStatusDisplay } from '@/lib/payment-status';
 
 interface PatientSessionsProps {
   patientId: string;
 }
 
 type StatusFilter = 'active' | 'cancelled' | 'all';
-
-const statusConfig = {
-  scheduled: { label: SESSION_STATUS_LABELS.scheduled, variant: 'secondary' as const },
-  confirmed: { label: SESSION_STATUS_LABELS.confirmed, variant: 'default' as const },
-  completed: { label: SESSION_STATUS_LABELS.completed, variant: 'outline' as const },
-  cancelled: { label: SESSION_STATUS_LABELS.cancelled, variant: 'destructive' as const },
-  no_show: { label: SESSION_STATUS_LABELS.no_show, variant: 'destructive' as const },
-  blocked: { label: SESSION_STATUS_LABELS.blocked, variant: 'outline' as const },
-};
 
 export function PatientSessions({ patientId }: PatientSessionsProps) {
   const [selectedSession, setSelectedSession] = useState<SessionWithRelations | null>(null);
@@ -122,7 +113,7 @@ export function PatientSessions({ patientId }: PatientSessionsProps) {
       ) : (
         <div className="space-y-4">
       {filteredSessions.map((session) => {
-        const status = statusConfig[session.status as keyof typeof statusConfig] || statusConfig.scheduled;
+        const status = getSessionStatusDisplay(session.status);
         
         return (
           <Card
@@ -138,7 +129,7 @@ export function PatientSessions({ patientId }: PatientSessionsProps) {
                     <span className="font-medium">
                       {format(new Date(session.session_date), "EEEE, d 'de' MMMM yyyy", { locale: es })}
                     </span>
-                    <Badge variant={status.variant}>{status.label}</Badge>
+                    <Badge variant="outline" className={status.badgeClass}>{status.label}</Badge>
                   </div>
                   
                   <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
