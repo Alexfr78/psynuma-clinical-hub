@@ -7,6 +7,13 @@ import {
 } from 'lucide-react';
 import { UseFormReturn } from 'react-hook-form';
 import { Link } from 'react-router-dom';
+import type { Patient } from '@/hooks/usePatients';
+import type { Professional } from '@/hooks/useProfessionals';
+import type { SessionType } from '@/hooks/useSessionTypes';
+import type { CenterLocation } from '@/hooks/useLocations';
+import type { Bono } from '@/hooks/useBonos';
+import type { Center } from '@/hooks/useCenter';
+import type { ProfessionalIntegration, OAuthConnection } from '@/hooks/useProfessionalIntegrations';
 
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
@@ -69,14 +76,14 @@ interface MobileSessionFormProps {
   onOpenChange: (open: boolean) => void;
   form: UseFormReturn<any>;
   // Data
-  patients: any[] | undefined;
-  professionals: any[] | undefined;
-  sessionTypes: any[] | undefined;
-  locations: any[] | undefined;
-  patientBonos: any[] | undefined;
-  center: any;
-  integrations: any;
-  oauthConnections: any[] | undefined;
+  patients: Patient[] | undefined;
+  professionals: Professional[] | undefined;
+  sessionTypes: SessionType[] | undefined;
+  locations: CenterLocation[] | undefined;
+  patientBonos: Bono[] | undefined;
+  center: Center | null | undefined;
+  integrations: ProfessionalIntegration | null | undefined;
+  oauthConnections: OAuthConnection[] | undefined;
   // State
   recurrenceEnabled: boolean;
   recurrenceConfig: RecurrenceConfig;
@@ -125,9 +132,9 @@ export function MobileSessionForm({
   const sessionModality = form.watch('session_modality');
   const watchPatientId = form.watch('patient_id');
   const watchBonoId = form.watch('bono_id');
-  const selectedPatient = patients?.find((p: any) => p.id === watchPatientId);
-  const selectedProfessional = professionals?.find((p: any) => p.id === form.watch('professional_id'));
-  const selectedType = sessionTypes?.find((t: any) => t.id === form.watch('session_type'));
+  const selectedPatient = patients?.find((p) => p.id === watchPatientId);
+  const selectedProfessional = professionals?.find((p) => p.id === form.watch('professional_id'));
+  const selectedType = sessionTypes?.find((t) => t.id === form.watch('session_type'));
 
   return (
     <>
@@ -205,7 +212,7 @@ export function MobileSessionForm({
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="none">Sin bono</SelectItem>
-                              {patientBonos?.map((bono: any) => (
+                              {patientBonos?.map((bono) => (
                                 <SelectItem key={bono.id} value={bono.id}>
                                   <span className="flex items-center gap-2">
                                     {bono.name}
@@ -261,7 +268,7 @@ export function MobileSessionForm({
                           </SelectValue>
                         </SelectTrigger>
                         <SelectContent>
-                          {professionals?.map((prof: any) => (
+                          {professionals?.map((prof) => (
                             <SelectItem key={prof.id} value={prof.id}>
                               {prof.first_name} {prof.last_name}
                             </SelectItem>
@@ -295,7 +302,7 @@ export function MobileSessionForm({
                           </SelectValue>
                         </SelectTrigger>
                         <SelectContent>
-                          {sessionTypes?.map((type: any) => (
+                          {sessionTypes?.map((type) => (
                             <SelectItem key={type.id} value={type.id}>
                               <span className="flex items-center gap-2">
                                 <div className="h-3 w-3 rounded-full" style={{ backgroundColor: type.color }} />
@@ -444,7 +451,7 @@ export function MobileSessionForm({
                           ))}
                         </SelectContent>
                       </Select>
-                      {field.value === 'google_meet' && (!integrations?.google_meet_enabled || !oauthConnections?.some((c: any) => c.provider === 'google' && c.expires_at)) && (
+                      {field.value === 'google_meet' && (!integrations?.google_meet_enabled || !oauthConnections?.some((c) => c.provider === 'google' && c.expires_at)) && (
                         <Alert variant="destructive" className="mt-2 py-2">
                           <AlertCircle className="h-4 w-4" />
                           <AlertDescription className="text-xs">
@@ -453,7 +460,7 @@ export function MobileSessionForm({
                           </AlertDescription>
                         </Alert>
                       )}
-                      {field.value === 'zoom' && (!integrations?.zoom_enabled || !oauthConnections?.some((c: any) => c.provider === 'zoom' && c.expires_at)) && (
+                      {field.value === 'zoom' && (!integrations?.zoom_enabled || !oauthConnections?.some((c) => c.provider === 'zoom' && c.expires_at)) && (
                         <Alert variant="destructive" className="mt-2 py-2">
                           <AlertCircle className="h-4 w-4" />
                           <AlertDescription className="text-xs">
@@ -505,7 +512,7 @@ export function MobileSessionForm({
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="__none__">Sin especificar</SelectItem>
-                              {locations?.map((loc: any) => (
+                              {locations?.map((loc) => (
                                 <SelectItem key={loc.id} value={loc.id}>{loc.name}</SelectItem>
                               ))}
                             </SelectContent>
