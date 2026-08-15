@@ -75,7 +75,7 @@ export function SendAutoregistroDialog({ open, onOpenChange, preselectedPatientI
     if (!selectedPatient || !generatedLink) return;
     const patientName = `${selectedPatient.first_name} ${selectedPatient.last_name ?? ''}`.trim();
     const message = `Hola ${selectedPatient.first_name}, aquí tienes el enlace para tu autorregistro:\n${generatedLink}`;
-    const phone = (selectedPatient as any).phone as string | null;
+    const phone = (selectedPatient as { phone?: string | null }).phone ?? null;
 
     if (!phone) {
       const manualLink = getManualLink('', message);

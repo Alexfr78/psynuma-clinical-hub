@@ -146,7 +146,7 @@ export default function IntakeRequests() {
               />
             </div>
             <div className="flex gap-2">
-              <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as any)}>
+              <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as IntakeRequestType | 'all')}>
                 <SelectTrigger className="w-[140px]">
                   <Filter className="h-4 w-4 mr-2" />
                   <SelectValue placeholder="Tipo" />
@@ -157,7 +157,7 @@ export default function IntakeRequests() {
                   <SelectItem value="referral">Derivación</SelectItem>
                 </SelectContent>
               </Select>
-              <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as any)}>
+              <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as IntakeRequestStatus | 'all')}>
                 <SelectTrigger className="w-[140px]">
                   <SelectValue placeholder="Estado" />
                 </SelectTrigger>

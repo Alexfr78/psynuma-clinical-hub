@@ -61,8 +61,8 @@ export function TranscriptionAnalysisDialog({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { centerId, center } = useCenter();
-  const isOpenAI = (center as any)?.ai_provider !== "gemini";
-  const analysisMode = (center as any)?.ai_analysis_mode || "layered";
+  const isOpenAI = center?.ai_provider !== "gemini";
+  const analysisMode = center?.ai_analysis_mode || "layered";
   const isSingleMode = analysisMode === "single";
 
   const {

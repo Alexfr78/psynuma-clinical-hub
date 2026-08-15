@@ -40,8 +40,8 @@ function useDashboardStats() {
       ]);
 
       const monthEffective = monthInvoicesRes.data?.filter(inv => inv.status === 'issued' || inv.status === 'paid') || [];
-      const monthlyRevenueNet = monthEffective.reduce((sum, inv: any) => sum + Number(inv.total), 0);
-      const monthlyRetained = monthEffective.reduce((sum, inv: any) => sum + Number(inv.retention_amount ?? 0), 0);
+      const monthlyRevenueNet = monthEffective.reduce((sum, inv) => sum + Number(inv.total), 0);
+      const monthlyRetained = monthEffective.reduce((sum, inv) => sum + Number(inv.retention_amount ?? 0), 0);
       const monthlyRevenue = monthlyRevenueNet + monthlyRetained;
 
 
@@ -225,7 +225,7 @@ export default function Dashboard() {
             </div>
           ) : (
             <div className="space-y-3">
-              {todaySessions.map((session: any) => (
+              {todaySessions.map((session) => (
                 <div
                   key={session.id}
                   onClick={() => setSelectedSessionId(session.id)}

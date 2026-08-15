@@ -247,7 +247,7 @@ export function SessionDetailDialog({ session, open, onOpenChange, onAnalyzeTran
               }}
             >
               <Brain className="mr-2 h-4 w-4" />
-              {(session as any).ai_summary_clinical || (session as any).ai_summary_patient
+              {(session as { ai_summary_clinical?: string | null; ai_summary_patient?: string | null }).ai_summary_clinical || (session as { ai_summary_clinical?: string | null; ai_summary_patient?: string | null }).ai_summary_patient
                 ? 'Ver / Regenerar informes'
                 : 'Analizar transcripción'}
             </Button>
