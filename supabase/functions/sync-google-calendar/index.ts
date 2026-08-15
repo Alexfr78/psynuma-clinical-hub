@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { decryptSecret } from "../_shared/crypto.ts";
 import {
   buildGoogleEventsListParams,
@@ -20,7 +20,7 @@ import { notifyProfessionalBooking } from "../_shared/professionalNotification.t
 // an in-app notification so changes never go silent again.
 // ============================================================
 async function alertProfessionalSyncChange(
-  supabase: any,
+  supabase: SupabaseClient,
   params: {
     professionalId: string;
     centerId: string;
@@ -222,7 +222,7 @@ async function isRateLimitError(response: Response): Promise<boolean> {
 }
 
 async function getGoogleOAuthCredentials(
-  supabase: any,
+  supabase: SupabaseClient,
   professionalId: string
 ): Promise<{
   clientId: string;
@@ -298,7 +298,7 @@ async function getGoogleOAuthCredentials(
 }
 
 async function logIntegrationError(
-  supabase: any,
+  supabase: SupabaseClient,
   professionalId: string,
   source: string,
   step: string | null,
@@ -337,7 +337,7 @@ async function logIntegrationError(
 }
 
 async function refreshGoogleToken(
-  supabase: any,
+  supabase: SupabaseClient,
   professionalId: string,
   refreshToken: string,
   correlationId: string
@@ -467,7 +467,7 @@ async function refreshGoogleToken(
 }
 
 async function refreshGoogleTokenWithRetry(
-  supabase: any,
+  supabase: SupabaseClient,
   professionalId: string,
   refreshToken: string,
   correlationId: string,
@@ -499,7 +499,7 @@ async function refreshGoogleTokenWithRetry(
 }
 
 async function getValidAccessToken(
-  supabase: any,
+  supabase: SupabaseClient,
   connection: any,
   correlationId: string
 ): Promise<string | null> {
@@ -823,7 +823,7 @@ function stateSchedule(state: any): CalendarSchedule {
 }
 
 async function saveGoogleSyncState(
-  supabase: any,
+  supabase: SupabaseClient,
   session: any,
   event: any,
   schedule: CalendarSchedule,
@@ -850,7 +850,7 @@ async function saveGoogleSyncState(
 }
 
 async function renewChannelIfExpiring(
-  supabase: any,
+  supabase: SupabaseClient,
   professionalId: string,
   calendarId: string,
   accessToken: string,
@@ -955,7 +955,7 @@ async function renewChannelIfExpiring(
 }
 
 async function upsertCalendarEvents(
-  supabase: any,
+  supabase: SupabaseClient,
   professionalId: string,
   calendarId: string,
   events: any[],
@@ -1036,7 +1036,7 @@ async function upsertCalendarEvents(
 }
 
 async function syncLinkedSessionSchedule(params: {
-  supabase: any; session: any; googleEvent: any; syncState: any;
+  supabase: SupabaseClient; session: any; googleEvent: any; syncState: any;
   integrations: any; accessToken: string; calendarId: string; professional: any;
   professionalId: string; correlationId: string; titleFormat: string;
   descriptionFormat: string; result: SyncResult;
@@ -1109,9 +1109,9 @@ async function syncLinkedSessionSchedule(params: {
     .lt('start_time', googleValue.end).gt('end_time', googleValue.start)
     .limit(1);
 
-  if (overlap?.length) {
+  if (Array.isArray(overlap) && overlap.length) {
     await saveGoogleSyncState(supabase, session, googleEvent, baseline, 'conflict', {
-      reason: 'overlap', conflicting_session_id: overlap[0].id,
+      reason: 'overlap', conflicting_session_id: overlap[0]?.id,
       psycma: psycmaValue, google: googleValue,
     });
     result.warnings?.push(`Google change overlaps another session for ${session.id}; both values preserved`);
@@ -1148,7 +1148,7 @@ async function syncLinkedSessionSchedule(params: {
 }
 
 async function syncProfessional(
-  supabase: any,
+  supabase: SupabaseClient,
   professionalId: string,
   dateFrom: string,
   dateTo: string,
@@ -1516,8 +1516,9 @@ async function syncProfessional(
                 .gt('end_time', parsedStart.time)
                 .limit(1);
 
-              if (overlap && overlap.length > 0) {
-                console.warn(`[SYNC:${correlationId}] BLOCKED Google→Psycma update for session ${session.id}: would overlap session ${overlap[0].id}`);
+              const overlapList = overlap ?? [];
+              if (overlapList.length > 0) {
+                console.warn(`[SYNC:${correlationId}] BLOCKED Google→Psycma update for session ${session.id}: would overlap session ${overlapList[0]?.id}`);
                 try {
                   await updateGoogleCalendarEvent(
                     accessToken!, calendarId, session.google_calendar_event_id, session,
@@ -1561,8 +1562,8 @@ async function syncProfessional(
               }).eq('id', session.id);
 
               if (updateError) {
-                console.error(`[SYNC:${correlationId}] Error updating session ${session.id} from Google:`, updateError.message);
-                result.errors.push(`Google→Psycma update failed for session ${session.id}: ${updateError.message}`);
+                console.error(`[SYNC:${correlationId}] Error updating session ${session.id} from Google:`, updateError?.message);
+                result.errors.push(`Google→Psycma update failed for session ${session.id}: ${updateError?.message}`);
               } else {
                 result.updated++;
                 // Notify the professional that Google moved their session
@@ -1670,7 +1671,7 @@ async function syncProfessional(
 }
 
 async function syncProfessionalWithLock(
-  supabase: any,
+  supabase: SupabaseClient,
   professionalId: string,
   dateFrom: string,
   dateTo: string,
