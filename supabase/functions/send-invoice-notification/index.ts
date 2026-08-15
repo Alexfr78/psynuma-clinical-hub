@@ -1,4 +1,4 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { Resend } from 'https://esm.sh/resend@2.0.0';
 import { decryptSecret } from "../_shared/crypto.ts";
 
@@ -17,8 +17,7 @@ interface RequestBody {
 
 // Send WhatsApp via WasenderAPI (direct HTTP fetch to bypass JWT restrictions)
 async function sendWhatsAppViaWasender(
-  // deno-lint-ignore no-explicit-any
-  supabase: any,
+  supabase: SupabaseClient,
   centerId: string,
   phone: string,
   message: string,
@@ -216,8 +215,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // deno-lint-ignore no-explicit-any
-    const supabase: any = createClient(
+    const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
