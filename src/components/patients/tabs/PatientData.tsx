@@ -85,7 +85,7 @@ export function PatientData({ patient }: PatientDataProps) {
       status: patient.status || 'active',
       is_minor: patient.is_minor || false,
       auto_invoice_on_complete: patient.auto_invoice_on_complete ?? false,
-      payment_mode: (patient as any).payment_mode || '__center__',
+      payment_mode: (patient as { payment_mode?: string | null }).payment_mode || '__center__',
       guardian_name: patient.guardian_name || '',
       guardian_phone: patient.guardian_phone || '',
       guardian_email: patient.guardian_email || '',
@@ -125,7 +125,7 @@ export function PatientData({ patient }: PatientDataProps) {
         emergency_contact_name: values.emergency_contact_name || null,
         emergency_contact_phone: values.emergency_contact_phone || null,
         notes: values.notes || null,
-      } as any);
+      });
 
       toast({
         title: 'Datos actualizados',

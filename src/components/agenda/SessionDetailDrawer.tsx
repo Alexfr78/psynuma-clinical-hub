@@ -1714,7 +1714,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                   <div className="w-full space-y-2">
                     <p className="text-xs text-muted-foreground">Facturas asociadas:</p>
                     <div className="flex flex-wrap gap-2">
-                      {invoiceStatus.invoices.map((inv: any) => (
+                      {invoiceStatus.invoices.map((inv) => (
                         <Button 
                           key={inv.id}
                           size="sm" 
