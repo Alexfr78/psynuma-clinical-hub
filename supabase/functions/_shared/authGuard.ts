@@ -14,7 +14,7 @@ export async function hasAuthenticatedJWT(req: Request): Promise<boolean> {
   try {
     const client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     const { data, error } = await client.auth.getClaims(jwt);
-    const role = (data?.claims as any)?.role as string | undefined;
+    const role = (data?.claims as { role?: string })?.role;
     return !error && (role === "authenticated" || role === "service_role");
   } catch {
     return false;
