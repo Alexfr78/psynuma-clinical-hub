@@ -1045,7 +1045,7 @@ serve(async (req) => {
 
       // Resolve target location (defaults to existing). Validate same center + active + public.
       const targetLocationId = newLocationId || existingSession.location_id;
-      let targetLocation: any = null;
+      let targetLocation: { id?: string; name?: string | null; location_type?: string | null; street?: string | null; number_details?: string | null; postal_code?: string | null; city?: string | null } | null = null;
       if (targetLocationId) {
         const { data: loc, error: locErr } = await supabase
           .from("center_locations")
@@ -1166,13 +1166,13 @@ serve(async (req) => {
       }
 
       // Build human-readable location string for Google Calendar
-      function buildGcalLocationString(loc: any): string | undefined {
+      function buildGcalLocationString(loc: { location_type?: string | null; street?: string | null; number_details?: string | null; postal_code?: string | null; city?: string | null; name?: string | null } | null): string | undefined {
         if (!loc) return undefined;
         if (loc.location_type === 'online') return 'Sesión online';
         const street = loc.street ? `${loc.street}${loc.number_details ? ' ' + loc.number_details : ''}` : '';
         const tail = [loc.postal_code, loc.city].filter(Boolean).join(' ');
         const addr = [street, tail].filter(Boolean).join(', ');
-        return addr ? `${loc.name} — ${addr}` : loc.name;
+        return addr ? `${loc.name} — ${addr}` : (loc.name ?? undefined);
       }
       const gcalLocation = buildGcalLocationString(targetLocation);
 
@@ -1212,7 +1212,7 @@ serve(async (req) => {
       }
 
       // Get location name for notification (use the *new* one)
-      const locationName: string | undefined = targetLocation?.name;
+      const locationName: string | undefined = targetLocation?.name ?? undefined;
       let oldLocationName: string | undefined;
       if (oldLocationId && oldLocationId !== targetLocationId) {
         const { data: oldLoc } = await supabase
@@ -1363,7 +1363,7 @@ serve(async (req) => {
         .eq("is_active", true);
 
       const minPublicDuration = allPublicTypes?.length
-        ? Math.min(...allPublicTypes.map((t: any) => t.duration_minutes))
+        ? Math.min(...allPublicTypes.map((t: { duration_minutes: number }) => t.duration_minutes))
         : serviceDuration;
 
       // Get all professional availability (all days)
@@ -1547,7 +1547,7 @@ serve(async (req) => {
         .eq("is_active", true);
 
       const minPublicDuration = allPublicTypes?.length
-        ? Math.min(...allPublicTypes.map((t: any) => t.duration_minutes))
+        ? Math.min(...allPublicTypes.map((t: { duration_minutes: number }) => t.duration_minutes))
         : serviceDuration;
 
       const resolvedSlots = await resolvePortalDayAvailability({

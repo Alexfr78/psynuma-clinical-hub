@@ -409,7 +409,7 @@ Deno.serve(async (req) => {
       }
 
       // Resolve target location (defaults to current). Validates same center + active + public.
-      let targetLocation: any = null;
+      let targetLocation: { id?: string; name?: string | null; location_type?: string | null; street?: string | null; number_details?: string | null; postal_code?: string | null; city?: string | null } | null = null;
       let targetLocationId = effectiveLocationId;
       if (newLocationId) {
         const { row, error: locErr } = await resolveRequestedLocation(newLocationId);
@@ -655,13 +655,13 @@ Deno.serve(async (req) => {
 
 
       // Build human-readable location string for the Google Calendar event
-      function buildGcalLocationString(loc: any): string | undefined {
+      function buildGcalLocationString(loc: { location_type?: string | null; street?: string | null; number_details?: string | null; postal_code?: string | null; city?: string | null; name?: string | null } | null): string | undefined {
         if (!loc) return undefined;
         if (loc.location_type === 'online') return 'Sesión online';
         const street = loc.street ? `${loc.street}${loc.number_details ? ' ' + loc.number_details : ''}` : '';
         const tail = [loc.postal_code, loc.city].filter(Boolean).join(' ');
         const addr = [street, tail].filter(Boolean).join(', ');
-        return addr ? `${loc.name} — ${addr}` : loc.name;
+        return addr ? `${loc.name} — ${addr}` : (loc.name ?? undefined);
       }
       const gcalLocation = buildGcalLocationString(targetLocation);
 

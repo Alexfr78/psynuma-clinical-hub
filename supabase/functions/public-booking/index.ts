@@ -844,7 +844,7 @@ serve(async (req) => {
         .eq("is_public", true);
 
       const minPublicDuration = allPublicTypes?.length
-        ? Math.min(...allPublicTypes.map((t: any) => t.duration_minutes))
+        ? Math.min(...allPublicTypes.map((t: { duration_minutes: number }) => t.duration_minutes))
         : serviceDuration;
 
       // Weekly availability (puede estar vacío: un special_day custom/extended
@@ -1032,7 +1032,7 @@ serve(async (req) => {
         .eq("is_public", true);
 
       const minPublicDuration = allPublicTypes?.length
-        ? Math.min(...allPublicTypes.map((t: any) => t.duration_minutes))
+        ? Math.min(...allPublicTypes.map((t: { duration_minutes: number }) => t.duration_minutes))
         : serviceDuration;
 
       // Calculate today and max allowed date
