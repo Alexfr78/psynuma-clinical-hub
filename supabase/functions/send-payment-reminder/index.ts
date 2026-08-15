@@ -83,7 +83,7 @@ serve(async (req) => {
     // Calculate amounts
     const pendingAmount = Number(debt.amount) - Number(debt.paid_amount);
     const bizumNumber = center.bizum_phone || '609555514';
-    const transferInfo = (center as any).bank_transfer_info || '';
+    const transferInfo = (center as { bank_transfer_info?: string | null }).bank_transfer_info || '';
     
     // Use center's public domain for URLs
     const baseUrl = center.public_domain 
@@ -193,7 +193,7 @@ serve(async (req) => {
         if (bizumText) lines.push(replaceVariables(bizumText));
       }
       if (include_transfer) {
-        const transferText = (template as any)?.payment_option_transfer || (channelDefaults as any).payment_option_transfer || '';
+        const transferText = (template as { payment_option_transfer?: string | null })?.payment_option_transfer || (channelDefaults as { payment_option_transfer?: string | null }).payment_option_transfer || '';
         if (transferText) lines.push(replaceVariables(transferText));
       }
       if (include_bono_option && bonoPurchaseUrl) {

@@ -128,8 +128,8 @@ serve(async (req) => {
           continue;
         }
 
-        const patient = session.patient as any;
-        const professional = session.professional as any;
+        const patient = session.patient as unknown as { id?: string; email?: string | null; phone?: string | null; first_name?: string } | null;
+        const professional = session.professional as unknown as { first_name?: string; last_name?: string } | null;
 
         if (!patient?.email && !patient?.phone) {
           console.log(`[send-payment-reminders] Session ${session.id} patient has no contact info`);
