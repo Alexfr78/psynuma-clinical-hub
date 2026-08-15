@@ -500,7 +500,7 @@ async function refreshGoogleTokenWithRetry(
 
 async function getValidAccessToken(
   supabase: SupabaseClient,
-  connection: any,
+  connection: { expires_at?: string | null; access_token?: string | null; refresh_token?: string | null; professional_id: string },
   correlationId: string
 ): Promise<string | null> {
   const now = new Date();
@@ -800,7 +800,7 @@ function parseGoogleDateTimeToMadrid(dateTimeStr: string): { date: string; time:
   return { date: `${year}-${month}-${day}`, time: `${hour}:${minute}` };
 }
 
-function sessionSchedule(session: any): CalendarSchedule {
+function sessionSchedule(session: { session_date: string; start_time: string; end_time: string }): CalendarSchedule {
   return {
     date: session.session_date,
     start: session.start_time,
@@ -814,7 +814,7 @@ function googleSchedule(event: any): CalendarSchedule {
   return { date: start.date, start: start.time, end: end.time };
 }
 
-function stateSchedule(state: any): CalendarSchedule {
+function stateSchedule(state: { baseline_date: string; baseline_start: string; baseline_end: string }): CalendarSchedule {
   return {
     date: state.baseline_date,
     start: state.baseline_start,
@@ -990,7 +990,7 @@ async function upsertCalendarEvents(
     .not('google_calendar_event_id', 'is', null)
     .in('google_calendar_event_id', googleEventIds);
 
-  const linkedEventIds = new Set((linkedSessions || []).map((s: any) => s.google_calendar_event_id));
+  const linkedEventIds = new Set((linkedSessions || []).map((s: { google_calendar_event_id: string | null }) => s.google_calendar_event_id));
 
   const mappedEvents = eventsToImport.map((ev: any) => {
     const times = parseGoogleEventTimes(ev);
