@@ -44,8 +44,8 @@ export function SessionCard({
   const isMobile = useIsMobile();
   
   // Check if this is a Google Calendar event (imported)
-  const isGoogleEvent = (session as any).isGoogleEvent === true;
-  const isRecurring = !!(session as any).recurring_series_id;
+  const isGoogleEvent = (session as { isGoogleEvent?: boolean; recurring_series_id?: string | null }).isGoogleEvent === true;
+  const isRecurring = !!(session as { isGoogleEvent?: boolean; recurring_series_id?: string | null }).recurring_series_id;
   
   // Use google_event color for imported events
   const effectiveStatus = isGoogleEvent ? 'google_event' : session.status;

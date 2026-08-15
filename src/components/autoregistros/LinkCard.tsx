@@ -26,7 +26,7 @@ export function LinkCard({ link, onDeactivate, onDelete }: LinkCardProps) {
   const { sendWhatsApp, getManualLink } = useWhatsAppDelivery();
   const { profile } = useAuth();
 
-  const patient = link.patient as any;
+  const patient = link.patient as { first_name?: string; last_name?: string; phone?: string | null } | null;
   const patientName = `${patient?.first_name ?? ''} ${patient?.last_name ?? ''}`.trim();
   const patientPhone = patient?.phone as string | null;
 
@@ -71,7 +71,7 @@ export function LinkCard({ link, onDeactivate, onDelete }: LinkCardProps) {
           <div className="min-w-0">
             <p className="font-medium text-sm truncate">{patientName}</p>
             <p className="text-xs text-muted-foreground truncate">
-              {(link.template as any)?.name}
+              {(link.template as { name?: string })?.name}
             </p>
           </div>
           <Badge variant={statusVariant}>{statusLabel}</Badge>

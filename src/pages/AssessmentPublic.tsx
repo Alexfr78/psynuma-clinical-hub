@@ -113,7 +113,7 @@ export default function AssessmentPublic() {
   // Detect if this is a DES (percentage scale 0-100)
   const isDES = template?.code === 'DES';
   // Get response step for slider-based scales (DES uses 10% increments)
-  const responseStep = (template as any)?.response_step ?? 1;
+  const responseStep = (template as { response_step?: number })?.response_step ?? 1;
 
   const handleSubmit = async () => {
     if (!isComplete) return;

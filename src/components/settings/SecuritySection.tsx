@@ -50,10 +50,10 @@ export function SecuritySection() {
       setQrUri(data.totp.uri);
       setFactorId(data.id);
       setStatus('enrolling');
-    } catch (err: any) {
+    } catch (err) {
       toast({
         title: 'Error',
-        description: err.message || 'No se pudo iniciar la configuración 2FA',
+        description: (err as Error).message || 'No se pudo iniciar la configuración 2FA',
         variant: 'destructive',
       });
     } finally {
@@ -83,7 +83,7 @@ export function SecuritySection() {
         title: 'Doble factor activado',
         description: 'Tu cuenta ahora está protegida con autenticación de doble factor.',
       });
-    } catch (err: any) {
+    } catch (err) {
       toast({
         title: 'Código incorrecto',
         description: 'El código introducido no es válido. Inténtalo de nuevo.',
@@ -106,10 +106,10 @@ export function SecuritySection() {
         title: '2FA desactivado',
         description: 'La autenticación de doble factor ha sido desactivada.',
       });
-    } catch (err: any) {
+    } catch (err) {
       toast({
         title: 'Error',
-        description: err.message || 'No se pudo desactivar el 2FA',
+        description: (err as Error).message || 'No se pudo desactivar el 2FA',
         variant: 'destructive',
       });
     } finally {

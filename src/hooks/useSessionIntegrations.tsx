@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import type { ProfessionalIntegration, OAuthConnection } from '@/hooks/useProfessionalIntegrations';
 
 interface SessionData {
   id?: string;
@@ -33,8 +34,8 @@ interface IntegrationResult {
 export async function handleSessionIntegrations(
   session: SessionData,
   patient: PatientData,
-  professionalIntegrations: any,
-  oauthConnections: any[]
+  professionalIntegrations: ProfessionalIntegration | null,
+  oauthConnections: OAuthConnection[]
 ): Promise<IntegrationResult> {
   const result: IntegrationResult = {};
   const patientName = `${patient.first_name} ${patient.last_name}`;
@@ -138,8 +139,8 @@ export async function handleSessionIntegrations(
 export async function handleStripePayment(
   session: SessionData & { id: string; payment_mode?: string | null },
   patient: PatientData,
-  professionalIntegrations: any,
-  oauthConnections: any[]
+  professionalIntegrations: ProfessionalIntegration | null,
+  oauthConnections: OAuthConnection[]
 ): Promise<{ checkout_url?: string; payment_status?: string }> {
   const stripeConnection = oauthConnections?.find(c => c.provider === 'stripe');
   

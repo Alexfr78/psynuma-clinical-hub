@@ -37,10 +37,10 @@ export function ConsentCard({ consent, patientPhone }: ConsentCardProps) {
   const [sendOpen, setSendOpen] = useState(false);
   const [generatingPdf, setGeneratingPdf] = useState(false);
 
-  const isUploaded = (consent as any).source === 'uploaded';
+  const isUploaded = (consent as { source?: string; uploaded_file_url?: string | null }).source === 'uploaded';
 
   const handleViewUploadedFile = async () => {
-    const filePath = (consent as any).uploaded_file_url;
+    const filePath = (consent as { source?: string; uploaded_file_url?: string | null }).uploaded_file_url;
     if (!filePath) return;
     const { data, error } = await supabase.storage
       .from('consent-documents')
