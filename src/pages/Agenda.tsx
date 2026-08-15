@@ -173,7 +173,7 @@ export default function Agenda() {
     // Filter out Google events that are already linked to sessions (to avoid duplicates)
     const sessionGoogleIds = new Set(
       baseSessions
-        .map((s: any) => s.google_calendar_event_id)
+        .map((s: { google_calendar_event_id: string | null }) => s.google_calendar_event_id)
         .filter(Boolean)
     );
     
@@ -225,7 +225,7 @@ export default function Agenda() {
   const { data: professionals } = useProfessionals();
   const professionalNames = useMemo(() => {
     const map: Record<string, string> = {};
-    (professionals || []).forEach((p: any) => {
+    (professionals || []).forEach((p) => {
       const first = p.first_name || '';
       const last = p.last_name || '';
       const initial = last ? ` ${last.charAt(0)}.` : '';
@@ -358,9 +358,9 @@ export default function Agenda() {
       // First check if this is a Google Calendar event (not a session)
       const sessionOrEvent = allSessions?.find(s => s.id === sessionId);
       
-      if ((sessionOrEvent as any)?.isGoogleEvent) {
+      if ((sessionOrEvent as { isGoogleEvent?: boolean })?.isGoogleEvent) {
         // This is a Google Calendar event - update it directly in Google
-        const googleEvent = sessionOrEvent as any;
+        const googleEvent = sessionOrEvent as { professional_id?: string; google_calendar_event_id?: string };
         
         const { data, error } = await supabase.functions.invoke('update-google-calendar-event', {
           body: {

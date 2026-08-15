@@ -140,7 +140,7 @@ export function EntryDetailDrawer({
   const metas = useMemo<FieldDisplayMeta[]>(() => {
     if (fieldMetas && fieldMetas.length > 0) return fieldMetas;
     if (!entry) return [];
-    const rawFields: AutoregistroField[] = (entry.template as any)?.fields ?? [];
+    const rawFields: AutoregistroField[] = (entry.template as { fields?: AutoregistroField[] })?.fields ?? [];
     const fields = normalizeAutoregistroFields(rawFields);
     return buildFieldDisplayMetas(fields);
   }, [entry, fieldMetas]);
@@ -154,8 +154,8 @@ export function EntryDetailDrawer({
 
   if (!entry) return null;
 
-  const patient = (entry.patient as any) ?? {};
-  const template = (entry.template as any) ?? {};
+  const patient = (entry.patient as { first_name?: string; last_name?: string }) ?? {};
+  const template = (entry.template as { name?: string; fields?: AutoregistroField[] }) ?? {};
   const submittedAt = new Date(entry.submitted_at);
   const alertSeverity = entry.alertSeverity;
 

@@ -33,7 +33,7 @@ export function useAutoregistroEntries(opts?: { patientId?: string; templateId?:
       const { data, error } = await q;
       if (error) throw error;
 
-      const entries = (data ?? []).map((e: any) => ({
+      const entries = (data ?? []).map((e) => ({
         ...e,
         template: e.template ? {
           ...e.template,
