@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { authorizeFiscalInvoiceRequest } from "../_shared/fiscalAuth.ts";
 import {
   buildVerifactuCancellationHashInput,
@@ -479,7 +479,7 @@ async function sendToAEAT(
 }
 
 // Log event to verifactu_events table
-async function logVerifactuEvent(supabase: any, eventData: {
+async function logVerifactuEvent(supabase: SupabaseClient, eventData: {
   invoice_id: string;
   center_id: string;
   event_type: 'alta' | 'anulacion' | 'consulta' | 'error' | 'reintento';
