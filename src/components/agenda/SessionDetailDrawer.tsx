@@ -150,6 +150,19 @@ interface SessionDetailDrawerProps {
   onAnalyzeTranscription?: (sessionId: string) => void;
 }
 
+// SessionWithRelations plus fields present at runtime but not in the base type:
+// real session columns not yet in the row type, and Google-event extras added
+// when the drawer renders a synced Google Calendar event.
+type SessionWithExtras = SessionWithRelations & {
+  session_modality?: string | null;
+  video_call_link?: string | null;
+  google_calendar_event_id?: string | null;
+  professional_id?: string | null;
+  isGoogleEvent?: boolean;
+  google_event_id?: string | null;
+  all_day?: boolean;
+};
+
 const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; className: string }> = {
   draft: { label: SESSION_STATUS_LABELS.draft, variant: 'outline', className: 'border-dashed' },
   scheduled: { label: SESSION_STATUS_LABELS.scheduled, variant: 'secondary', className: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' },
@@ -306,7 +319,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
       setEditingPatient(false);
       setSelectedInvoiceId(null);
     }
-  }, [session?.id, session?.bono_id, session?.price, session?.session_date, session?.start_time, session?.end_time, session?.status, (session as any)?.session_modality, (session as any)?.video_call_link, open]);
+  }, [session?.id, session?.bono_id, session?.price, session?.session_date, session?.start_time, session?.end_time, session?.status, (session as SessionWithExtras)?.session_modality, (session as SessionWithExtras)?.video_call_link, open]);
 
   useEffect(() => {
     activeSessionIdRef.current = session?.id;
@@ -317,7 +330,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
 
   if (!session) return null;
 
-  const sessionRaw = session as any;
+  const sessionRaw = session as SessionWithExtras;
   const sessionData: any = {
     ...sessionRaw,
     session_modality: localModality ?? sessionRaw.session_modality,
@@ -388,7 +401,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
       
       // If there's a Google Calendar event, update it with the new patient
       // The edge function will apply the configured format template
-      if ((session as any).google_calendar_event_id) {
+      if ((session as SessionWithExtras).google_calendar_event_id) {
         try {
           // Sync to Google - the edge function will fetch patient data and apply format
           await syncToGoogle(session, {});
@@ -909,7 +922,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
   const handleDeleteSession = async () => {
     try {
       // Sync with Google Calendar first (delete the event)
-      if ((session as any).google_calendar_event_id) {
+      if ((session as SessionWithExtras).google_calendar_event_id) {
         try {
           await syncToGoogle(session, { status: 'cancelled' });
         } catch (googleError) {
@@ -938,7 +951,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
       if (!usesBono && currentBonoId) {
         // Removing bono - use RPC to return session to pool
         const result = await removeBonoFromSession.mutateAsync(session.id);
-        const restoredPrice = (result as any)?.restored_price ?? Number(session.price);
+        const restoredPrice = (result as { restored_price?: number })?.restored_price ?? Number(session.price);
         setLocalPrice(restoredPrice);
         toast({ 
           title: 'Bono quitado',
@@ -2199,7 +2212,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
             </div>
 
             {/* Delete Google Calendar Block (only for Google events) */}
-            {(session as any).isGoogleEvent && (
+            {(session as SessionWithExtras).isGoogleEvent && (
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button variant="destructive" className="w-full mt-4">
@@ -2220,8 +2233,8 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                       onClick={() => {
                         deleteCalendarEvent.mutate({
                           calendarEventId: session.id,
-                          googleEventId: (session as any).google_calendar_event_id,
-                          professionalId: (session as any).professional_id,
+                          googleEventId: (session as SessionWithExtras).google_calendar_event_id,
+                          professionalId: (session as SessionWithExtras).professional_id,
                         });
                         onOpenChange(false);
                       }}
@@ -2234,7 +2247,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
             )}
 
             {/* Delete/Cancel Session (only for regular sessions) */}
-            {!(session as any).isGoogleEvent && (
+            {!(session as SessionWithExtras).isGoogleEvent && (
               isRecurringSession ? (
                 // Recurring session - use scope dialog
                 <Button 
@@ -2558,7 +2571,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
     />
 
     {/* Convert Calendar Event Dialog - for Google Calendar blocks */}
-    {(session as any).isGoogleEvent && (
+    {(session as SessionWithExtras).isGoogleEvent && (
       <ConvertCalendarEventDialog
         open={showConvertDialog}
         onOpenChange={setShowConvertDialog}
@@ -2567,13 +2580,13 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
           professional_id: session.professional_id,
           provider: 'google',
           calendar_id: '',
-          google_event_id: (session as any).google_event_id || '',
+          google_event_id: (session as SessionWithExtras).google_event_id || '',
           summary: session.notes?.replace('[Google Calendar] ', '') || null,
           description: null,
           location: null,
           start_at: `${session.session_date}T${session.start_time}`,
           end_at: `${session.session_date}T${session.end_time}`,
-          all_day: (session as any).all_day || false,
+          all_day: (session as SessionWithExtras).all_day || false,
           deleted: false,
           status: 'confirmed',
         } as CalendarEvent}
