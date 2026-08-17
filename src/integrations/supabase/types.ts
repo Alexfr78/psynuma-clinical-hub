@@ -1710,8 +1710,8 @@ export type Database = {
           auto_cancel_unpaid_advance_sessions: boolean | null
           auto_invoicing_enabled: boolean | null
           bank_transfer_info: string | null
-          cancellation_policy_enabled: boolean
           bizum_phone: string | null
+          cancellation_policy_enabled: boolean
           city: string | null
           consent_expiration_days: number | null
           country: string | null
@@ -1813,8 +1813,8 @@ export type Database = {
           auto_cancel_unpaid_advance_sessions?: boolean | null
           auto_invoicing_enabled?: boolean | null
           bank_transfer_info?: string | null
-          cancellation_policy_enabled?: boolean
           bizum_phone?: string | null
+          cancellation_policy_enabled?: boolean
           city?: string | null
           consent_expiration_days?: number | null
           country?: string | null
@@ -1916,8 +1916,8 @@ export type Database = {
           auto_cancel_unpaid_advance_sessions?: boolean | null
           auto_invoicing_enabled?: boolean | null
           bank_transfer_info?: string | null
-          cancellation_policy_enabled?: boolean
           bizum_phone?: string | null
+          cancellation_policy_enabled?: boolean
           city?: string | null
           consent_expiration_days?: number | null
           country?: string | null
