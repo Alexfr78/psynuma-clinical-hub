@@ -3805,6 +3805,123 @@ export type Database = {
           },
         ]
       }
+      patient_payment_methods: {
+        Row: {
+          brand: string | null
+          center_id: string
+          connected_account_id: string
+          created_at: string
+          exp_month: number | null
+          exp_year: number | null
+          id: string
+          last4: string | null
+          mandate_accepted_at: string | null
+          mandate_ip: string | null
+          mandate_policy_version_id: string | null
+          patient_id: string
+          professional_id: string | null
+          status: string
+          stripe_customer_id: string
+          stripe_payment_method_id: string
+          updated_at: string
+        }
+        Insert: {
+          brand?: string | null
+          center_id: string
+          connected_account_id: string
+          created_at?: string
+          exp_month?: number | null
+          exp_year?: number | null
+          id?: string
+          last4?: string | null
+          mandate_accepted_at?: string | null
+          mandate_ip?: string | null
+          mandate_policy_version_id?: string | null
+          patient_id: string
+          professional_id?: string | null
+          status?: string
+          stripe_customer_id: string
+          stripe_payment_method_id: string
+          updated_at?: string
+        }
+        Update: {
+          brand?: string | null
+          center_id?: string
+          connected_account_id?: string
+          created_at?: string
+          exp_month?: number | null
+          exp_year?: number | null
+          id?: string
+          last4?: string | null
+          mandate_accepted_at?: string | null
+          mandate_ip?: string | null
+          mandate_policy_version_id?: string | null
+          patient_id?: string
+          professional_id?: string | null
+          status?: string
+          stripe_customer_id?: string
+          stripe_payment_method_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_payment_methods_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_payment_methods_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_payment_methods_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "portal_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_payment_methods_mandate_policy_version_id_fkey"
+            columns: ["mandate_policy_version_id"]
+            isOneToOne: false
+            referencedRelation: "cancellation_policy_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_payment_methods_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_payment_methods_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_payment_methods_professional_id_fkey"
+            columns: ["professional_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_payment_methods_professional_id_fkey"
+            columns: ["professional_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       patient_portal_accounts: {
         Row: {
           created_at: string
@@ -4023,66 +4140,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      patient_payment_methods: {
-        Row: {
-          brand: string | null
-          center_id: string
-          connected_account_id: string
-          created_at: string
-          exp_month: number | null
-          exp_year: number | null
-          id: string
-          last4: string | null
-          mandate_accepted_at: string | null
-          mandate_ip: string | null
-          mandate_policy_version_id: string | null
-          patient_id: string
-          professional_id: string | null
-          status: string
-          stripe_customer_id: string
-          stripe_payment_method_id: string
-          updated_at: string
-        }
-        Insert: {
-          brand?: string | null
-          center_id: string
-          connected_account_id: string
-          created_at?: string
-          exp_month?: number | null
-          exp_year?: number | null
-          id?: string
-          last4?: string | null
-          mandate_accepted_at?: string | null
-          mandate_ip?: string | null
-          mandate_policy_version_id?: string | null
-          patient_id: string
-          professional_id?: string | null
-          status?: string
-          stripe_customer_id: string
-          stripe_payment_method_id: string
-          updated_at?: string
-        }
-        Update: {
-          brand?: string | null
-          center_id?: string
-          connected_account_id?: string
-          created_at?: string
-          exp_month?: number | null
-          exp_year?: number | null
-          id?: string
-          last4?: string | null
-          mandate_accepted_at?: string | null
-          mandate_ip?: string | null
-          mandate_policy_version_id?: string | null
-          patient_id?: string
-          professional_id?: string | null
-          status?: string
-          stripe_customer_id?: string
-          stripe_payment_method_id?: string
-          updated_at?: string
-        }
-        Relationships: []
       }
       patients: {
         Row: {
