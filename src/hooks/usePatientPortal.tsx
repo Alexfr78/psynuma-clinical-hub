@@ -14,6 +14,7 @@ export interface PortalCancellationPolicy {
 export interface PortalBookingRequirements {
   cancellationPolicy: PortalCancellationPolicy | null;
   hasAcceptedCancellationPolicy: boolean;
+  cardOnBookingMode?: string;
   sessionTypes: Array<{
     id: string;
     name: string;
@@ -25,9 +26,18 @@ export interface PortalCreateSessionResult {
   success: boolean;
   error?: string;
   message?: string;
+  sessionId?: string;
   paymentRequired?: boolean;
   checkoutUrl?: string | null;
   checkoutError?: string | null;
+}
+
+export interface PortalPaymentMethod {
+  id: string;
+  brand: string | null;
+  last4: string | null;
+  exp_month: number | null;
+  exp_year: number | null;
 }
 
 interface Patient {
@@ -296,6 +306,7 @@ export function usePatientPortal(centerSlug?: string) {
       return {
         success: true,
         message: data.message,
+        sessionId: data.session?.id,
         paymentRequired: data.paymentRequired,
         checkoutUrl: data.checkoutUrl,
         checkoutError: data.checkoutError,
@@ -318,6 +329,7 @@ export function usePatientPortal(centerSlug?: string) {
       return {
         cancellationPolicy: data?.cancellationPolicy || null,
         hasAcceptedCancellationPolicy: Boolean(data?.hasAcceptedCancellationPolicy),
+        cardOnBookingMode: data?.cardOnBookingMode || 'off',
         sessionTypes: data?.sessionTypes || [],
       };
     } catch (error) {
@@ -482,10 +494,51 @@ export function usePatientPortal(centerSlug?: string) {
     }
   };
 
+  // Fase 2 · Inc 1 — tarjeta en archivo desde el portal.
+  const createSetupIntent = async (sessionId: string): Promise<{ url?: string } | null> => {
+    try {
+      const { data, error } = await supabase.functions.invoke('create-setup-intent', {
+        body: { sessionId },
+      });
+      if (error || data?.error) return null;
+      return data;
+    } catch {
+      return null;
+    }
+  };
+
+  const getPaymentMethod = async (): Promise<PortalPaymentMethod | null> => {
+    if (!state.sessionToken) return null;
+    try {
+      const { data, error } = await supabase.functions.invoke('patient-portal-payment-methods', {
+        body: { action: 'list', sessionToken: state.sessionToken },
+      });
+      if (error || data?.error) return null;
+      return data?.card ?? null;
+    } catch {
+      return null;
+    }
+  };
+
+  const removePaymentMethod = async (): Promise<boolean> => {
+    if (!state.sessionToken) return false;
+    try {
+      const { data, error } = await supabase.functions.invoke('patient-portal-payment-methods', {
+        body: { action: 'remove', sessionToken: state.sessionToken },
+      });
+      return !error && Boolean(data?.success);
+    } catch {
+      return false;
+    }
+  };
+
   return {
     ...state,
     sessions,
     sessionsLoading,
+    createSetupIntent,
+    getPaymentMethod,
+    removePaymentMethod,
     verifyMagicLink,
     requestAccessCode,
     verifyAccessCode,

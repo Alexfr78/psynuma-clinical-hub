@@ -269,7 +269,7 @@ serve(async (req) => {
         centerId: session.centerId!,
         patientId: session.patientId,
       });
-      const [activePolicy, sessionTypesResult] = await Promise.all([
+      const [activePolicy, sessionTypesResult, centerRes] = await Promise.all([
         policyEnabled ? getPublicCancellationPolicy(supabase, session.centerId!) : Promise.resolve(null),
         supabase
           .from("session_types")
@@ -278,8 +278,14 @@ serve(async (req) => {
           .eq("is_active", true)
           .order("display_order", { ascending: true })
           .order("name", { ascending: true }),
+        supabase
+          .from("centers")
+          .select("card_on_booking_mode")
+          .eq("id", session.centerId!)
+          .maybeSingle(),
       ]);
       if (sessionTypesResult.error) throw sessionTypesResult.error;
+      const cardOnBookingMode = policyEnabled ? (centerRes.data?.card_on_booking_mode || "off") : "off";
 
       const hasAcceptedPolicy = activePolicy
         ? await hasAcceptedCancellationPolicy(supabase, {
@@ -293,6 +299,7 @@ serve(async (req) => {
         JSON.stringify({
           cancellationPolicy: activePolicy,
           hasAcceptedCancellationPolicy: hasAcceptedPolicy,
+          cardOnBookingMode,
           sessionTypes: sessionTypesResult.data ?? [],
         }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },

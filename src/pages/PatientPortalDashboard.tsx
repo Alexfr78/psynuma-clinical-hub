@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { usePatientPortal } from '@/hooks/usePatientPortal';
 import { PortalAppointments } from '@/components/portal/PortalAppointments';
 import { PortalBooking } from '@/components/portal/PortalBooking';
+import { PortalPaymentMethod } from '@/components/portal/PortalPaymentMethod';
 import { PortalInvoices } from '@/components/portal/PortalInvoices';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -41,6 +42,9 @@ export default function PatientPortalDashboard() {
     getMonthAvailability,
     createSession,
     getBookingRequirements,
+    createSetupIntent,
+    getPaymentMethod,
+    removePaymentMethod,
     getAvailability,
   } = usePatientPortal(slug);
 
@@ -224,7 +228,11 @@ export default function PatientPortalDashboard() {
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="appointments" className="mt-4">
+          <TabsContent value="appointments" className="mt-4 space-y-4">
+            <PortalPaymentMethod
+              getPaymentMethod={getPaymentMethod}
+              removePaymentMethod={removePaymentMethod}
+            />
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg">Próximas citas</CardTitle>
@@ -289,6 +297,7 @@ export default function PatientPortalDashboard() {
               onComplete={handleBookingComplete}
               createSession={createSession}
               getBookingRequirements={getBookingRequirements}
+              createSetupIntent={createSetupIntent}
               getAvailability={getAvailability}
               getMonthAvailability={getMonthAvailability}
               rescheduleSession={rescheduleSession}
