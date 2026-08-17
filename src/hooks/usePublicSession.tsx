@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import type { Enums, TablesUpdate } from '@/integrations/supabase/types';
 import { toast } from 'sonner';
 import { useState, useCallback } from 'react';
 
@@ -132,7 +133,7 @@ export function useUpdatePublicSession() {
         return data?.session ?? data;
       }
 
-      const updateData: Record<string, string> = { status };
+      const updateData: TablesUpdate<'sessions'> = { status: status as Enums<'session_status'> };
       if (cancellation_reason) {
         updateData.cancellation_reason = cancellation_reason;
       }

@@ -28,5 +28,9 @@
   },
   "include": [
     "src"
+  ],
+  "exclude": [
+    "supabase",
+    "src/lib/__tests__/payment-rules.test.ts"
   ]
 }

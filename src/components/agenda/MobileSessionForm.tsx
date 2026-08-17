@@ -77,7 +77,7 @@ interface MobileSessionFormProps {
   form: UseFormReturn<any>;
   // Data
   patients: Patient[] | undefined;
-  professionals: Professional[] | undefined;
+  professionals: Pick<Professional, 'id' | 'first_name' | 'last_name' | 'email' | 'specialty'>[] | undefined;
   sessionTypes: SessionType[] | undefined;
   locations: CenterLocation[] | undefined;
   patientBonos: Bono[] | undefined;

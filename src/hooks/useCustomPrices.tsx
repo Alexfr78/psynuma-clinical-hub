@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import type { TablesUpdate } from '@/integrations/supabase/types';
 import { useAuth } from './useAuth';
 import { toast } from 'sonner';
 
@@ -242,7 +243,7 @@ export function useUpdateCustomPrice() {
     mutationFn: async (input: UpdateCustomPriceInput) => {
       if (!profile?.id) throw new Error('No hay sesión activa');
       // Pasar created_by al updated para que el trigger de historial lo use
-      const updatePayload: Record<string, unknown> = {
+      const updatePayload: TablesUpdate<'patient_custom_prices'> = {
         custom_price: input.custom_price,
         start_date: input.start_date,
         end_date: input.end_date || null,

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import type { TablesInsert, TablesUpdate } from '@/integrations/supabase/types';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import type { AutoregistroField } from '@/hooks/useAutoregistroTemplates';
@@ -172,13 +173,13 @@ export default function AlertRulesBuilder({ templateId, fields }: Props) {
       if (editingRule) {
         const { error } = await supabase
           .from('autoregistro_alert_rules')
-          .update(payload)
+          .update(payload as TablesUpdate<'autoregistro_alert_rules'>)
           .eq('id', editingRule.id);
         if (error) throw error;
       } else {
         const { error } = await supabase
           .from('autoregistro_alert_rules')
-          .insert(payload);
+          .insert(payload as TablesInsert<'autoregistro_alert_rules'>);
         if (error) throw error;
       }
 

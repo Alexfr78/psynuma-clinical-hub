@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import type { Json } from '@/integrations/supabase/types';
 import { useAuth } from './useAuth';
 import { useCenter } from './useCenter';
 import { toast } from 'sonner';
@@ -65,7 +66,8 @@ export function useCreateRecurringSeries() {
         ...seriesData,
         center_id: center.id,
         created_by: user.id,
-        last_generated_until: occurrences.length > 0 
+        rrule_json: seriesData.rrule_json as unknown as Json,
+        last_generated_until: occurrences.length > 0
           ? format(occurrences[occurrences.length - 1], 'yyyy-MM-dd')
           : null,
       };
@@ -161,11 +163,11 @@ export function useUpdateRecurringSession() {
           const { error: seriesError } = await supabase
             .from('recurring_series')
             .update({
-              session_type: updates.session_type,
-              price: updates.price,
-              session_modality: updates.session_modality,
-              location_id: updates.location_id,
-              notes_default: updates.notes,
+              session_type: updates.session_type as string | null,
+              price: updates.price as number,
+              session_modality: updates.session_modality as string | null,
+              location_id: updates.location_id as string | null,
+              notes_default: updates.notes as string | null,
               updated_at: new Date().toISOString(),
             })
             .eq('id', seriesId);
