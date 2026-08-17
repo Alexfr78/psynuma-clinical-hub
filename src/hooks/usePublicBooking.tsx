@@ -13,6 +13,7 @@ interface CenterConfig {
   maxDaysAhead: number;
   agendaClosed: boolean;
   privacyPolicyUrl: string | null;
+  cardOnBookingMode?: string;
   cancellationPolicy: {
     id: string;
     name: string;
@@ -276,6 +277,22 @@ export function usePublicBooking(centerSlug: string) {
     }
   }, [invoke]);
 
+  // Fase 2 · Inc 1 — inicia el Checkout de setup (guardar tarjeta) para una
+  // sesión recién creada. Devuelve la url a la que redirigir.
+  const createSetupIntent = useCallback(async (sessionId: string): Promise<{ url?: string } | null> => {
+    try {
+      const { data, error } = await supabase.functions.invoke('create-setup-intent', {
+        body: { sessionId },
+      });
+      if (error) throw new Error(error.message);
+      if (data?.error) throw new Error(data.error);
+      return data;
+    } catch (err) {
+      setError((err as Error).message);
+      return null;
+    }
+  }, []);
+
   const getBooking = useCallback(async (bookingToken: string): Promise<BookingDetails | null> => {
     setLoading(true);
     setError(null);
@@ -412,6 +429,7 @@ export function usePublicBooking(centerSlug: string) {
     getAvailability,
     getMonthAvailability,
     createBooking,
+    createSetupIntent,
     getBooking,
     cancelBooking,
     rescheduleBooking,

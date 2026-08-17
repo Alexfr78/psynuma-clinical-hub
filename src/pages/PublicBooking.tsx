@@ -26,7 +26,7 @@ export default function PublicBooking() {
   const {
     config, services, locations, professionals, allowProfessionalSelection,
     loading, error, disabled, bootstrap,
-    getAvailability, getMonthAvailability, createBooking,
+    getAvailability, getMonthAvailability, createBooking, createSetupIntent,
     submitIntakeRequest, listReferralFilters, getReferralRecommendations
   } = usePublicBooking(centerSlug || '');
 
@@ -152,6 +152,34 @@ export default function PublicBooking() {
           toast.warning('Pulsa "Ir al pago seguro" para continuar.');
         }
         return;
+      }
+
+      // Fase 2 · Inc 1 — captura de tarjeta en la reserva (Checkout de setup).
+      const cardMode = config?.cardOnBookingMode;
+      if (cardMode && cardMode !== 'off' && result.session?.id) {
+        const setup = await createSetupIntent(result.session.id);
+        if (setup?.url) {
+          setBookingResult(result);
+          setStep('confirmation');
+          toast.info('Guarda tu tarjeta para completar la reserva...');
+          try {
+            if (isEmbed && window.top && window.top !== window) {
+              window.top.location.href = setup.url;
+            } else {
+              window.location.assign(setup.url);
+            }
+          } catch (navigationError) {
+            console.warn('No se pudo abrir el guardado de tarjeta:', navigationError);
+            toast.warning('Vuelve a intentarlo para guardar la tarjeta.');
+          }
+          return;
+        }
+        if (cardMode === 'required') {
+          setBookingResult(result);
+          setStep('confirmation');
+          toast.error('No se pudo iniciar el guardado de la tarjeta. Contacta con el centro.');
+          return;
+        }
       }
 
       setBookingResult(result);
@@ -578,6 +606,11 @@ export default function PublicBooking() {
                             He leído y acepto la política de cancelación *
                           </Label>
                           <p className="text-sm leading-5 text-muted-foreground">{cancellationSummary}</p>
+                          {config?.cardOnBookingMode && config.cardOnBookingMode !== 'off' && (
+                            <p className="text-sm leading-5 text-muted-foreground">
+                              Autorizas a guardar tu tarjeta y a que se apliquen en ella los cargos por cancelación tardía o inasistencia previstos en esta política.
+                            </p>
+                          )}
                           <Dialog>
                             <DialogTrigger asChild>
                               <button type="button" className="text-sm font-medium text-primary underline underline-offset-2 hover:no-underline">

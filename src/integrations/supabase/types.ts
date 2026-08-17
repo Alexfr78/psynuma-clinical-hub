@@ -1712,6 +1712,7 @@ export type Database = {
           bank_transfer_info: string | null
           bizum_phone: string | null
           cancellation_policy_enabled: boolean
+          card_on_booking_mode: string
           city: string | null
           consent_expiration_days: number | null
           country: string | null
@@ -1815,6 +1816,7 @@ export type Database = {
           bank_transfer_info?: string | null
           bizum_phone?: string | null
           cancellation_policy_enabled?: boolean
+          card_on_booking_mode?: string
           city?: string | null
           consent_expiration_days?: number | null
           country?: string | null
@@ -1918,6 +1920,7 @@ export type Database = {
           bank_transfer_info?: string | null
           bizum_phone?: string | null
           cancellation_policy_enabled?: boolean
+          card_on_booking_mode?: string
           city?: string | null
           consent_expiration_days?: number | null
           country?: string | null
@@ -4020,6 +4023,66 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      patient_payment_methods: {
+        Row: {
+          brand: string | null
+          center_id: string
+          connected_account_id: string
+          created_at: string
+          exp_month: number | null
+          exp_year: number | null
+          id: string
+          last4: string | null
+          mandate_accepted_at: string | null
+          mandate_ip: string | null
+          mandate_policy_version_id: string | null
+          patient_id: string
+          professional_id: string | null
+          status: string
+          stripe_customer_id: string
+          stripe_payment_method_id: string
+          updated_at: string
+        }
+        Insert: {
+          brand?: string | null
+          center_id: string
+          connected_account_id: string
+          created_at?: string
+          exp_month?: number | null
+          exp_year?: number | null
+          id?: string
+          last4?: string | null
+          mandate_accepted_at?: string | null
+          mandate_ip?: string | null
+          mandate_policy_version_id?: string | null
+          patient_id: string
+          professional_id?: string | null
+          status?: string
+          stripe_customer_id: string
+          stripe_payment_method_id: string
+          updated_at?: string
+        }
+        Update: {
+          brand?: string | null
+          center_id?: string
+          connected_account_id?: string
+          created_at?: string
+          exp_month?: number | null
+          exp_year?: number | null
+          id?: string
+          last4?: string | null
+          mandate_accepted_at?: string | null
+          mandate_ip?: string | null
+          mandate_policy_version_id?: string | null
+          patient_id?: string
+          professional_id?: string | null
+          status?: string
+          stripe_customer_id?: string
+          stripe_payment_method_id?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       patients: {
         Row: {

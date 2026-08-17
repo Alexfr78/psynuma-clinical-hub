@@ -446,7 +446,7 @@ serve(async (req) => {
           public_booking_enabled, portal_require_approval,
           portal_allow_professional_selection, portal_default_professional_id,
           reschedule_slot_duration, reschedule_max_days, portal_agenda_closed,
-          custom_domain, public_domain, cancellation_policy_enabled
+          custom_domain, public_domain, cancellation_policy_enabled, card_on_booking_mode
         `)
         .eq("portal_slug", centerSlug)
         .single();
@@ -482,6 +482,7 @@ serve(async (req) => {
         agendaClosed: center.portal_agenda_closed ?? false,
         privacyPolicyUrl: buildPrivacyPolicyUrl(center.public_domain || center.custom_domain),
         cancellationPolicy,
+        cardOnBookingMode: (center.cancellation_policy_enabled ? center.card_on_booking_mode : 'off') || 'off',
       };
 
       // If agenda is closed we don't need to load the rest — frontend will show ClosedAgendaScreen
@@ -559,7 +560,7 @@ serve(async (req) => {
           public_booking_enabled, portal_require_approval,
           portal_allow_professional_selection, portal_default_professional_id,
           reschedule_slot_duration, reschedule_max_days, portal_agenda_closed,
-          custom_domain, public_domain, cancellation_policy_enabled
+          custom_domain, public_domain, cancellation_policy_enabled, card_on_booking_mode
         `)
         .eq("portal_slug", centerSlug)
         .single();

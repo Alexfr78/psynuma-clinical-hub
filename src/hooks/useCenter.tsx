@@ -66,6 +66,8 @@ export interface Center {
   consent_expiration_days: number | null;
   // Cancellation policy master switch (center level)
   cancellation_policy_enabled: boolean | null;
+  // Captura de tarjeta en la reserva: 'off' | 'optional' | 'required'
+  card_on_booking_mode: string | null;
   // Portal settings
   portal_enabled: boolean | null;
   portal_slug: string | null;

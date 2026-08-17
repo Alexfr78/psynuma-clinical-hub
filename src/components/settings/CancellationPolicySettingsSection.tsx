@@ -21,6 +21,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 type RefundOption = 'refund' | 'voucher';
 
@@ -152,6 +153,7 @@ export function CancellationPolicySettingsSection() {
   const { data: activePolicy, isLoading } = useActiveCancellationPolicy();
   const { center, updateCenter } = useCenter();
   const cancellationPolicyEnabled = center?.cancellation_policy_enabled ?? false;
+  const cardOnBookingMode = center?.card_on_booking_mode ?? 'off';
 
   useEffect(() => {
     if (!activePolicy) return;
@@ -286,6 +288,31 @@ export function CancellationPolicySettingsSection() {
               aria-label="Aplicar política de cancelaciones en este centro"
             />
           </div>
+
+          {cancellationPolicyEnabled && (
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border p-4">
+              <div className="space-y-0.5">
+                <Label>Tarjeta en la reserva</Label>
+                <p className="text-xs text-muted-foreground">
+                  Si la pides al reservar, se guarda en Stripe para poder aplicar cargos por cancelación o inasistencia.
+                </p>
+              </div>
+              <Select
+                value={cardOnBookingMode}
+                disabled={updateCenter.isPending || !center}
+                onValueChange={(value) => updateCenter.mutate({ card_on_booking_mode: value })}
+              >
+                <SelectTrigger className="w-44">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="off">No pedir tarjeta</SelectItem>
+                  <SelectItem value="optional">Opcional</SelectItem>
+                  <SelectItem value="required">Obligatoria</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </CardContent>
       </Card>
 
