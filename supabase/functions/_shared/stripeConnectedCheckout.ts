@@ -146,3 +146,82 @@ export async function createConnectedCheckoutSession(
 
   return { id: payload.id, url: payload.url };
 }
+
+// ============================================================
+// Checkout en modo `setup` — guarda una tarjeta (SetupIntent
+// usage:off_session) en la cuenta conectada, sin mover dinero.
+// Se usa para el mandato de cargos por cancelación (Fase 2).
+// ============================================================
+
+export interface ConnectedSetupSessionInput {
+  stripeSecretKey: string;
+  connectedAccountId: string;
+  successUrl: string;
+  cancelUrl: string;
+  // Cliente existente en la cuenta conectada (para reutilizar tarjeta). Si no
+  // se pasa, Stripe Checkout crea uno y lo devuelve en el SetupIntent.
+  customerId?: string | null;
+  customerEmail?: string | null;
+  metadata: Record<string, string | number | null | undefined>;
+  idempotencyKey: string;
+}
+
+export function buildConnectedSetupRequest(
+  input: ConnectedSetupSessionInput,
+): { body: URLSearchParams; headers: Record<string, string> } {
+  const body = new URLSearchParams({
+    mode: "setup",
+    "payment_method_types[0]": "card",
+    success_url: input.successUrl,
+    cancel_url: input.cancelUrl,
+    "setup_intent_data[usage]": "off_session",
+  });
+
+  if (input.customerId) {
+    body.set("customer", input.customerId);
+  } else if (input.customerEmail) {
+    body.set("customer_email", input.customerEmail);
+  }
+
+  for (const [key, value] of Object.entries(input.metadata)) {
+    if (value !== null && value !== undefined) {
+      body.set(`metadata[${key}]`, String(value));
+      body.set(`setup_intent_data[metadata][${key}]`, String(value));
+    }
+  }
+
+  return {
+    body,
+    headers: {
+      Authorization: `Bearer ${input.stripeSecretKey}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+      "Stripe-Account": input.connectedAccountId,
+      "Idempotency-Key": input.idempotencyKey,
+    },
+  };
+}
+
+export async function createConnectedSetupSession(
+  input: ConnectedSetupSessionInput,
+  fetcher: typeof fetch = fetch,
+): Promise<ConnectedCheckoutResult> {
+  const request = buildConnectedSetupRequest(input);
+  const response = await fetcher("https://api.stripe.com/v1/checkout/sessions", {
+    method: "POST",
+    headers: request.headers,
+    body: request.body,
+  });
+  const payload = await response.json() as {
+    id?: string;
+    url?: string;
+    error?: { message?: string };
+  };
+
+  if (!response.ok || !payload.id || !payload.url) {
+    throw new StripeCheckoutRequestError(
+      payload.error?.message || "Stripe setup session creation failed",
+    );
+  }
+
+  return { id: payload.id, url: payload.url };
+}

@@ -1258,6 +1258,109 @@ async function reconcilePendingSessionCheckouts(
   return result;
 }
 
+// Fase 2 · Incremento 1 — guarda la tarjeta capturada en un Checkout mode=setup
+// (mandato de cargos por cancelación) en patient_payment_methods. Idempotente.
+async function handleCancellationMandateSetup(
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
+  session: Stripe.Checkout.Session,
+  connectedAccountId: string | null,
+): Promise<void> {
+  const metadata = session.metadata || {};
+  const patientId = metadata.patient_id;
+  const centerId = metadata.center_id;
+  if (!patientId || !centerId || !connectedAccountId) {
+    console.error('[setup] faltan patient_id/center_id/connected account en el evento de setup', session.id);
+    return;
+  }
+
+  const setupIntentId = typeof session.setup_intent === 'string'
+    ? session.setup_intent
+    : session.setup_intent?.id;
+  if (!setupIntentId) {
+    console.error('[setup] la sesión no tiene setup_intent', session.id);
+    return;
+  }
+
+  // Recupera el SetupIntent en la cuenta conectada para leer el método de pago.
+  const resp = await fetch(
+    `https://api.stripe.com/v1/setup_intents/${setupIntentId}?expand[]=payment_method`,
+    {
+      headers: {
+        Authorization: `Bearer ${stripeSecretKey}`,
+        'Stripe-Account': connectedAccountId,
+      },
+    },
+  );
+  // deno-lint-ignore no-explicit-any
+  const si = await resp.json() as any;
+  if (!resp.ok || !si?.payment_method) {
+    console.error('[setup] no se pudo recuperar el setup_intent', si?.error);
+    return;
+  }
+
+  const pm = si.payment_method;
+  const stripePaymentMethodId = typeof pm === 'string' ? pm : pm.id;
+  const card = (typeof pm === 'object' && pm.card) ? pm.card : {};
+  const stripeCustomerId = (typeof session.customer === 'string'
+    ? session.customer
+    : session.customer?.id) || si.customer || null;
+
+  if (!stripePaymentMethodId || !stripeCustomerId) {
+    console.error('[setup] setup_intent sin payment_method/customer', session.id);
+    return;
+  }
+
+  // Idempotencia: si ya guardamos este PM, no dupliques.
+  const { data: existingPm } = await supabase
+    .from('patient_payment_methods')
+    .select('id, status')
+    .eq('stripe_payment_method_id', stripePaymentMethodId)
+    .maybeSingle();
+  if (existingPm) {
+    if (existingPm.status !== 'active') {
+      await supabase
+        .from('patient_payment_methods')
+        .update({ status: 'active', updated_at: new Date().toISOString() })
+        .eq('id', existingPm.id);
+    }
+    return;
+  }
+
+  // Sustituye la tarjeta activa anterior del paciente en esta cuenta conectada.
+  await supabase
+    .from('patient_payment_methods')
+    .update({ status: 'removed', updated_at: new Date().toISOString() })
+    .eq('center_id', centerId)
+    .eq('patient_id', patientId)
+    .eq('connected_account_id', connectedAccountId)
+    .eq('status', 'active');
+
+  const { error: insertError } = await supabase
+    .from('patient_payment_methods')
+    .insert({
+      center_id: centerId,
+      patient_id: patientId,
+      professional_id: metadata.professional_id || null,
+      stripe_customer_id: stripeCustomerId,
+      stripe_payment_method_id: stripePaymentMethodId,
+      connected_account_id: connectedAccountId,
+      brand: card.brand || null,
+      last4: card.last4 || null,
+      exp_month: card.exp_month || null,
+      exp_year: card.exp_year || null,
+      mandate_policy_version_id: metadata.policy_version_id || null,
+      mandate_accepted_at: new Date().toISOString(),
+      mandate_ip: metadata.mandate_ip || null,
+      status: 'active',
+    });
+  if (insertError) {
+    console.error('[setup] no se pudo guardar el método de pago', insertError);
+    throw insertError;
+  }
+  console.log('[setup] tarjeta guardada para el paciente', patientId);
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -1450,6 +1553,12 @@ serve(async (req) => {
         const amountTotal = (session.amount_total || 0) / 100; // Convert from cents
 
         console.log('Checkout completed, payment_type:', paymentType);
+
+        // Modo `setup`: no mueve dinero, guarda la tarjeta (mandato de cancelación).
+        if (session.mode === 'setup' || metadata.purpose === 'cancellation_mandate') {
+          await handleCancellationMandateSetup(supabase, session, event.account || null);
+          break;
+        }
 
         if (paymentType === 'debt_payment') {
           await handleDebtPayment(supabase, metadata, amountTotal, session.id);
