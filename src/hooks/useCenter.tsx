@@ -64,6 +64,8 @@ export interface Center {
   payment_reminder_interval_hours: number | null;
   // Consent settings
   consent_expiration_days: number | null;
+  // Cancellation policy master switch (center level)
+  cancellation_policy_enabled: boolean | null;
   // Portal settings
   portal_enabled: boolean | null;
   portal_slug: string | null;

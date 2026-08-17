@@ -9,7 +9,7 @@ import {
   minutesToTime as coreMinutesToTime,
   APP_TZ,
 } from "../_shared/special-days-adapter.ts";
-import { resolveSignedCancellationPolicyVersionForSession } from "../_shared/cancellationPolicy.ts";
+import { isCancellationPolicyEnabled, resolveSignedCancellationPolicyVersionForSession } from "../_shared/cancellationPolicy.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -175,12 +175,20 @@ Deno.serve(async (req) => {
     const professionalName = professional ? `${professional.first_name} ${professional.last_name}` : undefined;
 
     async function buildCancellationPolicyPreview() {
-      const signedCancellationPolicy = await resolveSignedCancellationPolicyVersionForSession(supabase, {
+      // Master switch / per-patient override OFF → no cargo por cancelación.
+      const policyEnabled = await isCancellationPolicyEnabled(supabase, {
         centerId: sessionRow.center_id,
         patientId: sessionRow.patient_id,
-        policyVersionId: sessionRow.cancellation_policy_version_id,
-        versionSelect: "id, rules, penalty_invoice_concept",
       });
+
+      const signedCancellationPolicy = policyEnabled
+        ? await resolveSignedCancellationPolicyVersionForSession(supabase, {
+            centerId: sessionRow.center_id,
+            patientId: sessionRow.patient_id,
+            policyVersionId: sessionRow.cancellation_policy_version_id,
+            versionSelect: "id, rules, penalty_invoice_concept",
+          })
+        : null;
 
       const signedPolicyEvaluation = signedCancellationPolicy
         ? evaluateCancellationCharge({

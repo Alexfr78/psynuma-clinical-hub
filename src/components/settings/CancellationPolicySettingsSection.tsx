@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Save, Loader2, FileText } from 'lucide-react';
+import { Save, Loader2, FileText, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useCenter } from '@/hooks/useCenter';
 import { Database, Json } from '@/integrations/supabase/types';
 import {
   CancellationPolicyRules,
@@ -149,6 +150,8 @@ export function CancellationPolicySettingsSection() {
   }));
 
   const { data: activePolicy, isLoading } = useActiveCancellationPolicy();
+  const { center, updateCenter } = useCenter();
+  const cancellationPolicyEnabled = center?.cancellation_policy_enabled ?? false;
 
   useEffect(() => {
     if (!activePolicy) return;
@@ -255,6 +258,45 @@ export function CancellationPolicySettingsSection() {
 
   return (
     <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ShieldCheck className="h-5 w-5" />
+            Aplicar política de cancelaciones
+          </CardTitle>
+          <CardDescription>
+            Interruptor maestro del centro. Si lo desactivas, no se pedirá a los contactos aceptar la política
+            al reservar y no se generarán cargos por cancelación o inasistencia.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between rounded-lg border p-4">
+            <div className="space-y-0.5">
+              <Label>Política de cancelaciones activa en este centro</Label>
+              <p className="text-xs text-muted-foreground">
+                {cancellationPolicyEnabled
+                  ? 'Activa. Puedes desactivarla individualmente para cada contacto desde su ficha.'
+                  : 'Desactivada. La política no se aplica a ningún contacto ni reserva.'}
+              </p>
+            </div>
+            <Switch
+              checked={cancellationPolicyEnabled}
+              disabled={updateCenter.isPending || !center}
+              onCheckedChange={(checked) => updateCenter.mutate({ cancellation_policy_enabled: checked })}
+              aria-label="Aplicar política de cancelaciones en este centro"
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {!cancellationPolicyEnabled ? (
+        <Card>
+          <CardContent className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
+            <FileText className="h-4 w-4 shrink-0" />
+            Activa la política de cancelaciones para configurar sus reglas y el texto firmable.
+          </CardContent>
+        </Card>
+      ) : (
       <Card>
         <CardHeader>
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -468,6 +510,7 @@ export function CancellationPolicySettingsSection() {
           )}
         </CardContent>
       </Card>
+      )}
     </div>
   );
 }

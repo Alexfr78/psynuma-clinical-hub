@@ -115,7 +115,17 @@ async function resolveCancellationBasePrice(input: {
   return Number(sessionType?.default_price ?? 0) || 0;
 }
 
-export async function createCancellationChargeForSessionCancellation(sessionId: string, note?: string) {
+export async function createCancellationChargeForSessionCancellation(
+  sessionId: string,
+  note?: string,
+  // Master switch of the center. `centers` is only directly readable by admins
+  // (RLS), so the caller passes the flag it already has via useCenter.
+  // `undefined` means "unknown" → preserve legacy behaviour (charge applies).
+  centerPolicyEnabled?: boolean,
+) {
+  // Master switch OFF → the cancellation policy does not apply, so no charge.
+  if (centerPolicyEnabled === false) return null;
+
   const { data: existingCharge, error: existingError } = await supabase
     .from('cancellation_charges')
     .select('id')
@@ -135,6 +145,14 @@ export async function createCancellationChargeForSessionCancellation(sessionId: 
   if (sessionError) throw sessionError;
   if (!session?.patient_id || !session.center_id) return null;
   if (session.cancellation_origin !== 'patient') return null;
+
+  // Per-patient override (patients are readable by center staff).
+  const { data: patientFlag } = await supabase
+    .from('patients')
+    .select('cancellation_policy_enabled')
+    .eq('id', session.patient_id)
+    .maybeSingle();
+  if (patientFlag?.cancellation_policy_enabled === false) return null;
 
   const signedPolicyVersionId = await resolveSignedCancellationPolicyVersionForSession(
     session.center_id,

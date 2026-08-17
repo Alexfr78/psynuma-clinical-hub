@@ -307,12 +307,31 @@ export async function resolvePatientCancellationPolicyForSession(
   centerId: string,
   patientId: string | null | undefined,
   activePolicyId?: string | null,
+  // Master switch of the center. The `centers` table is only directly readable
+  // by admins (RLS), so the caller passes the flag it already has via useCenter.
+  // `undefined` means "unknown" → preserve legacy behaviour (policy applies).
+  centerPolicyEnabled?: boolean,
 ) {
+  // Master switch OFF → the cancellation policy does not apply at all.
+  if (centerPolicyEnabled === false) {
+    return { cancellation_policy_version_id: null, cancellation_policy_status: null };
+  }
+
   if (!patientId) {
     return {
       cancellation_policy_version_id: null,
       cancellation_policy_status: activePolicyId ? 'not_signed' : null,
     };
+  }
+
+  // Per-patient override (patients are readable by center staff).
+  const { data: patientFlag } = await supabase
+    .from('patients')
+    .select('cancellation_policy_enabled')
+    .eq('id', patientId)
+    .maybeSingle();
+  if (patientFlag?.cancellation_policy_enabled === false) {
+    return { cancellation_policy_version_id: null, cancellation_policy_status: null };
   }
 
   const signedPolicyVersionId = await resolveSignedCancellationPolicyVersion(centerId, patientId, activePolicyId);

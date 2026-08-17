@@ -4,6 +4,7 @@ import { useAuth } from './useAuth';
 import { Tables, TablesInsert, TablesUpdate } from '@/integrations/supabase/types';
 import { createCancellationChargeForSessionCancellation } from './useCancellationCharges';
 import { resolvePatientCancellationPolicyForSession } from './useCancellationPolicy';
+import { useCenter } from './useCenter';
 
 export type Session = Tables<'sessions'>;
 export type SessionInsert = TablesInsert<'sessions'>;
@@ -67,6 +68,7 @@ export function useSessions(startDate?: string, endDate?: string, professionalId
 export function useCreateSession() {
   const queryClient = useQueryClient();
   const { profile } = useAuth();
+  const { center } = useCenter();
 
   return useMutation({
     mutationFn: async (session: Omit<SessionInsert, 'center_id'>) => {
@@ -85,6 +87,7 @@ export function useCreateSession() {
         profile.center_id,
         session.patient_id,
         activePolicy?.id,
+        center?.cancellation_policy_enabled ?? undefined,
       );
 
       const { data, error } = await supabase
@@ -104,6 +107,7 @@ export function useCreateSession() {
 
 export function useUpdateSession() {
   const queryClient = useQueryClient();
+  const { center } = useCenter();
 
   return useMutation({
     mutationFn: async ({ id, ...updates }: SessionUpdate & { id: string }) => {
@@ -136,6 +140,7 @@ export function useUpdateSession() {
           currentSession.center_id,
           updates.patient_id,
           activePolicy?.id,
+          center?.cancellation_policy_enabled ?? undefined,
         );
         updatesWithPolicy = { ...updates, ...policyState };
       }
@@ -158,6 +163,7 @@ export function useUpdateSession() {
           typeof updatesWithPolicy.cancellation_reason === 'string'
             ? updatesWithPolicy.cancellation_reason
             : 'Cancelacion registrada por el profesional desde agenda',
+          center?.cancellation_policy_enabled ?? undefined,
         );
       }
 

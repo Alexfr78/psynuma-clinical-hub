@@ -5,7 +5,7 @@ import { queueAndSendPatientBookingNotification } from "../_shared/bookingPatien
 import { notifyProfessionalBooking } from "../_shared/professionalNotification.ts";
 import { evaluateCancellationCharge, resolveCancellationBasePrice, resolvePaymentRules } from "../_shared/paymentRules.ts";
 import { autoApplyAvailableBonoToSession } from "../_shared/bonoAutomation.ts";
-import { resolvePatientCancellationPolicyForSession, resolveSignedCancellationPolicyVersionForSession } from "../_shared/cancellationPolicy.ts";
+import { isCancellationPolicyEnabled, resolvePatientCancellationPolicyForSession, resolveSignedCancellationPolicyVersionForSession } from "../_shared/cancellationPolicy.ts";
 import { isValidEmail, isValidDate, isValidTime, isValidName } from "../_shared/validation.ts";
 import { checkIpRateLimit, getClientIp } from "../_shared/rateLimiter.ts";
 import { resolveDayAvailability } from "../_shared/availability-core.ts";
@@ -446,7 +446,7 @@ serve(async (req) => {
           public_booking_enabled, portal_require_approval,
           portal_allow_professional_selection, portal_default_professional_id,
           reschedule_slot_duration, reschedule_max_days, portal_agenda_closed,
-          custom_domain, public_domain
+          custom_domain, public_domain, cancellation_policy_enabled
         `)
         .eq("portal_slug", centerSlug)
         .single();
@@ -466,7 +466,9 @@ serve(async (req) => {
         );
       }
 
-      const cancellationPolicy = await getPublicCancellationPolicy(supabase, center.id);
+      const cancellationPolicy = center.cancellation_policy_enabled
+        ? await getPublicCancellationPolicy(supabase, center.id)
+        : null;
       const config = {
         centerId: center.id,
         name: center.name,
@@ -557,7 +559,7 @@ serve(async (req) => {
           public_booking_enabled, portal_require_approval,
           portal_allow_professional_selection, portal_default_professional_id,
           reschedule_slot_duration, reschedule_max_days, portal_agenda_closed,
-          custom_domain, public_domain
+          custom_domain, public_domain, cancellation_policy_enabled
         `)
         .eq("portal_slug", centerSlug)
         .single();
@@ -579,7 +581,9 @@ serve(async (req) => {
       // Debug logging for portal_agenda_closed
       console.log(`[public-booking:get-config] centerSlug=${centerSlug} portal_agenda_closed=${center.portal_agenda_closed} (type: ${typeof center.portal_agenda_closed})`);
 
-      const cancellationPolicy = await getPublicCancellationPolicy(supabase, center.id);
+      const cancellationPolicy = center.cancellation_policy_enabled
+        ? await getPublicCancellationPolicy(supabase, center.id)
+        : null;
       return new Response(
         JSON.stringify({
           centerId: center.id,
@@ -1244,9 +1248,10 @@ serve(async (req) => {
       const { data: center } = await supabase
         .from("centers")
         .select(`
-          id, public_booking_enabled, 
+          id, public_booking_enabled,
           portal_require_approval, portal_default_professional_id, portal_allow_professional_selection,
-          reschedule_max_days, default_payment_mode, default_scheduled_hours_before, default_advance_payment_limit_hours
+          reschedule_max_days, default_payment_mode, default_scheduled_hours_before, default_advance_payment_limit_hours,
+          cancellation_policy_enabled
         `)
         .eq("portal_slug", centerSlug)
         .single();
@@ -1258,7 +1263,9 @@ serve(async (req) => {
         );
       }
 
-      const activeCancellationPolicy = await getPublicCancellationPolicy(supabase, center.id);
+      const activeCancellationPolicy = center.cancellation_policy_enabled
+        ? await getPublicCancellationPolicy(supabase, center.id)
+        : null;
       if (activeCancellationPolicy && !acceptCancellationPolicy) {
         return new Response(
           JSON.stringify({ error: "Debe aceptar la política de cancelación" }),
@@ -1885,12 +1892,20 @@ serve(async (req) => {
       const sessionDateTime = new Date(`${session.session_date}T${session.start_time}`);
       const now = new Date();
 
-      const signedCancellationPolicy = await resolveSignedCancellationPolicyVersionForSession(supabase, {
+      // Master switch / per-patient override OFF → no cargo por cancelación.
+      const cancellationPolicyEnabled = await isCancellationPolicyEnabled(supabase, {
         centerId: session.center_id,
         patientId: session.patient_id,
-        policyVersionId: session.cancellation_policy_version_id,
-        versionSelect: "id, rules, penalty_invoice_concept",
       });
+
+      const signedCancellationPolicy = cancellationPolicyEnabled
+        ? await resolveSignedCancellationPolicyVersionForSession(supabase, {
+            centerId: session.center_id,
+            patientId: session.patient_id,
+            policyVersionId: session.cancellation_policy_version_id,
+            versionSelect: "id, rules, penalty_invoice_concept",
+          })
+        : null;
 
       const signedPolicyEvaluation = signedCancellationPolicy
         ? evaluateCancellationCharge({

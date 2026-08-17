@@ -6,7 +6,7 @@ import { queueAndSendPatientBookingNotification } from "../_shared/bookingPatien
 import { notifyProfessionalBooking } from "../_shared/professionalNotification.ts";
 import { evaluateCancellationCharge, resolveCancellationBasePrice, resolvePaymentRules } from "../_shared/paymentRules.ts";
 import { autoApplyAvailableBonoToSession } from "../_shared/bonoAutomation.ts";
-import { resolvePatientCancellationPolicyForSession, resolveSignedCancellationPolicyVersionForSession } from "../_shared/cancellationPolicy.ts";
+import { isCancellationPolicyEnabled, resolvePatientCancellationPolicyForSession, resolveSignedCancellationPolicyVersionForSession } from "../_shared/cancellationPolicy.ts";
 import { getPublicCancellationPolicy, hasAcceptedCancellationPolicy, recordPortalCancellationPolicyClickwrap } from "../_shared/cancellationPolicyClickwrap.ts";
 import { resolveDayAvailability } from "../_shared/availability-core.ts";
 import { APP_TZ, buildDayScheduleInput } from "../_shared/special-days-adapter.ts";
@@ -265,8 +265,12 @@ serve(async (req) => {
     }
 
     if (action === "get-booking-requirements") {
+      const policyEnabled = await isCancellationPolicyEnabled(supabase, {
+        centerId: session.centerId!,
+        patientId: session.patientId,
+      });
       const [activePolicy, sessionTypesResult] = await Promise.all([
-        getPublicCancellationPolicy(supabase, session.centerId!),
+        policyEnabled ? getPublicCancellationPolicy(supabase, session.centerId!) : Promise.resolve(null),
         supabase
           .from("session_types")
           .select("id, name, duration_minutes")
@@ -356,7 +360,13 @@ serve(async (req) => {
         );
       }
 
-      const activeCancellationPolicy = await getPublicCancellationPolicy(supabase, session.centerId!);
+      const cancellationPolicyEnabled = await isCancellationPolicyEnabled(supabase, {
+        centerId: session.centerId!,
+        patientId: session.patientId,
+      });
+      const activeCancellationPolicy = cancellationPolicyEnabled
+        ? await getPublicCancellationPolicy(supabase, session.centerId!)
+        : null;
       const alreadyAcceptedPolicy = activeCancellationPolicy
         ? await hasAcceptedCancellationPolicy(supabase, {
             centerId: session.centerId!,
@@ -665,6 +675,27 @@ serve(async (req) => {
 
       if (!existingSession) {
         return { existingSession: null, signedCancellationPolicy: null, signedPolicyEvaluation: null, response: null };
+      }
+
+      // Master switch / per-patient override OFF → no cargo por cancelación.
+      if (!(await isCancellationPolicyEnabled(supabase, {
+        centerId: existingSession.center_id,
+        patientId: session.patientId,
+      }))) {
+        return {
+          existingSession,
+          signedCancellationPolicy: null,
+          signedPolicyEvaluation: null,
+          response: {
+            hasSignedPolicy: false,
+            applies: false,
+            amount: 0,
+            basePrice: 0,
+            percentage: 0,
+            concept: "",
+            message: "La politica de cancelacion no esta activa. No se estima cargo por cancelacion.",
+          },
+        };
       }
 
       const signedCancellationPolicy = await resolveSignedCancellationPolicyVersionForSession(supabase, {

@@ -3,6 +3,31 @@
 // deno-lint-ignore no-explicit-any
 type SupabaseClient = any;
 
+// Master switch (center) + per-patient override. When the master is OFF the
+// cancellation policy does not apply at all; when ON, a patient may still be
+// opted out individually. Runs with the service-role client (bypasses RLS).
+export async function isCancellationPolicyEnabled(
+  supabase: SupabaseClient,
+  args: { centerId: string; patientId?: string | null },
+): Promise<boolean> {
+  const { data: center } = await supabase
+    .from("centers")
+    .select("cancellation_policy_enabled")
+    .eq("id", args.centerId)
+    .maybeSingle();
+  if (!center?.cancellation_policy_enabled) return false;
+
+  if (!args.patientId) return true;
+
+  const { data: patient } = await supabase
+    .from("patients")
+    .select("cancellation_policy_enabled")
+    .eq("id", args.patientId)
+    .maybeSingle();
+  // Default true: only an explicit false opts the patient out.
+  return patient?.cancellation_policy_enabled !== false;
+}
+
 function normalizePolicyText(value: unknown): string {
   return String(value ?? "")
     .normalize("NFD")
@@ -124,6 +149,14 @@ export async function resolvePatientCancellationPolicyForSession(
     patientId?: string | null;
   },
 ) {
+  // Master switch / per-patient override OFF → the policy does not apply.
+  if (!(await isCancellationPolicyEnabled(supabase, args))) {
+    return {
+      cancellation_policy_version_id: null,
+      cancellation_policy_status: null,
+    };
+  }
+
   const { data: activePolicy, error: policyError } = await supabase
     .from("cancellation_policy_versions")
     .select("id")

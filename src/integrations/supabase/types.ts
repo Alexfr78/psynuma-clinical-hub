@@ -1710,6 +1710,7 @@ export type Database = {
           auto_cancel_unpaid_advance_sessions: boolean | null
           auto_invoicing_enabled: boolean | null
           bank_transfer_info: string | null
+          cancellation_policy_enabled: boolean
           bizum_phone: string | null
           city: string | null
           consent_expiration_days: number | null
@@ -1812,6 +1813,7 @@ export type Database = {
           auto_cancel_unpaid_advance_sessions?: boolean | null
           auto_invoicing_enabled?: boolean | null
           bank_transfer_info?: string | null
+          cancellation_policy_enabled?: boolean
           bizum_phone?: string | null
           city?: string | null
           consent_expiration_days?: number | null
@@ -1914,6 +1916,7 @@ export type Database = {
           auto_cancel_unpaid_advance_sessions?: boolean | null
           auto_invoicing_enabled?: boolean | null
           bank_transfer_info?: string | null
+          cancellation_policy_enabled?: boolean
           bizum_phone?: string | null
           city?: string | null
           consent_expiration_days?: number | null
@@ -4023,6 +4026,7 @@ export type Database = {
           address: string | null
           assigned_professional_id: string | null
           auto_invoice_on_complete: boolean
+          cancellation_policy_enabled: boolean
           center_id: string
           city: string | null
           created_at: string
@@ -4055,6 +4059,7 @@ export type Database = {
           address?: string | null
           assigned_professional_id?: string | null
           auto_invoice_on_complete?: boolean
+          cancellation_policy_enabled?: boolean
           center_id: string
           city?: string | null
           created_at?: string
@@ -4087,6 +4092,7 @@ export type Database = {
           address?: string | null
           assigned_professional_id?: string | null
           auto_invoice_on_complete?: boolean
+          cancellation_policy_enabled?: boolean
           center_id?: string
           city?: string | null
           created_at?: string

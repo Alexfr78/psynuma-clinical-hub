@@ -28,6 +28,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { Patient, useUpdatePatient, useProfessionals } from '@/hooks/usePatients';
+import { useCenter } from '@/hooks/useCenter';
 
 const patientSchema = z.object({
   first_name: z.string().min(1, 'El nombre es obligatorio').max(100),
@@ -46,6 +47,7 @@ const patientSchema = z.object({
   status: z.string(),
   is_minor: z.boolean(),
   auto_invoice_on_complete: z.boolean(),
+  cancellation_policy_enabled: z.boolean(),
   payment_mode: z.string(),
   guardian_name: z.string().max(200).optional().or(z.literal('')),
   guardian_phone: z.string().max(20).optional().or(z.literal('')),
@@ -68,6 +70,8 @@ export function PatientData({ patient }: PatientDataProps) {
   const { toast } = useToast();
   const updatePatient = useUpdatePatient();
   const { data: professionals } = useProfessionals();
+  const { center } = useCenter();
+  const centerCancellationPolicyEnabled = center?.cancellation_policy_enabled ?? false;
 
   const form = useForm<PatientFormValues>({
     resolver: zodResolver(patientSchema),
@@ -85,6 +89,7 @@ export function PatientData({ patient }: PatientDataProps) {
       status: patient.status || 'active',
       is_minor: patient.is_minor || false,
       auto_invoice_on_complete: patient.auto_invoice_on_complete ?? false,
+      cancellation_policy_enabled: patient.cancellation_policy_enabled ?? true,
       payment_mode: (patient as { payment_mode?: string | null }).payment_mode || '__center__',
       guardian_name: patient.guardian_name || '',
       guardian_phone: patient.guardian_phone || '',
@@ -108,6 +113,7 @@ export function PatientData({ patient }: PatientDataProps) {
         status: values.status as 'active' | 'inactive' | 'discharged',
         is_minor: values.is_minor,
         auto_invoice_on_complete: values.auto_invoice_on_complete,
+        cancellation_policy_enabled: values.cancellation_policy_enabled,
         payment_mode: values.payment_mode === '__center__' ? null : values.payment_mode,
         assigned_professional_id: values.assigned_professional_id,
         email: values.email || null,
@@ -571,8 +577,8 @@ export function PatientData({ patient }: PatientDataProps) {
                     </p>
                   </div>
                   <FormControl>
-                    <Switch 
-                      checked={field.value} 
+                    <Switch
+                      checked={field.value}
                       onCheckedChange={field.onChange}
                       disabled={!isEditing}
                     />
@@ -580,6 +586,30 @@ export function PatientData({ patient }: PatientDataProps) {
                 </FormItem>
               )}
             />
+
+            {centerCancellationPolicyEnabled && (
+              <FormField
+                control={form.control}
+                name="cancellation_policy_enabled"
+                render={({ field }) => (
+                  <FormItem className="mt-4 flex items-center justify-between rounded-lg border p-4">
+                    <div className="space-y-0.5">
+                      <FormLabel className="text-base">Aplicar política de cancelación a este contacto</FormLabel>
+                      <p className="text-sm text-muted-foreground">
+                        Si lo desactivas, no se le pedirá aceptar la política ni se generarán cargos por cancelación o inasistencia
+                      </p>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                        disabled={!isEditing}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+            )}
           </CardContent>
         </Card>
 

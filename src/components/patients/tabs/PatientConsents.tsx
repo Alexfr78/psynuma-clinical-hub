@@ -11,6 +11,7 @@ import { SendConsentDialog } from '@/components/consents/SendConsentDialog';
 import { UploadConsentDialog } from '@/components/consents/UploadConsentDialog';
 import { Patient } from '@/hooks/usePatients';
 import { useActiveCancellationPolicy, useCreateCancellationPolicyConsent } from '@/hooks/useCancellationPolicy';
+import { useCenter } from '@/hooks/useCenter';
 
 interface PatientConsentsProps {
   patientId: string;
@@ -22,6 +23,10 @@ export function PatientConsents({ patientId, patient }: PatientConsentsProps) {
   const { profile } = useAuth();
   const { data: activeCancellationPolicy } = useActiveCancellationPolicy();
   const createCancellationPolicyConsent = useCreateCancellationPolicyConsent(patient);
+  const { center } = useCenter();
+  // La política sólo aplica si el maestro del centro está ON y el contacto no la tiene desactivada.
+  const policyApplies = (center?.cancellation_policy_enabled ?? false)
+    && (patient.cancellation_policy_enabled ?? true);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [sendDialogConsent, setSendDialogConsent] = useState<typeof consents[0] | null>(null);
@@ -66,7 +71,7 @@ export function PatientConsents({ patientId, patient }: PatientConsentsProps) {
           Consentimientos informados
         </h2>
         <div className="flex gap-2">
-          {activeCancellationPolicy && (
+          {activeCancellationPolicy && policyApplies && (
             <Button
               variant="outline"
               size="sm"
