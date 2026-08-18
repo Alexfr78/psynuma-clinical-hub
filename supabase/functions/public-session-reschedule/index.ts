@@ -468,30 +468,12 @@ Deno.serve(async (req) => {
       }
       const willBeOnline = newModality === 'zoom' || newModality === 'google_meet' || newModality === 'online';
 
-      // Enforce cancellation/reschedule policy window (same rules apply to reschedule)
-      const policy = session.cancellation_policy || "24_hours";
-      const hoursUntilSession = (sessionDateTime.getTime() - new Date().getTime()) / (1000 * 60 * 60);
-      const policyHoursMap: Record<string, number> = {
-        "not_allowed": Infinity,
-        "until_start": 0,
-        "1_hour": 1,
-        "2_hours": 2,
-        "24_hours": 24,
-        "48_hours": 48,
-        "72_hours": 72,
-      };
-      const requiredHours = policyHoursMap[policy] ?? 24;
-
-      if (requiredHours === Infinity) {
+      // Reprogramar dentro de la ventana de la política SE PERMITE, pero genera
+      // el mismo cargo que una cancelación tardía (se crea tras confirmar el
+      // cambio, más abajo, según la política firmada). Solo "not_allowed" bloquea.
+      if ((session.cancellation_policy || "24_hours") === "not_allowed") {
         return new Response(
           JSON.stringify({ error: "Esta cita no se puede reprogramar" }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      if (hoursUntilSession < requiredHours && requiredHours > 0) {
-        return new Response(
-          JSON.stringify({ error: `La cita debe reprogramarse con al menos ${requiredHours} horas de antelación` }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
@@ -582,6 +564,39 @@ Deno.serve(async (req) => {
       }
 
       console.log(`[RESCHEDULE] Session updated successfully:`, updatedSession);
+
+      // Cargo por reprogramación tardía: si la cita ORIGINAL estaba dentro de la
+      // ventana de la política firmada, se aplica el mismo cargo que una
+      // cancelación tardía (evita el loophole reprogramar-a-futuro-y-cancelar).
+      // Idempotente: no se duplica si ya hay un cargo para esta sesión.
+      try {
+        const { signedCancellationPolicy, signedPolicyEvaluation } = await buildCancellationPolicyPreview();
+        if (signedPolicyEvaluation?.applies && signedCancellationPolicy) {
+          const { data: existingCharge } = await supabase
+            .from("cancellation_charges")
+            .select("id")
+            .eq("session_id", session.id)
+            .in("status", ["pending_review", "confirmed", "paid"])
+            .maybeSingle();
+          if (!existingCharge) {
+            await supabase.from("cancellation_charges").insert({
+              center_id: session.center_id,
+              patient_id: session.patient_id,
+              session_id: session.id,
+              policy_version_id: signedCancellationPolicy.id,
+              status: "pending_review",
+              amount: signedPolicyEvaluation.amount,
+              original_amount: signedPolicyEvaluation.amount,
+              percentage: signedPolicyEvaluation.percentage,
+              base_session_price: signedPolicyEvaluation.basePrice,
+              concept: signedCancellationPolicy.penalty_invoice_concept || "Cargo por reprogramación fuera de plazo",
+              review_note: "Reprogramación dentro de la ventana de la política (equivalente a cancelación tardía)",
+            });
+          }
+        }
+      } catch (chargeError) {
+        console.error("[RESCHEDULE] no se pudo crear el cargo por reprogramación tardía", chargeError);
+      }
 
       // Handle video meeting transitions
       const supabaseUrl = Deno.env.get("SUPABASE_URL")!;

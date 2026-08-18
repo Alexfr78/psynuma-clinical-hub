@@ -1067,30 +1067,19 @@ serve(async (req) => {
         );
       }
 
-      // Check cancellation policy (same rules apply to reschedule)
-      const now = new Date();
-      const hoursUntilSession = (sessionDateTime.getTime() - now.getTime()) / (1000 * 60 * 60);
-      const policyHours: Record<string, number> = {
-        "not_allowed": Infinity,
-        "until_start": 0,
-        "1_hour": 1,
-        "2_hours": 2,
-        "24_hours": 24,
-        "48_hours": 48,
-        "72_hours": 72,
-      };
-      const requiredHours = policyHours[existingSession.cancellation_policy || "24_hours"] || 24;
-      
-      if (hoursUntilSession < requiredHours) {
+      // Reprogramar dentro de la ventana de la política SE PERMITE, pero genera
+      // el mismo cargo que una cancelación tardía (se crea tras confirmar el
+      // cambio). Solo "not_allowed" bloquea del todo.
+      if ((existingSession.cancellation_policy || "24_hours") === "not_allowed") {
         return new Response(
-          JSON.stringify({ 
-            error: requiredHours === Infinity 
-              ? "Esta cita no se puede reprogramar" 
-              : `La cita debe reprogramarse con al menos ${requiredHours} horas de antelación` 
-          }),
+          JSON.stringify({ error: "Esta cita no se puede reprogramar" }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
+
+      // Evalúa el cargo por reprogramación tardía ANTES de mover la cita (sobre
+      // la fecha ORIGINAL); se crea tras confirmar el cambio si aplica.
+      const reschedulePreview = await buildCancellationPreview(sessionId);
 
       // Resolve target location (defaults to existing). Validate same center + active + public.
       const targetLocationId = newLocationId || existingSession.location_id;
@@ -1187,6 +1176,37 @@ serve(async (req) => {
           JSON.stringify({ error: "Error al reprogramar la cita" }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
+      }
+
+      // Cargo por reprogramación tardía (equivalente a cancelación tardía).
+      // Idempotente: no se duplica si ya hay un cargo para esta sesión.
+      try {
+        const { signedCancellationPolicy, signedPolicyEvaluation } = reschedulePreview;
+        if (signedPolicyEvaluation?.applies && signedCancellationPolicy) {
+          const { data: existingCharge } = await supabase
+            .from("cancellation_charges")
+            .select("id")
+            .eq("session_id", sessionId)
+            .in("status", ["pending_review", "confirmed", "paid"])
+            .maybeSingle();
+          if (!existingCharge) {
+            await supabase.from("cancellation_charges").insert({
+              center_id: existingSession.center_id,
+              patient_id: session.patientId!,
+              session_id: sessionId,
+              policy_version_id: signedCancellationPolicy.id,
+              status: "pending_review",
+              amount: signedPolicyEvaluation.amount,
+              original_amount: signedPolicyEvaluation.amount,
+              percentage: signedPolicyEvaluation.percentage,
+              base_session_price: signedPolicyEvaluation.basePrice,
+              concept: signedCancellationPolicy.penalty_invoice_concept || "Cargo por reprogramación fuera de plazo",
+              review_note: "Reprogramación dentro de la ventana de la política (equivalente a cancelación tardía)",
+            });
+          }
+        }
+      } catch (chargeError) {
+        console.error("[portal reschedule] no se pudo crear el cargo por reprogramación tardía", chargeError);
       }
 
       if (newModality === 'zoom' && existingSession.zoom_meeting_id) {
