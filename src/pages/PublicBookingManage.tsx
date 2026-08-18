@@ -26,7 +26,7 @@ export default function PublicBookingManage() {
   const [searchParams] = useSearchParams();
   const bookingToken = searchParams.get('token') || '';
 
-  const { getBooking, cancelBooking, rescheduleBooking, getAvailability, getMonthAvailability, loading, error } = usePublicBooking(centerSlug || '');
+  const { getBooking, cancelBooking, rescheduleBooking, getAvailability, getMonthAvailability, getCancellationPreview, loading, error } = usePublicBooking(centerSlug || '');
   
   const [booking, setBooking] = useState<any>(null);
   const [centerName, setCenterName] = useState('');
@@ -105,7 +105,15 @@ export default function PublicBookingManage() {
 
   const handleReschedule = async () => {
     if (!selectedDate || !selectedSlot) return;
-    
+
+    const preview = await getCancellationPreview(bookingToken);
+    if (preview?.applies && preview.amount > 0) {
+      const confirmed = window.confirm(
+        `Reprogramar esta cita conllevará un cargo de ${preview.amount.toFixed(2)}€ según la política de cancelación (fuera del plazo permitido). ¿Deseas continuar?`,
+      );
+      if (!confirmed) return;
+    }
+
     const success = await rescheduleBooking(
       bookingToken,
       format(selectedDate, 'yyyy-MM-dd'),

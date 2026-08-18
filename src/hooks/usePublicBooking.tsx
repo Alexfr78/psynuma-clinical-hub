@@ -80,6 +80,16 @@ interface BookingDetails {
   centerSlug: string;
 }
 
+export interface CancellationPolicyPreview {
+  hasSignedPolicy: boolean;
+  applies: boolean;
+  amount: number;
+  basePrice: number;
+  percentage: number;
+  concept: string | null;
+  message: string;
+}
+
 interface IntakeRequestData {
   requestType: 'waitlist' | 'referral';
   firstName: string;
@@ -331,6 +341,20 @@ export function usePublicBooking(centerSlug: string) {
     }
   }, []);
 
+  const getCancellationPreview = useCallback(async (bookingToken: string): Promise<CancellationPolicyPreview | null> => {
+    try {
+      const { data, error } = await supabase.functions.invoke('public-booking', {
+        body: { action: 'get-cancellation-preview', bookingToken }
+      });
+      if (error) throw new Error(error.message);
+      if (data?.error) throw new Error(data.error);
+      return data as CancellationPolicyPreview;
+    } catch (err) {
+      console.error('[getCancellationPreview] Error:', err);
+      return null;
+    }
+  }, []);
+
   const rescheduleBooking = useCallback(async (
     bookingToken: string, 
     newDate: string, 
@@ -435,6 +459,7 @@ export function usePublicBooking(centerSlug: string) {
     getBooking,
     cancelBooking,
     rescheduleBooking,
+    getCancellationPreview,
     submitIntakeRequest,
     listReferralFilters,
     getReferralRecommendations

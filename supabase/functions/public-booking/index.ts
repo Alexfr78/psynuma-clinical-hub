@@ -1851,12 +1851,103 @@ serve(async (req) => {
 
 
       return new Response(
-        JSON.stringify({ 
+        JSON.stringify({
           booking: session,
           centerName: center?.name,
-          centerSlug: center?.portal_slug 
+          centerSlug: center?.portal_slug
         }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // ===== GET-CANCELLATION-PREVIEW =====
+    // Vista previa del cargo aplicable si el paciente cancela o reprograma
+    // AHORA, evaluada contra el horario original de la cita.
+    if (action === "get-cancellation-preview") {
+      const { bookingToken } = params;
+
+      if (!bookingToken) {
+        return new Response(
+          JSON.stringify({ error: "Token requerido" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const tokenData = await verifyBookingToken(bookingToken);
+      if (!tokenData.valid || !tokenData.sessionId) {
+        return new Response(
+          JSON.stringify({ error: "Token inválido o expirado" }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const { data: previewSession } = await supabase
+        .from("sessions")
+        .select("id, patient_id, center_id, session_date, start_time, session_type, session_type_id, cancellation_policy_version_id, price")
+        .eq("id", tokenData.sessionId)
+        .eq("patient_id", tokenData.patientId)
+        .single();
+
+      if (!previewSession) {
+        return new Response(
+          JSON.stringify({ error: "Cita no encontrada" }),
+          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const previewSessionDateTime = new Date(`${previewSession.session_date}T${previewSession.start_time}`);
+
+      const previewPolicyEnabled = await isCancellationPolicyEnabled(supabase, {
+        centerId: previewSession.center_id,
+        patientId: previewSession.patient_id,
+      });
+
+      const previewSignedPolicy = previewPolicyEnabled
+        ? await resolveSignedCancellationPolicyVersionForSession(supabase, {
+            centerId: previewSession.center_id,
+            patientId: previewSession.patient_id,
+            policyVersionId: previewSession.cancellation_policy_version_id,
+            versionSelect: "id, rules, penalty_invoice_concept",
+          })
+        : null;
+
+      const previewEvaluation = previewSignedPolicy
+        ? evaluateCancellationCharge({
+          rules: previewSignedPolicy.rules,
+          sessionStartsAt: previewSessionDateTime,
+          cancelledAt: new Date(),
+          basePrice: await resolveCancellationBasePrice(supabase, {
+            centerId: previewSession.center_id,
+            patientId: previewSession.patient_id,
+            sessionTypeId: previewSession.session_type_id,
+            sessionTypeName: previewSession.session_type,
+            sessionDate: previewSession.session_date,
+            sessionPrice: previewSession.price,
+          }),
+        })
+        : null;
+
+      const previewApplies = previewEvaluation?.applies || false;
+      const previewAmount = previewEvaluation?.amount || 0;
+      const previewBasePrice = previewEvaluation?.basePrice || 0;
+      const previewPercentage = previewEvaluation?.percentage || 0;
+      const previewConcept = previewSignedPolicy?.penalty_invoice_concept || "Cancelacion fuera de plazo segun politica aceptada";
+
+      return new Response(
+        JSON.stringify({
+          hasSignedPolicy: Boolean(previewSignedPolicy),
+          applies: previewApplies,
+          amount: previewAmount,
+          basePrice: previewBasePrice,
+          percentage: previewPercentage,
+          concept: previewConcept,
+          message: previewApplies
+            ? `Esta cita esta sujeta a la politica de cancelacion aceptada. Importe estimado sujeto a revision: ${previewAmount.toFixed(2)} EUR.`
+            : previewSignedPolicy
+              ? "Esta cita esta cubierta por la politica de cancelacion aceptada. No se estima cargo por cancelacion."
+              : "El paciente no tiene politica de cancelacion firmada. No se estima cargo automatico.",
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
