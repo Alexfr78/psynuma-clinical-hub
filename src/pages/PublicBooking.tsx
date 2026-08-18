@@ -154,14 +154,13 @@ export default function PublicBooking() {
         return;
       }
 
-      // Fase 2 · Inc 1 — captura de tarjeta en la reserva (Checkout de setup).
-      const cardMode = config?.cardOnBookingMode;
-      if (cardMode && cardMode !== 'off' && result.session?.id) {
+      // Fase 2 · Inc 1 — captura de tarjeta en la reserva (Checkout de setup, 0 €).
+      if (result.cardCaptureNeeded && result.session?.id) {
         const setup = await createSetupIntent(result.session.id);
         if (setup?.url) {
           setBookingResult(result);
           setStep('confirmation');
-          toast.info('Guarda tu tarjeta para completar la reserva...');
+          toast.info('Guarda tu tarjeta para completar la reserva (no se te cobra ahora)...');
           try {
             if (isEmbed && window.top && window.top !== window) {
               window.top.location.href = setup.url;
@@ -174,7 +173,7 @@ export default function PublicBooking() {
           }
           return;
         }
-        if (cardMode === 'required') {
+        if (result.cardOnBookingMode === 'required') {
           setBookingResult(result);
           setStep('confirmation');
           toast.error('No se pudo iniciar el guardado de la tarjeta. Contacta con el centro.');
@@ -608,7 +607,7 @@ export default function PublicBooking() {
                           <p className="text-sm leading-5 text-muted-foreground">{cancellationSummary}</p>
                           {config?.cardOnBookingMode && config.cardOnBookingMode !== 'off' && (
                             <p className="text-sm leading-5 text-muted-foreground">
-                              Autorizas a guardar tu tarjeta y a que se apliquen en ella los cargos por cancelación tardía o inasistencia previstos en esta política.
+                              Al confirmar, se guardará tu tarjeta de forma segura y <strong>no se te cobrará nada ahora</strong>. Solo se aplicaría un cargo si cancelas tarde o no asistes, según esta política.
                             </p>
                           )}
                           <Dialog>

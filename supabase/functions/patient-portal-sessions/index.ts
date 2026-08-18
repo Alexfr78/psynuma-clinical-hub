@@ -344,7 +344,7 @@ serve(async (req) => {
       // Get center configuration
       const { data: center } = await supabase
         .from("centers")
-        .select("portal_require_approval, portal_default_professional_id, portal_allow_professional_selection, reschedule_slot_duration, default_payment_mode, default_scheduled_hours_before, default_advance_payment_limit_hours")
+        .select("portal_require_approval, portal_default_professional_id, portal_allow_professional_selection, reschedule_slot_duration, default_payment_mode, default_scheduled_hours_before, default_advance_payment_limit_hours, cancellation_policy_enabled, card_on_booking_mode")
         .eq("id", session.centerId)
         .single();
 
@@ -478,7 +478,7 @@ serve(async (req) => {
       const sessionModality = location.location_type === 'online' ? 'online' : 'in_person';
 
       // Create session
-      const status = center?.portal_require_approval ? "pending_approval" : "scheduled";
+      const baseStatus = center?.portal_require_approval ? "pending_approval" : "scheduled";
       const paymentRules = resolvePaymentRules({
         patientPaymentMode: patientPayment?.payment_mode,
         patientRequireAdvancePaymentAlways: patientPayment?.require_advance_payment_always,
@@ -497,7 +497,16 @@ serve(async (req) => {
         centerId: session.centerId!,
         patientId: session.patientId,
       });
-      
+
+      // Captura de tarjeta: solo si la política aplica, el centro la pide y el
+      // paciente NO paga por adelantado. Si es obligatoria, la cita nace en
+      // 'draft' y el webhook la promociona al guardar la tarjeta.
+      const cardMode = center?.card_on_booking_mode || "off";
+      const cardCaptureNeeded = !!activeCancellationPolicy
+        && cardMode !== "off"
+        && !paymentRules.requiresAdvancePayment;
+      const status = (cardCaptureNeeded && cardMode === "required") ? "draft" : baseStatus;
+
       const { data: newSession, error: createError } = await supabase
         .from("sessions")
         .insert({
@@ -657,9 +666,11 @@ serve(async (req) => {
 
       return new Response(
         JSON.stringify({ 
-          success: true, 
+          success: true,
           session: newSession,
           paymentRequired: paymentRequiredNow,
+          cardCaptureNeeded,
+          cardOnBookingMode: cardMode,
           checkoutUrl,
           checkoutError,
           message: center?.portal_require_approval

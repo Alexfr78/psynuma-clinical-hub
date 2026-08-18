@@ -397,15 +397,14 @@ export function PortalBooking({
           description: result.checkoutError,
         });
       }
-      // Fase 2 · Inc 1 — captura de tarjeta en la reserva del portal.
-      const cardMode = bookingRequirements?.cardOnBookingMode;
-      if (createSetupIntent && cardMode && cardMode !== 'off' && result.sessionId && !isRescheduleMode) {
+      // Fase 2 · Inc 1 — captura de tarjeta en la reserva del portal (0 €).
+      if (createSetupIntent && result.cardCaptureNeeded && result.sessionId && !isRescheduleMode) {
         const setup = await createSetupIntent(result.sessionId);
         if (setup?.url) {
           window.location.assign(setup.url);
           return;
         }
-        if (cardMode === 'required') {
+        if (result.cardOnBookingMode === 'required') {
           toast.error('No se pudo iniciar el guardado de la tarjeta. Contacta con el centro.');
         }
       }
@@ -734,7 +733,7 @@ export function PortalBooking({
                 </p>
                 {bookingRequirements?.cardOnBookingMode && bookingRequirements.cardOnBookingMode !== 'off' && (
                   <p className="pl-8 text-xs leading-5 text-muted-foreground sm:text-sm">
-                    Autorizas a guardar tu tarjeta y a que se apliquen en ella los cargos por cancelación tardía o inasistencia previstos en esta política.
+                    Al confirmar, se guardará tu tarjeta de forma segura y <strong>no se te cobrará nada ahora</strong>. Solo se aplicaría un cargo si cancelas tarde o no asistes, según esta política.
                   </p>
                 )}
               </>

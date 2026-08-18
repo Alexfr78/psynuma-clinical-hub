@@ -1252,7 +1252,7 @@ serve(async (req) => {
           id, public_booking_enabled,
           portal_require_approval, portal_default_professional_id, portal_allow_professional_selection,
           reschedule_max_days, default_payment_mode, default_scheduled_hours_before, default_advance_payment_limit_hours,
-          cancellation_policy_enabled
+          cancellation_policy_enabled, card_on_booking_mode
         `)
         .eq("portal_slug", centerSlug)
         .single();
@@ -1534,7 +1534,7 @@ serve(async (req) => {
 
       // ===== Create session =====
       const sessionModality = location.location_type === 'online' ? 'online' : 'in_person';
-      const status = center.portal_require_approval ? "pending_approval" : "scheduled";
+      const baseStatus = center.portal_require_approval ? "pending_approval" : "scheduled";
       const { data: stripePaymentDefaults, error: stripeDefaultsError } = await supabase
         .from('professional_integrations')
         .select('stripe_enabled, stripe_payment_mode, stripe_scheduled_hours_before')
@@ -1570,7 +1570,17 @@ serve(async (req) => {
         centerId: center.id,
         patientId,
       });
-      const sessionNotes = notes 
+
+      // Captura de tarjeta: solo si la política aplica, el centro la pide y el
+      // paciente NO paga por adelantado. Si es obligatoria, la cita nace en
+      // 'draft' (borrador) y el webhook la promociona al guardar la tarjeta.
+      const cardMode = center.cancellation_policy_enabled ? (center.card_on_booking_mode || "off") : "off";
+      const cardCaptureNeeded = !!activeCancellationPolicy
+        && cardMode !== "off"
+        && !paymentRules.requiresAdvancePayment;
+      const status = (cardCaptureNeeded && cardMode === "required") ? "draft" : baseStatus;
+
+      const sessionNotes = notes
         ? `Reserva pública web\n${notes}` 
         : "Reserva pública web";
 
@@ -1764,6 +1774,8 @@ serve(async (req) => {
           bookingToken,
           manageUrl,
           paymentRequired: paymentRequiredNow,
+          cardCaptureNeeded,
+          cardOnBookingMode: cardMode,
           checkoutUrl,
           checkoutError,
           message: center.portal_require_approval

@@ -1359,7 +1359,29 @@ async function handleCancellationMandateSetup(
     throw insertError;
   }
   console.log('[setup] tarjeta guardada para el paciente', patientId);
+
+  // Si la cita se creó en 'draft' (tarjeta obligatoria), promociónala ahora que
+  // la tarjeta está guardada, al estado final según la aprobación del centro.
+  const sessionId = metadata.session_id;
+  if (sessionId) {
+    const { data: sess } = await supabase
+      .from('sessions')
+      .select('id, status, center_id')
+      .eq('id', sessionId)
+      .maybeSingle();
+    if (sess?.status === 'draft') {
+      const { data: ctr } = await supabase
+        .from('centers')
+        .select('portal_require_approval')
+        .eq('id', sess.center_id)
+        .maybeSingle();
+      const finalStatus = ctr?.portal_require_approval ? 'pending_approval' : 'scheduled';
+      await supabase.from('sessions').update({ status: finalStatus }).eq('id', sessionId);
+      console.log('[setup] cita', sessionId, 'promocionada de draft a', finalStatus);
+    }
+  }
 }
+
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {

@@ -67,6 +67,8 @@ interface BookingResult {
   bookingToken: string;
   manageUrl: string;
   paymentRequired?: boolean;
+  cardCaptureNeeded?: boolean;
+  cardOnBookingMode?: string;
   checkoutUrl?: string | null;
   checkoutError?: string | null;
   message: string;

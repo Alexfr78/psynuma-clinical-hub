@@ -28,6 +28,8 @@ export interface PortalCreateSessionResult {
   message?: string;
   sessionId?: string;
   paymentRequired?: boolean;
+  cardCaptureNeeded?: boolean;
+  cardOnBookingMode?: string;
   checkoutUrl?: string | null;
   checkoutError?: string | null;
 }
@@ -308,6 +310,8 @@ export function usePatientPortal(centerSlug?: string) {
         message: data.message,
         sessionId: data.session?.id,
         paymentRequired: data.paymentRequired,
+        cardCaptureNeeded: data.cardCaptureNeeded,
+        cardOnBookingMode: data.cardOnBookingMode,
         checkoutUrl: data.checkoutUrl,
         checkoutError: data.checkoutError,
       };
