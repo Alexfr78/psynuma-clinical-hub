@@ -248,6 +248,14 @@ export default function PatientPortalDashboard() {
                   onCancellationPreview={getCancellationPreview}
                   onConfirm={handleConfirm}
                   onReschedule={handleReschedule}
+                  onSaveCard={async (sessionId) => {
+                    const setup = await createSetupIntent(sessionId);
+                    if (setup?.url) {
+                      window.location.assign(setup.url);
+                    } else {
+                      toast.error('No se pudo abrir el guardado de la tarjeta. Inténtalo más tarde.');
+                    }
+                  }}
                   emptyMessage="No tienes citas próximas"
                 />
               </CardContent>

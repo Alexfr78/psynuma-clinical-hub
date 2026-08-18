@@ -1,6 +1,6 @@
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Calendar, Clock, User, MapPin, Loader2, CheckCircle, XCircle, AlertCircle, RefreshCw } from 'lucide-react';
+import { Calendar, Clock, User, MapPin, Loader2, CheckCircle, XCircle, AlertCircle, RefreshCw, CreditCard } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -47,6 +47,7 @@ interface PortalAppointmentsProps {
   onCancellationPreview?: (sessionId: string) => Promise<CancellationPolicyPreview | null>;
   onConfirm?: (sessionId: string) => Promise<void>;
   onReschedule?: (session: Session) => void;
+  onSaveCard?: (sessionId: string) => Promise<void> | void;
   isPast?: boolean;
   emptyMessage?: string;
 }
@@ -65,6 +66,7 @@ const statusConfig: Record<string, { label: string; variant: 'default' | 'second
   scheduled: { label: SESSION_STATUS_LABELS.scheduled, variant: 'secondary', icon: Calendar },
   confirmed: { label: SESSION_STATUS_LABELS.confirmed, variant: 'default', icon: CheckCircle },
   pending_approval: { label: SESSION_STATUS_LABELS.pending_approval, variant: 'outline', icon: AlertCircle },
+  draft: { label: SESSION_STATUS_LABELS.draft, variant: 'outline', icon: CreditCard },
   completed: { label: SESSION_STATUS_LABELS.completed, variant: 'default', icon: CheckCircle },
   cancelled: { label: SESSION_STATUS_LABELS.cancelled, variant: 'destructive', icon: XCircle },
   no_show: { label: SESSION_STATUS_LABELS.no_show, variant: 'destructive', icon: XCircle },
@@ -77,6 +79,7 @@ export function PortalAppointments({
   onCancellationPreview,
   onConfirm,
   onReschedule,
+  onSaveCard,
   isPast = false,
   emptyMessage = 'No hay citas',
 }: PortalAppointmentsProps) {
@@ -121,9 +124,10 @@ export function PortalAppointments({
       {sessions.map((session) => {
         const status = statusConfig[session.status] || statusConfig.scheduled;
         const StatusIcon = status.icon;
-        const canCancel = !isPast && ['scheduled', 'confirmed', 'pending_approval'].includes(session.status);
+        const canCancel = !isPast && ['scheduled', 'confirmed', 'pending_approval', 'draft'].includes(session.status);
         const canConfirm = !isPast && session.status === 'scheduled';
         const canReschedule = !isPast && ['scheduled', 'confirmed'].includes(session.status);
+        const canSaveCard = !isPast && session.status === 'draft' && !!onSaveCard;
 
         return (
           <div
@@ -173,9 +177,26 @@ export function PortalAppointments({
               )}
             </div>
 
+            {/* Nota para borradores (falta guardar la tarjeta) */}
+            {!isPast && session.status === 'draft' && (
+              <p className="text-xs text-muted-foreground">
+                Reserva pendiente: falta guardar tu tarjeta para completarla. No se te cobra nada ahora.
+              </p>
+            )}
+
             {/* Actions */}
-            {!isPast && (canCancel || canConfirm || canReschedule) && (
+            {!isPast && (canCancel || canConfirm || canReschedule || canSaveCard) && (
               <div className="flex flex-wrap gap-2 pt-2 border-t">
+                {canSaveCard && (
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={() => onSaveCard?.(session.id)}
+                  >
+                    <CreditCard className="h-4 w-4 mr-1" />
+                    Guardar tarjeta
+                  </Button>
+                )}
                 {canConfirm && onConfirm && (
                   <Button
                     variant="default"
