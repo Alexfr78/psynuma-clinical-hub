@@ -124,13 +124,14 @@ serve(async (req) => {
 
     const { data: center } = await supabase
       .from("centers")
-      .select("public_domain")
+      .select("public_domain, portal_slug")
       .eq("id", session.center_id)
       .maybeSingle();
 
     const baseUrl = center?.public_domain
       ? `https://${center.public_domain}`
       : (Deno.env.get("APP_BASE_URL") || "");
+    const slugParam = center?.portal_slug ? `&slug=${encodeURIComponent(center.portal_slug)}` : "";
 
     const patientName = `${patient?.first_name || ""} ${patient?.last_name || ""}`.trim() || null;
 
@@ -147,7 +148,7 @@ serve(async (req) => {
       connectedAccountId,
       customerId,
       customerEmail: patient?.email ?? null,
-      successUrl: successUrl || `${baseUrl}/pago-exitoso?setup=1`,
+      successUrl: successUrl || `${baseUrl}/pago-exitoso?setup=1${slugParam}`,
       cancelUrl: cancelUrl || baseUrl || "",
       metadata: {
         center_id: session.center_id,
