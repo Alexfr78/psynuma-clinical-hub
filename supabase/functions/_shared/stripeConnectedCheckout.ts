@@ -169,12 +169,13 @@ export interface ConnectedSetupSessionInput {
 export function buildConnectedSetupRequest(
   input: ConnectedSetupSessionInput,
 ): { body: URLSearchParams; headers: Record<string, string> } {
+  // Checkout en modo `setup` ya crea el SetupIntent con usage off_session; el
+  // parámetro setup_intent_data[usage] NO existe en Checkout y Stripe lo rechaza.
   const body = new URLSearchParams({
     mode: "setup",
     "payment_method_types[0]": "card",
     success_url: input.successUrl,
     cancel_url: input.cancelUrl,
-    "setup_intent_data[usage]": "off_session",
   });
 
   if (input.customerId) {
