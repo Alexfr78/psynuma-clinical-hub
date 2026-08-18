@@ -190,13 +190,6 @@ export default function SessionManagement() {
     }
   };
 
-  const handleConfirmDialogOpenChange = (open: boolean) => {
-    setConfirmOpen(open);
-    if (open) {
-      getCancellationPolicyPreview();
-    }
-  };
-
   const handleRescheduleConfirm = async () => {
     if (!selectedDate || !selectedSlot) return;
 
@@ -413,7 +406,10 @@ export default function SessionManagement() {
               <Button
                 className="flex-1"
                 disabled={!selectedDate || !selectedSlot || isRescheduling}
-                onClick={() => setConfirmOpen(true)}
+                onClick={() => {
+                  setConfirmOpen(true);
+                  getCancellationPolicyPreview();
+                }}
               >
                 <CheckCircle2 className="h-4 w-4 mr-2" />
                 Confirmar cambio
@@ -421,7 +417,7 @@ export default function SessionManagement() {
             </div>
 
             {/* Confirm AlertDialog */}
-            <AlertDialog open={confirmOpen} onOpenChange={handleConfirmDialogOpenChange}>
+            <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
               <AlertDialogContent>
                 <AlertDialogHeader>
                   <AlertDialogTitle>Confirmar cambio de cita</AlertDialogTitle>

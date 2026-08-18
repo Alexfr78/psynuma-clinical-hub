@@ -793,6 +793,13 @@ export function PortalBooking({
             // In reschedule mode, always confirm first (shows location change, if any, and any cancellation charge)
             if (isRescheduleMode) {
               setConfirmOpen(true);
+              if (rescheduleTarget && getCancellationPreview) {
+                setReschedulePreview(null);
+                setReschedulePreviewLoading(true);
+                getCancellationPreview(rescheduleTarget.sessionId)
+                  .then(setReschedulePreview)
+                  .finally(() => setReschedulePreviewLoading(false));
+              }
               return;
             }
             handleSubmit();
@@ -815,19 +822,7 @@ export function PortalBooking({
         </Button>
 
         {/* Reschedule confirm dialog: shows location change (if any) and cancellation charge preview */}
-        <AlertDialog
-          open={confirmOpen}
-          onOpenChange={(open) => {
-            setConfirmOpen(open);
-            if (open && isRescheduleMode && rescheduleTarget && getCancellationPreview) {
-              setReschedulePreview(null);
-              setReschedulePreviewLoading(true);
-              getCancellationPreview(rescheduleTarget.sessionId)
-                .then(setReschedulePreview)
-                .finally(() => setReschedulePreviewLoading(false));
-            }
-          }}
-        >
+        <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Confirmar cambio de cita</AlertDialogTitle>
