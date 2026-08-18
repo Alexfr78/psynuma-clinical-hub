@@ -58,6 +58,16 @@ async function reconcileDebtPaid(
     paymentId = pay?.id ?? null;
   }
 
+  // La factura solo se genera automáticamente si el centro lo tiene en 'auto'.
+  // Si está en 'ask'/'disabled', el profesional la genera a mano (y así Verifactu
+  // y el envío van por su flujo manual, como pidió el centro).
+  const { data: centerCfg } = await supabase
+    .from("centers")
+    .select("invoice_on_payment_mode")
+    .eq("id", args.centerId)
+    .maybeSingle();
+  if (centerCfg?.invoice_on_payment_mode !== "auto") return;
+
   const { data: debtRow } = await supabase
     .from("debts")
     .select("invoice_id")

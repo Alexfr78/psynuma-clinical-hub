@@ -507,9 +507,14 @@ async function handleDebtPayment(
     }
   }
 
-  // Create invoice
+  // Create invoice (solo si el centro genera factura automáticamente al pagar).
+  const { data: invCenter } = await supabase
+    .from('centers')
+    .select('invoice_on_payment_mode')
+    .eq('id', centerId)
+    .maybeSingle();
   let invoiceId = debt.invoice_id || paymentRecord.invoice_id || null;
-  if (!invoiceId) {
+  if (!invoiceId && invCenter?.invoice_on_payment_mode === 'auto') {
     const invoiceResult = await createInvoice(
       supabase,
       centerId,
