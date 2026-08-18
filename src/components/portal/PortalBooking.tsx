@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Calendar } from '@/components/ui/calendar';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -137,6 +138,8 @@ export function PortalBooking({
   const [selectedSlot, setSelectedSlot] = useState<{ date: string; time: string } | null>(null);
 
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [reschedulePreview, setReschedulePreview] = useState<CancellationPolicyPreview | null>(null);
+  const [reschedulePreviewLoading, setReschedulePreviewLoading] = useState(false);
 
   const isRescheduleMode = !!rescheduleTarget;
 
@@ -356,16 +359,6 @@ export function PortalBooking({
     if (requiresPolicyAcceptance && !acceptCancellationPolicy) {
       toast.error('Debes aceptar la política de cancelación');
       return;
-    }
-
-    if (isRescheduleMode && rescheduleTarget && getCancellationPreview) {
-      const preview = await getCancellationPreview(rescheduleTarget.sessionId);
-      if (preview?.applies && preview.amount > 0) {
-        const confirmed = window.confirm(
-          `Reprogramar esta cita conllevará un cargo de ${preview.amount.toFixed(2)}€ según la política de cancelación (fuera del plazo permitido). ¿Deseas continuar?`,
-        );
-        if (!confirmed) return;
-      }
     }
 
     setSubmitting(true);
@@ -797,13 +790,8 @@ export function PortalBooking({
           className="w-full"
           size="lg"
           onClick={() => {
-            // In reschedule mode, ask for confirmation when the location changes
-            if (
-              isRescheduleMode &&
-              rescheduleTarget &&
-              selectedLocation &&
-              selectedLocation !== rescheduleTarget.locationId
-            ) {
+            // In reschedule mode, always confirm first (shows location change, if any, and any cancellation charge)
+            if (isRescheduleMode) {
               setConfirmOpen(true);
               return;
             }
@@ -826,29 +814,45 @@ export function PortalBooking({
           {isRescheduleMode ? 'Reprogramar cita' : 'Solicitar cita'}
         </Button>
 
-        {/* Reschedule confirm dialog (only when location changes) */}
-        <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        {/* Reschedule confirm dialog: shows location change (if any) and cancellation charge preview */}
+        <AlertDialog
+          open={confirmOpen}
+          onOpenChange={(open) => {
+            setConfirmOpen(open);
+            if (open && isRescheduleMode && rescheduleTarget && getCancellationPreview) {
+              setReschedulePreview(null);
+              setReschedulePreviewLoading(true);
+              getCancellationPreview(rescheduleTarget.sessionId)
+                .then(setReschedulePreview)
+                .finally(() => setReschedulePreviewLoading(false));
+            }
+          }}
+        >
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Confirmar cambio de ubicación</AlertDialogTitle>
+              <AlertDialogTitle>Confirmar cambio de cita</AlertDialogTitle>
               <AlertDialogDescription asChild>
                 <div className="space-y-3 text-sm">
-                  <div>
-                    <div className="text-muted-foreground">Ubicación original</div>
-                    <div className="font-medium">
-                      {formatLocationLine(
-                        (locations.find((l) => l.id === rescheduleTarget?.locationId) ?? null) as RescheduleLocation | null,
-                      )}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-muted-foreground">Nueva ubicación</div>
-                    <div className="font-medium">
-                      {formatLocationLine(
-                        (locations.find((l) => l.id === selectedLocation) ?? null) as RescheduleLocation | null,
-                      )}
-                    </div>
-                  </div>
+                  {selectedLocation && selectedLocation !== rescheduleTarget?.locationId && (
+                    <>
+                      <div>
+                        <div className="text-muted-foreground">Ubicación original</div>
+                        <div className="font-medium">
+                          {formatLocationLine(
+                            (locations.find((l) => l.id === rescheduleTarget?.locationId) ?? null) as RescheduleLocation | null,
+                          )}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-muted-foreground">Nueva ubicación</div>
+                        <div className="font-medium">
+                          {formatLocationLine(
+                            (locations.find((l) => l.id === selectedLocation) ?? null) as RescheduleLocation | null,
+                          )}
+                        </div>
+                      </div>
+                    </>
+                  )}
                   {selectedSlot && (
                     <div className="text-xs text-muted-foreground">
                       Nueva fecha: {format(new Date(selectedSlot.date), "EEEE d 'de' MMMM", { locale: es })} a las {selectedSlot.time}
@@ -857,6 +861,28 @@ export function PortalBooking({
                 </div>
               </AlertDialogDescription>
             </AlertDialogHeader>
+            <Alert className="border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-900 dark:bg-amber-950/20 dark:text-amber-100">
+              <AlertCircle className="h-4 w-4 text-amber-600" />
+              <AlertDescription>
+                {reschedulePreviewLoading ? (
+                  'Comprobando la política de cancelación...'
+                ) : reschedulePreview?.applies ? (
+                  <>
+                    Esta cita está sujeta a la política de cancelación aceptada. Al reprogramarla fuera del plazo permitido, se aplicará el mismo cargo que en una cancelación tardía.
+                    <span className="mt-2 block font-medium">
+                      Importe: {Number(reschedulePreview.amount || 0).toFixed(2)} EUR
+                      {reschedulePreview.percentage > 0 && reschedulePreview.basePrice > 0
+                        ? ` (${reschedulePreview.percentage}% de ${Number(reschedulePreview.basePrice).toFixed(2)} EUR)`
+                        : ''}
+                    </span>
+                  </>
+                ) : reschedulePreview?.hasSignedPolicy ? (
+                  'Esta cita está cubierta por la política de cancelación aceptada. Según el plazo actual, no se estima cargo por reprogramar.'
+                ) : (
+                  'Se avisará al centro del cambio. Si tienes dudas sobre la política aplicable, contacta con tu profesional.'
+                )}
+              </AlertDescription>
+            </Alert>
             <AlertDialogFooter>
               <AlertDialogCancel disabled={submitting}>Volver</AlertDialogCancel>
               <AlertDialogAction

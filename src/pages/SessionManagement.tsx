@@ -190,16 +190,15 @@ export default function SessionManagement() {
     }
   };
 
+  const handleConfirmDialogOpenChange = (open: boolean) => {
+    setConfirmOpen(open);
+    if (open) {
+      getCancellationPolicyPreview();
+    }
+  };
+
   const handleRescheduleConfirm = async () => {
     if (!selectedDate || !selectedSlot) return;
-
-    const preview = await getCancellationPolicyPreview();
-    if (preview?.applies && preview.amount > 0) {
-      const confirmed = window.confirm(
-        `Reprogramar esta cita conllevará un cargo de ${preview.amount.toFixed(2)} EUR según la política de cancelación (fuera del plazo permitido). ¿Deseas continuar?`,
-      );
-      if (!confirmed) return;
-    }
 
     const locationChanged = !!selectedLocationId && selectedLocationId !== originalLocationId;
     reschedule({
@@ -422,7 +421,7 @@ export default function SessionManagement() {
             </div>
 
             {/* Confirm AlertDialog */}
-            <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+            <AlertDialog open={confirmOpen} onOpenChange={handleConfirmDialogOpenChange}>
               <AlertDialogContent>
                 <AlertDialogHeader>
                   <AlertDialogTitle>Confirmar cambio de cita</AlertDialogTitle>
@@ -466,6 +465,28 @@ export default function SessionManagement() {
                     </div>
                   </AlertDialogDescription>
                 </AlertDialogHeader>
+                <Alert className="border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-900 dark:bg-amber-950/20 dark:text-amber-100">
+                  <AlertCircle className="h-4 w-4 text-amber-600" />
+                  <AlertDescription>
+                    {cancellationPolicyPreviewLoading ? (
+                      'Comprobando la política de cancelación...'
+                    ) : cancellationPolicyPreview?.applies ? (
+                      <>
+                        Esta cita está sujeta a la política de cancelación aceptada. Al reprogramarla fuera del plazo permitido, se aplicará el mismo cargo que en una cancelación tardía.
+                        <span className="mt-2 block font-medium">
+                          Importe: {Number(cancellationPolicyPreview.amount || 0).toFixed(2)} EUR
+                          {cancellationPolicyPreview.percentage > 0 && cancellationPolicyPreview.basePrice > 0
+                            ? ` (${cancellationPolicyPreview.percentage}% de ${Number(cancellationPolicyPreview.basePrice).toFixed(2)} EUR)`
+                            : ''}
+                        </span>
+                      </>
+                    ) : cancellationPolicyPreview?.hasSignedPolicy ? (
+                      'Esta cita está cubierta por la política de cancelación aceptada. Según el plazo actual, no se estima cargo por reprogramar.'
+                    ) : (
+                      'Se avisará al centro del cambio. Si tienes dudas sobre la política aplicable, contacta con tu profesional.'
+                    )}
+                  </AlertDescription>
+                </Alert>
                 <AlertDialogFooter>
                   <AlertDialogCancel disabled={isRescheduling}>Volver</AlertDialogCancel>
                   <AlertDialogAction

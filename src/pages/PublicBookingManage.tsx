@@ -7,8 +7,9 @@ import { Calendar } from '@/components/ui/calendar';
 import { toast } from 'sonner';
 import { format, isBefore, startOfDay, addDays } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Loader2, MapPin, Video, Calendar as CalendarIcon, Clock, AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
+import { Loader2, MapPin, Video, Calendar as CalendarIcon, Clock, AlertTriangle, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,6 +21,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import type { CancellationPolicyPreview } from '@/hooks/usePublicBooking';
 
 export default function PublicBookingManage() {
   const { centerSlug } = useParams<{ centerSlug: string }>();
@@ -27,7 +29,7 @@ export default function PublicBookingManage() {
   const bookingToken = searchParams.get('token') || '';
 
   const { getBooking, cancelBooking, rescheduleBooking, getAvailability, getMonthAvailability, getCancellationPreview, loading, error } = usePublicBooking(centerSlug || '');
-  
+
   const [booking, setBooking] = useState<any>(null);
   const [centerName, setCenterName] = useState('');
   const [mode, setMode] = useState<'view' | 'reschedule'>('view');
@@ -38,6 +40,9 @@ export default function PublicBookingManage() {
   const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
   const [availabilityData, setAvailabilityData] = useState<{ month: string; byDate: Record<string, number> }>({ month: '', byDate: {} });
   const [availabilityLoading, setAvailabilityLoading] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [reschedulePreview, setReschedulePreview] = useState<CancellationPolicyPreview | null>(null);
+  const [reschedulePreviewLoading, setReschedulePreviewLoading] = useState(false);
 
   useEffect(() => {
     if (bookingToken) {
@@ -103,17 +108,20 @@ export default function PublicBookingManage() {
     }
   };
 
+  const handleOpenConfirm = () => {
+    if (!selectedDate || !selectedSlot) return;
+    setConfirmOpen(true);
+    setReschedulePreview(null);
+    setReschedulePreviewLoading(true);
+    getCancellationPreview(bookingToken)
+      .then(setReschedulePreview)
+      .finally(() => setReschedulePreviewLoading(false));
+  };
+
   const handleReschedule = async () => {
     if (!selectedDate || !selectedSlot) return;
 
-    const preview = await getCancellationPreview(bookingToken);
-    if (preview?.applies && preview.amount > 0) {
-      const confirmed = window.confirm(
-        `Reprogramar esta cita conllevará un cargo de ${preview.amount.toFixed(2)}€ según la política de cancelación (fuera del plazo permitido). ¿Deseas continuar?`,
-      );
-      if (!confirmed) return;
-    }
-
+    setConfirmOpen(false);
     const success = await rescheduleBooking(
       bookingToken,
       format(selectedDate, 'yyyy-MM-dd'),
@@ -353,8 +361,8 @@ export default function PublicBookingManage() {
                 <Button variant="outline" onClick={() => setMode('view')} className="flex-1">
                   Cancelar
                 </Button>
-                <Button 
-                  onClick={handleReschedule} 
+                <Button
+                  onClick={handleOpenConfirm}
                   disabled={!selectedSlot || loading}
                   className="flex-1"
                 >
@@ -362,6 +370,48 @@ export default function PublicBookingManage() {
                   Confirmar
                 </Button>
               </div>
+
+              <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Confirmar cambio de cita</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      {selectedDate && selectedSlot && (
+                        <>Nueva fecha: {format(selectedDate, "EEEE d 'de' MMMM", { locale: es })} a las {selectedSlot.startTime}</>
+                      )}
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <Alert className="border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-900 dark:bg-amber-950/20 dark:text-amber-100">
+                    <AlertCircle className="h-4 w-4 text-amber-600" />
+                    <AlertDescription>
+                      {reschedulePreviewLoading ? (
+                        'Comprobando la política de cancelación...'
+                      ) : reschedulePreview?.applies ? (
+                        <>
+                          Esta cita está sujeta a la política de cancelación aceptada. Al reprogramarla fuera del plazo permitido, se aplicará el mismo cargo que en una cancelación tardía.
+                          <span className="mt-2 block font-medium">
+                            Importe: {Number(reschedulePreview.amount || 0).toFixed(2)} EUR
+                            {reschedulePreview.percentage > 0 && reschedulePreview.basePrice > 0
+                              ? ` (${reschedulePreview.percentage}% de ${Number(reschedulePreview.basePrice).toFixed(2)} EUR)`
+                              : ''}
+                          </span>
+                        </>
+                      ) : reschedulePreview?.hasSignedPolicy ? (
+                        'Esta cita está cubierta por la política de cancelación aceptada. Según el plazo actual, no se estima cargo por reprogramar.'
+                      ) : (
+                        'Se avisará al centro del cambio. Si tienes dudas sobre la política aplicable, contacta con el centro.'
+                      )}
+                    </AlertDescription>
+                  </Alert>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel disabled={loading}>Volver</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleReschedule} disabled={loading}>
+                      {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                      Sí, confirmar
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </CardContent>
           </Card>
         )}
