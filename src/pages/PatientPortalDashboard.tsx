@@ -8,6 +8,7 @@ import { usePatientPortal } from '@/hooks/usePatientPortal';
 import { PortalAppointments } from '@/components/portal/PortalAppointments';
 import { PortalBooking } from '@/components/portal/PortalBooking';
 import { PortalPaymentMethod } from '@/components/portal/PortalPaymentMethod';
+import { redirectTopLevel } from '@/lib/redirect';
 import { PortalInvoices } from '@/components/portal/PortalInvoices';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -251,7 +252,7 @@ export default function PatientPortalDashboard() {
                   onSaveCard={async (sessionId) => {
                     const setup = await createSetupIntent(sessionId);
                     if (setup?.url) {
-                      window.location.assign(setup.url);
+                      redirectTopLevel(setup.url);
                     } else {
                       toast.error('No se pudo abrir el guardado de la tarjeta. Inténtalo más tarde.');
                     }

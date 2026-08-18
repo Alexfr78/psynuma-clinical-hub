@@ -25,6 +25,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { formatLocationLine, type RescheduleLocation } from '@/lib/reschedule-helpers';
 import type { PortalBookingRequirements, PortalCreateSessionResult } from '@/hooks/usePatientPortal';
+import { redirectTopLevel } from '@/lib/redirect';
 
 interface RescheduleTarget {
   sessionId: string;
@@ -401,7 +402,7 @@ export function PortalBooking({
       if (createSetupIntent && result.cardCaptureNeeded && result.sessionId && !isRescheduleMode) {
         const setup = await createSetupIntent(result.sessionId);
         if (setup?.url) {
-          window.location.assign(setup.url);
+          redirectTopLevel(setup.url);
           return;
         }
         if (result.cardOnBookingMode === 'required') {

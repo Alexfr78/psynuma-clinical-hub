@@ -15,6 +15,7 @@ import { es } from 'date-fns/locale';
 import { Loader2, MapPin, Video, Clock, User, CheckCircle, ArrowLeft, ArrowRight, Copy, AlertCircle, RefreshCw, CreditCard, ExternalLink, ShieldCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ClosedAgendaScreen } from '@/components/booking/ClosedAgendaScreen';
+import { redirectTopLevel } from '@/lib/redirect';
 
 type Step = 'service' | 'location' | 'professional' | 'datetime' | 'patient' | 'confirmation';
 
@@ -161,16 +162,7 @@ export default function PublicBooking() {
           setBookingResult(result);
           setStep('confirmation');
           toast.info('Guarda tu tarjeta para completar la reserva (no se te cobra ahora)...');
-          try {
-            if (isEmbed && window.top && window.top !== window) {
-              window.top.location.href = setup.url;
-            } else {
-              window.location.assign(setup.url);
-            }
-          } catch (navigationError) {
-            console.warn('No se pudo abrir el guardado de tarjeta:', navigationError);
-            toast.warning('Vuelve a intentarlo para guardar la tarjeta.');
-          }
+          redirectTopLevel(setup.url);
           return;
         }
         if (result.cardOnBookingMode === 'required') {
