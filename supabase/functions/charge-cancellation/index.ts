@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { createConnectedPaymentIntent } from "../_shared/stripeConnectedCheckout.ts";
+import { createInvoice } from "../_shared/createInvoice.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
 
 // Fase 2 · Incremento 2a — Cobro SUPERVISADO del cargo por cancelación a la
@@ -10,6 +11,78 @@ import { getCorsHeaders } from "../_shared/cors.ts";
 // listo. No mueve dinero salvo que el profesional pulse el botón.
 
 const stripeSecretKey = Deno.env.get("STRIPE_SECRET_KEY");
+
+// Reconciliación síncrona de la deuda tras un cobro off-session exitoso: marca
+// la deuda pagada, registra el pago (idempotente por reference=PI) y genera la
+// factura. El webhook payment_intent.succeeded queda de respaldo (idempotente).
+async function reconcileDebtPaid(
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
+  args: {
+    debtId: string;
+    patientId: string;
+    centerId: string;
+    sessionId: string | null;
+    amount: number;
+    paymentIntentId: string;
+    concept: string | null;
+  },
+): Promise<void> {
+  const { data: existingPayment } = await supabase
+    .from("payments")
+    .select("id, invoice_id")
+    .eq("reference", args.paymentIntentId)
+    .maybeSingle();
+
+  await supabase
+    .from("debts")
+    .update({ status: "paid", paid_amount: args.amount, stripe_payment_status: "paid" })
+    .eq("id", args.debtId);
+
+  let paymentId: string | null = existingPayment?.id ?? null;
+  if (!existingPayment) {
+    const { data: pay } = await supabase
+      .from("payments")
+      .insert({
+        patient_id: args.patientId,
+        center_id: args.centerId,
+        session_id: args.sessionId || null,
+        amount: args.amount,
+        payment_method: "stripe",
+        payment_date: new Date().toISOString().split("T")[0],
+        reference: args.paymentIntentId,
+        notes: "Cobro de cancelación a tarjeta guardada",
+      })
+      .select("id, invoice_id")
+      .single();
+    paymentId = pay?.id ?? null;
+  }
+
+  const { data: debtRow } = await supabase
+    .from("debts")
+    .select("invoice_id")
+    .eq("id", args.debtId)
+    .maybeSingle();
+  let invoiceId: string | null = existingPayment?.invoice_id ?? debtRow?.invoice_id ?? null;
+  if (!invoiceId) {
+    const result = await createInvoice(
+      supabase,
+      args.centerId,
+      args.patientId,
+      args.concept || "Cargo por cancelación",
+      args.amount,
+      args.sessionId || null,
+      null,
+    );
+    invoiceId = result.invoiceId;
+  }
+  if (invoiceId) {
+    await supabase.from("debts").update({ invoice_id: invoiceId }).eq("id", args.debtId);
+    if (paymentId) {
+      await supabase.from("payments").update({ invoice_id: invoiceId }).eq("id", paymentId);
+    }
+  }
+}
 
 async function assertCanCharge(
   supabase: SupabaseClient,
@@ -170,11 +243,20 @@ serve(async (req) => {
     }
 
     if (pi.status === "succeeded") {
+      // Reconcilia la deuda de forma síncrona (no dependemos del webhook).
+      await reconcileDebtPaid(supabase, {
+        debtId: debtId!,
+        patientId: charge.patient_id,
+        centerId: charge.center_id,
+        sessionId: charge.session_id,
+        amount,
+        paymentIntentId: pi.id,
+        concept: charge.concept,
+      });
       await supabase
         .from("cancellation_charges")
         .update({ status: "paid", stripe_payment_intent_id: pi.id, off_session_error: null })
         .eq("id", chargeId);
-      // El pago sobre la deuda + factura los registra el webhook (payment_intent.succeeded).
       return json({ status: "succeeded", debtId, paymentIntentId: pi.id }, 200);
     }
 
