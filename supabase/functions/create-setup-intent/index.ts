@@ -158,7 +158,10 @@ serve(async (req) => {
         purpose: "cancellation_mandate",
         mandate_ip: clientIp,
       },
-      idempotencyKey: `setup-${session.id}-${connectedAccountId}`,
+      // Clave única por intento: el Checkout de setup no mueve dinero y cada
+      // intento puede crear un Customer distinto, así que una clave fija provoca
+      // conflictos de idempotencia en reintentos.
+      idempotencyKey: `setup-${session.id}-${crypto.randomUUID()}`,
     });
 
     return json({ url: setupSession.url, session_id: setupSession.id });
