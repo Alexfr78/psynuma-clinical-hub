@@ -1397,6 +1397,7 @@ export type Database = {
           debt_id: string | null
           id: string
           invoice_id: string | null
+          off_session_error: string | null
           original_amount: number
           patient_id: string
           percentage: number
@@ -1406,6 +1407,7 @@ export type Database = {
           reviewed_by: string | null
           session_id: string | null
           status: string
+          stripe_payment_intent_id: string | null
           updated_at: string
         }
         Insert: {
@@ -1417,6 +1419,7 @@ export type Database = {
           debt_id?: string | null
           id?: string
           invoice_id?: string | null
+          off_session_error?: string | null
           original_amount?: number
           patient_id: string
           percentage?: number
@@ -1426,6 +1429,7 @@ export type Database = {
           reviewed_by?: string | null
           session_id?: string | null
           status?: string
+          stripe_payment_intent_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -1437,6 +1441,7 @@ export type Database = {
           debt_id?: string | null
           id?: string
           invoice_id?: string | null
+          off_session_error?: string | null
           original_amount?: number
           patient_id?: string
           percentage?: number
@@ -1446,6 +1451,7 @@ export type Database = {
           reviewed_by?: string | null
           session_id?: string | null
           status?: string
+          stripe_payment_intent_id?: string | null
           updated_at?: string
         }
         Relationships: [
