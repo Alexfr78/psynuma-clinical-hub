@@ -24,7 +24,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { formatLocationLine, type RescheduleLocation } from '@/lib/reschedule-helpers';
-import type { PortalBookingRequirements, PortalCreateSessionResult } from '@/hooks/usePatientPortal';
+import type { PortalBookingRequirements, PortalCreateSessionResult, CancellationPolicyPreview } from '@/hooks/usePatientPortal';
 import { redirectTopLevel } from '@/lib/redirect';
 
 interface RescheduleTarget {
@@ -63,6 +63,7 @@ interface PortalBookingProps {
   }) => Promise<Record<string, number>>;
   rescheduleSession?: (sessionId: string, newDate: string, newStartTime: string, newEndTime: string, newLocationId?: string) => Promise<{ success: boolean; error?: string; message?: string }>;
   rescheduleTarget?: RescheduleTarget | null;
+  getCancellationPreview?: (sessionId: string) => Promise<CancellationPolicyPreview | null>;
 }
 
 interface Professional {
@@ -104,6 +105,7 @@ export function PortalBooking({
   getMonthAvailability,
   rescheduleSession,
   rescheduleTarget,
+  getCancellationPreview,
 }: PortalBookingProps) {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -354,6 +356,16 @@ export function PortalBooking({
     if (requiresPolicyAcceptance && !acceptCancellationPolicy) {
       toast.error('Debes aceptar la política de cancelación');
       return;
+    }
+
+    if (isRescheduleMode && rescheduleTarget && getCancellationPreview) {
+      const preview = await getCancellationPreview(rescheduleTarget.sessionId);
+      if (preview?.applies && preview.amount > 0) {
+        const confirmed = window.confirm(
+          `Reprogramar esta cita conllevará un cargo de ${preview.amount.toFixed(2)}€ según la política de cancelación (fuera del plazo permitido). ¿Deseas continuar?`,
+        );
+        if (!confirmed) return;
+      }
     }
 
     setSubmitting(true);

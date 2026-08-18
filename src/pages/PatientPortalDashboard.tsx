@@ -311,6 +311,7 @@ export default function PatientPortalDashboard() {
               getMonthAvailability={getMonthAvailability}
               rescheduleSession={rescheduleSession}
               rescheduleTarget={rescheduleTarget}
+              getCancellationPreview={getCancellationPreview}
             />
           </TabsContent>
         </Tabs>

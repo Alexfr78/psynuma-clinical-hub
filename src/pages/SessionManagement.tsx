@@ -190,9 +190,17 @@ export default function SessionManagement() {
     }
   };
 
-  const handleRescheduleConfirm = () => {
+  const handleRescheduleConfirm = async () => {
     if (!selectedDate || !selectedSlot) return;
-    
+
+    const preview = await getCancellationPolicyPreview();
+    if (preview?.applies && preview.amount > 0) {
+      const confirmed = window.confirm(
+        `Reprogramar esta cita conllevará un cargo de ${preview.amount.toFixed(2)} EUR según la política de cancelación (fuera del plazo permitido). ¿Deseas continuar?`,
+      );
+      if (!confirmed) return;
+    }
+
     const locationChanged = !!selectedLocationId && selectedLocationId !== originalLocationId;
     reschedule({
       newDate: format(selectedDate, 'yyyy-MM-dd'),
