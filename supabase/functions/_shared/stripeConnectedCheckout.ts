@@ -226,3 +226,114 @@ export async function createConnectedSetupSession(
 
   return { id: payload.id, url: payload.url };
 }
+
+// ============================================================
+// PaymentIntent off-session (merchant-initiated) — cobra la tarjeta
+// guardada del paciente para un cargo por cancelación (Fase 2 · Inc 2a).
+// Puede requerir 3DS (requires_action) o declinarse; el caller cae al
+// fallback de deuda + enlace de pago en esos casos.
+// ============================================================
+
+export interface ConnectedPaymentIntentInput {
+  stripeSecretKey: string;
+  connectedAccountId: string;
+  customerId: string;
+  paymentMethodId: string;
+  amountInCents: number;
+  applicationFeeBpsRaw: string | null | undefined;
+  metadata: Record<string, string | number | null | undefined>;
+  idempotencyKey: string;
+}
+
+export interface ConnectedPaymentIntentResult {
+  id: string;
+  status: string; // succeeded | requires_action | requires_payment_method | processing | ...
+  errorCode?: string | null;
+  errorMessage?: string | null;
+}
+
+export function buildConnectedPaymentIntentRequest(
+  input: ConnectedPaymentIntentInput,
+): { body: URLSearchParams; headers: Record<string, string>; applicationFeeAmount: number } {
+  if (!Number.isSafeInteger(input.amountInCents) || input.amountInCents <= 0) {
+    throw new Error("PaymentIntent amount must be a positive integer in cents");
+  }
+
+  const platformFee = getStripePlatformFeeConfig(input.applicationFeeBpsRaw);
+  const applicationFeeAmount = calculateStripeApplicationFeeAmount(
+    input.amountInCents,
+    platformFee.bps,
+  );
+
+  const body = new URLSearchParams({
+    amount: String(input.amountInCents),
+    currency: "eur",
+    customer: input.customerId,
+    payment_method: input.paymentMethodId,
+    confirm: "true",
+    off_session: "true",
+    "payment_method_types[0]": "card",
+  });
+
+  if (applicationFeeAmount > 0) {
+    body.set("application_fee_amount", String(applicationFeeAmount));
+  }
+  body.set("metadata[platform_fee_bps]", String(platformFee.bps));
+  body.set("metadata[platform_fee_amount]", String(applicationFeeAmount));
+  body.set("metadata[platform_fee_rule_version]", platformFee.version);
+
+  for (const [key, value] of Object.entries(input.metadata)) {
+    if (value !== null && value !== undefined) {
+      body.set(`metadata[${key}]`, String(value));
+    }
+  }
+
+  return {
+    body,
+    headers: {
+      Authorization: `Bearer ${input.stripeSecretKey}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+      "Stripe-Account": input.connectedAccountId,
+      "Idempotency-Key": input.idempotencyKey,
+    },
+    applicationFeeAmount,
+  };
+}
+
+export async function createConnectedPaymentIntent(
+  input: ConnectedPaymentIntentInput,
+  fetcher: typeof fetch = fetch,
+): Promise<ConnectedPaymentIntentResult> {
+  const request = buildConnectedPaymentIntentRequest(input);
+  const response = await fetcher("https://api.stripe.com/v1/payment_intents", {
+    method: "POST",
+    headers: request.headers,
+    body: request.body,
+  });
+  // deno-lint-ignore no-explicit-any
+  const payload = await response.json() as any;
+
+  // Un cobro off-session que requiere autenticación (3DS) o se declina devuelve
+  // 402 con error.payment_intent; extraemos el estado en vez de lanzar.
+  if (!response.ok) {
+    const pi = payload?.error?.payment_intent;
+    if (pi?.id) {
+      return {
+        id: pi.id,
+        status: pi.status,
+        errorCode: payload.error?.code ?? payload.error?.decline_code ?? null,
+        errorMessage: payload.error?.message ?? null,
+      };
+    }
+    throw new StripeCheckoutRequestError(
+      payload?.error?.message || "Stripe PaymentIntent creation failed",
+    );
+  }
+
+  return {
+    id: payload.id,
+    status: payload.status,
+    errorCode: payload.last_payment_error?.code ?? null,
+    errorMessage: payload.last_payment_error?.message ?? null,
+  };
+}

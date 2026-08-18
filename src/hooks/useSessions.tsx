@@ -167,6 +167,18 @@ export function useUpdateSession() {
         );
       }
 
+      // Inasistencia (no-show): genera cargo según el % de no asistencia.
+      if (updatesWithPolicy.status === 'no_show') {
+        await createCancellationChargeForSessionCancellation(
+          id,
+          typeof updatesWithPolicy.cancellation_reason === 'string'
+            ? updatesWithPolicy.cancellation_reason
+            : 'No presentado (inasistencia)',
+          center?.cancellation_policy_enabled ?? undefined,
+          true,
+        );
+      }
+
       // If price changed, update the associated debt amount
       if (updatesWithPolicy.price !== undefined) {
         const { data: debt, error: debtError } = await supabase

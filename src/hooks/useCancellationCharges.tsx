@@ -23,6 +23,10 @@ export interface CancellationCharge {
   reviewed_at: string | null;
   created_at: string;
   updated_at: string;
+  stripe_payment_intent_id?: string | null;
+  off_session_error?: string | null;
+  // Computado en la query: el paciente tiene tarjeta guardada activa.
+  hasActiveCard?: boolean;
   patients?: {
     id: string;
     first_name: string;
@@ -43,9 +47,25 @@ function evaluateCancellationCharge(input: {
   sessionStartsAt: Date;
   cancelledAt?: Date;
   basePrice: number | string | null | undefined;
+  isNoShow?: boolean;
 }) {
   const rules = input.rules || {};
   const basePrice = Math.max(Number(input.basePrice ?? 0) || 0, 0);
+
+  // No-show: se aplica el % de no asistencia de la política, sin ventana.
+  if (input.isNoShow) {
+    const noShowPercentage = Number(rules.no_show_percentage ?? 100);
+    if (noShowPercentage <= 0) {
+      return { applies: false, amount: 0, percentage: noShowPercentage, basePrice };
+    }
+    return {
+      applies: true,
+      amount: Math.round(basePrice * noShowPercentage) / 100,
+      percentage: noShowPercentage,
+      basePrice,
+    };
+  }
+
   const cancelledAt = input.cancelledAt || new Date();
   const hoursBefore = (input.sessionStartsAt.getTime() - cancelledAt.getTime()) / (1000 * 60 * 60);
   const cancellationWindowHours = Number(rules.cancellation_window_hours ?? 24);
@@ -122,6 +142,9 @@ export async function createCancellationChargeForSessionCancellation(
   // (RLS), so the caller passes the flag it already has via useCenter.
   // `undefined` means "unknown" → preserve legacy behaviour (charge applies).
   centerPolicyEnabled?: boolean,
+  // No-show (inasistencia): aplica el % de no asistencia y no exige que la
+  // cancelación venga del paciente.
+  isNoShow = false,
 ) {
   // Master switch OFF → the cancellation policy does not apply, so no charge.
   if (centerPolicyEnabled === false) return null;
@@ -144,7 +167,7 @@ export async function createCancellationChargeForSessionCancellation(
 
   if (sessionError) throw sessionError;
   if (!session?.patient_id || !session.center_id) return null;
-  if (session.cancellation_origin !== 'patient') return null;
+  if (!isNoShow && session.cancellation_origin !== 'patient') return null;
 
   // Per-patient override (patients are readable by center staff).
   const { data: patientFlag } = await supabase
@@ -173,6 +196,7 @@ export async function createCancellationChargeForSessionCancellation(
   const evaluation = evaluateCancellationCharge({
     rules: signedPolicy.rules as Record<string, unknown>,
     sessionStartsAt: new Date(`${session.session_date}T${session.start_time}`),
+    isNoShow,
     basePrice: await resolveCancellationBasePrice({
       centerId: session.center_id,
       patientId: session.patient_id,
@@ -227,9 +251,64 @@ export function useCancellationCharges(status: CancellationCharge['status'] = 'p
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data as CancellationCharge[];
+      const charges = (data as CancellationCharge[]) || [];
+
+      // Marca qué pacientes tienen tarjeta guardada activa (para el cobro directo).
+      const patientIds = Array.from(new Set(charges.map((c) => c.patient_id).filter(Boolean)));
+      if (patientIds.length > 0) {
+        const { data: cards } = await supabase
+          .from('patient_payment_methods')
+          .select('patient_id')
+          .eq('center_id', profile.center_id)
+          .eq('status', 'active')
+          .in('patient_id', patientIds);
+        const withCard = new Set((cards || []).map((c) => c.patient_id));
+        charges.forEach((c) => { c.hasActiveCard = withCard.has(c.patient_id); });
+      }
+
+      return charges;
     },
     enabled: !!profile?.center_id,
+  });
+}
+
+// Cobra off-session el cargo a la tarjeta guardada (Fase 2 · Inc 2a).
+export function useChargeCancellationCard() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (chargeId: string) => {
+      const { data, error } = await supabase.functions.invoke('charge-cancellation', {
+        body: { chargeId },
+      });
+      if (error) throw new Error(error.message);
+      if (data?.error) throw new Error(data.error);
+      return data as {
+        status?: 'succeeded' | 'requires_action' | 'failed';
+        needsCard?: boolean;
+        message?: string;
+        debtId?: string;
+      };
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['cancellation-charges'] });
+      queryClient.invalidateQueries({ queryKey: ['debts'] });
+      queryClient.invalidateQueries({ queryKey: ['debt-stats'] });
+      if (result?.needsCard) {
+        toast.error('El paciente no tiene tarjeta guardada. Genera la deuda y envía el enlace.');
+      } else if (result?.status === 'succeeded') {
+        toast.success('Cobrado a la tarjeta correctamente');
+      } else {
+        toast.warning('No se pudo cobrar automáticamente', {
+          description: `${result?.message || 'El banco requiere autenticación o rechazó el pago.'} Se ha generado la deuda; envía el enlace de pago.`,
+        });
+      }
+    },
+    onError: (error) => {
+      toast.error('No se pudo procesar el cobro', {
+        description: error instanceof Error ? error.message : undefined,
+      });
+    },
   });
 }
 

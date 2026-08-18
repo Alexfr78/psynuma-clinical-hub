@@ -1617,12 +1617,29 @@ serve(async (req) => {
         break;
       }
 
+      case 'payment_intent.succeeded': {
+        // Cobro off-session del cargo por cancelación (Fase 2 · Inc 2a).
+        const paymentIntent = event.data.object as Stripe.PaymentIntent;
+        const metadata = paymentIntent.metadata || {};
+        if (metadata.payment_type === 'debt_payment' && metadata.debt_id) {
+          const amount = (paymentIntent.amount_received ?? paymentIntent.amount ?? 0) / 100;
+          await handleDebtPayment(supabase, metadata as Record<string, string>, amount, paymentIntent.id);
+          if (metadata.cancellation_charge_id) {
+            await supabase
+              .from('cancellation_charges')
+              .update({ status: 'paid', stripe_payment_intent_id: paymentIntent.id, off_session_error: null })
+              .eq('id', metadata.cancellation_charge_id);
+          }
+        }
+        break;
+      }
+
       case 'payment_intent.payment_failed': {
         const paymentIntent = event.data.object as Stripe.PaymentIntent;
         const metadata = paymentIntent.metadata || {};
         const sessionId = metadata.session_id;
         const debtId = metadata.debt_id;
-        
+
         if (sessionId) {
           console.log('Payment failed for session:', sessionId);
           await supabase
@@ -1637,6 +1654,15 @@ serve(async (req) => {
             .from('debts')
             .update({ stripe_payment_status: 'failed' })
             .eq('id', debtId);
+        }
+
+        // Cobro off-session de cancelación fallido: deja el cargo con el error
+        // (la deuda queda pendiente, pagable por enlace).
+        if (metadata.cancellation_charge_id) {
+          await supabase
+            .from('cancellation_charges')
+            .update({ off_session_error: paymentIntent.last_payment_error?.message || 'El cobro a la tarjeta falló' })
+            .eq('id', metadata.cancellation_charge_id);
         }
         break;
       }

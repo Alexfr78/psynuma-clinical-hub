@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { AlertTriangle, Calendar, CheckCircle2, Loader2, User, XCircle } from 'lucide-react';
+import { AlertTriangle, Calendar, CheckCircle2, CreditCard, Loader2, User, XCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   CancellationCharge,
   useCancellationCharges,
+  useChargeCancellationCard,
   useConfirmCancellationCharge,
   useForgiveCancellationCharge,
 } from '@/hooks/useCancellationCharges';
@@ -46,9 +47,10 @@ function CancellationChargeList({
   const { data: charges = [], isLoading } = useCancellationCharges(status);
   const confirmCharge = useConfirmCancellationCharge();
   const forgiveCharge = useForgiveCancellationCharge();
+  const chargeCard = useChargeCancellationCard();
   const [amounts, setAmounts] = useState<Record<string, string>>({});
   const [notes, setNotes] = useState<Record<string, string>>({});
-  const isMutating = confirmCharge.isPending || forgiveCharge.isPending;
+  const isMutating = confirmCharge.isPending || forgiveCharge.isPending || chargeCard.isPending;
   const isPendingReview = status === 'pending_review';
 
   useEffect(() => {
@@ -174,7 +176,19 @@ function CancellationChargeList({
                     <XCircle className="mr-2 h-4 w-4" />
                     Perdonar
                   </Button>
+                  {charge.hasActiveCard && (
+                    <Button
+                      onClick={() => chargeCard.mutate(charge.id)}
+                      disabled={isMutating || Number(charge.amount || 0) <= 0}
+                    >
+                      {chargeCard.isPending
+                        ? <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        : <CreditCard className="mr-2 h-4 w-4" />}
+                      Cobrar a la tarjeta
+                    </Button>
+                  )}
                   <Button
+                    variant={charge.hasActiveCard ? 'outline' : 'default'}
                     onClick={() => confirmCharge.mutate({
                       charge,
                       amount: Number(amounts[charge.id] ?? charge.amount),
