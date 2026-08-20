@@ -37,7 +37,7 @@ import {
 import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { usePublicSession, useUpdatePublicSession, usePublicSessionReschedule } from '@/hooks/usePublicSession';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Textarea } from '@/components/ui/textarea';
 import { formatLocationLine, summarizeLocationChange, isOnlineLocation, type RescheduleLocation } from '@/lib/reschedule-helpers';
 import { SESSION_STATUS_LABELS, getSessionStatusDisplay } from '@/lib/payment-status';
@@ -77,7 +77,9 @@ export default function SessionManagement() {
   const [selectedLocationId, setSelectedLocationId] = useState<string>('');
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
-  
+  const timeSlotsRef = useRef<HTMLDivElement>(null);
+  const confirmActionsRef = useRef<HTMLDivElement>(null);
+
   const {
     slots,
     slotsLoading,
@@ -131,6 +133,20 @@ export default function SessionManagement() {
       setSelectedSlot(null);
     }
   }, [selectedDate, mode, getAvailability, selectedLocationId]);
+
+  // Auto-scroll to the time slots once a date is picked
+  useEffect(() => {
+    if (selectedDate && mode === 'reschedule') {
+      timeSlotsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [selectedDate, mode]);
+
+  // Auto-scroll to the confirm actions once a time slot is picked
+  useEffect(() => {
+    if (selectedSlot && mode === 'reschedule') {
+      confirmActionsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }
+  }, [selectedSlot, mode]);
 
   if (isLoading) {
     return (
@@ -353,7 +369,7 @@ export default function SessionManagement() {
 
             {/* Time slots */}
             {selectedDate && (
-              <div className="space-y-3">
+              <div className="space-y-3" ref={timeSlotsRef}>
                 <h4 className="font-medium text-sm text-muted-foreground">
                   Horarios disponibles para el {format(selectedDate, "d 'de' MMMM", { locale: es })}
                 </h4>
@@ -390,7 +406,7 @@ export default function SessionManagement() {
             <Separator />
 
             {/* Confirm button (opens AlertDialog) */}
-            <div className="flex gap-3">
+            <div className="flex gap-3" ref={confirmActionsRef}>
               <Button
                 variant="outline"
                 className="flex-1"

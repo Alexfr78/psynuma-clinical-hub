@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { format, addDays, startOfDay, isBefore, startOfMonth, addMonths } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Loader2, Calendar as CalendarIcon, CheckCircle, Video, MapPin, AlertCircle, ShieldCheck } from 'lucide-react';
@@ -140,8 +140,24 @@ export function PortalBooking({
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [reschedulePreview, setReschedulePreview] = useState<CancellationPolicyPreview | null>(null);
   const [reschedulePreviewLoading, setReschedulePreviewLoading] = useState(false);
+  const daySlotsRef = useRef<HTMLDivElement>(null);
+  const submitButtonRef = useRef<HTMLDivElement>(null);
 
   const isRescheduleMode = !!rescheduleTarget;
+
+  // Auto-scroll to the time slots once a day is picked
+  useEffect(() => {
+    if (selectedDay) {
+      daySlotsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [selectedDay]);
+
+  // Auto-scroll to the submit button once a slot is picked
+  useEffect(() => {
+    if (selectedSlot) {
+      submitButtonRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }
+  }, [selectedSlot]);
 
   useEffect(() => {
     fetchInitialData();
@@ -655,7 +671,7 @@ export function PortalBooking({
 
             {/* Day Slots */}
             {selectedDay && (
-              <div className="border rounded-lg p-3 space-y-2">
+              <div className="border rounded-lg p-3 space-y-2" ref={daySlotsRef}>
                 <p className="text-sm font-medium">
                   {format(selectedDay, "EEEE d 'de' MMMM", { locale: es })}
                 </p>
@@ -786,6 +802,7 @@ export function PortalBooking({
         )}
 
         {/* Submit */}
+        <div ref={submitButtonRef}>
         <Button
           className="w-full"
           size="lg"
@@ -820,6 +837,7 @@ export function PortalBooking({
           )}
           {isRescheduleMode ? 'Reprogramar cita' : 'Solicitar cita'}
         </Button>
+        </div>
 
         {/* Reschedule confirm dialog: shows location change (if any) and cancellation charge preview */}
         <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { usePublicBooking } from '@/hooks/usePublicBooking';
 import { Button } from '@/components/ui/button';
@@ -43,6 +43,8 @@ export default function PublicBookingManage() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [reschedulePreview, setReschedulePreview] = useState<CancellationPolicyPreview | null>(null);
   const [reschedulePreviewLoading, setReschedulePreviewLoading] = useState(false);
+  const timeSlotsRef = useRef<HTMLDivElement>(null);
+  const confirmActionsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (bookingToken) {
@@ -63,6 +65,20 @@ export default function PublicBookingManage() {
       loadSlots();
     }
   }, [selectedDate, mode]);
+
+  // Auto-scroll to the time slots once a date is picked
+  useEffect(() => {
+    if (selectedDate && mode === 'reschedule') {
+      timeSlotsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [selectedDate, mode]);
+
+  // Auto-scroll to the confirm actions once a time slot is picked
+  useEffect(() => {
+    if (selectedSlot && mode === 'reschedule') {
+      confirmActionsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }
+  }, [selectedSlot, mode]);
 
   // Load month availability when entering reschedule mode or changing month
   useEffect(() => {
@@ -324,7 +340,7 @@ export default function PublicBookingManage() {
               </div>
 
               {selectedDate && (
-                <div>
+                <div ref={timeSlotsRef}>
                   <h4 className="font-medium mb-2">
                     Horarios para {format(selectedDate, "d 'de' MMMM", { locale: es })}
                   </h4>
@@ -357,7 +373,7 @@ export default function PublicBookingManage() {
                 </div>
               )}
 
-              <div className="flex gap-2">
+              <div className="flex gap-2" ref={confirmActionsRef}>
                 <Button variant="outline" onClick={() => setMode('view')} className="flex-1">
                   Cancelar
                 </Button>
