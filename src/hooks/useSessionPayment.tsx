@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 export interface SessionPaymentStatus {
   hasPendingPayment: boolean;
   isPaid: boolean;
+  isRefunded: boolean;
   isPartial: boolean;
   /** True only when there is a real outstanding balance > 0.01 */
   isCollectable: boolean;
@@ -176,6 +177,7 @@ export function useSessionPaymentStatus(sessionId: string | undefined) {
       return {
         hasPendingPayment,
         isPaid,
+        isRefunded,
         isPartial,
         isCollectable,
         remainingAmount,

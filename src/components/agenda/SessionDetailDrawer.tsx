@@ -1058,7 +1058,9 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
           showLabel={!isMobile}
         />
         <PaymentStatusIndicator
-          paymentStatus={paymentStatus?.isPaid
+          paymentStatus={paymentStatus?.isRefunded
+            ? 'refunded'
+            : paymentStatus?.isPaid
             ? 'paid'
             : paymentStatus?.isPartial
               ? 'partial'
@@ -1643,6 +1645,11 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                         <Package className="h-3 w-3 mr-1" />
                         Cubierto por bono
                       </Badge>
+                    ) : paymentStatus?.isRefunded ? (
+                      <Badge variant="secondary" className="bg-slate-100 text-slate-800 dark:bg-slate-900 dark:text-slate-200">
+                        <RefreshCw className="h-3 w-3 mr-1" />
+                        Reembolsado
+                      </Badge>
                     ) : paymentStatus?.isPaid ? (
                       <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
                         <CheckCircle2 className="h-3 w-3 mr-1" />
@@ -1662,7 +1669,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                       </Badge>
                     )}
                     {/* Only show edit button if not paid and not invoiced */}
-                    {!paymentStatus?.isPaid && !invoiceStatus?.hasValidInvoice ? (
+                    {!paymentStatus?.isPaid && !paymentStatus?.isRefunded && !invoiceStatus?.hasValidInvoice ? (
                       <Button
                         variant="ghost"
                         size="icon"
@@ -1683,7 +1690,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                             </span>
                           </TooltipTrigger>
                           <TooltipContent>
-                            <p>No se puede modificar el precio de una sesión cobrada o facturada</p>
+                            <p>No se puede modificar el precio de una sesión cobrada, reembolsada o facturada</p>
                           </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
@@ -1732,7 +1739,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                       ))}
                     </div>
                     {/* Show create invoice button if billable event is still pending */}
-                    {invoiceStatus.canCreateInvoice && localPrice > 0 && !localBonoId && (
+                    {invoiceStatus.canCreateInvoice && !paymentStatus?.isRefunded && localPrice > 0 && !localBonoId && (
                       <Button 
                         size="sm" 
                         variant="outline"
@@ -1743,6 +1750,11 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                       </Button>
                     )}
                   </div>
+                ) : paymentStatus?.isRefunded ? (
+                  <Badge variant="secondary" className="w-fit bg-slate-100 text-slate-800 dark:bg-slate-900 dark:text-slate-200">
+                    <RefreshCw className="h-4 w-4 mr-1" />
+                    Pago reembolsado
+                  </Badge>
                 ) : localBonoId ? (
                   <>
                     <TooltipProvider>
@@ -1798,7 +1810,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                 
                 {/* Show "Cobrar sesión" whenever the session has an unpaid price and no bono.
                     The RPC will create the debt on demand if it doesn't exist yet. */}
-                {!paymentStatus?.isPaid && !localBonoId && !session.bono_id && localPrice > 0 && (
+                {!paymentStatus?.isPaid && !paymentStatus?.isRefunded && !localBonoId && !session.bono_id && localPrice > 0 && (
                   <Button
                     size="sm"
                     variant="outline"
@@ -1829,9 +1841,25 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                 </p>
               )}
 
+              {paymentStatus?.isRefunded && !localBonoId && (
+                <p className="text-xs text-muted-foreground">
+                  Pago reembolsado. El movimiento se puede consultar desde{' '}
+                  <Button
+                    variant="link"
+                    className="h-auto p-0 text-xs"
+                    onClick={() => {
+                      navigate('/cobros');
+                      onOpenChange(false);
+                    }}
+                  >
+                    Cobros →
+                  </Button>
+                </p>
+              )}
+
               {/* A session can be payable before a debt row exists. Keep the
                   online-payment action visible for every unpaid priced session. */}
-              {!paymentStatus?.isPaid && localPrice > 0 && !localBonoId && !session.bono_id && (
+              {!paymentStatus?.isPaid && !paymentStatus?.isRefunded && localPrice > 0 && !localBonoId && !session.bono_id && (
                 <div className="rounded-lg border bg-muted/30 p-3 space-y-3">
                   <div className="flex items-start gap-2">
                     <LinkIcon className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
