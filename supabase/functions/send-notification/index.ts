@@ -29,12 +29,30 @@ interface ResendEmailResult {
   providerMessageId?: string;
 }
 
-// Convert plain text URLs to clickable hyperlinks
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// Convert plain text URLs to friendly clickable hyperlinks. The destination
+// remains intact, but recipients do not see long security or Stripe tokens.
 function linkifyUrls(text: string): string {
   const urlRegex = /(https?:\/\/[^\s<]+)/g;
-  return text.replace(urlRegex, (url) => 
-    `<a href="${url}" style="color: #1d4ed8; text-decoration: underline; word-break: break-all;">${url}</a>`
-  );
+  return text.replace(urlRegex, (url) => {
+    const cleanUrl = url.replace(/[.,;:!?)]$/u, '');
+    const label = /\/pagar\//.test(cleanUrl) && /[?&]bono=1(?:&|$)/.test(cleanUrl)
+      ? 'Comprar bono'
+      : /\/pagar\//.test(cleanUrl)
+        ? 'Pagar con tarjeta'
+      : /\/cita\//.test(cleanUrl)
+        ? 'Gestionar mi cita'
+        : 'Abrir enlace';
+    return `<a href="${escapeHtml(cleanUrl)}" style="color: #1d4ed8; text-decoration: underline;">${label}</a>${url.slice(cleanUrl.length)}`;
+  });
 }
 
 // Send email via Resend API with detailed logging

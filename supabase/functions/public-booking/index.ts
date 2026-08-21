@@ -16,6 +16,7 @@ import {
 } from "../_shared/special-days-adapter.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { createZoomMeetingForSession } from "../_shared/zoomMeeting.ts";
+import { getOrCreatePublicShortLink } from "../_shared/publicShortLinks.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -1618,7 +1619,7 @@ serve(async (req) => {
           notes: sessionNotes,
         })
         .select(`
-          id, session_date, start_time, end_time, status, session_type, session_modality,
+          id, access_token, session_date, start_time, end_time, status, session_type, session_modality,
           professional:profiles!sessions_professional_id_fkey(first_name, last_name),
           location:center_locations(name, location_type)
         `)
@@ -1761,8 +1762,23 @@ serve(async (req) => {
       });
 
       // Generate booking token (async now for HMAC signing)
+      // Use the session's existing public token for patient-facing links. The
+      // signed booking token remains available for backwards-compatible
+      // booking-management API calls, but is no longer exposed in messages.
       const bookingToken = await generateBookingToken(newSession.id, patientId, center.id);
-      const manageUrl = `/book/${encodeURIComponent(centerSlug)}/manage?token=${encodeURIComponent(bookingToken)}`;
+      const shortManageUrl = newSession.access_token
+        ? await getOrCreatePublicShortLink({
+            supabase,
+            centerId: center.id,
+            targetType: "session",
+            targetToken: newSession.access_token,
+            expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+          })
+        : null;
+      const manageUrl = shortManageUrl
+        || (newSession.access_token
+          ? `/cita/${encodeURIComponent(newSession.access_token)}`
+          : `/book/${encodeURIComponent(centerSlug)}/manage?token=${encodeURIComponent(bookingToken)}`);
 
       console.log(`[create-booking] success sessionId=${newSession.id} status=${status}`);
 

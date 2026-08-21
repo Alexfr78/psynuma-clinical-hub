@@ -15,6 +15,9 @@ export interface PublicSessionData {
   start_time: string;
   end_time: string;
   status: string | null;
+  price: number | null;
+  payment_status: string | null;
+  stripe_payment_status: string | null;
   session_type: string | null;
   session_modality: string | null;
   video_call_link: string | null;
@@ -69,6 +72,9 @@ export function usePublicSession(token: string | undefined) {
           start_time,
           end_time,
           status,
+          price,
+          payment_status,
+          stripe_payment_status,
           session_type,
           session_modality,
           video_call_link,

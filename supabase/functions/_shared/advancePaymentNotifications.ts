@@ -1,5 +1,6 @@
 // Shared helpers for adding advance-payment instructions to session messages.
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getOrCreatePublicShortLink } from "./publicShortLinks.ts";
 
 export type PaymentNotificationChannel = "email" | "whatsapp" | "sms";
 
@@ -234,15 +235,26 @@ export async function buildAdvancePaymentBlock(
   }
 
   const stripe = await createStripeCheckoutUrl(supabase, session, patient, baseUrl);
+  // Do not expose Stripe's long Checkout URL in notifications. The public
+  // session page starts Checkout after the patient opens the short link.
+  const patientPaymentUrl = session.access_token
+    ? await getOrCreatePublicShortLink({
+        supabase,
+        centerId,
+        targetType: "session_payment",
+        targetToken: session.access_token,
+        expiresAt: null,
+      })
+    : null;
   const defaults = DEFAULT_PAYMENT_OPTIONS[channel];
   const lines: string[] = [];
   const replaceVars = (text: string) => replacePaymentVars(text, {
-    stripeCheckoutUrl: stripe.url,
+    stripeCheckoutUrl: patientPaymentUrl || "",
     bizumPhone: center.bizum_phone || "",
     transferInfo: center.bank_transfer_info || "",
   });
 
-  if (stripe.url) {
+  if (stripe.url && patientPaymentUrl) {
     const text = template?.payment_option_stripe || defaults.stripe;
     if (text) lines.push(replaceVars(text));
   }

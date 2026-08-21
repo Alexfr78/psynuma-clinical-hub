@@ -16,11 +16,13 @@ serve(async (req) => {
   }
 
   try {
-    const { session_id } = await req.json();
+    const { session_id, session_access_token } = await req.json();
+    const publicSessionAccess = typeof session_access_token === 'string' && session_access_token.length > 0;
+    const requestedSessionId = typeof session_id === 'string' && session_id.length > 0 ? session_id : null;
 
-    console.log('Creating Stripe checkout for session:', session_id);
+    console.log('Creating Stripe checkout for session:', requestedSessionId || '[public token]');
 
-    if (!session_id) {
+    if (!requestedSessionId && !publicSessionAccess) {
       return new Response(
         JSON.stringify({ error: 'Missing required parameters' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -38,7 +40,7 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const authorization = req.headers.get('Authorization') || '';
-    if (!authorization.startsWith('Bearer ')) {
+    if (!authorization.startsWith('Bearer ') && !publicSessionAccess) {
       console.error('Stripe checkout rejected: authorization header missing');
       return new Response(
         JSON.stringify({ error: 'Authentication required' }),
@@ -50,7 +52,7 @@ serve(async (req) => {
     const isServiceCall = authorization === `Bearer ${supabaseKey}`;
     let userId: string | null = null;
 
-    if (!isServiceCall) {
+    if (!isServiceCall && !publicSessionAccess) {
       const token = authorization.slice('Bearer '.length);
       const { data: authData, error: authError } = await supabase.auth.getUser(token);
       if (authError || !authData.user) {
@@ -63,15 +65,21 @@ serve(async (req) => {
       userId = authData.user.id;
     }
 
-    const { data: session, error: sessionError } = await supabase
+    let sessionQuery = supabase
       .from('sessions')
       .select(`
         id, center_id, professional_id, patient_id, price, session_type,
         session_date, access_token, status, payment_status, stripe_payment_status,
         patient:patients(email, first_name, last_name)
-      `)
-      .eq('id', session_id)
-      .single();
+      `);
+
+    if (publicSessionAccess) {
+      sessionQuery = sessionQuery.eq('access_token', session_access_token);
+    } else {
+      sessionQuery = sessionQuery.eq('id', requestedSessionId);
+    }
+
+    const { data: session, error: sessionError } = await sessionQuery.single();
 
     if (sessionError || !session) {
       console.error('Stripe checkout rejected: session not found', { session_id });

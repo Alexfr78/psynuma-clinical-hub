@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getOrCreatePublicShortLink } from "../_shared/publicShortLinks.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -94,33 +95,27 @@ serve(async (req) => {
       return v;
     })();
     
-    // Generate Stripe checkout link if needed
+    // Keep payment notifications on Psycma's short payment page. That page
+    // creates the Stripe Checkout session only after the patient clicks.
     let stripeCheckoutUrl = '';
-    if (include_stripe_link && center.oauth_stripe_credentials) {
-      try {
-        const { data: checkoutData, error: checkoutError } = await supabase.functions.invoke(
-          'create-debt-payment-checkout',
-          { 
-            body: { 
-              debt_id: debt.id,
-              success_url: `${baseUrl}/pago-exitoso?debt_id=${debt.id}`,
-              cancel_url: `${baseUrl}/pagar/${debt.access_token}`,
-            }
-          }
-        );
-        
-        if (!checkoutError && checkoutData?.url) {
-          stripeCheckoutUrl = checkoutData.url;
-        }
-      } catch (e) {
-        console.error('[send-payment-reminder] Error creating Stripe checkout:', e);
-      }
+    if (include_stripe_link && center.oauth_stripe_credentials && debt.access_token) {
+      stripeCheckoutUrl = await getOrCreatePublicShortLink({
+        supabase,
+        centerId: center.id,
+        targetType: "debt",
+        targetToken: debt.access_token,
+      }) || `${baseUrl}/pagar/${encodeURIComponent(debt.access_token)}`;
     }
 
     // Generate bono purchase link if needed
     let bonoPurchaseUrl = '';
-    if (include_bono_option) {
-      bonoPurchaseUrl = `${baseUrl}/pagar/${debt.access_token}?bono=1`;
+    if (include_bono_option && debt.access_token) {
+      bonoPurchaseUrl = await getOrCreatePublicShortLink({
+        supabase,
+        centerId: center.id,
+        targetType: "debt_bono",
+        targetToken: debt.access_token,
+      }) || `${baseUrl}/pagar/${encodeURIComponent(debt.access_token)}?bono=1`;
     }
 
     // Format session date

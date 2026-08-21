@@ -37,6 +37,7 @@ import {
 import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { usePublicSession, useUpdatePublicSession, usePublicSessionReschedule } from '@/hooks/usePublicSession';
+import { supabase } from '@/integrations/supabase/client';
 import { useState, useEffect, useRef } from 'react';
 import { Textarea } from '@/components/ui/textarea';
 import { formatLocationLine, summarizeLocationChange, isOnlineLocation, type RescheduleLocation } from '@/lib/reschedule-helpers';
@@ -77,6 +78,7 @@ export default function SessionManagement() {
   const [selectedLocationId, setSelectedLocationId] = useState<string>('');
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [paying, setPaying] = useState(false);
   const timeSlotsRef = useRef<HTMLDivElement>(null);
   const confirmActionsRef = useRef<HTMLDivElement>(null);
 
@@ -186,6 +188,10 @@ export default function SessionManagement() {
   const isPast = new Date(`${session.session_date}T${session.start_time}`) < new Date();
   const canTakeAction = !isPast && !['completed', 'cancelled', 'no_show'].includes(status);
   const isOnline = session.session_modality !== 'in_person';
+  const canPay = Number(session.price || 0) > 0
+    && !['paid', 'bono'].includes((session.payment_status || '').toLowerCase())
+    && session.stripe_payment_status !== 'paid'
+    && !['cancelled', 'completed', 'no_show'].includes(status);
 
   const handleConfirm = () => {
     if (token) {
@@ -197,6 +203,22 @@ export default function SessionManagement() {
     cancelSession({ 
       cancellation_reason: cancellationReason || 'Cancelada por el paciente'
     });
+  };
+
+  const handlePay = async () => {
+    if (!token || paying) return;
+    setPaying(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('create-stripe-checkout', {
+        body: { session_access_token: token },
+      });
+      if (error) throw error;
+      if (!data?.checkout_url) throw new Error(data?.error || 'No se pudo iniciar el pago');
+      window.location.href = data.checkout_url;
+    } catch (error) {
+      console.error('Error creating public session checkout:', error);
+      setPaying(false);
+    }
   };
 
   const handleCancelDialogOpenChange = (open: boolean) => {
@@ -648,6 +670,20 @@ export default function SessionManagement() {
           <Separator />
 
           {/* Actions */}
+          {canPay && (
+            <div className="mb-4">
+              <Button
+                className="w-full"
+                size="lg"
+                onClick={handlePay}
+                disabled={paying}
+              >
+                {paying ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+                {paying ? 'Preparando pago...' : 'Pagar con tarjeta'}
+              </Button>
+            </div>
+          )}
+
           {canTakeAction ? (
             <div className="space-y-3">
               {/* Confirm Button */}
