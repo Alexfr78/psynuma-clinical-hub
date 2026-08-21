@@ -25,6 +25,9 @@ export interface BookingTemplateVars {
   motivo?: string;
   centro_nombre?: string;
   link_sesion?: string;
+  link_videollamada?: string;
+  zoom_meeting_id?: string;
+  zoom_password?: string;
 }
 
 export interface RenderedTemplate {

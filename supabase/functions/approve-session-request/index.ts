@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { queueAndSendPatientBookingNotification } from "../_shared/bookingPatientNotifications.ts";
 import { autoApplyAvailableBonoToSession } from "../_shared/bonoAutomation.ts";
+import { createZoomMeetingForSession } from "../_shared/zoomMeeting.ts";
 import { resolvePatientCancellationPolicyForSession } from "../_shared/cancellationPolicy.ts";
 
 const corsHeaders = {
@@ -83,8 +84,11 @@ serve(async (req) => {
         patient_id,
         session_date,
         start_time,
+        end_time,
         session_type,
         session_modality,
+        professional_id,
+        zoom_meeting_id,
         status,
         location:center_locations(name)
       `)
@@ -144,6 +148,31 @@ serve(async (req) => {
     const bonoMessage = bonoResult.applied
       ? `Se ha descontado esta cita de tu bono. Sesiones pendientes: ${bonoResult.remainingSessions ?? 0}.`
       : undefined;
+
+    if (session.session_modality === "zoom" && !session.zoom_meeting_id) {
+      const { data: patient } = await supabase
+        .from("patients")
+        .select("first_name, last_name")
+        .eq("id", session.patient_id)
+        .maybeSingle();
+      const patientName = `${patient?.first_name || "Paciente"} ${patient?.last_name || ""}`.trim();
+      const zoomMeeting = await createZoomMeetingForSession({
+        professionalId: session.professional_id,
+        sessionDate: session.session_date,
+        startTime: session.start_time,
+        endTime: session.end_time,
+        topic: `Sesión con ${patientName}`,
+        patientName,
+      });
+      if (zoomMeeting) {
+        await supabase.from("sessions").update({
+          video_provider: "zoom",
+          video_call_link: zoomMeeting.join_url,
+          zoom_meeting_id: zoomMeeting.meeting_id,
+          zoom_password: zoomMeeting.password,
+        }).eq("id", session.id);
+      }
+    }
 
     const location = Array.isArray(session.location) ? session.location[0] : session.location;
     await queueAndSendPatientBookingNotification({

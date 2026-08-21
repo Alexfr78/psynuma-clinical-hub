@@ -243,6 +243,9 @@ export const BOOKING_TEMPLATE_VARIABLES = [
   { key: '{motivo}', label: 'Motivo (cancelación)', example: 'Imprevisto del paciente' },
   { key: '{centro_nombre}', label: 'Nombre del centro', example: 'Centro Psynuma' },
   { key: '{link_sesion}', label: 'Link para gestionar la cita', example: 'https://...' },
+  { key: '{link_videollamada}', label: 'Enlace de videollamada', example: 'https://zoom.us/j/...' },
+  { key: '{zoom_meeting_id}', label: 'ID de reunión Zoom', example: '84608877756' },
+  { key: '{zoom_password}', label: 'Contraseña de reunión Zoom', example: 'abc123' },
 ];
 
 // Payment reminder specific variables

@@ -846,6 +846,8 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
           session_modality: newModality,
           video_provider: 'zoom',
           video_call_link: data.join_url,
+          zoom_meeting_id: data.meeting_id ? String(data.meeting_id) : null,
+          zoom_password: data.password || null,
         });
 
         setLocalModality(newModality);
@@ -873,6 +875,8 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
           session_modality: newModality,
           video_provider: null,
           video_call_link: null,
+          zoom_meeting_id: null,
+          zoom_password: null,
         });
 
         setLocalModality(newModality);
@@ -899,6 +903,9 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
           id: session.id,
           session_modality: newModality,
           video_provider: null,
+          video_call_link: null,
+          zoom_meeting_id: null,
+          zoom_password: null,
         });
 
         setLocalModality(newModality);

@@ -105,6 +105,8 @@ interface SessionToRemind {
   session_type: string | null;
   session_modality: string | null;
   video_call_link: string | null;
+  zoom_meeting_id: string | null;
+  zoom_password: string | null;
   access_token: string | null;
   center_id: string;
   patient: {
@@ -311,6 +313,8 @@ function buildReminderMessage(
     ? `${baseUrl}/cita/${session.access_token}` 
     : '';
   const videoCallLink = session.video_call_link || '';
+  const zoomMeetingId = session.zoom_meeting_id || '';
+  const zoomPassword = session.zoom_password || '';
   
   // Build location/address string + Google Maps link (only for presencial)
   let direccion = '';
@@ -332,7 +336,7 @@ function buildReminderMessage(
 
   // If we have a template, use it with variable replacement
   if (template) {
-    return template
+    const rendered = template
       .replace(/\{nombre_paciente\}/g, session.patient.first_name)
       .replace(/\{profesional_nombre\}/g, professionalFirstName)
       .replace(/\{profesional_apellidos\}/g, professionalLastName)
@@ -344,7 +348,13 @@ function buildReminderMessage(
       .replace(/\{centro_nombre\}/g, center.name)
       .replace(/\{link_sesion\}/g, sessionLink)
       .replace(/\{link_confirmar\}/g, sessionLink ? `${sessionLink}?action=confirm` : '')
-      .replace(/\{link_videollamada\}/g, videoCallLink);
+      .replace(/\{link_videollamada\}/g, videoCallLink)
+      .replace(/\{zoom_meeting_id\}/g, zoomMeetingId)
+      .replace(/\{zoom_password\}/g, zoomPassword);
+    if (zoomPassword && !rendered.includes(zoomPassword)) {
+      return `${rendered}\n\nAcceso Zoom:\nID de reunión: ${zoomMeetingId}\nContraseña: ${zoomPassword}`;
+    }
+    return rendered;
   }
 
   // Fallback hardcoded message
@@ -359,6 +369,8 @@ function buildReminderMessage(
     if (mapsUrl) message += `🗺️ Ver en Google Maps: ${mapsUrl}\n`;
   }
   if (videoCallLink) message += `\n🔗 Enlace de videollamada: ${videoCallLink}\n`;
+  if (zoomMeetingId) message += `🆔 ID de reunión: ${zoomMeetingId}\n`;
+  if (zoomPassword) message += `🔑 Contraseña: ${zoomPassword}\n`;
   if (sessionLink) message += `\n🔗 Ver cita: ${sessionLink}\n`;
   message += `\nSi necesitas cancelar o reprogramar tu cita, por favor contáctanos con la mayor antelación posible.\n`;
   message += `\n✅ Responde *SÍ* a este mensaje para confirmar tu asistencia.\n`;
@@ -539,6 +551,8 @@ serve(async (req) => {
           session_type,
           session_modality,
           video_call_link,
+          zoom_meeting_id,
+          zoom_password,
           access_token,
           center_id,
           patient:patients!sessions_patient_id_fkey(

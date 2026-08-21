@@ -32,6 +32,9 @@ export interface BookingNotificationArgs {
   manageUrl?: string;
   includeAdvancePaymentBlock?: boolean;
   extraMessage?: string;
+  zoomMeetingId?: string | null;
+  zoomPassword?: string | null;
+  videoCallLink?: string | null;
 }
 
 function formatDateSpanish(dateStr: string): string {
@@ -103,10 +106,10 @@ export async function queueAndSendPatientBookingNotification(args: BookingNotifi
     let sessionModality = args.sessionModality;
     let locationName = args.locationName;
 
-    if (!sessionDate || !startTime) {
+    {
       const { data: sessionData } = await supabase
         .from("sessions")
-        .select("session_date, start_time, session_type, session_modality, location_id")
+        .select("session_date, start_time, session_type, session_modality, location_id, video_call_link, zoom_meeting_id, zoom_password")
         .eq("id", sessionId)
         .single();
 
@@ -115,6 +118,9 @@ export async function queueAndSendPatientBookingNotification(args: BookingNotifi
         startTime = startTime || sessionData.start_time;
         sessionType = sessionType || sessionData.session_type;
         sessionModality = sessionModality || sessionData.session_modality;
+        args.videoCallLink = args.videoCallLink || sessionData.video_call_link;
+        args.zoomMeetingId = args.zoomMeetingId || sessionData.zoom_meeting_id;
+        args.zoomPassword = args.zoomPassword || sessionData.zoom_password;
 
         if (!locationName && sessionData.location_id) {
           const { data: loc } = await supabase
@@ -214,6 +220,9 @@ export async function queueAndSendPatientBookingNotification(args: BookingNotifi
         ubicacion: locationName || '',
         motivo: args.reason || '',
         link_sesion: fullManageUrl,
+        link_videollamada: args.videoCallLink || '',
+        zoom_meeting_id: args.zoomMeetingId || '',
+        zoom_password: args.zoomPassword || '',
       },
     );
 
@@ -221,6 +230,18 @@ export async function queueAndSendPatientBookingNotification(args: BookingNotifi
     let message = rendered.message;
     if (args.extraMessage) {
       message = [message, args.extraMessage].filter(Boolean).join('\n\n');
+    }
+
+    const missingZoomDetails = sessionModality === 'zoom' && (
+      (!!args.videoCallLink && !message.includes(args.videoCallLink))
+      || (!!args.zoomMeetingId && !message.includes(args.zoomMeetingId))
+      || (!!args.zoomPassword && !message.includes(args.zoomPassword))
+    );
+    if (missingZoomDetails) {
+      message = [
+        message,
+        `Acceso Zoom:\nEnlace: ${args.videoCallLink || ''}\nID de reunión: ${args.zoomMeetingId || ''}\nContraseña: ${args.zoomPassword}`,
+      ].filter(Boolean).join('\n\n');
     }
 
     if (eventType === 'created' && args.includeAdvancePaymentBlock) {

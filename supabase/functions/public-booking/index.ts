@@ -15,6 +15,7 @@ import {
   APP_TZ,
 } from "../_shared/special-days-adapter.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
+import { createZoomMeetingForSession } from "../_shared/zoomMeeting.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -1533,7 +1534,17 @@ serve(async (req) => {
       }
 
       // ===== Create session =====
-      const sessionModality = location.location_type === 'online' ? 'online' : 'in_person';
+      let sessionModality = location.location_type === 'online' ? 'online' : 'in_person';
+      if (sessionModality === 'online') {
+        const { data: videoIntegration } = await supabase
+          .from('professional_integrations')
+          .select('default_video_provider, zoom_enabled')
+          .eq('professional_id', finalProfessionalId)
+          .maybeSingle();
+        if (videoIntegration?.default_video_provider === 'zoom' && videoIntegration.zoom_enabled) {
+          sessionModality = 'zoom';
+        }
+      }
       const baseStatus = center.portal_require_approval ? "pending_approval" : "scheduled";
       const { data: stripePaymentDefaults, error: stripeDefaultsError } = await supabase
         .from('professional_integrations')
@@ -1619,6 +1630,37 @@ serve(async (req) => {
           JSON.stringify({ error: "Error al crear la cita" }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
+      }
+
+      if (sessionModality === 'zoom') {
+        const patientName = `${patient.firstName.trim()} ${patient.lastName.trim()}`;
+        const zoomMeeting = await createZoomMeetingForSession({
+          professionalId: finalProfessionalId,
+          sessionDate,
+          startTime,
+          endTime,
+          topic: `Sesión con ${patientName}`,
+          patientName,
+        });
+
+        if (zoomMeeting) {
+          await supabase.from('sessions').update({
+            video_provider: 'zoom',
+            video_call_link: zoomMeeting.join_url,
+            zoom_meeting_id: zoomMeeting.meeting_id,
+            zoom_password: zoomMeeting.password,
+          }).eq('id', newSession.id);
+        } else {
+          sessionModality = 'online';
+          await supabase.from('sessions').update({
+            session_modality: 'online',
+            video_provider: null,
+            video_call_link: null,
+            zoom_meeting_id: null,
+            zoom_password: null,
+          }).eq('id', newSession.id);
+          console.warn(`[create-booking] Zoom meeting unavailable; kept session online sessionId=${newSession.id}`);
+        }
       }
 
       const bonoResult = await autoApplyAvailableBonoToSession(supabase, {
@@ -1720,7 +1762,7 @@ serve(async (req) => {
 
       // Generate booking token (async now for HMAC signing)
       const bookingToken = await generateBookingToken(newSession.id, patientId, center.id);
-      const manageUrl = `/book/${centerSlug}/manage?token=${bookingToken}`;
+      const manageUrl = `/book/${encodeURIComponent(centerSlug)}/manage?token=${encodeURIComponent(bookingToken)}`;
 
       console.log(`[create-booking] success sessionId=${newSession.id} status=${status}`);
 
