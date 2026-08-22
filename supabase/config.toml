@@ -63,9 +63,13 @@ project_id = "zprkdxmluvirxfhswrzq"
     verify_jwt = false
   [functions.patient-portal-auth]
     verify_jwt = false
+  [functions.patient-portal-account]
+    verify_jwt = false
   [functions.patient-portal-otp]
     verify_jwt = false
   [functions.patient-portal-invoices]
+    verify_jwt = false
+  [functions.patient-portal-documents]
     verify_jwt = false
   [functions.patient-portal-register]
     verify_jwt = false

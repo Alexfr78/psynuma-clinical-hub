@@ -6,8 +6,8 @@ import {
   CalendarPlus,
   CircleUserRound,
   FileText,
+  Files,
   Loader2,
-  LogOut,
   ReceiptText,
   User,
   WalletCards,
@@ -22,6 +22,8 @@ import { PortalBooking } from '@/components/portal/PortalBooking';
 import { PortalPaymentMethod } from '@/components/portal/PortalPaymentMethod';
 import { PortalInvoices, type PortalInvoice } from '@/components/portal/PortalInvoices';
 import { PortalFinanceOverview, type PortalFinanceData } from '@/components/portal/PortalFinanceOverview';
+import { PortalDocuments, type PortalDocument } from '@/components/portal/PortalDocuments';
+import { PortalAccount, type PortalAccountData } from '@/components/portal/PortalAccount';
 import { PortalNavigation, type PortalMainSection } from '@/components/portal/PortalNavigation';
 import { redirectTopLevel } from '@/lib/redirect';
 import { supabase } from '@/integrations/supabase/client';
@@ -36,7 +38,7 @@ interface RescheduleTarget {
 
 type PortalSection = PortalMainSection | 'booking';
 
-const validSections = new Set<PortalSection>(['home', 'appointments', 'payments', 'account', 'booking']);
+const validSections = new Set<PortalSection>(['home', 'appointments', 'documents', 'payments', 'account', 'booking']);
 
 function parseSection(value: string | null): PortalSection {
   return value && validSections.has(value as PortalSection) ? value as PortalSection : 'home';
@@ -80,6 +82,54 @@ export default function PatientPortalDashboard() {
   const [invoicesLoading, setInvoicesLoading] = useState(false);
   const [invoicesFetched, setInvoicesFetched] = useState(false);
   const [invoicesError, setInvoicesError] = useState<string | null>(null);
+  const [documents, setDocuments] = useState<PortalDocument[]>([]);
+  const [documentsLoading, setDocumentsLoading] = useState(false);
+  const [documentsFetched, setDocumentsFetched] = useState(false);
+  const [documentsError, setDocumentsError] = useState<string | null>(null);
+  const [accountData, setAccountData] = useState<PortalAccountData | null>(null);
+  const [accountLoading, setAccountLoading] = useState(false);
+  const [accountFetched, setAccountFetched] = useState(false);
+  const [accountError, setAccountError] = useState<string | null>(null);
+
+  const fetchAccount = useCallback(async () => {
+    const currentToken = localStorage.getItem(`portal_session_${slug}`);
+    if (!currentToken) return;
+    setAccountLoading(true);
+    setAccountError(null);
+    try {
+      const { data, error } = await supabase.functions.invoke('patient-portal-account', {
+        body: { action: 'get', sessionToken: currentToken },
+      });
+      if (error || data?.error) throw error || new Error(data.error);
+      setAccountData(data as PortalAccountData);
+    } catch (error) {
+      console.error('Error fetching portal account:', error);
+      setAccountError('No se pudieron cargar los datos de tu cuenta. Comprueba la conexión e inténtalo de nuevo.');
+    } finally {
+      setAccountLoading(false);
+      setAccountFetched(true);
+    }
+  }, [slug]);
+
+  const fetchDocuments = useCallback(async () => {
+    const currentToken = localStorage.getItem(`portal_session_${slug}`);
+    if (!currentToken) return;
+    setDocumentsLoading(true);
+    setDocumentsError(null);
+    try {
+      const { data, error } = await supabase.functions.invoke('patient-portal-documents', {
+        body: { action: 'list', sessionToken: currentToken },
+      });
+      if (error || data?.error) throw error || new Error(data.error);
+      setDocuments(data?.documents || []);
+    } catch (error) {
+      console.error('Error fetching portal documents:', error);
+      setDocumentsError('No se pudieron cargar tus documentos. Comprueba la conexión e inténtalo de nuevo.');
+    } finally {
+      setDocumentsLoading(false);
+      setDocumentsFetched(true);
+    }
+  }, [slug]);
 
   const fetchInvoices = useCallback(async () => {
     const currentToken = localStorage.getItem(`portal_session_${slug}`);
@@ -120,10 +170,12 @@ export default function PatientPortalDashboard() {
   const changeSection = useCallback((section: PortalSection) => {
     if (section !== 'booking') setRescheduleTarget(null);
     if (section === 'payments' && !invoicesFetched && !invoicesLoading) void fetchInvoices();
+    if (section === 'documents' && !documentsFetched && !documentsLoading) void fetchDocuments();
+    if (section === 'account' && !accountFetched && !accountLoading) void fetchAccount();
     setActiveSection(section);
     navigate(`/portal/${slug}/dashboard?section=${section}`, { replace: true });
     window.scrollTo({ top: 0, behavior: 'auto' });
-  }, [fetchInvoices, invoicesFetched, invoicesLoading, navigate, slug]);
+  }, [accountFetched, accountLoading, documentsFetched, documentsLoading, fetchAccount, fetchDocuments, fetchInvoices, invoicesFetched, invoicesLoading, navigate, slug]);
 
   useEffect(() => {
     if (!token) setActiveSection(parseSection(searchParams.get('section')));
@@ -148,8 +200,10 @@ export default function PatientPortalDashboard() {
     if (isAuthenticated) {
       void fetchSessions();
       if (!invoicesFetched && !invoicesLoading) void fetchInvoices();
+      if (!documentsFetched && !documentsLoading) void fetchDocuments();
+      if (!accountFetched && !accountLoading) void fetchAccount();
     }
-  }, [isAuthenticated, fetchSessions, fetchInvoices, invoicesFetched, invoicesLoading]);
+  }, [accountFetched, accountLoading, documentsFetched, documentsLoading, fetchAccount, fetchDocuments, isAuthenticated, fetchSessions, fetchInvoices, invoicesFetched, invoicesLoading]);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated && !token && !verifying) navigate(`/portal/${slug}`);
@@ -219,6 +273,7 @@ export default function PatientPortalDashboard() {
   const nextAppointment = sessions.upcoming[0];
   const pendingCardCount = sessions.upcoming.filter((session) => session.status === 'draft').length;
   const pendingInvoiceCount = invoices.filter((invoice) => invoice.status === 'issued').length;
+  const pendingDocumentCount = documents.filter((document) => ['pending', 'in_progress'].includes(document.status)).length;
   const completedAppointments = sessions.past.filter((session) => session.status !== 'cancelled');
   const cancelledAppointments = sessions.past.filter((session) => session.status === 'cancelled');
 
@@ -256,7 +311,7 @@ export default function PatientPortalDashboard() {
               <p className="text-sm leading-6 text-muted-foreground sm:text-base">Aquí tienes lo más importante de tu atención con {center?.name}.</p>
             </section>
 
-            {(pendingCardCount > 0 || pendingInvoiceCount > 0) && (
+            {(pendingCardCount > 0 || pendingInvoiceCount > 0 || pendingDocumentCount > 0) && (
               <Alert>
                 <WalletCards className="h-4 w-4" aria-hidden="true" />
                 <AlertTitle>Tienes acciones pendientes</AlertTitle>
@@ -265,8 +320,10 @@ export default function PatientPortalDashboard() {
                     {pendingCardCount > 0 && `${pendingCardCount} reserva${pendingCardCount > 1 ? 's' : ''} pendiente${pendingCardCount > 1 ? 's' : ''} de tarjeta.`}
                     {pendingCardCount > 0 && pendingInvoiceCount > 0 ? ' ' : ''}
                     {pendingInvoiceCount > 0 && `${pendingInvoiceCount} factura${pendingInvoiceCount > 1 ? 's' : ''} emitida${pendingInvoiceCount > 1 ? 's' : ''}.`}
+                    {(pendingCardCount > 0 || pendingInvoiceCount > 0) && pendingDocumentCount > 0 ? ' ' : ''}
+                    {pendingDocumentCount > 0 && `${pendingDocumentCount} documento${pendingDocumentCount > 1 ? 's' : ''} pendiente${pendingDocumentCount > 1 ? 's' : ''}.`}
                   </span>
-                  <Button variant="outline" size="sm" className="min-h-11 shrink-0" onClick={() => changeSection('payments')}>Revisar pagos</Button>
+                  <Button variant="outline" size="sm" className="min-h-11 shrink-0" onClick={() => changeSection(pendingDocumentCount > 0 ? 'documents' : 'payments')}>Revisar pendientes</Button>
                 </AlertDescription>
               </Alert>
             )}
@@ -304,7 +361,7 @@ export default function PatientPortalDashboard() {
 
             <section aria-labelledby="quick-actions" className="space-y-3">
               <h2 id="quick-actions" className="text-lg font-semibold">Acciones rápidas</h2>
-              <div className="grid gap-3 sm:grid-cols-3">
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <Button className="min-h-14 justify-start" onClick={() => changeSection('booking')}>
                   <CalendarPlus className="mr-3 h-5 w-5" aria-hidden="true" />Solicitar nueva cita
                 </Button>
@@ -313,6 +370,9 @@ export default function PatientPortalDashboard() {
                 </Button>
                 <Button variant="outline" className="min-h-14 justify-start" onClick={() => changeSection('payments')}>
                   <ReceiptText className="mr-3 h-5 w-5" aria-hidden="true" />Consultar facturas
+                </Button>
+                <Button variant="outline" className="min-h-14 justify-start" onClick={() => changeSection('documents')}>
+                  <Files className="mr-3 h-5 w-5" aria-hidden="true" />Ver documentos
                 </Button>
               </div>
             </section>
@@ -382,23 +442,25 @@ export default function PatientPortalDashboard() {
           </section>
         )}
 
+        {activeSection === 'documents' && (
+          <section aria-labelledby="documents-title" className="space-y-4">
+            <div><h1 id="documents-title" className="text-2xl font-semibold tracking-tight">Documentos</h1><p className="mt-1 text-sm text-muted-foreground">Firma consentimientos y completa las tareas que te haya enviado tu profesional.</p></div>
+            {documentsError ? (
+              <Alert variant="destructive"><AlertTitle>No se pudieron cargar los documentos</AlertTitle><AlertDescription className="mt-2 space-y-3"><p>{documentsError}</p><Button variant="outline" size="sm" className="min-h-11" onClick={() => void fetchDocuments()}>Reintentar</Button></AlertDescription></Alert>
+            ) : (
+              <PortalDocuments documents={documents} loading={documentsLoading} />
+            )}
+          </section>
+        )}
+
         {activeSection === 'account' && (
           <section aria-labelledby="account-title" className="space-y-4">
-            <div><h1 id="account-title" className="text-2xl font-semibold tracking-tight">Mi cuenta</h1><p className="mt-1 text-sm text-muted-foreground">Tus datos de acceso al portal.</p></div>
-            <Card>
-              <CardHeader><CardTitle className="flex items-center gap-2 text-lg"><CircleUserRound className="h-5 w-5 text-primary" aria-hidden="true" />Datos personales</CardTitle><CardDescription>Para modificar estos datos, contacta con tu centro.</CardDescription></CardHeader>
-              <CardContent>
-                <dl className="grid gap-4 sm:grid-cols-2">
-                  <div className="rounded-lg border bg-muted/20 p-4"><dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Nombre</dt><dd className="mt-1 font-medium">{patient?.firstName} {patient?.lastName}</dd></div>
-                  <div className="rounded-lg border bg-muted/20 p-4"><dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Correo electrónico</dt><dd className="mt-1 break-all font-medium">{patient?.email || 'No disponible'}</dd></div>
-                  <div className="rounded-lg border bg-muted/20 p-4 sm:col-span-2"><dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Centro</dt><dd className="mt-1 font-medium">{center?.name}</dd></div>
-                </dl>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader><CardTitle className="text-lg">Seguridad</CardTitle><CardDescription>Cierra la sesión cuando uses un dispositivo compartido.</CardDescription></CardHeader>
-              <CardContent><Button variant="outline" className="min-h-11 w-full text-destructive hover:bg-destructive hover:text-destructive-foreground sm:w-auto" onClick={handleLogout}><LogOut className="mr-2 h-4 w-4" aria-hidden="true" />Cerrar sesión</Button></CardContent>
-            </Card>
+            <div><h1 id="account-title" className="text-2xl font-semibold tracking-tight">Mi cuenta</h1><p className="mt-1 text-sm text-muted-foreground">Datos personales, comunicaciones y ayuda administrativa.</p></div>
+            {accountError ? (
+              <Alert variant="destructive"><AlertTitle>No se pudo cargar tu cuenta</AlertTitle><AlertDescription className="mt-2 space-y-3"><p>{accountError}</p><Button variant="outline" size="sm" className="min-h-11" onClick={() => void fetchAccount()}>Reintentar</Button></AlertDescription></Alert>
+            ) : (
+              <PortalAccount data={accountData} loading={accountLoading} onLogout={handleLogout} />
+            )}
           </section>
         )}
 

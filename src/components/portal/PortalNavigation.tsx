@@ -1,7 +1,7 @@
-import { CalendarDays, CircleUserRound, Home, WalletCards } from 'lucide-react';
+import { CalendarDays, CircleUserRound, Files, Home, WalletCards } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-export type PortalMainSection = 'home' | 'appointments' | 'payments' | 'account';
+export type PortalMainSection = 'home' | 'appointments' | 'documents' | 'payments' | 'account';
 
 interface PortalNavigationProps {
   activeSection: PortalMainSection;
@@ -11,6 +11,7 @@ interface PortalNavigationProps {
 const items = [
   { id: 'home' as const, label: 'Inicio', icon: Home },
   { id: 'appointments' as const, label: 'Citas', icon: CalendarDays },
+  { id: 'documents' as const, label: 'Documentos', icon: Files },
   { id: 'payments' as const, label: 'Pagos', icon: WalletCards },
   { id: 'account' as const, label: 'Mi cuenta', icon: CircleUserRound },
 ];
@@ -19,7 +20,7 @@ export function PortalNavigation({ activeSection, onSelect }: PortalNavigationPr
   return (
     <>
       <nav aria-label="Secciones del portal" className="hidden rounded-xl border bg-card p-1.5 shadow-sm md:block">
-        <div className="grid grid-cols-4 gap-1">
+        <div className="grid grid-cols-5 gap-1">
           {items.map((item) => {
             const Icon = item.icon;
             const selected = activeSection === item.id;
@@ -48,7 +49,7 @@ export function PortalNavigation({ activeSection, onSelect }: PortalNavigationPr
         aria-label="Secciones del portal"
         className="fixed inset-x-0 bottom-0 z-30 border-t bg-card/95 px-2 pt-2 shadow-[0_-8px_24px_-16px_hsl(var(--foreground)/0.35)] backdrop-blur supports-[backdrop-filter]:bg-card/90 md:hidden"
       >
-        <div className="mx-auto grid max-w-lg grid-cols-4 gap-1 pb-[calc(env(safe-area-inset-bottom)+0.5rem)]">
+        <div className="mx-auto grid max-w-lg grid-cols-5 gap-1 pb-[calc(env(safe-area-inset-bottom)+0.5rem)]">
           {items.map((item) => {
             const Icon = item.icon;
             const selected = activeSection === item.id;
