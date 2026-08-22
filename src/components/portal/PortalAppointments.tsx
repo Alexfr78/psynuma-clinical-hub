@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { SESSION_STATUS_LABELS, getSessionStatusDisplay } from '@/lib/payment-status';
+import type { PortalSession } from '@/hooks/usePatientPortal';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,35 +19,13 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 
-interface Session {
-  id: string;
-  session_date: string;
-  start_time: string;
-  end_time: string;
-  status: string;
-  session_type: string;
-  session_modality: string;
-  notes: string | null;
-  professional: {
-    id: string;
-    first_name: string;
-    last_name: string;
-  } | null;
-  location: {
-    id: string;
-    name: string;
-    street: string;
-    city: string;
-  } | null;
-}
-
 interface PortalAppointmentsProps {
-  sessions: Session[];
+  sessions: PortalSession[];
   loading: boolean;
   onCancel?: (sessionId: string) => Promise<void>;
   onCancellationPreview?: (sessionId: string) => Promise<CancellationPolicyPreview | null>;
   onConfirm?: (sessionId: string) => Promise<void>;
-  onReschedule?: (session: Session) => void;
+  onReschedule?: (session: PortalSession) => void;
   onSaveCard?: (sessionId: string) => Promise<void> | void;
   isPast?: boolean;
   emptyMessage?: string;

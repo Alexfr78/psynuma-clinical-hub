@@ -54,7 +54,7 @@ interface Center {
   slug: string;
 }
 
-interface Session {
+export interface PortalSession {
   id: string;
   session_date: string;
   start_time: string;
@@ -103,7 +103,7 @@ export function usePatientPortal(centerSlug?: string) {
     sessionToken: null,
   });
 
-  const [sessions, setSessions] = useState<{ upcoming: Session[]; past: Session[] }>({
+  const [sessions, setSessions] = useState<{ upcoming: PortalSession[]; past: PortalSession[] }>({
     upcoming: [],
     past: [],
   });
