@@ -4669,6 +4669,67 @@ export type Database = {
           },
         ]
       }
+      public_short_links: {
+        Row: {
+          access_count: number
+          center_id: string
+          code: string
+          created_at: string
+          expires_at: string | null
+          id: string
+          last_accessed_at: string | null
+          revoked_at: string | null
+          target_token: string
+          target_type: string
+        }
+        Insert: {
+          access_count?: number
+          center_id: string
+          code: string
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          last_accessed_at?: string | null
+          revoked_at?: string | null
+          target_token: string
+          target_type: string
+        }
+        Update: {
+          access_count?: number
+          center_id?: string
+          code?: string
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          last_accessed_at?: string | null
+          revoked_at?: string | null
+          target_token?: string
+          target_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "public_short_links_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "public_short_links_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "public_short_links_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "portal_centers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rate_limit_log: {
         Row: {
           action: string
