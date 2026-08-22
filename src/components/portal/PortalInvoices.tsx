@@ -136,24 +136,25 @@ export function PortalInvoices({ invoices, loading, sessionToken }: PortalInvoic
                     </p>
                   </div>
 
-                  <div className="flex gap-1">
+                  <div className="flex flex-wrap gap-2">
                     {invoice.access_token && (
-                      <Button variant="ghost" size="icon" onClick={() => handleView(invoice)} title="Ver factura">
-                        <ExternalLink className="h-4 w-4" />
+                      <Button variant="outline" size="sm" className="min-h-11" onClick={() => handleView(invoice)}>
+                        <ExternalLink className="mr-2 h-4 w-4" aria-hidden="true" />Ver
                       </Button>
                     )}
                     <Button
-                      variant="ghost"
-                      size="icon"
+                      variant="outline"
+                      size="sm"
+                      className="min-h-11"
                       onClick={() => handleDownload(invoice)}
                       disabled={downloadingId === invoice.id}
-                      title="Descargar PDF"
                     >
                       {downloadingId === invoice.id ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
                       ) : (
-                        <Download className="h-4 w-4" />
+                        <Download className="mr-2 h-4 w-4" aria-hidden="true" />
                       )}
+                      Descargar
                     </Button>
                   </div>
                 </div>

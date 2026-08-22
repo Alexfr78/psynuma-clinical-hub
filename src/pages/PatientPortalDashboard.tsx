@@ -21,6 +21,7 @@ import { PortalAppointments } from '@/components/portal/PortalAppointments';
 import { PortalBooking } from '@/components/portal/PortalBooking';
 import { PortalPaymentMethod } from '@/components/portal/PortalPaymentMethod';
 import { PortalInvoices, type PortalInvoice } from '@/components/portal/PortalInvoices';
+import { PortalFinanceOverview, type PortalFinanceData } from '@/components/portal/PortalFinanceOverview';
 import { PortalNavigation, type PortalMainSection } from '@/components/portal/PortalNavigation';
 import { redirectTopLevel } from '@/lib/redirect';
 import { supabase } from '@/integrations/supabase/client';
@@ -71,10 +72,11 @@ export default function PatientPortalDashboard() {
   } = usePatientPortal(slug);
 
   const [activeSection, setActiveSection] = useState<PortalSection>(() => parseSection(searchParams.get('section')));
-  const [appointmentsView, setAppointmentsView] = useState<'upcoming' | 'history'>('upcoming');
+  const [appointmentsView, setAppointmentsView] = useState<'upcoming' | 'history' | 'cancelled'>('upcoming');
   const [verifying, setVerifying] = useState(false);
   const [rescheduleTarget, setRescheduleTarget] = useState<RescheduleTarget | null>(null);
   const [invoices, setInvoices] = useState<PortalInvoice[]>([]);
+  const [finance, setFinance] = useState<PortalFinanceData>({ debts: [], bonos: [], payments: [] });
   const [invoicesLoading, setInvoicesLoading] = useState(false);
   const [invoicesFetched, setInvoicesFetched] = useState(false);
   const [invoicesError, setInvoicesError] = useState<string | null>(null);
@@ -86,11 +88,26 @@ export default function PatientPortalDashboard() {
     setInvoicesLoading(true);
     setInvoicesError(null);
     try {
-      const { data, error } = await supabase.functions.invoke('patient-portal-invoices', {
-        body: { action: 'list', sessionToken: currentToken },
+      const [invoiceResult, financeResult] = await Promise.all([
+        supabase.functions.invoke('patient-portal-invoices', {
+          body: { action: 'list', sessionToken: currentToken },
+        }),
+        supabase.functions.invoke('patient-portal-invoices', {
+          body: { action: 'finance-summary', sessionToken: currentToken },
+        }),
+      ]);
+      if (invoiceResult.error || invoiceResult.data?.error) {
+        throw invoiceResult.error || new Error(invoiceResult.data.error);
+      }
+      if (financeResult.error || financeResult.data?.error) {
+        throw financeResult.error || new Error(financeResult.data.error);
+      }
+      setInvoices(invoiceResult.data?.invoices || []);
+      setFinance({
+        debts: financeResult.data?.debts || [],
+        bonos: financeResult.data?.bonos || [],
+        payments: financeResult.data?.payments || [],
       });
-      if (error || data?.error) throw error || new Error(data.error);
-      setInvoices(data?.invoices || []);
     } catch (error) {
       console.error('Error fetching invoices:', error);
       setInvoicesError('No se pudieron cargar tus facturas. Comprueba la conexión e inténtalo de nuevo.');
@@ -202,6 +219,8 @@ export default function PatientPortalDashboard() {
   const nextAppointment = sessions.upcoming[0];
   const pendingCardCount = sessions.upcoming.filter((session) => session.status === 'draft').length;
   const pendingInvoiceCount = invoices.filter((invoice) => invoice.status === 'issued').length;
+  const completedAppointments = sessions.past.filter((session) => session.status !== 'cancelled');
+  const cancelledAppointments = sessions.past.filter((session) => session.status === 'cancelled');
 
   return (
     <div className="min-h-dvh bg-gradient-to-br from-background via-background to-muted/40">
@@ -312,10 +331,11 @@ export default function PatientPortalDashboard() {
               </Button>
             </div>
 
-            <Tabs value={appointmentsView} onValueChange={(value) => setAppointmentsView(value as 'upcoming' | 'history')}>
-              <TabsList className="grid h-auto min-h-12 w-full grid-cols-2">
-                <TabsTrigger value="upcoming" className="min-h-10">Próximas</TabsTrigger>
-                <TabsTrigger value="history" className="min-h-10">Historial</TabsTrigger>
+            <Tabs value={appointmentsView} onValueChange={(value) => setAppointmentsView(value as 'upcoming' | 'history' | 'cancelled')}>
+              <TabsList className="grid h-auto min-h-12 w-full grid-cols-3">
+                <TabsTrigger value="upcoming" className="min-h-11">Próximas ({sessions.upcoming.length})</TabsTrigger>
+                <TabsTrigger value="history" className="min-h-11">Anteriores ({completedAppointments.length})</TabsTrigger>
+                <TabsTrigger value="cancelled" className="min-h-11">Canceladas ({cancelledAppointments.length})</TabsTrigger>
               </TabsList>
               <TabsContent value="upcoming" className="mt-4">
                 <Card>
@@ -328,7 +348,13 @@ export default function PatientPortalDashboard() {
               <TabsContent value="history" className="mt-4">
                 <Card>
                   <CardHeader><CardTitle className="text-lg">Historial</CardTitle><CardDescription>Sesiones anteriores y citas canceladas</CardDescription></CardHeader>
-                  <CardContent><PortalAppointments sessions={sessions.past} loading={sessionsLoading} isPast emptyMessage="No tienes citas anteriores" /></CardContent>
+                  <CardContent><PortalAppointments sessions={completedAppointments} loading={sessionsLoading} isPast emptyMessage="No tienes citas anteriores" /></CardContent>
+                </Card>
+              </TabsContent>
+              <TabsContent value="cancelled" className="mt-4">
+                <Card>
+                  <CardHeader><CardTitle className="text-lg">Citas canceladas</CardTitle><CardDescription>Reservas que fueron canceladas</CardDescription></CardHeader>
+                  <CardContent><PortalAppointments sessions={cancelledAppointments} loading={sessionsLoading} isPast isCancelled emptyMessage="No tienes citas canceladas" /></CardContent>
                 </Card>
               </TabsContent>
             </Tabs>
@@ -338,6 +364,7 @@ export default function PatientPortalDashboard() {
         {activeSection === 'payments' && (
           <section aria-labelledby="payments-title" className="space-y-4">
             <div><h1 id="payments-title" className="text-2xl font-semibold tracking-tight">Pagos y facturas</h1><p className="mt-1 text-sm text-muted-foreground">Consulta tus facturas y el método de pago guardado.</p></div>
+            <PortalFinanceOverview data={finance} loading={invoicesLoading} />
             <PortalPaymentMethod getPaymentMethod={getPaymentMethod} removePaymentMethod={removePaymentMethod} />
             <Card>
               <CardHeader><CardTitle className="flex items-center gap-2 text-lg"><FileText className="h-5 w-5 text-primary" aria-hidden="true" />Facturas</CardTitle><CardDescription>Tus facturas emitidas</CardDescription></CardHeader>

@@ -62,6 +62,9 @@ export interface PortalSession {
   status: string;
   session_type: string;
   session_modality: string;
+  payment_status: string | null;
+  video_call_link: string | null;
+  video_provider: string | null;
   professional: {
     id: string;
     first_name: string;

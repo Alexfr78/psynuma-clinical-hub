@@ -1,6 +1,6 @@
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Calendar, Clock, User, MapPin, Loader2, CheckCircle, XCircle, AlertCircle, RefreshCw, CreditCard } from 'lucide-react';
+import { Calendar, CalendarPlus, Clock, User, MapPin, Loader2, CheckCircle, XCircle, AlertCircle, RefreshCw, CreditCard, ExternalLink, Video } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -28,6 +28,7 @@ interface PortalAppointmentsProps {
   onReschedule?: (session: PortalSession) => void;
   onSaveCard?: (sessionId: string) => Promise<void> | void;
   isPast?: boolean;
+  isCancelled?: boolean;
   emptyMessage?: string;
 }
 
@@ -60,6 +61,7 @@ export function PortalAppointments({
   onReschedule,
   onSaveCard,
   isPast = false,
+  isCancelled = false,
   emptyMessage = 'No hay citas',
 }: PortalAppointmentsProps) {
   const [cancelDialogSessionId, setCancelDialogSessionId] = useState<string | null>(null);
@@ -79,6 +81,38 @@ export function PortalAppointments({
     } finally {
       setCancellationPreviewLoading(false);
     }
+  };
+
+  const addToCalendar = (session: PortalSession) => {
+    const compact = (value: string) => value.replace(/[-:]/g, '').slice(0, 6);
+    const start = `${session.session_date.replace(/-/g, '')}T${compact(session.start_time)}`;
+    const end = `${session.session_date.replace(/-/g, '')}T${compact(session.end_time)}`;
+    const professional = session.professional
+      ? `${session.professional.first_name} ${session.professional.last_name}`
+      : '';
+    const location = session.video_call_link
+      || [session.location?.name, session.location?.street, session.location?.city].filter(Boolean).join(', ');
+    const escapeIcs = (value: string) => value.replace(/([,;\\])/g, '\\$1').replace(/\n/g, '\\n');
+    const calendar = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//Psycma//Portal del paciente//ES',
+      'BEGIN:VEVENT',
+      `UID:${session.id}@psycma`,
+      `DTSTART:${start}`,
+      `DTEND:${end}`,
+      `SUMMARY:${escapeIcs(session.session_type || 'Cita')}`,
+      professional ? `DESCRIPTION:${escapeIcs(`Cita con ${professional}`)}` : '',
+      location ? `LOCATION:${escapeIcs(location)}` : '',
+      'END:VEVENT',
+      'END:VCALENDAR',
+    ].filter(Boolean).join('\r\n');
+    const url = URL.createObjectURL(new Blob([calendar], { type: 'text/calendar;charset=utf-8' }));
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `cita-${session.session_date}.ics`;
+    anchor.click();
+    URL.revokeObjectURL(url);
   };
 
   if (loading) {
@@ -103,21 +137,29 @@ export function PortalAppointments({
       {sessions.map((session) => {
         const status = statusConfig[session.status] || statusConfig.scheduled;
         const StatusIcon = status.icon;
-        const canCancel = !isPast && ['scheduled', 'confirmed', 'pending_approval', 'draft'].includes(session.status);
-        const canConfirm = !isPast && session.status === 'scheduled';
-        const canReschedule = !isPast && ['scheduled', 'confirmed'].includes(session.status);
-        const canSaveCard = !isPast && session.status === 'draft' && !!onSaveCard;
+        const canCancel = !isPast && !isCancelled && ['scheduled', 'confirmed', 'pending_approval', 'draft'].includes(session.status);
+        const canConfirm = !isPast && !isCancelled && session.status === 'scheduled';
+        const canReschedule = !isPast && !isCancelled && ['scheduled', 'confirmed'].includes(session.status);
+        const canSaveCard = !isPast && !isCancelled && session.status === 'draft' && !!onSaveCard;
+        const canJoinVideo = !isPast
+          && !isCancelled
+          && ['scheduled', 'confirmed'].includes(session.status)
+          && !!session.video_call_link;
+        const address = [session.location?.street, session.location?.city].filter(Boolean).join(', ');
+        const mapsUrl = address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}` : null;
 
         return (
           <div
             key={session.id}
-            className="border rounded-lg p-4 space-y-3 hover:border-primary/50 transition-colors"
+            className="space-y-4 rounded-xl border bg-card p-4 shadow-sm transition-colors hover:border-primary/40 sm:p-5"
           >
             {/* Date and Status */}
             <div className="flex items-start justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-muted-foreground" />
-                <span className="font-medium">
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <Calendar className="h-5 w-5" aria-hidden="true" />
+                </div>
+                <span className="font-semibold capitalize">
                   {format(new Date(session.session_date), "EEEE, d 'de' MMMM", { locale: es })}
                 </span>
               </div>
@@ -128,16 +170,16 @@ export function PortalAppointments({
             </div>
 
             {/* Time and Type */}
-            <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
-              <div className="flex items-center gap-1">
-                <Clock className="h-4 w-4" />
+            <div className="grid gap-3 text-sm text-muted-foreground sm:grid-cols-2">
+              <div className="flex items-center gap-2">
+                <Clock className="h-4 w-4 shrink-0" aria-hidden="true" />
                 <span>
                   {session.start_time.substring(0, 5)} - {session.end_time.substring(0, 5)}
                 </span>
               </div>
               {session.professional && (
-                <div className="flex items-center gap-1">
-                  <User className="h-4 w-4" />
+                <div className="flex items-center gap-2">
+                  <User className="h-4 w-4 shrink-0" aria-hidden="true" />
                   <span>
                     {session.professional.first_name} {session.professional.last_name}
                   </span>
@@ -146,13 +188,18 @@ export function PortalAppointments({
             </div>
 
             {/* Session Type and Location */}
-            <div className="flex flex-wrap gap-4 text-sm">
+            <div className="flex flex-wrap items-center gap-3 text-sm">
               <Badge variant="outline">{session.session_type}</Badge>
               {session.location && (
-                <div className="flex items-center gap-1 text-muted-foreground">
-                  <MapPin className="h-4 w-4" />
-                  <span>{session.location.name}</span>
-                </div>
+                mapsUrl ? (
+                  <a href={mapsUrl} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-2 rounded-md px-2 text-muted-foreground underline-offset-4 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                    <MapPin className="h-4 w-4 shrink-0" aria-hidden="true" />
+                    <span>{session.location.name}{address ? ` - ${address}` : ''}</span>
+                    <ExternalLink className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                  </a>
+                ) : (
+                  <div className="flex items-center gap-2 text-muted-foreground"><MapPin className="h-4 w-4" aria-hidden="true" /><span>{session.location.name}</span></div>
+                )
               )}
             </div>
 
@@ -164,12 +211,25 @@ export function PortalAppointments({
             )}
 
             {/* Actions */}
-            {!isPast && (canCancel || canConfirm || canReschedule || canSaveCard) && (
-              <div className="flex flex-wrap gap-2 pt-2 border-t">
+            {!isCancelled && (
+              <div className="flex flex-wrap gap-2 border-t pt-3">
+                {canJoinVideo && (
+                  <Button asChild size="sm" className="min-h-11">
+                    <a href={session.video_call_link || undefined} target="_blank" rel="noopener noreferrer">
+                      <Video className="mr-2 h-4 w-4" aria-hidden="true" />Entrar en videollamada
+                    </a>
+                  </Button>
+                )}
+                {!isPast && (
+                  <Button variant="outline" size="sm" className="min-h-11" onClick={() => addToCalendar(session)}>
+                    <CalendarPlus className="mr-2 h-4 w-4" aria-hidden="true" />Añadir al calendario
+                  </Button>
+                )}
                 {canSaveCard && (
                   <Button
                     variant="default"
                     size="sm"
+                    className="min-h-11"
                     onClick={() => onSaveCard?.(session.id)}
                   >
                     <CreditCard className="h-4 w-4 mr-1" />
@@ -180,6 +240,7 @@ export function PortalAppointments({
                   <Button
                     variant="default"
                     size="sm"
+                    className="min-h-11"
                     onClick={() => onConfirm(session.id)}
                   >
                     <CheckCircle className="h-4 w-4 mr-1" />
@@ -190,6 +251,7 @@ export function PortalAppointments({
                   <Button
                     variant="outline"
                     size="sm"
+                    className="min-h-11"
                     onClick={() => onReschedule(session)}
                   >
                     <RefreshCw className="h-4 w-4 mr-1" />
@@ -202,7 +264,7 @@ export function PortalAppointments({
                     onOpenChange={(open) => handleCancelDialogOpenChange(open, session.id)}
                   >
                     <AlertDialogTrigger asChild>
-                      <Button variant="outline" size="sm">
+                      <Button variant="outline" size="sm" className="min-h-11 text-destructive hover:bg-destructive hover:text-destructive-foreground">
                         <XCircle className="h-4 w-4 mr-1" />
                         Cancelar
                       </Button>

@@ -221,6 +221,9 @@ serve(async (req) => {
           status,
           session_type,
           session_modality,
+          payment_status,
+          video_call_link,
+          video_provider,
           professional:profiles!sessions_professional_id_fkey(
             id, first_name, last_name
           ),

@@ -7,6 +7,10 @@ const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const TOKEN_SECRET = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
+function firstRelation<T>(value: T | T[] | null | undefined): T | null {
+  return Array.isArray(value) ? value[0] ?? null : value ?? null;
+}
+
 async function validateSession(sessionToken: string): Promise<{ valid: boolean; patientId?: string; centerId?: string }> {
   try {
     const [payloadB64, signatureB64] = sessionToken.split(".");
@@ -91,6 +95,108 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ invoices: filtered }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (action === "finance-summary") {
+      const [debtsResult, bonosResult, paymentsResult] = await Promise.all([
+        supabase
+          .from("debts")
+          .select(`
+            id, amount, paid_amount, due_date, status, access_token,
+            session:sessions(session_date, session_type),
+            bono:bonos(name)
+          `)
+          .eq("patient_id", session.patientId)
+          .eq("center_id", session.centerId)
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("bonos")
+          .select("id, name, total_sessions, used_sessions, total_price, status, expires_at")
+          .eq("patient_id", session.patientId)
+          .eq("center_id", session.centerId)
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("payments")
+          .select(`
+            id, amount, payment_date, payment_method, status, refunded_amount,
+            invoice:invoices(invoice_number),
+            session:sessions(session_date, session_type)
+          `)
+          .eq("patient_id", session.patientId)
+          .eq("center_id", session.centerId)
+          .order("payment_date", { ascending: false })
+          .limit(50),
+      ]);
+
+      const failed = [debtsResult, bonosResult, paymentsResult].find((result) => result.error);
+      if (failed?.error) {
+        console.error("Error fetching patient finance summary:", failed.error);
+        return new Response(
+          JSON.stringify({ error: "Error al obtener los pagos y bonos" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+
+      const debts = (debtsResult.data || []).map((debt) => {
+        const pendingAmount = Math.max(0, Number(debt.amount || 0) - Number(debt.paid_amount || 0));
+        const relatedSession = firstRelation(debt.session);
+        const relatedBono = firstRelation(debt.bono);
+        return {
+          id: debt.id,
+          amount: Number(debt.amount || 0),
+          paidAmount: Number(debt.paid_amount || 0),
+          pendingAmount,
+          dueDate: debt.due_date,
+          status: debt.status,
+          concept: relatedSession?.session_type
+            ? `${relatedSession.session_type}${relatedSession.session_date ? ` - ${relatedSession.session_date}` : ""}`
+            : relatedBono?.name || "Importe pendiente",
+          paymentPath: pendingAmount > 0 && debt.access_token ? `/pagar/${debt.access_token}` : null,
+        };
+      });
+
+      const bonos = (bonosResult.data || []).map((bono) => ({
+        id: bono.id,
+        name: bono.name,
+        totalSessions: Number(bono.total_sessions || 0),
+        usedSessions: Number(bono.used_sessions || 0),
+        remainingSessions: Math.max(0, Number(bono.total_sessions || 0) - Number(bono.used_sessions || 0)),
+        totalPrice: Number(bono.total_price || 0),
+        status: bono.status,
+        expiresAt: bono.expires_at,
+      }));
+
+      const payments = (paymentsResult.data || []).map((payment) => {
+        const relatedInvoice = firstRelation(payment.invoice);
+        const relatedSession = firstRelation(payment.session);
+        return {
+          id: payment.id,
+          amount: Number(payment.amount || 0),
+          paymentDate: payment.payment_date,
+          paymentMethod: payment.payment_method,
+          status: payment.status,
+          refundedAmount: Number(payment.refunded_amount || 0),
+          concept: relatedInvoice?.invoice_number
+            ? `Factura ${relatedInvoice.invoice_number}`
+            : relatedSession?.session_type
+              ? `${relatedSession.session_type}${relatedSession.session_date ? ` - ${relatedSession.session_date}` : ""}`
+              : "Pago",
+        };
+      });
+
+      logAuditEvent({
+        supabase, req,
+        userId: null, userRole: "patient",
+        organizationId: session.centerId,
+        patientId: session.patientId,
+        resourceType: "patient_finance", action: "VIEW",
+        routeOrEndpoint: "patient-portal-invoices/finance-summary",
+      });
+
+      return new Response(
+        JSON.stringify({ debts, bonos, payments }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
