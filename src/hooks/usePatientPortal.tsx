@@ -62,7 +62,6 @@ interface Session {
   status: string;
   session_type: string;
   session_modality: string;
-  notes: string | null;
   professional: {
     id: string;
     first_name: string;
@@ -500,9 +499,10 @@ export function usePatientPortal(centerSlug?: string) {
 
   // Fase 2 · Inc 1 — tarjeta en archivo desde el portal.
   const createSetupIntent = async (sessionId: string): Promise<{ url?: string } | null> => {
+    if (!state.sessionToken) return null;
     try {
       const { data, error } = await supabase.functions.invoke('create-setup-intent', {
-        body: { sessionId },
+        body: { sessionId, portalSessionToken: state.sessionToken },
       });
       if (error || data?.error) return null;
       return data;

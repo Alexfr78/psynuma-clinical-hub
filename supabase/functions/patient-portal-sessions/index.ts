@@ -221,7 +221,6 @@ serve(async (req) => {
           status,
           session_type,
           session_modality,
-          notes,
           professional:profiles!sessions_professional_id_fkey(
             id, first_name, last_name
           ),

@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { createConnectedSetupSession } from "../_shared/stripeConnectedCheckout.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { checkIpRateLimit, getClientIp } from "../_shared/rateLimiter.ts";
+import { logAuditEvent } from "../_shared/auditLogger.ts";
 
 // Fase 2 · Incremento 1 — Crea un Checkout en modo `setup` para guardar la
 // tarjeta del paciente en la cuenta conectada del profesional. No mueve dinero;
@@ -10,6 +11,95 @@ import { checkIpRateLimit, getClientIp } from "../_shared/rateLimiter.ts";
 // cancelación/no-show (el cobro real llega en el Incremento 2).
 
 const stripeSecretKey = Deno.env.get("STRIPE_SECRET_KEY");
+const TOKEN_SECRET = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+type AccessContext = {
+  patientId: string;
+  centerId: string;
+  sessionId: string;
+  source: "portal" | "public-booking";
+};
+
+async function verifySignedToken(token: string): Promise<Record<string, unknown> | null> {
+  try {
+    const [payloadB64, signatureB64] = token.split(".");
+    if (!payloadB64 || !signatureB64) return null;
+
+    const data = atob(payloadB64);
+    const encoder = new TextEncoder();
+    const key = await crypto.subtle.importKey(
+      "raw",
+      encoder.encode(TOKEN_SECRET),
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["verify"],
+    );
+    const signatureBytes = Uint8Array.from(atob(signatureB64), (c) => c.charCodeAt(0));
+    const validSignature = await crypto.subtle.verify(
+      "HMAC",
+      key,
+      signatureBytes,
+      encoder.encode(data),
+    );
+    if (!validSignature) return null;
+
+    const payload = JSON.parse(data) as Record<string, unknown>;
+    if (typeof payload.exp !== "number" || payload.exp < Date.now()) return null;
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
+async function resolveAccessContext(
+  portalSessionToken: string | undefined,
+  bookingToken: string | undefined,
+  userAgent: string,
+): Promise<AccessContext | null> {
+  if (portalSessionToken) {
+    const payload = await verifySignedToken(portalSessionToken);
+    if (!payload || typeof payload.patient_id !== "string" || typeof payload.center_id !== "string") {
+      return null;
+    }
+
+    if (typeof payload.fp === "string") {
+      const fingerprintBytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(userAgent));
+      const fingerprint = Array.from(new Uint8Array(fingerprintBytes))
+        .map((byte) => byte.toString(16).padStart(2, "0"))
+        .join("")
+        .substring(0, 16);
+      if (payload.fp !== fingerprint) return null;
+    }
+
+    return {
+      patientId: payload.patient_id,
+      centerId: payload.center_id,
+      sessionId: "",
+      source: "portal",
+    };
+  }
+
+  if (bookingToken) {
+    const payload = await verifySignedToken(bookingToken);
+    if (
+      !payload
+      || typeof payload.session_id !== "string"
+      || typeof payload.patient_id !== "string"
+      || typeof payload.center_id !== "string"
+    ) {
+      return null;
+    }
+
+    return {
+      patientId: payload.patient_id,
+      centerId: payload.center_id,
+      sessionId: payload.session_id,
+      source: "public-booking",
+    };
+  }
+
+  return null;
+}
 
 async function getOrCreateConnectedCustomer(
   // deno-lint-ignore no-explicit-any
@@ -72,7 +162,7 @@ serve(async (req) => {
       return json({ error: "Stripe no está configurado" }, 500);
     }
 
-    const { sessionId, successUrl, cancelUrl } = await req.json();
+    const { sessionId, portalSessionToken, bookingToken, successUrl, cancelUrl } = await req.json();
     if (!sessionId) {
       return json({ error: "sessionId es requerido" }, 400);
     }
@@ -91,10 +181,19 @@ serve(async (req) => {
       );
     }
 
+    const access = await resolveAccessContext(
+      portalSessionToken,
+      bookingToken,
+      req.headers.get("user-agent") || "",
+    );
+    if (!access) {
+      return json({ error: "No autorizado para guardar la tarjeta de esta cita" }, 401);
+    }
+
     // Deriva todo desde la sesión (evita aceptar ids sueltos manipulables).
     const { data: session, error: sessionError } = await supabase
       .from("sessions")
-      .select("id, center_id, patient_id, professional_id, cancellation_policy_version_id")
+      .select("id, center_id, patient_id, professional_id, cancellation_policy_version_id, status")
       .eq("id", sessionId)
       .maybeSingle();
 
@@ -104,6 +203,36 @@ serve(async (req) => {
     if (!session.patient_id || !session.professional_id) {
       return json({ error: "La sesión no tiene paciente o profesional asignado" }, 400);
     }
+
+    if (access.source === "portal" && (session.patient_id !== access.patientId || session.center_id !== access.centerId)) {
+      return json({ error: "No autorizado para guardar la tarjeta de esta cita" }, 403);
+    }
+
+    if (access.source === "public-booking" && (
+      session.id !== access.sessionId
+      || session.patient_id !== access.patientId
+      || session.center_id !== access.centerId
+    )) {
+      return json({ error: "La reserva no coincide con la cita indicada" }, 403);
+    }
+
+    if (!["draft", "scheduled", "confirmed", "pending_approval"].includes(session.status)) {
+      return json({ error: "Esta cita ya no admite guardar una tarjeta" }, 409);
+    }
+
+    await logAuditEvent({
+      supabase,
+      req,
+      userId: null,
+      userRole: "patient",
+      organizationId: session.center_id,
+      patientId: session.patient_id,
+      resourceType: "payment_method",
+      resourceId: session.id,
+      action: "CREATE",
+      routeOrEndpoint: "create-setup-intent",
+      metadata: { source: access.source },
+    });
 
     const { data: connection } = await supabase
       .from("oauth_connections")

@@ -157,7 +157,9 @@ export default function PublicBooking() {
 
       // Fase 2 · Inc 1 — captura de tarjeta en la reserva (Checkout de setup, 0 €).
       if (result.cardCaptureNeeded && result.session?.id) {
-        const setup = await createSetupIntent(result.session.id);
+        const setup = result.bookingToken
+          ? await createSetupIntent(result.session.id, result.bookingToken)
+          : null;
         if (setup?.url) {
           setBookingResult(result);
           setStep('confirmation');

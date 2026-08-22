@@ -2,6 +2,17 @@ import { useEffect, useState } from 'react';
 import { CreditCard, Loader2, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import type { PortalPaymentMethod as PaymentMethod } from '@/hooks/usePatientPortal';
 
@@ -43,8 +54,34 @@ export function PortalPaymentMethod({ getPaymentMethod, removePaymentMethod }: P
     }
   };
 
-  // Sin tarjeta guardada (o cargando) no ocupamos espacio en el portal.
-  if (loading || !card) return null;
+  if (loading) {
+    return (
+      <Card>
+        <CardContent className="flex min-h-28 items-center justify-center" role="status" aria-live="polite">
+          <Loader2 className="mr-2 h-5 w-5 animate-spin text-muted-foreground" aria-hidden="true" />
+          <span className="text-sm text-muted-foreground">Cargando método de pago...</span>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!card) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <CreditCard className="h-4 w-4" aria-hidden="true" />
+            Método de pago
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm leading-6 text-muted-foreground">
+            No tienes ninguna tarjeta guardada. Si una reserva la necesita, podrás añadirla durante ese proceso seguro.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   const brand = card.brand
     ? card.brand.charAt(0).toUpperCase() + card.brand.slice(1)
@@ -67,10 +104,32 @@ export function PortalPaymentMethod({ getPaymentMethod, removePaymentMethod }: P
             </span>
           )}
         </div>
-        <Button variant="outline" size="sm" onClick={handleRemove} disabled={removing}>
-          {removing ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Trash2 className="mr-1 h-4 w-4" />}
-          Quitar
-        </Button>
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button variant="outline" size="sm" className="min-h-11" disabled={removing}>
+              {removing ? <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" /> : <Trash2 className="mr-1 h-4 w-4" aria-hidden="true" />}
+              Quitar
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>¿Quitar la tarjeta guardada?</AlertDialogTitle>
+              <AlertDialogDescription>
+                El centro dejará de poder utilizarla para los cargos autorizados asociados a cancelaciones o ausencias. Podrás guardar otra tarjeta cuando una reserva lo requiera.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={removing}>Volver</AlertDialogCancel>
+              <AlertDialogAction
+                disabled={removing}
+                onClick={() => void handleRemove()}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                Quitar tarjeta
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </CardContent>
     </Card>
   );

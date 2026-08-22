@@ -10,7 +10,7 @@ import { toast } from 'sonner';
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
-interface PortalInvoice {
+export interface PortalInvoice {
   id: string;
   invoice_number: string;
   issue_date: string;

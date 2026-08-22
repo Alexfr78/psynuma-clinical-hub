@@ -291,10 +291,10 @@ export function usePublicBooking(centerSlug: string) {
 
   // Fase 2 · Inc 1 — inicia el Checkout de setup (guardar tarjeta) para una
   // sesión recién creada. Devuelve la url a la que redirigir.
-  const createSetupIntent = useCallback(async (sessionId: string): Promise<{ url?: string } | null> => {
+  const createSetupIntent = useCallback(async (sessionId: string, bookingToken: string): Promise<{ url?: string } | null> => {
     try {
       const { data, error } = await supabase.functions.invoke('create-setup-intent', {
-        body: { sessionId },
+        body: { sessionId, bookingToken },
       });
       if (error) throw new Error(error.message);
       if (data?.error) throw new Error(data.error);
