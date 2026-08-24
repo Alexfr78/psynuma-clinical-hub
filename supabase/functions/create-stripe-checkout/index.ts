@@ -2,7 +2,9 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import {
   buildConnectedCheckoutIdempotencyKey,
+  canReuseConnectedCheckoutSession,
   createConnectedCheckoutSession,
+  expireConnectedCheckoutSession,
   retrieveConnectedCheckoutSession,
 } from "../_shared/stripeConnectedCheckout.ts";
 import { assertStripeEnvironment, isStripeTestCheckoutId } from "../_shared/stripeEnvironment.ts";
