@@ -2,7 +2,10 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   buildConnectedCheckoutIdempotencyKey,
   buildConnectedCheckoutRequest,
+  canReuseConnectedCheckoutSession,
   createConnectedCheckoutSession,
+  expireConnectedCheckoutSession,
+  retrieveConnectedCheckoutSession,
   selectPaymentProfessionalId,
   StripeCheckoutRequestError,
 } from '../../../supabase/functions/_shared/stripeConnectedCheckout';
@@ -86,5 +89,77 @@ describe('connected Stripe Checkout', () => {
     await expect(createConnectedCheckoutSession(baseInput, fetcher)).rejects.toEqual(
       new StripeCheckoutRequestError('Connected account is not available'),
     );
+  });
+});
+
+describe('stale checkout reuse guard (60 EUR -> 1 EUR)', () => {
+  const openCheckout = (amountTotal: number | null) => ({
+    id: 'cs_live_stale',
+    status: 'open' as string | null,
+    payment_status: 'unpaid' as string | null,
+    url: 'https://checkout.stripe.com/c/pay/cs_live_stale',
+    amount_total: amountTotal,
+    currency: 'eur' as string | null,
+  });
+
+  it('reuses the stored checkout when the amount still matches', () => {
+    expect(canReuseConnectedCheckoutSession(openCheckout(6_000), 6_000)).toBe(true);
+  });
+
+  it('does not reuse a 60 EUR checkout when the session price dropped to 1 EUR', () => {
+    expect(canReuseConnectedCheckoutSession(openCheckout(6_000), 100)).toBe(false);
+  });
+
+  it('does not reuse checkouts without url, without amount or not open', () => {
+    expect(canReuseConnectedCheckoutSession(null, 100)).toBe(false);
+    expect(canReuseConnectedCheckoutSession(openCheckout(null), 100)).toBe(false);
+    expect(
+      canReuseConnectedCheckoutSession({ ...openCheckout(100), status: 'complete' }, 100),
+    ).toBe(false);
+    expect(
+      canReuseConnectedCheckoutSession({ ...openCheckout(100), url: null }, 100),
+    ).toBe(false);
+  });
+
+  it('reads amount_total and currency from the Stripe lookup', async () => {
+    const fetcher = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        id: 'cs_live_stale',
+        status: 'open',
+        payment_status: 'unpaid',
+        url: 'https://checkout.stripe.com/c/pay/cs_live_stale',
+        amount_total: 6_000,
+        currency: 'eur',
+      }),
+    });
+
+    const state = await retrieveConnectedCheckoutSession(
+      'sk_test_example', 'acct_connected', 'cs_live_stale', fetcher as unknown as typeof fetch,
+    );
+
+    expect(state?.amount_total).toBe(6_000);
+    expect(state?.currency).toBe('eur');
+    expect(canReuseConnectedCheckoutSession(state, 100)).toBe(false);
+  });
+
+  it('expires the stale checkout on the connected account', async () => {
+    const fetcher = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({}) });
+    const expired = await expireConnectedCheckoutSession(
+      'sk_test_example', 'acct_connected', 'cs_live_stale', fetcher as unknown as typeof fetch,
+    );
+    expect(expired).toBe(true);
+    const [url, init] = fetcher.mock.calls[0];
+    expect(url).toBe('https://api.stripe.com/v1/checkout/sessions/cs_live_stale/expire');
+    expect(init.method).toBe('POST');
+    expect(init.headers['Stripe-Account']).toBe('acct_connected');
+  });
+
+  it('reports failure when Stripe refuses to expire the checkout', async () => {
+    const fetcher = vi.fn().mockResolvedValue({ ok: false, status: 400, json: async () => ({}) });
+    await expect(expireConnectedCheckoutSession(
+      'sk_test_example', 'acct_connected', 'cs_live_stale', fetcher as unknown as typeof fetch,
+    )).resolves.toBe(false);
   });
 });

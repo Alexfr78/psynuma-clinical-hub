@@ -39,6 +39,8 @@ export interface ConnectedCheckoutSessionState {
   status: string | null;
   payment_status: string | null;
   url: string | null;
+  amount_total: number | null;
+  currency: string | null;
 }
 
 export class StripeCheckoutRequestError extends Error {
@@ -179,6 +181,8 @@ export async function retrieveConnectedCheckoutSession(
     status?: string | null;
     payment_status?: string | null;
     url?: string | null;
+    amount_total?: number | null;
+    currency?: string | null;
     error?: { message?: string };
   };
 
@@ -193,7 +197,40 @@ export async function retrieveConnectedCheckoutSession(
     status: payload.status ?? null,
     payment_status: payload.payment_status ?? null,
     url: payload.url ?? null,
+    amount_total: typeof payload.amount_total === "number" ? payload.amount_total : null,
+    currency: payload.currency ?? null,
   };
+}
+
+// Un Checkout abierto cuyo importe ya no coincide con el precio actual debe
+// expirarse para que el paciente no pueda pagar la cantidad obsoleta.
+export async function expireConnectedCheckoutSession(
+  stripeSecretKey: string,
+  connectedAccountId: string,
+  checkoutSessionId: string,
+  fetcher: typeof fetch = fetch,
+): Promise<boolean> {
+  const response = await fetcher(
+    `https://api.stripe.com/v1/checkout/sessions/${encodeURIComponent(checkoutSessionId)}/expire`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${stripeSecretKey}`,
+        "Stripe-Account": connectedAccountId,
+      },
+    },
+  );
+
+  return response.ok;
+}
+
+export function canReuseConnectedCheckoutSession(
+  existing: ConnectedCheckoutSessionState | null,
+  amountInCents: number,
+): boolean {
+  if (!existing || !existing.url) return false;
+  if (existing.status !== "open") return false;
+  return existing.amount_total === amountInCents;
 }
 
 // ============================================================

@@ -2,7 +2,9 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import {
   buildConnectedCheckoutIdempotencyKey,
+  canReuseConnectedCheckoutSession,
   createConnectedCheckoutSession,
+  expireConnectedCheckoutSession,
   retrieveConnectedCheckoutSession,
 } from "../_shared/stripeConnectedCheckout.ts";
 import { assertStripeEnvironment, isStripeTestCheckoutId } from "../_shared/stripeEnvironment.ts";
@@ -168,6 +170,7 @@ serve(async (req) => {
       );
     }
 
+    const amountInCents = Math.round(amount * 100);
     const storedCheckoutId = session.stripe_checkout_session_id as string | null | undefined;
     let checkoutAttemptSuffix: string | null = null;
     if (storedCheckoutId && !isStripeTestCheckoutId(storedCheckoutId)) {
@@ -176,14 +179,36 @@ serve(async (req) => {
         connection.stripe_account_id,
         storedCheckoutId,
       );
-      if (existingCheckout?.status === 'open' && existingCheckout.url) {
+      if (canReuseConnectedCheckoutSession(existingCheckout, amountInCents)) {
         return new Response(
           JSON.stringify({
-            checkout_url: existingCheckout.url,
-            checkout_session_id: existingCheckout.id,
+            checkout_url: existingCheckout!.url,
+            checkout_session_id: existingCheckout!.id,
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
         );
+      }
+      // Importe obsoleto (p. ej. el precio de la sesión cambió tras crear el
+      // Checkout): expiramos el antiguo y creamos uno con el precio actual.
+      if (existingCheckout?.status === 'open') {
+        try {
+          const expired = await expireConnectedCheckoutSession(
+            stripeSecretKey,
+            connection.stripe_account_id,
+            storedCheckoutId,
+          );
+          console.log('Stale checkout expiration attempted', {
+            session_id: session.id,
+            expired,
+            stale_amount_total: existingCheckout.amount_total,
+            current_amount: amountInCents,
+          });
+        } catch (expireError) {
+          console.error('Stale checkout could not be expired', {
+            session_id: session.id,
+            message: expireError instanceof Error ? expireError.message : 'unknown',
+          });
+        }
       }
       checkoutAttemptSuffix = `recovery-${storedCheckoutId}`;
     } else if (storedCheckoutId) {
@@ -199,7 +224,6 @@ serve(async (req) => {
       : `${siteUrl}/agenda`;
     
     // Create checkout session on connected account
-    const amountInCents = Math.round(amount * 100);
     const feeBpsRaw = Deno.env.get('STRIPE_APPLICATION_FEE_BPS');
     const checkoutData = await createConnectedCheckoutSession({
       stripeSecretKey,
