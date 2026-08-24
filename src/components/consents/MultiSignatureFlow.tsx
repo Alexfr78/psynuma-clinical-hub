@@ -315,7 +315,7 @@ export function MultiSignatureFlow({ consent, token }: MultiSignatureFlowProps) 
     if (currentStep === 'complete' && !pdfUrl && !isGeneratingPdf) {
       setIsGeneratingPdf(true);
       supabase.functions.invoke('generate-consent-pdf', {
-        body: { consent_id: consent.id },
+        body: { consent_id: consent.id, access_token: token },
       }).then(({ data, error }) => {
         if (data?.url) {
           setPdfUrl(data.url);

@@ -1,14 +1,40 @@
+import { useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Loader2, AlertCircle, CheckCircle2, Clock, XCircle } from 'lucide-react';
+import { Loader2, AlertCircle, CheckCircle2, Clock, XCircle, Download } from 'lucide-react';
 import { usePublicConsent } from '@/hooks/usePublicConsent';
 import { MultiSignatureFlow } from '@/components/consents/MultiSignatureFlow';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 export default function ConsentSignature() {
   const { token } = useParams<{ token: string }>();
   const { consent, isLoading, error, isExpired } = usePublicConsent(token);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
+
+  const handleDownloadPdf = async () => {
+    if (!consent || !token) return;
+    if (consent.signed_pdf_url) {
+      window.open(consent.signed_pdf_url, '_blank');
+      return;
+    }
+    setDownloadingPdf(true);
+    try {
+      const { data, error: invokeError } = await supabase.functions.invoke('generate-consent-pdf', {
+        body: { consent_id: consent.id, access_token: token },
+      });
+      if (invokeError || !data?.url) throw invokeError || new Error('No se recibió la URL del PDF');
+      window.open(data.url, '_blank');
+    } catch (err) {
+      console.error(err);
+      toast.error('No se pudo descargar el documento. Inténtalo de nuevo más tarde.');
+    } finally {
+      setDownloadingPdf(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -82,6 +108,19 @@ export default function ConsentSignature() {
               Este consentimiento fue firmado el{' '}
               {consent.signed_at && format(new Date(consent.signed_at), "d 'de' MMMM 'de' yyyy 'a las' HH:mm", { locale: es })}.
             </p>
+            <Button className="mt-6" onClick={handleDownloadPdf} disabled={downloadingPdf}>
+              {downloadingPdf ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Generando documento...
+                </>
+              ) : (
+                <>
+                  <Download className="mr-2 h-4 w-4" />
+                  Descargar documento firmado
+                </>
+              )}
+            </Button>
           </CardContent>
         </Card>
       </div>

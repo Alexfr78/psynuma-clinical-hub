@@ -13,6 +13,7 @@ export interface PublicConsent {
   emergency_contact_phone: string | null;
   expires_at: string;
   signed_at: string | null;
+  signed_pdf_url: string | null;
   verification_responses: Record<string, boolean> | null;
   cancellation_policy_version_id: string | null;
   patient: {
@@ -59,6 +60,7 @@ export function usePublicConsent(token: string | undefined) {
           emergency_contact_phone,
           expires_at,
           signed_at,
+          signed_pdf_url,
           verification_responses,
           cancellation_policy_version_id,
           patient:patients(first_name, last_name, guardian_name, guardian_relationship),

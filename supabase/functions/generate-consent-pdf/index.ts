@@ -320,6 +320,7 @@ serve(async (req) => {
         verification_responses,
         emergency_contact_name,
         emergency_contact_phone,
+        access_token,
         patient:patients(first_name, last_name),
         professional:profiles(first_name, last_name),
         template:consent_templates(name, verification_checkboxes, requires_emergency_contact),
