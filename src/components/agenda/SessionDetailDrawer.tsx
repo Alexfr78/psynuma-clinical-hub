@@ -120,6 +120,7 @@ import { useGoogleCalendarUpdate } from '@/hooks/useGoogleCalendarUpdate';
 import { PatientSelector } from './PatientSelector';
 import { usePatient, Patient } from '@/hooks/usePatients';
 import { supabase } from '@/integrations/supabase/client';
+import { buildPublicUrl, getPublicBaseUrl } from '@/lib/public-base-url';
 import { useProfessionalIntegrations } from '@/hooks/useProfessionalIntegrations';
 import { ConvertCalendarEventDialog } from './ConvertCalendarEventDialog';
 import { useDeleteCalendarEvent } from '@/hooks/useDeleteCalendarEvent';
@@ -1984,7 +1985,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                       const sessionDate = format(new Date(session.session_date), "d 'de' MMMM", { locale: es });
                       const sessionTime = session.start_time?.slice(0, 5) || '';
 
-                      let appointmentLink = window.location.href;
+                      let appointmentLink = getPublicBaseUrl();
                       if (session.access_token) {
                         const { data: shortLinkData, error: shortLinkError } = await supabase.functions.invoke(
                           'create-public-session-short-link',
@@ -1998,7 +1999,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                           });
                           return;
                         }
-                        appointmentLink = `${window.location.origin}${shortLinkData.path}`;
+                        appointmentLink = buildPublicUrl(shortLinkData.path);
                       }
 
                       // Build message from template
