@@ -1,11 +1,202 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { PDFDocument, StandardFonts, rgb, PDFPage, PDFFont } from "https://esm.sh/pdf-lib@1.17.1";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+function uint8ToBase64(bytes: Uint8Array): string {
+  let binary = '';
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  }
+  return btoa(binary);
+}
+
+// Best-effort: emails the signed PDF as an attachment. Failures are logged, never thrown —
+// the patient already has the document via the download button either way.
+async function sendConsentCopyEmail(params: {
+  patientEmail: string;
+  patientName: string;
+  centerName: string;
+  logoUrl: string | null;
+  templateName: string;
+  pdfBytes: Uint8Array;
+  fileName: string;
+}): Promise<void> {
+  const resendApiKey = Deno.env.get("RESEND_API_KEY");
+  const resendFromEmail = Deno.env.get("RESEND_FROM_EMAIL");
+  if (!resendApiKey || !resendFromEmail) {
+    console.error("[generate-consent-pdf] RESEND not configured, skipping email copy");
+    return;
+  }
+
+  const headerContent = params.logoUrl
+    ? `<img src="${params.logoUrl}" alt="${params.centerName}" style="max-height: 60px; max-width: 200px; display: block; margin: 0 auto;">`
+    : `<span style="margin: 0; font-size: 20px; font-weight: bold; color: #1d4ed8;">${params.centerName}</span>`;
+
+  const html = `<!DOCTYPE html>
+<html><body style="margin:0;padding:0;background-color:#f4f4f4;font-family:Arial,Helvetica,sans-serif;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f4f4;">
+<tr><td align="center" style="padding:20px 10px;">
+<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:8px;max-width:600px;">
+<tr><td align="center" style="padding:24px 24px 20px 24px;border-bottom:1px solid #e2e8f0;">${headerContent}</td></tr>
+<tr><td style="padding:24px;font-size:14px;line-height:1.6;color:#333333;">
+<p>Hola ${params.patientName},</p>
+<p>Adjuntamos la copia de tu consentimiento firmado: <strong>${params.templateName}</strong>.</p>
+</td></tr>
+<tr><td style="padding:16px 24px;border-top:1px solid #e2e8f0;font-size:12px;color:#64748b;text-align:center;">Este es un mensaje automático enviado por ${params.centerName}.</td></tr>
+</table></td></tr></table>
+</body></html>`;
+
+  try {
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${resendApiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: `${params.centerName} <${resendFromEmail}>`,
+        to: [params.patientEmail],
+        subject: `Copia de tu consentimiento firmado - ${params.templateName}`,
+        html,
+        attachments: [{ filename: params.fileName, content: uint8ToBase64(params.pdfBytes) }],
+      }),
+    });
+    if (!response.ok) {
+      console.error("[generate-consent-pdf] Error sending email copy:", await response.text());
+    }
+  } catch (error) {
+    console.error("[generate-consent-pdf] Error sending email copy:", error);
+  }
+}
+
+// Best-effort: sends the signed PDF as a real WhatsApp document attachment (not a link),
+// via WasenderAPI's documentUrl field. Failures are logged, never thrown.
+async function sendConsentCopyWhatsApp(
+  supabase: SupabaseClient,
+  params: {
+    centerId: string;
+    patientId: string;
+    patientPhone: string;
+    patientName: string;
+    templateName: string;
+    documentUrl: string;
+    fileName: string;
+  }
+): Promise<void> {
+  const wasenderApiKey = Deno.env.get("WASENDER_PERSONAL_ACCESS_TOKEN");
+  if (!wasenderApiKey) {
+    console.error("[generate-consent-pdf] WasenderAPI not configured, skipping WhatsApp copy");
+    return;
+  }
+
+  const { data: session } = await supabase
+    .from("whatsapp_sessions")
+    .select("wasender_session_id, status, api_key")
+    .eq("center_id", params.centerId)
+    .single();
+
+  if (!session?.wasender_session_id || session.status !== "connected") {
+    console.error("[generate-consent-pdf] WhatsApp session not connected, skipping WhatsApp copy");
+    return;
+  }
+
+  let sessionApiKey = session.api_key as string | null;
+  if (!sessionApiKey) {
+    try {
+      const infoRes = await fetch(
+        `https://api.wasenderapi.com/api/whatsapp-sessions/${session.wasender_session_id}`,
+        { headers: { "Authorization": `Bearer ${wasenderApiKey}`, "Accept": "application/json" } }
+      );
+      if (infoRes.ok) {
+        const infoData = await infoRes.json();
+        sessionApiKey = infoData.data?.api_key || infoData.api_key || null;
+        if (sessionApiKey) {
+          await supabase
+            .from("whatsapp_sessions")
+            .update({ api_key: sessionApiKey, updated_at: new Date().toISOString() })
+            .eq("center_id", params.centerId);
+        }
+      }
+    } catch (error) {
+      console.error("[generate-consent-pdf] Error fetching WhatsApp session api_key:", error);
+    }
+  }
+  if (!sessionApiKey) {
+    console.error("[generate-consent-pdf] No WhatsApp session api_key available, skipping WhatsApp copy");
+    return;
+  }
+
+  let cleanPhone = params.patientPhone.replace(/\D/g, '');
+  if (cleanPhone.length === 9 && /^[67]/.test(cleanPhone)) cleanPhone = '34' + cleanPhone;
+  const to = `+${cleanPhone}`;
+  const text = `Hola ${params.patientName}, aquí tienes la copia de tu consentimiento firmado: ${params.templateName}.`;
+
+  const { data: messageRecord } = await supabase
+    .from("whatsapp_messages")
+    .insert({
+      center_id: params.centerId,
+      patient_id: params.patientId,
+      phone: to,
+      content: text,
+      type: "document",
+      message_type: "consent_copy",
+      media_url: params.documentUrl,
+      status: "queued",
+    })
+    .select()
+    .single();
+
+  try {
+    const response = await fetch("https://www.wasenderapi.com/api/send-message", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${sessionApiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        to,
+        text,
+        documentUrl: params.documentUrl,
+        fileName: params.fileName,
+      }),
+    });
+    const result = await response.json();
+    if (response.ok && result.success !== false) {
+      if (messageRecord) {
+        await supabase
+          .from("whatsapp_messages")
+          .update({
+            status: "sent",
+            wasender_message_id: result.data?.id || result.message_id,
+            sent_at: new Date().toISOString(),
+          })
+          .eq("id", messageRecord.id);
+      }
+    } else {
+      console.error("[generate-consent-pdf] WasenderAPI error sending document:", result);
+      if (messageRecord) {
+        await supabase
+          .from("whatsapp_messages")
+          .update({ status: "failed", error_message: result.message || result.error || "Unknown error" })
+          .eq("id", messageRecord.id);
+      }
+    }
+  } catch (error) {
+    console.error("[generate-consent-pdf] Error sending WhatsApp copy:", error);
+    if (messageRecord) {
+      await supabase
+        .from("whatsapp_messages")
+        .update({ status: "failed", error_message: (error as Error).message })
+        .eq("id", messageRecord.id);
+    }
+  }
+}
 
 interface ConsentData {
   id: string;
@@ -18,6 +209,8 @@ interface ConsentData {
   patient: {
     first_name: string;
     last_name: string;
+    email: string | null;
+    phone: string | null;
   };
   professional: {
     first_name: string;
@@ -314,6 +507,7 @@ serve(async (req) => {
       .from('consents')
       .select(`
         id,
+        patient_id,
         content_snapshot,
         center_id,
         signed_at,
@@ -321,7 +515,8 @@ serve(async (req) => {
         emergency_contact_name,
         emergency_contact_phone,
         access_token,
-        patient:patients(first_name, last_name),
+        signed_pdf_url,
+        patient:patients(first_name, last_name, email, phone),
         professional:profiles(first_name, last_name),
         template:consent_templates(name, verification_checkboxes, requires_emergency_contact),
         center:centers(name, address, city, postal_code, invoice_logo_url)
@@ -340,6 +535,8 @@ serve(async (req) => {
     if (!isAuthed && (!access_token || access_token !== (consent as { access_token?: string | null }).access_token)) {
       return unauthorizedResponse(corsHeaders);
     }
+
+    const isFirstGeneration = !consent.signed_pdf_url;
 
     // Fetch signatures
     const { data: signatures, error: signaturesError } = await supabase
@@ -815,6 +1012,36 @@ serve(async (req) => {
 
     if (updateError) {
       console.error('Error updating consent:', updateError);
+    }
+
+    // Send the signed copy to the patient by every channel available, only on first
+    // generation (i.e. right after signing) — re-downloads don't re-send.
+    if (isFirstGeneration) {
+      const pdfFileName = `${templateName || 'consentimiento'}.pdf`;
+      const sends: Promise<void>[] = [];
+      if (typedConsent.patient?.email) {
+        sends.push(sendConsentCopyEmail({
+          patientEmail: typedConsent.patient.email,
+          patientName,
+          centerName: typedConsent.center?.name || 'Psycma',
+          logoUrl: typedConsent.center?.invoice_logo_url || null,
+          templateName,
+          pdfBytes,
+          fileName: pdfFileName,
+        }));
+      }
+      if (typedConsent.patient?.phone) {
+        sends.push(sendConsentCopyWhatsApp(supabase, {
+          centerId: consent.center_id,
+          patientId: consent.patient_id,
+          patientPhone: typedConsent.patient.phone,
+          patientName,
+          templateName,
+          documentUrl: signedUrlData.signedUrl,
+          fileName: pdfFileName,
+        }));
+      }
+      await Promise.allSettled(sends);
     }
 
     console.log(`PDF generated successfully for consent ${consent_id}`);
