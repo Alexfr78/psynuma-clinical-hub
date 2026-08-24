@@ -224,7 +224,6 @@ serve(async (req) => {
       : `${siteUrl}/agenda`;
     
     // Create checkout session on connected account
-    const amountInCents = Math.round(amount * 100);
     const feeBpsRaw = Deno.env.get('STRIPE_APPLICATION_FEE_BPS');
     const checkoutData = await createConnectedCheckoutSession({
       stripeSecretKey,
