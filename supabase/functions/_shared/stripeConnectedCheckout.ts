@@ -34,6 +34,13 @@ export interface ConnectedCheckoutResult {
   url: string;
 }
 
+export interface ConnectedCheckoutSessionState {
+  id: string;
+  status: string | null;
+  payment_status: string | null;
+  url: string | null;
+}
+
 export class StripeCheckoutRequestError extends Error {
   constructor(message: string) {
     super(message);
@@ -54,9 +61,11 @@ export function buildConnectedCheckoutIdempotencyKey(
   entityKey: string,
   amountInCents: number,
   applicationFeeBpsRaw: string | null | undefined,
+  attemptSuffix?: string | null,
 ): string {
   const feeVersion = getStripePlatformFeeConfig(applicationFeeBpsRaw).version;
-  return `${scope}-checkout-${entityKey}-${amountInCents}-${feeVersion}`;
+  const baseKey = `${scope}-checkout-${entityKey}-${amountInCents}-${feeVersion}`;
+  return attemptSuffix ? `${baseKey}-${attemptSuffix}` : baseKey;
 }
 
 export function buildConnectedCheckoutRequest(
@@ -145,6 +154,46 @@ export async function createConnectedCheckoutSession(
   }
 
   return { id: payload.id, url: payload.url };
+}
+
+export async function retrieveConnectedCheckoutSession(
+  stripeSecretKey: string,
+  connectedAccountId: string,
+  checkoutSessionId: string,
+  fetcher: typeof fetch = fetch,
+): Promise<ConnectedCheckoutSessionState | null> {
+  const response = await fetcher(
+    `https://api.stripe.com/v1/checkout/sessions/${encodeURIComponent(checkoutSessionId)}`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${stripeSecretKey}`,
+        "Stripe-Account": connectedAccountId,
+      },
+    },
+  );
+
+  if (response.status === 404) return null;
+  const payload = await response.json() as {
+    id?: string;
+    status?: string | null;
+    payment_status?: string | null;
+    url?: string | null;
+    error?: { message?: string };
+  };
+
+  if (!response.ok || payload.id !== checkoutSessionId) {
+    throw new StripeCheckoutRequestError(
+      payload.error?.message || "Stripe Checkout lookup failed",
+    );
+  }
+
+  return {
+    id: payload.id,
+    status: payload.status ?? null,
+    payment_status: payload.payment_status ?? null,
+    url: payload.url ?? null,
+  };
 }
 
 // ============================================================

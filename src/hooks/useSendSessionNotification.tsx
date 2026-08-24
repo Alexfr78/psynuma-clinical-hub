@@ -125,10 +125,19 @@ export async function sendSessionNotificationDirect(
     accessToken = sessionData?.access_token || '';
   }
 
-  // Build appointment management link
-  const appointmentLink = accessToken 
-    ? `${window.location.origin}/cita/${accessToken}`
-    : `${window.location.origin}`;
+  // Resolve the public link through the short-link service so manually sent
+  // notifications use the same patient-facing URL as automated messages.
+  let appointmentLink = `${window.location.origin}`;
+  if (accessToken) {
+    const { data: shortLinkData, error: shortLinkError } = await supabase.functions.invoke(
+      'create-public-session-short-link',
+      { body: { session_id: params.sessionId } },
+    );
+    if (shortLinkError || !shortLinkData?.path) {
+      throw new Error(shortLinkError?.message || shortLinkData?.error || 'No se pudo crear el enlace corto de la cita');
+    }
+    appointmentLink = `${window.location.origin}${shortLinkData.path}`;
+  }
 
   // Get professional details for template variables
   const professionalParts = (params.professionalName || '').split(' ');

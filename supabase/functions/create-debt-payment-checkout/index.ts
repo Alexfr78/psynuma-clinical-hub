@@ -5,6 +5,7 @@ import {
   createConnectedCheckoutSession,
   selectPaymentProfessionalId,
 } from "../_shared/stripeConnectedCheckout.ts";
+import { assertStripeEnvironment } from "../_shared/stripeEnvironment.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -86,6 +87,7 @@ serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+    assertStripeEnvironment(stripeSecretKey);
 
     const professionalId = selectPaymentProfessionalId(
       debt.sessions?.professional_id,

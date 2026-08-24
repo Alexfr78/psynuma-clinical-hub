@@ -29,6 +29,7 @@ pasos en orden. No cobres dinero real hasta completar la sección 6 (verificaci�
 Sustituir los secretos Sandbox por los **live**. Mantener los nombres:
 
 - [ ] `STRIPE_SECRET_KEY` → clave secreta live (`sk_live_…`)
+- [ ] `STRIPE_ENVIRONMENT` → `live` (protege las funciones contra claves y Checkout de Sandbox)
 - [ ] `STRIPE_WEBHOOK_SECRET` → secreto del webhook de **plataforma** (ver paso 3)
 - [ ] `STRIPE_CONNECT_WEBHOOK_SECRET` → secreto del webhook de **cuentas conectadas** (ver paso 3)
 - [ ] `STRIPE_APPLICATION_FEE_BPS` → `0` (salvo decisión comercial de cobrar comisión)

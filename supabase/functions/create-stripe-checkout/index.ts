@@ -3,7 +3,9 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import {
   buildConnectedCheckoutIdempotencyKey,
   createConnectedCheckoutSession,
+  retrieveConnectedCheckoutSession,
 } from "../_shared/stripeConnectedCheckout.ts";
+import { assertStripeEnvironment, isStripeTestCheckoutId } from "../_shared/stripeEnvironment.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -36,6 +38,7 @@ serve(async (req) => {
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+    assertStripeEnvironment(stripeSecretKey);
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -70,6 +73,7 @@ serve(async (req) => {
       .select(`
         id, center_id, professional_id, patient_id, price, session_type,
         session_date, access_token, status, payment_status, stripe_payment_status,
+        stripe_checkout_session_id,
         patient:patients(email, first_name, last_name)
       `);
 
@@ -164,6 +168,28 @@ serve(async (req) => {
       );
     }
 
+    const storedCheckoutId = session.stripe_checkout_session_id as string | null | undefined;
+    let checkoutAttemptSuffix: string | null = null;
+    if (storedCheckoutId && !isStripeTestCheckoutId(storedCheckoutId)) {
+      const existingCheckout = await retrieveConnectedCheckoutSession(
+        stripeSecretKey,
+        connection.stripe_account_id,
+        storedCheckoutId,
+      );
+      if (existingCheckout?.status === 'open' && existingCheckout.url) {
+        return new Response(
+          JSON.stringify({
+            checkout_url: existingCheckout.url,
+            checkout_session_id: existingCheckout.id,
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
+      checkoutAttemptSuffix = `recovery-${storedCheckoutId}`;
+    } else if (storedCheckoutId) {
+      checkoutAttemptSuffix = `recovery-${storedCheckoutId}`;
+    }
+
     const siteUrl = Deno.env.get('APP_BASE_URL') || Deno.env.get('SITE_URL') || 'https://psycma.lovable.app';
     const successUrl = session.access_token
       ? `${siteUrl}/cita/${session.access_token}?pago=ok`
@@ -194,7 +220,7 @@ serve(async (req) => {
       },
       applicationFeeBpsRaw: feeBpsRaw,
       idempotencyKey: buildConnectedCheckoutIdempotencyKey(
-        'session', session.id, amountInCents, feeBpsRaw,
+        'session', session.id, amountInCents, feeBpsRaw, checkoutAttemptSuffix,
       ),
     });
 

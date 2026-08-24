@@ -8,11 +8,10 @@ import {
   markAdvancePaymentNotificationFailed,
   markAdvancePaymentNotificationSent,
 } from "./advancePaymentNotifications.ts";
-
-import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getOrCreatePublicShortLink } from "./publicShortLinks.ts";
 
 export interface BookingNotificationArgs {
-  supabase: SupabaseClient;
+  supabase: any;
   centerId: string;
   patientId: string;
   sessionId: string;
@@ -194,11 +193,29 @@ export async function queueAndSendPatientBookingNotification(args: BookingNotifi
     const timeFormatted = startTime ? formatTime(startTime) : '';
     const modalityText = translateModality(sessionModality);
 
+    let managePath = args.manageUrl;
+    if (!managePath && args.eventType !== 'cancelled') {
+      const { data: publicSession } = await supabase
+        .from("sessions")
+        .select("access_token")
+        .eq("id", sessionId)
+        .maybeSingle();
+      if (publicSession?.access_token) {
+        managePath = await getOrCreatePublicShortLink({
+          supabase,
+          centerId,
+          targetType: "session",
+          targetToken: publicSession.access_token,
+          expiresAt: null,
+        }) || undefined;
+      }
+    }
+
     let fullManageUrl = '';
-    if (args.manageUrl) {
+    if (managePath) {
       const baseDomain = center.custom_domain || center.public_domain || '';
       if (baseDomain) {
-        fullManageUrl = `https://${baseDomain}${args.manageUrl}`;
+        fullManageUrl = `https://${baseDomain}${managePath}`;
       }
     }
 

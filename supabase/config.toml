@@ -20,6 +20,10 @@ project_id = "zprkdxmluvirxfhswrzq"
   [functions.create-google-calendar-event]
     verify_jwt = true
   [functions.create-stripe-checkout]
+    # The function authenticates public requests with session_access_token and
+    # authenticated requests with the user JWT inside the handler.
+    verify_jwt = false
+  [functions.create-public-session-short-link]
     verify_jwt = true
   [functions.create-stripe-connect-link]
     verify_jwt = true

@@ -1,6 +1,8 @@
-import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
-
 export type PublicShortLinkTarget = "session" | "session_payment" | "debt" | "debt_bono";
+
+type PublicShortLinkClient = {
+  from: (table: string) => any;
+};
 
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
 const CODE_LENGTH = 10;
@@ -12,7 +14,7 @@ function generateCode(length = CODE_LENGTH): string {
 }
 
 export async function getOrCreatePublicShortLink(args: {
-  supabase: SupabaseClient;
+  supabase: PublicShortLinkClient;
   centerId: string;
   targetType: PublicShortLinkTarget;
   targetToken: string;

@@ -42,6 +42,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Textarea } from '@/components/ui/textarea';
 import { formatLocationLine, summarizeLocationChange, isOnlineLocation, type RescheduleLocation } from '@/lib/reschedule-helpers';
 import { SESSION_STATUS_LABELS, getSessionStatusDisplay } from '@/lib/payment-status';
+import { useToast } from '@/hooks/use-toast';
 
 function extractZoomInfo(videoCallLink: string | null | undefined) {
   if (!videoCallLink || !videoCallLink.includes('zoom.us')) return null;
@@ -68,6 +69,7 @@ const modalityLabels: Record<string, string> = {
 };
 
 export default function SessionManagement() {
+  const { toast } = useToast();
   const { token } = useParams<{ token: string }>();
   const { data: session, isLoading, error } = usePublicSession(token);
   const updateSession = useUpdatePublicSession();
@@ -218,6 +220,13 @@ export default function SessionManagement() {
     } catch (error) {
       console.error('Error creating public session checkout:', error);
       setPaying(false);
+      toast({
+        title: 'No se pudo iniciar el pago',
+        description: error instanceof Error
+          ? error.message
+          : 'Inténtalo de nuevo o contacta con el centro.',
+        variant: 'destructive',
+      });
     }
   };
 

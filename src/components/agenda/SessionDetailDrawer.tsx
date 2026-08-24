@@ -1984,10 +1984,22 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                       const sessionDate = format(new Date(session.session_date), "d 'de' MMMM", { locale: es });
                       const sessionTime = session.start_time?.slice(0, 5) || '';
 
-                      // Build appointment link using access_token
-                      const appointmentLink = session.access_token 
-                        ? `${window.location.origin}/cita/${session.access_token}`
-                        : window.location.href;
+                      let appointmentLink = window.location.href;
+                      if (session.access_token) {
+                        const { data: shortLinkData, error: shortLinkError } = await supabase.functions.invoke(
+                          'create-public-session-short-link',
+                          { body: { session_id: session.id } },
+                        );
+                        if (shortLinkError || !shortLinkData?.path) {
+                          toast({
+                            title: 'No se pudo crear el enlace corto',
+                            description: shortLinkError?.message || shortLinkData?.error,
+                            variant: 'destructive',
+                          });
+                          return;
+                        }
+                        appointmentLink = `${window.location.origin}${shortLinkData.path}`;
+                      }
 
                       // Build message from template
                       let message = DEFAULT_TEMPLATES.whatsapp.notification.whatsapp_message || '';

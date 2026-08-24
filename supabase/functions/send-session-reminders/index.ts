@@ -6,6 +6,7 @@ import {
   markAdvancePaymentNotificationFailed,
   markAdvancePaymentNotificationSent,
 } from "../_shared/advancePaymentNotifications.ts";
+import { getOrCreatePublicShortLink } from "../_shared/publicShortLinks.ts";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 const WASENDER_API_URL = "https://www.wasenderapi.com/api";
@@ -301,7 +302,8 @@ function buildReminderMessage(
   session: SessionToRemind,
   center: CenterConfig,
   template: string | null,
-  baseUrl: string
+  baseUrl: string,
+  sessionLinkOverride?: string,
 ): string {
   const professionalName = session.professional.first_name 
     ? `${session.professional.first_name} ${session.professional.last_name || ''}`.trim()
@@ -309,9 +311,9 @@ function buildReminderMessage(
   const professionalFirstName = session.professional.first_name || 'el profesional';
   const professionalLastName = session.professional.last_name || '';
   
-  const sessionLink = session.access_token 
-    ? `${baseUrl}/cita/${session.access_token}` 
-    : '';
+  const sessionLink = sessionLinkOverride || (session.access_token
+    ? `${baseUrl}/cita/${session.access_token}`
+    : '');
   const videoCallLink = session.video_call_link || '';
   const zoomMeetingId = session.zoom_meeting_id || '';
   const zoomPassword = session.zoom_password || '';
@@ -600,8 +602,18 @@ serve(async (req) => {
           && !session.advance_payment_notification_sent_at
           && !["paid", "bono", "refunded"].includes((session.payment_status || "").toLowerCase());
 
-        let whatsappMessage = buildReminderMessage(session, center, templateMessage, baseUrl);
-        let emailMessage = buildReminderMessage(session, center, emailTemplateMessage || templateMessage, baseUrl);
+        const shortSessionPath = session.access_token
+          ? await getOrCreatePublicShortLink({
+              supabase,
+              centerId: center.id,
+              targetType: "session",
+              targetToken: session.access_token,
+              expiresAt: null,
+            })
+          : null;
+        const sessionLink = shortSessionPath ? `${baseUrl}${shortSessionPath}` : undefined;
+        let whatsappMessage = buildReminderMessage(session, center, templateMessage, baseUrl, sessionLink);
+        let emailMessage = buildReminderMessage(session, center, emailTemplateMessage || templateMessage, baseUrl, sessionLink);
         let advancePaymentBlockIncluded = false;
         let advancePaymentBlockError: string | null = null;
 

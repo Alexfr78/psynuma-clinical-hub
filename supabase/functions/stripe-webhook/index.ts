@@ -8,6 +8,8 @@ import {
 } from "../_shared/stripeWebhookPolicy.ts";
 import { resolveRefundMetadata } from "../_shared/stripeRefundResolution.ts";
 import { calculateStripeRefundProgress } from "../_shared/stripeRefundPayment.ts";
+import { getOrCreatePublicShortLink } from "../_shared/publicShortLinks.ts";
+import { assertStripeEnvironment } from "../_shared/stripeEnvironment.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -988,6 +990,16 @@ async function sendStripePaymentConfirmation(
     }
   }
 
+  const shortSessionPath = sessionData.access_token
+    ? await getOrCreatePublicShortLink({
+        supabase,
+        centerId: sessionData.center_id,
+        targetType: "session",
+        targetToken: sessionData.access_token,
+        expiresAt: null,
+      })
+    : null;
+
   const queued = await queueAndSendPatientBookingNotification({
     supabase,
     centerId: sessionData.center_id,
@@ -999,7 +1011,7 @@ async function sendStripePaymentConfirmation(
     sessionType: sessionData.session_type || undefined,
     sessionModality: sessionData.session_modality || undefined,
     locationName,
-    manageUrl: sessionData.access_token ? `/cita/${sessionData.access_token}` : undefined,
+    manageUrl: shortSessionPath || (sessionData.access_token ? `/cita/${sessionData.access_token}` : undefined),
     includeAdvancePaymentBlock: false,
   });
 
@@ -1473,6 +1485,15 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ error: 'Stripe not configured' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    try {
+      assertStripeEnvironment(stripeSecretKey);
+    } catch (environmentError) {
+      console.error('Stripe environment mismatch:', environmentError);
+      return new Response(
+        JSON.stringify({ error: 'Stripe production is not configured with live credentials' }),
+        { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
 
