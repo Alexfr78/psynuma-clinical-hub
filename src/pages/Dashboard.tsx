@@ -133,7 +133,7 @@ export default function Dashboard() {
         .from('sessions')
         .select(`
           *,
-          patient:patients!sessions_patient_id_fkey(id, first_name, last_name, email, phone, auto_invoice_on_complete),
+          patient:patients!sessions_patient_id_fkey(id, first_name, last_name, email, phone, auto_invoice_on_complete, preferred_invoice_type),
           professional:profiles!sessions_professional_id_fkey(id, first_name, last_name, email)
         `)
         .eq('id', selectedSessionId)

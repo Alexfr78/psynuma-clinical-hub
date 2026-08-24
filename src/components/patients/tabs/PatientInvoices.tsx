@@ -1,6 +1,6 @@
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { FileText, Download, Loader2 } from 'lucide-react';
+import { FileText, Download, Loader2, Plus } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
@@ -10,6 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { useState, type MouseEvent } from 'react';
 import { toast } from 'sonner';
+import { CreateSimpleInvoiceDialog } from '@/components/invoices/CreateSimpleInvoiceDialog';
 
 interface PatientInvoicesProps {
   patientId: string;
@@ -25,6 +26,7 @@ const statusConfig = {
 
 export function PatientInvoices({ patientId, onInvoiceClick }: PatientInvoicesProps) {
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [createInvoiceOpen, setCreateInvoiceOpen] = useState(false);
 
   const { data: invoices, isLoading } = useQuery({
     queryKey: ['patient-invoices', patientId],
@@ -81,18 +83,35 @@ export function PatientInvoices({ patientId, onInvoiceClick }: PatientInvoicesPr
 
   if (!invoices || invoices.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12 text-center">
-        <FileText className="h-12 w-12 text-muted-foreground" />
-        <h3 className="mt-4 font-display text-lg font-semibold">Sin facturas</h3>
-        <p className="mt-2 max-w-sm text-sm text-muted-foreground">
-          Este contacto aún no tiene facturas emitidas.
-        </p>
-      </div>
+      <>
+        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12 text-center">
+          <FileText className="h-12 w-12 text-muted-foreground" />
+          <h3 className="mt-4 font-display text-lg font-semibold">Sin facturas</h3>
+          <p className="mt-2 max-w-sm text-sm text-muted-foreground">
+            Este contacto aún no tiene facturas emitidas.
+          </p>
+          <Button className="mt-5" onClick={() => setCreateInvoiceOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Nueva factura
+          </Button>
+        </div>
+        <CreateSimpleInvoiceDialog
+          open={createInvoiceOpen}
+          onOpenChange={setCreateInvoiceOpen}
+          preselectedPatientId={patientId}
+        />
+      </>
     );
   }
 
   return (
     <div className="space-y-4">
+      <div className="flex justify-end">
+        <Button onClick={() => setCreateInvoiceOpen(true)}>
+          <Plus className="mr-2 h-4 w-4" />
+          Nueva factura
+        </Button>
+      </div>
       {invoices.map((invoice) => {
         const status = statusConfig[invoice.status as keyof typeof statusConfig] || statusConfig.draft;
         const isInvalidated = (invoice as { is_valid?: boolean | null }).is_valid === false;
@@ -157,6 +176,11 @@ export function PatientInvoices({ patientId, onInvoiceClick }: PatientInvoicesPr
           </Card>
         );
       })}
+      <CreateSimpleInvoiceDialog
+        open={createInvoiceOpen}
+        onOpenChange={setCreateInvoiceOpen}
+        preselectedPatientId={patientId}
+      />
     </div>
   );
 }

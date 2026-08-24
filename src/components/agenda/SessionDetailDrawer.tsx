@@ -463,7 +463,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
           try {
             const result = await createSignedInvoice.mutateAsync({
               patientId: session.patient_id,
-              invoiceType: 'simplified',
+              invoiceType: session.patient?.preferred_invoice_type || 'simplified',
               items: [{
                 description: `${session.session_type || 'Sesión'} — ${format(new Date(session.session_date), 'dd/MM/yyyy')}`,
                 quantity: 1,

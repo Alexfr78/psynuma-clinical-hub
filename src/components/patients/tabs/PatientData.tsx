@@ -47,6 +47,7 @@ const patientSchema = z.object({
   status: z.string(),
   is_minor: z.boolean(),
   auto_invoice_on_complete: z.boolean(),
+  preferred_invoice_type: z.enum(['simplified', 'complete']),
   cancellation_policy_enabled: z.boolean(),
   payment_mode: z.string(),
   guardian_name: z.string().max(200).optional().or(z.literal('')),
@@ -89,6 +90,7 @@ export function PatientData({ patient }: PatientDataProps) {
       status: patient.status || 'active',
       is_minor: patient.is_minor || false,
       auto_invoice_on_complete: patient.auto_invoice_on_complete ?? false,
+      preferred_invoice_type: patient.preferred_invoice_type || 'simplified',
       cancellation_policy_enabled: patient.cancellation_policy_enabled ?? true,
       payment_mode: (patient as { payment_mode?: string | null }).payment_mode || '__center__',
       guardian_name: patient.guardian_name || '',
@@ -113,6 +115,7 @@ export function PatientData({ patient }: PatientDataProps) {
         status: values.status as 'active' | 'inactive' | 'discharged',
         is_minor: values.is_minor,
         auto_invoice_on_complete: values.auto_invoice_on_complete,
+        preferred_invoice_type: values.preferred_invoice_type,
         cancellation_policy_enabled: values.cancellation_policy_enabled,
         payment_mode: values.payment_mode === '__center__' ? null : values.payment_mode,
         assigned_professional_id: values.assigned_professional_id,
@@ -567,13 +570,37 @@ export function PatientData({ patient }: PatientDataProps) {
           <CardContent>
             <FormField
               control={form.control}
+              name="preferred_invoice_type"
+              render={({ field }) => (
+                <FormItem className="mb-4">
+                  <FormLabel>Tipo de factura habitual</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value} disabled={!isEditing}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="simplified">Factura simplificada</SelectItem>
+                      <SelectItem value="complete">Factura completa</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-sm text-muted-foreground">
+                    Se aplicará cuando se genere una factura automáticamente para este paciente.
+                  </p>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
               name="auto_invoice_on_complete"
               render={({ field }) => (
                 <FormItem className="flex items-center justify-between rounded-lg border p-4">
                   <div className="space-y-0.5">
                     <FormLabel className="text-base">Facturar automáticamente al completar sesión</FormLabel>
                     <p className="text-sm text-muted-foreground">
-                      Genera y envía una factura simplificada automáticamente al marcar la sesión como completada
+                      Genera y envía automáticamente el tipo de factura habitual al marcar la sesión como completada
                     </p>
                   </div>
                   <FormControl>

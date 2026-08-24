@@ -4172,6 +4172,7 @@ export type Database = {
           notes: string | null
           payment_mode: string | null
           phone: string | null
+          preferred_invoice_type: string
           postal_code: string | null
           require_advance_payment_always: boolean | null
           status: Database["public"]["Enums"]["patient_status"] | null
@@ -4205,6 +4206,7 @@ export type Database = {
           notes?: string | null
           payment_mode?: string | null
           phone?: string | null
+          preferred_invoice_type?: string
           postal_code?: string | null
           require_advance_payment_always?: boolean | null
           status?: Database["public"]["Enums"]["patient_status"] | null
@@ -4238,6 +4240,7 @@ export type Database = {
           notes?: string | null
           payment_mode?: string | null
           phone?: string | null
+          preferred_invoice_type?: string
           postal_code?: string | null
           require_advance_payment_always?: boolean | null
           status?: Database["public"]["Enums"]["patient_status"] | null

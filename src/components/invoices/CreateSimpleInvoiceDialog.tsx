@@ -22,6 +22,16 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -112,6 +122,7 @@ export function CreateSimpleInvoiceDialog({ open, onOpenChange, preselectedPatie
   const [savingPatient, setSavingPatient] = useState(false);
   const [isSigningVerifactu, setIsSigningVerifactu] = useState(false);
   const [notes, setNotes] = useState('');
+  const [showInvoicePreferenceDialog, setShowInvoicePreferenceDialog] = useState(false);
 
   // Default tax and retention from center
   const defaultTaxRate = center?.default_tax_rate ?? 0;
@@ -195,6 +206,7 @@ export function CreateSimpleInvoiceDialog({ open, onOpenChange, preselectedPatie
   // Initialize patient form data from full patient data
   useEffect(() => {
     if (patientData) {
+      setInvoiceType(patientData.preferred_invoice_type || 'simplified');
       setPatientFormData({
         tax_id: patientData.tax_id || '',
         address: patientData.address || '',
@@ -344,7 +356,7 @@ export function CreateSimpleInvoiceDialog({ open, onOpenChange, preselectedPatie
     }
   };
 
-  const handleCreateInvoice = async () => {
+  const emitInvoice = async () => {
     if (!patientData || !selectedSeriesId || items.length === 0) return;
 
     try {
@@ -433,11 +445,43 @@ export function CreateSimpleInvoiceDialog({ open, onOpenChange, preselectedPatie
     }
   };
 
+  const handleCreateInvoice = async () => {
+    if (!patientData || !selectedSeriesId || items.length === 0) return;
+
+    const preferredInvoiceType = patientData.preferred_invoice_type || 'simplified';
+    if (preferredInvoiceType !== invoiceType) {
+      setShowInvoicePreferenceDialog(true);
+      return;
+    }
+
+    await emitInvoice();
+  };
+
+  const handleInvoicePreferenceDecision = async (updatePreference: boolean) => {
+    setShowInvoicePreferenceDialog(false);
+
+    if (updatePreference && patientData) {
+      try {
+        await updatePatient.mutateAsync({
+          id: patientData.id,
+          preferred_invoice_type: invoiceType,
+        });
+        toast.success('Preferencia de facturación actualizada');
+      } catch {
+        toast.error('No se pudo actualizar la preferencia del paciente');
+        return;
+      }
+    }
+
+    await emitInvoice();
+  };
+
   const patientName = patientData ? `${patientData.first_name} ${patientData.last_name}` : '';
   const isTestMode = center?.verifactu_environment === 'test';
 
   return (
-<Dialog open={open} onOpenChange={onOpenChange}>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[95vw] max-w-3xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -1094,6 +1138,26 @@ export function CreateSimpleInvoiceDialog({ open, onOpenChange, preselectedPatie
           </Button>
         </div>
       </DialogContent>
-    </Dialog>
+      </Dialog>
+      <AlertDialog open={showInvoicePreferenceDialog} onOpenChange={setShowInvoicePreferenceDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Tipo de factura distinto al habitual</AlertDialogTitle>
+            <AlertDialogDescription>
+              Este paciente tiene configurada una factura {patientData?.preferred_invoice_type === 'complete' ? 'completa' : 'simplificada'} como opción habitual, pero estás emitiendo una factura {invoiceType === 'complete' ? 'completa' : 'simplificada'}.
+              ¿Quieres actualizar la ficha para que las próximas facturas automáticas utilicen esta opción?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => handleInvoicePreferenceDecision(false)}>
+              Emitir solo esta vez
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={() => handleInvoicePreferenceDecision(true)}>
+              Actualizar ficha y emitir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }

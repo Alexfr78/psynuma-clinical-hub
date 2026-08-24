@@ -18,6 +18,7 @@ export interface SessionWithRelations extends Session {
     email: string | null;
     phone: string | null;
     auto_invoice_on_complete: boolean;
+    preferred_invoice_type: 'simplified' | 'complete';
   } | null;
   professional?: {
     id: string;
@@ -37,7 +38,7 @@ export function useSessions(startDate?: string, endDate?: string, professionalId
         .select(`
           *,
           patient:patients!sessions_patient_id_fkey(
-            id, first_name, last_name, email, phone, auto_invoice_on_complete
+            id, first_name, last_name, email, phone, auto_invoice_on_complete, preferred_invoice_type
           ),
           professional:profiles!sessions_professional_id_fkey(
             id, first_name, last_name
