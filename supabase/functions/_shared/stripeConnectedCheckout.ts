@@ -39,6 +39,8 @@ export interface ConnectedCheckoutSessionState {
   status: string | null;
   payment_status: string | null;
   url: string | null;
+  amount_total: number | null;
+  currency: string | null;
 }
 
 export class StripeCheckoutRequestError extends Error {
