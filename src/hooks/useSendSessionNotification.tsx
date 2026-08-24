@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { buildPublicUrl, getPublicBaseUrl } from '@/lib/public-base-url';
 import { useAuth } from './useAuth';
 import { useCenter } from './useCenter';
 import { generateWhatsAppUniversalLink, generateWhatsAppWebLink } from '@/lib/whatsapp';
@@ -127,7 +128,7 @@ export async function sendSessionNotificationDirect(
 
   // Resolve the public link through the short-link service so manually sent
   // notifications use the same patient-facing URL as automated messages.
-  let appointmentLink = `${window.location.origin}`;
+  let appointmentLink = getPublicBaseUrl();
   if (accessToken) {
     const { data: shortLinkData, error: shortLinkError } = await supabase.functions.invoke(
       'create-public-session-short-link',
@@ -136,7 +137,7 @@ export async function sendSessionNotificationDirect(
     if (shortLinkError || !shortLinkData?.path) {
       throw new Error(shortLinkError?.message || shortLinkData?.error || 'No se pudo crear el enlace corto de la cita');
     }
-    appointmentLink = `${window.location.origin}${shortLinkData.path}`;
+    appointmentLink = buildPublicUrl(shortLinkData.path);
   }
 
   // Get professional details for template variables
