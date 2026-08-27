@@ -321,7 +321,7 @@ export default function Dashboard() {
 
       {/* Session Detail Drawer */}
       <SessionDetailDrawer
-        session={selectedSession}
+        session={selectedSession as SessionWithRelations | null}
         open={!!selectedSession}
         onOpenChange={(open) => !open && setSelectedSessionId(null)}
       />

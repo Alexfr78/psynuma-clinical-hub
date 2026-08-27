@@ -90,7 +90,7 @@ export function PatientData({ patient }: PatientDataProps) {
       status: patient.status || 'active',
       is_minor: patient.is_minor || false,
       auto_invoice_on_complete: patient.auto_invoice_on_complete ?? false,
-      preferred_invoice_type: patient.preferred_invoice_type || 'simplified',
+      preferred_invoice_type: (patient.preferred_invoice_type as 'complete' | 'simplified') || 'simplified',
       cancellation_policy_enabled: patient.cancellation_policy_enabled ?? true,
       payment_mode: (patient as { payment_mode?: string | null }).payment_mode || '__center__',
       guardian_name: patient.guardian_name || '',

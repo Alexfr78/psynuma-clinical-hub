@@ -242,7 +242,7 @@ export function useCreateInvoice() {
           .single();
 
         if (patientError) throw patientError;
-        patient = patientData;
+        patient = patientData as typeof patient;
         invoiceType ??= patient.preferred_invoice_type === 'complete' ? 'complete' : 'simplified';
 
         if (invoiceType === 'complete') {

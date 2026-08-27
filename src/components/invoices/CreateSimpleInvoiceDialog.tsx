@@ -207,7 +207,7 @@ export function CreateSimpleInvoiceDialog({ open, onOpenChange, preselectedPatie
   // Initialize patient form data from full patient data
   useEffect(() => {
     if (patientData) {
-      setInvoiceType(patientData.preferred_invoice_type || 'simplified');
+      setInvoiceType((patientData.preferred_invoice_type as 'complete' | 'simplified') || 'simplified');
       setPatientFormData({
         tax_id: patientData.tax_id || '',
         address: patientData.address || '',
