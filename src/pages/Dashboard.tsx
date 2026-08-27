@@ -8,6 +8,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { SessionDetailDrawer } from '@/components/agenda/SessionDetailDrawer';
 import { useDebtStats } from '@/hooks/useDebts';
+import type { SessionWithRelations } from '@/hooks/useSessions';
 import {
   Users,
   Calendar,
@@ -321,7 +322,7 @@ export default function Dashboard() {
 
       {/* Session Detail Drawer */}
       <SessionDetailDrawer
-        session={selectedSession}
+        session={selectedSession as SessionWithRelations | null}
         open={!!selectedSession}
         onOpenChange={(open) => !open && setSelectedSessionId(null)}
       />
