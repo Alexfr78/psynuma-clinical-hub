@@ -7268,6 +7268,10 @@ export type Database = {
           read_ct: number
         }[]
       }
+      reassign_payment_to_invoice_v2: {
+        Args: { p_payment_id: string; p_target_invoice_id: string }
+        Returns: Json
+      }
       recompute_all_patient_statuses: {
         Args: { p_center_id?: string }
         Returns: Json
