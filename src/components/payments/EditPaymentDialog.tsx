@@ -54,6 +54,7 @@ const paymentMethods = [
   { value: 'card', label: 'Tarjeta' },
   { value: 'transfer', label: 'Transferencia' },
   { value: 'bizum', label: 'Bizum' },
+  { value: 'stripe', label: 'Stripe' },
 ];
 
 export function EditPaymentDialog({ open, onOpenChange, payment }: EditPaymentDialogProps) {

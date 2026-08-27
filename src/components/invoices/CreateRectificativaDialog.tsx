@@ -38,6 +38,7 @@ import { useCenter } from '@/hooks/useCenter';
 import { useInvoiceSeries } from '@/hooks/useInvoiceSeries';
 import type { InvoiceWithPatient } from '@/hooks/useInvoices';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { getCompleteInvoiceMissingFields } from '@/lib/complete-invoice-requirements';
 
 interface CreateRectificativaDialogProps {
   open: boolean;
@@ -182,6 +183,14 @@ export function CreateRectificativaDialog({
       if (!series) {
         toast.error('Serie de facturación no encontrada');
         return;
+      }
+
+      if (series.invoice_type === 'complete') {
+        const missingFields = getCompleteInvoiceMissingFields(originalInvoice.patients);
+        if (missingFields.length > 0) {
+          toast.error(`No se puede crear una rectificativa completa. Faltan datos fiscales del paciente: ${missingFields.join(', ')}.`);
+          return;
+        }
       }
 
       // Generate invoice number from series format

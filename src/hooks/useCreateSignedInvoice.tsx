@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useCenter } from './useCenter';
 import { assertInvoiceSeriesMatches, selectAutomaticInvoiceSeries, type SelectableInvoiceSeries } from '@/lib/invoice-series';
+import { getCompleteInvoiceMissingFields } from '@/lib/complete-invoice-requirements';
 import { toast } from 'sonner';
 
 interface InvoiceItem {
@@ -65,6 +66,20 @@ export function useCreateSignedInvoice() {
 
       if (!center?.id) {
         throw new Error('No se ha encontrado el centro');
+      }
+
+      if (invoiceType === 'complete') {
+        const { data: recipient, error: recipientError } = await supabase
+          .from('patients')
+          .select('first_name, last_name, tax_id, address, city, postal_code')
+          .eq('id', patientId)
+          .single();
+
+        if (recipientError) throw recipientError;
+        const missingFields = getCompleteInvoiceMissingFields(recipient);
+        if (missingFields.length > 0) {
+          throw new Error(`No se puede emitir una factura completa. Faltan datos fiscales del paciente: ${missingFields.join(', ')}.`);
+        }
       }
 
       const result: CreateSignedInvoiceResult = {

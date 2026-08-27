@@ -10,6 +10,7 @@ import { resolveRefundMetadata } from "../_shared/stripeRefundResolution.ts";
 import { calculateStripeRefundProgress } from "../_shared/stripeRefundPayment.ts";
 import { getOrCreatePublicShortLink } from "../_shared/publicShortLinks.ts";
 import { assertStripeEnvironment } from "../_shared/stripeEnvironment.ts";
+import { createInvoice } from "../_shared/createInvoice.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -25,26 +26,6 @@ const connectWebhookSecret = Deno.env.get('STRIPE_CONNECT_WEBHOOK_SECRET');
 // Settings → External connections so persistent webhook failures don't stay
 // hidden in logs.
 const WEBHOOK_FAILURE_ALERT_THRESHOLD = 3;
-
-interface Center {
-  id: string;
-  invoice_on_payment_mode: string | null;
-  invoice_send_channel: string | null;
-  verifactu_auto_enabled: boolean | null;
-  verifactu_certificate_base64: string | null;
-  default_tax_rate: number | null;
-}
-
-interface InvoiceSeries {
-  id: string;
-  name: string;
-  format: string;
-  next_number: number;
-  invoice_type: string;
-  series_type: string;
-  is_default: boolean;
-  is_archived: boolean;
-}
 
 interface UntrustedStripeEventReference {
   id?: unknown;
@@ -220,174 +201,6 @@ async function logStripeIntegrationError(
     });
   } catch (logError) {
     console.error('Failed to write integration_errors', logError);
-  }
-}
-
-// Helper function to create invoice
-async function createInvoice(
-  supabase: SupabaseClient,
-  centerId: string,
-  patientId: string,
-  description: string,
-  amount: number,
-  linkedSessionId: string | null,
-  linkedBonoId: string | null
-): Promise<{ invoiceId: string | null; accessToken: string | null }> {
-  console.log('Creating invoice for:', { centerId, patientId, amount });
-  
-  try {
-    // Get center settings
-    const { data: center } = await supabase
-      .from('centers')
-      .select('id, invoice_on_payment_mode, invoice_send_channel, verifactu_auto_enabled, verifactu_certificate_base64, default_tax_rate')
-      .eq('id', centerId)
-      .single();
-
-    if (!center) {
-      console.error('Center not found');
-      return { invoiceId: null, accessToken: null };
-    }
-
-    // Get default simplified series
-    const { data: compatibleSeries, error: seriesError } = await supabase
-      .from('invoice_series')
-      .select('*')
-      .eq('center_id', centerId)
-      .eq('series_type', 'ordinary')
-      .eq('invoice_type', 'simplified')
-      .eq('is_archived', false)
-      .order('name');
-
-    if (seriesError || !compatibleSeries || compatibleSeries.length === 0) {
-      console.error('No invoice series found:', seriesError);
-      return { invoiceId: null, accessToken: null };
-    }
-
-    const defaultSeries = compatibleSeries.find((candidate: InvoiceSeries) => candidate.is_default);
-    if (!defaultSeries && compatibleSeries.length > 1) {
-      console.error('Several simplified series exist but none is configured as default');
-      return { invoiceId: null, accessToken: null };
-    }
-
-    const series = (defaultSeries || compatibleSeries[0]) as InvoiceSeries;
-
-    // Generate invoice number
-    const year = new Date().getFullYear();
-    const nextNumber = series.next_number || 1;
-    const paddedNumber = nextNumber.toString().padStart(5, '0');
-    
-    const invoiceNumber = series.format
-      .replace('{SERIE}', series.name)
-      .replace('{AAAA}', year.toString())
-      .replace('{AA}', year.toString().slice(-2))
-      .replace('{NNNNN}', paddedNumber)
-      .replace('{NNNN}', nextNumber.toString().padStart(4, '0'))
-      .replace('{NNN}', nextNumber.toString().padStart(3, '0'));
-
-    // Calculate totals (healthcare exempt from VAT by default)
-    const taxRate = center.default_tax_rate ?? 0;
-    const subtotal = amount;
-    const taxAmount = subtotal * (taxRate / 100);
-    const total = subtotal + taxAmount;
-
-    // Create the invoice
-    const { data: invoiceData, error: invoiceError } = await supabase
-      .from('invoices')
-      .insert({
-        center_id: centerId,
-        patient_id: patientId,
-        series_id: series.id,
-        invoice_type: 'simplified',
-        invoice_number: invoiceNumber,
-        status: 'paid',
-        issue_date: new Date().toISOString().split('T')[0],
-        subtotal,
-        tax_rate: taxRate,
-        tax_amount: taxAmount,
-        total,
-        notes: 'Factura generada automáticamente por pago online',
-      })
-      .select('id, access_token')
-      .single();
-
-    if (invoiceError || !invoiceData) {
-      console.error('Error creating invoice:', invoiceError);
-      return { invoiceId: null, accessToken: null };
-    }
-
-    console.log('Invoice created:', invoiceData.id);
-
-    // Create invoice item
-    await supabase
-      .from('invoice_items')
-      .insert({
-        invoice_id: invoiceData.id,
-        description,
-        quantity: 1,
-        unit_price: subtotal,
-        tax_rate: taxRate,
-        tax_amount: taxAmount,
-        total,
-        session_id: linkedSessionId,
-        bono_id: linkedBonoId,
-      });
-
-    // Update series counter
-    await supabase
-      .from('invoice_series')
-      .update({ next_number: nextNumber + 1 })
-      .eq('id', series.id);
-
-    // Sign with Verifactu if enabled
-    if (center.verifactu_auto_enabled && center.verifactu_certificate_base64) {
-      try {
-        console.log('Signing invoice with Verifactu...');
-        const { error: verifactuError } = await supabase.functions.invoke(
-          'sign-invoice-verifactu',
-          { body: { invoice_id: invoiceData.id } }
-        );
-        
-        if (verifactuError) {
-          console.error('Verifactu signing error:', verifactuError);
-          await supabase
-            .from('invoices')
-            .update({ verifactu_pending: true, verifactu_retry_count: 1 })
-            .eq('id', invoiceData.id);
-        }
-      } catch (error) {
-        console.error('Verifactu error:', error);
-      }
-    }
-
-    // Send notification
-    const sendChannel = center.invoice_send_channel || 'email';
-    const { data: patientData } = await supabase
-      .from('patients')
-      .select('email, phone')
-      .eq('id', patientId)
-      .single();
-
-    if (patientData) {
-      try {
-        console.log('Sending invoice notification via:', sendChannel);
-        await supabase.functions.invoke('send-invoice-notification', {
-          body: {
-            invoice_id: invoiceData.id,
-            patient_id: patientId,
-            patient_email: patientData.email,
-            patient_phone: patientData.phone,
-            channel: sendChannel,
-          }
-        });
-      } catch (notifError) {
-        console.error('Error sending invoice notification:', notifError);
-      }
-    }
-
-    return { invoiceId: invoiceData.id, accessToken: invoiceData.access_token };
-  } catch (error) {
-    console.error('Error in createInvoice:', error);
-    return { invoiceId: null, accessToken: null };
   }
 }
 
@@ -840,16 +653,36 @@ async function handleSessionCheckout(
     paymentRecord = insertedPayment;
   }
 
-  // Update debt if exists
-  const { data: debtData, error: debtLookupError } = await supabase
+  // Update debt if exists. A session can end up with more than one pending
+  // debt row (e.g. a stale duplicate created before the invoice dedup fix),
+  // so this tolerates multiple rows instead of using .maybeSingle(), which
+  // would throw and abort reconciliation after the payment was already
+  // recorded above.
+  const { data: sessionDebts, error: debtLookupError } = await supabase
     .from('debts')
     .select('id')
     .eq('session_id', sessionId)
-    .maybeSingle();
+    .neq('status', 'paid')
+    .order('created_at', { ascending: false });
 
   if (debtLookupError) {
     console.error('Failed to find session debt:', debtLookupError);
     throw new Error('Failed to find session debt');
+  }
+
+  const debtData = sessionDebts && sessionDebts.length > 0 ? sessionDebts[0] : null;
+  const duplicateDebtIds = sessionDebts && sessionDebts.length > 1
+    ? sessionDebts.slice(1).map((d) => d.id)
+    : [];
+
+  if (duplicateDebtIds.length > 0) {
+    const { error: dedupeError } = await supabase
+      .from('debts')
+      .delete()
+      .in('id', duplicateDebtIds);
+    if (dedupeError) {
+      console.error('Failed to clean up duplicate session debts:', dedupeError);
+    }
   }
 
   if (debtData) {

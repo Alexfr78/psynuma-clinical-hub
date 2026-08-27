@@ -9,6 +9,7 @@ import {
   type InvoiceDocumentType,
   type SelectableInvoiceSeries,
 } from '@/lib/invoice-series';
+import { getCompleteInvoiceMissingFields } from '@/lib/complete-invoice-requirements';
 
 export interface Invoice {
   id: string;
@@ -220,6 +221,38 @@ export function useCreateInvoice() {
 
   return useMutation({
     mutationFn: async ({ invoice, items }: { invoice: InvoiceInsert; items: Omit<InvoiceItemInsert, 'invoice_id'>[] }) => {
+      let invoiceType = invoice.invoice_type;
+      let patient: {
+        first_name: string | null;
+        last_name: string | null;
+        tax_id: string | null;
+        address: string | null;
+        city: string | null;
+        postal_code: string | null;
+        preferred_invoice_type: InvoiceDocumentType | null;
+      } | null = null;
+
+      // Legacy creation path (currently used by recapitulatives): keep the
+      // document type explicit so a draft can never be issued without it.
+      if (!invoiceType || invoiceType === 'complete') {
+        const { data: patientData, error: patientError } = await supabase
+          .from('patients')
+          .select('first_name, last_name, tax_id, address, city, postal_code, preferred_invoice_type')
+          .eq('id', invoice.patient_id)
+          .single();
+
+        if (patientError) throw patientError;
+        patient = patientData;
+        invoiceType ??= patient.preferred_invoice_type === 'complete' ? 'complete' : 'simplified';
+
+        if (invoiceType === 'complete') {
+          const missingFields = getCompleteInvoiceMissingFields(patient);
+          if (missingFields.length > 0) {
+            throw new Error(`No se puede crear una factura completa. Faltan datos fiscales del paciente: ${missingFields.join(', ')}.`);
+          }
+        }
+      }
+
       // Get next invoice number via safe center RPC (avoids direct SELECT on centers)
       const { data: centerData, error: centerError } = await supabase
         .rpc('get_safe_center', { p_center_id: profile!.center_id! });
@@ -234,6 +267,7 @@ export function useCreateInvoice() {
         .from('invoices')
         .insert({
           ...invoice,
+          invoice_type: invoiceType,
           center_id: profile!.center_id!,
           invoice_number: invoiceNumber,
         })
@@ -290,6 +324,20 @@ export function useCreateInvoiceWithSeries() {
       items: (Omit<InvoiceItemInsert, 'invoice_id'> & { session_id?: string })[]; 
       seriesId: string;
     }) => {
+      if (invoice.invoice_type === 'complete') {
+        const { data: recipient, error: recipientError } = await supabase
+          .from('patients')
+          .select('first_name, last_name, tax_id, address, city, postal_code')
+          .eq('id', invoice.patient_id)
+          .single();
+
+        if (recipientError) throw recipientError;
+        const missingFields = getCompleteInvoiceMissingFields(recipient);
+        if (missingFields.length > 0) {
+          throw new Error(`No se puede emitir una factura completa. Faltan datos fiscales del paciente: ${missingFields.join(', ')}.`);
+        }
+      }
+
       // Get series info
       const { data: series, error: seriesError } = await supabase
         .from('invoice_series')
@@ -354,22 +402,68 @@ export function useCreateInvoiceWithSeries() {
 
         if (updateError) throw updateError;
 
-        // Auto-create debt for non-draft invoices
+        // Auto-create / reuse debt for non-draft invoices. If a session-level
+        // pending debt already exists (e.g. created by the daily
+        // generate-pending-debts cron before the invoice was issued), reuse
+        // it instead of inserting a duplicate — a duplicate breaks the
+        // Stripe webhook's .maybeSingle() lookup by session_id and leaves
+        // the debt stuck as pending even after the session gets paid.
         const sessionId = items.find(i => i.session_id)?.session_id || null;
-        const { error: debtError } = await supabase
-          .from('debts')
-          .insert({
-            invoice_id: newInvoice.id,
-            patient_id: invoice.patient_id,
-            center_id: profile!.center_id!,
-            amount: invoice.total,
-            paid_amount: 0,
-            status: 'pending' as const,
-            due_date: new Date().toISOString().split('T')[0],
-            session_id: sessionId,
-          });
+        let reusedDebtId: string | null = null;
 
-        if (debtError) throw debtError;
+        if (sessionId) {
+          const { data: sessionDebts, error: sessionDebtsError } = await supabase
+            .from('debts')
+            .select('id')
+            .eq('session_id', sessionId)
+            .is('invoice_id', null)
+            .neq('status', 'refunded')
+            .order('created_at', { ascending: false });
+
+          if (sessionDebtsError) throw sessionDebtsError;
+
+          if (sessionDebts && sessionDebts.length > 0) {
+            const [first, ...duplicates] = sessionDebts;
+            reusedDebtId = first.id;
+
+            const { error: reuseError } = await supabase
+              .from('debts')
+              .update({
+                invoice_id: newInvoice.id,
+                amount: invoice.total,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', first.id);
+
+            if (reuseError) throw reuseError;
+
+            if (duplicates.length > 0) {
+              const { error: cleanupError } = await supabase
+                .from('debts')
+                .delete()
+                .in('id', duplicates.map((d) => d.id));
+
+              if (cleanupError) throw cleanupError;
+            }
+          }
+        }
+
+        if (!reusedDebtId) {
+          const { error: debtError } = await supabase
+            .from('debts')
+            .insert({
+              invoice_id: newInvoice.id,
+              patient_id: invoice.patient_id,
+              center_id: profile!.center_id!,
+              amount: invoice.total,
+              paid_amount: 0,
+              status: 'pending' as const,
+              due_date: new Date().toISOString().split('T')[0],
+              session_id: sessionId,
+            });
+
+          if (debtError) throw debtError;
+        }
       }
 
       return newInvoice;

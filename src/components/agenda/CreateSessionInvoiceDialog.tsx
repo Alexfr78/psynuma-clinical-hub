@@ -209,9 +209,10 @@ export function CreateSessionInvoiceDialog({
     }
   }, [invoiceType, ordinarySeries]);
 
-  // Initialize patient form data from full patient data
+  // Initialize patient form data and default invoice type from full patient data
   useEffect(() => {
     if (patientData) {
+      setInvoiceType(patientData.preferred_invoice_type || 'simplified');
       setPatientFormData({
         tax_id: patientData.tax_id || '',
         address: patientData.address || '',

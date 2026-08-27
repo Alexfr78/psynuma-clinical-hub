@@ -40,6 +40,7 @@ import { useCenter } from '@/hooks/useCenter';
 import { useInvoiceSeries } from '@/hooks/useInvoiceSeries';
 import { useCreateInvoiceWithSeries } from '@/hooks/useInvoices';
 import { usePatients, useUpdatePatient, usePatient } from '@/hooks/usePatients';
+import { COMPLETE_INVOICE_FIELD_LABELS, getCompleteInvoiceMissingFields } from '@/lib/complete-invoice-requirements';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -224,9 +225,12 @@ export function CreateSimpleInvoiceDialog({ open, onOpenChange, preselectedPatie
   }, [patientData]);
 
   // Required fields for complete invoice
-  const requiredFields = ['tax_id', 'address', 'city', 'postal_code'] as const;
-  const missingFields = invoiceType === 'complete' 
-    ? requiredFields.filter(field => !patientFormData[field])
+  const missingFields = invoiceType === 'complete'
+    ? getCompleteInvoiceMissingFields({
+        first_name: patientData?.first_name,
+        last_name: patientData?.last_name,
+        ...patientFormData,
+      })
     : [];
   
   const canCreateInvoice = selectedPatientId && (invoiceType === 'simplified' || missingFields.length === 0) && items.length > 0;
@@ -447,6 +451,12 @@ export function CreateSimpleInvoiceDialog({ open, onOpenChange, preselectedPatie
 
   const handleCreateInvoice = async () => {
     if (!patientData || !selectedSeriesId || items.length === 0) return;
+
+    if (invoiceType === 'complete' && missingFields.length > 0) {
+      toast.error(`No se puede emitir la factura completa. Falta: ${missingFields.map(field => COMPLETE_INVOICE_FIELD_LABELS[field]).join(', ')}.`);
+      setEditingPatient(true);
+      return;
+    }
 
     const preferredInvoiceType = patientData.preferred_invoice_type || 'simplified';
     if (preferredInvoiceType !== invoiceType) {

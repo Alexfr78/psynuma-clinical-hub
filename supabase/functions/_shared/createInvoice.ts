@@ -1,6 +1,4 @@
-import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-// Generación de factura simplificada por pago online. Fuente ÚNICA usada por
+// Generación de factura automática por pago online. Fuente ÚNICA usada por
 // stripe-webhook (checkout/PI) y charge-cancellation (cobro off-session), para
 // no duplicar la lógica fiscal (numeración de serie, Verifactu, notificación).
 
@@ -16,7 +14,10 @@ interface InvoiceSeries {
 }
 
 export async function createInvoice(
-  supabase: SupabaseClient,
+  // The webhook and cancellation functions currently use different Supabase
+  // client package versions. Keep this shared boundary structural until the
+  // edge-function runtimes are aligned.
+  supabase: any,
   centerId: string,
   patientId: string,
   description: string,
@@ -38,12 +39,42 @@ export async function createInvoice(
       return { invoiceId: null, accessToken: null };
     }
 
+    const { data: patient, error: patientError } = await supabase
+      .from('patients')
+      .select('first_name, last_name, tax_id, address, city, postal_code, preferred_invoice_type, email, phone')
+      .eq('id', patientId)
+      .single();
+
+    if (patientError || !patient) {
+      console.error('Patient not found for automatic invoice:', patientError);
+      return { invoiceId: null, accessToken: null };
+    }
+
+    const invoiceType = patient.preferred_invoice_type === 'complete' ? 'complete' : 'simplified';
+    if (invoiceType === 'complete') {
+      const missingFiscalFields = [
+        !patient.first_name?.trim() || !patient.last_name?.trim() ? 'name' : null,
+        !patient.tax_id?.trim() ? 'tax_id' : null,
+        !patient.address?.trim() ? 'address' : null,
+        !patient.city?.trim() ? 'city' : null,
+        !patient.postal_code?.trim() ? 'postal_code' : null,
+      ].filter(Boolean);
+
+      if (missingFiscalFields.length > 0) {
+        console.error('Automatic complete invoice blocked: missing patient fiscal fields', {
+          patientId,
+          missingFiscalFields,
+        });
+        return { invoiceId: null, accessToken: null };
+      }
+    }
+
     const { data: compatibleSeries, error: seriesError } = await supabase
       .from('invoice_series')
       .select('*')
       .eq('center_id', centerId)
       .eq('series_type', 'ordinary')
-      .eq('invoice_type', 'simplified')
+      .eq('invoice_type', invoiceType)
       .eq('is_archived', false)
       .order('name');
 
@@ -54,7 +85,7 @@ export async function createInvoice(
 
     const defaultSeries = compatibleSeries.find((candidate: InvoiceSeries) => candidate.is_default);
     if (!defaultSeries && compatibleSeries.length > 1) {
-      console.error('Several simplified series exist but none is configured as default');
+      console.error(`Several ${invoiceType} series exist but none is configured as default`);
       return { invoiceId: null, accessToken: null };
     }
 
@@ -83,7 +114,7 @@ export async function createInvoice(
         center_id: centerId,
         patient_id: patientId,
         series_id: series.id,
-        invoice_type: 'simplified',
+        invoice_type: invoiceType,
         invoice_number: invoiceNumber,
         status: 'paid',
         issue_date: new Date().toISOString().split('T')[0],
@@ -91,7 +122,7 @@ export async function createInvoice(
         tax_rate: taxRate,
         tax_amount: taxAmount,
         total,
-        notes: 'Factura generada automáticamente por pago online',
+        notes: `Factura ${invoiceType === 'complete' ? 'completa' : 'simplificada'} generada automáticamente por pago online`,
       })
       .select('id, access_token')
       .single();
@@ -142,11 +173,7 @@ export async function createInvoice(
     }
 
     const sendChannel = center.invoice_send_channel || 'email';
-    const { data: patientData } = await supabase
-      .from('patients')
-      .select('email, phone')
-      .eq('id', patientId)
-      .single();
+    const patientData = patient;
 
     if (patientData) {
       try {
