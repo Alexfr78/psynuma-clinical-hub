@@ -1,6 +1,7 @@
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { Resend } from 'https://esm.sh/resend@2.0.0';
 import { decryptSecret } from "../_shared/crypto.ts";
+import { getOrCreatePublicShortLink } from "../_shared/publicShortLinks.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -188,25 +189,27 @@ async function sendWhatsAppViaMetaAPI(
   }
 }
 
-// Get the public URL for the invoice
-function getInvoicePublicUrl(accessToken: string, customDomain?: string | null): string {
+// Get the base app URL (no path) used for both the long and short invoice links
+function getInvoiceBaseUrl(customDomain?: string | null): string {
   // If custom domain is configured, use it
   if (customDomain) {
     const baseUrl = customDomain.startsWith('http') ? customDomain : `https://${customDomain}`;
     // Remove trailing slash if present
-    const cleanUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
-    return `${cleanUrl}/factura/${accessToken}`;
+    return baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
   }
-  
+
   // Fallback: Use the Supabase URL to construct the public app URL
   const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
   // Extract project ID from Supabase URL (format: https://PROJECT_ID.supabase.co)
   const projectId = supabaseUrl.split('//')[1]?.split('.')[0] || '';
-  
+
   // Construct the Lovable app URL
-  const appUrl = `https://${projectId}.lovable.app`;
-  
-  return `${appUrl}/factura/${accessToken}`;
+  return `https://${projectId}.lovable.app`;
+}
+
+// Get the long-form public URL for the invoice (fallback if a short link can't be created)
+function getInvoicePublicUrl(accessToken: string, customDomain?: string | null): string {
+  return `${getInvoiceBaseUrl(customDomain)}/factura/${accessToken}`;
 }
 
 Deno.serve(async (req) => {
@@ -254,10 +257,20 @@ Deno.serve(async (req) => {
     const email = patientEmail || patient?.email;
     const phone = patientPhone || patient?.phone;
 
-    // Generate the public invoice URL using custom domain if configured
-    const invoiceUrl = invoice.access_token 
-      ? getInvoicePublicUrl(invoice.access_token, center?.custom_domain)
-      : null;
+    // Generate the public invoice URL: prefer a short link, fall back to the long-form URL
+    let invoiceUrl: string | null = null;
+    if (invoice.access_token) {
+      const shortPath = await getOrCreatePublicShortLink({
+        supabase,
+        centerId: invoice.center_id,
+        targetType: "invoice",
+        targetToken: invoice.access_token,
+        expiresAt: null,
+      });
+      invoiceUrl = shortPath
+        ? `${getInvoiceBaseUrl(center?.custom_domain)}${shortPath}`
+        : getInvoicePublicUrl(invoice.access_token, center?.custom_domain);
+    }
 
     console.log('Invoice public URL:', invoiceUrl);
 

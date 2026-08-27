@@ -1,4 +1,4 @@
-export type PublicShortLinkTarget = "session" | "session_payment" | "debt" | "debt_bono";
+export type PublicShortLinkTarget = "session" | "session_payment" | "debt" | "debt_bono" | "invoice";
 
 type PublicShortLinkClient = {
   from: (table: string) => any;

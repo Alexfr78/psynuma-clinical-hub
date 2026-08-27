@@ -49,7 +49,9 @@ Deno.serve(async (req) => {
       ? `/cita/${token}`
       : link.target_type === "debt_bono"
         ? `/pagar/${token}?bono=1`
-        : `/pagar/${token}`;
+        : link.target_type === "invoice"
+          ? `/factura/${token}`
+          : `/pagar/${token}`;
 
     return json({ destination });
   } catch (error) {
