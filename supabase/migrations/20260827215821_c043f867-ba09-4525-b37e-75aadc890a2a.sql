@@ -1,0 +1,2 @@
+ALTER TABLE public.public_short_links DROP CONSTRAINT IF EXISTS public_short_links_target_type_check;
+ALTER TABLE public.public_short_links ADD CONSTRAINT public_short_links_target_type_check CHECK (target_type IN ('session', 'session_payment', 'debt', 'debt_bono', 'invoice'));
