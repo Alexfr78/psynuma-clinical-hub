@@ -6985,6 +6985,10 @@ export type Database = {
         Args: { payload: Json; queue_name: string }
         Returns: number
       }
+      find_debt_id_for_payment: {
+        Args: { p_payment_id: string }
+        Returns: string
+      }
       find_portal_patient_by_identifier: {
         Args: { p_center_id: string; p_channel: string; p_identifier: string }
         Returns: {
