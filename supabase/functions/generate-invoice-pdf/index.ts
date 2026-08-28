@@ -298,10 +298,10 @@ async function generateInvoicePdfBytes(
   const col = {
     concepto: MARGIN,
     conceptoMaxWidth: 220,
-    cantRight: MARGIN + 300,
-    precioRight: MARGIN + 380,
-    ivaRight: MARGIN + 440,
-    irpfRight: MARGIN + 500,
+    cantRight: contentRight - 240,
+    precioRight: contentRight - 175,
+    ivaRight: contentRight - 115,
+    irpfRight: contentRight - 60,
     totalRight: contentRight,
   };
 

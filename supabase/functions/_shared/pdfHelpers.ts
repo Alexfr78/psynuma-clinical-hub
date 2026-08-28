@@ -7,8 +7,8 @@ import { PDFDocument, PDFFont, PDFPage, rgb } from "https://esm.sh/pdf-lib@1.17.
 export function sanitizeForPdf(text: string): string {
   return text
     // Remove zero-width and invisible Unicode characters
-    .replace(/‍/g, '')
-    .replace(/[​‌‎‏﻿­  ‪- ⁠-⁯]/g, '')
+    .replace(/\u200D/g, '')
+    .replace(/[\u200B\u200C\u200E\u200F\uFEFF\u00AD\u2000-\u200A\u202A-\u202E\u2060-\u206F]/g, '')
     // Replace common Unicode symbols with ASCII equivalents
     .replace(/✓/g, '[X]')
     .replace(/✗/g, '[ ]')
