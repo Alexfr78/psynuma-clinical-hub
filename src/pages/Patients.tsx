@@ -1,8 +1,10 @@
 import { useState } from 'react';
 
 import { usePatients, PatientFilters as Filters } from '@/hooks/usePatients';
+import { usePatientSessionSummaries } from '@/hooks/usePatientSessionSummaries';
 import { PatientFilters } from '@/components/patients/PatientFilters';
 import { PatientCard } from '@/components/patients/PatientCard';
+import { PatientTable } from '@/components/patients/PatientTable';
 import { CreatePatientDialog } from '@/components/patients/CreatePatientDialog';
 import { Icon } from '@/components/ui/icon';
 
@@ -14,6 +16,7 @@ export default function Patients() {
   });
 
   const { data: patients, isLoading, error } = usePatients(filters);
+  const { data: sessionSummaries } = usePatientSessionSummaries();
 
   if (error) {
     return (
@@ -42,40 +45,42 @@ export default function Patients() {
         <CreatePatientDialog />
       </div>
 
-      {/* Filters */}
-      <PatientFilters filters={filters} onFiltersChange={setFilters} />
+      {/* Data Card */}
+      <div className="overflow-hidden rounded-2xl border bg-card shadow-card">
+        <div className="border-b bg-muted/30 p-4 sm:p-6">
+          <PatientFilters filters={filters} onFiltersChange={setFilters} />
+        </div>
 
-      {/* Patient List */}
-      {isLoading ? (
-        <div className="flex items-center justify-center py-12">
-          <Icon name="progress_activity" className="h-8 w-8 animate-spin text-primary" />
-        </div>
-      ) : patients && patients.length > 0 ? (
-        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-          {patients.map((patient) => (
-            <PatientCard key={patient.id} patient={patient} />
-          ))}
-        </div>
-      ) : (
-        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12 text-center">
-          <div className="rounded-full bg-muted p-4">
-            <Icon name="group" className="h-8 w-8 text-muted-foreground" />
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Icon name="progress_activity" className="h-8 w-8 animate-spin text-primary" />
           </div>
-          <h2 className="mt-4 font-display text-xl font-semibold">No hay contactos</h2>
-          <p className="mt-2 max-w-sm text-muted-foreground">
-            {filters.search || filters.status !== 'all' || filters.professionalId !== 'all'
-              ? 'No se encontraron contactos con los filtros seleccionados.'
-              : 'Comienza añadiendo tu primer contacto para gestionar sus sesiones y datos clínicos.'}
-          </p>
-        </div>
-      )}
-
-      {/* Patient Count */}
-      {patients && patients.length > 0 && (
-        <div className="text-center text-sm text-muted-foreground">
-          Mostrando {patients.length} contacto{patients.length !== 1 ? 's' : ''}
-        </div>
-      )}
+        ) : patients && patients.length > 0 ? (
+          <>
+            <PatientTable patients={patients} sessionSummaries={sessionSummaries} />
+            <div className="grid grid-cols-1 gap-4 p-4 sm:hidden">
+              {patients.map((patient) => (
+                <PatientCard key={patient.id} patient={patient} />
+              ))}
+            </div>
+            <div className="border-t px-4 py-3 text-center text-sm text-muted-foreground sm:px-6">
+              Mostrando {patients.length} contacto{patients.length !== 1 ? 's' : ''}
+            </div>
+          </>
+        ) : (
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <div className="rounded-full bg-muted p-4">
+              <Icon name="group" className="h-8 w-8 text-muted-foreground" />
+            </div>
+            <h2 className="mt-4 font-display text-xl font-semibold">No hay contactos</h2>
+            <p className="mt-2 max-w-sm text-muted-foreground">
+              {filters.search || filters.status !== 'all' || filters.professionalId !== 'all'
+                ? 'No se encontraron contactos con los filtros seleccionados.'
+                : 'Comienza añadiendo tu primer contacto para gestionar sus sesiones y datos clínicos.'}
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
