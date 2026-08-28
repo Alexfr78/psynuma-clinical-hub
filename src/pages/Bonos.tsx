@@ -18,7 +18,7 @@ import {
   CommandItem,
   CommandList,
 } from '@/components/ui/command';
-import { useBonos, BonoWithPatient } from '@/hooks/useBonos';
+import { useBonos, useBonoTemplates, BonoWithPatient } from '@/hooks/useBonos';
 import { usePatients } from '@/hooks/usePatients';
 import { BonoCard } from '@/components/bonos/BonoCard';
 import { CreateBonoDialog } from '@/components/bonos/CreateBonoDialog';
@@ -36,8 +36,10 @@ export default function Bonos() {
   const [selectedPatientName, setSelectedPatientName] = useState<string>('');
   const [patientSearchOpen, setPatientSearchOpen] = useState(false);
   const [patientSearchValue, setPatientSearchValue] = useState('');
+  const [applyTemplateId, setApplyTemplateId] = useState<string | undefined>();
 
   const { data: searchPatients, isLoading: patientsLoading } = usePatients({ search: patientSearchValue });
+  const { data: templates } = useBonoTemplates();
 
   const { data: bonos, isLoading } = useBonos({
     status: selectedPatientId ? (statusFilter === 'all' ? undefined : statusFilter) : (statusFilter === 'all' ? undefined : statusFilter),
@@ -58,11 +60,20 @@ export default function Bonos() {
     setStatusFilter('active');
   };
 
+  const activeBonos = bonos?.filter(b => b.status === 'active') || [];
+  const now = new Date();
   const stats = {
-    active: bonos?.filter(b => b.status === 'active').length || 0,
+    active: activeBonos.length,
     exhausted: bonos?.filter(b => b.status === 'exhausted').length || 0,
     expired: bonos?.filter(b => b.status === 'expired').length || 0,
     cancelled: bonos?.filter(b => b.status === 'cancelled').length || 0,
+    pendingSessions: activeBonos.reduce((sum, b) => sum + (b.total_sessions - b.used_sessions), 0),
+    monthlyRevenue: (bonos || [])
+      .filter(b => {
+        const created = new Date(b.created_at);
+        return created.getFullYear() === now.getFullYear() && created.getMonth() === now.getMonth();
+      })
+      .reduce((sum, b) => sum + Number(b.total_price), 0),
   };
 
   const handleBonoClick = (bono: BonoWithPatient) => {
@@ -156,6 +167,36 @@ export default function Bonos() {
         )}
       </div>
 
+      <div className="grid gap-3 sm:gap-4 grid-cols-2 md:grid-cols-3">
+        <div className="rounded-2xl border bg-card p-4 shadow-card">
+          <div className="mb-2 flex items-center justify-between">
+            <span className="text-sm text-muted-foreground">Bonos Activos</span>
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary">
+              <Icon name="confirmation_number" className="h-4 w-4" />
+            </div>
+          </div>
+          <p className="text-2xl font-bold sm:text-3xl">{stats.active}</p>
+        </div>
+        <div className="rounded-2xl border bg-card p-4 shadow-card">
+          <div className="mb-2 flex items-center justify-between">
+            <span className="text-sm text-muted-foreground">Sesiones Pendientes</span>
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-warning/10 text-warning">
+              <Icon name="pending_actions" className="h-4 w-4" />
+            </div>
+          </div>
+          <p className="text-2xl font-bold sm:text-3xl">{stats.pendingSessions}</p>
+        </div>
+        <div className="rounded-2xl border bg-card p-4 shadow-card">
+          <div className="mb-2 flex items-center justify-between">
+            <span className="text-sm text-muted-foreground">Ingresos (Mes)</span>
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-success/10 text-success">
+              <Icon name="euro" className="h-4 w-4" />
+            </div>
+          </div>
+          <p className="text-2xl font-bold sm:text-3xl">{stats.monthlyRevenue.toFixed(2)}€</p>
+        </div>
+      </div>
+
       <div className="grid gap-3 sm:gap-4 grid-cols-2 md:grid-cols-4">
         <Card>
           <CardHeader className="pb-1 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
@@ -229,12 +270,83 @@ export default function Bonos() {
         </TabsContent>
       </Tabs>
 
-      <CreateBonoDialog open={createOpen} onOpenChange={setCreateOpen} />
+      {/* Plantillas de Bonos */}
+      <div className="overflow-hidden rounded-2xl border bg-card shadow-card">
+        <div className="flex items-center justify-between border-b bg-muted/30 p-4 sm:p-6">
+          <div>
+            <h3 className="text-lg font-semibold">Plantillas de Bonos</h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Crea nuevos bonos rápidamente usando estas configuraciones.
+            </p>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => setTemplatesOpen(true)}>
+            Gestionar plantillas
+          </Button>
+        </div>
+        {!templates || templates.length === 0 ? (
+          <p className="p-6 text-center text-sm text-muted-foreground">
+            Sin plantillas todavía
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[560px] text-left">
+              <thead>
+                <tr className="border-b bg-muted/50">
+                  <th className="px-4 py-3 text-sm font-medium text-muted-foreground">Nombre</th>
+                  <th className="px-4 py-3 text-sm font-medium text-muted-foreground">Sesiones</th>
+                  <th className="px-4 py-3 text-sm font-medium text-muted-foreground">Validez</th>
+                  <th className="px-4 py-3 text-sm font-medium text-muted-foreground">Importe</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">Acción</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {templates.map((template) => (
+                  <tr key={template.id} className="group h-14 transition-colors hover:bg-muted/50">
+                    <td className="px-4 py-2">
+                      <div className="flex items-center gap-2 font-medium">
+                        <Icon name="auto_awesome" className="h-4 w-4 text-primary" />
+                        {template.name}
+                      </div>
+                    </td>
+                    <td className="px-4 py-2 tabular-nums">{template.total_sessions}</td>
+                    <td className="px-4 py-2">
+                      {template.validity_days ? `${Math.round(template.validity_days / 30)} meses` : 'Sin caducidad'}
+                    </td>
+                    <td className="px-4 py-2 tabular-nums">{Number(template.total_price).toFixed(2)}€</td>
+                    <td className="px-4 py-2 text-right">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-primary opacity-0 group-hover:opacity-100"
+                        onClick={() => {
+                          setApplyTemplateId(template.id);
+                          setCreateOpen(true);
+                        }}
+                      >
+                        Aplicar
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      <CreateBonoDialog
+        open={createOpen}
+        onOpenChange={(v) => {
+          setCreateOpen(v);
+          if (!v) setApplyTemplateId(undefined);
+        }}
+        preselectedTemplateId={applyTemplateId}
+      />
       <BonoTemplatesDialog open={templatesOpen} onOpenChange={setTemplatesOpen} />
-      <BonoDetailDialog 
-        bono={selectedBono} 
-        open={detailOpen} 
-        onOpenChange={setDetailOpen} 
+      <BonoDetailDialog
+        bono={selectedBono}
+        open={detailOpen}
+        onOpenChange={setDetailOpen}
       />
     </div>
   );

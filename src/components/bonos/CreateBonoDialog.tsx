@@ -85,10 +85,11 @@ interface CreateBonoDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   preselectedPatientId?: string;
+  preselectedTemplateId?: string;
   onSuccess?: (bonoId: string, totalPrice: number) => void;
 }
 
-export function CreateBonoDialog({ open, onOpenChange, preselectedPatientId, onSuccess }: CreateBonoDialogProps) {
+export function CreateBonoDialog({ open, onOpenChange, preselectedPatientId, preselectedTemplateId, onSuccess }: CreateBonoDialogProps) {
   const { data: patients } = usePatients();
   const { data: templates } = useBonoTemplates();
   const createBono = useCreateBonoWithDebt();
@@ -142,6 +143,13 @@ export function CreateBonoDialog({ open, onOpenChange, preselectedPatientId, onS
       form.setValue('patient_id', preselectedPatientId);
     }
   }, [preselectedPatientId, form]);
+
+  useEffect(() => {
+    if (open && preselectedTemplateId && templates?.length) {
+      handleTemplateSelect(preselectedTemplateId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, preselectedTemplateId, templates]);
 
   const watchSessions = form.watch('total_sessions');
   const watchPricePerSession = form.watch('price_per_session');
