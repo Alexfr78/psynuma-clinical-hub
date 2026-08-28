@@ -31,6 +31,9 @@ import { ResponsibleDeclarationSection } from '@/components/settings/Responsible
 import { VerifactuExportSection } from '@/components/settings/VerifactuExportSection';
 import { PortalSettingsSection } from '@/components/settings/PortalSettingsSection';
 import { ConsentSettingsSection } from '@/components/settings/ConsentSettingsSection';
+import { ConsentTemplatesSection } from '@/components/settings/ConsentTemplatesSection';
+import { AssessmentTemplatesSection } from '@/components/settings/AssessmentTemplatesSection';
+import { AutoregistroTemplatesSection } from '@/components/settings/AutoregistroTemplatesSection';
 import { IntegrationsOverview } from '@/components/settings/integrations/IntegrationsOverview';
 import { WhatsAppIntegrationSection } from '@/components/settings/integrations/WhatsAppIntegrationSection';
 // WasenderIntegrationSection is now integrated into WhatsAppIntegrationSection
@@ -75,7 +78,10 @@ type SettingsSection =
   | 'pagos-config'
   | 'pagos-politica-cancelacion'
   | 'consentimientos-config'
-  | 'facturacion-info' 
+  | 'consentimientos-plantillas'
+  | 'evaluaciones-plantillas'
+  | 'autorregistros-plantillas'
+  | 'facturacion-info'
   | 'facturacion-editar' 
   | 'facturacion-series' 
   | 'facturacion-automatizar'
@@ -134,6 +140,9 @@ const navItems: NavItem[] = [
   { id: 'centro-portal', label: 'Configuración del portal', icon: 'tune', parent: 'Portal de Contactos' },
 
   { id: 'consentimientos-config', label: 'Consentimientos informados', icon: 'description', parent: 'Portal de Contactos' },
+  { id: 'consentimientos-plantillas', label: 'Plantillas de consentimiento', icon: 'edit_document', parent: 'Portal de Contactos' },
+  { id: 'evaluaciones-plantillas', label: 'Plantillas de evaluación', icon: 'assignment_turned_in', parent: 'Portal de Contactos' },
+  { id: 'autorregistros-plantillas', label: 'Plantillas de autorregistro', icon: 'edit_note', parent: 'Portal de Contactos' },
 
   // Pagos y Facturación
   { id: 'tarifas', label: 'Planes tarifarios', icon: 'layers', parent: 'Pagos y Facturación' },
@@ -361,6 +370,12 @@ export default function Settings() {
         return <CancellationPolicySettingsSection />;
       case 'consentimientos-config':
         return <ConsentSettingsSection />;
+      case 'consentimientos-plantillas':
+        return <ConsentTemplatesSection />;
+      case 'evaluaciones-plantillas':
+        return <AssessmentTemplatesSection />;
+      case 'autorregistros-plantillas':
+        return <AutoregistroTemplatesSection />;
       case 'facturacion-info':
         return <InvoicingInfoSection />;
       case 'facturacion-editar':

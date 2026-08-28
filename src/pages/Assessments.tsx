@@ -7,15 +7,14 @@ import { AssessmentCard } from '@/components/assessments/AssessmentCard';
 import { CreateAssessmentDialog } from '@/components/assessments/CreateAssessmentDialog';
 import { AssessmentDetailDialog } from '@/components/assessments/AssessmentDetailDialog';
 import { SendAssessmentDialog } from '@/components/assessments/SendAssessmentDialog';
-import { AddTemplateDialog } from '@/components/assessments/AddTemplateDialog';
 import { Icon } from '@/components/ui/icon';
+import { Link } from 'react-router-dom';
 
 export default function Assessments() {
   const { assessments, isLoading, revokeAssessment, deleteAssessment } = useAssessments();
   const [createOpen, setCreateOpen] = useState(false);
   const [viewAssessment, setViewAssessment] = useState<Assessment | null>(null);
   const [sendAssessment, setSendAssessment] = useState<Assessment | null>(null);
-  const [addTemplateOpen, setAddTemplateOpen] = useState(false);
 
   const now = new Date();
   const pending = assessments.filter(a => a.status === 'pending' && new Date(a.expires_at) > now);
@@ -45,10 +44,12 @@ export default function Assessments() {
           <p className="text-muted-foreground text-sm">Gestiona las evaluaciones de tus pacientes</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" className="sm:size-default" onClick={() => setAddTemplateOpen(true)}>
-            <Icon name="description" className="h-4 w-4 sm:mr-2" />
-            <span className="hidden sm:inline">Añadir plantilla</span>
-            <span className="sm:hidden">Plantilla</span>
+          <Button variant="outline" size="sm" className="sm:size-default" asChild>
+            <Link to="/configuracion">
+              <Icon name="description" className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Gestionar plantillas</span>
+              <span className="sm:hidden">Plantillas</span>
+            </Link>
           </Button>
           <Button size="sm" className="sm:size-default" onClick={() => setCreateOpen(true)}>
             <Icon name="add" className="h-4 w-4 sm:mr-2" />
@@ -139,7 +140,6 @@ export default function Assessments() {
       <CreateAssessmentDialog open={createOpen} onOpenChange={setCreateOpen} />
       <AssessmentDetailDialog assessment={viewAssessment} onClose={() => setViewAssessment(null)} />
       <SendAssessmentDialog assessment={sendAssessment} onClose={() => setSendAssessment(null)} />
-      <AddTemplateDialog open={addTemplateOpen} onOpenChange={setAddTemplateOpen} />
     </div>
   );
 }

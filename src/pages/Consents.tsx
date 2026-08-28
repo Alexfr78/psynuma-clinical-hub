@@ -4,22 +4,17 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useConsentTemplates } from '@/hooks/useConsentTemplates';
 import { useConsents, Consent } from '@/hooks/useConsents';
-import { ConsentTemplateCard } from '@/components/consents/ConsentTemplateCard';
-import { CreateTemplateDialog } from '@/components/consents/CreateTemplateDialog';
 import { WhatsAppLinkDialog } from '@/components/agenda/WhatsAppLinkDialog';
 import { useWhatsAppDelivery } from '@/hooks/useWhatsAppDelivery';
 import { useCenter } from '@/hooks/useCenter';
 import { usePatients } from '@/hooks/usePatients';
 import { toast } from 'sonner';
 import { Icon } from '@/components/ui/icon';
+import { Link } from 'react-router-dom';
 
 export default function Consents() {
-  const { templates, isLoading: templatesLoading } = useConsentTemplates();
   const { consents, isLoading: consentsLoading } = useConsents();
-  const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
   // Filter pending consents (not expired)
   const pendingConsents = consents.filter((c) => {
@@ -33,98 +28,41 @@ export default function Consents() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="font-display text-2xl sm:text-3xl font-bold">
-            Consentimientos
+            Consentimientos pendientes de firma
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Gestiona plantillas y consentimientos pendientes
+            Las plantillas se gestionan desde Configuración → Portal de Contactos
           </p>
         </div>
-        <Button onClick={() => setCreateDialogOpen(true)} size="sm" className="w-full sm:w-auto sm:size-default">
-          <Icon name="add" className="mr-2 h-4 w-4" />
-          <span className="hidden sm:inline">Nueva plantilla</span>
-          <span className="sm:hidden">Nueva</span>
+        <Button variant="outline" size="sm" asChild>
+          <Link to="/configuracion">
+            <Icon name="description" className="mr-2 h-4 w-4" />
+            Gestionar plantillas
+          </Link>
         </Button>
       </div>
 
-      <Tabs defaultValue="pending">
-        <TabsList className="w-full sm:w-auto">
-          <TabsTrigger value="pending" className="flex-1 sm:flex-initial gap-2">
-            <Icon name="schedule" className="h-4 w-4" />
-            <span className="hidden sm:inline">Pendientes de firma</span>
-            <span className="sm:hidden">Pendientes</span>
-            {pendingConsents.length > 0 && (
-              <Badge variant="secondary" className="ml-1 h-5 min-w-[20px] px-1.5">
-                {pendingConsents.length}
-              </Badge>
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="templates" className="flex-1 sm:flex-initial gap-2">
-            <Icon name="description" className="h-4 w-4" />
-            <span className="hidden sm:inline">Plantillas</span>
-            <span className="sm:hidden">Plantillas</span>
-          </TabsTrigger>
-        </TabsList>
-
-        {/* Pending Consents Tab */}
-        <TabsContent value="pending" className="mt-4">
-          {consentsLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <Icon name="progress_activity" className="h-8 w-8 animate-spin text-primary" />
-            </div>
-          ) : pendingConsents.length === 0 ? (
-            <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12 text-center">
-              <div className="rounded-full bg-muted p-4">
-                <Icon name="schedule" className="h-8 w-8 text-muted-foreground" />
-              </div>
-              <h3 className="mt-4 font-semibold">Sin consentimientos pendientes</h3>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Todos los consentimientos han sido firmados
-              </p>
-            </div>
-          ) : (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {pendingConsents.map((consent) => (
-                <PendingConsentCard key={consent.id} consent={consent} />
-              ))}
-            </div>
-          )}
-        </TabsContent>
-
-        {/* Templates Tab */}
-        <TabsContent value="templates" className="mt-4">
-          {templatesLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <Icon name="progress_activity" className="h-8 w-8 animate-spin text-primary" />
-            </div>
-          ) : templates.length === 0 ? (
-            <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12 text-center">
-              <div className="rounded-full bg-muted p-4">
-                <Icon name="description" className="h-8 w-8 text-muted-foreground" />
-              </div>
-              <h3 className="mt-4 font-semibold">No hay plantillas</h3>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Crea tu primera plantilla de consentimiento informado
-              </p>
-              <Button className="mt-4" onClick={() => setCreateDialogOpen(true)}>
-                <Icon name="add" className="mr-2 h-4 w-4" />
-                Crear plantilla
-              </Button>
-            </div>
-          ) : (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {templates.map((template) => (
-                <ConsentTemplateCard key={template.id} template={template} />
-              ))}
-            </div>
-          )}
-        </TabsContent>
-      </Tabs>
-
-      {/* Create Dialog */}
-      <CreateTemplateDialog
-        open={createDialogOpen}
-        onOpenChange={setCreateDialogOpen}
-      />
+      {consentsLoading ? (
+        <div className="flex items-center justify-center py-12">
+          <Icon name="progress_activity" className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      ) : pendingConsents.length === 0 ? (
+        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12 text-center">
+          <div className="rounded-full bg-muted p-4">
+            <Icon name="schedule" className="h-8 w-8 text-muted-foreground" />
+          </div>
+          <h3 className="mt-4 font-semibold">Sin consentimientos pendientes</h3>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Todos los consentimientos han sido firmados
+          </p>
+        </div>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {pendingConsents.map((consent) => (
+            <PendingConsentCard key={consent.id} consent={consent} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

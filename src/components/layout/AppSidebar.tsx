@@ -4,41 +4,51 @@ import {
   SidebarContent,
   SidebarGroup,
   SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
   SidebarHeader,
   SidebarFooter,
   SidebarSeparator,
   useSidebar,
 } from '@/components/ui/sidebar';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { useState, useEffect } from 'react';
 import { MyProfileDialog } from '@/components/layout/MyProfileDialog';
 import { Icon } from '@/components/ui/icon';
 
+type NavItemDef = { title: string; url: string; icon: string };
 
-const mainNavItems = [
-  { title: 'Dashboard', url: '/dashboard', icon: 'dashboard' },
+// Top-level, always visible
+const mainNavItems: NavItemDef[] = [
+  { title: 'Panel', url: '/dashboard', icon: 'dashboard' },
   { title: 'Agenda', url: '/agenda', icon: 'calendar_month' },
   { title: 'Contactos', url: '/pacientes', icon: 'group' },
+];
+
+const financeNavItems: NavItemDef[] = [
+  { title: 'Bonos', url: '/bonos', icon: 'package_2' },
+  { title: 'Facturas', url: '/facturas', icon: 'receipt_long' },
+  { title: 'Cobros / Deudas', url: '/cobros', icon: 'credit_card' },
+];
+
+const notificationsNavItem: NavItemDef = { title: 'Mensajes', url: '/notificaciones', icon: 'notifications' };
+
+// Secondary tools, tucked away in a collapsed "Más" group
+const moreNavItems: NavItemDef[] = [
   { title: 'Sesiones', url: '/sesiones', icon: 'description' },
-  { title: 'Consents.', url: '/consentimientos', icon: 'edit_document' },
+  { title: 'Consentimientos', url: '/consentimientos', icon: 'edit_document' },
   { title: 'Evaluaciones', url: '/evaluaciones', icon: 'assignment_turned_in' },
   { title: 'Autorregistros', url: '/autorregistros', icon: 'edit_note' },
 ];
 
-const financeNavItems = [
-  { title: 'Bonos', url: '/bonos', icon: 'package_2' },
-  { title: 'Facturas', url: '/facturas', icon: 'receipt_long' },
-  { title: 'Cobros / Deudas', url: '/cobros', icon: 'credit_card' },
-  { title: 'Notificaciones', url: '/notificaciones', icon: 'notifications' },
-];
-
-// Items visible to admins only
-const adminOnlyNavItems = [
+// Admin-only
+const adminOnlyNavItems: NavItemDef[] = [
   { title: 'Solicitudes', url: '/solicitudes', icon: 'checklist' },
   { title: 'Profesionales', url: '/profesionales', icon: 'manage_accounts' },
   { title: 'Derivaciones', url: '/derivaciones', icon: 'group' },
@@ -46,8 +56,7 @@ const adminOnlyNavItems = [
   { title: 'Auditoría Clínica', url: '/auditoria-clinica', icon: 'verified_user' },
 ];
 
-// Items visible to all users
-const settingsNavItem = { title: 'Configuración', url: '/configuracion', icon: 'settings' };
+const settingsNavItem: NavItemDef = { title: 'Configuración', url: '/configuracion', icon: 'settings' };
 
 export function AppSidebar() {
   const location = useLocation();
@@ -73,6 +82,7 @@ export function AppSidebar() {
   };
 
   const isActive = (url: string) => location.pathname === url;
+  const groupHasActiveItem = (items: NavItemDef[]) => items.some((item) => isActive(item.url));
 
   const handleNavigation = (url: string) => {
     navigate(url);
@@ -80,7 +90,7 @@ export function AppSidebar() {
     setOpenMobile(false);
   };
 
-  const NavItem = ({ item }: { item: typeof mainNavItems[0] }) => (
+  const NavItem = ({ item }: { item: NavItemDef }) => (
     <SidebarMenuItem>
       <SidebarMenuButton
         asChild
@@ -91,7 +101,6 @@ export function AppSidebar() {
           onClick={(e) => {
             e.preventDefault();
             handleNavigation(item.url);
-            // Close mobile sidebar after navigation
             if (isMobile) {
               setOpenMobile(false);
             }
@@ -104,6 +113,64 @@ export function AppSidebar() {
       </SidebarMenuButton>
     </SidebarMenuItem>
   );
+
+  const CollapsibleNavGroup = ({
+    label,
+    icon,
+    items,
+  }: {
+    label: string;
+    icon: string;
+    items: NavItemDef[];
+  }) => {
+    const hasActive = groupHasActiveItem(items);
+    const [open, setOpen] = useState(hasActive);
+
+    return (
+      <Collapsible open={open} onOpenChange={setOpen}>
+        <SidebarMenuItem>
+          <CollapsibleTrigger asChild>
+            <SidebarMenuButton
+              isActive={hasActive}
+              className="cursor-pointer transition-colors"
+            >
+              <Icon name={icon} className="h-4 w-4 shrink-0" />
+              <span className="truncate flex-1 text-left">{label}</span>
+              <Icon
+                name="expand_more"
+                className={`h-4 w-4 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`}
+              />
+            </SidebarMenuButton>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <SidebarMenuSub>
+              {items.map((item) => (
+                <SidebarMenuSubItem key={item.url}>
+                  <SidebarMenuSubButton
+                    asChild
+                    isActive={isActive(item.url)}
+                    className="cursor-pointer"
+                  >
+                    <a
+                      onClick={(e) => {
+                        e.preventDefault();
+                        handleNavigation(item.url);
+                        if (isMobile) setOpenMobile(false);
+                      }}
+                      className="flex items-center gap-2"
+                    >
+                      <Icon name={item.icon} className="h-3.5 w-3.5 shrink-0" />
+                      <span className="truncate">{item.title}</span>
+                    </a>
+                  </SidebarMenuSubButton>
+                </SidebarMenuSubItem>
+              ))}
+            </SidebarMenuSub>
+          </CollapsibleContent>
+        </SidebarMenuItem>
+      </Collapsible>
+    );
+  };
 
   return (
     <>
@@ -128,62 +195,28 @@ export function AppSidebar() {
 
       <SidebarContent className="px-2">
         <SidebarGroup>
-          <SidebarGroupLabel className="text-sidebar-foreground/50 text-xs uppercase tracking-wider">
-            Principal
-          </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {mainNavItems.map((item) => (
                 <NavItem key={item.url} item={item} />
               ))}
+              <CollapsibleNavGroup label="Finanzas" icon="account_balance_wallet" items={financeNavItems} />
+              <NavItem item={notificationsNavItem} />
+              <CollapsibleNavGroup label="Más" icon="apps" items={moreNavItems} />
+              {isAdmin && (
+                <CollapsibleNavGroup label="Administración" icon="admin_panel_settings" items={adminOnlyNavItems} />
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
-
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-sidebar-foreground/50 text-xs uppercase tracking-wider">
-            Finanzas
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {financeNavItems.map((item) => (
-                <NavItem key={item.url} item={item} />
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        {/* Configuración visible to all users */}
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-sidebar-foreground/50 text-xs uppercase tracking-wider">
-            Ajustes
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <NavItem item={settingsNavItem} />
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        {/* Admin-only section */}
-        {isAdmin && (
-          <SidebarGroup>
-            <SidebarGroupLabel className="text-sidebar-foreground/50 text-xs uppercase tracking-wider">
-              Administración
-            </SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {adminOnlyNavItems.map((item) => (
-                  <NavItem key={item.url} item={item} />
-                ))}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        )}
       </SidebarContent>
 
       <SidebarFooter className="p-4">
         <div className="flex flex-col gap-2">
+          <SidebarMenu>
+            <NavItem item={settingsNavItem} />
+          </SidebarMenu>
+
           {profile && (
             <button
               type="button"

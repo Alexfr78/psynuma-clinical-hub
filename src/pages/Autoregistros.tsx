@@ -14,15 +14,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useAutoregistroTemplates, type AutoregistroTemplate } from '@/hooks/useAutoregistroTemplates';
+import { useAutoregistroTemplates } from '@/hooks/useAutoregistroTemplates';
 import { useAutoregistroLinks } from '@/hooks/useAutoregistroLinks';
 import { useAutoregistroEntries, useDeleteAutoregistroEntries } from '@/hooks/useAutoregistroEntries';
 import { usePatients } from '@/hooks/usePatients';
 import { useAuth } from '@/hooks/useAuth';
 import { useAutoregistroColumnConfig } from '@/hooks/useAutoregistroColumnConfig';
-import { TemplateCard } from '@/components/autoregistros/TemplateCard';
-import { EditTemplateDialog } from '@/components/autoregistros/EditTemplateDialog';
-import { CreateTemplateDialog } from '@/components/autoregistros/CreateTemplateDialog';
 import { SendAutoregistroDialog } from '@/components/autoregistros/SendAutoregistroDialog';
 import { LinkCard } from '@/components/autoregistros/LinkCard';
 import { ActivityFeed } from '@/components/autoregistros/ActivityFeed';
@@ -41,19 +38,17 @@ import {
   detectClinicalAlerts,
 } from '@/lib/autoregistro-field-display';
 import { Icon } from '@/components/ui/icon';
+import { Link } from 'react-router-dom';
 
 const tabOptions = [
-  { value: 'templates', label: 'Plantillas' },
   { value: 'links', label: 'Envíos' },
   { value: 'activity', label: 'Actividad' },
   { value: 'entries', label: 'Registros' },
 ];
 
 export default function Autoregistros() {
-  const [tab, setTab] = useState('templates');
-  const [createOpen, setCreateOpen] = useState(false);
+  const [tab, setTab] = useState('links');
   const [sendOpen, setSendOpen] = useState(false);
-  const [editingTemplate, setEditingTemplate] = useState<AutoregistroTemplate | null>(null);
   const [selectedEntry, setSelectedEntry] = useState<AutoregistroEntry | null>(null);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [compareOpen, setCompareOpen] = useState(false);
@@ -67,7 +62,7 @@ export default function Autoregistros() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const { profile } = useAuth();
-  const { data: templates, isLoading: loadingTemplates, deleteTemplate } = useAutoregistroTemplates();
+  const { data: templates } = useAutoregistroTemplates();
   const { data: links, isLoading: loadingLinks, deactivateLink, deleteLink } = useAutoregistroLinks();
   const { data: patients } = usePatients();
   const deleteEntries = useDeleteAutoregistroEntries();
@@ -181,11 +176,13 @@ export default function Autoregistros() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="font-display text-xl sm:text-2xl font-bold">Autorregistros</h1>
-          <p className="text-sm text-muted-foreground">Gestiona plantillas, envíos y registros de pacientes</p>
+          <p className="text-sm text-muted-foreground">Gestiona envíos y registros de pacientes</p>
         </div>
         <div className="flex gap-2">
-          <Button size="sm" variant="outline" onClick={() => setCreateOpen(true)}>
-            <Icon name="add" className="h-4 w-4 mr-2" /> Plantilla
+          <Button size="sm" variant="outline" asChild>
+            <Link to="/configuracion">
+              <Icon name="edit_note" className="h-4 w-4 mr-2" /> Plantillas
+            </Link>
           </Button>
           <Button size="sm" onClick={() => setSendOpen(true)}>
             <Icon name="send" className="h-4 w-4 mr-2" /> Enviar
@@ -214,25 +211,6 @@ export default function Autoregistros() {
             <TabsTrigger key={t.value} value={t.value}>{t.label}</TabsTrigger>
           ))}
         </TabsList>
-
-        <TabsContent value="templates">
-          {loadingTemplates ? (
-            <p className="text-sm text-muted-foreground">Cargando...</p>
-          ) : templates && templates.length > 0 ? (
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {templates.map((t) => (
-                <TemplateCard key={t.id} template={t} onDelete={(id) => deleteTemplate.mutate(id)} onEdit={(tmpl) => setEditingTemplate(tmpl)} />
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-12">
-              <p className="text-muted-foreground mb-4">No hay plantillas creadas</p>
-              <Button onClick={() => setCreateOpen(true)}>
-                <Icon name="add" className="h-4 w-4 mr-2" /> Crear plantilla
-              </Button>
-            </div>
-          )}
-        </TabsContent>
 
         <TabsContent value="links">
           {loadingLinks ? (
@@ -444,7 +422,6 @@ export default function Autoregistros() {
         </TabsContent>
       </Tabs>
 
-      <CreateTemplateDialog open={createOpen} onOpenChange={setCreateOpen} />
       <SendAutoregistroDialog open={sendOpen} onOpenChange={setSendOpen} />
       <EntryDetailDrawer
         open={!!selectedEntry}
@@ -458,14 +435,6 @@ export default function Autoregistros() {
         entries={selectedEntries}
         fieldMetas={fieldMetas}
       />
-
-      {editingTemplate && (
-        <EditTemplateDialog
-          open={true}
-          onOpenChange={(v) => !v && setEditingTemplate(null)}
-          template={editingTemplate}
-        />
-      )}
 
       <AlertDialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
         <AlertDialogContent>
