@@ -1329,8 +1329,19 @@ async function syncProfessional(
 
   // Sync Psycma sessions to Google Calendar
   for (const session of sessions || []) {
+    // Re-adopt an existing Psycma event in Google (post reconnect) instead of duplicating it
+    if (!session.google_calendar_event_id && fullSync) {
+      const existing = psycmaEventBySessionId.get(session.id);
+      if (existing?.id) {
+        console.log(`[SYNC:${correlationId}] Re-adopting Google event ${existing.id} for session ${session.id}`);
+        await supabase.from('sessions').update({ google_calendar_event_id: existing.id }).eq('id', session.id);
+        session.google_calendar_event_id = existing.id;
+      }
+    }
+
     if (!session.google_calendar_event_id) {
       // Create new event
+
       const eventId = await createGoogleCalendarEvent(
         accessToken, calendarId, session, session.patient, professional, correlationId,
         titleFormat, descriptionFormat, session.location, session.bono
