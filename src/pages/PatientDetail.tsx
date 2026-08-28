@@ -1,9 +1,10 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { usePatient } from '@/hooks/usePatients';
 import { PatientDetailTabs } from '@/components/patients/PatientDetailTabs';
+import { PatientHeader } from '@/components/patients/PatientHeader';
 import { useAuditLog } from '@/hooks/useAuditLog';
 import { Icon } from '@/components/ui/icon';
 
@@ -13,6 +14,7 @@ export default function PatientDetail() {
   const { data: patient, isLoading, error } = usePatient(id);
   const { logView } = useAuditLog();
   const hasLogged = useRef(false);
+  const [activeTab, setActiveTab] = useState('summary');
 
   useEffect(() => {
     if (patient && !hasLogged.current) {
@@ -54,8 +56,11 @@ export default function PatientDetail() {
         <span className="sm:hidden">Volver</span>
       </Button>
 
+      {/* Patient Header */}
+      <PatientHeader patient={patient} onEditClick={() => setActiveTab('data')} />
+
       {/* Patient Detail Tabs */}
-      <PatientDetailTabs patient={patient} />
+      <PatientDetailTabs patient={patient} activeTab={activeTab} onActiveTabChange={setActiveTab} />
     </div>
   );
 }

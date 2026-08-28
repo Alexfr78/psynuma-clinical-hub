@@ -2,13 +2,9 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Patient } from '@/hooks/usePatients';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { PatientStatusBadge } from '../PatientStatusBadge';
-import { PatientStatusToggle } from '../PatientStatusToggle';
 import { Icon } from '@/components/ui/icon';
 
 interface PatientSummaryProps {
@@ -26,8 +22,6 @@ interface PatientSummaryProps {
 }
 
 export function PatientSummary({ patient }: PatientSummaryProps) {
-  const initials = `${patient.first_name?.[0] || ''}${patient.last_name?.[0] || ''}`.toUpperCase();
-
   // Fetch patient stats
   const { data: stats } = useQuery({
     queryKey: ['patient-stats', patient.id],
@@ -65,107 +59,8 @@ export function PatientSummary({ patient }: PatientSummaryProps) {
     },
   });
 
-  const calculateAge = (dateOfBirth: string | null) => {
-    if (!dateOfBirth) return null;
-    const today = new Date();
-    const birth = new Date(dateOfBirth);
-    let age = today.getFullYear() - birth.getFullYear();
-    const monthDiff = today.getMonth() - birth.getMonth();
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
-      age--;
-    }
-    return age;
-  };
-
-  const age = calculateAge(patient.date_of_birth);
-
   return (
     <div className="space-y-6">
-      {/* Patient Header Card */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex flex-col items-center gap-4 sm:gap-6 sm:flex-row sm:items-start">
-            <Avatar className="h-16 w-16 sm:h-24 sm:w-24 border-4 border-primary/10 shrink-0">
-              <AvatarFallback className="bg-primary/10 text-primary text-xl sm:text-2xl font-semibold">
-                {initials}
-              </AvatarFallback>
-            </Avatar>
-
-            <div className="flex-1 min-w-0 text-center sm:text-left">
-              <div className="flex flex-col items-center gap-2 sm:flex-row sm:flex-wrap sm:justify-between">
-                <div className="flex flex-col items-center gap-2 sm:flex-row sm:items-center">
-                  <h2 className="font-display text-xl sm:text-2xl font-bold break-words">
-                    {patient.first_name} {patient.last_name}
-                  </h2>
-                  <div className="flex gap-2 flex-wrap justify-center sm:justify-start">
-                    <PatientStatusBadge 
-                      status={patient.status || 'active'} 
-                      statusSource={patient.status_source}
-                      statusReason={patient.status_reason}
-                      showReason
-                    />
-                    {patient.is_minor && (
-                      <Badge variant="outline" className="border-warning text-warning">
-                        Menor
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-                <PatientStatusToggle 
-                  patientId={patient.id}
-                  currentStatus={patient.status || 'active'}
-                  statusSource={patient.status_source}
-                />
-              </div>
-
-              <div className="mt-3 sm:mt-4 grid gap-2 sm:gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {patient.email && (
-                  <div className="flex items-center justify-center sm:justify-start gap-2 text-xs sm:text-sm text-muted-foreground">
-                    <Icon name="mail" className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
-                    <span className="truncate">{patient.email}</span>
-                  </div>
-                )}
-                {patient.phone && (
-                  <div className="flex items-center justify-center sm:justify-start gap-2 text-xs sm:text-sm text-muted-foreground">
-                    <Icon name="call" className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
-                    <span>{patient.phone}</span>
-                  </div>
-                )}
-                {patient.date_of_birth && (
-                  <div className="flex items-center justify-center sm:justify-start gap-2 text-xs sm:text-sm text-muted-foreground">
-                    <Icon name="calendar_month" className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
-                    <span>
-                      {format(new Date(patient.date_of_birth), "d MMM yyyy", { locale: es })}
-                      {age !== null && ` (${age} años)`}
-                    </span>
-                  </div>
-                )}
-                {(patient.city || patient.address) && (
-                  <div className="flex items-center justify-center sm:justify-start gap-2 text-xs sm:text-sm text-muted-foreground">
-                    <Icon name="location_on" className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
-                    <span className="truncate">{patient.city || patient.address}</span>
-                  </div>
-                )}
-              </div>
-
-              {patient.assigned_professional && (
-                <div className="mt-4 flex items-center gap-2 text-sm">
-                  <Icon name="person" className="h-4 w-4 text-primary" />
-                  <span className="text-primary font-medium">
-                    {patient.assigned_professional.first_name} {patient.assigned_professional.last_name}
-                  </span>
-                  {patient.assigned_professional.specialty && (
-                    <span className="text-muted-foreground">
-                      · {patient.assigned_professional.specialty}
-                    </span>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
       {/* Stats Cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>

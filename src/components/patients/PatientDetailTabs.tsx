@@ -45,8 +45,15 @@ const tabOptions = [
   { value: 'pricing', label: 'Tarifas' },
 ];
 
-export function PatientDetailTabs({ patient }: PatientDetailTabsProps) {
-  const [activeTab, setActiveTab] = useState('summary');
+interface PatientDetailTabsControlledProps extends PatientDetailTabsProps {
+  activeTab?: string;
+  onActiveTabChange?: (tab: string) => void;
+}
+
+export function PatientDetailTabs({ patient, activeTab: controlledTab, onActiveTabChange }: PatientDetailTabsControlledProps) {
+  const [internalTab, setInternalTab] = useState('summary');
+  const activeTab = controlledTab ?? internalTab;
+  const setActiveTab = onActiveTabChange ?? setInternalTab;
 
   return (
     <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
