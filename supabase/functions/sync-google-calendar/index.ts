@@ -1360,10 +1360,12 @@ async function syncProfessional(
       // Incremental responses contain only changed events. If an event is
       // absent there, it is unchanged rather than deleted.
       let eventExists = shouldTreatGoogleEventAsExisting(googleEvent, fullSync);
-      
+      // Only treat the event as deleted in Google when we have positive
+      // evidence (explicit cancelled status or a failed direct lookup).
+      let deletionConfirmed = Boolean(googleEvent && googleEvent.status === 'cancelled');
+      let deletionUnverified = false;
+
       // OPTIMIZATION: Limit the number of checkGoogleEventExists calls
-      // If event is not in the fetched list, assume it doesn't exist and recreate
-      // This saves 1 API call per "missing" session
       if (!googleEvent && fullSync && eventChecksCount < MAX_EVENT_CHECKS_PER_SYNC) {
         // Only do explicit check for first N sessions, then assume missing = recreate
         eventChecksCount++;
@@ -1378,14 +1380,22 @@ async function syncProfessional(
         if (checkResponse.ok) {
           const eventData = await checkResponse.json();
           eventExists = eventData.status !== 'cancelled';
-        } else {
+          deletionConfirmed = !eventExists;
+        } else if (checkResponse.status === 404 || checkResponse.status === 410) {
           eventExists = false;
+          deletionConfirmed = true;
+        } else {
+          // Transient/unknown failure: do not assume anything.
+          eventExists = false;
+          deletionUnverified = true;
         }
       } else if (!googleEvent && fullSync) {
-        // Skip check, assume doesn't exist
-        console.log(`[SYNC:${correlationId}] Event ${session.google_calendar_event_id} not in list, recreating (check limit reached)`);
+        // Check limit reached: no evidence, leave the link untouched this run.
+        console.log(`[SYNC:${correlationId}] Event ${session.google_calendar_event_id} not in list, check limit reached — skipping`);
         eventExists = false;
+        deletionUnverified = true;
       }
+
 
       // Incremental responses omit unchanged Google events. If Psycma changed
       // since the common baseline, fetch that single event so the outgoing
@@ -1409,7 +1419,39 @@ async function syncProfessional(
       }
       
       if (!eventExists) {
-        // Recreate event
+        if (deletionUnverified) {
+          // No evidence of deletion: never recreate blindly (that resurrects
+          // events the professional deleted in Google).
+          console.warn(`[SYNC:${correlationId}] Event ${session.google_calendar_event_id} missing without confirmation for session ${session.id} — skipping`);
+          result.warnings?.push(`Could not verify Google event for session ${session.id}`);
+          continue;
+        }
+
+        // Deletion confirmed in Google.
+        if (integrations?.google_calendar_sync_mode === 'two_way') {
+          console.log(`[SYNC:${correlationId}] Google event deleted → cancelling session ${session.id}`);
+          await supabase
+            .from('sessions')
+            .update({ status: 'cancelled', google_calendar_event_id: null })
+            .eq('id', session.id);
+          await supabase.from('google_session_sync_state').delete().eq('session_id', session.id);
+          result.deleted++;
+          await alertProfessionalSyncChange(supabase, {
+            professionalId,
+            centerId: professional?.center_id,
+            patientId: session.patient_id,
+            sessionId: session.id,
+            outcome: 'applied',
+            oldDate: session.session_date,
+            oldTime: session.start_time,
+            newDate: session.session_date,
+            newTime: session.start_time,
+            correlationId,
+          });
+          continue;
+        }
+
+        // One-way mode: Psycma remains the source of truth, recreate the event.
         console.log(`[SYNC:${correlationId}] Recreating event for session ${session.id}`);
         const newEventId = await createGoogleCalendarEvent(
           accessToken, calendarId, session, session.patient, professional, correlationId,
@@ -1425,6 +1467,7 @@ async function syncProfessional(
           result.errors.push(`Failed to recreate event for session ${session.id}`);
         }
       } else if (googleEvent) {
+
         await syncLinkedSessionSchedule({
           supabase,
           session,
