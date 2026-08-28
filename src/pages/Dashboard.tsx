@@ -1,15 +1,17 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { es } from 'date-fns/locale';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/useAuth';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { SessionDetailDrawer } from '@/components/agenda/SessionDetailDrawer';
-import { useDebtStats } from '@/hooks/useDebts';
+import { useDebtStats, useDebts } from '@/hooks/useDebts';
 import type { SessionWithRelations } from '@/hooks/useSessions';
 import { Icon } from '@/components/ui/icon';
+import { PatientStatusBadge } from '@/components/patients/PatientStatusBadge';
+import { cn } from '@/lib/utils';
 
 function useDashboardStats() {
   const { profile } = useAuth();
@@ -21,8 +23,21 @@ function useDashboardStats() {
       const today = format(now, 'yyyy-MM-dd');
       const startOfMonth = format(new Date(now.getFullYear(), now.getMonth(), 1), 'yyyy-MM-dd');
       const endOfMonth = format(new Date(now.getFullYear(), now.getMonth() + 1, 0), 'yyyy-MM-dd');
+      const startOfPrevMonth = format(new Date(now.getFullYear(), now.getMonth() - 1, 1), 'yyyy-MM-dd');
+      const endOfPrevMonth = format(new Date(now.getFullYear(), now.getMonth(), 0), 'yyyy-MM-dd');
 
-      const [patientsRes, todaySessionsRes, monthInvoicesRes, debtsRes, issuedInvoicesRes, allDebtInvoiceIdsRes] = await Promise.all([
+      const [
+        patientsRes,
+        todaySessionsRes,
+        monthInvoicesRes,
+        debtsRes,
+        issuedInvoicesRes,
+        allDebtInvoiceIdsRes,
+        monthSessionsRes,
+        prevMonthSessionsRes,
+        newPatientsRes,
+        prevNewPatientsRes,
+      ] = await Promise.all([
         supabase.from('patients').select('id', { count: 'exact', head: true }).eq('status', 'active'),
         supabase.from('sessions').select('id', { count: 'exact', head: true }).eq('session_date', today).neq('status', 'cancelled').neq('status', 'no_show').neq('status', 'blocked'),
         supabase.from('invoices').select('total, status, retention_amount').gte('issue_date', startOfMonth).lte('issue_date', endOfMonth),
@@ -30,13 +45,16 @@ function useDashboardStats() {
         supabase.from('invoices').select('id, total').eq('status', 'issued').eq('is_valid', true),
         // All debts with invoice_id (any status) to know which invoices already have debt records
         supabase.from('debts').select('invoice_id').not('invoice_id', 'is', null),
+        supabase.from('sessions').select('id', { count: 'exact', head: true }).gte('session_date', startOfMonth).lte('session_date', endOfMonth).neq('status', 'cancelled').neq('status', 'no_show').neq('status', 'blocked').neq('session_type', 'Bloqueado'),
+        supabase.from('sessions').select('id', { count: 'exact', head: true }).gte('session_date', startOfPrevMonth).lte('session_date', endOfPrevMonth).neq('status', 'cancelled').neq('status', 'no_show').neq('status', 'blocked').neq('session_type', 'Bloqueado'),
+        supabase.from('patients').select('id', { count: 'exact', head: true }).gte('created_at', startOfMonth).lte('created_at', endOfMonth),
+        supabase.from('patients').select('id', { count: 'exact', head: true }).gte('created_at', startOfPrevMonth).lte('created_at', endOfPrevMonth),
       ]);
 
       const monthEffective = monthInvoicesRes.data?.filter(inv => inv.status === 'issued' || inv.status === 'paid') || [];
       const monthlyRevenueNet = monthEffective.reduce((sum, inv) => sum + Number(inv.total), 0);
       const monthlyRetained = monthEffective.reduce((sum, inv) => sum + Number(inv.retention_amount ?? 0), 0);
       const monthlyRevenue = monthlyRevenueNet + monthlyRetained;
-
 
       // Exclude debts whose invoice has been invalidated by a rectificativa
       const debtInvoiceIds = new Set(debtsRes.data?.map(d => d.invoice_id).filter(Boolean) as string[]);
@@ -60,6 +78,16 @@ function useDashboardStats() {
         ?.filter(inv => !allDebtInvoiceIds.has(inv.id))
         .reduce((sum, inv) => sum + Number(inv.total), 0) || 0;
 
+      const monthSessions = monthSessionsRes.count || 0;
+      const prevMonthSessions = prevMonthSessionsRes.count || 0;
+      const newPatients = newPatientsRes.count || 0;
+      const prevNewPatients = prevNewPatientsRes.count || 0;
+
+      const trend = (current: number, previous: number) => {
+        if (previous === 0) return current > 0 ? { delta: current, percent: null as number | null } : { delta: 0, percent: null };
+        return { delta: current - previous, percent: Math.round(((current - previous) / previous) * 100) };
+      };
+
       return {
         activePatients: patientsRes.count || 0,
         todaySessions: todaySessionsRes.count || 0,
@@ -67,8 +95,11 @@ function useDashboardStats() {
         monthlyRevenueNet,
         monthlyRetained,
         pendingDebts: debtsPending + invoicesWithoutDebt,
+        monthSessions,
+        monthSessionsTrend: trend(monthSessions, prevMonthSessions),
+        newPatients,
+        newPatientsTrend: trend(newPatients, prevNewPatients),
       };
-
     },
     enabled: !!profile?.center_id,
   });
@@ -106,6 +137,69 @@ function useTodaySessions() {
   });
 }
 
+function useRecentPatients() {
+  const { profile } = useAuth();
+
+  return useQuery({
+    queryKey: ['dashboard-recent-patients'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('sessions')
+        .select(`
+          session_date, session_type,
+          patient:patients!sessions_patient_id_fkey(id, first_name, last_name, status, status_source)
+        `)
+        .neq('status', 'cancelled')
+        .neq('status', 'no_show')
+        .neq('status', 'blocked')
+        .neq('session_type', 'Bloqueado')
+        .not('patient_id', 'is', null)
+        .order('session_date', { ascending: false })
+        .limit(25);
+
+      if (error) throw error;
+
+      const seen = new Set<string>();
+      const recent: { patientId: string; firstName: string; lastName: string; status: string; statusSource: string | null; lastSessionDate: string; sessionType: string | null }[] = [];
+      for (const row of data ?? []) {
+        const patient = row.patient as { id: string; first_name: string; last_name: string; status: string; status_source: string | null } | null;
+        if (!patient || seen.has(patient.id) || patient.first_name?.startsWith('[Bloqueado]')) continue;
+        seen.add(patient.id);
+        recent.push({
+          patientId: patient.id,
+          firstName: patient.first_name,
+          lastName: patient.last_name,
+          status: patient.status,
+          statusSource: patient.status_source,
+          lastSessionDate: row.session_date,
+          sessionType: row.session_type,
+        });
+        if (recent.length >= 5) break;
+      }
+      return recent;
+    },
+    enabled: !!profile?.center_id,
+  });
+}
+
+function initials(firstName?: string | null, lastName?: string | null) {
+  return `${(firstName?.[0] || '').toUpperCase()}${(lastName?.[0] || '').toUpperCase()}` || '?';
+}
+
+function TrendBadge({ trend }: { trend: { delta: number; percent: number | null } }) {
+  if (trend.delta === 0 && trend.percent === null) return null;
+  const positive = trend.delta >= 0;
+  const label = trend.percent !== null ? `${positive ? '+' : ''}${trend.percent}%` : `${positive ? '+' : ''}${trend.delta}`;
+  return (
+    <span className={cn(
+      'rounded-full px-2 py-0.5 text-xs font-medium tabular-nums',
+      positive ? 'bg-success/10 text-success' : 'bg-destructive/10 text-destructive'
+    )}>
+      {label}
+    </span>
+  );
+}
+
 export default function Dashboard() {
   const { profile } = useAuth();
   const { data: stats, isLoading: statsLoading } = useDashboardStats();
@@ -113,6 +207,8 @@ export default function Dashboard() {
   const { data: debtStats } = useDebtStats();
   const pendingDebts = debtStats?.totalPending ?? stats?.pendingDebts ?? 0;
   const { data: todaySessions, isLoading: sessionsLoading } = useTodaySessions();
+  const { data: pendingDebtsList, isLoading: debtsListLoading } = useDebts();
+  const { data: recentPatients, isLoading: recentPatientsLoading } = useRecentPatients();
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
 
   // Always read the selected session fresh from the DB so edits (date, price,
@@ -148,63 +244,96 @@ export default function Dashboard() {
     return () => window.removeEventListener('select-session', handleSelectSession);
   }, []);
 
-
-  const statCards = [
-    {
-      title: 'Contactos Activos',
-      value: stats?.activePatients || 0,
-      description: 'Total de contactos',
-      icon: 'group',
-      href: '/pacientes',
-    },
-    {
-      title: 'Citas Hoy',
-      value: stats?.todaySessions || 0,
-      description: 'Sesiones programadas',
-      icon: 'calendar_month',
-      href: '/agenda',
-    },
-    {
-
-      title: 'Facturación Mes (bruto)',
-      value: `${(stats?.monthlyRevenue || 0).toFixed(2)}€`,
-      description: `Neto ${(stats?.monthlyRevenueNet || 0).toFixed(2)}€ · Retenciones ${(stats?.monthlyRetained || 0).toFixed(2)}€`,
-      icon: 'receipt_long',
-      href: '/facturas',
-    },
-    {
-      title: 'Pendientes Cobro',
-      value: `${pendingDebts.toFixed(2)}€`,
-      description: 'Deudas pendientes',
-
-      icon: 'error',
-      href: '/cobros',
-      alert: pendingDebts > 0,
-    },
-  ];
+  const nowTime = format(new Date(), 'HH:mm:ss');
+  const nextSession = todaySessions?.find((s) => s.start_time >= nowTime);
 
   return (
     <div className="space-y-6">
-      {/* Welcome Section */}
-      <div className="flex flex-col gap-2">
-        <h1 className="font-display text-2xl font-bold md:text-3xl">
-          ¡Hola, {profile?.first_name || 'Profesional'}!
-        </h1>
-        <p className="text-muted-foreground">
-          Aquí tienes un resumen de tu actividad clínica
-        </p>
+      {/* Hero */}
+      <div className="relative overflow-hidden rounded-2xl border bg-card p-6 shadow-card">
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-primary/10 via-card to-secondary/5" />
+        <div className="relative z-10 flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
+          <div>
+            <h1 className="font-display text-2xl font-bold md:text-3xl">
+              Hola, {profile?.first_name || 'Profesional'}
+            </h1>
+            <p className="mt-1 text-muted-foreground">
+              {sessionsLoading
+                ? 'Cargando tu agenda de hoy...'
+                : todaySessions && todaySessions.length > 0
+                  ? `Tienes ${todaySessions.length} ${todaySessions.length === 1 ? 'sesión programada' : 'sesiones programadas'} hoy.`
+                  : 'No tienes sesiones programadas para hoy.'}
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <div className="flex items-center gap-3 rounded-xl border bg-background/80 px-4 py-3">
+              <Icon name="schedule" className="h-5 w-5 text-primary" />
+              <div>
+                <p className="text-sm font-medium">Próxima cita</p>
+                <p className="text-sm text-muted-foreground">
+                  {nextSession ? nextSession.start_time.slice(0, 5) : 'Sin más citas hoy'}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 rounded-xl border bg-background/80 px-4 py-3">
+              <Icon name="group" className="h-5 w-5 text-secondary" />
+              <div>
+                <p className="text-sm font-medium">Contactos</p>
+                <p className="text-sm text-muted-foreground">
+                  {todaySessions?.length ?? 0} programados
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* 1. Agenda de Hoy - PRIMERA */}
-      <Card className="shadow-card">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Icon name="schedule" className="h-5 w-5 text-primary" />
-            Agenda de Hoy
-          </CardTitle>
-          <CardDescription>Tus próximas sesiones programadas</CardDescription>
-        </CardHeader>
-        <CardContent>
+      {/* Metrics */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <div className="rounded-2xl border bg-card p-4 shadow-card">
+          <div className="mb-2 flex items-start justify-between">
+            <p className="text-sm font-medium text-muted-foreground">Sesiones este mes</p>
+            <Icon name="trending_up" className="h-4 w-4 text-muted-foreground" />
+          </div>
+          {statsLoading ? <Skeleton className="h-8 w-16" /> : (
+            <div className="flex items-end gap-2">
+              <h3 className="text-2xl font-bold tabular-nums">{stats?.monthSessions ?? 0}</h3>
+              {stats && <TrendBadge trend={stats.monthSessionsTrend} />}
+            </div>
+          )}
+        </div>
+        <div className="rounded-2xl border bg-card p-4 shadow-card">
+          <div className="mb-2 flex items-start justify-between">
+            <p className="text-sm font-medium text-muted-foreground">Nuevos contactos</p>
+            <Icon name="person_add" className="h-4 w-4 text-muted-foreground" />
+          </div>
+          {statsLoading ? <Skeleton className="h-8 w-16" /> : (
+            <div className="flex items-end gap-2">
+              <h3 className="text-2xl font-bold tabular-nums">{stats?.newPatients ?? 0}</h3>
+              {stats && <TrendBadge trend={stats.newPatientsTrend} />}
+            </div>
+          )}
+        </div>
+        <Link to="/facturas" className="rounded-2xl border bg-card p-4 shadow-card transition-shadow hover:shadow-card-hover">
+          <div className="mb-2 flex items-start justify-between">
+            <p className="text-sm font-medium text-muted-foreground">Ingresos del mes</p>
+            <Icon name="payments" className="h-4 w-4 text-muted-foreground" />
+          </div>
+          {statsLoading ? <Skeleton className="h-8 w-24" /> : (
+            <h3 className="text-2xl font-bold tabular-nums">{(stats?.monthlyRevenue ?? 0).toFixed(2)}€</h3>
+          )}
+        </Link>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        {/* Agenda de Hoy */}
+        <div className="rounded-2xl border bg-card p-4 shadow-card lg:col-span-2">
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="text-lg font-semibold">Agenda de Hoy</h3>
+            <Link to="/agenda" className="text-sm font-medium text-primary hover:underline">
+              Ver calendario
+            </Link>
+          </div>
           {sessionsLoading ? (
             <div className="space-y-3">
               {[1, 2, 3].map(i => <Skeleton key={i} className="h-16" />)}
@@ -217,99 +346,165 @@ export default function Dashboard() {
               </p>
             </div>
           ) : (
-            <div className="space-y-3">
-              {todaySessions.map((session) => (
-                <div
-                  key={session.id}
-                  onClick={() => setSelectedSessionId(session.id)}
-                  className="flex items-center justify-between rounded-lg border p-3 cursor-pointer transition-colors hover:bg-muted"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
-                      <Icon name="group" className="h-5 w-5 text-primary" />
+            <div className="space-y-2">
+              {todaySessions.map((session) => {
+                const isOnline = session.session_modality !== 'in_person';
+                const isPast = session.end_time < nowTime;
+                return (
+                  <div
+                    key={session.id}
+                    onClick={() => setSelectedSessionId(session.id)}
+                    className={cn(
+                      'group flex cursor-pointer items-center justify-between rounded-xl border p-3 transition-colors hover:bg-muted',
+                      isPast && 'opacity-60'
+                    )}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-lg bg-primary/10 text-primary">
+                        <span className="text-sm font-semibold tabular-nums">{session.start_time.slice(0, 5)}</span>
+                      </div>
+                      <div>
+                        <p className="font-medium group-hover:text-primary transition-colors">
+                          {session.patient?.first_name} {session.patient?.last_name}
+                        </p>
+                        <div className="mt-0.5 flex items-center gap-1 text-sm text-muted-foreground">
+                          <Icon name={isOnline ? 'videocam' : 'location_on'} className="h-3.5 w-3.5" />
+                          <span>{isOnline ? 'Sesión Online' : 'Presencial'}</span>
+                        </div>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-medium">
-                        {session.patient?.first_name} {session.patient?.last_name}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {session.start_time.slice(0, 5)} - {session.end_time.slice(0, 5)}
-                      </p>
-                    </div>
+                    {isOnline && session.video_call_link ? (
+                      <a
+                        href={session.video_call_link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="hidden shrink-0 rounded-xl bg-primary px-3 py-2 text-sm font-medium text-primary-foreground opacity-0 transition-opacity group-hover:opacity-100 md:block"
+                      >
+                        Entrar a sesión
+                      </a>
+                    ) : (
+                      <Link
+                        to={`/pacientes/${session.patient_id}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="hidden shrink-0 rounded-xl border px-3 py-2 text-sm font-medium text-muted-foreground opacity-0 transition-opacity hover:bg-muted group-hover:opacity-100 md:block"
+                      >
+                        Ver expediente
+                      </Link>
+                    )}
                   </div>
-                  <span className={`text-xs px-2 py-1 rounded-full ${
-                    session.status === 'completed' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
-                    session.status === 'confirmed' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
-                    session.status === 'blocked' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' :
-                    'bg-muted text-muted-foreground'
-                  }`}>
-                    {session.status === 'scheduled' ? 'Programada' :
-                     session.status === 'confirmed' ? 'Confirmada' :
-                     session.status === 'completed' ? 'Completada' :
-                     session.status === 'blocked' ? 'Bloqueado' : session.status}
-                  </span>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
 
-      {/* 2. Acciones Rápidas */}
-      <Card className="shadow-card">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Icon name="trending_up" className="h-5 w-5 text-primary" />
-            Acciones Rápidas
-          </CardTitle>
-          <CardDescription>Accesos directos a funciones frecuentes</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-3 grid-cols-2 sm:grid-cols-4">
-            <Link to="/pacientes" className="flex flex-col items-center gap-2 rounded-lg border border-border bg-card p-4 transition-colors hover:bg-muted">
-              <Icon name="group" className="h-6 w-6 text-primary" />
-              <span className="text-sm font-medium">Nuevo Contacto</span>
-            </Link>
-            <Link to="/agenda" className="flex flex-col items-center gap-2 rounded-lg border border-border bg-card p-4 transition-colors hover:bg-muted">
-              <Icon name="calendar_month" className="h-6 w-6 text-primary" />
-              <span className="text-sm font-medium">Nueva Sesión</span>
-            </Link>
-            <Link to="/facturas" className="flex flex-col items-center gap-2 rounded-lg border border-border bg-card p-4 transition-colors hover:bg-muted">
-              <Icon name="receipt_long" className="h-6 w-6 text-primary" />
-              <span className="text-sm font-medium">Nueva Factura</span>
-            </Link>
-            <Link to="/bonos" className="flex flex-col items-center gap-2 rounded-lg border border-border bg-card p-4 transition-colors hover:bg-muted">
-              <Icon name="package_2" className="h-6 w-6 text-primary" />
-              <span className="text-sm font-medium">Nuevo Bono</span>
-            </Link>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* 3. Stats Grid - AL FINAL */}
-      <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
-        {statCards.map((stat) => (
-          <Link key={stat.title} to={stat.href}>
-            <Card className={`shadow-card transition-shadow hover:shadow-card-hover ${stat.alert ? 'border-destructive/50' : ''}`}>
-              <CardHeader className="flex flex-row items-center justify-between pb-1 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
-                <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">
-                  {stat.title}
-                </CardTitle>
-                <Icon name={stat.icon} className={`h-4 w-4 ${stat.alert ? 'text-destructive' : 'text-muted-foreground'}`} />
-              </CardHeader>
-              <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
-                {statsLoading ? (
-                  <Skeleton className="h-6 sm:h-8 w-16 sm:w-20" />
-                ) : (
-                  <div className={`text-lg sm:text-2xl font-bold ${stat.alert ? 'text-destructive' : ''}`}>
-                    {stat.value}
+        {/* Pagos Pendientes */}
+        <div className="flex flex-col rounded-2xl border bg-card p-4 shadow-card">
+          <h3 className="mb-4 text-lg font-semibold">Pagos Pendientes</h3>
+          <div className="flex flex-1 flex-col gap-2">
+            {debtsListLoading ? (
+              [1, 2, 3].map(i => <Skeleton key={i} className="h-14" />)
+            ) : !pendingDebtsList || pendingDebtsList.length === 0 ? (
+              <div className="flex flex-1 flex-col items-center justify-center py-6 text-center">
+                <Icon name="check_circle" className="mb-2 h-8 w-8 text-success/60" />
+                <p className="text-sm text-muted-foreground">Sin pagos pendientes</p>
+              </div>
+            ) : (
+              pendingDebtsList.slice(0, 4).map((debt) => (
+                <Link
+                  key={debt.id}
+                  to="/cobros"
+                  className="flex items-start justify-between gap-2 rounded-xl border p-3 transition-colors hover:bg-muted"
+                >
+                  <div>
+                    <p className="text-sm font-medium">
+                      {debt.patients?.first_name} {debt.patients?.last_name}
+                    </p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      {debt.status === 'partial' ? 'Pago parcial' : 'Pendiente de pago'}
+                    </p>
                   </div>
-                )}
-                <p className="text-[10px] sm:text-xs text-muted-foreground">{stat.description}</p>
-              </CardContent>
-            </Card>
+                  <span className="shrink-0 text-sm font-semibold tabular-nums text-warning">
+                    {(Number(debt.amount) - Number(debt.paid_amount)).toFixed(2)}€
+                  </span>
+                </Link>
+              ))
+            )}
+          </div>
+          {pendingDebts > 0 && (
+            <Link to="/cobros" className="mt-3 pt-2 text-center text-sm font-medium text-primary hover:underline">
+              Ver todas ({pendingDebts.toFixed(2)}€)
+            </Link>
+          )}
+        </div>
+      </div>
+
+      {/* Pacientes Recientes */}
+      <div className="overflow-hidden rounded-2xl border bg-card shadow-card">
+        <div className="flex items-center justify-between border-b p-4">
+          <h3 className="text-lg font-semibold">Contactos Recientes</h3>
+          <Link to="/pacientes" className="text-sm font-medium text-primary hover:underline">
+            Ver todos
           </Link>
-        ))}
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[560px] text-left">
+            <thead>
+              <tr className="border-b bg-muted/50">
+                <th className="px-4 py-3 text-sm font-medium text-muted-foreground">Contacto</th>
+                <th className="px-4 py-3 text-sm font-medium text-muted-foreground">Última Sesión</th>
+                <th className="px-4 py-3 text-sm font-medium text-muted-foreground">Estado</th>
+                <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">Acción</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {recentPatientsLoading ? (
+                [1, 2, 3].map(i => (
+                  <tr key={i}>
+                    <td className="px-4 py-4" colSpan={4}><Skeleton className="h-8" /></td>
+                  </tr>
+                ))
+              ) : !recentPatients || recentPatients.length === 0 ? (
+                <tr>
+                  <td className="px-4 py-8 text-center text-muted-foreground" colSpan={4}>
+                    Sin sesiones recientes
+                  </td>
+                </tr>
+              ) : (
+                recentPatients.map((p) => (
+                  <tr key={p.patientId} className="group transition-colors hover:bg-muted/50">
+                    <td className="px-4 py-3">
+                      <Link to={`/pacientes/${p.patientId}`} className="flex items-center gap-3">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+                          {initials(p.firstName, p.lastName)}
+                        </div>
+                        <span className="font-medium group-hover:text-primary transition-colors">
+                          {p.firstName} {p.lastName}
+                        </span>
+                      </Link>
+                    </td>
+                    <td className="px-4 py-3">
+                      <p className="text-sm">{format(new Date(p.lastSessionDate + 'T00:00:00'), "d MMM yyyy", { locale: es })}</p>
+                      {p.sessionType && <p className="text-xs text-muted-foreground">{p.sessionType}</p>}
+                    </td>
+                    <td className="px-4 py-3">
+                      <PatientStatusBadge status={p.status} statusSource={p.statusSource} />
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <Link
+                        to={`/pacientes/${p.patientId}`}
+                        className="inline-flex rounded-lg p-2 text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
+                      >
+                        <Icon name="arrow_forward" className="h-4 w-4" />
+                      </Link>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* Session Detail Drawer */}
