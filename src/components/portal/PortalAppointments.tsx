@@ -19,7 +19,6 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Icon } from '@/components/ui/icon';
-import { CheckCircle, Calendar, AlertCircle, CreditCard, XCircle } from 'lucide-react';
 
 interface PortalAppointmentsProps {
   sessions: PortalSession[];
@@ -44,14 +43,14 @@ interface CancellationPolicyPreview {
   message: string;
 }
 
-const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; icon: typeof CheckCircle }> = {
-  scheduled: { label: SESSION_STATUS_LABELS.scheduled, variant: 'secondary', icon: Calendar },
-  confirmed: { label: SESSION_STATUS_LABELS.confirmed, variant: 'default', icon: CheckCircle },
-  pending_approval: { label: SESSION_STATUS_LABELS.pending_approval, variant: 'outline', icon: AlertCircle },
-  draft: { label: SESSION_STATUS_LABELS.draft, variant: 'outline', icon: CreditCard },
-  completed: { label: SESSION_STATUS_LABELS.completed, variant: 'default', icon: CheckCircle },
-  cancelled: { label: SESSION_STATUS_LABELS.cancelled, variant: 'destructive', icon: XCircle },
-  no_show: { label: SESSION_STATUS_LABELS.no_show, variant: 'destructive', icon: XCircle },
+const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; icon: string }> = {
+  scheduled: { label: SESSION_STATUS_LABELS.scheduled, variant: 'secondary', icon: 'calendar_month' },
+  confirmed: { label: SESSION_STATUS_LABELS.confirmed, variant: 'default', icon: 'check_circle' },
+  pending_approval: { label: SESSION_STATUS_LABELS.pending_approval, variant: 'outline', icon: 'error' },
+  draft: { label: SESSION_STATUS_LABELS.draft, variant: 'outline', icon: 'credit_card' },
+  completed: { label: SESSION_STATUS_LABELS.completed, variant: 'default', icon: 'check_circle' },
+  cancelled: { label: SESSION_STATUS_LABELS.cancelled, variant: 'destructive', icon: 'cancel' },
+  no_show: { label: SESSION_STATUS_LABELS.no_show, variant: 'destructive', icon: 'cancel' },
 };
 
 export function PortalAppointments({
@@ -138,7 +137,6 @@ export function PortalAppointments({
     <div className="space-y-4">
       {sessions.map((session) => {
         const status = statusConfig[session.status] || statusConfig.scheduled;
-        const StatusIcon = status.icon;
         const canCancel = !isPast && !isCancelled && ['scheduled', 'confirmed', 'pending_approval', 'draft'].includes(session.status);
         const canConfirm = !isPast && !isCancelled && session.status === 'scheduled';
         const canReschedule = !isPast && !isCancelled && ['scheduled', 'confirmed'].includes(session.status);
@@ -166,7 +164,7 @@ export function PortalAppointments({
                 </span>
               </div>
               <Badge variant="outline" className={`flex items-center gap-1 ${getSessionStatusDisplay(session.status).badgeClass}`}>
-                <StatusIcon className="h-3 w-3" />
+                <Icon name={status.icon} className="h-3 w-3" />
                 <span className="text-xs">{status.label}</span>
               </Badge>
             </div>

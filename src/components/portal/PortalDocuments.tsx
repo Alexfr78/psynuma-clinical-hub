@@ -1,6 +1,5 @@
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { ClipboardCheck, FileSignature, FileText } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -26,9 +25,9 @@ interface PortalDocumentsProps {
 }
 
 const typeConfig = {
-  consent: { label: 'Consentimiento', icon: FileSignature },
-  assessment: { label: 'Evaluación', icon: ClipboardCheck },
-  autoregistro: { label: 'Autorregistro', icon: FileText },
+  consent: { label: 'Consentimiento', icon: 'edit_document' },
+  assessment: { label: 'Evaluación', icon: 'fact_check' },
+  autoregistro: { label: 'Autorregistro', icon: 'description' },
 };
 
 const statusConfig = {
@@ -54,9 +53,8 @@ export function PortalDocuments({ documents, loading }: PortalDocumentsProps) {
   const renderDocument = (document: PortalDocument) => {
     const type = typeConfig[document.type];
     const status = statusConfig[document.status] || statusConfig.pending;
-    const TypeIcon = type.icon;
-    const actionLabel = document.type === 'consent' ? (document.status === 'signed' ? 'Consultar' : 'Firmar') : document.type === 'assessment' ? 'Completar evaluación' : document.submissionCount ? 'Nuevo registro' : 'Completar registro';
-    return <Card key={`${document.type}-${document.id}`}><CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5"><div className="flex min-w-0 gap-3"><div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"><TypeIcon className="h-5 w-5" aria-hidden="true" /></div><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><p className="font-semibold">{document.title}</p><Badge variant={status.variant}>{status.label}</Badge></div><p className="mt-1 text-sm text-muted-foreground">{type.label}{document.type === 'autoregistro' && document.submissionCount ? ` - ${document.submissionCount} envío${document.submissionCount === 1 ? '' : 's'}` : ''}</p><p className="mt-1 text-xs text-muted-foreground">{document.completedAt ? `Última actividad: ${displayDate(document.completedAt)}` : document.expiresAt ? `Disponible hasta ${displayDate(document.expiresAt)}` : document.createdAt ? `Recibido el ${displayDate(document.createdAt)}` : ''}</p></div></div>{document.actionPath && <Button className="min-h-11 shrink-0" variant={document.status === 'signed' ? 'outline' : 'default'} onClick={() => redirectTopLevel(document.actionPath!)}>{document.type === 'autoregistro' && document.submissionCount ? <Icon name="restart_alt" className="mr-2 h-4 w-4" aria-hidden="true" /> : <TypeIcon className="mr-2 h-4 w-4" aria-hidden="true" />}{actionLabel}</Button>}</CardContent></Card>;
+        const actionLabel = document.type === 'consent' ? (document.status === 'signed' ? 'Consultar' : 'Firmar') : document.type === 'assessment' ? 'Completar evaluación' : document.submissionCount ? 'Nuevo registro' : 'Completar registro';
+    return <Card key={`${document.type}-${document.id}`}><CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5"><div className="flex min-w-0 gap-3"><div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"><Icon name={type.icon} className="h-5 w-5" aria-hidden="true" /></div><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><p className="font-semibold">{document.title}</p><Badge variant={status.variant}>{status.label}</Badge></div><p className="mt-1 text-sm text-muted-foreground">{type.label}{document.type === 'autoregistro' && document.submissionCount ? ` - ${document.submissionCount} envío${document.submissionCount === 1 ? '' : 's'}` : ''}</p><p className="mt-1 text-xs text-muted-foreground">{document.completedAt ? `Última actividad: ${displayDate(document.completedAt)}` : document.expiresAt ? `Disponible hasta ${displayDate(document.expiresAt)}` : document.createdAt ? `Recibido el ${displayDate(document.createdAt)}` : ''}</p></div></div>{document.actionPath && <Button className="min-h-11 shrink-0" variant={document.status === 'signed' ? 'outline' : 'default'} onClick={() => redirectTopLevel(document.actionPath!)}>{document.type === 'autoregistro' && document.submissionCount ? <Icon name="restart_alt" className="mr-2 h-4 w-4" aria-hidden="true" /> : <Icon name={type.icon} className="mr-2 h-4 w-4" aria-hidden="true" />}{actionLabel}</Button>}</CardContent></Card>;
   };
 
   return <div className="space-y-6">{pending.length > 0 && <section aria-labelledby="pending-documents" className="space-y-3"><div><h2 id="pending-documents" className="text-lg font-semibold">Pendientes</h2><p className="mt-1 text-sm text-muted-foreground">Documentos que requieren tu atención</p></div>{pending.map(renderDocument)}</section>}<section aria-labelledby="document-history" className="space-y-3"><div><h2 id="document-history" className="text-lg font-semibold">Historial</h2><p className="mt-1 text-sm text-muted-foreground">Documentos completados, caducados o revocados</p></div>{completed.length > 0 ? completed.map(renderDocument) : <p className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">Todavía no hay documentos en el historial.</p>}</section></div>;

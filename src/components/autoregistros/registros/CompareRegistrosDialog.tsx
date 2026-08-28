@@ -8,7 +8,6 @@ import {
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { ArrowDown, ArrowUp, Minus } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -195,7 +194,7 @@ function CompareCellValue({
     const diff = curr - prev;
     const rounded = Math.round(diff * 100) / 100;
 
-    const DiffIcon = diff > 0 ? ArrowUp : diff < 0 ? ArrowDown : Minus;
+    const diffIconName = diff > 0 ? 'arrow_upward' : diff < 0 ? 'arrow_downward' : 'remove';
     const diffColor =
       diff === 0
         ? 'text-muted-foreground'
@@ -211,7 +210,7 @@ function CompareCellValue({
           <span className="text-sm font-medium tabular-nums">{formatted.text}</span>
         )}
         <div className={cn('flex items-center gap-0.5 text-[10px]', diffColor)}>
-          <DiffIcon className="h-2.5 w-2.5" />
+          <Icon name={diffIconName} className="h-2.5 w-2.5" />
           <span className="tabular-nums">
             {diff > 0 ? '+' : ''}
             {rounded}

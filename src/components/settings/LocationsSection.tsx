@@ -23,7 +23,6 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Icon } from '@/components/ui/icon';
-import { Video, MapPin } from 'lucide-react';
 
 const DAYS_LABELS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
@@ -42,7 +41,7 @@ function LocationCard({ location, schedules, onDelete, onScheduleChange, onVisib
 
   const isPublic = location.is_public ?? true;
   const isOnline = location.location_type === 'online';
-  const LocationIcon = isOnline ? Video : MapPin;
+  const locationIconName = isOnline ? 'videocam' : 'location_on';
 
   const getScheduleForDay = (day: number) => {
     return schedules.find(s => s.day_of_week === day) || {
@@ -71,7 +70,7 @@ function LocationCard({ location, schedules, onDelete, onScheduleChange, onVisib
           <div className="flex items-start justify-between p-4">
             <div className="flex items-start gap-3">
               <div className={`mt-1 rounded-lg p-2 ${isOnline ? 'bg-blue-500/10' : 'bg-primary/10'}`}>
-                <LocationIcon className={`h-4 w-4 ${isOnline ? 'text-blue-500' : 'text-primary'}`} />
+                <Icon name={locationIconName} className={`h-4 w-4 ${isOnline ? 'text-blue-500' : 'text-primary'}`} />
               </div>
               <div className="flex flex-col gap-1">
                 <div className="flex items-center gap-2 flex-wrap">

@@ -1,6 +1,6 @@
-import { CheckCircle2, CreditCard, RotateCcw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Icon } from '@/components/ui/icon';
 
 interface PaymentStatusIndicatorProps {
   paymentStatus?: string | null;
@@ -38,7 +38,7 @@ export function PaymentStatusIndicator({
 
   const isPaid = state === 'paid';
   const isRefunded = state === 'refunded';
-  const Icon = isRefunded ? RotateCcw : isPaid ? CheckCircle2 : CreditCard;
+  const iconName = isRefunded ? 'undo' : isPaid ? 'check_circle' : 'credit_card';
   const label = isRefunded ? 'Reembolsado' : isPaid ? 'Pagado' : 'Pago pendiente';
 
   const content = (
@@ -56,7 +56,7 @@ export function PaymentStatusIndicator({
       )}
       aria-label={label}
     >
-      <Icon className={compact ? 'h-3 w-3' : 'h-3.5 w-3.5'} />
+      <Icon name={iconName} className={compact ? 'h-3 w-3' : 'h-3.5 w-3.5'} />
       {showLabel && <span>{label}</span>}
     </span>
   );

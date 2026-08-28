@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { CalendarClock, CalendarX, CalendarPlus } from 'lucide-react';
 import {
   Card,
   CardContent,
@@ -32,10 +31,10 @@ const TYPE_COLORS: Record<SpecialDayType, string> = {
     'bg-[hsl(142,70%,40%)]/10 text-[hsl(142,60%,30%)] dark:text-[hsl(142,60%,65%)]',
 };
 
-const TYPE_ICONS: Record<SpecialDayType, React.ComponentType<{ className?: string }>> = {
-  closed: CalendarX,
-  custom: CalendarClock,
-  extended: CalendarPlus,
+const TYPE_ICONS: Record<SpecialDayType, string> = {
+  closed: 'event_busy',
+  custom: 'calendar_clock',
+  extended: 'calendar_add_on',
 };
 
 export function SpecialDaysSection() {
@@ -101,7 +100,6 @@ export function SpecialDaysSection() {
         ) : (
           <div className="space-y-3">
             {specialDays.map((sd) => {
-              const TypeIcon = TYPE_ICONS[sd.type];
               const slots = sd.special_day_slots || [];
               return (
                 <div
@@ -111,7 +109,7 @@ export function SpecialDaysSection() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <Badge variant="outline" className={TYPE_COLORS[sd.type]}>
-                        <TypeIcon className="h-3 w-3 mr-1" />
+                        <Icon name={TYPE_ICONS[sd.type]} className="h-3 w-3 mr-1" />
                         {SPECIAL_DAY_TYPE_LABELS[sd.type]}
                       </Badge>
                       <Badge variant="secondary" className="text-xs">
