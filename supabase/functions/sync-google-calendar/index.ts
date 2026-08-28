@@ -1419,7 +1419,39 @@ async function syncProfessional(
       }
       
       if (!eventExists) {
-        // Recreate event
+        if (deletionUnverified) {
+          // No evidence of deletion: never recreate blindly (that resurrects
+          // events the professional deleted in Google).
+          console.warn(`[SYNC:${correlationId}] Event ${session.google_calendar_event_id} missing without confirmation for session ${session.id} — skipping`);
+          result.warnings?.push(`Could not verify Google event for session ${session.id}`);
+          continue;
+        }
+
+        // Deletion confirmed in Google.
+        if (integrations?.google_calendar_sync_mode === 'two_way') {
+          console.log(`[SYNC:${correlationId}] Google event deleted → cancelling session ${session.id}`);
+          await supabase
+            .from('sessions')
+            .update({ status: 'cancelled', google_calendar_event_id: null })
+            .eq('id', session.id);
+          await supabase.from('google_session_sync_state').delete().eq('session_id', session.id);
+          result.deleted++;
+          await alertProfessionalSyncChange(supabase, {
+            professionalId,
+            centerId: professional?.center_id,
+            patientId: session.patient_id,
+            sessionId: session.id,
+            outcome: 'applied',
+            oldDate: session.session_date,
+            oldTime: session.start_time,
+            newDate: session.session_date,
+            newTime: session.start_time,
+            correlationId,
+          });
+          continue;
+        }
+
+        // One-way mode: Psycma remains the source of truth, recreate the event.
         console.log(`[SYNC:${correlationId}] Recreating event for session ${session.id}`);
         const newEventId = await createGoogleCalendarEvent(
           accessToken, calendarId, session, session.patient, professional, correlationId,
@@ -1435,6 +1467,7 @@ async function syncProfessional(
           result.errors.push(`Failed to recreate event for session ${session.id}`);
         }
       } else if (googleEvent) {
+
         await syncLinkedSessionSchedule({
           supabase,
           session,
