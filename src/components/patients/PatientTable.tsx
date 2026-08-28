@@ -25,7 +25,7 @@ export function PatientTable({ patients, sessionSummaries }: PatientTableProps) 
 
   return (
     <div className="hidden overflow-x-auto sm:block">
-      <table className="w-full min-w-[720px] text-left">
+      <table className="w-full min-w-[720px] text-left text-sm">
         <thead>
           <tr className="border-b bg-muted/50">
             <th className="w-1/4 px-6 py-4 text-sm font-medium text-muted-foreground">Contacto</th>

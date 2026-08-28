@@ -449,7 +449,7 @@ export default function Dashboard() {
           </Link>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[560px] text-left">
+          <table className="w-full min-w-[560px] text-left text-sm">
             <thead>
               <tr className="border-b bg-muted/50">
                 <th className="px-4 py-3 text-sm font-medium text-muted-foreground">Contacto</th>
