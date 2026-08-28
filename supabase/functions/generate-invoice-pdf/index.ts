@@ -541,6 +541,22 @@ serve(async (req) => {
         .createSignedUrl(filePath, 60 * 60 * 24 * 365);
 
       if (!signedUrlError && signedUrlData?.signedUrl) {
+        // Best-effort backfill: if this invoice predates the Drive
+        // connection, this picks it up on its next download. Cheap no-op
+        // (single DB read) once drive_file_id is already set.
+        try {
+          const driveResponse = await fetch(`${supabaseUrl}/functions/v1/upload-invoice-to-drive`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${supabaseKey}` },
+            body: JSON.stringify({ invoice_id }),
+          });
+          if (!driveResponse.ok) {
+            console.error("[generate-invoice-pdf] Drive upload call failed:", await driveResponse.text());
+          }
+        } catch (driveError) {
+          console.error("[generate-invoice-pdf] Drive upload call error:", driveError);
+        }
+
         logAuditEvent({
           supabase, req, userId: null, organizationId: invoiceData.center_id,
           patientId: invoice.patient_id, resourceType: "invoices", resourceId: invoice_id,
@@ -641,6 +657,21 @@ serve(async (req) => {
       .from("invoices")
       .update({ pdf_generated_at: new Date().toISOString() })
       .eq("id", invoice_id);
+
+    // Best-effort external backup copy in the center's Google Drive, if
+    // connected. Never blocks or fails the invoice download on error.
+    try {
+      const driveResponse = await fetch(`${supabaseUrl}/functions/v1/upload-invoice-to-drive`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${supabaseKey}` },
+        body: JSON.stringify({ invoice_id }),
+      });
+      if (!driveResponse.ok) {
+        console.error("[generate-invoice-pdf] Drive upload call failed:", await driveResponse.text());
+      }
+    } catch (driveError) {
+      console.error("[generate-invoice-pdf] Drive upload call error:", driveError);
+    }
 
     logAuditEvent({
       supabase, req, userId: null, organizationId: invoice.center_id,
