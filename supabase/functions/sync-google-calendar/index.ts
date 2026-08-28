@@ -1270,6 +1270,21 @@ async function syncProfessional(
     if (event.id) googleEventMap.set(event.id, event);
   }
 
+  // Build a map psycma_session_id -> Google event, used to re-adopt events
+  // created by Psycma before a disconnect/reconnect cycle. Without this, a
+  // reconnect would create duplicated events in Google Calendar.
+  const psycmaEventBySessionId = new Map<string, any>();
+  for (const event of googleEvents) {
+    if (!event?.id || event.status === 'cancelled') continue;
+    const sid = event.extendedProperties?.private?.psycma_session_id
+      || (typeof event.description === 'string'
+        ? (event.description.match(/\[PSYCMA_SESSION_ID:([^\]]+)\]/)?.[1]
+          || event.description.match(/\[PSYCMA:([^\]]+)\]/)?.[1])
+        : null);
+    if (sid && !psycmaEventBySessionId.has(sid)) psycmaEventBySessionId.set(sid, event);
+  }
+
+
   // Get sessions to sync
   const { data: sessions, error: sessionsError } = await supabase
     .from('sessions')
