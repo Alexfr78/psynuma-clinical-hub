@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Building2, FileText, Receipt, Pencil, List, Zap, MapPin, Calendar, HardDrive, Mail, MessageCircle, Smartphone, Settings2, Video, CreditCard, Plug, Wallet, Bell, Users, FileDown, CalendarDays, CalendarCheck2, CalendarRange, Ban, Brain, GitBranch, Shield } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -49,7 +48,6 @@ import { SpecialDaysSection } from '@/components/settings/SpecialDaysSection';
 import { AISettingsSection } from '@/components/settings/integrations/AISettingsSection';
 import { VersionManagementSection } from '@/components/settings/VersionManagementSection';
 import { TariffPlansSection } from '@/components/settings/TariffPlansSection';
-import { Layers } from 'lucide-react';
 import { Icon } from '@/components/ui/icon';
 
 const centerSchema = z.object({
@@ -107,80 +105,80 @@ type SettingsSection =
 interface NavItem {
   id: SettingsSection;
   label: string;
-  icon: React.ComponentType<{ className?: string }>;
+  icon: string;
   parent: string;
   subgroup?: string;
 }
 
 // Category icons for main sections
-const categoryIcons: Record<string, React.ComponentType<{ className?: string }>> = {
-  'Mi Centro': Building2,
-  'Portal de Contactos': Users,
-  'Pagos y Facturación': Wallet,
-  'Comunicaciones': Mail,
-  'Conexiones Externas': Plug,
-  'Seguridad': Shield,
-  'Sistema': GitBranch,
+const categoryIcons: Record<string, string> = {
+  'Mi Centro': 'apartment',
+  'Portal de Contactos': 'group',
+  'Pagos y Facturación': 'account_balance_wallet',
+  'Comunicaciones': 'mail',
+  'Conexiones Externas': 'power',
+  'Seguridad': 'shield',
+  'Sistema': 'account_tree',
 };
 
 const navItems: NavItem[] = [
   // Mi Centro
-  { id: 'centro-info', label: 'Datos del centro', icon: Building2, parent: 'Mi Centro' },
-  { id: 'centro-ubicaciones', label: 'Ubicaciones', icon: MapPin, parent: 'Mi Centro' },
-  { id: 'centro-agenda', label: 'Configuración de agenda', icon: CalendarDays, parent: 'Mi Centro' },
-  { id: 'centro-excepciones', label: 'Días no laborables', icon: Ban, parent: 'Mi Centro' },
-  { id: 'centro-dias-especiales', label: 'Días especiales', icon: CalendarRange, parent: 'Mi Centro' },
-  { id: 'sesiones-tipos', label: 'Tipos de cita', icon: Calendar, parent: 'Mi Centro' },
-  
+  { id: 'centro-info', label: 'Datos del centro', icon: 'apartment', parent: 'Mi Centro' },
+  { id: 'centro-ubicaciones', label: 'Ubicaciones', icon: 'location_on', parent: 'Mi Centro' },
+  { id: 'centro-agenda', label: 'Configuración de agenda', icon: 'calendar_month', parent: 'Mi Centro' },
+  { id: 'centro-excepciones', label: 'Días no laborables', icon: 'block', parent: 'Mi Centro' },
+  { id: 'centro-dias-especiales', label: 'Días especiales', icon: 'date_range', parent: 'Mi Centro' },
+  { id: 'sesiones-tipos', label: 'Tipos de cita', icon: 'calendar_month', parent: 'Mi Centro' },
+
   // Portal de Contactos
-  { id: 'centro-portal', label: 'Configuración del portal', icon: Settings2, parent: 'Portal de Contactos' },
-  
-  { id: 'consentimientos-config', label: 'Consentimientos informados', icon: FileText, parent: 'Portal de Contactos' },
-  
+  { id: 'centro-portal', label: 'Configuración del portal', icon: 'tune', parent: 'Portal de Contactos' },
+
+  { id: 'consentimientos-config', label: 'Consentimientos informados', icon: 'description', parent: 'Portal de Contactos' },
+
   // Pagos y Facturación
-  { id: 'tarifas', label: 'Planes tarifarios', icon: Layers, parent: 'Pagos y Facturación' },
-  { id: 'pagos-config', label: 'Métodos de cobro', icon: Wallet, parent: 'Pagos y Facturación' },
-  { id: 'pagos-politica-cancelacion', label: 'Política de cancelación', icon: FileText, parent: 'Pagos y Facturación' },
-  { id: 'facturacion-info', label: 'Datos fiscales', icon: Receipt, parent: 'Pagos y Facturación' },
-  { id: 'facturacion-editar', label: 'Personalizar facturas', icon: Pencil, parent: 'Pagos y Facturación' },
-  { id: 'facturacion-series', label: 'Series de facturas', icon: List, parent: 'Pagos y Facturación' },
-  { id: 'facturacion-automatizar', label: 'Facturación automática', icon: Zap, parent: 'Pagos y Facturación' },
+  { id: 'tarifas', label: 'Planes tarifarios', icon: 'layers', parent: 'Pagos y Facturación' },
+  { id: 'pagos-config', label: 'Métodos de cobro', icon: 'account_balance_wallet', parent: 'Pagos y Facturación' },
+  { id: 'pagos-politica-cancelacion', label: 'Política de cancelación', icon: 'description', parent: 'Pagos y Facturación' },
+  { id: 'facturacion-info', label: 'Datos fiscales', icon: 'receipt_long', parent: 'Pagos y Facturación' },
+  { id: 'facturacion-editar', label: 'Personalizar facturas', icon: 'edit', parent: 'Pagos y Facturación' },
+  { id: 'facturacion-series', label: 'Series de facturas', icon: 'list', parent: 'Pagos y Facturación' },
+  { id: 'facturacion-automatizar', label: 'Facturación automática', icon: 'bolt', parent: 'Pagos y Facturación' },
   // Verifactu subgroup
-  { id: 'facturacion-verifactu', label: 'Certificado digital', icon: Shield, parent: 'Pagos y Facturación', subgroup: 'Verifactu (AEAT)' },
-  { id: 'facturacion-verifactu-declaracion', label: 'Declaración responsable', icon: FileText, parent: 'Pagos y Facturación', subgroup: 'Verifactu (AEAT)' },
-  { id: 'facturacion-verifactu-exportar', label: 'Exportar registros', icon: FileDown, parent: 'Pagos y Facturación', subgroup: 'Verifactu (AEAT)' },
-  
+  { id: 'facturacion-verifactu', label: 'Certificado digital', icon: 'shield', parent: 'Pagos y Facturación', subgroup: 'Verifactu (AEAT)' },
+  { id: 'facturacion-verifactu-declaracion', label: 'Declaración responsable', icon: 'description', parent: 'Pagos y Facturación', subgroup: 'Verifactu (AEAT)' },
+  { id: 'facturacion-verifactu-exportar', label: 'Exportar registros', icon: 'file_download', parent: 'Pagos y Facturación', subgroup: 'Verifactu (AEAT)' },
+
   // Comunicaciones — Eventos de cita (creación/reprogramación/cancelación + recordatorios)
-  { id: 'comunicaciones-confirmaciones-cita', label: 'Confirmaciones de cita', icon: CalendarCheck2, parent: 'Comunicaciones', subgroup: 'Eventos de cita' },
-  { id: 'comunicaciones-recordatorios', label: 'Recordatorios de cita', icon: Bell, parent: 'Comunicaciones', subgroup: 'Eventos de cita' },
+  { id: 'comunicaciones-confirmaciones-cita', label: 'Confirmaciones de cita', icon: 'event_available', parent: 'Comunicaciones', subgroup: 'Eventos de cita' },
+  { id: 'comunicaciones-recordatorios', label: 'Recordatorios de cita', icon: 'notifications', parent: 'Comunicaciones', subgroup: 'Eventos de cita' },
 
   // Comunicaciones — Plantillas generales por canal
-  { id: 'comunicaciones-email', label: 'Plantillas de email', icon: Mail, parent: 'Comunicaciones', subgroup: 'Plantillas por canal' },
-  { id: 'comunicaciones-whatsapp', label: 'Plantillas de WhatsApp', icon: MessageCircle, parent: 'Comunicaciones', subgroup: 'Plantillas por canal' },
-  { id: 'comunicaciones-sms', label: 'Plantillas de SMS', icon: Smartphone, parent: 'Comunicaciones', subgroup: 'Plantillas por canal' },
+  { id: 'comunicaciones-email', label: 'Plantillas de email', icon: 'mail', parent: 'Comunicaciones', subgroup: 'Plantillas por canal' },
+  { id: 'comunicaciones-whatsapp', label: 'Plantillas de WhatsApp', icon: 'chat', parent: 'Comunicaciones', subgroup: 'Plantillas por canal' },
+  { id: 'comunicaciones-sms', label: 'Plantillas de SMS', icon: 'smartphone', parent: 'Comunicaciones', subgroup: 'Plantillas por canal' },
 
   // Comunicaciones — Cobros
-  { id: 'comunicaciones-recordatorios-pago', label: 'Recordatorios de pago', icon: Wallet, parent: 'Comunicaciones', subgroup: 'Cobros' },
+  { id: 'comunicaciones-recordatorios-pago', label: 'Recordatorios de pago', icon: 'account_balance_wallet', parent: 'Comunicaciones', subgroup: 'Cobros' },
 
   // Comunicaciones — Alertas internas
-  { id: 'comunicaciones-alertas-admin', label: 'Alertas al profesional', icon: Bell, parent: 'Comunicaciones', subgroup: 'Alertas internas' },
-  
+  { id: 'comunicaciones-alertas-admin', label: 'Alertas al profesional', icon: 'notifications', parent: 'Comunicaciones', subgroup: 'Alertas internas' },
+
   // Conexiones Externas
-  { id: 'integraciones-resumen', label: 'Estado de conexiones', icon: Plug, parent: 'Conexiones Externas' },
-  { id: 'integraciones-email', label: 'Email (Resend)', icon: Mail, parent: 'Conexiones Externas' },
-  { id: 'integraciones-whatsapp', label: 'WhatsApp', icon: MessageCircle, parent: 'Conexiones Externas' },
-  { id: 'integraciones-google', label: 'Google Calendar y Meet', icon: Calendar, parent: 'Conexiones Externas' },
-  { id: 'integraciones-google-drive', label: 'Google Drive (documentos)', icon: HardDrive, parent: 'Conexiones Externas' },
-  { id: 'integraciones-zoom', label: 'Zoom', icon: Video, parent: 'Conexiones Externas' },
-  { id: 'integraciones-stripe', label: 'Stripe - Cobros online', icon: CreditCard, parent: 'Conexiones Externas' },
-  { id: 'integraciones-credenciales', label: 'Configuración avanzada', icon: Settings2, parent: 'Conexiones Externas' },
-  { id: 'integraciones-ia', label: 'Inteligencia Artificial', icon: Brain, parent: 'Conexiones Externas' },
-  
+  { id: 'integraciones-resumen', label: 'Estado de conexiones', icon: 'power', parent: 'Conexiones Externas' },
+  { id: 'integraciones-email', label: 'Email (Resend)', icon: 'mail', parent: 'Conexiones Externas' },
+  { id: 'integraciones-whatsapp', label: 'WhatsApp', icon: 'chat', parent: 'Conexiones Externas' },
+  { id: 'integraciones-google', label: 'Google Calendar y Meet', icon: 'calendar_month', parent: 'Conexiones Externas' },
+  { id: 'integraciones-google-drive', label: 'Google Drive (documentos)', icon: 'hard_drive', parent: 'Conexiones Externas' },
+  { id: 'integraciones-zoom', label: 'Zoom', icon: 'videocam', parent: 'Conexiones Externas' },
+  { id: 'integraciones-stripe', label: 'Stripe - Cobros online', icon: 'credit_card', parent: 'Conexiones Externas' },
+  { id: 'integraciones-credenciales', label: 'Configuración avanzada', icon: 'tune', parent: 'Conexiones Externas' },
+  { id: 'integraciones-ia', label: 'Inteligencia Artificial', icon: 'psychology', parent: 'Conexiones Externas' },
+
   // Seguridad
-  { id: 'seguridad', label: 'Doble factor (2FA)', icon: Shield, parent: 'Seguridad' },
-  
+  { id: 'seguridad', label: 'Doble factor (2FA)', icon: 'shield', parent: 'Seguridad' },
+
   // Sistema
-  { id: 'versiones', label: 'Gestión de versiones', icon: GitBranch, parent: 'Sistema' },
+  { id: 'versiones', label: 'Gestión de versiones', icon: 'account_tree', parent: 'Sistema' },
 ];
 
 const categoryOrder = ['Mi Centro', 'Portal de Contactos', 'Pagos y Facturación', 'Comunicaciones', 'Conexiones Externas', 'Seguridad', 'Sistema'];
@@ -437,7 +435,7 @@ export default function Settings() {
             <SelectValue>
               {currentItem && (
                 <span className="flex items-center gap-2">
-                  <currentItem.icon className="h-4 w-4" />
+                  <Icon name={currentItem.icon} className="h-4 w-4" />
                   {currentItem.label}
                 </span>
               )}
@@ -456,7 +454,7 @@ export default function Settings() {
                   {group.items.map((item) => (
                     <SelectItem key={item.id} value={item.id}>
                       <span className="flex items-center gap-2">
-                        <item.icon className="h-4 w-4" />
+                        <Icon name={item.icon} className="h-4 w-4" />
                         {item.label}
                       </span>
                     </SelectItem>
@@ -469,7 +467,7 @@ export default function Settings() {
                       {subItems.map((item) => (
                         <SelectItem key={item.id} value={item.id}>
                           <span className="flex items-center gap-2 pl-2">
-                            <item.icon className="h-4 w-4" />
+                            <Icon name={item.icon} className="h-4 w-4" />
                             {item.label}
                           </span>
                         </SelectItem>
@@ -492,12 +490,12 @@ export default function Settings() {
                 {categoryOrder.map((category) => {
                   const group = groupedNavItems[category];
                   if (!group) return null;
-                  const CategoryIcon = categoryIcons[category] || FileText;
+                  const categoryIcon = categoryIcons[category] || 'description';
                   
                   return (
                     <div key={category} className="space-y-1">
                       <div className="flex items-center gap-2 px-3 py-2">
-                        <CategoryIcon className="h-4 w-4 text-muted-foreground" />
+                        <Icon name={categoryIcon} className="h-4 w-4 text-muted-foreground" />
                         <span className="text-sm font-medium">{category}</span>
                       </div>
                       <div className="ml-4 space-y-1 border-l pl-4">
@@ -512,7 +510,7 @@ export default function Settings() {
                                 : "hover:bg-muted text-muted-foreground hover:text-foreground"
                             )}
                           >
-                            <item.icon className="h-4 w-4" />
+                            <Icon name={item.icon} className="h-4 w-4" />
                             {item.label}
                           </button>
                         ))}
@@ -536,7 +534,7 @@ export default function Settings() {
                                       : "hover:bg-muted text-muted-foreground hover:text-foreground"
                                   )}
                                 >
-                                  <item.icon className="h-4 w-4" />
+                                  <Icon name={item.icon} className="h-4 w-4" />
                                   {item.label}
                                 </button>
                               ))}

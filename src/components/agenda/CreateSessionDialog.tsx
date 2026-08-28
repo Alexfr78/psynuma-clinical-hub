@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Mail, Phone, MessageSquare, Settings2, MapPin, Clock, CreditCard, CalendarIcon } from 'lucide-react';
+import { Mail, Phone, MessageSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   ResponsiveDialog as Dialog,
@@ -60,11 +60,11 @@ import { useWhatsAppDelivery } from '@/hooks/useWhatsAppDelivery';
 import { Icon } from '@/components/ui/icon';
 
 const PAYMENT_MODE_OPTIONS = [
-  { value: '__default__', label: 'Usar predeterminado del centro', icon: Settings2 },
-  { value: 'required_now', label: 'Pago obligatorio (antes de confirmar)', icon: CreditCard },
-  { value: 'in_session', label: 'Pago en sesión', icon: MapPin },
-  { value: 'post_session', label: 'Pago post-sesión', icon: CalendarIcon },
-  { value: 'scheduled_before', label: 'Programado (X horas antes)', icon: Clock },
+  { value: '__default__', label: 'Usar predeterminado del centro', icon: 'tune' },
+  { value: 'required_now', label: 'Pago obligatorio (antes de confirmar)', icon: 'credit_card' },
+  { value: 'in_session', label: 'Pago en sesión', icon: 'location_on' },
+  { value: 'post_session', label: 'Pago post-sesión', icon: 'calendar_month' },
+  { value: 'scheduled_before', label: 'Programado (X horas antes)', icon: 'schedule' },
 ];
 
 const sessionSchema = z.object({
@@ -693,7 +693,7 @@ export function CreateSessionDialog({
                       {PAYMENT_MODE_OPTIONS.map((opt) => (
                         <SelectItem key={opt.value} value={opt.value}>
                           <span className="flex items-center gap-2">
-                            <opt.icon className="h-4 w-4" />
+                            <Icon name={opt.icon} className="h-4 w-4" />
                             {opt.label}
                           </span>
                         </SelectItem>

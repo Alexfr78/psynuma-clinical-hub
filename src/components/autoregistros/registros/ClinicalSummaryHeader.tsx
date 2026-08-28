@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { AlertTriangle, AlertCircle, Info } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import type { AutoregistroEntry } from '@/hooks/useAutoregistroEntries';
@@ -17,9 +16,9 @@ interface ClinicalSummaryHeaderProps {
 }
 
 const SEVERITY_CONFIG = {
-  critical: { icon: AlertTriangle, color: 'text-red-600', bg: 'bg-red-50 border-red-200 dark:bg-red-950 dark:border-red-800' },
-  warning: { icon: AlertCircle, color: 'text-amber-600', bg: 'bg-amber-50 border-amber-200 dark:bg-amber-950 dark:border-amber-800' },
-  info: { icon: Info, color: 'text-blue-600', bg: 'bg-blue-50 border-blue-200 dark:bg-blue-950 dark:border-blue-800' },
+  critical: { icon: 'warning', color: 'text-red-600', bg: 'bg-red-50 border-red-200 dark:bg-red-950 dark:border-red-800' },
+  warning: { icon: 'error', color: 'text-amber-600', bg: 'bg-amber-50 border-amber-200 dark:bg-amber-950 dark:border-amber-800' },
+  info: { icon: 'info', color: 'text-blue-600', bg: 'bg-blue-50 border-blue-200 dark:bg-blue-950 dark:border-blue-800' },
 };
 
 export function ClinicalSummaryHeader({
@@ -95,13 +94,12 @@ export function ClinicalSummaryHeader({
             <div className="flex flex-wrap gap-2">
               {activeAlerts.map((alert, i) => {
                 const config = SEVERITY_CONFIG[alert.severity];
-                const Icon = config.icon;
                 return (
                   <div
                     key={i}
                     className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-md border ${config.bg}`}
                   >
-                    <Icon className={`h-3.5 w-3.5 ${config.color}`} />
+                    <Icon name={config.icon} className={`h-3.5 w-3.5 ${config.color}`} />
                     <span>{alert.message}</span>
                   </div>
                 );

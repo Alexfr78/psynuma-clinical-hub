@@ -9,7 +9,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { SessionDetailDrawer } from '@/components/agenda/SessionDetailDrawer';
 import { useDebtStats } from '@/hooks/useDebts';
 import type { SessionWithRelations } from '@/hooks/useSessions';
-import { AlertCircle, Users, Calendar, Receipt } from 'lucide-react';
 import { Icon } from '@/components/ui/icon';
 
 function useDashboardStats() {
@@ -155,14 +154,14 @@ export default function Dashboard() {
       title: 'Contactos Activos',
       value: stats?.activePatients || 0,
       description: 'Total de contactos',
-      icon: Users,
+      icon: 'group',
       href: '/pacientes',
     },
     {
       title: 'Citas Hoy',
       value: stats?.todaySessions || 0,
       description: 'Sesiones programadas',
-      icon: Calendar,
+      icon: 'calendar_month',
       href: '/agenda',
     },
     {
@@ -170,7 +169,7 @@ export default function Dashboard() {
       title: 'Facturación Mes (bruto)',
       value: `${(stats?.monthlyRevenue || 0).toFixed(2)}€`,
       description: `Neto ${(stats?.monthlyRevenueNet || 0).toFixed(2)}€ · Retenciones ${(stats?.monthlyRetained || 0).toFixed(2)}€`,
-      icon: Receipt,
+      icon: 'receipt_long',
       href: '/facturas',
     },
     {
@@ -178,7 +177,7 @@ export default function Dashboard() {
       value: `${pendingDebts.toFixed(2)}€`,
       description: 'Deudas pendientes',
 
-      icon: AlertCircle,
+      icon: 'error',
       href: '/cobros',
       alert: pendingDebts > 0,
     },
@@ -296,7 +295,7 @@ export default function Dashboard() {
                 <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">
                   {stat.title}
                 </CardTitle>
-                <stat.icon className={`h-4 w-4 ${stat.alert ? 'text-destructive' : 'text-muted-foreground'}`} />
+                <Icon name={stat.icon} className={`h-4 w-4 ${stat.alert ? 'text-destructive' : 'text-muted-foreground'}`} />
               </CardHeader>
               <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
                 {statsLoading ? (

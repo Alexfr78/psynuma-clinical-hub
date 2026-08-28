@@ -1,6 +1,6 @@
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle2, Clock, UserCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Icon } from '@/components/ui/icon';
 
 interface PatientStatusBadgeProps {
   status: 'active' | 'inactive' | 'discharged' | string;
@@ -11,22 +11,22 @@ interface PatientStatusBadgeProps {
 }
 
 const statusConfig = {
-  active: { 
-    label: 'Activo', 
+  active: {
+    label: 'Activo',
     variant: 'default' as const,
-    icon: CheckCircle2,
+    icon: 'check_circle',
     className: 'bg-success/20 text-success border-success/30 hover:bg-success/30'
   },
-  inactive: { 
-    label: 'Inactivo', 
+  inactive: {
+    label: 'Inactivo',
     variant: 'secondary' as const,
-    icon: Clock,
+    icon: 'schedule',
     className: 'bg-muted text-muted-foreground border-muted-foreground/30'
   },
-  discharged: { 
-    label: 'Alta', 
+  discharged: {
+    label: 'Alta',
     variant: 'outline' as const,
-    icon: UserCheck,
+    icon: 'how_to_reg',
     className: 'bg-info/20 text-info border-info/30 hover:bg-info/30'
   },
 };
@@ -46,16 +46,15 @@ export function PatientStatusBadge({
   className 
 }: PatientStatusBadgeProps) {
   const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.inactive;
-  const Icon = config.icon;
   const reasonLabel = statusReason ? reasonLabels[statusReason] || statusReason : null;
 
   return (
     <div className={cn("flex items-center gap-1.5", className)}>
-      <Badge 
-        variant={config.variant} 
+      <Badge
+        variant={config.variant}
         className={cn("flex items-center gap-1", config.className)}
       >
-        <Icon className="h-3 w-3" />
+        <Icon name={config.icon} className="h-3 w-3" />
         {config.label}
         {statusSource === 'manual' && status === 'discharged' && (
           <span className="text-[10px] opacity-70">(manual)</span>

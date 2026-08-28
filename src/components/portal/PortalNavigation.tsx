@@ -1,5 +1,5 @@
-import { CalendarDays, CircleUserRound, Files, Home, WalletCards } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Icon } from '@/components/ui/icon';
 
 export type PortalMainSection = 'home' | 'appointments' | 'documents' | 'payments' | 'account';
 
@@ -9,11 +9,11 @@ interface PortalNavigationProps {
 }
 
 const items = [
-  { id: 'home' as const, label: 'Inicio', icon: Home },
-  { id: 'appointments' as const, label: 'Citas', icon: CalendarDays },
-  { id: 'documents' as const, label: 'Documentos', icon: Files },
-  { id: 'payments' as const, label: 'Pagos', icon: WalletCards },
-  { id: 'account' as const, label: 'Mi cuenta', icon: CircleUserRound },
+  { id: 'home' as const, label: 'Inicio', icon: 'home' },
+  { id: 'appointments' as const, label: 'Citas', icon: 'calendar_month' },
+  { id: 'documents' as const, label: 'Documentos', icon: 'file_copy' },
+  { id: 'payments' as const, label: 'Pagos', icon: 'account_balance_wallet' },
+  { id: 'account' as const, label: 'Mi cuenta', icon: 'account_circle' },
 ];
 
 export function PortalNavigation({ activeSection, onSelect }: PortalNavigationProps) {
@@ -22,7 +22,6 @@ export function PortalNavigation({ activeSection, onSelect }: PortalNavigationPr
       <nav aria-label="Secciones del portal" className="hidden rounded-xl border bg-card p-1.5 shadow-sm md:block">
         <div className="grid grid-cols-5 gap-1">
           {items.map((item) => {
-            const Icon = item.icon;
             const selected = activeSection === item.id;
             return (
               <button
@@ -37,7 +36,7 @@ export function PortalNavigation({ activeSection, onSelect }: PortalNavigationPr
                     : 'text-muted-foreground hover:bg-muted hover:text-foreground',
                 )}
               >
-                <Icon className="h-4 w-4" aria-hidden="true" />
+                <Icon name={item.icon} className="h-4 w-4" aria-hidden="true" />
                 {item.label}
               </button>
             );
@@ -51,7 +50,6 @@ export function PortalNavigation({ activeSection, onSelect }: PortalNavigationPr
       >
         <div className="mx-auto grid max-w-lg grid-cols-5 gap-1 pb-[calc(env(safe-area-inset-bottom)+0.5rem)]">
           {items.map((item) => {
-            const Icon = item.icon;
             const selected = activeSection === item.id;
             return (
               <button
@@ -64,7 +62,7 @@ export function PortalNavigation({ activeSection, onSelect }: PortalNavigationPr
                   selected ? 'bg-primary/10 text-primary' : 'text-muted-foreground active:bg-muted',
                 )}
               >
-                <Icon className="h-5 w-5" aria-hidden="true" />
+                <Icon name={item.icon} className="h-5 w-5" aria-hidden="true" />
                 <span>{item.label}</span>
               </button>
             );

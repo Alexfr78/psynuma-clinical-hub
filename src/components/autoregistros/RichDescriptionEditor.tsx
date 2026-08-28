@@ -1,8 +1,8 @@
 import { useRef, useCallback, useEffect } from 'react';
-import { Bold, Italic, List, ListOrdered } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import DOMPurify from 'dompurify';
+import { Icon } from '@/components/ui/icon';
 
 const SANITIZE_CONFIG = {
   ALLOWED_TAGS: ['p', 'br', 'strong', 'b', 'em', 'i', 'ul', 'ol', 'li', 'div', 'span'],
@@ -51,10 +51,10 @@ export function RichDescriptionEditor({ value, onChange, placeholder }: RichDesc
   }, [handleInput]);
 
   const tools = [
-    { icon: Bold, command: 'bold', label: 'Negrita' },
-    { icon: Italic, command: 'italic', label: 'Cursiva' },
-    { icon: List, command: 'insertUnorderedList', label: 'Lista' },
-    { icon: ListOrdered, command: 'insertOrderedList', label: 'Lista numerada' },
+    { icon: 'format_bold', command: 'bold', label: 'Negrita' },
+    { icon: 'format_italic', command: 'italic', label: 'Cursiva' },
+    { icon: 'list', command: 'insertUnorderedList', label: 'Lista' },
+    { icon: 'format_list_numbered', command: 'insertOrderedList', label: 'Lista numerada' },
   ] as const;
 
   return (
@@ -74,7 +74,7 @@ export function RichDescriptionEditor({ value, onChange, placeholder }: RichDesc
               exec(t.command);
             }}
           >
-            <t.icon className="h-3.5 w-3.5" />
+            <Icon name={t.icon} className="h-3.5 w-3.5" />
           </Button>
         ))}
       </div>

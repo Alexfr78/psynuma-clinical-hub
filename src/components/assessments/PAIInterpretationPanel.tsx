@@ -2,7 +2,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
 import { PAIInterpretation } from '@/hooks/usePAIInterpretation';
 import { PAI_SCALE_LABELS } from '@/data/pai-template';
 import { Icon } from '@/components/ui/icon';
@@ -15,16 +14,16 @@ interface PAIInterpretationPanelProps {
 
 function ValidityBadge({ estado }: { estado: 'válido' | 'cuestionable' | 'inválido' }) {
   const config = {
-    'válido': { icon: CheckCircle, variant: 'default' as const, className: 'bg-green-600' },
-    'cuestionable': { icon: AlertTriangle, variant: 'secondary' as const, className: 'bg-yellow-600' },
-    'inválido': { icon: XCircle, variant: 'destructive' as const, className: '' },
+    'válido': { icon: 'check_circle', variant: 'default' as const, className: 'bg-green-600' },
+    'cuestionable': { icon: 'warning', variant: 'secondary' as const, className: 'bg-yellow-600' },
+    'inválido': { icon: 'cancel', variant: 'destructive' as const, className: '' },
   };
 
-  const { icon: Icon, variant, className } = config[estado] || config.cuestionable;
+  const { icon: iconName, variant, className } = config[estado] || config.cuestionable;
 
   return (
     <Badge variant={variant} className={`gap-1 ${className}`}>
-      <Icon className="h-3 w-3" />
+      <Icon name={iconName} className="h-3 w-3" />
       Protocolo {estado}
     </Badge>
   );

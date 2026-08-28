@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { CheckCircle2, XCircle, AlertCircle, Clock } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -30,13 +29,13 @@ interface SessionHistoryItem {
   } | null;
 }
 
-const statusConfig: Record<string, { label: string; icon: typeof CheckCircle2; className: string }> = {
-  completed: { label: SESSION_STATUS_LABELS.completed, icon: CheckCircle2, className: 'text-green-600' },
-  confirmed: { label: SESSION_STATUS_LABELS.confirmed, icon: CheckCircle2, className: 'text-blue-600' },
-  scheduled: { label: SESSION_STATUS_LABELS.scheduled, icon: Clock, className: 'text-muted-foreground' },
-  cancelled: { label: SESSION_STATUS_LABELS.cancelled, icon: XCircle, className: 'text-red-600' },
-  no_show: { label: SESSION_STATUS_LABELS.no_show, icon: AlertCircle, className: 'text-orange-600' },
-  draft: { label: SESSION_STATUS_LABELS.draft, icon: Clock, className: 'text-muted-foreground' },
+const statusConfig: Record<string, { label: string; icon: string; className: string }> = {
+  completed: { label: SESSION_STATUS_LABELS.completed, icon: 'check_circle', className: 'text-green-600' },
+  confirmed: { label: SESSION_STATUS_LABELS.confirmed, icon: 'check_circle', className: 'text-blue-600' },
+  scheduled: { label: SESSION_STATUS_LABELS.scheduled, icon: 'schedule', className: 'text-muted-foreground' },
+  cancelled: { label: SESSION_STATUS_LABELS.cancelled, icon: 'cancel', className: 'text-red-600' },
+  no_show: { label: SESSION_STATUS_LABELS.no_show, icon: 'error', className: 'text-orange-600' },
+  draft: { label: SESSION_STATUS_LABELS.draft, icon: 'schedule', className: 'text-muted-foreground' },
 };
 
 function usePatientSessionHistory(patientId: string, currentSessionId?: string) {
@@ -103,7 +102,6 @@ export function PatientSessionHistory({ patientId, currentSessionId, onSessionCl
       </p>
       {sessions.map((session) => {
         const config = statusConfig[session.status] || statusConfig.scheduled;
-        const StatusIcon = config.icon;
         const sessionDate = new Date(session.session_date + 'T00:00:00');
         const isPast = sessionDate < new Date();
 
@@ -123,7 +121,7 @@ export function PatientSessionHistory({ patientId, currentSessionId, onSessionCl
                 "w-10 h-10 rounded-full flex items-center justify-center",
                 isPast ? 'bg-muted' : 'bg-primary/10'
               )}>
-                <StatusIcon className={cn("h-5 w-5", getSessionStatusDisplay(session.status).textClass)} />
+                <Icon name={config.icon} className={cn("h-5 w-5", getSessionStatusDisplay(session.status).textClass)} />
               </div>
             </div>
             

@@ -1,4 +1,3 @@
-import { CheckCircle, Calendar } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -24,8 +23,8 @@ const statusLegend = [
   { label: 'Pagada', colorClass: 'bg-green-500' },
   { label: 'Pendiente de pago', colorClass: 'bg-orange-500' },
   { label: 'Cancelada', colorClass: 'bg-red-500' },
-  { label: 'Confirmada', icon: CheckCircle, iconClass: 'text-blue-600' },
-  { label: 'Google Calendar', icon: Calendar, iconClass: 'text-purple-600' },
+  { label: 'Confirmada', icon: 'check_circle', iconClass: 'text-blue-600' },
+  { label: 'Google Calendar', icon: 'calendar_month', iconClass: 'text-purple-600' },
 ];
 
 const timezones = [
@@ -51,7 +50,7 @@ export function AgendaFooter({
         {statusLegend.map((item) => (
           <div key={item.label} className="flex items-center gap-1.5">
             {item.icon ? (
-              <item.icon className={cn("h-3.5 w-3.5", item.iconClass)} />
+              <Icon name={item.icon} className={cn("h-3.5 w-3.5", item.iconClass)} />
             ) : (
               <span className={cn("h-3 w-3 rounded-full", item.colorClass)} />
             )}

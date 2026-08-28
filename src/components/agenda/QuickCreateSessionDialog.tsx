@@ -84,7 +84,6 @@ import { useAllLocationSchedules } from '@/hooks/useLocationSchedules';
 import { getDefaultLocationForDate } from '@/lib/location-defaults';
 import { resolvePaymentSettings } from '@/lib/payment-mode';
 import { Icon } from '@/components/ui/icon';
-import { MapPin, Video, Settings2, CreditCard, CalendarIcon, Globe } from 'lucide-react';
 
 const quickSessionSchema = z.object({
   patient_id: z.string().uuid('Selecciona un contacto'),
@@ -144,18 +143,18 @@ const CANCELLATION_OPTIONS = [
 ];
 
 const MODALITY_OPTIONS = [
-  { value: 'in_person', label: 'Sesión presencial', icon: MapPin },
-  { value: 'google_meet', label: 'Video llamada de GoogleMeet', icon: Video },
-  { value: 'zoom', label: 'Zoom', icon: Video },
-  { value: 'custom_link', label: 'Añadir link de videollamada', icon: Video },
+  { value: 'in_person', label: 'Sesión presencial', icon: 'location_on' },
+  { value: 'google_meet', label: 'Video llamada de GoogleMeet', icon: 'videocam' },
+  { value: 'zoom', label: 'Zoom', icon: 'videocam' },
+  { value: 'custom_link', label: 'Añadir link de videollamada', icon: 'videocam' },
 ];
 
 const PAYMENT_MODE_OPTIONS = [
-  { value: '__default__', label: 'Usar predeterminado del centro', icon: Settings2 },
-  { value: 'required_now', label: 'Pago obligatorio (antes de confirmar)', icon: CreditCard },
-  { value: 'in_session', label: 'Pago en sesión', icon: MapPin },
-  { value: 'post_session', label: 'Pago post-sesión', icon: CalendarIcon },
-  { value: 'scheduled_before', label: 'Programado (X horas antes)', icon: Globe },
+  { value: '__default__', label: 'Usar predeterminado del centro', icon: 'tune' },
+  { value: 'required_now', label: 'Pago obligatorio (antes de confirmar)', icon: 'credit_card' },
+  { value: 'in_session', label: 'Pago en sesión', icon: 'location_on' },
+  { value: 'post_session', label: 'Pago post-sesión', icon: 'calendar_month' },
+  { value: 'scheduled_before', label: 'Programado (X horas antes)', icon: 'public' },
 ];
 
 export function QuickCreateSessionDialog({
@@ -1349,7 +1348,7 @@ export function QuickCreateSessionDialog({
                       {MODALITY_OPTIONS.map((opt) => (
                         <SelectItem key={opt.value} value={opt.value}>
                           <span className="flex items-center gap-2">
-                            <opt.icon className="h-4 w-4" />
+                            <Icon name={opt.icon} className="h-4 w-4" />
                             {opt.label}
                           </span>
                         </SelectItem>
@@ -1544,7 +1543,7 @@ export function QuickCreateSessionDialog({
                       {PAYMENT_MODE_OPTIONS.map((opt) => (
                         <SelectItem key={opt.value} value={opt.value}>
                           <span className="flex items-center gap-2">
-                            <opt.icon className="h-4 w-4" />
+                            <Icon name={opt.icon} className="h-4 w-4" />
                             {opt.label}
                           </span>
                         </SelectItem>

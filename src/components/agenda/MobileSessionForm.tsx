@@ -39,7 +39,6 @@ import { RecurrenceSettings } from './RecurrenceSettings';
 import { MobilePatientSearch } from './MobilePatientSearch';
 import { RecurrenceConfig } from '@/types/recurring';
 import { Icon } from '@/components/ui/icon';
-import { MapPin, Video, Settings2, CreditCard, CalendarIcon, Globe } from 'lucide-react';
 
 /* ────────── shared constants (same as in QuickCreateSessionDialog) ────────── */
 
@@ -54,18 +53,18 @@ const CANCELLATION_OPTIONS = [
 ];
 
 const MODALITY_OPTIONS = [
-  { value: 'in_person', label: 'Presencial', icon: MapPin },
-  { value: 'google_meet', label: 'Google Meet', icon: Video },
-  { value: 'zoom', label: 'Zoom', icon: Video },
-  { value: 'custom_link', label: 'Link personalizado', icon: Video },
+  { value: 'in_person', label: 'Presencial', icon: 'location_on' },
+  { value: 'google_meet', label: 'Google Meet', icon: 'videocam' },
+  { value: 'zoom', label: 'Zoom', icon: 'videocam' },
+  { value: 'custom_link', label: 'Link personalizado', icon: 'videocam' },
 ];
 
 const PAYMENT_MODE_OPTIONS = [
-  { value: '__default__', label: 'Predeterminado del centro', icon: Settings2 },
-  { value: 'required_now', label: 'Pago obligatorio', icon: CreditCard },
-  { value: 'in_session', label: 'Pago en sesión', icon: MapPin },
-  { value: 'post_session', label: 'Pago post-sesión', icon: CalendarIcon },
-  { value: 'scheduled_before', label: 'Programado antes', icon: Globe },
+  { value: '__default__', label: 'Predeterminado del centro', icon: 'tune' },
+  { value: 'required_now', label: 'Pago obligatorio', icon: 'credit_card' },
+  { value: 'in_session', label: 'Pago en sesión', icon: 'location_on' },
+  { value: 'post_session', label: 'Pago post-sesión', icon: 'calendar_month' },
+  { value: 'scheduled_before', label: 'Programado antes', icon: 'public' },
 ];
 
 /* ────────── types ────────── */
@@ -443,7 +442,7 @@ export function MobileSessionForm({
                           {MODALITY_OPTIONS.map((opt) => (
                             <SelectItem key={opt.value} value={opt.value}>
                               <span className="flex items-center gap-2">
-                                <opt.icon className="h-4 w-4" />
+                                <Icon name={opt.icon} className="h-4 w-4" />
                                 {opt.label}
                               </span>
                             </SelectItem>
@@ -550,7 +549,7 @@ export function MobileSessionForm({
                           {PAYMENT_MODE_OPTIONS.map((opt) => (
                             <SelectItem key={opt.value} value={opt.value}>
                               <span className="flex items-center gap-2">
-                                <opt.icon className="h-4 w-4" />
+                                <Icon name={opt.icon} className="h-4 w-4" />
                                 {opt.label}
                               </span>
                             </SelectItem>

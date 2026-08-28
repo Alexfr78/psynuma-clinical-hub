@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { SESSION_STATUS_LABELS, getSessionStatusDisplay } from '@/lib/payment-status';
-import { X, Check, XCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import {
   ResponsiveDialog as Dialog,
@@ -81,29 +80,29 @@ export function SessionDetailDialog({ session, open, onOpenChange, onAnalyzeTran
   };
 
   const quickActions = [
-    { 
-      status: 'confirmed', 
-      label: 'Confirmar', 
-      icon: Check, 
-      show: session.status === 'scheduled' 
+    {
+      status: 'confirmed',
+      label: 'Confirmar',
+      icon: 'check',
+      show: session.status === 'scheduled'
     },
-    { 
-      status: 'completed', 
-      label: 'Completar', 
-      icon: Check, 
-      show: ['scheduled', 'confirmed'].includes(session.status || '') 
+    {
+      status: 'completed',
+      label: 'Completar',
+      icon: 'check',
+      show: ['scheduled', 'confirmed'].includes(session.status || '')
     },
-    { 
-      status: 'cancelled', 
-      label: 'Cancelar', 
-      icon: X, 
-      show: ['scheduled', 'confirmed'].includes(session.status || '') 
+    {
+      status: 'cancelled',
+      label: 'Cancelar',
+      icon: 'close',
+      show: ['scheduled', 'confirmed'].includes(session.status || '')
     },
-    { 
-      status: 'no_show', 
-      label: 'No asistió', 
-      icon: XCircle, 
-      show: ['scheduled', 'confirmed'].includes(session.status || '') 
+    {
+      status: 'no_show',
+      label: 'No asistió',
+      icon: 'cancel',
+      show: ['scheduled', 'confirmed'].includes(session.status || '')
     },
   ].filter(a => a.show);
 
@@ -207,7 +206,7 @@ export function SessionDetailDialog({ session, open, onOpenChange, onAnalyzeTran
           {/* Quick Actions */}
           {quickActions.length > 0 && (
             <div className="flex flex-wrap gap-2">
-              {quickActions.map(({ status, label, icon: Icon }) => (
+              {quickActions.map(({ status, label, icon: iconName }) => (
                 <Button
                   key={status}
                   variant="outline"
@@ -218,7 +217,7 @@ export function SessionDetailDialog({ session, open, onOpenChange, onAnalyzeTran
                   {isUpdating ? (
                     <Icon name="progress_activity" className="mr-1 h-4 w-4 animate-spin" />
                   ) : (
-                    <Icon className="mr-1 h-4 w-4" />
+                    <Icon name={iconName} className="mr-1 h-4 w-4" />
                   )}
                   {label}
                 </Button>
