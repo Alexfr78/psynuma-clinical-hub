@@ -469,16 +469,6 @@ async function generateInvoicePdfBytes(
     }
   }
 
-  // Stamp every page with a generation footer
-  const timestamp = new Date().toLocaleString('es-ES', { timeZone: 'Europe/Madrid' });
-  for (const p of pages) {
-    p.drawText(`Documento generado por Psycma | Factura: ${sanitizeForPdf(invoice.invoice_number)}`, {
-      x: MARGIN, y: 20, size: 7, font: helvetica, color: TEXT_MUTED,
-    });
-    const tsWidth = helvetica.widthOfTextAtSize(timestamp, 7);
-    p.drawText(timestamp, { x: pageWidth - MARGIN - tsWidth, y: 20, size: 7, font: helvetica, color: TEXT_MUTED });
-  }
-
   return await pdfDoc.save();
 }
 
