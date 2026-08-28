@@ -250,7 +250,7 @@ export default function Invoices() {
     setInvoiceToDelete(null);
   };
 
-  const handleGeneratePDF = async (invoiceId: string) => {
+  const handleGeneratePDF = async (invoiceId: string, invoiceNumber?: string) => {
     try {
       toast.info('Generando PDF...');
       
@@ -261,7 +261,11 @@ export default function Invoices() {
       if (error) throw error;
       if (!data?.url) throw new Error('PDF sin contenido');
 
-      window.open(data.url, '_blank');
+      const ok = await downloadPdfFromUrl(data.url, `factura-${invoiceNumber || invoiceId}`);
+      if (!ok) {
+        toast.error('El navegador ha bloqueado la descarga. Desactiva el bloqueador e inténtalo de nuevo.');
+        return;
+      }
       toast.success('PDF generado correctamente');
     } catch (error) {
       console.error('Error generating PDF:', error);
