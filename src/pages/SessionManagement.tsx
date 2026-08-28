@@ -1,25 +1,7 @@
 import { useParams } from 'react-router-dom';
 import { format, parseISO, addDays } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { 
-  Calendar as CalendarIcon, 
-  Clock, 
-  User, 
-  MapPin, 
-  Video, 
-  CheckCircle2, 
-  XCircle, 
-  CalendarClock,
-  AlertCircle,
-  Loader2,
-  Building2,
-  Ban,
-  ArrowLeft,
-  ChevronLeft,
-  ChevronRight,
-  CreditCard,
-  Package
-} from 'lucide-react';
+
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -52,6 +34,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { formatLocationLine, summarizeLocationChange, isOnlineLocation, type RescheduleLocation } from '@/lib/reschedule-helpers';
 import { SESSION_STATUS_LABELS, getSessionStatusDisplay } from '@/lib/payment-status';
 import { useToast } from '@/hooks/use-toast';
+import { Icon } from '@/components/ui/icon';
 
 function extractZoomInfo(videoCallLink: string | null | undefined) {
   if (!videoCallLink || !videoCallLink.includes('zoom.us')) return null;
@@ -61,13 +44,13 @@ function extractZoomInfo(videoCallLink: string | null | undefined) {
 
 const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive'; icon: React.ReactNode }> = {
   draft: { label: SESSION_STATUS_LABELS.draft, variant: 'secondary', icon: null },
-  scheduled: { label: SESSION_STATUS_LABELS.scheduled, variant: 'outline', icon: <Clock className="h-4 w-4" /> },
-  confirmed: { label: SESSION_STATUS_LABELS.confirmed, variant: 'default', icon: <CheckCircle2 className="h-4 w-4" /> },
-  completed: { label: SESSION_STATUS_LABELS.completed, variant: 'secondary', icon: <CheckCircle2 className="h-4 w-4" /> },
-  cancelled: { label: SESSION_STATUS_LABELS.cancelled, variant: 'destructive', icon: <XCircle className="h-4 w-4" /> },
-  no_show: { label: SESSION_STATUS_LABELS.no_show, variant: 'destructive', icon: <XCircle className="h-4 w-4" /> },
-  reschedule_requested: { label: SESSION_STATUS_LABELS.reschedule_requested, variant: 'outline', icon: <CalendarClock className="h-4 w-4" /> },
-  blocked: { label: 'Bloqueado', variant: 'outline', icon: <Ban className="h-4 w-4" /> },
+  scheduled: { label: SESSION_STATUS_LABELS.scheduled, variant: 'outline', icon: <Icon name="schedule" className="h-4 w-4" /> },
+  confirmed: { label: SESSION_STATUS_LABELS.confirmed, variant: 'default', icon: <Icon name="check_circle" className="h-4 w-4" /> },
+  completed: { label: SESSION_STATUS_LABELS.completed, variant: 'secondary', icon: <Icon name="check_circle" className="h-4 w-4" /> },
+  cancelled: { label: SESSION_STATUS_LABELS.cancelled, variant: 'destructive', icon: <Icon name="cancel" className="h-4 w-4" /> },
+  no_show: { label: SESSION_STATUS_LABELS.no_show, variant: 'destructive', icon: <Icon name="cancel" className="h-4 w-4" /> },
+  reschedule_requested: { label: SESSION_STATUS_LABELS.reschedule_requested, variant: 'outline', icon: <Icon name="event" className="h-4 w-4" /> },
+  blocked: { label: 'Bloqueado', variant: 'outline', icon: <Icon name="block" className="h-4 w-4" /> },
 };
 
 const modalityLabels: Record<string, string> = {
@@ -169,7 +152,7 @@ export default function SessionManagement() {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <div className="flex flex-col items-center gap-4">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <Icon name="progress_activity" className="h-8 w-8 animate-spin text-primary" />
           <p className="text-muted-foreground">Cargando información de la cita...</p>
         </div>
       </div>
@@ -182,7 +165,7 @@ export default function SessionManagement() {
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
             <div className="mx-auto mb-4 h-12 w-12 rounded-full bg-destructive/10 flex items-center justify-center">
-              <AlertCircle className="h-6 w-6 text-destructive" />
+              <Icon name="error" className="h-6 w-6 text-destructive" />
             </div>
             <CardTitle>Cita no encontrada</CardTitle>
             <CardDescription>
@@ -347,7 +330,7 @@ export default function SessionManagement() {
               }}
               className="w-fit -ml-2 mb-2"
             >
-              <ArrowLeft className="h-4 w-4 mr-1" />
+              <Icon name="arrow_back" className="h-4 w-4 mr-1" />
               Volver
             </Button>
             <CardTitle className="text-xl">Cambiar fecha</CardTitle>
@@ -359,7 +342,7 @@ export default function SessionManagement() {
           <CardContent className="space-y-6">
             {/* Current appointment info */}
             <Alert className="bg-muted">
-              <CalendarIcon className="h-4 w-4" />
+              <Icon name="calendar_month" className="h-4 w-4" />
               <AlertDescription>
                 <span className="font-medium">Cita actual:</span>{' '}
                 <span className="capitalize">{formattedDate}</span> a las {formattedTime.split(' - ')[0]}
@@ -379,9 +362,9 @@ export default function SessionManagement() {
                       <SelectItem key={loc.id} value={loc.id}>
                         <span className="flex items-center gap-2">
                           {isOnlineLocation(loc) ? (
-                            <Video className="h-3.5 w-3.5" />
+                            <Icon name="videocam" className="h-3.5 w-3.5" />
                           ) : (
-                            <MapPin className="h-3.5 w-3.5" />
+                            <Icon name="location_on" className="h-3.5 w-3.5" />
                           )}
                           {loc.name}
                           {loc.city ? ` · ${loc.city}` : ''}
@@ -392,7 +375,7 @@ export default function SessionManagement() {
                 </Select>
                 {selectedLocationId && selectedLocationId !== originalLocationId && (
                   <Alert className="bg-amber-50 border-amber-200 dark:bg-amber-950/20 dark:border-amber-900">
-                    <AlertCircle className="h-4 w-4 text-amber-600" />
+                    <Icon name="error" className="h-4 w-4 text-amber-600" />
                     <AlertDescription className="text-amber-800 dark:text-amber-200 text-sm">
                       Estás cambiando la ubicación de la cita. Revisa los detalles antes de confirmar.
                     </AlertDescription>
@@ -404,7 +387,7 @@ export default function SessionManagement() {
             {/* Calendar with availability indicators */}
             {availableDaysLoading ? (
               <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                <Icon name="progress_activity" className="h-6 w-6 animate-spin text-primary" />
                 <span className="ml-2 text-muted-foreground">Cargando disponibilidad...</span>
               </div>
             ) : (
@@ -427,8 +410,8 @@ export default function SessionManagement() {
                   locale={es}
                   className="rounded-md border"
                   components={{
-                    IconLeft: () => <ChevronLeft className="h-4 w-4" />,
-                    IconRight: () => <ChevronRight className="h-4 w-4" />,
+                    IconLeft: () => <Icon name="chevron_left" className="h-4 w-4" />,
+                    IconRight: () => <Icon name="chevron_right" className="h-4 w-4" />,
                   }}
                 />
               </div>
@@ -443,11 +426,11 @@ export default function SessionManagement() {
                 
                 {slotsLoading ? (
                   <div className="flex items-center justify-center py-8">
-                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                    <Icon name="progress_activity" className="h-6 w-6 animate-spin text-primary" />
                   </div>
                 ) : slots.length === 0 ? (
                   <Alert>
-                    <AlertCircle className="h-4 w-4" />
+                    <Icon name="error" className="h-4 w-4" />
                     <AlertDescription>
                       No hay horarios disponibles para esta fecha. Por favor, selecciona otro día.
                     </AlertDescription>
@@ -494,7 +477,7 @@ export default function SessionManagement() {
                   getCancellationPolicyPreview();
                 }}
               >
-                <CheckCircle2 className="h-4 w-4 mr-2" />
+                <Icon name="check_circle" className="h-4 w-4 mr-2" />
                 Confirmar cambio
               </Button>
             </div>
@@ -545,7 +528,7 @@ export default function SessionManagement() {
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <Alert className="border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-900 dark:bg-amber-950/20 dark:text-amber-100">
-                  <AlertCircle className="h-4 w-4 text-amber-600" />
+                  <Icon name="error" className="h-4 w-4 text-amber-600" />
                   <AlertDescription>
                     {cancellationPolicyPreviewLoading ? (
                       'Comprobando la política de cancelación...'
@@ -577,7 +560,7 @@ export default function SessionManagement() {
                   >
                     {isRescheduling ? (
                       <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        <Icon name="progress_activity" className="h-4 w-4 mr-2 animate-spin" />
                         Reprogramando...
                       </>
                     ) : (
@@ -599,7 +582,7 @@ export default function SessionManagement() {
       <Card className="w-full max-w-lg shadow-lg">
         <CardHeader className="text-center pb-2">
           <div className="mx-auto mb-2 h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-            <CalendarIcon className="h-6 w-6 text-primary" />
+            <Icon name="calendar_month" className="h-6 w-6 text-primary" />
           </div>
           <CardTitle className="text-xl">Tu cita</CardTitle>
           <Badge variant="outline" className={`mx-auto mt-2 gap-1 ${getSessionStatusDisplay(status).badgeClass}`}>
@@ -614,12 +597,12 @@ export default function SessionManagement() {
             {/* Date & Time */}
             <div className="flex items-start gap-3">
               <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                <CalendarIcon className="h-5 w-5 text-primary" />
+                <Icon name="calendar_month" className="h-5 w-5 text-primary" />
               </div>
               <div>
                 <p className="font-medium capitalize">{formattedDate}</p>
                 <p className="text-sm text-muted-foreground flex items-center gap-1">
-                  <Clock className="h-3.5 w-3.5" />
+                  <Icon name="schedule" className="h-3.5 w-3.5" />
                   {formattedTime}
                 </p>
               </div>
@@ -629,7 +612,7 @@ export default function SessionManagement() {
             {session.professional && (
               <div className="flex items-start gap-3">
                 <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                  <User className="h-5 w-5 text-primary" />
+                  <Icon name="person" className="h-5 w-5 text-primary" />
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Profesional</p>
@@ -644,7 +627,7 @@ export default function SessionManagement() {
             {session.session_type && (
               <div className="flex items-start gap-3">
                 <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                  <Building2 className="h-5 w-5 text-primary" />
+                  <Icon name="apartment" className="h-5 w-5 text-primary" />
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Tipo de sesión</p>
@@ -657,9 +640,9 @@ export default function SessionManagement() {
             <div className="flex items-start gap-3">
               <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
                 {isOnline ? (
-                  <Video className="h-5 w-5 text-primary" />
+                  <Icon name="videocam" className="h-5 w-5 text-primary" />
                 ) : (
-                  <MapPin className="h-5 w-5 text-primary" />
+                  <Icon name="location_on" className="h-5 w-5 text-primary" />
                 )}
               </div>
               <div>
@@ -742,9 +725,9 @@ export default function SessionManagement() {
                       size="lg"
                     >
                       {paying ? (
-                        <Loader2 className="h-5 w-5 mr-3 animate-spin" />
+                        <Icon name="progress_activity" className="h-5 w-5 mr-3 animate-spin" />
                       ) : (
-                        <CreditCard className="h-5 w-5 mr-3" />
+                        <Icon name="credit_card" className="h-5 w-5 mr-3" />
                       )}
                       <div className="text-left">
                         <div className="font-semibold">
@@ -774,9 +757,9 @@ export default function SessionManagement() {
                             >
                               <div className="flex items-center">
                                 {isProcessing ? (
-                                  <Loader2 className="h-5 w-5 mr-3 animate-spin" />
+                                  <Icon name="progress_activity" className="h-5 w-5 mr-3 animate-spin" />
                                 ) : (
-                                  <Package className="h-5 w-5 mr-3" />
+                                  <Icon name="package_2" className="h-5 w-5 mr-3" />
                                 )}
                                 <div className="text-left">
                                   <div className="font-semibold">{templateItem.name}</div>
@@ -815,9 +798,9 @@ export default function SessionManagement() {
                   disabled={updateSession.isPending}
                 >
                   {updateSession.isPending ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    <Icon name="progress_activity" className="h-4 w-4 mr-2 animate-spin" />
                   ) : (
-                    <CheckCircle2 className="h-4 w-4 mr-2" />
+                    <Icon name="check_circle" className="h-4 w-4 mr-2" />
                   )}
                   Confirmar asistencia
                 </Button>
@@ -831,7 +814,7 @@ export default function SessionManagement() {
                   size="lg"
                   onClick={() => setMode('reschedule')}
                 >
-                  <CalendarClock className="h-4 w-4 mr-2" />
+                  <Icon name="event" className="h-4 w-4 mr-2" />
                   Cambiar fecha
                 </Button>
               )}
@@ -845,7 +828,7 @@ export default function SessionManagement() {
                     size="lg"
                     disabled={isCancelling}
                   >
-                    <XCircle className="h-4 w-4 mr-2" />
+                    <Icon name="cancel" className="h-4 w-4 mr-2" />
                     Cancelar cita
                   </Button>
                 </AlertDialogTrigger>
@@ -857,7 +840,7 @@ export default function SessionManagement() {
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <Alert className="border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-900 dark:bg-amber-950/20 dark:text-amber-100">
-                    <AlertCircle className="h-4 w-4 text-amber-600" />
+                    <Icon name="error" className="h-4 w-4 text-amber-600" />
                     <AlertDescription>
                       {cancellationPolicyPreviewLoading ? (
                         'Comprobando la política de cancelación...'
@@ -896,7 +879,7 @@ export default function SessionManagement() {
                     >
                       {isCancelling ? (
                         <>
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          <Icon name="progress_activity" className="h-4 w-4 mr-2 animate-spin" />
                           Cancelando...
                         </>
                       ) : (
@@ -925,7 +908,7 @@ export default function SessionManagement() {
           {/* Success Message for Confirmed */}
           {status === 'confirmed' && canTakeAction && (
             <Alert className="bg-green-50 border-green-200 dark:bg-green-950/20 dark:border-green-900">
-              <CheckCircle2 className="h-4 w-4 text-green-600" />
+              <Icon name="check_circle" className="h-4 w-4 text-green-600" />
               <AlertDescription className="text-green-800 dark:text-green-200">
                 ¡Perfecto! Tu cita está confirmada. Te esperamos.
               </AlertDescription>
@@ -935,7 +918,7 @@ export default function SessionManagement() {
           {/* Reschedule Requested Message */}
           {status === 'reschedule_requested' && (
             <Alert className="bg-amber-50 border-amber-200 dark:bg-amber-950/20 dark:border-amber-900">
-              <CalendarClock className="h-4 w-4 text-amber-600" />
+              <Icon name="event" className="h-4 w-4 text-amber-600" />
               <AlertDescription className="text-amber-800 dark:text-amber-200">
                 Hemos recibido tu solicitud de reprogramación. Te contactaremos pronto con opciones de nueva fecha.
               </AlertDescription>

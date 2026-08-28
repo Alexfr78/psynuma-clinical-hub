@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { CalendarIcon, Loader2, Package, Mail, Phone, MessageSquare, Plus, CreditCard, Settings2, MapPin, Clock } from 'lucide-react';
+import { Mail, Phone, MessageSquare, Settings2, MapPin, Clock, CreditCard, CalendarIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   ResponsiveDialog as Dialog,
@@ -57,6 +57,7 @@ import { SessionNotificationSettings } from './SessionNotificationSettings';
 import { WhatsAppLinkDialog } from './WhatsAppLinkDialog';
 import { useCenter } from '@/hooks/useCenter';
 import { useWhatsAppDelivery } from '@/hooks/useWhatsAppDelivery';
+import { Icon } from '@/components/ui/icon';
 
 const PAYMENT_MODE_OPTIONS = [
   { value: '__default__', label: 'Usar predeterminado del centro', icon: Settings2 },
@@ -399,7 +400,7 @@ export function CreateSessionDialog({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel className="flex items-center gap-2">
-                      <Package className="h-4 w-4" />
+                      <Icon name="package_2" className="h-4 w-4" />
                       Usar bono
                     </FormLabel>
                     <div className="flex gap-2">
@@ -429,7 +430,7 @@ export function CreateSessionDialog({
                         size="icon"
                         onClick={() => setShowCreateBonoDialog(true)}
                       >
-                        <Plus className="h-4 w-4" />
+                        <Icon name="add" className="h-4 w-4" />
                       </Button>
                     </div>
                     {field.value && field.value !== 'none' && (
@@ -489,7 +490,7 @@ export function CreateSessionDialog({
                           ) : (
                             <span>Seleccionar fecha</span>
                           )}
-                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                          <Icon name="calendar_month" className="ml-auto h-4 w-4 opacity-50" />
                         </Button>
                       </FormControl>
                     </PopoverTrigger>
@@ -679,7 +680,7 @@ export function CreateSessionDialog({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel className="flex items-center gap-2">
-                    <CreditCard className="h-4 w-4" />
+                    <Icon name="credit_card" className="h-4 w-4" />
                     Modo de pago
                   </FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
@@ -750,7 +751,7 @@ export function CreateSessionDialog({
                 Cancelar
               </Button>
               <Button type="submit" disabled={createSession.isPending} className="w-full sm:w-auto">
-                {createSession.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {createSession.isPending && <Icon name="progress_activity" className="mr-2 h-4 w-4 animate-spin" />}
                 Crear Sesión
               </Button>
             </div>

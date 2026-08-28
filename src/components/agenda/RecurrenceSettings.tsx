@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { format, addDays, addMonths } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { RefreshCw, Calendar as CalendarIcon, AlertTriangle } from 'lucide-react';
+
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
@@ -30,6 +30,7 @@ import {
   hasMonthlyDateWarning,
   getMonthlyWarning,
 } from '@/lib/recurrence-utils';
+import { Icon } from '@/components/ui/icon';
 
 interface RecurrenceSettingsProps {
   enabled: boolean;
@@ -118,7 +119,7 @@ export function RecurrenceSettings({
         onClick={() => onEnabledChange(!enabled)}
       >
         <div className="flex items-center gap-2">
-          <RefreshCw className={cn("h-4 w-4", enabled ? "text-primary" : "text-muted-foreground")} />
+          <Icon name="refresh" className={cn("h-4 w-4", enabled ? "text-primary" : "text-muted-foreground")} />
           <Label htmlFor="recurrence-toggle" className="font-medium cursor-pointer">
             {enabled ? 'Esta cita se repite' : 'No se repite'}
           </Label>
@@ -199,7 +200,7 @@ export function RecurrenceSettings({
           {/* Monthly Warning */}
           {monthlyWarning && (
             <Alert variant="default" className="bg-amber-50 dark:bg-amber-950/30 border-amber-200">
-              <AlertTriangle className="h-4 w-4 text-amber-600" />
+              <Icon name="warning" className="h-4 w-4 text-amber-600" />
               <AlertDescription className="text-amber-800 dark:text-amber-200">
                 {monthlyWarning}
               </AlertDescription>
@@ -247,7 +248,7 @@ export function RecurrenceSettings({
                           !config.until_date && 'text-muted-foreground'
                         )}
                       >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        <Icon name="calendar_month" className="mr-2 h-4 w-4" />
                         {config.until_date
                           ? format(new Date(config.until_date), 'dd/MM/yyyy')
                           : 'Seleccionar'}

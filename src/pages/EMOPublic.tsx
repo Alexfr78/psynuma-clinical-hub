@@ -9,7 +9,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Progress } from '@/components/ui/progress';
-import { Loader2, ChevronDown, ChevronUp, Plus, Trash2, Save, CheckCircle2, AlertCircle, Clock } from 'lucide-react';
+
 import { toast } from 'sonner';
 import { usePublicAssessment } from '@/hooks/usePublicAssessment';
 import {
@@ -24,6 +24,7 @@ import {
   EMOAdjective,
   EMOQuestion,
 } from '@/data/emo-template';
+import { Icon } from '@/components/ui/icon';
 
 const STORAGE_KEY_PREFIX = 'emo_draft_';
 
@@ -433,7 +434,7 @@ export default function EMOPublic() {
                       size="sm"
                       onClick={() => removeCoregulation(index)}
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Icon name="delete" className="h-4 w-4" />
                     </Button>
                   </div>
                   <Input
@@ -456,7 +457,7 @@ export default function EMOPublic() {
               ))}
               {coregulationMoments.length < 10 && (
                 <Button variant="outline" onClick={addCoregulation} className="w-full">
-                  <Plus className="h-4 w-4 mr-2" />
+                  <Icon name="add" className="h-4 w-4 mr-2" />
                   Añadir momento
                 </Button>
               )}
@@ -506,9 +507,9 @@ export default function EMOPublic() {
                       removeFigure(figure.id);
                     }}
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <Icon name="delete" className="h-4 w-4" />
                   </Button>
-                  {isExpanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+                  {isExpanded ? <Icon name="expand_less" className="h-5 w-5" /> : <Icon name="expand_more" className="h-5 w-5" />}
                 </div>
               </div>
             </CardHeader>
@@ -527,7 +528,7 @@ export default function EMOPublic() {
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin" />
+        <Icon name="progress_activity" className="h-8 w-8 animate-spin" />
       </div>
     );
   }
@@ -537,7 +538,7 @@ export default function EMOPublic() {
       <div className="min-h-screen flex items-center justify-center p-4">
         <Card className="max-w-md w-full">
           <CardContent className="pt-6 text-center">
-            <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
+            <Icon name="error" className="h-12 w-12 text-destructive mx-auto mb-4" />
             <p className="text-lg font-medium text-destructive">Enlace no válido</p>
             <p className="text-muted-foreground mt-2">
               Este enlace de evaluación no existe o ha sido eliminado.
@@ -553,7 +554,7 @@ export default function EMOPublic() {
       <div className="min-h-screen flex items-center justify-center p-4">
         <Card className="max-w-md w-full">
           <CardContent className="pt-6 text-center">
-            <Clock className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+            <Icon name="schedule" className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
             <p className="text-lg font-medium">Enlace expirado</p>
             <p className="text-muted-foreground mt-2">
               Este enlace ha expirado. Contacta con tu terapeuta para obtener uno nuevo.
@@ -569,7 +570,7 @@ export default function EMOPublic() {
       <div className="min-h-screen flex items-center justify-center p-4">
         <Card className="max-w-md w-full">
           <CardContent className="pt-6 text-center">
-            <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto mb-4" />
+            <Icon name="check_circle" className="h-12 w-12 text-green-500 mx-auto mb-4" />
             <p className="text-lg font-medium">Entrevista completada</p>
             <p className="text-muted-foreground mt-2">
               Has completado esta entrevista. Gracias por tu tiempo.
@@ -585,7 +586,7 @@ export default function EMOPublic() {
       <div className="min-h-screen flex items-center justify-center p-4">
         <Card className="max-w-md w-full">
           <CardContent className="pt-6 text-center">
-            <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
+            <Icon name="error" className="h-12 w-12 text-destructive mx-auto mb-4" />
             <p className="text-lg font-medium text-destructive">Acceso revocado</p>
             <p className="text-muted-foreground mt-2">
               El acceso a esta evaluación ha sido revocado.
@@ -620,7 +621,7 @@ export default function EMOPublic() {
               <Progress value={progress} className="h-2" />
               {lastSaved && (
                 <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <Save className="h-3 w-3" />
+                  <Icon name="save" className="h-3 w-3" />
                   Guardado automáticamente a las {lastSaved.toLocaleTimeString()}
                 </div>
               )}
@@ -680,7 +681,7 @@ export default function EMOPublic() {
               </CardHeader>
               <CardContent>
                 <Button onClick={addFigure} className="w-full">
-                  <Plus className="h-4 w-4 mr-2" />
+                  <Icon name="add" className="h-4 w-4 mr-2" />
                   Añadir figura relevante
                 </Button>
               </CardContent>
@@ -722,7 +723,7 @@ export default function EMOPublic() {
             >
               {isSubmitting ? (
                 <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  <Icon name="progress_activity" className="h-4 w-4 mr-2 animate-spin" />
                   Enviando...
                 </>
               ) : (

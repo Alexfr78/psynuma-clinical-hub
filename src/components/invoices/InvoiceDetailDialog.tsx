@@ -1,19 +1,7 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { 
-  FileText, 
-  ShieldCheck, 
-  ExternalLink, 
-  Copy, 
-  User, 
-  Calendar, 
-  Receipt,
-  RefreshCw,
-  AlertTriangle,
-  Wrench,
-  HardDrive
-} from 'lucide-react';
+
 import {
   ResponsiveDialog as Dialog,
   ResponsiveDialogContent as DialogContent,
@@ -32,6 +20,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { hasInvoiceAeatRegistration, isInvoiceFiscalLocked } from '@/lib/invoice-immutability';
 import { useAuth } from '@/hooks/useAuth';
 import { FixInvoiceTypeDialog } from '@/components/invoices/FixInvoiceTypeDialog';
+import { Icon } from '@/components/ui/icon';
 
 interface InvoiceDetailDialogProps {
   open: boolean;
@@ -111,7 +100,7 @@ export function InvoiceDetailDialog({ open, onOpenChange, invoiceId }: InvoiceDe
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5" />
+            <Icon name="description" className="h-5 w-5" />
             {isLoading ? <Skeleton className="h-6 w-48" /> : `Factura ${invoice?.invoice_number}`}
           </DialogTitle>
           <DialogDescription>
@@ -134,7 +123,7 @@ export function InvoiceDetailDialog({ open, onOpenChange, invoiceId }: InvoiceDe
               </h3>
               <div className="grid grid-cols-2 gap-4">
                 <div className="flex items-center gap-2">
-                  <User className="h-4 w-4 text-muted-foreground" />
+                  <Icon name="person" className="h-4 w-4 text-muted-foreground" />
                   <div>
                     <p className="text-sm text-muted-foreground">Paciente</p>
                     <p className="font-medium">
@@ -146,7 +135,7 @@ export function InvoiceDetailDialog({ open, onOpenChange, invoiceId }: InvoiceDe
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                  <Icon name="calendar_month" className="h-4 w-4 text-muted-foreground" />
                   <div>
                     <p className="text-sm text-muted-foreground">Fecha emisión</p>
                     <p className="font-medium">
@@ -164,13 +153,13 @@ export function InvoiceDetailDialog({ open, onOpenChange, invoiceId }: InvoiceDe
                 )}
                 {hasAeatRegistration && (
                   <Badge variant="default" className="gap-1 bg-green-600 hover:bg-green-700">
-                    <ShieldCheck className="h-3 w-3" />
+                    <Icon name="verified_user" className="h-3 w-3" />
                     AEAT
                   </Badge>
                 )}
                 {isFiscalLocked && !hasAeatRegistration && (
                   <Badge variant="outline" className="gap-1 border-green-600 text-green-700">
-                    <ShieldCheck className="h-3 w-3" />
+                    <Icon name="verified_user" className="h-3 w-3" />
                     Cierre fiscal
                   </Badge>
                 )}
@@ -182,7 +171,7 @@ export function InvoiceDetailDialog({ open, onOpenChange, invoiceId }: InvoiceDe
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground hover:underline"
                 >
-                  <HardDrive className="h-3.5 w-3.5" />
+                  <Icon name="hard_drive" className="h-3.5 w-3.5" />
                   Ver en Google Drive
                 </a>
               )}
@@ -223,7 +212,7 @@ export function InvoiceDetailDialog({ open, onOpenChange, invoiceId }: InvoiceDe
             {/* Totals */}
             <div className="space-y-3">
               <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide flex items-center gap-2">
-                <Receipt className="h-4 w-4" />
+                <Icon name="receipt_long" className="h-4 w-4" />
                 Totales
               </h3>
               <div className="rounded-lg bg-muted/50 p-4 space-y-2">
@@ -257,7 +246,7 @@ export function InvoiceDetailDialog({ open, onOpenChange, invoiceId }: InvoiceDe
                 <Separator />
                 <div className="space-y-3">
                   <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide flex items-center gap-2">
-                    <ShieldCheck className="h-4 w-4 text-green-600" />
+                    <Icon name="verified_user" className="h-4 w-4 text-green-600" />
                     Cierre fiscal
                   </h3>
                   <div className="rounded-lg border border-green-200 bg-green-50/50 dark:border-green-900 dark:bg-green-950/20 p-4">
@@ -321,11 +310,11 @@ export function InvoiceDetailDialog({ open, onOpenChange, invoiceId }: InvoiceDe
                           {invoice.verifactu_qr && (
                             <>
                               <Button size="sm" variant="outline" onClick={handleOpenVerification}>
-                                <ExternalLink className="h-3 w-3 mr-1" />
+                                <Icon name="open_in_new" className="h-3 w-3 mr-1" />
                                 Verificar en AEAT
                               </Button>
                               <Button size="sm" variant="ghost" onClick={handleCopyQR}>
-                                <Copy className="h-3 w-3 mr-1" />
+                                <Icon name="content_copy" className="h-3 w-3 mr-1" />
                                 Copiar URL
                               </Button>
                             </>
@@ -344,7 +333,7 @@ export function InvoiceDetailDialog({ open, onOpenChange, invoiceId }: InvoiceDe
                 <Separator />
                 <div className="space-y-3">
                   <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide flex items-center gap-2">
-                    <AlertTriangle className="h-4 w-4 text-amber-500" />
+                    <Icon name="warning" className="h-4 w-4 text-amber-500" />
                     Registro AEAT pendiente
                   </h3>
                   <div className="rounded-lg border border-amber-200 bg-amber-50/50 dark:border-amber-900 dark:bg-amber-950/20 p-4">
@@ -358,7 +347,7 @@ export function InvoiceDetailDialog({ open, onOpenChange, invoiceId }: InvoiceDe
                       onClick={handleRetryVerifactu}
                       disabled={retrying}
                     >
-                      <RefreshCw className={`h-3 w-3 mr-1 ${retrying ? 'animate-spin' : ''}`} />
+                      <Icon name="refresh" className={`h-3 w-3 mr-1 ${retrying ? 'animate-spin' : ''}`} />
                       {retrying ? 'Registrando...' : 'Reintentar registro AEAT'}
                     </Button>
                   </div>
@@ -372,7 +361,7 @@ export function InvoiceDetailDialog({ open, onOpenChange, invoiceId }: InvoiceDe
                 <Separator />
                 <div className="space-y-3">
                   <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide flex items-center gap-2">
-                    <AlertTriangle className="h-4 w-4 text-destructive" />
+                    <Icon name="warning" className="h-4 w-4 text-destructive" />
                     Error permanente AEAT
                   </h3>
                   <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 space-y-3">
@@ -388,7 +377,7 @@ export function InvoiceDetailDialog({ open, onOpenChange, invoiceId }: InvoiceDe
                       onClick={handleRetryVerifactu}
                       disabled={retrying}
                     >
-                      <RefreshCw className={`h-3 w-3 mr-1 ${retrying ? 'animate-spin' : ''}`} />
+                      <Icon name="refresh" className={`h-3 w-3 mr-1 ${retrying ? 'animate-spin' : ''}`} />
                       {retrying ? 'Registrando...' : 'Reintentar tras corrección'}
                     </Button>
                   </div>
@@ -411,7 +400,7 @@ export function InvoiceDetailDialog({ open, onOpenChange, invoiceId }: InvoiceDe
                       </p>
                     </div>
                     <Button className="mt-3 min-h-11 sm:mt-0" variant="outline" onClick={() => setFixTypeOpen(true)}>
-                      <Wrench className="mr-2 h-4 w-4" />
+                      <Icon name="build" className="mr-2 h-4 w-4" />
                       Corregir tipo de factura
                     </Button>
                   </div>

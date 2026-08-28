@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Layers, Plus, Pencil, Copy, PowerOff, Users, Tag, Star } from 'lucide-react';
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -47,6 +47,7 @@ import {
   type TariffPlanWithStats,
 } from '@/hooks/useTariffPlans';
 import { TariffPlanDetailDialog } from './TariffPlanDetailDialog';
+import { Icon } from '@/components/ui/icon';
 
 // ── Create/Edit Dialog ────────────────────────────────────────────────────────
 
@@ -96,7 +97,7 @@ function PlanFormDialog({
       <DialogContent className="sm:max-w-[440px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Layers className="h-5 w-5 text-violet-600" />
+            <Icon name="layers" className="h-5 w-5 text-violet-600" />
             {existing ? 'Editar plan tarifario' : 'Nuevo plan tarifario'}
           </DialogTitle>
           <DialogDescription>
@@ -196,7 +197,7 @@ function PlanCard({
               <span className="font-semibold text-sm truncate">{plan.name}</span>
               {plan.is_default && (
                 <Badge className="text-xs bg-violet-100 text-violet-700 border-violet-200 gap-1" variant="outline">
-                  <Star className="h-3 w-3" />
+                  <Icon name="star" className="h-3 w-3" />
                   Por defecto
                 </Badge>
               )}
@@ -209,11 +210,11 @@ function PlanCard({
             )}
             <div className="flex items-center gap-4 mt-2">
               <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                <Tag className="h-3 w-3" />
+                <Icon name="sell" className="h-3 w-3" />
                 {plan.item_count} precios
               </span>
               <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                <Users className="h-3 w-3" />
+                <Icon name="group" className="h-3 w-3" />
                 {plan.patient_count} paciente{plan.patient_count !== 1 ? 's' : ''}
               </span>
             </div>
@@ -221,10 +222,10 @@ function PlanCard({
           {/* Actions */}
           <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
             <Button variant="ghost" size="icon" className="h-7 w-7" title="Editar datos del plan" onClick={() => onEdit(plan)}>
-              <Pencil className="h-3.5 w-3.5" />
+              <Icon name="edit" className="h-3.5 w-3.5" />
             </Button>
             <Button variant="ghost" size="icon" className="h-7 w-7" title="Duplicar plan" onClick={() => onDuplicate(plan.id)}>
-              <Copy className="h-3.5 w-3.5" />
+              <Icon name="content_copy" className="h-3.5 w-3.5" />
             </Button>
             <Button
               variant="ghost"
@@ -233,7 +234,7 @@ function PlanCard({
               title={plan.is_active ? 'Desactivar plan' : 'Activar plan'}
               onClick={() => onToggleActive(plan)}
             >
-              <PowerOff className="h-3.5 w-3.5" />
+              <Icon name="power_off" className="h-3.5 w-3.5" />
             </Button>
           </div>
         </div>
@@ -269,7 +270,7 @@ export function TariffPlansSection() {
         <div className="flex items-center justify-between">
           <div>
             <CardTitle className="flex items-center gap-2">
-              <Layers className="h-5 w-5 text-violet-600" />
+              <Icon name="layers" className="h-5 w-5 text-violet-600" />
               Planes tarifarios
             </CardTitle>
             <CardDescription className="mt-1">
@@ -278,7 +279,7 @@ export function TariffPlansSection() {
             </CardDescription>
           </div>
           <Button size="sm" className="gap-1 shrink-0" onClick={() => setCreateOpen(true)}>
-            <Plus className="h-4 w-4" />
+            <Icon name="add" className="h-4 w-4" />
             Nuevo plan
           </Button>
         </div>
@@ -303,7 +304,7 @@ export function TariffPlansSection() {
           </div>
         ) : (plans ?? []).length === 0 ? (
           <div className="py-12 flex flex-col items-center gap-3 text-center border rounded-lg bg-muted/20">
-            <Layers className="h-8 w-8 text-muted-foreground/40" />
+            <Icon name="layers" className="h-8 w-8 text-muted-foreground/40" />
             <div>
               <p className="font-medium text-muted-foreground">Sin planes tarifarios</p>
               <p className="text-sm text-muted-foreground/70 mt-1">
@@ -311,7 +312,7 @@ export function TariffPlansSection() {
               </p>
             </div>
             <Button size="sm" variant="outline" onClick={() => setCreateOpen(true)} className="gap-1 mt-1">
-              <Plus className="h-4 w-4" />
+              <Icon name="add" className="h-4 w-4" />
               Crear primer plan
             </Button>
           </div>

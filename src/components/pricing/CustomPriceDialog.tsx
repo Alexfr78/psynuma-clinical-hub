@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { CalendarIcon, Info, Tag } from 'lucide-react';
+
 import {
   Dialog,
   DialogContent,
@@ -45,6 +45,7 @@ import {
   type CustomPrice,
   type CustomPriceTargetType,
 } from '@/hooks/useCustomPrices';
+import { Icon } from '@/components/ui/icon';
 
 // ── Schema ────────────────────────────────────────────────────────────────────
 
@@ -206,7 +207,7 @@ export function CustomPriceDialog({
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Tag className="h-5 w-5 text-emerald-600" />
+            <Icon name="sell" className="h-5 w-5 text-emerald-600" />
             {isEditing ? 'Editar tarifa personalizada' : 'Nueva tarifa personalizada'}
           </DialogTitle>
           <DialogDescription>
@@ -279,7 +280,7 @@ export function CustomPriceDialog({
             {/* Precio base (informativo) */}
             {basePrice != null && (
               <Alert className="py-2 bg-muted/50">
-                <Info className="h-4 w-4" />
+                <Icon name="info" className="h-4 w-4" />
                 <AlertDescription className="text-sm">
                   Tarifa general actual:{' '}
                   <strong>{basePrice.toFixed(2)} €</strong>
@@ -337,7 +338,7 @@ export function CustomPriceDialog({
                             {field.value
                               ? format(field.value, 'dd/MM/yyyy')
                               : 'Seleccionar'}
-                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                            <Icon name="calendar_month" className="ml-auto h-4 w-4 opacity-50" />
                           </Button>
                         </FormControl>
                       </PopoverTrigger>
@@ -373,7 +374,7 @@ export function CustomPriceDialog({
                             )}
                           >
                             {field.value ? format(field.value, 'dd/MM/yyyy') : 'Indefinida'}
-                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                            <Icon name="calendar_month" className="ml-auto h-4 w-4 opacity-50" />
                           </Button>
                         </FormControl>
                       </PopoverTrigger>

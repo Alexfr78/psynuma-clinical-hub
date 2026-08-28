@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+
+<html lang="es" style=""><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Reserva de Cita - Psycma</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Plus+Jakarta+Sans:wght@600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">tailwind.config = {darkMode: "class", theme: {extend: {colors: {"on-secondary": "#ffffff", "on-tertiary": "#ffffff", "surface-bright": "#faf9f7", tertiary: "#763b00", "tertiary-fixed-dim": "#ffb782", "secondary-container": "#62fae3", secondary: "#006b5f", primary: "#004d84", "inverse-primary": "#9fcaff", "on-background": "#1a1c1b", "surface-container-low": "#f4f3f1", "surface-container-highest": "#e3e2e0", "on-tertiary-container": "#ffd7bc", "primary-fixed-dim": "#9fcaff", "surface-white": "#FFFFFF", "on-error": "#ffffff", "secondary-fixed": "#62fae3", "on-primary-container": "#cbe1ff", "on-primary-fixed": "#001d36", "on-secondary-fixed-variant": "#005047", "tertiary-container": "#994e00", "surface-dim": "#dadad8", "on-secondary-container": "#007165", "text-main": "#1B1A24", "primary-container": "#1b65a5", warning: "#F59E0B", "surface-container-high": "#e9e8e6", "on-surface-variant": "#474554", error: "#ba1a1a", "error-container": "#ffdad6", "surface-variant": "#e3e2e0", "on-tertiary-fixed": "#301400", "surface-container-lowest": "#ffffff", success: "#10B981", "dark-surface": "#1E1D2B", "on-secondary-fixed": "#00201c", "on-primary-fixed-variant": "#00497d", background: "#faf9f7", "primary-fixed": "#d1e4ff", outline: "#787585", "on-tertiary-fixed-variant": "#703800", "tertiary-fixed": "#ffdcc5", "dark-text": "#ECEBF5", surface: "#faf9f7", "on-error-container": "#93000a", "surface-container": "#efeeec", "secondary-fixed-dim": "#3cddc7", "on-primary": "#ffffff", "inverse-on-surface": "#f1f1ef", "surface-tint": "#1361a0", "on-surface": "#1a1c1b", "inverse-surface": "#2f3130", "dark-bg": "#141320", "outline-variant": "#c8c4d6"}, borderRadius: {DEFAULT: "0.25rem", lg: "0.5rem", xl: "0.75rem", full: "9999px"}, spacing: {"grid-margin": "24px", "grid-gutter": "16px", xs: "8px", sm: "16px", xl: "48px", md: "24px", base: "4px", lg: "32px"}, fontFamily: {"label-md": ["Inter"], "headline-md": ["Plus Jakarta Sans"], "headline-lg": ["Plus Jakarta Sans"], "body-md": ["Inter"], "data-tabular": ["Inter"], "body-sm": ["Inter"], "body-lg": ["Inter"], "display-lg": ["Plus Jakarta Sans"], "headline-lg-mobile": ["Plus Jakarta Sans"], headline: ["Plus Jakarta Sans"], display: ["Plus Jakarta Sans"], body: ["Inter"], label: ["Inter"]}, fontSize: {"label-md": ["14px", {lineHeight: "16px", letterSpacing: "0.01em", fontWeight: "600"}], "headline-md": ["24px", {lineHeight: "32px", fontWeight: "600"}], "headline-lg": ["32px", {lineHeight: "40px", letterSpacing: "-0.01em", fontWeight: "600"}], "body-md": ["16px", {lineHeight: "24px", fontWeight: "400"}], "data-tabular": ["14px", {lineHeight: "20px", fontWeight: "500"}], "body-sm": ["14px", {lineHeight: "20px", fontWeight: "400"}], "body-lg": ["18px", {lineHeight: "28px", fontWeight: "400"}], "display-lg": ["48px", {lineHeight: "56px", letterSpacing: "-0.02em", fontWeight: "700"}], "headline-lg-mobile": ["28px", {lineHeight: "36px", fontWeight: "600"}]}}}};</script>
+</head>
+<body class="bg-surface text-on-surface font-body-md min-h-screen selection:bg-primary-container selection:text-white">
+<!-- Top Navigation (Transactional/Focused Flow - Simplified) -->
+<header class="fixed top-0 w-full z-40 bg-surface/80 backdrop-blur-md border-b border-surface-container-high transition-all">
+<div class="max-w-7xl mx-auto flex justify-between items-center h-16 px-md w-full">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary-container text-2xl" data-icon="psychology">psychology</span>
+<span class="font-headline-md text-headline-md font-bold text-primary">Psycma</span>
+</div>
+<nav class="hidden md:flex gap-6 items-center">
+<button class="flex items-center gap-2 text-on-surface-variant hover:text-primary transition-colors font-label-md text-label-md px-4 py-2 rounded-full hover:bg-surface-container-high">
+<span class="material-symbols-outlined" data-icon="close">close</span>
+                    Cancelar Reserva
+                </button>
+</nav>
+<!-- Mobile Menu Toggle -->
+<button class="md:hidden p-2 text-on-surface-variant">
+<span class="material-symbols-outlined" data-icon="menu">menu</span>
+</button>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="pt-24 pb-xl px-sm md:px-md max-w-7xl mx-auto flex flex-col lg:flex-row gap-lg">
+<!-- Left Column: Booking Flow -->
+<div class="flex-1 max-w-[800px] w-full">
+<!-- Stepper -->
+<div class="mb-lg">
+<nav aria-label="Progress">
+<ol class="flex items-center" role="list">
+<!-- Step 1: Completed -->
+<li class="relative pr-8 sm:pr-20">
+<div aria-hidden="true" class="absolute inset-0 flex items-center">
+<div class="h-0.5 w-full bg-primary-container"></div>
+</div>
+<a class="relative flex h-8 w-8 items-center justify-center rounded-full bg-primary-container hover:bg-primary" href="#">
+<span class="material-symbols-outlined text-white text-sm" data-icon="check">check</span>
+</a>
+</li>
+<!-- Step 2: Current -->
+<li class="relative pr-8 sm:pr-20">
+<div aria-hidden="true" class="absolute inset-0 flex items-center">
+<div class="h-0.5 w-full bg-surface-container-high"></div>
+</div>
+<a aria-current="step" class="relative flex h-8 w-8 items-center justify-center rounded-full border-2 border-primary-container bg-surface-white" href="#">
+<span class="font-label-md text-label-md text-primary-container">2</span>
+</a>
+</li>
+<!-- Step 3: Upcoming -->
+<li class="relative">
+<a class="group relative flex h-8 w-8 items-center justify-center rounded-full border-2 border-surface-container-highest bg-surface-white hover:border-outline-variant" href="#">
+<span class="font-label-md text-label-md text-outline">3</span>
+</a>
+</li>
+</ol>
+<div class="flex mt-2">
+<span class="font-label-md text-label-md text-primary-container w-[40px] sm:w-[112px]">Servicio</span>
+<span class="font-label-md text-label-md text-on-surface w-[40px] sm:w-[112px]">Fecha</span>
+<span class="font-label-md text-label-md text-outline">Confirmar</span>
+</div>
+</nav>
+</div>
+<!-- Header -->
+<div class="mb-lg">
+<h1 class="font-headline-lg text-headline-lg text-on-surface mb-2">Selecciona Fecha y Hora</h1>
+<p class="font-body-lg text-body-lg text-on-surface-variant">Elige el momento que mejor se adapte a tu horario para tu sesión de Terapia Individual.</p>
+</div>
+<!-- Calendar & Time Picker Grid (Bento Style) -->
+<div class="bg-surface-white rounded-2xl shadow-[0_4px_24px_rgba(90,79,207,0.06)] border border-surface-container-lowest p-md md:p-lg flex flex-col md:flex-row gap-lg">
+<!-- Calendar Section -->
+<div class="flex-1">
+<div class="flex items-center justify-between mb-6">
+<h2 class="font-label-md text-label-md text-on-surface">Octubre 2023</h2>
+<div class="flex gap-2">
+<button class="p-1.5 rounded-full hover:bg-surface-container-low transition-colors text-on-surface-variant">
+<span class="material-symbols-outlined" data-icon="chevron_left">chevron_left</span>
+</button>
+<button class="p-1.5 rounded-full hover:bg-surface-container-low transition-colors text-on-surface-variant">
+<span class="material-symbols-outlined" data-icon="chevron_right">chevron_right</span>
+</button>
+</div>
+</div>
+<div class="grid grid-cols-7 gap-y-4 gap-x-2 text-center">
+<!-- Days of week -->
+<div class="font-data-tabular text-data-tabular text-outline text-xs">L</div>
+<div class="font-data-tabular text-data-tabular text-outline text-xs">M</div>
+<div class="font-data-tabular text-data-tabular text-outline text-xs">X</div>
+<div class="font-data-tabular text-data-tabular text-outline text-xs">J</div>
+<div class="font-data-tabular text-data-tabular text-outline text-xs">V</div>
+<div class="font-data-tabular text-data-tabular text-outline text-xs">S</div>
+<div class="font-data-tabular text-data-tabular text-outline text-xs">D</div>
+<!-- Empty slots -->
+<div></div>
+<div></div>
+<!-- Days -->
+<button class="w-10 h-10 rounded-full flex items-center justify-center font-body-sm text-body-sm text-outline cursor-not-allowed">1</button>
+<button class="w-10 h-10 rounded-full flex items-center justify-center font-body-sm text-body-sm text-outline cursor-not-allowed">2</button>
+<button class="w-10 h-10 rounded-full flex items-center justify-center font-body-sm text-body-sm text-outline cursor-not-allowed">3</button>
+<button class="w-10 h-10 rounded-full flex items-center justify-center font-body-sm text-body-sm text-on-surface hover:bg-surface-container-low transition-colors">4</button>
+<button class="w-10 h-10 rounded-full flex items-center justify-center font-body-sm text-body-sm text-on-surface hover:bg-surface-container-low transition-colors">5</button>
+<button class="w-10 h-10 rounded-full flex items-center justify-center font-body-sm text-body-sm text-on-surface hover:bg-surface-container-low transition-colors">6</button>
+<button class="w-10 h-10 rounded-full flex items-center justify-center font-body-sm text-body-sm text-on-surface hover:bg-surface-container-low transition-colors">7</button>
+<button class="w-10 h-10 rounded-full flex items-center justify-center font-body-sm text-body-sm text-on-surface hover:bg-surface-container-low transition-colors relative">
+                            8
+                            <span class="absolute bottom-1 w-1 h-1 bg-primary-container rounded-full"></span>
+</button>
+<button class="w-10 h-10 rounded-full flex items-center justify-center font-body-sm text-body-sm text-on-surface hover:bg-surface-container-low transition-colors relative">
+                            9
+                            <span class="absolute bottom-1 w-1 h-1 bg-primary-container rounded-full"></span>
+</button>
+<button class="w-10 h-10 rounded-full flex items-center justify-center font-body-sm text-body-sm bg-primary-container text-white shadow-sm ring-2 ring-primary-container ring-offset-2 relative">
+                            10
+                        </button>
+<button class="w-10 h-10 rounded-full flex items-center justify-center font-body-sm text-body-sm text-on-surface hover:bg-surface-container-low transition-colors relative">
+                            11
+                            <span class="absolute bottom-1 w-1 h-1 bg-primary-container rounded-full"></span>
+</button>
+<button class="w-10 h-10 rounded-full flex items-center justify-center font-body-sm text-body-sm text-on-surface hover:bg-surface-container-low transition-colors">12</button>
+</div>
+</div>
+<!-- Divider -->
+<div class="hidden md:block w-px bg-surface-container-high"></div>
+<div class="md:hidden h-px w-full bg-surface-container-high my-4"></div>
+<!-- Time Slots Section -->
+<div class="w-full md:w-48">
+<h2 class="font-label-md text-label-md text-on-surface mb-6">Jueves, 10 de Octubre</h2>
+<div class="flex flex-col gap-3 h-[280px] overflow-y-auto pr-2 scrollbar-thin">
+<button class="w-full py-3 px-4 rounded-xl border border-surface-container-highest bg-surface-white hover:border-primary-container hover:shadow-sm transition-all text-center font-data-tabular text-data-tabular text-on-surface">
+                            09:00
+                        </button>
+<button class="w-full py-3 px-4 rounded-xl border-2 border-primary-container bg-primary-container/5 text-primary-container shadow-sm transition-all text-center font-data-tabular text-data-tabular font-bold">
+                            10:30
+                        </button>
+<button class="w-full py-3 px-4 rounded-xl border border-surface-container-highest bg-surface-white hover:border-primary-container hover:shadow-sm transition-all text-center font-data-tabular text-data-tabular text-on-surface">
+                            12:00
+                        </button>
+<button class="w-full py-3 px-4 rounded-xl border border-surface-container-highest bg-surface-white hover:border-primary-container hover:shadow-sm transition-all text-center font-data-tabular text-data-tabular text-on-surface opacity-50 cursor-not-allowed">
+                            14:00 (Ocupado)
+                        </button>
+<button class="w-full py-3 px-4 rounded-xl border border-surface-container-highest bg-surface-white hover:border-primary-container hover:shadow-sm transition-all text-center font-data-tabular text-data-tabular text-on-surface">
+                            16:30
+                        </button>
+<button class="w-full py-3 px-4 rounded-xl border border-surface-container-highest bg-surface-white hover:border-primary-container hover:shadow-sm transition-all text-center font-data-tabular text-data-tabular text-on-surface">
+                            18:00
+                        </button>
+</div>
+</div>
+</div>
+<div class="mt-8 flex justify-end gap-4">
+<button class="px-6 py-3 rounded-xl font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-low transition-colors">Atrás</button>
+<button class="px-8 py-3 rounded-xl font-label-md text-label-md bg-primary-container text-white hover:bg-primary shadow-sm shadow-primary-container/20 hover:shadow-md transition-all flex items-center gap-2 group">
+                    Continuar
+                    <span class="material-symbols-outlined text-sm group-hover:translate-x-1 transition-transform" data-icon="arrow_forward">arrow_forward</span>
+</button>
+</div>
+</div>
+<!-- Right Column: Summary Card -->
+<aside class="w-full lg:w-[360px]">
+<div class="bg-surface-white rounded-2xl shadow-[0_8px_32px_rgba(90,79,207,0.04)] border border-surface-container-low p-lg sticky top-24">
+<h3 class="font-headline-md text-headline-md text-on-surface mb-6">Resumen de Cita</h3>
+<!-- Practitioner Info -->
+<div class="flex items-center gap-4 mb-6 pb-6 border-b border-surface-container-high">
+<img alt="Dra. Elena Martínez" class="w-16 h-16 rounded-full object-cover border-2 border-surface-container-lowest shadow-sm" data-alt="A highly detailed professional portrait of a warm, approachable female psychologist in a bright, modern minimalist clinic setting. The lighting is soft and natural, emphasizing a calm and premium healthcare aesthetic. The color palette features neutral whites and subtle indigo accents to match the UI style." src="https://lh3.googleusercontent.com/aida-public/AB6AXuD-H2ADjwF-r_ezyLqfr0Gfhvrg5_LgoUHkpnRzsCJTg1ni_j13d1bSV67168J7M_LaVdw22gw5Vodp-MzjHc_VnP6QzripaJ0ovqDwKOMhYi2jZj1h3PIIB20TZHnr4YI8SdjrxIu_FBMk-VeUPlhuf2fAa8502dNjKc9D6UeN30DT8Wsx5PMNMFt4s0QFhb-Ub2dUCtw5dF98tOZtragV8sSkNlWtf4ZEoKDZaM-Xh8k2Ce3pC9HJ"/>
+<div>
+<p class="font-label-md text-label-md text-on-surface">Dra. Elena Martínez</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant flex items-center gap-1 mt-1">
+<span class="material-symbols-outlined text-sm" data-icon="location_on">location_on</span>
+                            Centro Clínico Psycma
+                        </p>
+</div>
+</div>
+<!-- Appointment Details -->
+<div class="space-y-4 mb-8">
+<div class="flex justify-between items-start">
+<div class="flex gap-3">
+<div class="w-8 h-8 rounded-full bg-surface-container-low flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-on-surface-variant text-sm" data-icon="psychology">psychology</span>
+</div>
+<div>
+<p class="font-label-md text-label-md text-on-surface">Terapia Individual</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Primera sesión (50 min)</p>
+</div>
+</div>
+</div>
+<div class="flex justify-between items-start">
+<div class="flex gap-3">
+<div class="w-8 h-8 rounded-full bg-primary-container/10 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-primary-container text-sm" data-icon="calendar_month">calendar_month</span>
+</div>
+<div>
+<p class="font-label-md text-label-md text-on-surface">Jueves, 10 de Octubre</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant">10:30 - 11:20 (Hora Local)</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Price -->
+<div class="pt-6 border-t border-surface-container-high flex justify-between items-center mb-6">
+<p class="font-label-md text-label-md text-on-surface">Total a pagar</p>
+<p class="font-headline-md text-headline-md text-primary-container font-bold">60,00 €</p>
+</div>
+<div class="bg-surface-container-low rounded-xl p-4 flex gap-3 items-start">
+<span class="material-symbols-outlined text-primary-container text-lg mt-0.5" data-icon="info">info</span>
+<p class="font-body-sm text-body-sm text-on-surface-variant text-sm">El pago se realizará en la clínica el día de su cita. No se requiere tarjeta de crédito ahora.</p>
+</div>
+</div>
+</aside>
+</main>
+<!-- Bottom Nav for Mobile (Suppressed on this transactional screen as per Semantic Shell Mandate) -->
+<!-- The BottomNavBar is intentionally excluded because this is a focused booking flow -->
+</body></html>

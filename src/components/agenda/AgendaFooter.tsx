@@ -1,4 +1,4 @@
-import { Globe, CheckCircle, Calendar } from 'lucide-react';
+import { CheckCircle, Calendar } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -9,6 +9,7 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
+import { Icon } from '@/components/ui/icon';
 
 interface AgendaFooterProps {
   timezone: string;
@@ -78,7 +79,7 @@ export function AgendaFooter({
         {/* Timezone Selector */}
         <Select value={timezone} onValueChange={onTimezoneChange}>
           <SelectTrigger className="h-8 w-auto gap-1.5 border-none bg-transparent px-2 shadow-none hover:bg-accent">
-            <Globe className="h-3.5 w-3.5 text-muted-foreground" />
+            <Icon name="public" className="h-3.5 w-3.5 text-muted-foreground" />
             <SelectValue />
           </SelectTrigger>
           <SelectContent>

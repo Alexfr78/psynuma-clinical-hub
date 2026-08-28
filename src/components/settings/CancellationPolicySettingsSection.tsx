@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Save, Loader2, FileText, ShieldCheck } from 'lucide-react';
+
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -22,6 +22,7 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Icon } from '@/components/ui/icon';
 
 type RefundOption = 'refund' | 'voucher';
 
@@ -263,7 +264,7 @@ export function CancellationPolicySettingsSection() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <ShieldCheck className="h-5 w-5" />
+            <Icon name="verified_user" className="h-5 w-5" />
             Aplicar política de cancelaciones
           </CardTitle>
           <CardDescription>
@@ -319,7 +320,7 @@ export function CancellationPolicySettingsSection() {
       {!cancellationPolicyEnabled ? (
         <Card>
           <CardContent className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
-            <FileText className="h-4 w-4 shrink-0" />
+            <Icon name="description" className="h-4 w-4 shrink-0" />
             Activa la política de cancelaciones para configurar sus reglas y el texto firmable.
           </CardContent>
         </Card>
@@ -329,7 +330,7 @@ export function CancellationPolicySettingsSection() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <CardTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5" />
+                <Icon name="description" className="h-5 w-5" />
                 Política de cancelación
               </CardTitle>
               <CardDescription>
@@ -344,7 +345,7 @@ export function CancellationPolicySettingsSection() {
         <CardContent className="space-y-6">
           {isLoading ? (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <Icon name="progress_activity" className="h-4 w-4 animate-spin" />
               Cargando política...
             </div>
           ) : (
@@ -526,9 +527,9 @@ export function CancellationPolicySettingsSection() {
               <div className="flex justify-end">
                 <Button onClick={() => savePolicy.mutate()} disabled={savePolicy.isPending || !name.trim()}>
                   {savePolicy.isPending ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <Icon name="progress_activity" className="mr-2 h-4 w-4 animate-spin" />
                   ) : (
-                    <Save className="mr-2 h-4 w-4" />
+                    <Icon name="save" className="mr-2 h-4 w-4" />
                   )}
                   Guardar nueva versión
                 </Button>

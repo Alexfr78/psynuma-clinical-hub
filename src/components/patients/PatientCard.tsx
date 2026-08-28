@@ -1,11 +1,12 @@
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { User, Mail, Phone, Calendar, ChevronRight } from 'lucide-react';
+
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Patient } from '@/hooks/usePatients';
 import { PatientStatusBadge } from './PatientStatusBadge';
+import { Icon } from '@/components/ui/icon';
 
 interface PatientCardProps {
   patient: Patient & {
@@ -67,19 +68,19 @@ export function PatientCard({ patient }: PatientCardProps) {
             <div className="mt-1.5 sm:mt-2 space-y-0.5 sm:space-y-1">
               {patient.email && (
                 <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
-                  <Mail className="h-3 w-3 sm:h-3.5 sm:w-3.5 shrink-0" />
+                  <Icon name="mail" className="h-3 w-3 sm:h-3.5 sm:w-3.5 shrink-0" />
                   <span className="truncate">{patient.email}</span>
                 </div>
               )}
               {patient.phone && (
                 <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
-                  <Phone className="h-3 w-3 sm:h-3.5 sm:w-3.5 shrink-0" />
+                  <Icon name="call" className="h-3 w-3 sm:h-3.5 sm:w-3.5 shrink-0" />
                   <span>{patient.phone}</span>
                 </div>
               )}
               {patient.date_of_birth && (
                 <div className="hidden sm:flex items-center gap-2 text-sm text-muted-foreground">
-                  <Calendar className="h-3.5 w-3.5 shrink-0" />
+                  <Icon name="calendar_month" className="h-3.5 w-3.5 shrink-0" />
                   <span>
                     {format(new Date(patient.date_of_birth), "d MMM yyyy", { locale: es })}
                     {age !== null && ` (${age} años)`}
@@ -90,7 +91,7 @@ export function PatientCard({ patient }: PatientCardProps) {
 
             {patient.assigned_professional && (
               <div className="mt-2 sm:mt-3 flex items-center gap-2">
-                <User className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-primary shrink-0" />
+                <Icon name="person" className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-primary shrink-0" />
                 <span className="text-xs sm:text-sm text-primary truncate">
                   {patient.assigned_professional.first_name} {patient.assigned_professional.last_name}
                 </span>
@@ -98,7 +99,7 @@ export function PatientCard({ patient }: PatientCardProps) {
             )}
           </div>
 
-          <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 shrink-0" />
+          <Icon name="chevron_right" className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 shrink-0" />
         </div>
       </CardContent>
     </Card>

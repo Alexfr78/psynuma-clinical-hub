@@ -1,10 +1,7 @@
 import { useState, useMemo } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { 
-  ClipboardList, Clock, Users, Search, Filter, 
-  CheckCircle2, Mail, Phone, MapPin, Shield, Eye
-} from 'lucide-react';
+import { CheckCircle2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -32,6 +29,7 @@ import {
   type IntakeRequestStatus, 
   type IntakeRequestType 
 } from '@/hooks/useIntakeRequests';
+import { Icon } from '@/components/ui/icon';
 
 export default function IntakeRequests() {
   const [typeFilter, setTypeFilter] = useState<IntakeRequestType | 'all'>('all');
@@ -77,8 +75,8 @@ export default function IntakeRequests() {
 
   const typeBadge = (type: IntakeRequestType) => {
     return type === 'waitlist' 
-      ? <Badge variant="secondary" className="gap-1"><Clock className="h-3 w-3" />Espera</Badge>
-      : <Badge variant="secondary" className="gap-1"><Users className="h-3 w-3" />Derivación</Badge>;
+      ? <Badge variant="secondary" className="gap-1"><Icon name="schedule" className="h-3 w-3" />Espera</Badge>
+      : <Badge variant="secondary" className="gap-1"><Icon name="group" className="h-3 w-3" />Derivación</Badge>;
   };
 
   // Stats
@@ -95,7 +93,7 @@ export default function IntakeRequests() {
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="font-display text-2xl font-bold flex items-center gap-2">
-            <ClipboardList className="h-6 w-6" />
+            <Icon name="checklist" className="h-6 w-6" />
             Solicitudes
           </h1>
           <p className="text-muted-foreground">
@@ -137,7 +135,7 @@ export default function IntakeRequests() {
         <CardHeader className="pb-4">
           <div className="flex flex-col gap-4 md:flex-row md:items-center">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Icon name="search" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder="Buscar por nombre o email..."
                 value={searchQuery}
@@ -148,7 +146,7 @@ export default function IntakeRequests() {
             <div className="flex gap-2">
               <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as IntakeRequestType | 'all')}>
                 <SelectTrigger className="w-[140px]">
-                  <Filter className="h-4 w-4 mr-2" />
+                  <Icon name="filter_list" className="h-4 w-4 mr-2" />
                   <SelectValue placeholder="Tipo" />
                 </SelectTrigger>
                 <SelectContent>
@@ -180,7 +178,7 @@ export default function IntakeRequests() {
             </div>
           ) : requests.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
-              <ClipboardList className="h-12 w-12 text-muted-foreground/50 mb-4" />
+              <Icon name="checklist" className="h-12 w-12 text-muted-foreground/50 mb-4" />
               <h3 className="font-medium">No hay solicitudes</h3>
               <p className="text-sm text-muted-foreground">
                 {searchQuery || typeFilter !== 'all' || statusFilter !== 'all' 
@@ -230,12 +228,12 @@ export default function IntakeRequests() {
                         </TableCell>
                         <TableCell className="hidden md:table-cell">
                           <div className="flex items-center gap-1 text-sm">
-                            <Mail className="h-3 w-3 text-muted-foreground" />
+                            <Icon name="mail" className="h-3 w-3 text-muted-foreground" />
                             {request.email}
                           </div>
                           {request.phone && (
                             <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                              <Phone className="h-3 w-3" />
+                              <Icon name="call" className="h-3 w-3" />
                               {request.phone}
                             </div>
                           )}
@@ -246,7 +244,7 @@ export default function IntakeRequests() {
                           )}
                           {location && (
                             <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                              <MapPin className="h-3 w-3" />
+                              <Icon name="location_on" className="h-3 w-3" />
                               {location}
                             </div>
                           )}
@@ -288,9 +286,9 @@ export default function IntakeRequests() {
                         </TableCell>
                         <TableCell className="hidden sm:table-cell">
                           {request.privacy_accepted ? (
-                            <Shield className="h-4 w-4 text-success" />
+                            <Icon name="shield" className="h-4 w-4 text-success" />
                           ) : (
-                            <Shield className="h-4 w-4 text-muted-foreground/30" />
+                            <Icon name="shield" className="h-4 w-4 text-muted-foreground/30" />
                           )}
                         </TableCell>
                         <TableCell>
@@ -299,7 +297,7 @@ export default function IntakeRequests() {
                             variant="ghost"
                             onClick={() => handleViewDetail(request)}
                           >
-                            <Eye className="h-4 w-4" />
+                            <Icon name="visibility" className="h-4 w-4" />
                           </Button>
                         </TableCell>
                       </TableRow>

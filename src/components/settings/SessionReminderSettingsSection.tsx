@@ -8,7 +8,8 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Bell, Save, Loader2, Mail, MessageCircle, Smartphone } from 'lucide-react';
+import { Icon } from '@/components/ui/icon';
+
 
 interface ReminderChannels {
   email: boolean;
@@ -80,7 +81,7 @@ export function SessionReminderSettingsSection() {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Bell className="h-5 w-5" />
+          <Icon name="notifications" className="h-5 w-5" />
           Recordatorios de Cita
         </CardTitle>
         <CardDescription>
@@ -167,7 +168,7 @@ export function SessionReminderSettingsSection() {
                     onCheckedChange={(checked) => handleChannelChange('email', checked as boolean)}
                   />
                   <Label htmlFor="channel-email" className="font-normal cursor-pointer flex items-center gap-2">
-                    <Mail className="h-4 w-4 text-muted-foreground" />
+                    <Icon name="mail" className="h-4 w-4 text-muted-foreground" />
                     Email
                   </Label>
                 </div>
@@ -178,7 +179,7 @@ export function SessionReminderSettingsSection() {
                     onCheckedChange={(checked) => handleChannelChange('whatsapp', checked as boolean)}
                   />
                   <Label htmlFor="channel-whatsapp" className="font-normal cursor-pointer flex items-center gap-2">
-                    <MessageCircle className="h-4 w-4 text-muted-foreground" />
+                    <Icon name="chat" className="h-4 w-4 text-muted-foreground" />
                     WhatsApp
                     {channels.whatsapp && center?.whatsapp_send_method !== 'api' && (
                       <span className="text-xs text-amber-600">(solo modo API)</span>
@@ -193,7 +194,7 @@ export function SessionReminderSettingsSection() {
                     disabled
                   />
                   <Label htmlFor="channel-sms" className="font-normal cursor-pointer flex items-center gap-2 text-muted-foreground">
-                    <Smartphone className="h-4 w-4" />
+                    <Icon name="smartphone" className="h-4 w-4" />
                     SMS
                     <span className="text-xs">(próximamente)</span>
                   </Label>
@@ -211,9 +212,9 @@ export function SessionReminderSettingsSection() {
         <div className="flex justify-end pt-4">
           <Button onClick={handleSave} disabled={isSaving}>
             {isSaving ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <Icon name="progress_activity" className="mr-2 h-4 w-4 animate-spin" />
             ) : (
-              <Save className="mr-2 h-4 w-4" />
+              <Icon name="save" className="mr-2 h-4 w-4" />
             )}
             Guardar Configuración
           </Button>

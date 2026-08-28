@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Ticket, Calendar, AlertCircle } from 'lucide-react';
+
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { BonoSessionsDialog } from '@/components/patients/BonoSessionsDialog';
+import { Icon } from '@/components/ui/icon';
 
 interface PatientBonosProps {
   patientId: string;
@@ -51,7 +52,7 @@ export function PatientBonos({ patientId }: PatientBonosProps) {
   if (!bonos || bonos.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12 text-center">
-        <Ticket className="h-12 w-12 text-muted-foreground" />
+        <Icon name="confirmation_number" className="h-12 w-12 text-muted-foreground" />
         <h3 className="mt-4 font-display text-lg font-semibold">Sin bonos</h3>
         <p className="mt-2 max-w-sm text-sm text-muted-foreground">
           Este contacto no tiene bonos de sesiones asignados.
@@ -87,12 +88,12 @@ export function PatientBonos({ patientId }: PatientBonosProps) {
               <div className="space-y-4">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex flex-wrap items-center gap-2 min-w-0">
-                    <Ticket className="h-5 w-5 text-primary shrink-0" />
+                    <Icon name="confirmation_number" className="h-5 w-5 text-primary shrink-0" />
                     <span className="font-semibold truncate max-w-[200px] sm:max-w-none">{bono.name}</span>
                     <Badge variant={status.variant}>{status.label}</Badge>
                     {isExpiringSoon && bono.status === 'active' && (
                       <Badge variant="outline" className="border-warning text-warning">
-                        <AlertCircle className="mr-1 h-3 w-3" />
+                        <Icon name="error" className="mr-1 h-3 w-3" />
                         Expira pronto
                       </Badge>
                     )}
@@ -120,14 +121,14 @@ export function PatientBonos({ patientId }: PatientBonosProps) {
 
                 <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
                   <div className="flex items-center gap-1">
-                    <Calendar className="h-3.5 w-3.5" />
+                    <Icon name="calendar_month" className="h-3.5 w-3.5" />
                     <span>
                       Creado: {format(new Date(bono.created_at), "d MMM yyyy", { locale: es })}
                     </span>
                   </div>
                   {bono.expires_at && (
                     <div className="flex items-center gap-1">
-                      <AlertCircle className="h-3.5 w-3.5" />
+                      <Icon name="error" className="h-3.5 w-3.5" />
                       <span>
                         Expira: {format(new Date(bono.expires_at), "d MMM yyyy", { locale: es })}
                       </span>

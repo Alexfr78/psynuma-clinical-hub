@@ -6,9 +6,10 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
-import { Save, Loader2, Bell } from 'lucide-react';
+
 import { useCenter } from '@/hooks/useCenter';
 import { toast } from 'sonner';
+import { Icon } from '@/components/ui/icon';
 
 interface AlertEvents {
   booking_created: boolean;
@@ -116,7 +117,7 @@ export function AdminAlertsSettingsSection() {
     <Card>
       <CardHeader>
         <div className="flex items-center gap-2">
-          <Bell className="h-5 w-5 text-primary" />
+          <Icon name="notifications" className="h-5 w-5 text-primary" />
           <CardTitle>Alertas al Profesional</CardTitle>
         </div>
         <CardDescription>
@@ -225,9 +226,9 @@ export function AdminAlertsSettingsSection() {
         <div className="flex justify-end pt-4">
           <Button onClick={handleSave} disabled={isLoading}>
             {isLoading ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <Icon name="progress_activity" className="mr-2 h-4 w-4 animate-spin" />
             ) : (
-              <Save className="mr-2 h-4 w-4" />
+              <Icon name="save" className="mr-2 h-4 w-4" />
             )}
             Guardar Cambios
           </Button>

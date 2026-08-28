@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
-import { CalendarIcon, Plus, Trash2, Info } from 'lucide-react';
+
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -41,6 +41,7 @@ import {
   type SpecialDay,
   type SpecialDayType,
 } from '@/lib/special-days';
+import { Icon } from '@/components/ui/icon';
 
 
 interface SessionConflict {
@@ -293,7 +294,7 @@ export function CreateSpecialDayDialog({ open, onOpenChange, editSpecialDay }: P
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground flex items-start gap-1 mt-1">
-                  <Info className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                  <Icon name="info" className="h-3.5 w-3.5 mt-0.5 shrink-0" />
                   {SPECIAL_DAY_TYPE_DESCRIPTIONS[field.value as SpecialDayType]}
                 </p>
                 <FormMessage />
@@ -310,7 +311,7 @@ export function CreateSpecialDayDialog({ open, onOpenChange, editSpecialDay }: P
                       <FormControl>
                         <Button variant="outline" className={cn('w-full pl-3 text-left font-normal', !field.value && 'text-muted-foreground')}>
                           {field.value ? format(field.value, 'dd/MM/yyyy') : 'Seleccionar'}
-                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                          <Icon name="calendar_month" className="ml-auto h-4 w-4 opacity-50" />
                         </Button>
                       </FormControl>
                     </PopoverTrigger>
@@ -338,7 +339,7 @@ export function CreateSpecialDayDialog({ open, onOpenChange, editSpecialDay }: P
                       <FormControl>
                         <Button variant="outline" className={cn('w-full pl-3 text-left font-normal', !field.value && 'text-muted-foreground')}>
                           {field.value ? format(field.value, 'dd/MM/yyyy') : 'Seleccionar'}
-                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                          <Icon name="calendar_month" className="ml-auto h-4 w-4 opacity-50" />
                         </Button>
                       </FormControl>
                     </PopoverTrigger>
@@ -368,7 +369,7 @@ export function CreateSpecialDayDialog({ open, onOpenChange, editSpecialDay }: P
                     variant="outline"
                     onClick={() => append({ start_time: '09:00', end_time: '14:00' })}
                   >
-                    <Plus className="h-3.5 w-3.5 mr-1" />Añadir tramo
+                    <Icon name="add" className="h-3.5 w-3.5 mr-1" />Añadir tramo
                   </Button>
                 </div>
 
@@ -398,7 +399,7 @@ export function CreateSpecialDayDialog({ open, onOpenChange, editSpecialDay }: P
                       className="h-9 w-9 text-destructive shrink-0"
                       onClick={() => remove(idx)}
                     >
-                      <Trash2 className="h-3.5 w-3.5" />
+                      <Icon name="delete" className="h-3.5 w-3.5" />
                     </Button>
                   </div>
                 ))}

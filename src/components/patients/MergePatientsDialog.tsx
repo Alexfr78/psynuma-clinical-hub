@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useProfessionals } from '@/hooks/useProfessionals';
 import { useNavigate } from 'react-router-dom';
-import { Merge, AlertTriangle, Loader2, ArrowRight, CheckCircle2, Info } from 'lucide-react';
+
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -22,6 +22,7 @@ import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { PatientSelector } from '@/components/agenda/PatientSelector';
 import { usePatient } from '@/hooks/usePatients';
+import { Icon } from '@/components/ui/icon';
 
 interface MergePatientsDialogProps {
   primaryPatientId: string;
@@ -253,7 +254,7 @@ export function MergePatientsDialog({ primaryPatientId, primaryPatientName, trig
       <DialogTrigger asChild>
         {trigger || (
           <Button variant="outline" size="sm">
-            <Merge className="mr-2 h-4 w-4" />
+            <Icon name="merge" className="mr-2 h-4 w-4" />
             Fusionar con duplicado
           </Button>
         )}
@@ -261,7 +262,7 @@ export function MergePatientsDialog({ primaryPatientId, primaryPatientName, trig
       <DialogContent className="max-w-2xl max-h-[90vh]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Merge className="h-5 w-5" />
+            <Icon name="merge" className="h-5 w-5" />
             Fusionar contactos
           </DialogTitle>
           <DialogDescription>
@@ -300,7 +301,7 @@ export function MergePatientsDialog({ primaryPatientId, primaryPatientName, trig
               )}
 
               <Alert variant="destructive">
-                <AlertTriangle className="h-4 w-4" />
+                <Icon name="warning" className="h-4 w-4" />
                 <AlertTitle>Acción irreversible</AlertTitle>
                 <AlertDescription>
                   Todos los datos del contacto secundario se trasladarán al principal 
@@ -314,7 +315,7 @@ export function MergePatientsDialog({ primaryPatientId, primaryPatientName, trig
                   disabled={!secondaryPatient}
                 >
                   Continuar
-                  <ArrowRight className="ml-2 h-4 w-4" />
+                  <Icon name="arrow_forward" className="ml-2 h-4 w-4" />
                 </Button>
               </div>
             </div>
@@ -325,7 +326,7 @@ export function MergePatientsDialog({ primaryPatientId, primaryPatientName, trig
             <div className="space-y-4">
               {conflicts.length === 0 ? (
                 <Alert>
-                  <CheckCircle2 className="h-4 w-4" />
+                  <Icon name="check_circle" className="h-4 w-4" />
                   <AlertTitle>Sin conflictos</AlertTitle>
                   <AlertDescription>
                     No hay campos con valores diferentes. Los datos se fusionarán automáticamente.
@@ -381,7 +382,7 @@ export function MergePatientsDialog({ primaryPatientId, primaryPatientName, trig
                       const val = pEmpty ? (secondaryPatient as unknown as Record<string, unknown>)[key] : pVal;
                       return (
                         <div key={key} className="flex items-center gap-2">
-                          <CheckCircle2 className="h-3 w-3 text-green-500 shrink-0" />
+                          <Icon name="check_circle" className="h-3 w-3 text-green-500 shrink-0" />
                           <span>{label}: <strong>{formatValue(val, key)}</strong> (del {source})</span>
                         </div>
                       );
@@ -396,7 +397,7 @@ export function MergePatientsDialog({ primaryPatientId, primaryPatientName, trig
                 </Button>
                 <Button onClick={handleNextToConfirm}>
                   Continuar
-                  <ArrowRight className="ml-2 h-4 w-4" />
+                  <Icon name="arrow_forward" className="ml-2 h-4 w-4" />
                 </Button>
               </div>
             </div>
@@ -435,7 +436,7 @@ export function MergePatientsDialog({ primaryPatientId, primaryPatientName, trig
                 </div>
               ) : (
                 <Alert>
-                  <Info className="h-4 w-4" />
+                  <Icon name="info" className="h-4 w-4" />
                   <AlertDescription>
                     El contacto secundario no tiene registros asociados.
                   </AlertDescription>
@@ -454,7 +455,7 @@ export function MergePatientsDialog({ primaryPatientId, primaryPatientName, trig
                         const val = secondaryPatient ? formatValue((secondaryPatient as unknown as Record<string, unknown>)[key], key) : '—';
                         return (
                           <div key={key} className="flex items-center gap-2">
-                            <ArrowRight className="h-3 w-3 text-primary shrink-0" />
+                            <Icon name="arrow_forward" className="h-3 w-3 text-primary shrink-0" />
                             <span>{field?.label}: <strong>{val}</strong></span>
                           </div>
                         );
@@ -466,7 +467,7 @@ export function MergePatientsDialog({ primaryPatientId, primaryPatientName, trig
               {/* Verifactu warning */}
               {hasVerifactu && (
                 <Alert className="border-amber-500/50 bg-amber-50 dark:bg-amber-950/20">
-                  <AlertTriangle className="h-4 w-4 text-amber-600" />
+                  <Icon name="warning" className="h-4 w-4 text-amber-600" />
                   <AlertTitle className="text-amber-700 dark:text-amber-400">
                     Facturas firmadas ante la AEAT
                   </AlertTitle>
@@ -479,7 +480,7 @@ export function MergePatientsDialog({ primaryPatientId, primaryPatientName, trig
               )}
 
               <Alert variant="destructive">
-                <AlertTriangle className="h-4 w-4" />
+                <Icon name="warning" className="h-4 w-4" />
                 <AlertTitle>Confirmar fusión irreversible</AlertTitle>
                 <AlertDescription>
                   Esta acción no se puede deshacer. Se eliminarán todos los datos del 
@@ -498,12 +499,12 @@ export function MergePatientsDialog({ primaryPatientId, primaryPatientName, trig
                 >
                   {isExecuting ? (
                     <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      <Icon name="progress_activity" className="mr-2 h-4 w-4 animate-spin" />
                       Fusionando...
                     </>
                   ) : (
                     <>
-                      <Merge className="mr-2 h-4 w-4" />
+                      <Icon name="merge" className="mr-2 h-4 w-4" />
                       Confirmar fusión
                     </>
                   )}

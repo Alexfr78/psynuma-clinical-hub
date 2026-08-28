@@ -1,11 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Calendar, Clock, Loader2, CheckCircle2, XCircle, AlertCircle, ChevronRight } from 'lucide-react';
+import { CheckCircle2, XCircle, AlertCircle, Clock } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { SESSION_STATUS_LABELS, getSessionStatusDisplay } from '@/lib/payment-status';
+import { Icon } from '@/components/ui/icon';
 
 interface PatientSessionHistoryProps {
   patientId: string;
@@ -81,7 +82,7 @@ export function PatientSessionHistory({ patientId, currentSessionId, onSessionCl
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-8">
-        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        <Icon name="progress_activity" className="h-6 w-6 animate-spin text-primary" />
       </div>
     );
   }
@@ -89,7 +90,7 @@ export function PatientSessionHistory({ patientId, currentSessionId, onSessionCl
   if (!sessions || sessions.length === 0) {
     return (
       <div className="text-center py-8 text-muted-foreground">
-        <Calendar className="h-8 w-8 mx-auto mb-2 opacity-50" />
+        <Icon name="calendar_month" className="h-8 w-8 mx-auto mb-2 opacity-50" />
         <p className="text-sm">No hay otras sesiones</p>
       </div>
     );
@@ -137,7 +138,7 @@ export function PatientSessionHistory({ patientId, currentSessionId, onSessionCl
               </div>
               <div className="flex items-center gap-3 text-xs text-muted-foreground">
                 <span className="flex items-center gap-1">
-                  <Clock className="h-3 w-3" />
+                  <Icon name="schedule" className="h-3 w-3" />
                   {session.start_time?.slice(0, 5)} - {session.end_time?.slice(0, 5)}
                 </span>
                 {session.professional && (
@@ -151,7 +152,7 @@ export function PatientSessionHistory({ patientId, currentSessionId, onSessionCl
               </div>
             </div>
 
-            <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+            <Icon name="chevron_right" className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
           </button>
         );
       })}

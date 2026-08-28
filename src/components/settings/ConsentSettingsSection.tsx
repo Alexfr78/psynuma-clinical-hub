@@ -14,8 +14,9 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Loader2 } from 'lucide-react';
+
 import { useEffect } from 'react';
+import { Icon } from '@/components/ui/icon';
 
 const schema = z.object({
   consent_expiration_days: z.coerce
@@ -84,7 +85,7 @@ export function ConsentSettingsSection() {
 
             <Button type="submit" disabled={updateCenter.isPending}>
               {updateCenter.isPending && (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Icon name="progress_activity" className="mr-2 h-4 w-4 animate-spin" />
               )}
               Guardar cambios
             </Button>

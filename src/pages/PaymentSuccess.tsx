@@ -1,7 +1,8 @@
 import { useSearchParams, Link } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, CreditCard, Download, Package, ArrowLeft } from 'lucide-react';
+import { Icon } from '@/components/ui/icon';
+
 
 export default function PaymentSuccess() {
   const [searchParams] = useSearchParams();
@@ -17,7 +18,7 @@ export default function PaymentSuccess() {
         <Card className="w-full max-w-md text-center">
           <CardHeader className="pb-4">
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
-              <CreditCard className="h-10 w-10 text-green-600" />
+              <Icon name="credit_card" className="h-10 w-10 text-green-600" />
             </div>
             <CardTitle className="text-2xl">¡Tarjeta guardada!</CardTitle>
             <CardDescription>Tu tarjeta se ha guardado de forma segura.</CardDescription>
@@ -31,7 +32,7 @@ export default function PaymentSuccess() {
             {slug && (
               <Button asChild className="w-full">
                 <Link to={`/portal/${slug}/dashboard`}>
-                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  <Icon name="arrow_back" className="h-4 w-4 mr-2" />
                   Volver a mis citas
                 </Link>
               </Button>
@@ -53,7 +54,7 @@ export default function PaymentSuccess() {
       <Card className="w-full max-w-md text-center">
         <CardHeader className="pb-4">
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
-            <CheckCircle className="h-10 w-10 text-green-600" />
+            <Icon name="check_circle" className="h-10 w-10 text-green-600" />
           </div>
           <CardTitle className="text-2xl">¡Pago completado!</CardTitle>
           <CardDescription>
@@ -65,7 +66,7 @@ export default function PaymentSuccess() {
         <CardContent className="space-y-4">
           {isBono && (
             <div className="bg-muted rounded-lg p-4">
-              <Package className="h-8 w-8 mx-auto mb-2 text-primary" />
+              <Icon name="package_2" className="h-8 w-8 mx-auto mb-2 text-primary" />
               <p className="font-medium">Bono activado</p>
               <p className="text-sm text-muted-foreground">
                 La sesión pendiente ya ha sido incluida en tu bono
@@ -81,7 +82,7 @@ export default function PaymentSuccess() {
             {invoiceToken && (
               <Button asChild variant="outline" className="w-full">
                 <Link to={`/factura/${invoiceToken}`}>
-                  <Download className="h-4 w-4 mr-2" />
+                  <Icon name="download" className="h-4 w-4 mr-2" />
                   Ver y descargar factura
                 </Link>
               </Button>

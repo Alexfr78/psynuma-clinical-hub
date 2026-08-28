@@ -6,11 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
-import { HardDrive, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
+import { Loader2 } from 'lucide-react';
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useCenter } from "@/hooks/useCenter";
+import { Icon } from '@/components/ui/icon';
 
 interface DriveConnectionStatus {
   connected: boolean;
@@ -120,7 +121,7 @@ export function GoogleDriveIntegrationSection() {
       <CardHeader>
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-lg bg-yellow-500/10">
-            <HardDrive className="h-5 w-5 text-yellow-600" />
+            <Icon name="hard_drive" className="h-5 w-5 text-yellow-600" />
           </div>
           <div>
             <CardTitle className="text-lg">Google Drive (documentos)</CardTitle>
@@ -135,12 +136,12 @@ export function GoogleDriveIntegrationSection() {
           <>
             <div className="flex items-center gap-2">
               <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50 gap-1">
-                <CheckCircle2 className="h-3 w-3" />
+                <Icon name="check_circle" className="h-3 w-3" />
                 Conectado
               </Badge>
               {status.needs_reconnect && (
                 <Badge variant="outline" className="text-amber-600 border-amber-200 bg-amber-50 gap-1">
-                  <AlertCircle className="h-3 w-3" />
+                  <Icon name="error" className="h-3 w-3" />
                   Requiere reconexión
                 </Badge>
               )}
@@ -173,7 +174,7 @@ export function GoogleDriveIntegrationSection() {
             </p>
             {isAdmin ? (
               <Button size="sm" onClick={handleConnect} className="gap-2">
-                <HardDrive className="h-4 w-4" />
+                <Icon name="hard_drive" className="h-4 w-4" />
                 Conectar Google Drive
               </Button>
             ) : (

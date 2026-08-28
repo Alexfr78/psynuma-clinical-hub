@@ -9,8 +9,9 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
-import { AlertTriangle, Package, User } from 'lucide-react';
+
 import { BonoWithPatient, useDeleteBono } from '@/hooks/useBonos';
+import { Icon } from '@/components/ui/icon';
 
 interface DeleteBonoDialogProps {
   bono: BonoWithPatient | null;
@@ -40,7 +41,7 @@ export function DeleteBonoDialog({ bono, open, onOpenChange, onSuccess }: Delete
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle className="flex items-center gap-2">
-            <AlertTriangle className="h-5 w-5 text-destructive" />
+            <Icon name="warning" className="h-5 w-5 text-destructive" />
             Eliminar bono
           </AlertDialogTitle>
           <AlertDialogDescription asChild>
@@ -48,12 +49,12 @@ export function DeleteBonoDialog({ bono, open, onOpenChange, onSuccess }: Delete
               {/* Info del bono */}
               <div className="bg-muted/50 rounded-lg p-4 space-y-3">
                 <div className="flex items-center gap-2">
-                  <Package className="h-4 w-4 text-muted-foreground" />
+                  <Icon name="package_2" className="h-4 w-4 text-muted-foreground" />
                   <span className="font-medium">{bono.name}</span>
                 </div>
                 {bono.patients && (
                   <div className="flex items-center gap-2 text-sm">
-                    <User className="h-4 w-4 text-muted-foreground" />
+                    <Icon name="person" className="h-4 w-4 text-muted-foreground" />
                     <span>{bono.patients.first_name} {bono.patients.last_name}</span>
                   </div>
                 )}
@@ -79,7 +80,7 @@ export function DeleteBonoDialog({ bono, open, onOpenChange, onSuccess }: Delete
               {hasConsumedSessions ? (
                 <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-4 space-y-2">
                   <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400 font-medium">
-                    <AlertTriangle className="h-4 w-4" />
+                    <Icon name="warning" className="h-4 w-4" />
                     <span>Este bono tiene sesiones consumidas</span>
                   </div>
                   <p className="text-sm text-amber-600 dark:text-amber-500">
@@ -91,7 +92,7 @@ export function DeleteBonoDialog({ bono, open, onOpenChange, onSuccess }: Delete
               ) : (
                 <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4 space-y-2">
                   <div className="flex items-center gap-2 text-destructive font-medium">
-                    <AlertTriangle className="h-4 w-4" />
+                    <Icon name="warning" className="h-4 w-4" />
                     <span>Eliminación permanente</span>
                   </div>
                   <p className="text-sm text-destructive/80">

@@ -2,7 +2,7 @@ import { useState, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Save, Loader2, Upload, Shield, AlertTriangle, CheckCircle2, FileKey, Lock } from 'lucide-react';
+import { Lock } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,6 +15,7 @@ import { useCenter } from '@/hooks/useCenter';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { Icon } from '@/components/ui/icon';
 
 const verifactuSchema = z.object({
   verifactu_environment: z.enum(['test', 'production']),
@@ -158,7 +159,7 @@ export function VerifactuConfigSection() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <Icon name="progress_activity" className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -168,7 +169,7 @@ export function VerifactuConfigSection() {
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
-            <Shield className="h-5 w-5 text-primary" />
+            <Icon name="shield" className="h-5 w-5 text-primary" />
             <CardTitle>Configuración Verifactu</CardTitle>
           </div>
           <CardDescription>
@@ -198,13 +199,13 @@ export function VerifactuConfigSection() {
                   <SelectContent>
                     <SelectItem value="test">
                       <div className="flex items-center gap-2">
-                        <AlertTriangle className="h-4 w-4 text-amber-500" />
+                        <Icon name="warning" className="h-4 w-4 text-amber-500" />
                         Pruebas (pre-producción)
                       </div>
                     </SelectItem>
                     <SelectItem value="production">
                       <div className="flex items-center gap-2">
-                        <CheckCircle2 className="h-4 w-4 text-green-500" />
+                        <Icon name="check_circle" className="h-4 w-4 text-green-500" />
                         Producción
                       </div>
                     </SelectItem>
@@ -221,13 +222,13 @@ export function VerifactuConfigSection() {
             {/* Certificate Upload */}
             <div className="space-y-4">
               <h4 className="font-medium flex items-center gap-2">
-                <FileKey className="h-4 w-4" />
+                <Icon name="key" className="h-4 w-4" />
                 Certificado Digital
               </h4>
 
               {hasCertificate ? (
                 <Alert>
-                  <CheckCircle2 className="h-4 w-4 text-green-500" />
+                  <Icon name="check_circle" className="h-4 w-4 text-green-500" />
                   <AlertTitle>Certificado configurado</AlertTitle>
                   <AlertDescription className="flex items-center justify-between">
                     <span>Tienes un certificado digital configurado para firmar facturas.</span>
@@ -240,7 +241,7 @@ export function VerifactuConfigSection() {
                 </Alert>
               ) : (
                 <Alert variant="destructive">
-                  <AlertTriangle className="h-4 w-4" />
+                  <Icon name="warning" className="h-4 w-4" />
                   <AlertTitle>Sin certificado</AlertTitle>
                   <AlertDescription>
                     Necesitas subir tu certificado digital (.p12 o .pfx) para poder firmar facturas con Verifactu.
@@ -268,7 +269,7 @@ export function VerifactuConfigSection() {
                       onClick={() => fileInputRef.current?.click()}
                       className="w-full"
                     >
-                      <Upload className="mr-2 h-4 w-4" />
+                      <Icon name="upload" className="mr-2 h-4 w-4" />
                       {certificateFile ? certificateFile.name : 'Seleccionar archivo'}
                     </Button>
                   </div>
@@ -378,9 +379,9 @@ export function VerifactuConfigSection() {
                   disabled={isUploading || updateCenter.isPending}
                 >
                   {(isUploading || updateCenter.isPending) ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <Icon name="progress_activity" className="mr-2 h-4 w-4 animate-spin" />
                   ) : (
-                    <Save className="mr-2 h-4 w-4" />
+                    <Icon name="save" className="mr-2 h-4 w-4" />
                   )}
                   Guardar configuración
                 </Button>

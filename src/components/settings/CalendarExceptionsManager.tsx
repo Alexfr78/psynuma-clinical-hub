@@ -11,7 +11,7 @@ import {
   getYear,
 } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Trash2, Pencil } from 'lucide-react';
+
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
@@ -25,6 +25,7 @@ import { ScheduleException, getReasonLabel } from '@/lib/schedule-exceptions';
 import { useDeleteScheduleException } from '@/hooks/useScheduleExceptions';
 import { BatchExceptionDialog } from './BatchExceptionDialog';
 import { CreateScheduleExceptionDialog } from './CreateScheduleExceptionDialog';
+import { Icon } from '@/components/ui/icon';
 
 const REASON_COLORS: Record<string, { bg: string; dot: string; label: string }> = {
   holiday:    { bg: 'bg-destructive/10', dot: 'bg-destructive',                        label: 'Festivo' },
@@ -118,11 +119,11 @@ export function CalendarExceptionsManager({ exceptions, professionals, centerId 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setYear(y => y - 1)}>
-            <ChevronLeft className="h-4 w-4" />
+            <Icon name="chevron_left" className="h-4 w-4" />
           </Button>
           <span className="text-lg font-semibold min-w-[4ch] text-center">{year}</span>
           <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setYear(y => y + 1)}>
-            <ChevronRight className="h-4 w-4" />
+            <Icon name="chevron_right" className="h-4 w-4" />
           </Button>
         </div>
 
@@ -313,10 +314,10 @@ function MonthMiniCalendar({
                       </div>
                       <div className="flex gap-0.5 shrink-0">
                         <Button variant="ghost" size="icon" className="h-5 w-5" onClick={(e) => { e.stopPropagation(); onEditException(exc); }}>
-                          <Pencil className="h-3 w-3" />
+                          <Icon name="edit" className="h-3 w-3" />
                         </Button>
                         <Button variant="ghost" size="icon" className="h-5 w-5 text-destructive" onClick={(e) => { e.stopPropagation(); onDeleteException(exc); }}>
-                          <Trash2 className="h-3 w-3" />
+                          <Icon name="delete" className="h-3 w-3" />
                         </Button>
                       </div>
                     </div>

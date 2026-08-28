@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Save, RotateCcw, Info, Wallet, Mail, MessageCircle, Smartphone, CreditCard, Building2 } from 'lucide-react';
+
 import { useCenter } from '@/hooks/useCenter';
 import { 
   useCommunicationTemplate, 
@@ -16,6 +16,7 @@ import {
   PAYMENT_REMINDER_VARIABLES,
   TemplateChannel
 } from '@/hooks/useCommunicationTemplates';
+import { Icon } from '@/components/ui/icon';
 
 export function PaymentReminderTemplateEditor() {
   const [activeTab, setActiveTab] = useState<TemplateChannel>('whatsapp');
@@ -187,7 +188,7 @@ export function PaymentReminderTemplateEditor() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <Icon name="progress_activity" className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -201,7 +202,7 @@ export function PaymentReminderTemplateEditor() {
     <Card>
       <CardHeader>
         <div className="flex items-center gap-2">
-          <Wallet className="h-5 w-5 text-primary" />
+          <Icon name="account_balance_wallet" className="h-5 w-5 text-primary" />
           <CardTitle>Plantillas de Recordatorio de Pago</CardTitle>
         </div>
         <CardDescription>
@@ -211,7 +212,7 @@ export function PaymentReminderTemplateEditor() {
       </CardHeader>
       <CardContent className="space-y-6">
         <Alert>
-          <Info className="h-4 w-4" />
+          <Icon name="info" className="h-4 w-4" />
           <AlertDescription>
             El mensaje base se enviará siempre. Los textos de las opciones de pago (Stripe, Bizum, Bono) 
             se añadirán automáticamente según lo que selecciones al enviar el recordatorio.
@@ -241,15 +242,15 @@ export function PaymentReminderTemplateEditor() {
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TemplateChannel)}>
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="whatsapp">
-              <MessageCircle className="h-4 w-4 mr-2" />
+              <Icon name="chat" className="h-4 w-4 mr-2" />
               WhatsApp
             </TabsTrigger>
             <TabsTrigger value="email">
-              <Mail className="h-4 w-4 mr-2" />
+              <Icon name="mail" className="h-4 w-4 mr-2" />
               Email
             </TabsTrigger>
             <TabsTrigger value="sms">
-              <Smartphone className="h-4 w-4 mr-2" />
+              <Icon name="smartphone" className="h-4 w-4 mr-2" />
               SMS
             </TabsTrigger>
           </TabsList>
@@ -293,7 +294,7 @@ export function PaymentReminderTemplateEditor() {
             {/* Payment options - WhatsApp */}
             <div className="space-y-4 pt-4 border-t">
               <div className="flex items-center gap-2">
-                <CreditCard className="h-4 w-4 text-muted-foreground" />
+                <Icon name="credit_card" className="h-4 w-4 text-muted-foreground" />
                 <Label className="text-base font-medium">Opciones de pago</Label>
               </div>
               <p className="text-sm text-muted-foreground">
@@ -303,7 +304,7 @@ export function PaymentReminderTemplateEditor() {
               <div className="grid gap-4">
                 <div className="space-y-2 p-3 border rounded-lg">
                   <Label htmlFor="wa_stripe" className="flex items-center gap-2">
-                    <CreditCard className="h-4 w-4 text-blue-600" />
+                    <Icon name="credit_card" className="h-4 w-4 text-blue-600" />
                     Enlace de pago (Stripe)
                   </Label>
                   <Input
@@ -319,7 +320,7 @@ export function PaymentReminderTemplateEditor() {
 
                 <div className="space-y-2 p-3 border rounded-lg">
                   <Label htmlFor="wa_bizum" className="flex items-center gap-2">
-                    <Smartphone className="h-4 w-4 text-green-600" />
+                    <Icon name="smartphone" className="h-4 w-4 text-green-600" />
                     Bizum
                   </Label>
                   <Input
@@ -335,7 +336,7 @@ export function PaymentReminderTemplateEditor() {
 
                 <div className="space-y-2 p-3 border rounded-lg">
                   <Label htmlFor="wa_transfer" className="flex items-center gap-2">
-                    <Building2 className="h-4 w-4 text-amber-600" />
+                    <Icon name="apartment" className="h-4 w-4 text-amber-600" />
                     Transferencia bancaria
                   </Label>
                   <Textarea
@@ -352,7 +353,7 @@ export function PaymentReminderTemplateEditor() {
 
                 <div className="space-y-2 p-3 border rounded-lg">
                   <Label htmlFor="wa_bono" className="flex items-center gap-2">
-                    <Wallet className="h-4 w-4 text-purple-600" />
+                    <Icon name="account_balance_wallet" className="h-4 w-4 text-purple-600" />
                     Bono
                   </Label>
                   <Input
@@ -422,14 +423,14 @@ export function PaymentReminderTemplateEditor() {
             {/* Payment options - Email */}
             <div className="space-y-4 pt-4 border-t">
               <div className="flex items-center gap-2">
-                <CreditCard className="h-4 w-4 text-muted-foreground" />
+                <Icon name="credit_card" className="h-4 w-4 text-muted-foreground" />
                 <Label className="text-base font-medium">Opciones de pago</Label>
               </div>
               
               <div className="grid gap-4">
                 <div className="space-y-2 p-3 border rounded-lg">
                   <Label htmlFor="email_stripe" className="flex items-center gap-2">
-                    <CreditCard className="h-4 w-4 text-blue-600" />
+                    <Icon name="credit_card" className="h-4 w-4 text-blue-600" />
                     Enlace de pago (Stripe)
                   </Label>
                   <Input
@@ -442,7 +443,7 @@ export function PaymentReminderTemplateEditor() {
 
                 <div className="space-y-2 p-3 border rounded-lg">
                   <Label htmlFor="email_bizum" className="flex items-center gap-2">
-                    <Smartphone className="h-4 w-4 text-green-600" />
+                    <Icon name="smartphone" className="h-4 w-4 text-green-600" />
                     Bizum
                   </Label>
                   <Input
@@ -455,7 +456,7 @@ export function PaymentReminderTemplateEditor() {
 
                 <div className="space-y-2 p-3 border rounded-lg">
                   <Label htmlFor="email_transfer" className="flex items-center gap-2">
-                    <Building2 className="h-4 w-4 text-amber-600" />
+                    <Icon name="apartment" className="h-4 w-4 text-amber-600" />
                     Transferencia bancaria
                   </Label>
                   <Textarea
@@ -472,7 +473,7 @@ export function PaymentReminderTemplateEditor() {
 
                 <div className="space-y-2 p-3 border rounded-lg">
                   <Label htmlFor="email_bono" className="flex items-center gap-2">
-                    <Wallet className="h-4 w-4 text-purple-600" />
+                    <Icon name="account_balance_wallet" className="h-4 w-4 text-purple-600" />
                     Bono
                   </Label>
                   <Input
@@ -506,7 +507,7 @@ export function PaymentReminderTemplateEditor() {
             {/* Payment options - SMS */}
             <div className="space-y-4 pt-4 border-t">
               <div className="flex items-center gap-2">
-                <CreditCard className="h-4 w-4 text-muted-foreground" />
+                <Icon name="credit_card" className="h-4 w-4 text-muted-foreground" />
                 <Label className="text-base font-medium">Opciones de pago</Label>
               </div>
               <p className="text-sm text-muted-foreground">
@@ -516,7 +517,7 @@ export function PaymentReminderTemplateEditor() {
               <div className="grid gap-4">
                 <div className="space-y-2 p-3 border rounded-lg">
                   <Label htmlFor="sms_stripe" className="flex items-center gap-2">
-                    <CreditCard className="h-4 w-4 text-blue-600" />
+                    <Icon name="credit_card" className="h-4 w-4 text-blue-600" />
                     Enlace de pago (Stripe)
                   </Label>
                   <Input
@@ -529,7 +530,7 @@ export function PaymentReminderTemplateEditor() {
 
                 <div className="space-y-2 p-3 border rounded-lg">
                   <Label htmlFor="sms_bizum" className="flex items-center gap-2">
-                    <Smartphone className="h-4 w-4 text-green-600" />
+                    <Icon name="smartphone" className="h-4 w-4 text-green-600" />
                     Bizum
                   </Label>
                   <Input
@@ -542,7 +543,7 @@ export function PaymentReminderTemplateEditor() {
 
                 <div className="space-y-2 p-3 border rounded-lg">
                   <Label htmlFor="sms_transfer" className="flex items-center gap-2">
-                    <Building2 className="h-4 w-4 text-amber-600" />
+                    <Icon name="apartment" className="h-4 w-4 text-amber-600" />
                     Transferencia bancaria
                   </Label>
                   <Input
@@ -555,7 +556,7 @@ export function PaymentReminderTemplateEditor() {
 
                 <div className="space-y-2 p-3 border rounded-lg">
                   <Label htmlFor="sms_bono" className="flex items-center gap-2">
-                    <Wallet className="h-4 w-4 text-purple-600" />
+                    <Icon name="account_balance_wallet" className="h-4 w-4 text-purple-600" />
                     Bono
                   </Label>
                   <Input
@@ -572,14 +573,14 @@ export function PaymentReminderTemplateEditor() {
 
         <div className="flex justify-between pt-4">
           <Button variant="outline" onClick={handleResetToDefault}>
-            <RotateCcw className="mr-2 h-4 w-4" />
+            <Icon name="restart_alt" className="mr-2 h-4 w-4" />
             Usar texto por defecto
           </Button>
           <Button onClick={handleSave} disabled={upsertMutation.isPending}>
             {upsertMutation.isPending ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <Icon name="progress_activity" className="mr-2 h-4 w-4 animate-spin" />
             ) : (
-              <Save className="mr-2 h-4 w-4" />
+              <Icon name="save" className="mr-2 h-4 w-4" />
             )}
             Guardar cambios
           </Button>

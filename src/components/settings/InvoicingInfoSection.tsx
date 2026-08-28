@@ -1,7 +1,7 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Save, Loader2 } from 'lucide-react';
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,6 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { useCenter } from '@/hooks/useCenter';
 import { useAuth } from '@/hooks/useAuth';
+import { Icon } from '@/components/ui/icon';
 
 const invoicingInfoSchema = z.object({
   name: z.string().min(1, 'El nombre es obligatorio').max(200),
@@ -246,9 +247,9 @@ export function InvoicingInfoSection() {
             <div className="flex justify-end pt-4">
               <Button type="submit" disabled={updateCenter.isPending}>
                 {updateCenter.isPending ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Icon name="progress_activity" className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
-                  <Save className="mr-2 h-4 w-4" />
+                  <Icon name="save" className="mr-2 h-4 w-4" />
                 )}
                 Guardar
               </Button>

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Download, Loader2, FileText, Calendar } from 'lucide-react';
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { Icon } from '@/components/ui/icon';
 
 export function VerifactuExportSection() {
   const [startDate, setStartDate] = useState('');
@@ -51,7 +52,7 @@ export function VerifactuExportSection() {
     <Card>
       <CardHeader>
         <div className="flex items-center gap-2">
-          <FileText className="h-5 w-5 text-primary" />
+          <Icon name="description" className="h-5 w-5 text-primary" />
           <CardTitle>Exportar Registros VeriFactu</CardTitle>
         </div>
         <CardDescription>
@@ -63,7 +64,7 @@ export function VerifactuExportSection() {
           <div className="space-y-2">
             <Label htmlFor="start_date">Fecha inicio (opcional)</Label>
             <div className="relative">
-              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Icon name="calendar_month" className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 id="start_date"
                 type="date"
@@ -76,7 +77,7 @@ export function VerifactuExportSection() {
           <div className="space-y-2">
             <Label htmlFor="end_date">Fecha fin (opcional)</Label>
             <div className="relative">
-              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Icon name="calendar_month" className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 id="end_date"
                 type="date"
@@ -109,9 +110,9 @@ export function VerifactuExportSection() {
 
         <Button onClick={handleExport} disabled={isExporting} className="w-full sm:w-auto">
           {isExporting ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            <Icon name="progress_activity" className="mr-2 h-4 w-4 animate-spin" />
           ) : (
-            <Download className="mr-2 h-4 w-4" />
+            <Icon name="download" className="mr-2 h-4 w-4" />
           )}
           Exportar XML
         </Button>

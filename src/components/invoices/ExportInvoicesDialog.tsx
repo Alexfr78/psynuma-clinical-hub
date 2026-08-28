@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { CalendarIcon, Download, Loader2 } from 'lucide-react';
+
 import {
   ResponsiveDialog as Dialog,
   ResponsiveDialogContent as DialogContent,
@@ -32,6 +32,7 @@ import {
   type AccountingVerifactuRecord,
 } from '@/lib/export/invoiceAccountingExport';
 import { toast } from 'sonner';
+import { Icon } from '@/components/ui/icon';
 
 interface ExportInvoicesDialogProps {
   open: boolean;
@@ -227,7 +228,7 @@ export function ExportInvoicesDialog({ open, onOpenChange }: ExportInvoicesDialo
                     !dateFrom && 'text-muted-foreground'
                   )}
                 >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  <Icon name="calendar_month" className="mr-2 h-4 w-4" />
                   {dateFrom ? format(dateFrom, 'PPP', { locale: es }) : 'Seleccionar fecha'}
                 </Button>
               </PopoverTrigger>
@@ -255,7 +256,7 @@ export function ExportInvoicesDialog({ open, onOpenChange }: ExportInvoicesDialo
                     !dateTo && 'text-muted-foreground'
                   )}
                 >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  <Icon name="calendar_month" className="mr-2 h-4 w-4" />
                   {dateTo ? format(dateTo, 'PPP', { locale: es }) : 'Seleccionar fecha'}
                 </Button>
               </PopoverTrigger>
@@ -308,12 +309,12 @@ export function ExportInvoicesDialog({ open, onOpenChange }: ExportInvoicesDialo
           <Button onClick={handleExport} disabled={!isValid || isExporting}>
             {isExporting ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Icon name="progress_activity" className="mr-2 h-4 w-4 animate-spin" />
                 Exportando...
               </>
             ) : (
               <>
-                <Download className="mr-2 h-4 w-4" />
+                <Icon name="download" className="mr-2 h-4 w-4" />
                 Exportar CSV
               </>
             )}

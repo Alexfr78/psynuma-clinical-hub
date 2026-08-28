@@ -1,6 +1,7 @@
-import { X, Download, Share } from 'lucide-react';
+
 import { Button } from '@/components/ui/button';
 import { useInstallPrompt } from '@/hooks/useInstallPrompt';
+import { Icon } from '@/components/ui/icon';
 
 interface InstallBannerProps {
   token: string;
@@ -14,7 +15,7 @@ export function InstallBanner({ token }: InstallBannerProps) {
   return (
     <div className="rounded-lg border bg-card p-4 flex items-start gap-3 shadow-sm">
       <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10">
-        {isIOS ? <Share className="h-4 w-4 text-primary" /> : <Download className="h-4 w-4 text-primary" />}
+        {isIOS ? <Icon name="share" className="h-4 w-4 text-primary" /> : <Icon name="download" className="h-4 w-4 text-primary" />}
       </div>
 
       <div className="flex-1 min-w-0">
@@ -22,7 +23,7 @@ export function InstallBanner({ token }: InstallBannerProps) {
         {canInstall ? (
           <div className="mt-2">
             <Button size="sm" onClick={promptInstall}>
-              <Download className="mr-1.5 h-3.5 w-3.5" />
+              <Icon name="download" className="mr-1.5 h-3.5 w-3.5" />
               Añadir a inicio
             </Button>
           </div>
@@ -39,7 +40,7 @@ export function InstallBanner({ token }: InstallBannerProps) {
         className="shrink-0 rounded-full p-1 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
         aria-label="Cerrar"
       >
-        <X className="h-4 w-4" />
+        <Icon name="close" className="h-4 w-4" />
       </button>
     </div>
   );

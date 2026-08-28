@@ -1,18 +1,7 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import {
-  Plus,
-  Pencil,
-  Trash2,
-  Building2,
-  User,
-  CalendarClock,
-  CalendarX,
-  CalendarPlus,
-  CalendarRange,
-  Clock,
-} from 'lucide-react';
+import { CalendarClock, CalendarX, CalendarPlus } from 'lucide-react';
 import {
   Card,
   CardContent,
@@ -34,6 +23,7 @@ import {
   type SpecialDayType,
 } from '@/lib/special-days';
 import { CreateSpecialDayDialog } from './CreateSpecialDayDialog';
+import { Icon } from '@/components/ui/icon';
 
 const TYPE_COLORS: Record<SpecialDayType, string> = {
   closed: 'bg-destructive/10 text-destructive dark:bg-destructive/20',
@@ -85,7 +75,7 @@ export function SpecialDaysSection() {
         <div className="flex items-start justify-between gap-3">
           <div>
             <CardTitle className="flex items-center gap-2">
-              <CalendarRange className="h-5 w-5" />
+              <Icon name="date_range" className="h-5 w-5" />
               Días especiales
             </CardTitle>
             <CardDescription>
@@ -93,7 +83,7 @@ export function SpecialDaysSection() {
             </CardDescription>
           </div>
           <Button onClick={handleCreate} size="sm" variant="outline" className="shrink-0">
-            <Plus className="h-4 w-4 mr-1" /> Nuevo día especial
+            <Icon name="add" className="h-4 w-4 mr-1" /> Nuevo día especial
           </Button>
         </div>
       </CardHeader>
@@ -102,7 +92,7 @@ export function SpecialDaysSection() {
           <p className="text-muted-foreground text-sm py-4">Cargando...</p>
         ) : !specialDays?.length ? (
           <div className="text-center py-8 text-muted-foreground">
-            <CalendarRange className="h-10 w-10 mx-auto mb-2 opacity-30" />
+            <Icon name="date_range" className="h-10 w-10 mx-auto mb-2 opacity-30" />
             <p className="text-sm">No hay días especiales configurados</p>
             <p className="text-xs mt-1">
               Usa el botón «Nuevo día especial» para crear excepciones al horario semanal
@@ -127,12 +117,12 @@ export function SpecialDaysSection() {
                       <Badge variant="secondary" className="text-xs">
                         {sd.scope === 'center' ? (
                           <>
-                            <Building2 className="h-3 w-3 mr-1" />
+                            <Icon name="apartment" className="h-3 w-3 mr-1" />
                             Centro
                           </>
                         ) : (
                           <>
-                            <User className="h-3 w-3 mr-1" />
+                            <Icon name="person" className="h-3 w-3 mr-1" />
                             {getProfessionalName(sd.professional_id)}
                           </>
                         )}
@@ -157,7 +147,7 @@ export function SpecialDaysSection() {
 
                     {sd.type !== 'closed' && slots.length > 0 && (
                       <div className="mt-1.5 flex items-center gap-1.5 flex-wrap text-xs text-muted-foreground">
-                        <Clock className="h-3 w-3" />
+                        <Icon name="schedule" className="h-3 w-3" />
                         <span>
                           {slots
                             .map((s) => `${s.start_time.slice(0, 5)}–${s.end_time.slice(0, 5)}`)
@@ -178,7 +168,7 @@ export function SpecialDaysSection() {
                       className="h-8 w-8"
                       onClick={() => handleEdit(sd)}
                     >
-                      <Pencil className="h-3.5 w-3.5" />
+                      <Icon name="edit" className="h-3.5 w-3.5" />
                     </Button>
                     <Button
                       variant="ghost"
@@ -186,7 +176,7 @@ export function SpecialDaysSection() {
                       className="h-8 w-8 text-destructive"
                       onClick={() => deleteSpecialDay.mutate(sd.id)}
                     >
-                      <Trash2 className="h-3.5 w-3.5" />
+                      <Icon name="delete" className="h-3.5 w-3.5" />
                     </Button>
                   </div>
                 </div>

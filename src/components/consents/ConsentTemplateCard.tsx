@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FileText, Edit2, Trash2, MoreVertical, Copy, Users, Phone } from 'lucide-react';
+
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -24,6 +24,7 @@ import { ConsentTemplate, useConsentTemplates } from '@/hooks/useConsentTemplate
 import { CreateTemplateDialog } from './CreateTemplateDialog';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { Icon } from '@/components/ui/icon';
 
 interface ConsentTemplateCardProps {
   template: ConsentTemplate;
@@ -56,7 +57,7 @@ export function ConsentTemplateCard({ template }: ConsentTemplateCardProps) {
         <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
           <div className="flex items-start gap-3">
             <div className="rounded-lg bg-primary/10 p-2">
-              <FileText className="h-5 w-5 text-primary" />
+              <Icon name="description" className="h-5 w-5 text-primary" />
             </div>
             <div className="min-w-0 flex-1">
               <h3 className="font-semibold break-words">{template.name}</h3>
@@ -68,16 +69,16 @@ export function ConsentTemplateCard({ template }: ConsentTemplateCardProps) {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="h-8 w-8">
-                <MoreVertical className="h-4 w-4" />
+                <Icon name="more_vert" className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={() => setEditDialogOpen(true)}>
-                <Edit2 className="mr-2 h-4 w-4" />
+                <Icon name="edit" className="mr-2 h-4 w-4" />
                 Editar
               </DropdownMenuItem>
               <DropdownMenuItem onClick={handleDuplicate}>
-                <Copy className="mr-2 h-4 w-4" />
+                <Icon name="content_copy" className="mr-2 h-4 w-4" />
                 Duplicar
               </DropdownMenuItem>
               <DropdownMenuSeparator />
@@ -85,7 +86,7 @@ export function ConsentTemplateCard({ template }: ConsentTemplateCardProps) {
                 onClick={() => setDeleteDialogOpen(true)}
                 className="text-destructive focus:text-destructive"
               >
-                <Trash2 className="mr-2 h-4 w-4" />
+                <Icon name="delete" className="mr-2 h-4 w-4" />
                 Eliminar
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -98,13 +99,13 @@ export function ConsentTemplateCard({ template }: ConsentTemplateCardProps) {
             </Badge>
             {template.requires_guardian_signature && (
               <Badge variant="outline" className="gap-1">
-                <Users className="h-3 w-3" />
+                <Icon name="group" className="h-3 w-3" />
                 Requiere tutor
               </Badge>
             )}
             {template.requires_emergency_contact && (
               <Badge variant="outline" className="gap-1">
-                <Phone className="h-3 w-3" />
+                <Icon name="call" className="h-3 w-3" />
                 Contacto emergencia
               </Badge>
             )}

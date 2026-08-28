@@ -8,13 +8,14 @@ import {
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { ArrowDown, ArrowUp, Minus, Check, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, Minus } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import type { AutoregistroEntry } from '@/hooks/useAutoregistroEntries';
 import type { FieldDisplayMeta } from '@/lib/autoregistro-field-display';
 import { formatFieldForDisplay } from '@/lib/autoregistro-field-display';
+import { Icon } from '@/components/ui/icon';
 
 interface CompareRegistrosDialogProps {
   open: boolean;
@@ -231,9 +232,9 @@ function CompareCellValue({
     return (
       <div className="flex items-center gap-1.5">
         {currentValue ? (
-          <Check className="h-4 w-4 text-green-600" />
+          <Icon name="check" className="h-4 w-4 text-green-600" />
         ) : (
-          <X className="h-4 w-4 text-muted-foreground" />
+          <Icon name="close" className="h-4 w-4 text-muted-foreground" />
         )}
         {changed && (
           <Badge variant="outline" className="text-[9px] h-4 px-1">

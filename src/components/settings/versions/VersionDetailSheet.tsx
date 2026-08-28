@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { CheckCircle2, Shield, Package, Archive } from 'lucide-react';
+
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import type { AppVersion, AppChangeLog } from '@/hooks/useAppVersions';
+import { Icon } from '@/components/ui/icon';
 
 const changeTypeBadge: Record<string, { label: string; className: string }> = {
   feature: { label: 'Feature', className: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' },
@@ -87,7 +88,7 @@ export function VersionDetailSheet({
 
             {version.applies_to_verifactu && (
               <div className="flex items-center gap-2 text-sm">
-                <Shield className="h-4 w-4" />
+                <Icon name="shield" className="h-4 w-4" />
                 <span>VeriFactu:</span>
                 {version.verifactu_synced_at ? (
                   <span className="text-green-600 font-medium">
@@ -144,25 +145,25 @@ export function VersionDetailSheet({
             <div className="flex flex-wrap gap-2">
               {version.status === 'draft' && (
                 <Button size="sm" onClick={() => { onPublish(version.id); onOpenChange(false); }}>
-                  <CheckCircle2 className="mr-2 h-4 w-4" />
+                  <Icon name="check_circle" className="mr-2 h-4 w-4" />
                   Publicar versión
                 </Button>
               )}
               {version.status === 'published' && !version.is_current && (
                 <Button size="sm" onClick={() => { onSetCurrent(version.id); onOpenChange(false); }}>
-                  <Package className="mr-2 h-4 w-4" />
+                  <Icon name="package_2" className="mr-2 h-4 w-4" />
                   Marcar como actual
                 </Button>
               )}
               {(version.status === 'published' || version.is_current) && version.applies_to_verifactu && !version.verifactu_synced_at && (
                 <Button size="sm" variant="outline" onClick={() => { onSyncVerifactu(version); onOpenChange(false); }}>
-                  <Shield className="mr-2 h-4 w-4" />
+                  <Icon name="shield" className="mr-2 h-4 w-4" />
                   Sincronizar con VeriFactu
                 </Button>
               )}
               {version.status !== 'archived' && !version.is_current && (
                 <Button size="sm" variant="outline" onClick={() => { onArchive(version.id); onOpenChange(false); }}>
-                  <Archive className="mr-2 h-4 w-4" />
+                  <Icon name="archive" className="mr-2 h-4 w-4" />
                   Archivar
                 </Button>
               )}

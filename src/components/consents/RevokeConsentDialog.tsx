@@ -19,8 +19,9 @@ import {
 } from '@/components/ui/form';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Loader2, AlertTriangle } from 'lucide-react';
+
 import { Consent, useConsents } from '@/hooks/useConsents';
+import { Icon } from '@/components/ui/icon';
 
 const schema = z.object({
   reason: z.string().min(10, 'El motivo debe tener al menos 10 caracteres'),
@@ -62,7 +63,7 @@ export function RevokeConsentDialog({
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle className="flex items-center gap-2">
-            <AlertTriangle className="h-5 w-5 text-destructive" />
+            <Icon name="warning" className="h-5 w-5 text-destructive" />
             Revocar consentimiento
           </AlertDialogTitle>
           <AlertDialogDescription>
@@ -105,7 +106,7 @@ export function RevokeConsentDialog({
                 disabled={revokeConsent.isPending}
               >
                 {revokeConsent.isPending && (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Icon name="progress_activity" className="mr-2 h-4 w-4 animate-spin" />
                 )}
                 Revocar consentimiento
               </Button>

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Loader2, Save, ShieldAlert, Merge } from 'lucide-react';
+
 import { MergePatientsDialog } from '@/components/patients/MergePatientsDialog';
 import { validateSpanishTaxId } from '@/lib/nif-validation';
 import { DeletePatientGDPRDialog } from '@/components/patients/DeletePatientGDPRDialog';
@@ -29,6 +29,7 @@ import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { Patient, useUpdatePatient, useProfessionals } from '@/hooks/usePatients';
 import { useCenter } from '@/hooks/useCenter';
+import { Icon } from '@/components/ui/icon';
 
 const patientSchema = z.object({
   first_name: z.string().min(1, 'El nombre es obligatorio').max(100),
@@ -163,8 +164,8 @@ export function PatientData({ patient }: PatientDataProps) {
                   Cancelar
                 </Button>
                 <Button type="submit" size="sm" disabled={updatePatient.isPending}>
-                  {updatePatient.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  <Save className="mr-2 h-4 w-4" />
+                  {updatePatient.isPending && <Icon name="progress_activity" className="mr-2 h-4 w-4 animate-spin" />}
+                  <Icon name="save" className="mr-2 h-4 w-4" />
                   <span className="hidden sm:inline">Guardar</span>
                 </Button>
               </>
@@ -671,7 +672,7 @@ export function PatientData({ patient }: PatientDataProps) {
         <Card className="border-primary/30">
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
-              <Merge className="h-4 w-4" />
+              <Icon name="merge" className="h-4 w-4" />
               Fusionar duplicados
             </CardTitle>
           </CardHeader>
@@ -695,7 +696,7 @@ export function PatientData({ patient }: PatientDataProps) {
         <Card className="border-destructive/30">
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2 text-destructive">
-              <ShieldAlert className="h-4 w-4" />
+              <Icon name="gpp_maybe" className="h-4 w-4" />
               Zona de peligro — RGPD
             </CardTitle>
           </CardHeader>

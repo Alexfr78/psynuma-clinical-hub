@@ -3,22 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card } from '@/components/ui/card';
 import { TemplateVariables, TEMPLATE_VARIABLES } from './TemplateVariables';
-import { 
-  Eye, 
-  Code, 
-  Bold, 
-  Italic, 
-  Underline,
-  Heading1, 
-  Heading2,
-  Heading3,
-  List, 
-  ListOrdered,
-  AlignLeft,
-  AlignCenter,
-  AlignRight,
-  Type
-} from 'lucide-react';
+
 import { Toggle } from '@/components/ui/toggle';
 import { Separator } from '@/components/ui/separator';
 import {
@@ -30,6 +15,7 @@ import {
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { sanitizeHtml, sanitizePreview } from '@/lib/sanitize';
+import { Icon } from '@/components/ui/icon';
 
 interface TemplateEditorProps {
   value: string;
@@ -279,11 +265,11 @@ export function TemplateEditor({ value, onChange }: TemplateEditorProps) {
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'edit' | 'preview')}>
         <TabsList>
           <TabsTrigger value="edit" className="gap-2">
-            <Code className="h-4 w-4" />
+            <Icon name="code" className="h-4 w-4" />
             Editor
           </TabsTrigger>
           <TabsTrigger value="preview" className="gap-2">
-            <Eye className="h-4 w-4" />
+            <Icon name="visibility" className="h-4 w-4" />
             Vista previa
           </TabsTrigger>
         </TabsList>
@@ -296,21 +282,21 @@ export function TemplateEditor({ value, onChange }: TemplateEditorProps) {
               onPressedChange={() => execCommand('bold')}
               aria-label="Negrita"
             >
-              <Bold className="h-4 w-4" />
+              <Icon name="format_bold" className="h-4 w-4" />
             </Toggle>
             <Toggle
               size="sm"
               onPressedChange={() => execCommand('italic')}
               aria-label="Cursiva"
             >
-              <Italic className="h-4 w-4" />
+              <Icon name="format_italic" className="h-4 w-4" />
             </Toggle>
             <Toggle
               size="sm"
               onPressedChange={() => execCommand('underline')}
               aria-label="Subrayado"
             >
-              <Underline className="h-4 w-4" />
+              <Icon name="format_underlined" className="h-4 w-4" />
             </Toggle>
             
             <Separator orientation="vertical" className="mx-1 h-6" />
@@ -318,7 +304,7 @@ export function TemplateEditor({ value, onChange }: TemplateEditorProps) {
             {/* Font Size */}
             <Select onValueChange={handleFontSize}>
               <SelectTrigger className="h-8 w-[100px] text-xs">
-                <Type className="mr-1 h-3 w-3" />
+                <Icon name="text_fields" className="mr-1 h-3 w-3" />
                 <SelectValue placeholder="Tamaño" />
               </SelectTrigger>
               <SelectContent>
@@ -339,21 +325,21 @@ export function TemplateEditor({ value, onChange }: TemplateEditorProps) {
               onPressedChange={() => execCommand('formatBlock', 'h1')}
               aria-label="Título 1"
             >
-              <Heading1 className="h-4 w-4" />
+              <Icon name="format_h1" className="h-4 w-4" />
             </Toggle>
             <Toggle
               size="sm"
               onPressedChange={() => execCommand('formatBlock', 'h2')}
               aria-label="Título 2"
             >
-              <Heading2 className="h-4 w-4" />
+              <Icon name="format_h2" className="h-4 w-4" />
             </Toggle>
             <Toggle
               size="sm"
               onPressedChange={() => execCommand('formatBlock', 'h3')}
               aria-label="Título 3"
             >
-              <Heading3 className="h-4 w-4" />
+              <Icon name="format_h3" className="h-4 w-4" />
             </Toggle>
             
             <Separator orientation="vertical" className="mx-1 h-6" />
@@ -363,14 +349,14 @@ export function TemplateEditor({ value, onChange }: TemplateEditorProps) {
               onPressedChange={() => execCommand('insertUnorderedList')}
               aria-label="Lista"
             >
-              <List className="h-4 w-4" />
+              <Icon name="list" className="h-4 w-4" />
             </Toggle>
             <Toggle
               size="sm"
               onPressedChange={() => execCommand('insertOrderedList')}
               aria-label="Lista numerada"
             >
-              <ListOrdered className="h-4 w-4" />
+              <Icon name="format_list_numbered" className="h-4 w-4" />
             </Toggle>
             
             <Separator orientation="vertical" className="mx-1 h-6" />
@@ -380,21 +366,21 @@ export function TemplateEditor({ value, onChange }: TemplateEditorProps) {
               onPressedChange={() => execCommand('justifyLeft')}
               aria-label="Alinear izquierda"
             >
-              <AlignLeft className="h-4 w-4" />
+              <Icon name="format_align_left" className="h-4 w-4" />
             </Toggle>
             <Toggle
               size="sm"
               onPressedChange={() => execCommand('justifyCenter')}
               aria-label="Centrar"
             >
-              <AlignCenter className="h-4 w-4" />
+              <Icon name="format_align_center" className="h-4 w-4" />
             </Toggle>
             <Toggle
               size="sm"
               onPressedChange={() => execCommand('justifyRight')}
               aria-label="Alinear derecha"
             >
-              <AlignRight className="h-4 w-4" />
+              <Icon name="format_align_right" className="h-4 w-4" />
             </Toggle>
           </div>
 

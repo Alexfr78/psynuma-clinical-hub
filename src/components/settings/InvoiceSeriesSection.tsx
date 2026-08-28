@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Archive, RotateCcw, Star, MoreHorizontal, AlertTriangle, Pencil } from 'lucide-react';
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -23,6 +23,7 @@ import { useInvoiceSeries, InvoiceSeries } from '@/hooks/useInvoiceSeries';
 import { useCenter } from '@/hooks/useCenter';
 import { useAuth } from '@/hooks/useAuth';
 import { CreateSeriesDialog } from './CreateSeriesDialog';
+import { Icon } from '@/components/ui/icon';
 
 export function InvoiceSeriesSection() {
   const [showArchived, setShowArchived] = useState(false);
@@ -83,7 +84,7 @@ export function InvoiceSeriesSection() {
                     {series.name}
                     {series.is_default && (
                       <Badge variant="secondary" className="text-xs">
-                        <Star className="mr-1 h-3 w-3" />
+                        <Icon name="star" className="mr-1 h-3 w-3" />
                         Predeterminada
                       </Badge>
                     )}
@@ -108,23 +109,23 @@ export function InvoiceSeriesSection() {
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="icon">
-                          <MoreHorizontal className="h-4 w-4" />
+                          <Icon name="more_horiz" className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => handleEdit(series)}>
-                          <Pencil className="mr-2 h-4 w-4" />
+                          <Icon name="edit" className="mr-2 h-4 w-4" />
                           Editar
                         </DropdownMenuItem>
                         {!series.is_archived && !series.is_default && (
                           <DropdownMenuItem onClick={() => handleSetDefault(series)}>
-                            <Star className="mr-2 h-4 w-4" />
+                            <Icon name="star" className="mr-2 h-4 w-4" />
                             Predeterminada
                           </DropdownMenuItem>
                         )}
                         {series.is_archived ? (
                           <DropdownMenuItem onClick={() => handleRestore(series)}>
-                            <RotateCcw className="mr-2 h-4 w-4" />
+                            <Icon name="restart_alt" className="mr-2 h-4 w-4" />
                             Restaurar
                           </DropdownMenuItem>
                         ) : (
@@ -132,7 +133,7 @@ export function InvoiceSeriesSection() {
                             onClick={() => handleArchive(series)}
                             disabled={series.is_default}
                           >
-                            <Archive className="mr-2 h-4 w-4" />
+                            <Icon name="archive" className="mr-2 h-4 w-4" />
                             Archivar
                           </DropdownMenuItem>
                         )}
@@ -161,7 +162,7 @@ export function InvoiceSeriesSection() {
             </div>
             {isAdmin && (
               <Button onClick={() => setDialogOpen(true)}>
-                <Plus className="mr-2 h-4 w-4" />
+                <Icon name="add" className="mr-2 h-4 w-4" />
                 Añadir serie
               </Button>
             )}
@@ -170,7 +171,7 @@ export function InvoiceSeriesSection() {
         <CardContent className="space-y-6">
           {missingBillingInfo && (
             <Alert variant="default" className="border-amber-500/50 bg-amber-500/10">
-              <AlertTriangle className="h-4 w-4 text-amber-500" />
+              <Icon name="warning" className="h-4 w-4 text-amber-500" />
               <AlertDescription className="text-amber-700 dark:text-amber-400">
                 Para poder crear facturas, necesitas completar tu información fiscal (NIF/CIF y dirección) 
                 en la sección "Información de facturación".

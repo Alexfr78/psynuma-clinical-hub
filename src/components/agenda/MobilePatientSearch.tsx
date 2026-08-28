@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
-import { User, Plus, X, Search } from 'lucide-react';
+
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { usePatients } from '@/hooks/usePatients';
+import { Icon } from '@/components/ui/icon';
 
 interface MobilePatientSearchProps {
   open: boolean;
@@ -52,10 +53,10 @@ export function MobilePatientSearch({
             className="shrink-0 h-10 w-10"
             onClick={() => onOpenChange(false)}
           >
-            <X className="h-5 w-5" />
+            <Icon name="close" className="h-5 w-5" />
           </Button>
           <div className="relative flex-1 py-3">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Icon name="search" className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               ref={inputRef}
               placeholder="Buscar contacto..."
@@ -84,7 +85,7 @@ export function MobilePatientSearch({
                   }}
                 >
                   <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                    <User className="h-5 w-5 text-primary" />
+                    <Icon name="person" className="h-5 w-5 text-primary" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-medium truncate">
@@ -102,7 +103,7 @@ export function MobilePatientSearch({
           ) : (
             <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
               <div className="h-14 w-14 rounded-full bg-muted flex items-center justify-center mb-4">
-                <User className="h-7 w-7 text-muted-foreground" />
+                <Icon name="person" className="h-7 w-7 text-muted-foreground" />
               </div>
               <p className="text-muted-foreground mb-4">
                 {search
@@ -117,7 +118,7 @@ export function MobilePatientSearch({
                     onOpenChange(false);
                   }}
                 >
-                  <Plus className="h-4 w-4 mr-2" />
+                  <Icon name="add" className="h-4 w-4 mr-2" />
                   Crear nueva ficha de paciente
                 </Button>
               )}

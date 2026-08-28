@@ -26,7 +26,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
-import { Loader2, AlertCircle, Users, Phone } from 'lucide-react';
+
 import { useConsentTemplates } from '@/hooks/useConsentTemplates';
 import { useConsents } from '@/hooks/useConsents';
 import { useCenter } from '@/hooks/useCenter';
@@ -36,6 +36,7 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { sanitizeHtml } from '@/lib/sanitize';
+import { Icon } from '@/components/ui/icon';
 
 const schema = z.object({
   template_id: z.string().min(1, 'Selecciona una plantilla'),
@@ -139,7 +140,7 @@ export function CreateConsentDialog({
           {requiresGuardian && (
             <div className="mt-2 flex items-center gap-2">
               <Badge variant="outline" className="gap-1">
-                <Users className="h-3 w-3" />
+                <Icon name="group" className="h-3 w-3" />
                 Contacto menor
               </Badge>
               <span className="text-xs text-muted-foreground">
@@ -150,7 +151,7 @@ export function CreateConsentDialog({
           {selectedTemplate?.requires_emergency_contact && (
             <div className="mt-2 flex items-center gap-2">
               <Badge variant="outline" className="gap-1">
-                <Phone className="h-3 w-3" />
+                <Icon name="call" className="h-3 w-3" />
                 Contacto de emergencia
               </Badge>
               <span className="text-xs text-muted-foreground">
@@ -163,7 +164,7 @@ export function CreateConsentDialog({
 
         {requiresGuardian && !patient.guardian_name && (
           <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
+            <Icon name="error" className="h-4 w-4" />
             <AlertDescription>
               Este contacto es menor pero no tiene un tutor configurado. 
               Por favor, actualiza los datos del contacto antes de crear el consentimiento.
@@ -227,7 +228,7 @@ export function CreateConsentDialog({
                 disabled={createConsent.isPending || (requiresGuardian && !patient.guardian_name)}
               >
                 {createConsent.isPending && (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Icon name="progress_activity" className="mr-2 h-4 w-4 animate-spin" />
                 )}
                 Crear y generar enlace
               </Button>

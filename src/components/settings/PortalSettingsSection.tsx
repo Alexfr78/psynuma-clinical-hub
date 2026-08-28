@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Save, Loader2, Settings2, Globe, Copy, ExternalLink, Check } from 'lucide-react';
+import { Settings2 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,6 +11,7 @@ import { useCenter } from '@/hooks/useCenter';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfessionals } from '@/hooks/useProfessionals';
 import { toast } from 'sonner';
+import { Icon } from '@/components/ui/icon';
 
 export function PortalSettingsSection() {
   const { center, updateCenter } = useCenter();
@@ -107,7 +108,7 @@ export function PortalSettingsSection() {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Globe className="h-5 w-5" />
+          <Icon name="public" className="h-5 w-5" />
           Portal de Pacientes
         </CardTitle>
         <CardDescription>
@@ -293,7 +294,7 @@ export function PortalSettingsSection() {
             <div className="flex gap-2">
               <Button variant="outline" size="sm" asChild>
                 <a href={portalUrl} target="_blank" rel="noopener noreferrer">
-                  <ExternalLink className="h-4 w-4 mr-2" />
+                  <Icon name="open_in_new" className="h-4 w-4 mr-2" />
                   Vista previa
                 </a>
               </Button>
@@ -306,7 +307,7 @@ export function PortalSettingsSection() {
             />
             
             <Button variant="secondary" onClick={copyEmbedCode}>
-              {copied ? <Check className="h-4 w-4 mr-2" /> : <Copy className="h-4 w-4 mr-2" />}
+              {copied ? <Icon name="check" className="h-4 w-4 mr-2" /> : <Icon name="content_copy" className="h-4 w-4 mr-2" />}
               {copied ? 'Copiado' : 'Copiar código'}
             </Button>
           </div>
@@ -325,13 +326,13 @@ export function PortalSettingsSection() {
             <div className="flex gap-2">
               <Button variant="outline" size="sm" asChild>
                 <a href={publicBookingUrl} target="_blank" rel="noopener noreferrer">
-                  <ExternalLink className="h-4 w-4 mr-2" />
+                  <Icon name="open_in_new" className="h-4 w-4 mr-2" />
                   Vista previa
                 </a>
               </Button>
               <Button variant="outline" size="sm" asChild>
                 <a href={`${publicBookingUrl}?embed=1`} target="_blank" rel="noopener noreferrer">
-                  <ExternalLink className="h-4 w-4 mr-2" />
+                  <Icon name="open_in_new" className="h-4 w-4 mr-2" />
                   Modo embed
                 </a>
               </Button>
@@ -344,7 +345,7 @@ export function PortalSettingsSection() {
             />
             
             <Button variant="secondary" onClick={copyPublicBookingCode}>
-              {copiedPublic ? <Check className="h-4 w-4 mr-2" /> : <Copy className="h-4 w-4 mr-2" />}
+              {copiedPublic ? <Icon name="check" className="h-4 w-4 mr-2" /> : <Icon name="content_copy" className="h-4 w-4 mr-2" />}
               {copiedPublic ? 'Copiado' : 'Copiar código'}
             </Button>
           </div>
@@ -355,9 +356,9 @@ export function PortalSettingsSection() {
           <div className="flex justify-end pt-4 border-t">
             <Button onClick={handleSave} disabled={updateCenter.isPending}>
               {updateCenter.isPending ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Icon name="progress_activity" className="mr-2 h-4 w-4 animate-spin" />
               ) : (
-                <Save className="mr-2 h-4 w-4" />
+                <Icon name="save" className="mr-2 h-4 w-4" />
               )}
               Guardar Cambios
             </Button>

@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { ClipboardCheck, Plus, Loader2 } from 'lucide-react';
+
 import { Button } from '@/components/ui/button';
 import { useAssessments, Assessment } from '@/hooks/useAssessments';
 import { AssessmentCard } from '@/components/assessments/AssessmentCard';
 import { CreateAssessmentDialog } from '@/components/assessments/CreateAssessmentDialog';
 import { AssessmentDetailDialog } from '@/components/assessments/AssessmentDetailDialog';
 import { SendAssessmentDialog } from '@/components/assessments/SendAssessmentDialog';
+import { Icon } from '@/components/ui/icon';
 
 interface PatientAssessmentsProps {
   patientId: string;
@@ -20,7 +21,7 @@ export function PatientAssessments({ patientId }: PatientAssessmentsProps) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-32">
-        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        <Icon name="progress_activity" className="h-6 w-6 animate-spin text-primary" />
       </div>
     );
   }
@@ -30,14 +31,14 @@ export function PatientAssessments({ patientId }: PatientAssessmentsProps) {
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <h3 className="font-medium">Evaluaciones</h3>
         <Button size="sm" className="w-full sm:w-auto" onClick={() => setCreateOpen(true)}>
-          <Plus className="h-4 w-4 mr-1" />
+          <Icon name="add" className="h-4 w-4 mr-1" />
           Nueva
         </Button>
       </div>
 
       {assessments.length === 0 ? (
         <div className="text-center py-8 text-muted-foreground">
-          <ClipboardCheck className="h-10 w-10 mx-auto mb-2 opacity-50" />
+          <Icon name="assignment_turned_in" className="h-10 w-10 mx-auto mb-2 opacity-50" />
           <p>No hay evaluaciones</p>
           <Button variant="link" onClick={() => setCreateOpen(true)}>
             Crear evaluación

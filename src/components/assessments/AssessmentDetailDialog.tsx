@@ -3,7 +3,7 @@ import { ResponsiveDialog as Dialog, ResponsiveDialogContent as DialogContent, R
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { AlertTriangle, Loader2 } from 'lucide-react';
+
 import { Assessment } from '@/hooks/useAssessments';
 import { useAssessmentTemplates } from '@/hooks/useAssessmentTemplates';
 import { AssessmentResultsChart } from './AssessmentResultsChart';
@@ -12,6 +12,7 @@ import { PAIInterpretation } from '@/hooks/usePAIInterpretation';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useAuditLog } from '@/hooks/useAuditLog';
+import { Icon } from '@/components/ui/icon';
 
 interface AssessmentDetailDialogProps {
   assessment: Assessment | null;
@@ -66,7 +67,7 @@ export function AssessmentDetailDialog({ assessment, onClose }: AssessmentDetail
         <ScrollArea className="max-h-[70vh] pr-4">
           {templatesLoading ? (
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <Icon name="progress_activity" className="h-8 w-8 animate-spin text-primary" />
             </div>
           ) : !hasResults ? (
             <div className="text-center py-12 text-muted-foreground">
@@ -126,7 +127,7 @@ export function AssessmentDetailDialog({ assessment, onClose }: AssessmentDetail
                 <Card className="border-yellow-500/50">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-base flex items-center gap-2">
-                      <AlertTriangle className="h-5 w-5 text-yellow-600" />
+                      <Icon name="warning" className="h-5 w-5 text-yellow-600" />
                       Áreas de atención (puntuación &gt; 4)
                     </CardTitle>
                   </CardHeader>

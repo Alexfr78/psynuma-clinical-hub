@@ -31,24 +31,12 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  Shield,
-  RefreshCw,
-  FileText,
-  FileJson,
-  Search,
-  CalendarIcon,
-  Eye,
-  Activity,
-  Clock,
-  CheckCircle2,
-  AlertTriangle,
-  Info,
-} from "lucide-react";
+
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { useVerifactuEvents, VerifactuEvent } from "@/hooks/useVerifactuEvents";
+import { Icon } from '@/components/ui/icon';
 
 const EVENT_TYPES = [
   { value: "all", label: "Todos los tipos" },
@@ -133,7 +121,7 @@ export default function Audit() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-primary/10 rounded-lg shrink-0">
-            <Shield className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
+            <Icon name="shield" className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
           </div>
           <div className="min-w-0">
             <h1 className="text-xl sm:text-2xl font-bold tracking-tight truncate">Registro de Auditoría</h1>
@@ -144,15 +132,15 @@ export default function Audit() {
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <Button variant="outline" size="sm" onClick={() => refetch()}>
-            <RefreshCw className="h-4 w-4 sm:mr-2" />
+            <Icon name="refresh" className="h-4 w-4 sm:mr-2" />
             <span className="hidden sm:inline">Actualizar</span>
           </Button>
           <Button variant="outline" size="sm" onClick={exportToCSV}>
-            <FileText className="h-4 w-4 sm:mr-2" />
+            <Icon name="description" className="h-4 w-4 sm:mr-2" />
             <span className="hidden sm:inline">CSV</span>
           </Button>
           <Button variant="outline" size="sm" onClick={exportToJSON}>
-            <FileJson className="h-4 w-4 sm:mr-2" />
+            <Icon name="data_object" className="h-4 w-4 sm:mr-2" />
             <span className="hidden sm:inline">JSON</span>
           </Button>
         </div>
@@ -164,7 +152,7 @@ export default function Audit() {
           <CardContent className="p-3 sm:pt-6 sm:px-6 sm:pb-6">
             <div className="flex items-center gap-2 sm:gap-3">
               <div className="p-1.5 sm:p-2 bg-primary/10 rounded-lg">
-                <Activity className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+                <Icon name="monitor_heart" className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
               </div>
               <div>
                 <p className="text-lg sm:text-2xl font-bold">{stats.total}</p>
@@ -177,7 +165,7 @@ export default function Audit() {
           <CardContent className="p-3 sm:pt-6 sm:px-6 sm:pb-6">
             <div className="flex items-center gap-2 sm:gap-3">
               <div className="p-1.5 sm:p-2 bg-blue-500/10 rounded-lg">
-                <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-blue-500" />
+                <Icon name="schedule" className="h-4 w-4 sm:h-5 sm:w-5 text-blue-500" />
               </div>
               <div>
                 <p className="text-lg sm:text-2xl font-bold">{stats.today}</p>
@@ -190,7 +178,7 @@ export default function Audit() {
           <CardContent className="p-3 sm:pt-6 sm:px-6 sm:pb-6">
             <div className="flex items-center gap-2 sm:gap-3">
               <div className="p-1.5 sm:p-2 bg-green-500/10 rounded-lg">
-                <CheckCircle2 className="h-4 w-4 sm:h-5 sm:w-5 text-green-500" />
+                <Icon name="check_circle" className="h-4 w-4 sm:h-5 sm:w-5 text-green-500" />
               </div>
               <div>
                 <p className="text-lg sm:text-2xl font-bold">{stats.rfGenerated}</p>
@@ -203,7 +191,7 @@ export default function Audit() {
           <CardContent className="p-3 sm:pt-6 sm:px-6 sm:pb-6">
             <div className="flex items-center gap-2 sm:gap-3">
               <div className="p-1.5 sm:p-2 bg-destructive/10 rounded-lg">
-                <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5 text-destructive" />
+                <Icon name="warning" className="h-4 w-4 sm:h-5 sm:w-5 text-destructive" />
               </div>
               <div>
                 <p className="text-lg sm:text-2xl font-bold">{stats.errors}</p>
@@ -219,7 +207,7 @@ export default function Audit() {
         <CardContent className="p-3 sm:pt-6 sm:px-6 sm:pb-6">
           <div className="flex flex-col gap-3 sm:gap-4">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Icon name="search" className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Buscar por factura..."
                 value={search}
@@ -243,7 +231,7 @@ export default function Audit() {
               <Popover>
                 <PopoverTrigger asChild>
                   <Button variant="outline" className="w-full sm:w-[130px] justify-start text-xs sm:text-sm">
-                    <CalendarIcon className="mr-1 sm:mr-2 h-4 w-4" />
+                    <Icon name="calendar_month" className="mr-1 sm:mr-2 h-4 w-4" />
                     {startDate ? format(startDate, "dd/MM/yy") : "Desde"}
                   </Button>
                 </PopoverTrigger>
@@ -260,7 +248,7 @@ export default function Audit() {
               <Popover>
                 <PopoverTrigger asChild>
                   <Button variant="outline" className="w-full sm:w-[130px] justify-start text-xs sm:text-sm">
-                    <CalendarIcon className="mr-1 sm:mr-2 h-4 w-4" />
+                    <Icon name="calendar_month" className="mr-1 sm:mr-2 h-4 w-4" />
                     {endDate ? format(endDate, "dd/MM/yy") : "Hasta"}
                   </Button>
                 </PopoverTrigger>
@@ -284,7 +272,7 @@ export default function Audit() {
       <Card>
         <CardContent className="p-3 sm:pt-6 sm:px-6 sm:pb-6">
           <div className="flex items-center gap-2 mb-4 p-2 sm:p-3 bg-muted/50 rounded-lg">
-            <Info className="h-4 w-4 text-muted-foreground shrink-0" />
+            <Icon name="info" className="h-4 w-4 text-muted-foreground shrink-0" />
             <p className="text-xs sm:text-sm text-muted-foreground">
               Registros inmutables (VeriFactu Art. 8 RD 1007/2023)
             </p>
@@ -292,11 +280,11 @@ export default function Audit() {
 
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
-              <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
+              <Icon name="refresh" className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           ) : events.length === 0 ? (
             <div className="text-center py-12">
-              <Shield className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <Icon name="shield" className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <p className="text-muted-foreground">No hay eventos de auditoría</p>
             </div>
           ) : (
@@ -373,7 +361,7 @@ export default function Audit() {
                               size="icon"
                               onClick={() => setSelectedEvent(event)}
                             >
-                              <Eye className="h-4 w-4" />
+                              <Icon name="visibility" className="h-4 w-4" />
                             </Button>
                           </TableCell>
                         </TableRow>
@@ -392,7 +380,7 @@ export default function Audit() {
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Shield className="h-5 w-5" />
+              <Icon name="shield" className="h-5 w-5" />
               Detalle del Evento
             </DialogTitle>
           </DialogHeader>

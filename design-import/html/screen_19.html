@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+
+<html class="h-full" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Configuración - Psycma</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Plus+Jakarta+Sans:wght@600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "tertiary-container": "#994e00",
+                        "outline": "#787585",
+                        "secondary-container": "#62fae3",
+                        "on-primary": "#ffffff",
+                        "on-primary-fixed-variant": "#00497d",
+                        "surface-container": "#efeeec",
+                        "tertiary-fixed-dim": "#ffb782",
+                        "on-secondary-container": "#007165",
+                        "on-primary-container": "#cbe1ff",
+                        "surface-container-lowest": "#ffffff",
+                        "error-container": "#ffdad6",
+                        "surface-container-highest": "#e3e2e0",
+                        "inverse-on-surface": "#f1f1ef",
+                        "inverse-surface": "#2f3130",
+                        "primary-fixed": "#d1e4ff",
+                        "on-secondary-fixed-variant": "#005047",
+                        "secondary": "#006b5f",
+                        "secondary-fixed": "#62fae3",
+                        "inverse-primary": "#9fcaff",
+                        "on-surface-variant": "#474554",
+                        "on-secondary": "#ffffff",
+                        "on-tertiary-container": "#ffd7bc",
+                        "surface-dim": "#dadad8",
+                        "error": "#ba1a1a",
+                        "on-secondary-fixed": "#00201c",
+                        "outline-variant": "#c8c4d6",
+                        "background": "#faf9f7",
+                        "on-error": "#ffffff",
+                        "secondary-fixed-dim": "#3cddc7",
+                        "tertiary": "#763b00",
+                        "surface-container-high": "#e9e8e6",
+                        "on-surface": "#1a1c1b",
+                        "on-tertiary": "#ffffff",
+                        "surface": "#faf9f7",
+                        "surface-variant": "#e3e2e0",
+                        "on-background": "#1a1c1b",
+                        "primary-container": "#1b65a5",
+                        "on-tertiary-fixed-variant": "#703800",
+                        "surface-tint": "#1361a0",
+                        "on-primary-fixed": "#001d36",
+                        "primary-fixed-dim": "#9fcaff",
+                        "on-error-container": "#93000a",
+                        "tertiary-fixed": "#ffdcc5",
+                        "surface-container-low": "#f4f3f1",
+                        "on-tertiary-fixed": "#301400",
+                        "primary": "#004d84",
+                        "surface-bright": "#faf9f7"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "xs": "8px",
+                        "sm": "16px",
+                        "lg": "32px",
+                        "xl": "48px",
+                        "md": "24px",
+                        "grid-margin": "24px",
+                        "grid-gutter": "16px",
+                        "base": "4px"
+                    },
+                    "fontFamily": {
+                        "body-md": ["Inter"],
+                        "display-lg": ["Plus Jakarta Sans"],
+                        "body-sm": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "data-tabular": ["Inter"],
+                        "headline-md": ["Plus Jakarta Sans"],
+                        "label-md": ["Inter"],
+                        "headline-lg": ["Plus Jakarta Sans"],
+                        "headline-lg-mobile": ["Plus Jakarta Sans"]
+                    },
+                    "fontSize": {
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "display-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "body-sm": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+                        "data-tabular": ["14px", { "lineHeight": "20px", "fontWeight": "500" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "label-md": ["14px", { "lineHeight": "16px", "letterSpacing": "0.01em", "fontWeight": "600" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+                        "headline-lg-mobile": ["28px", { "lineHeight": "36px", "fontWeight": "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .shadow-soft {
+            box-shadow: 0 4px 20px rgba(78, 141, 207, 0.08);
+        }
+        .shadow-hover {
+            box-shadow: 0 10px 30px rgba(78, 141, 207, 0.12);
+        }
+    </style>
+</head>
+<body class="bg-background h-full font-body-md text-on-background antialiased flex">
+<!-- SideNavBar -->
+<aside class="bg-surface-white dark:bg-dark-surface h-screen w-64 fixed left-0 top-0 hidden lg:flex flex-col bg-surface-white dark:bg-dark-surface shadow-[4px_0_24px_rgba(90,79,207,0.05)] shadow-sm z-50">
+<div class="flex flex-col h-full py-md px-sm">
+<div class="mb-lg px-sm">
+<span class="font-headline-md text-headline-md font-bold text-primary dark:text-primary-fixed-dim">Psycma</span>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-1">Gestión Clínica</p>
+</div>
+<button class="bg-primary text-on-primary font-label-md text-label-md py-3 px-4 rounded-lg mb-6 flex items-center justify-center gap-2 hover:bg-primary/90 transition-colors">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">add</span>
+                Nueva Cita
+            </button>
+<nav class="flex-1 space-y-2 overflow-y-auto">
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors duration-200 cursor-pointer active:scale-95" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span class="font-body-md text-body-md">Panel</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors duration-200 cursor-pointer active:scale-95" href="#">
+<span class="material-symbols-outlined" data-icon="calendar_today">calendar_today</span>
+<span class="font-body-md text-body-md">Agenda</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors duration-200 cursor-pointer active:scale-95" href="#">
+<span class="material-symbols-outlined" data-icon="groups">groups</span>
+<span class="font-body-md text-body-md">Pacientes</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors duration-200 cursor-pointer active:scale-95" href="#">
+<span class="material-symbols-outlined" data-icon="payments">payments</span>
+<span class="font-body-md text-body-md">Finanzas</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors duration-200 cursor-pointer active:scale-95" href="#">
+<span class="material-symbols-outlined" data-icon="chat">chat</span>
+<span class="font-body-md text-body-md">Mensajes</span>
+</a>
+</nav>
+<div class="mt-auto space-y-2 pt-4 border-t border-surface-variant">
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-primary dark:text-primary-fixed-dim font-bold border-r-4 border-primary dark:border-primary-fixed-dim bg-primary-container/10 transition-colors duration-200 cursor-pointer active:scale-95" href="#">
+<span class="material-symbols-outlined" data-icon="settings" style="font-variation-settings: 'FILL' 1;">settings</span>
+<span class="font-body-md text-body-md">Configuración</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors duration-200 cursor-pointer active:scale-95" href="#">
+<span class="material-symbols-outlined" data-icon="logout">logout</span>
+<span class="font-body-md text-body-md">Cerrar Sesión</span>
+</a>
+</div>
+</div>
+</aside>
+<!-- Main Content Wrapper -->
+<div class="flex-1 flex flex-col min-h-screen lg:pl-64 w-full relative">
+<!-- TopAppBar -->
+<header class="bg-surface-white/80 dark:bg-dark-surface/80 backdrop-blur-md docked full-width top-0 sticky z-40 bg-surface-white/80 dark:bg-dark-surface/80 border-b border-surface-variant/30 shadow-sm flex justify-between items-center w-full h-16 px-md">
+<div class="flex items-center gap-4">
+<span class="font-headline-md text-headline-md font-bold text-primary dark:text-primary-fixed-dim lg:hidden">Psycma</span>
+<!-- Search on left -->
+<div class="hidden md:flex items-center bg-surface-container-low rounded-full px-4 py-2 focus-within:ring-2 focus-within:ring-primary/20">
+<span class="material-symbols-outlined text-on-surface-variant mr-2">search</span>
+<input class="bg-transparent border-none focus:ring-0 text-body-md font-body-md text-on-surface w-64 placeholder-on-surface-variant" placeholder="Buscar..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<button class="text-on-surface-variant hover:bg-surface-container-low rounded-full p-2 transition-all">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="text-on-surface-variant hover:bg-surface-container-low rounded-full p-2 transition-all">
+<span class="material-symbols-outlined" data-icon="help">help</span>
+</button>
+<div class="w-8 h-8 rounded-full overflow-hidden ml-2 border border-surface-variant">
+<img alt="Foto de perfil del psicólogo" class="w-full h-full object-cover" data-alt="A clean, professional headshot of a modern clinical psychologist in a warmly lit office, bright and trustworthy expression, high resolution, minimalist aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAT6ixL2leCuOg-bajiAYXkuRwF4NJE5R8BB7_NAeekcWMfwzfJMxnPetO4LaLLfEicpmPqc64JpVyU-Ht_8VQcrljiBYYd7KHurelDD5aJiqiDcBw3Q2q2U5B73jhHIBAeNS3qN0yCGUDWzhNbZ7Qdai3DN53EpDh1wAjPb4gSf82VK9PLPc8qeulqqrHDhEXZk_gmdqR6-JkxYyyEylyre8XXsYQR1DxpWtnnjsoRdfhHtWFA_Z5G"/>
+</div>
+</div>
+</header>
+<!-- Main Workspace -->
+<main class="flex-1 p-md md:p-grid-margin max-w-7xl mx-auto w-full flex flex-col md:flex-row gap-8">
+<!-- Internal Settings Navigation -->
+<aside class="w-full md:w-64 flex-shrink-0">
+<h1 class="font-headline-lg text-headline-lg md:font-headline-lg-mobile md:text-headline-lg-mobile text-on-background mb-6">Configuración</h1>
+<nav class="space-y-6">
+<div>
+<h3 class="font-label-md text-label-md text-outline uppercase tracking-wider mb-2 px-3">Mi Centro</h3>
+<ul class="space-y-1">
+<li><a class="block px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-low font-body-md text-body-md transition-colors" href="#">Perfil del centro</a></li>
+<li><a class="block px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-low font-body-md text-body-md transition-colors" href="#">Equipo</a></li>
+</ul>
+</div>
+<div>
+<h3 class="font-label-md text-label-md text-outline uppercase tracking-wider mb-2 px-3">Portal de Contactos</h3>
+<ul class="space-y-1">
+<li><a class="block px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-low font-body-md text-body-md transition-colors" href="#">Pacientes</a></li>
+<li><a class="block px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-low font-body-md text-body-md transition-colors" href="#">Invitaciones</a></li>
+</ul>
+</div>
+<div>
+<h3 class="font-label-md text-label-md text-outline uppercase tracking-wider mb-2 px-3">Pagos y Facturación</h3>
+<ul class="space-y-1">
+<li><a class="block px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-low font-body-md text-body-md transition-colors" href="#">Verifactu</a></li>
+<li><a class="block px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-low font-body-md text-body-md transition-colors" href="#">Impuestos</a></li>
+<li><a class="block px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-low font-body-md text-body-md transition-colors" href="#">Stripe</a></li>
+</ul>
+</div>
+<div>
+<h3 class="font-label-md text-label-md text-outline uppercase tracking-wider mb-2 px-3">Comunicaciones</h3>
+<ul class="space-y-1">
+<li><a class="block px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-low font-body-md text-body-md transition-colors" href="#">Plantillas Email</a></li>
+<li><a class="block px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-low font-body-md text-body-md transition-colors" href="#">WhatsApp</a></li>
+<li><a class="block px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-low font-body-md text-body-md transition-colors" href="#">SMS</a></li>
+</ul>
+</div>
+<div>
+<h3 class="font-label-md text-label-md text-outline uppercase tracking-wider mb-2 px-3">Conexiones Externas</h3>
+<ul class="space-y-1">
+<li><a class="block px-3 py-2 rounded-lg bg-primary-container/10 text-primary font-bold border-l-4 border-primary font-body-md text-body-md transition-colors" href="#">Integraciones</a></li>
+</ul>
+</div>
+<div>
+<h3 class="font-label-md text-label-md text-outline uppercase tracking-wider mb-2 px-3">Seguridad</h3>
+<ul class="space-y-1">
+<li><a class="block px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-low font-body-md text-body-md transition-colors" href="#">Contraseña</a></li>
+<li><a class="block px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-low font-body-md text-body-md transition-colors" href="#">2FA</a></li>
+<li><a class="block px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-low font-body-md text-body-md transition-colors" href="#">Sesiones</a></li>
+</ul>
+</div>
+<div>
+<h3 class="font-label-md text-label-md text-outline uppercase tracking-wider mb-2 px-3">Sistema</h3>
+<ul class="space-y-1">
+<li><a class="block px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-low font-body-md text-body-md transition-colors" href="#">Idioma</a></li>
+<li><a class="block px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-low font-body-md text-body-md transition-colors" href="#">Moneda</a></li>
+<li><a class="block px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-low font-body-md text-body-md transition-colors" href="#">Notificaciones</a></li>
+</ul>
+</div>
+</nav>
+</aside>
+<!-- Content Canvas -->
+<section class="flex-1 bg-surface-white rounded-xl shadow-soft border border-surface-variant/30 p-md lg:p-lg min-h-[600px]">
+<div class="mb-8">
+<h2 class="font-headline-md text-headline-md text-on-background mb-2">Conexiones Externas</h2>
+<p class="font-body-md text-body-md text-on-surface-variant">Gestiona las integraciones con servicios de terceros para potenciar tu clínica.</p>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<!-- Google Calendar -->
+<div class="bg-surface rounded-xl p-6 border border-surface-variant/50 hover:border-primary/30 transition-all shadow-sm hover:shadow-hover group flex flex-col justify-between">
+<div>
+<div class="flex justify-between items-start mb-4">
+<div class="w-12 h-12 bg-white rounded-lg shadow-sm flex items-center justify-center p-2 border border-surface-variant/20">
+<img alt="Google Calendar Logo" class="w-full h-full object-contain" data-alt="A clean, minimalist 3D rendering of the Google Calendar icon, isolated on a white background, soft studio lighting, modern tech aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBazhdN_fy8HdCBz4zDD_eeTDcn_sRylSl465qv2bpHDohAiWPtNAyAD39jaePGBcyvWnXzQbVlg8Bou5AJ6DJmuFwld0oqhS6ARrA_-97LviJTJk0DIdL4TpilrT8AmEYVIgmr_VehdKY3rkEOyR4Ri1rMsxvDbSE87Hro0layjhScYLW449qZrf7zXUS2AvXTwk3RsJRY2KLC80XvdnnB-OY1mk_ibsX-0Kz-lpijpUS7ZFGmlWsx"/>
+</div>
+<span class="bg-secondary/10 text-secondary font-label-md text-label-md px-3 py-1 rounded-full border border-secondary/20">Conectado</span>
+</div>
+<h3 class="font-headline-md text-headline-md text-on-surface mb-2 text-lg">Google Calendar</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant mb-6">Sincroniza tu agenda en tiempo real y evita solapamientos.</p>
+</div>
+<button class="w-full border border-primary/20 text-primary font-label-md text-label-md py-2 rounded-lg hover:bg-primary/5 transition-colors">Gestionar</button>
+</div>
+<!-- Zoom -->
+<div class="bg-surface rounded-xl p-6 border border-surface-variant/50 hover:border-primary/30 transition-all shadow-sm hover:shadow-hover group flex flex-col justify-between">
+<div>
+<div class="flex justify-between items-start mb-4">
+<div class="w-12 h-12 bg-[#2D8CFF] rounded-lg shadow-sm flex items-center justify-center p-2 border border-surface-variant/20">
+<span class="material-symbols-outlined text-white text-3xl">videocam</span>
+</div>
+<span class="bg-secondary/10 text-secondary font-label-md text-label-md px-3 py-1 rounded-full border border-secondary/20">Conectado</span>
+</div>
+<h3 class="font-headline-md text-headline-md text-on-surface mb-2 text-lg">Zoom</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant mb-6">Videollamadas integradas para sesiones online con enlaces únicos.</p>
+</div>
+<button class="w-full border border-primary/20 text-primary font-label-md text-label-md py-2 rounded-lg hover:bg-primary/5 transition-colors">Gestionar</button>
+</div>
+<!-- Stripe -->
+<div class="bg-surface rounded-xl p-6 border border-surface-variant/50 hover:border-primary/30 transition-all shadow-sm hover:shadow-hover group flex flex-col justify-between">
+<div>
+<div class="flex justify-between items-start mb-4">
+<div class="w-12 h-12 bg-[#635BFF] rounded-lg shadow-sm flex items-center justify-center p-2 border border-surface-variant/20">
+<span class="material-symbols-outlined text-white text-3xl">credit_card</span>
+</div>
+<span class="bg-secondary/10 text-secondary font-label-md text-label-md px-3 py-1 rounded-full border border-secondary/20">Conectado</span>
+</div>
+<h3 class="font-headline-md text-headline-md text-on-surface mb-2 text-lg">Stripe</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant mb-6">Pasarela de pagos y cobros automáticos para tus pacientes.</p>
+</div>
+<button class="w-full border border-primary/20 text-primary font-label-md text-label-md py-2 rounded-lg hover:bg-primary/5 transition-colors">Gestionar</button>
+</div>
+<!-- WhatsApp -->
+<div class="bg-surface rounded-xl p-6 border border-surface-variant/50 hover:border-primary/30 transition-all shadow-sm hover:shadow-hover group flex flex-col justify-between">
+<div>
+<div class="flex justify-between items-start mb-4">
+<div class="w-12 h-12 bg-[#25D366] rounded-lg shadow-sm flex items-center justify-center p-2 border border-surface-variant/20">
+<span class="material-symbols-outlined text-white text-3xl">chat</span>
+</div>
+<span class="bg-surface-variant text-on-surface-variant font-label-md text-label-md px-3 py-1 rounded-full border border-outline-variant">Desconectado</span>
+</div>
+<h3 class="font-headline-md text-headline-md text-on-surface mb-2 text-lg">WhatsApp</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant mb-6">Recordatorios automáticos por chat para reducir el ausentismo.</p>
+</div>
+<button class="w-full bg-primary text-on-primary font-label-md text-label-md py-2 rounded-lg hover:bg-primary/90 transition-colors">Conectar</button>
+</div>
+<!-- Email -->
+<div class="bg-surface rounded-xl p-6 border border-surface-variant/50 hover:border-primary/30 transition-all shadow-sm hover:shadow-hover group flex flex-col justify-between">
+<div>
+<div class="flex justify-between items-start mb-4">
+<div class="w-12 h-12 bg-surface-container-high rounded-lg shadow-sm flex items-center justify-center p-2 border border-surface-variant/20">
+<span class="material-symbols-outlined text-primary text-3xl">mail</span>
+</div>
+<span class="bg-surface-variant text-on-surface-variant font-label-md text-label-md px-3 py-1 rounded-full border border-outline-variant">Desconectado</span>
+</div>
+<h3 class="font-headline-md text-headline-md text-on-surface mb-2 text-lg">Email SMTP</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant mb-6">Servidor SMTP personalizado para envíos desde tu propio dominio.</p>
+</div>
+<button class="w-full bg-primary text-on-primary font-label-md text-label-md py-2 rounded-lg hover:bg-primary/90 transition-colors">Conectar</button>
+</div>
+<!-- IA Clínica -->
+<div class="bg-surface rounded-xl p-6 border border-primary/20 hover:border-primary/40 transition-all shadow-sm hover:shadow-hover group flex flex-col justify-between bg-gradient-to-br from-surface to-primary/5">
+<div>
+<div class="flex justify-between items-start mb-4">
+<div class="w-12 h-12 bg-primary rounded-lg shadow-sm flex items-center justify-center p-2 border border-primary/20">
+<span class="material-symbols-outlined text-white text-3xl" style="font-variation-settings: 'FILL' 1;">auto_awesome</span>
+</div>
+<span class="bg-secondary/10 text-secondary font-label-md text-label-md px-3 py-1 rounded-full border border-secondary/20">Conectado</span>
+</div>
+<h3 class="font-headline-md text-headline-md text-on-surface mb-2 text-lg">IA Clínica</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant mb-6">Análisis de sesiones y transcripciones asistidas por inteligencia artificial.</p>
+</div>
+<button class="w-full border border-primary/20 text-primary font-label-md text-label-md py-2 rounded-lg hover:bg-primary/10 transition-colors">Ajustes</button>
+</div>
+</div>
+</section>
+</main>
+</div>
+</body></html>

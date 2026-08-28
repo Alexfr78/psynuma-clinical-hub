@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plus, Send, Trash2, Search, GitCompare, Download } from 'lucide-react';
+
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -40,6 +40,7 @@ import {
   getVisibleFields,
   detectClinicalAlerts,
 } from '@/lib/autoregistro-field-display';
+import { Icon } from '@/components/ui/icon';
 
 const tabOptions = [
   { value: 'templates', label: 'Plantillas' },
@@ -184,10 +185,10 @@ export default function Autoregistros() {
         </div>
         <div className="flex gap-2">
           <Button size="sm" variant="outline" onClick={() => setCreateOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" /> Plantilla
+            <Icon name="add" className="h-4 w-4 mr-2" /> Plantilla
           </Button>
           <Button size="sm" onClick={() => setSendOpen(true)}>
-            <Send className="h-4 w-4 mr-2" /> Enviar
+            <Icon name="send" className="h-4 w-4 mr-2" /> Enviar
           </Button>
         </div>
       </div>
@@ -227,7 +228,7 @@ export default function Autoregistros() {
             <div className="text-center py-12">
               <p className="text-muted-foreground mb-4">No hay plantillas creadas</p>
               <Button onClick={() => setCreateOpen(true)}>
-                <Plus className="h-4 w-4 mr-2" /> Crear plantilla
+                <Icon name="add" className="h-4 w-4 mr-2" /> Crear plantilla
               </Button>
             </div>
           )}
@@ -246,7 +247,7 @@ export default function Autoregistros() {
             <div className="text-center py-12">
               <p className="text-muted-foreground mb-4">No hay envíos</p>
               <Button onClick={() => setSendOpen(true)}>
-                <Send className="h-4 w-4 mr-2" /> Enviar autorregistro
+                <Icon name="send" className="h-4 w-4 mr-2" /> Enviar autorregistro
               </Button>
             </div>
           )}
@@ -335,7 +336,7 @@ export default function Autoregistros() {
               <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
                 <div className="flex flex-col sm:flex-row gap-2 flex-1 min-w-0">
                   <div className="relative flex-1 min-w-0 max-w-xs">
-                    <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                    <Icon name="search" className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
                     <Input
                       type="search"
                       placeholder="Buscar en registros..."
@@ -376,7 +377,7 @@ export default function Autoregistros() {
                     disabled={selectedIds.size < 2}
                     onClick={() => setCompareOpen(true)}
                   >
-                    <GitCompare className="h-4 w-4" />
+                    <Icon name="compare_arrows" className="h-4 w-4" />
                     <span className="hidden sm:inline">Comparar</span>
                     {selectedIds.size >= 2 && (
                       <span className="text-xs">({selectedIds.size})</span>
@@ -389,7 +390,7 @@ export default function Autoregistros() {
                     onClick={exportSelectedAsCsv}
                     disabled={filteredEntries.length === 0}
                   >
-                    <Download className="h-4 w-4" />
+                    <Icon name="download" className="h-4 w-4" />
                     <span className="hidden sm:inline">Exportar</span>
                   </Button>
                   <Button
@@ -398,7 +399,7 @@ export default function Autoregistros() {
                     className="text-destructive border-destructive/30 hover:bg-destructive/10"
                     onClick={() => setConfirmDeleteOpen(true)}
                   >
-                    <Trash2 className="h-4 w-4 sm:mr-2" />
+                    <Icon name="delete" className="h-4 w-4 sm:mr-2" />
                     <span className="hidden sm:inline">Borrar todos</span>
                   </Button>
                 </div>

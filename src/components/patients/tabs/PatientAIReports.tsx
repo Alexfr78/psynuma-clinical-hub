@@ -3,12 +3,13 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Brain, FileText, User, ChevronDown, Mail, Phone, Loader2 } from 'lucide-react';
+
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { toast } from 'sonner';
 import { useCenter } from '@/hooks/useCenter';
+import { Icon } from '@/components/ui/icon';
 
 interface PatientAIReportsProps {
   patientId: string;
@@ -72,7 +73,7 @@ export function PatientAIReports({ patientId }: PatientAIReportsProps) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <Icon name="progress_activity" className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -80,7 +81,7 @@ export function PatientAIReports({ patientId }: PatientAIReportsProps) {
   if (!sessions || sessions.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12 text-center">
-        <Brain className="h-12 w-12 text-muted-foreground" />
+        <Icon name="psychology" className="h-12 w-12 text-muted-foreground" />
         <h3 className="mt-4 font-display text-lg font-semibold">Sin informes IA</h3>
         <p className="mt-2 max-w-sm text-sm text-muted-foreground">
           Los informes se generan desde el detalle de cada sesión → "Analizar transcripción".
@@ -96,7 +97,7 @@ export function PatientAIReports({ patientId }: PatientAIReportsProps) {
           <CollapsibleTrigger asChild>
             <div className="flex items-center justify-between rounded-lg border p-3 cursor-pointer hover:bg-muted/50 transition-colors">
               <div className="flex items-center gap-2">
-                <Brain className="h-4 w-4 text-primary" />
+                <Icon name="psychology" className="h-4 w-4 text-primary" />
                 <div>
                   <p className="text-sm font-medium">
                     {format(new Date(session.session_date), "d 'de' MMMM 'de' yyyy", { locale: es })}
@@ -113,7 +114,7 @@ export function PatientAIReports({ patientId }: PatientAIReportsProps) {
                 {session.ai_summary_patient && (
                   <Badge variant="outline" className="text-xs">Paciente</Badge>
                 )}
-                <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                <Icon name="expand_more" className="h-4 w-4 text-muted-foreground" />
               </div>
             </div>
           </CollapsibleTrigger>
@@ -121,7 +122,7 @@ export function PatientAIReports({ patientId }: PatientAIReportsProps) {
             {session.ai_summary_clinical && (
               <div className="space-y-1 mt-3">
                 <p className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
-                  <FileText className="h-3 w-3" />
+                  <Icon name="description" className="h-3 w-3" />
                   Informe clínico
                 </p>
                 <div className="rounded-md bg-muted p-3 text-sm whitespace-pre-wrap max-h-64 overflow-y-auto">
@@ -132,7 +133,7 @@ export function PatientAIReports({ patientId }: PatientAIReportsProps) {
             {session.ai_summary_patient && (
               <div className="space-y-2">
                 <p className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
-                  <User className="h-3 w-3" />
+                  <Icon name="person" className="h-3 w-3" />
                   Informe para el paciente
                 </p>
                 <div className="rounded-md bg-muted p-3 text-sm whitespace-pre-wrap max-h-64 overflow-y-auto">
@@ -146,7 +147,7 @@ export function PatientAIReports({ patientId }: PatientAIReportsProps) {
                       disabled={sendingId === session.id}
                       onClick={() => handleSend(session, 'whatsapp')}
                     >
-                      {sendingId === session.id ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Phone className="h-3 w-3 mr-1" />}
+                      {sendingId === session.id ? <Icon name="progress_activity" className="h-3 w-3 mr-1 animate-spin" /> : <Icon name="call" className="h-3 w-3 mr-1" />}
                       WhatsApp
                     </Button>
                   )}
@@ -157,7 +158,7 @@ export function PatientAIReports({ patientId }: PatientAIReportsProps) {
                       disabled={sendingId === session.id}
                       onClick={() => handleSend(session, 'email')}
                     >
-                      {sendingId === session.id ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Mail className="h-3 w-3 mr-1" />}
+                      {sendingId === session.id ? <Icon name="progress_activity" className="h-3 w-3 mr-1 animate-spin" /> : <Icon name="mail" className="h-3 w-3 mr-1" />}
                       Email
                     </Button>
                   )}

@@ -3,17 +3,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import {
-  Calendar,
-  Clock,
-  User,
-  FileText,
-  AlertTriangle,
-  AlertCircle,
-  Check,
-  X,
-  StickyNote,
-} from 'lucide-react';
+
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -27,6 +17,7 @@ import {
   type FieldDisplayMeta,
   type FormattedFieldValue,
 } from '@/lib/autoregistro-field-display';
+import { Icon } from '@/components/ui/icon';
 
 interface EntryDetailDrawerProps {
   open: boolean;
@@ -57,12 +48,12 @@ function DetailFieldValue({
         <div className="flex items-center gap-2">
           {formatted.raw ? (
             <>
-              <Check className="h-4 w-4 text-green-600" />
+              <Icon name="check" className="h-4 w-4 text-green-600" />
               <span className="text-sm font-medium">Sí</span>
             </>
           ) : (
             <>
-              <X className="h-4 w-4 text-muted-foreground" />
+              <Icon name="close" className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm font-medium text-muted-foreground">No</span>
             </>
           )}
@@ -180,31 +171,31 @@ export function EntryDetailDrawer({
             <div className="min-w-0 flex-1">
               <SheetTitle className="text-base flex items-center gap-2">
                 {alertSeverity === 'critical' && (
-                  <AlertTriangle className="h-4 w-4 text-red-500 shrink-0" />
+                  <Icon name="warning" className="h-4 w-4 text-red-500 shrink-0" />
                 )}
                 {alertSeverity === 'warning' && (
-                  <AlertCircle className="h-4 w-4 text-amber-500 shrink-0" />
+                  <Icon name="error" className="h-4 w-4 text-amber-500 shrink-0" />
                 )}
                 Detalle del registro
               </SheetTitle>
               <div className="mt-2 space-y-1 text-xs text-muted-foreground">
                 <div className="flex items-center gap-1.5">
-                  <User className="h-3.5 w-3.5 shrink-0" />
+                  <Icon name="person" className="h-3.5 w-3.5 shrink-0" />
                   <span className="truncate">
                     {patient.first_name} {patient.last_name ?? ''}
                   </span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <FileText className="h-3.5 w-3.5 shrink-0" />
+                  <Icon name="description" className="h-3.5 w-3.5 shrink-0" />
                   <span className="truncate">{template.name ?? '—'}</span>
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="flex items-center gap-1.5">
-                    <Calendar className="h-3.5 w-3.5 shrink-0" />
+                    <Icon name="calendar_month" className="h-3.5 w-3.5 shrink-0" />
                     {format(submittedAt, "d 'de' MMMM yyyy", { locale: es })}
                   </span>
                   <span className="flex items-center gap-1.5">
-                    <Clock className="h-3.5 w-3.5 shrink-0" />
+                    <Icon name="schedule" className="h-3.5 w-3.5 shrink-0" />
                     {format(submittedAt, 'HH:mm', { locale: es })}
                   </span>
                 </div>
@@ -268,7 +259,7 @@ export function EntryDetailDrawer({
             <Separator />
             <div className="space-y-2 rounded-md border border-dashed bg-muted/30 px-4 py-3">
               <div className="flex items-center gap-2 text-muted-foreground">
-                <StickyNote className="h-3.5 w-3.5" />
+                <Icon name="sticky_note_2" className="h-3.5 w-3.5" />
                 <p className="text-xs font-medium uppercase tracking-wide">
                   Notas clínicas del terapeuta
                 </p>

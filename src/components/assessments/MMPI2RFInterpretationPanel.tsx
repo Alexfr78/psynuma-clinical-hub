@@ -2,20 +2,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { 
-  CheckCircle, 
-  AlertTriangle, 
-  XCircle, 
-  RefreshCw, 
-  Loader2,
-  Shield,
-  Target,
-  Lightbulb,
-  AlertCircle,
-  FileText
-} from 'lucide-react';
+import { CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
 import { MMPI2RFInterpretation } from '@/hooks/useMMPI2RFInterpretation';
 import { MMPI2RF_SCALE_LABELS } from '@/data/mmpi2rf-template';
+import { Icon } from '@/components/ui/icon';
 
 interface MMPI2RFInterpretationPanelProps {
   interpretation: MMPI2RFInterpretation;
@@ -64,7 +54,7 @@ export function MMPI2RFInterpretationPanel({
         <CardHeader>
           <CardTitle className="text-base flex items-center justify-between">
             <span className="flex items-center gap-2">
-              <FileText className="h-5 w-5" />
+              <Icon name="description" className="h-5 w-5" />
               Interpretación Clínica MMPI-2-RF
             </span>
             {onRegenerate && (
@@ -75,9 +65,9 @@ export function MMPI2RFInterpretationPanel({
                 disabled={isRegenerating}
               >
                 {isRegenerating ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Icon name="progress_activity" className="h-4 w-4 animate-spin" />
                 ) : (
-                  <RefreshCw className="h-4 w-4" />
+                  <Icon name="refresh" className="h-4 w-4" />
                 )}
               </Button>
             )}
@@ -99,7 +89,7 @@ export function MMPI2RFInterpretationPanel({
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
             <CardTitle className="text-base flex items-center gap-2">
-              <Shield className="h-5 w-5" />
+              <Icon name="shield" className="h-5 w-5" />
               Validez del Protocolo MMPI-2-RF
             </CardTitle>
             {onRegenerate && (
@@ -112,12 +102,12 @@ export function MMPI2RFInterpretationPanel({
               >
                 {isRegenerating ? (
                   <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <Icon name="progress_activity" className="h-4 w-4 animate-spin" />
                     Regenerando...
                   </>
                 ) : (
                   <>
-                    <RefreshCw className="h-4 w-4" />
+                    <Icon name="refresh" className="h-4 w-4" />
                     Regenerar
                   </>
                 )}
@@ -150,7 +140,7 @@ export function MMPI2RFInterpretationPanel({
         <Card className="border-primary/30 bg-primary/5">
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
-              <FileText className="h-5 w-5" />
+              <Icon name="description" className="h-5 w-5" />
               Resumen Ejecutivo
             </CardTitle>
           </CardHeader>
@@ -171,7 +161,7 @@ export function MMPI2RFInterpretationPanel({
         }>
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
-              <AlertCircle className="h-5 w-5" />
+              <Icon name="error" className="h-5 w-5" />
               Evaluación de Riesgos
               <RiskBadge nivel={`Nivel ${interpretation.riesgos.nivelGlobal}`} />
             </CardTitle>
@@ -225,7 +215,7 @@ export function MMPI2RFInterpretationPanel({
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
-              <Target className="h-5 w-5" />
+              <Icon name="track_changes" className="h-5 w-5" />
               Perfil Clínico
             </CardTitle>
           </CardHeader>
@@ -269,7 +259,7 @@ export function MMPI2RFInterpretationPanel({
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5" />
+              <Icon name="warning" className="h-5 w-5" />
               Hipótesis Diagnósticas
             </CardTitle>
             <p className="text-xs text-muted-foreground">
@@ -294,7 +284,7 @@ export function MMPI2RFInterpretationPanel({
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
-              <Lightbulb className="h-5 w-5" />
+              <Icon name="lightbulb" className="h-5 w-5" />
               Recomendaciones de Intervención
             </CardTitle>
           </CardHeader>
@@ -325,7 +315,7 @@ export function MMPI2RFInterpretationPanel({
                 <ul className="space-y-1">
                   {interpretation.intervenciones.precauciones.map((precaucion, i) => (
                     <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
-                      <AlertTriangle className="h-4 w-4 text-yellow-600 mt-0.5 shrink-0" />
+                      <Icon name="warning" className="h-4 w-4 text-yellow-600 mt-0.5 shrink-0" />
                       {precaucion}
                     </li>
                   ))}

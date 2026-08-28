@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+
+<html class="h-full" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Detalle de Factura - Psycma</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">tailwind.config = {darkMode: "class", theme: {extend: {colors: {"secondary-fixed": "#62fae3", "on-secondary-fixed": "#00201c", "secondary-container": "#62fae3", "on-surface-variant": "#474554", "on-tertiary-fixed-variant": "#703800", "inverse-on-surface": "#f1f1ef", "on-error": "#ffffff", "inverse-surface": "#2f3130", "surface-bright": "#faf9f7", "tertiary-fixed": "#ffdcc5", error: "#ba1a1a", "on-secondary": "#ffffff", "text-main": "#1B1A24", "surface-container-highest": "#e3e2e0", "surface-container-high": "#e9e8e6", "on-error-container": "#93000a", "dark-bg": "#141320", "on-primary": "#ffffff", "on-primary-container": "#cbe1ff", "on-tertiary": "#ffffff", surface: "#faf9f7", "outline-variant": "#c8c4d6", "surface-container-lowest": "#ffffff", "primary-container": "#1b65a5", "on-primary-fixed": "#001d36", "on-secondary-fixed-variant": "#005047", "primary-fixed-dim": "#9fcaff", "surface-white": "#FFFFFF", "inverse-primary": "#9fcaff", "surface-dim": "#dadad8", "primary-fixed": "#d1e4ff", "on-surface": "#1a1c1b", "on-tertiary-container": "#ffd7bc", "on-secondary-container": "#007165", tertiary: "#763b00", "error-container": "#ffdad6", background: "#faf9f7", "surface-container": "#efeeec", warning: "#F59E0B", "tertiary-fixed-dim": "#ffb782", "tertiary-container": "#994e00", outline: "#787585", primary: "#004d84", "dark-surface": "#1E1D2B", "secondary-fixed-dim": "#3cddc7", "surface-container-low": "#f4f3f1", "on-primary-fixed-variant": "#00497d", "on-background": "#1a1c1b", "dark-text": "#ECEBF5", "on-tertiary-fixed": "#301400", secondary: "#006b5f", "surface-variant": "#e3e2e0", success: "#10B981", "surface-tint": "#1361a0"}, borderRadius: {DEFAULT: "0.25rem", lg: "0.5rem", xl: "0.75rem", full: "9999px"}, spacing: {"grid-gutter": "16px", md: "24px", "grid-margin": "24px", base: "4px", xs: "8px", sm: "16px", lg: "32px", xl: "48px"}, fontFamily: {"display-lg": ["Plus Jakarta Sans"], "headline-lg": ["Plus Jakarta Sans"], "body-lg": ["Inter"], "body-sm": ["Inter"], "data-tabular": ["Inter"], "headline-lg-mobile": ["Plus Jakarta Sans"], "label-md": ["Inter"], "headline-md": ["Plus Jakarta Sans"], "body-md": ["Inter"], headline: ["Plus Jakarta Sans"], display: ["Plus Jakarta Sans"], body: ["Inter"], label: ["Inter"]}, fontSize: {"display-lg": ["48px", {lineHeight: "56px", letterSpacing: "-0.02em", fontWeight: "700"}], "headline-lg": ["32px", {lineHeight: "40px", letterSpacing: "-0.01em", fontWeight: "600"}], "body-lg": ["18px", {lineHeight: "28px", fontWeight: "400"}], "body-sm": ["14px", {lineHeight: "20px", fontWeight: "400"}], "data-tabular": ["14px", {lineHeight: "20px", fontWeight: "500"}], "headline-lg-mobile": ["28px", {lineHeight: "36px", fontWeight: "600"}], "label-md": ["14px", {lineHeight: "16px", letterSpacing: "0.01em", fontWeight: "600"}], "headline-md": ["24px", {lineHeight: "32px", fontWeight: "600"}], "body-md": ["16px", {lineHeight: "24px", fontWeight: "400"}]}}}};</script>
+</head>
+<body class="bg-surface-bright text-on-surface h-full flex antialiased">
+<!-- SideNavBar -->
+<nav class="bg-surface dark:bg-dark-bg h-screen w-64 fixed left-0 top-0 hidden md:flex flex-col bg-surface-container-low dark:bg-dark-surface shadow-sm flex flex-col h-full py-md px-sm border-r border-surface-container-highest dark:border-outline-variant/20 z-10">
+<div class="mb-lg px-2">
+<h1 class="font-headline-md text-headline-md font-bold text-primary dark:text-inverse-primary">Psycma</h1>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Gestión Clínica</p>
+</div>
+<button class="bg-primary text-on-primary rounded-xl py-2 px-4 font-label-md text-label-md flex items-center justify-center gap-2 mb-md hover:shadow-[0_4px_12px_rgba(90,79,207,0.2)] transition-shadow duration-200 active:scale-95 transition-transform duration-150">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">add</span>
+            Nueva Cita
+        </button>
+<div class="flex-1 space-y-1">
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant dark:text-outline-variant font-label-md text-label-md hover:bg-surface-container-high dark:hover:bg-inverse-surface transition-colors duration-200 active:scale-95 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+                Panel
+            </a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant dark:text-outline-variant font-label-md text-label-md hover:bg-surface-container-high dark:hover:bg-inverse-surface transition-colors duration-200 active:scale-95 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined" data-icon="calendar_today">calendar_today</span>
+                Agenda
+            </a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant dark:text-outline-variant font-label-md text-label-md hover:bg-surface-container-high dark:hover:bg-inverse-surface transition-colors duration-200 active:scale-95 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined" data-icon="groups">groups</span>
+                Pacientes
+            </a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-primary dark:text-primary-fixed font-bold bg-primary-container/10 dark:bg-primary-fixed/10 font-label-md text-label-md hover:bg-surface-container-high dark:hover:bg-inverse-surface transition-colors duration-200 active:scale-95 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined" data-icon="payments" style="font-variation-settings: 'FILL' 1;">payments</span>
+                Finanzas
+            </a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant dark:text-outline-variant font-label-md text-label-md hover:bg-surface-container-high dark:hover:bg-inverse-surface transition-colors duration-200 active:scale-95 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined" data-icon="chat">chat</span>
+                Mensajes
+            </a>
+</div>
+<div class="mt-auto space-y-1 pt-4 border-t border-surface-container-highest">
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant font-label-md text-label-md hover:bg-surface-container-high transition-colors duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+                Configuración
+            </a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant font-label-md text-label-md hover:bg-surface-container-high transition-colors duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="help">help</span>
+                Ayuda
+            </a>
+</div>
+</nav>
+<!-- Main Content -->
+<main class="flex-1 ml-0 md:ml-64 p-4 md:p-md xl:p-xl overflow-y-auto">
+<div class="max-w-7xl mx-auto flex flex-col gap-md">
+<!-- Header -->
+<div class="flex items-center justify-between">
+<div>
+<div class="flex items-center gap-2 text-on-surface-variant font-body-sm text-body-sm mb-1">
+<span class="material-symbols-outlined text-sm">arrow_back</span>
+<a class="hover:text-primary transition-colors" href="#">Volver a Facturas</a>
+</div>
+<h2 class="font-headline-lg text-headline-lg text-on-surface">Factura #F-2023-0042</h2>
+</div>
+</div>
+<!-- Two Column Layout -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-md items-start">
+<!-- Left Column: Invoice Document (approx 70%) -->
+<div class="lg:col-span-8 bg-surface-white rounded-[16px] border border-[#F0EEEB] shadow-[0_4px_24px_rgba(90,79,207,0.04)] p-lg lg:p-xl">
+<!-- Invoice Header -->
+<div class="flex justify-between items-start mb-12 border-b border-surface-container pb-8">
+<div>
+<h3 class="font-headline-md text-headline-md text-primary font-bold mb-4">Psycma Centro Clínico</h3>
+<div class="font-body-sm text-body-sm text-on-surface-variant space-y-1">
+<p>CIF: B-12345678</p>
+<p>C/ Terapia Serena, 42, 1ºA</p>
+<p>28001 Madrid, España</p>
+<p>contacto@psycma.es</p>
+</div>
+</div>
+<div class="text-right">
+<h4 class="font-headline-lg text-headline-lg text-outline-variant mb-4 uppercase tracking-wider">Factura</h4>
+<div class="font-body-sm text-body-sm text-on-surface space-y-1">
+<p><span class="text-on-surface-variant">Nº Factura:</span> F-2023-0042</p>
+<p><span class="text-on-surface-variant">Fecha:</span> 26/10/2023</p>
+</div>
+</div>
+</div>
+<!-- Client Info -->
+<div class="mb-10">
+<h5 class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wide mb-3">Facturado a</h5>
+<div class="font-body-md text-body-md text-on-surface space-y-1 bg-surface-container-low p-4 rounded-lg">
+<p class="font-bold">Ana Sofía Torres</p>
+<p>NIF: 87654321-X</p>
+<p>Av. de la Calma, 15, 3ºB</p>
+<p>28005 Madrid</p>
+</div>
+</div>
+<!-- Invoice Table -->
+<div class="mb-12">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="border-b-2 border-surface-container">
+<th class="py-3 px-2 font-label-md text-label-md text-on-surface-variant">Concepto</th>
+<th class="py-3 px-2 font-label-md text-label-md text-on-surface-variant text-center w-24">Cant.</th>
+<th class="py-3 px-2 font-label-md text-label-md text-on-surface-variant text-right w-32">Precio</th>
+<th class="py-3 px-2 font-label-md text-label-md text-on-surface-variant text-right w-24">IVA</th>
+<th class="py-3 px-2 font-label-md text-label-md text-on-surface-variant text-right w-32">Total</th>
+</tr>
+</thead>
+<tbody class="font-data-tabular text-data-tabular text-on-surface">
+<tr class="border-b border-surface-container hover:bg-surface-container-lowest transition-colors">
+<td class="py-4 px-2">Sesión Terapia Individual (50 min)</td>
+<td class="py-4 px-2 text-center">1</td>
+<td class="py-4 px-2 text-right">49,59 €</td>
+<td class="py-4 px-2 text-right text-on-surface-variant">21%</td>
+<td class="py-4 px-2 text-right">60,00 €</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Totals -->
+<div class="flex justify-end">
+<div class="w-64 space-y-3">
+<div class="flex justify-between font-body-sm text-body-sm text-on-surface-variant">
+<span>Base Imponible</span>
+<span>49,59 €</span>
+</div>
+<div class="flex justify-between font-body-sm text-body-sm text-on-surface-variant border-b border-surface-container pb-3">
+<span>IVA (21%)</span>
+<span>10,41 €</span>
+</div>
+<div class="flex justify-between font-headline-md text-headline-md text-primary font-bold pt-1">
+<span>Total</span>
+<span>60,00 €</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Right Column: Verifactu Panel (approx 30%) -->
+<div class="lg:col-span-4 flex flex-col gap-md">
+<!-- Verifactu Card -->
+<div class="bg-surface-white rounded-[16px] border border-[#F0EEEB] shadow-[0_4px_16px_rgba(90,79,207,0.06)] p-md">
+<div class="flex items-center gap-3 mb-6 pb-4 border-b border-surface-container">
+<div class="bg-success/10 text-success p-2 rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined text-[24px]">verified_user</span>
+</div>
+<div>
+<h3 class="font-label-md text-label-md text-on-surface font-bold">VeriFactu AEAT</h3>
+<p class="font-body-sm text-body-sm text-success font-medium">Registro sellado y verificado</p>
+</div>
+</div>
+<div class="space-y-4 font-body-sm text-body-sm">
+<div>
+<span class="text-on-surface-variant block mb-1">Fecha de sellado</span>
+<span class="font-data-tabular text-data-tabular text-on-surface">26/10/2023 10:45:22 CET</span>
+</div>
+<div>
+<span class="text-on-surface-variant block mb-1">ID Registro AEAT</span>
+<span class="font-data-tabular text-data-tabular text-on-surface">VF-2023-A89B-44C2</span>
+</div>
+<div>
+<span class="text-on-surface-variant block mb-1">Huella (Hash)</span>
+<div class="bg-surface-container-low p-2 rounded-md break-all font-mono text-[11px] text-on-surface-variant border border-surface-container">
+                                    e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+                                </div>
+</div>
+</div>
+<div class="mt-6 pt-6 border-t border-surface-container flex justify-center">
+<div class="w-32 h-32 bg-surface-container-lowest border-2 border-outline-variant/30 rounded-lg flex items-center justify-center relative overflow-hidden" data-alt="A clean, high-contrast, black and white QR code graphic centered in a square frame. The style is modern, sharp, and functional, typical of official government or high-end fintech digital documents. The background is pure white to ensure maximum scannability and contrast." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuA1eVFbr4YD8eVbVkMCFWOvUt4Zm6P4I1VmxGdf4lHRTM_nmHLK6qJLL3_Is9i4plumram7to5LAV_TBnqrnBKRKwsZxSrYqdktWCwjOTpK03fk9nVVAxgS9GjZhHb7OB5jDO_OBZ51pseEIl60S9IhJ2g8zLpYOQEcvo67UGmoqQFiz3_tkkylXF51VOWHTOclw2sJYLma-xtw3bxbVvcPmIEyme4-PI2F_UvpW--RcuAZqilzPtUI')">
+</div>
+</div>
+</div>
+<!-- Actions Card -->
+<div class="bg-surface-white rounded-[16px] border border-[#F0EEEB] shadow-[0_2px_8px_rgba(90,79,207,0.04)] p-md flex flex-col gap-3">
+<button class="w-full bg-primary text-on-primary font-label-md text-label-md py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-primary/90 hover:shadow-[0_4px_12px_rgba(90,79,207,0.2)] transition-all duration-200">
+<span class="material-symbols-outlined text-[20px]">send</span>
+                            Enviar al paciente
+                        </button>
+<button class="w-full bg-surface-white border border-outline-variant text-on-surface font-label-md text-label-md py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-surface-container-low transition-all duration-200">
+<span class="material-symbols-outlined text-[20px]">download</span>
+                            Descargar PDF
+                        </button>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- BottomNavBar (Mobile only) -->
+<nav class="bg-surface/90 dark:bg-dark-bg/90 backdrop-blur-lg shadow-lg fixed bottom-0 w-full z-50 md:hidden rounded-t-xl bg-surface dark:bg-dark-surface shadow-[0_-4px_12px_rgba(90,79,207,0.08)] fixed bottom-0 left-0 w-full flex justify-around items-center px-4 py-3">
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-outline-variant px-4 py-1 hover:bg-surface-container-highest dark:hover:bg-inverse-surface active:scale-90 transition-all duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="home">home</span>
+<span class="font-label-md text-[10px]">Inicio</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-outline-variant px-4 py-1 hover:bg-surface-container-highest dark:hover:bg-inverse-surface active:scale-90 transition-all duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="event">event</span>
+<span class="font-label-md text-[10px]">Citas</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-primary-container/20 text-primary dark:text-primary-fixed rounded-xl px-4 py-1 hover:bg-surface-container-highest dark:hover:bg-inverse-surface active:scale-90 transition-all duration-200" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="person" style="font-variation-settings: 'FILL' 1;">person</span>
+<span class="font-label-md text-[10px]">Pacientes</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-outline-variant px-4 py-1 hover:bg-surface-container-highest dark:hover:bg-inverse-surface active:scale-90 transition-all duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="account_circle">account_circle</span>
+<span class="font-label-md text-[10px]">Perfil</span>
+</a>
+</nav>
+</body></html>

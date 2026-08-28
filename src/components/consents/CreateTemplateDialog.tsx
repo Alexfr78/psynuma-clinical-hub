@@ -20,9 +20,10 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
-import { Loader2, Plus, X } from 'lucide-react';
+
 import { ConsentTemplate, useConsentTemplates } from '@/hooks/useConsentTemplates';
 import { TemplateEditor } from './TemplateEditor';
+import { Icon } from '@/components/ui/icon';
 
 const schema = z.object({
   name: z.string().min(1, 'El nombre es obligatorio'),
@@ -191,7 +192,7 @@ export function CreateTemplateDialog({
                       className="h-6 w-6"
                       onClick={() => removeCheckbox(index)}
                     >
-                      <X className="h-4 w-4" />
+                      <Icon name="close" className="h-4 w-4" />
                     </Button>
                   </div>
                 ))}
@@ -210,7 +211,7 @@ export function CreateTemplateDialog({
                   }}
                 />
                 <Button type="button" variant="outline" size="icon" onClick={addCheckbox}>
-                  <Plus className="h-4 w-4" />
+                  <Icon name="add" className="h-4 w-4" />
                 </Button>
               </div>
             </div>
@@ -290,7 +291,7 @@ export function CreateTemplateDialog({
                 Cancelar
               </Button>
               <Button type="submit" disabled={isPending}>
-                {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {isPending && <Icon name="progress_activity" className="mr-2 h-4 w-4 animate-spin" />}
                 {isEditing ? 'Guardar cambios' : 'Crear plantilla'}
               </Button>
             </div>

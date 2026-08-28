@@ -1,9 +1,10 @@
-import { AlertTriangle } from 'lucide-react';
+
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
   AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Icon } from '@/components/ui/icon';
 
 interface Props {
   open: boolean;
@@ -18,7 +19,7 @@ export function VerifactuSyncDialog({ open, onOpenChange, versionCode, onConfirm
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle className="flex items-center gap-2">
-            <AlertTriangle className="h-5 w-5 text-orange-500" />
+            <Icon name="warning" className="h-5 w-5 text-orange-500" />
             Confirmar sincronización con VeriFactu
           </AlertDialogTitle>
           <AlertDialogDescription className="space-y-2">

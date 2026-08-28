@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Package, Plus, Settings, User, X, ChevronsUpDown } from 'lucide-react';
+
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -24,6 +24,7 @@ import { BonoCard } from '@/components/bonos/BonoCard';
 import { CreateBonoDialog } from '@/components/bonos/CreateBonoDialog';
 import { BonoTemplatesDialog } from '@/components/bonos/BonoTemplatesDialog';
 import { BonoDetailDialog } from '@/components/bonos/BonoDetailDialog';
+import { Icon } from '@/components/ui/icon';
 
 export default function Bonos() {
   const [createOpen, setCreateOpen] = useState(false);
@@ -83,11 +84,11 @@ export default function Bonos() {
             className="w-full sm:w-auto"
             onClick={() => setTemplatesOpen(true)}
           >
-            <Settings className="h-4 w-4 mr-2" />
+            <Icon name="settings" className="h-4 w-4 mr-2" />
             Plantillas
           </Button>
           <Button size="sm" className="w-full sm:w-auto" onClick={() => setCreateOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
+            <Icon name="add" className="h-4 w-4 mr-2" />
             Nuevo bono
           </Button>
         </div>
@@ -105,16 +106,16 @@ export default function Bonos() {
             >
               {selectedPatientId ? (
                 <div className="flex items-center gap-2">
-                  <User className="h-4 w-4 text-primary" />
+                  <Icon name="person" className="h-4 w-4 text-primary" />
                   <span className="truncate">{selectedPatientName}</span>
                 </div>
               ) : (
                 <div className="flex items-center gap-2 text-muted-foreground">
-                  <User className="h-4 w-4" />
+                  <Icon name="person" className="h-4 w-4" />
                   <span>Filtrar por contacto...</span>
                 </div>
               )}
-              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+              <Icon name="unfold_more" className="ml-2 h-4 w-4 shrink-0 opacity-50" />
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-[300px] p-0 z-[9999]" align="start">
@@ -137,7 +138,7 @@ export default function Bonos() {
                       className="flex items-center gap-2 py-2"
                     >
                       <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                        <User className="h-3.5 w-3.5 text-primary" />
+                        <Icon name="person" className="h-3.5 w-3.5 text-primary" />
                       </div>
                       <span className="truncate">{patient.first_name} {patient.last_name}</span>
                     </CommandItem>
@@ -149,7 +150,7 @@ export default function Bonos() {
         </Popover>
         {selectedPatientId && (
           <Button variant="ghost" size="sm" onClick={handleClearPatient} className="gap-1">
-            <X className="h-4 w-4" />
+            <Icon name="close" className="h-4 w-4" />
             Limpiar
           </Button>
         )}
@@ -210,7 +211,7 @@ export default function Bonos() {
             </div>
           ) : !bonos || bonos.length === 0 ? (
             <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12">
-              <Package className="h-12 w-12 text-muted-foreground" />
+              <Icon name="package_2" className="h-12 w-12 text-muted-foreground" />
               <h3 className="mt-4 font-semibold">Sin bonos</h3>
               <p className="text-sm text-muted-foreground">No hay bonos en esta categoría</p>
             </div>

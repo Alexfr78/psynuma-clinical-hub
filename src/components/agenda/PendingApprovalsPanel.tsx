@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Check, X, Loader2, Clock, User, MapPin, Video } from 'lucide-react';
+
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -9,6 +9,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useCenter } from '@/hooks/useCenter';
 import { toast } from 'sonner';
+import { Icon } from '@/components/ui/icon';
 
 interface PendingSession {
   id: string;
@@ -124,7 +125,7 @@ export function PendingApprovalsPanel() {
       <Card>
         <CardContent className="py-6">
           <div className="flex items-center justify-center">
-            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            <Icon name="progress_activity" className="h-5 w-5 animate-spin text-muted-foreground" />
           </div>
         </CardContent>
       </Card>
@@ -156,14 +157,14 @@ export function PendingApprovalsPanel() {
           >
             <div className="flex-1 min-w-0 space-y-1">
               <div className="flex items-center gap-2">
-                <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                <Icon name="person" className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                 <span className="font-medium truncate">
                   {session.patient.first_name} {session.patient.last_name}
                 </span>
               </div>
               <div className="flex items-center gap-3 text-sm text-muted-foreground flex-wrap">
                 <div className="flex items-center gap-1">
-                  <Clock className="h-3.5 w-3.5" />
+                  <Icon name="schedule" className="h-3.5 w-3.5" />
                   <span>
                     {format(new Date(session.session_date), "EEE d MMM", { locale: es })} {session.start_time.substring(0, 5)}
                   </span>
@@ -172,9 +173,9 @@ export function PendingApprovalsPanel() {
                 {session.location && (
                   <div className="flex items-center gap-1">
                     {session.location.location_type === 'online' ? (
-                      <Video className="h-3.5 w-3.5" />
+                      <Icon name="videocam" className="h-3.5 w-3.5" />
                     ) : (
-                      <MapPin className="h-3.5 w-3.5" />
+                      <Icon name="location_on" className="h-3.5 w-3.5" />
                     )}
                     <span className="truncate max-w-[100px]">{session.location.name}</span>
                   </div>
@@ -190,9 +191,9 @@ export function PendingApprovalsPanel() {
                 className="text-destructive hover:text-destructive"
               >
                 {processingId === session.id ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Icon name="progress_activity" className="h-4 w-4 animate-spin" />
                 ) : (
-                  <X className="h-4 w-4" />
+                  <Icon name="close" className="h-4 w-4" />
                 )}
               </Button>
               <Button
@@ -201,9 +202,9 @@ export function PendingApprovalsPanel() {
                 disabled={processingId === session.id}
               >
                 {processingId === session.id ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Icon name="progress_activity" className="h-4 w-4 animate-spin" />
                 ) : (
-                  <Check className="h-4 w-4" />
+                  <Icon name="check" className="h-4 w-4" />
                 )}
               </Button>
             </div>

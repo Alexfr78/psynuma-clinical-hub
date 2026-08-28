@@ -11,9 +11,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ArrowUp, ArrowDown, Trash2, Plus, GripVertical, BarChart3, Upload, ImageIcon, X } from 'lucide-react';
+
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import type { AutoregistroField } from '@/hooks/useAutoregistroTemplates';
+import { Icon } from '@/components/ui/icon';
 
 /** Resize an image file to a square base64 data-URL (max `size` px). */
 function resizeImageToBase64(file: File, size: number): Promise<string> {
@@ -139,7 +140,7 @@ export function FieldBuilder({ fields, onChange }: FieldBuilderProps) {
           <CardContent className="p-3 space-y-3">
             <div className="flex items-center gap-2">
               <div className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground transition-colors">
-                <GripVertical className="h-5 w-5" />
+                <Icon name="drag_indicator" className="h-5 w-5" />
               </div>
               <Input
                 placeholder="Nombre del campo"
@@ -305,15 +306,15 @@ export function FieldBuilder({ fields, onChange }: FieldBuilderProps) {
                                 updateField(index, { emotionOptions: next });
                               }}
                             >
-                              <X className="h-3 w-3" />
+                              <Icon name="close" className="h-3 w-3" />
                             </button>
                           </>
                         ) : (
-                          <ImageIcon className="h-6 w-6 text-muted-foreground/40" />
+                          <Icon name="image" className="h-6 w-6 text-muted-foreground/40" />
                         )}
                       </div>
                       <label className="cursor-pointer text-xs text-primary hover:underline flex items-center gap-0.5">
-                        <Upload className="h-3 w-3" />
+                        <Icon name="upload" className="h-3 w-3" />
                         {opt.imageUrl ? 'Cambiar' : 'Subir'}
                         <input
                           type="file"
@@ -356,7 +357,7 @@ export function FieldBuilder({ fields, onChange }: FieldBuilderProps) {
                         updateField(index, { emotionOptions: next });
                       }}
                     >
-                      <Trash2 className="h-4 w-4 text-destructive" />
+                      <Icon name="delete" className="h-4 w-4 text-destructive" />
                     </Button>
                   </div>
                 ))}
@@ -368,7 +369,7 @@ export function FieldBuilder({ fields, onChange }: FieldBuilderProps) {
                     updateField(index, { emotionOptions: next });
                   }}
                 >
-                  <Plus className="h-3 w-3 mr-1" /> Añadir emoción
+                  <Icon name="add" className="h-3 w-3 mr-1" /> Añadir emoción
                 </Button>
                 <div className="flex items-center gap-2 pt-1">
                   <Switch
@@ -402,7 +403,7 @@ export function FieldBuilder({ fields, onChange }: FieldBuilderProps) {
                             id={`chart-${index}`}
                           />
                           <Label htmlFor={`chart-${index}`} className="text-sm flex items-center gap-1">
-                            <BarChart3 className="h-3.5 w-3.5" />
+                            <Icon name="bar_chart" className="h-3.5 w-3.5" />
                             Gráfica
                           </Label>
                         </div>
@@ -414,13 +415,13 @@ export function FieldBuilder({ fields, onChange }: FieldBuilderProps) {
               </div>
               <div className="flex gap-1">
                 <Button variant="ghost" size="icon" onClick={() => moveField(index, -1)} disabled={index === 0}>
-                  <ArrowUp className="h-4 w-4" />
+                  <Icon name="arrow_upward" className="h-4 w-4" />
                 </Button>
                 <Button variant="ghost" size="icon" onClick={() => moveField(index, 1)} disabled={index === fields.length - 1}>
-                  <ArrowDown className="h-4 w-4" />
+                  <Icon name="arrow_downward" className="h-4 w-4" />
                 </Button>
                 <Button variant="ghost" size="icon" onClick={() => removeField(index)}>
-                  <Trash2 className="h-4 w-4 text-destructive" />
+                  <Icon name="delete" className="h-4 w-4 text-destructive" />
                 </Button>
               </div>
             </div>
@@ -429,7 +430,7 @@ export function FieldBuilder({ fields, onChange }: FieldBuilderProps) {
       ))}
 
       <Button variant="outline" onClick={addField} className="w-full">
-        <Plus className="h-4 w-4 mr-2" /> Añadir campo
+        <Icon name="add" className="h-4 w-4 mr-2" /> Añadir campo
       </Button>
     </div>
   );

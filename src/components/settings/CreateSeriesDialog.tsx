@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { AlertTriangle, Loader2 } from 'lucide-react';
+
 import {
   ResponsiveDialog as Dialog,
   ResponsiveDialogContent as DialogContent,
@@ -24,6 +24,7 @@ import {
 import { Checkbox } from '@/components/ui/checkbox';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useInvoiceSeries, useInvoiceSeriesUsage, InvoiceSeries } from '@/hooks/useInvoiceSeries';
+import { Icon } from '@/components/ui/icon';
 
 const seriesSchema = z.object({
   name: z.string().min(1, 'El nombre es obligatorio').max(200),
@@ -149,7 +150,7 @@ export function CreateSeriesDialog({ open, onOpenChange, editingSeries }: Create
           <div className="grid gap-4 grid-cols-2">
             {invoiceCount > 0 && (
               <Alert className="col-span-2 border-amber-500/50 bg-amber-500/10">
-                <AlertTriangle className="h-4 w-4 text-amber-600" />
+                <Icon name="warning" className="h-4 w-4 text-amber-600" />
                 <AlertDescription>
                   Esta serie ya tiene {invoiceCount} {invoiceCount === 1 ? 'factura vinculada' : 'facturas vinculadas'}.
                   Sus tipos fiscal y documental no se pueden cambiar. Si necesitas otra clasificación, archiva esta serie y crea una nueva.
@@ -241,7 +242,7 @@ export function CreateSeriesDialog({ open, onOpenChange, editingSeries }: Create
               disabled={createSeries.isPending || updateSeries.isPending}
             >
               {(createSeries.isPending || updateSeries.isPending) && (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Icon name="progress_activity" className="mr-2 h-4 w-4 animate-spin" />
               )}
               {isEditing ? 'Guardar cambios' : 'Crear serie'}
             </Button>

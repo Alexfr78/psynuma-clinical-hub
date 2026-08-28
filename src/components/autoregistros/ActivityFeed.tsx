@@ -18,16 +18,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import {
-  AlertTriangle,
-  AlertCircle,
-  Search,
-  Users,
-  FileText,
-  Eye,
-  Activity,
-  ExternalLink,
-} from 'lucide-react';
+
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useAutoregistroEntries, type AutoregistroEntry } from '@/hooks/useAutoregistroEntries';
@@ -35,6 +26,7 @@ import { useAutoregistroTemplates } from '@/hooks/useAutoregistroTemplates';
 import { EntryDetailDrawer } from '@/components/autoregistros/registros/EntryDetailDrawer';
 import { buildFieldDisplayMetas } from '@/lib/autoregistro-field-display';
 import { normalizeAutoregistroFields } from '@/lib/autoregistro-fields';
+import { Icon } from '@/components/ui/icon';
 
 interface ActivityFeedProps {
   onOpenFullRegistro?: (entry: AutoregistroEntry) => void;
@@ -97,7 +89,7 @@ export function ActivityFeed({ onOpenFullRegistro }: ActivityFeedProps = {}) {
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         <Card>
           <CardContent className="py-3 px-4 flex items-center gap-3">
-            <FileText className="h-5 w-5 text-primary" />
+            <Icon name="description" className="h-5 w-5 text-primary" />
             <div>
               <p className="text-2xl font-bold">{stats.total}</p>
               <p className="text-xs text-muted-foreground">Registros</p>
@@ -106,7 +98,7 @@ export function ActivityFeed({ onOpenFullRegistro }: ActivityFeedProps = {}) {
         </Card>
         <Card>
           <CardContent className="py-3 px-4 flex items-center gap-3">
-            <Users className="h-5 w-5 text-primary" />
+            <Icon name="group" className="h-5 w-5 text-primary" />
             <div>
               <p className="text-2xl font-bold">{stats.patients}</p>
               <p className="text-xs text-muted-foreground">Pacientes activos</p>
@@ -115,7 +107,7 @@ export function ActivityFeed({ onOpenFullRegistro }: ActivityFeedProps = {}) {
         </Card>
         <Card className="col-span-2 sm:col-span-1">
           <CardContent className="py-3 px-4 flex items-center gap-3">
-            <AlertTriangle className="h-5 w-5 text-amber-500" />
+            <Icon name="warning" className="h-5 w-5 text-amber-500" />
             <div>
               <p className="text-2xl font-bold">{stats.alerts}</p>
               <p className="text-xs text-muted-foreground">Con alertas</p>
@@ -127,7 +119,7 @@ export function ActivityFeed({ onOpenFullRegistro }: ActivityFeedProps = {}) {
       {/* Filters */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <div className="relative flex-1 min-w-0 max-w-xs">
-          <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <Icon name="search" className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <Input
             type="search"
             placeholder="Buscar paciente o plantilla..."
@@ -169,7 +161,7 @@ export function ActivityFeed({ onOpenFullRegistro }: ActivityFeedProps = {}) {
           className="gap-1.5 h-9"
           onClick={() => setFilterAlerts(!filterAlerts)}
         >
-          <AlertCircle className="h-4 w-4" />
+          <Icon name="error" className="h-4 w-4" />
           <span className="hidden sm:inline">Solo alertas</span>
         </Button>
       </div>
@@ -177,7 +169,7 @@ export function ActivityFeed({ onOpenFullRegistro }: ActivityFeedProps = {}) {
       {/* Table / empty state */}
       {filteredEntries.length === 0 ? (
         <div className="text-center py-16 border border-dashed rounded-lg">
-          <Activity className="h-8 w-8 mx-auto mb-3 text-muted-foreground/50" />
+          <Icon name="monitor_heart" className="h-8 w-8 mx-auto mb-3 text-muted-foreground/50" />
           <p className="text-muted-foreground text-sm">
             {entries?.length === 0
               ? 'Aún no se han recibido autoregistros.'
@@ -213,12 +205,12 @@ export function ActivityFeed({ onOpenFullRegistro }: ActivityFeedProps = {}) {
                     <TableCell className="text-center">
                       {entry.alertSeverity === 'critical' && (
                         <Badge variant="destructive" className="gap-1">
-                          <AlertTriangle className="h-3 w-3" /> Crítica
+                          <Icon name="warning" className="h-3 w-3" /> Crítica
                         </Badge>
                       )}
                       {entry.alertSeverity === 'warning' && (
                         <Badge variant="outline" className="gap-1 border-amber-400 text-amber-600">
-                          <AlertCircle className="h-3 w-3" /> Aviso
+                          <Icon name="error" className="h-3 w-3" /> Aviso
                         </Badge>
                       )}
                     </TableCell>
@@ -231,7 +223,7 @@ export function ActivityFeed({ onOpenFullRegistro }: ActivityFeedProps = {}) {
                           onClick={() => setSelectedEntry(entry)}
                           title="Ver detalle del registro"
                         >
-                          <Eye className="h-4 w-4" />
+                          <Icon name="visibility" className="h-4 w-4" />
                         </Button>
                         {onOpenFullRegistro && (
                           <Button
@@ -241,7 +233,7 @@ export function ActivityFeed({ onOpenFullRegistro }: ActivityFeedProps = {}) {
                             onClick={() => onOpenFullRegistro(entry)}
                             title="Ir al autoregistro completo"
                           >
-                            <ExternalLink className="h-4 w-4" />
+                            <Icon name="open_in_new" className="h-4 w-4" />
                           </Button>
                         )}
                       </div>
@@ -276,12 +268,12 @@ export function ActivityFeed({ onOpenFullRegistro }: ActivityFeedProps = {}) {
                     <div className="flex items-center gap-1 shrink-0">
                       {entry.alertSeverity === 'critical' && (
                         <Badge variant="destructive" className="gap-1">
-                          <AlertTriangle className="h-3 w-3" />
+                          <Icon name="warning" className="h-3 w-3" />
                         </Badge>
                       )}
                       {entry.alertSeverity === 'warning' && (
                         <Badge variant="outline" className="gap-1 border-amber-400 text-amber-600">
-                          <AlertCircle className="h-3 w-3" />
+                          <Icon name="error" className="h-3 w-3" />
                         </Badge>
                       )}
                       {onOpenFullRegistro && (
@@ -295,7 +287,7 @@ export function ActivityFeed({ onOpenFullRegistro }: ActivityFeedProps = {}) {
                           }}
                           title="Ir al autoregistro completo"
                         >
-                          <ExternalLink className="h-4 w-4" />
+                          <Icon name="open_in_new" className="h-4 w-4" />
                         </Button>
                       )}
                     </div>

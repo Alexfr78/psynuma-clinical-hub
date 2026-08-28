@@ -2,7 +2,8 @@ import { useCenter } from '@/hooks/useCenter';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Loader2 } from 'lucide-react';
+import { Icon } from '@/components/ui/icon';
+
 
 export function AgendaSettingsSection() {
   const { center, isLoading, updateCenter } = useCenter();
@@ -14,7 +15,7 @@ export function AgendaSettingsSection() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <Icon name="progress_activity" className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }

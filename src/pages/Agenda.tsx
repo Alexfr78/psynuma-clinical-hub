@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, addDays, addMonths } from 'date-fns';
-import { Loader2 } from 'lucide-react';
+
 import { useQueryClient } from '@tanstack/react-query';
 import { useSessions, useUpdateSession, SessionWithRelations } from '@/hooks/useSessions';
 import { CalendarHeader, CalendarView } from '@/components/agenda/CalendarHeader';
@@ -32,6 +32,7 @@ import { useSpecialDays } from '@/hooks/useSpecialDays';
 import { useProfessionals } from '@/hooks/useProfessionals';
 import { checkSessionConflicts, ConflictResult } from '@/lib/conflicts';
 import { syncZoomMeetingDateTime } from '@/lib/zoom-sync';
+import { Icon } from '@/components/ui/icon';
 
 export default function Agenda() {
   const isMobile = useIsMobile();
@@ -583,7 +584,7 @@ export default function Agenda() {
       {/* Calendar Views */}
       {isLoading && cachedSessions.length === 0 ? (
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <Icon name="progress_activity" className="h-8 w-8 animate-spin text-primary" />
         </div>
       ) : (
         <>

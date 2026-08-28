@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+
+<html class="light" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Portal del Paciente - Psycma</title>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Plus+Jakarta+Sans:wght@600;700&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Tailwind Config -->
+<script id="tailwind-config">tailwind.config = {darkMode: "class", theme: {extend: {colors: {"on-tertiary-fixed": "#301400", "surface-bright": "#faf9f7", "inverse-primary": "#9fcaff", "tertiary-fixed-dim": "#ffb782", "error-container": "#ffdad6", "on-secondary": "#ffffff", surface: "#faf9f7", warning: "#F59E0B", "surface-container-high": "#e9e8e6", "on-background": "#1a1c1b", "dark-bg": "#141320", "surface-dim": "#dadad8", "outline-variant": "#c8c4d6", "on-primary-container": "#cbe1ff", "dark-text": "#ECEBF5", "text-main": "#1B1A24", "secondary-fixed": "#62fae3", "surface-tint": "#1361a0", "on-secondary-container": "#007165", "on-tertiary-container": "#ffd7bc", "on-error": "#ffffff", "on-error-container": "#93000a", "tertiary-fixed": "#ffdcc5", "on-primary-fixed": "#001d36", "on-surface-variant": "#474554", success: "#10B981", "surface-variant": "#e3e2e0", "primary-fixed": "#d1e4ff", "on-primary": "#ffffff", "on-tertiary-fixed-variant": "#703800", background: "#faf9f7", "surface-white": "#FFFFFF", "secondary-fixed-dim": "#3cddc7", primary: "#004d84", "on-secondary-fixed": "#00201c", "surface-container-low": "#f4f3f1", "surface-container-lowest": "#ffffff", "on-surface": "#1a1c1b", "dark-surface": "#1E1D2B", "on-secondary-fixed-variant": "#005047", outline: "#787585", "primary-container": "#1b65a5", "tertiary-container": "#994e00", "inverse-surface": "#2f3130", "inverse-on-surface": "#f1f1ef", "surface-container": "#efeeec", error: "#ba1a1a", secondary: "#006b5f", tertiary: "#763b00", "surface-container-highest": "#e3e2e0", "on-tertiary": "#ffffff", "secondary-container": "#62fae3", "primary-fixed-dim": "#9fcaff", "on-primary-fixed-variant": "#00497d"}, borderRadius: {DEFAULT: "0.25rem", lg: "0.5rem", xl: "0.75rem", full: "9999px"}, spacing: {lg: "32px", sm: "16px", base: "4px", "grid-gutter": "16px", xl: "48px", xs: "8px", "grid-margin": "24px", md: "24px"}, fontFamily: {"data-tabular": ["Inter"], "body-md": ["Inter"], "headline-md": ["Plus Jakarta Sans"], "label-md": ["Inter"], "body-sm": ["Inter"], "display-lg": ["Plus Jakarta Sans"], "body-lg": ["Inter"], "headline-lg": ["Plus Jakarta Sans"], "headline-lg-mobile": ["Plus Jakarta Sans"], headline: ["Plus Jakarta Sans"], display: ["Plus Jakarta Sans"], body: ["Inter"], label: ["Inter"]}, fontSize: {"data-tabular": ["14px", {lineHeight: "20px", fontWeight: "500"}], "body-md": ["16px", {lineHeight: "24px", fontWeight: "400"}], "headline-md": ["24px", {lineHeight: "32px", fontWeight: "600"}], "label-md": ["14px", {lineHeight: "16px", letterSpacing: "0.01em", fontWeight: "600"}], "body-sm": ["14px", {lineHeight: "20px", fontWeight: "400"}], "display-lg": ["48px", {lineHeight: "56px", letterSpacing: "-0.02em", fontWeight: "700"}], "body-lg": ["18px", {lineHeight: "28px", fontWeight: "400"}], "headline-lg": ["32px", {lineHeight: "40px", letterSpacing: "-0.01em", fontWeight: "600"}], "headline-lg-mobile": ["28px", {lineHeight: "36px", fontWeight: "600"}]}}}};</script>
+<style>
+        body {
+            background-color: #faf9f7;
+            color: #1B1A24;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        .shadow-soft {
+            box-shadow: 0 4px 24px -4px rgba(90, 79, 207, 0.08);
+        }
+        .shadow-hover {
+            box-shadow: 0 8px 32px -4px rgba(90, 79, 207, 0.12);
+        }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+    </style>
+</head>
+<body class="min-h-screen font-body-md text-body-md bg-background flex flex-col items-center">
+<!-- Top Navigation (Patient View - Minimal) -->
+<header class="w-full max-w-[800px] px-sm md:px-lg py-md flex justify-between items-center bg-transparent z-10 sticky top-0">
+<div class="flex items-center gap-xs">
+<span class="font-headline-md text-headline-md text-primary font-bold">Psycma</span>
+</div>
+<div class="flex items-center gap-sm">
+<button class="p-xs rounded-full hover:bg-surface-container-low transition-colors duration-200">
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="notifications">notifications</span>
+</button>
+<div class="w-10 h-10 rounded-full bg-primary-container/20 flex items-center justify-center text-primary font-label-md text-label-md overflow-hidden border border-primary/10">
+<img alt="Perfil de Mateo" class="w-full h-full object-cover" data-alt="A warm, approachable profile portrait of a patient named Mateo, smiling gently in a bright, modern, minimalist setting. Soft natural lighting highlights his features. The atmosphere is calm and reassuring, fitting a clinical psychology portal." src="https://lh3.googleusercontent.com/aida-public/AB6AXuClVptDV9UvUwbLRzwhwTiP1_DXts9wm-pKOGedXoMH5G66ZuyzgbjbBVYnsUSAePMTWM8jw6bZX_Zv9NnpnvrMuYZroaAG6BsieQY3sm0C_wjbPDQDhnEF948-eSXWD43QFmSKxX6YCv6LH0vEVDNeSfC0QZhbtz0tgncFURFamfAXnJKLq9V60R7blRuYSyED7vgu93NNQOOUWq8I79Q3omDHSbcVSTHgQH2ETjVJyjNvhlcP3Nxp"/>
+</div>
+</div>
+</header>
+<!-- Main Content Canvas (Fixed Width, Centered) -->
+<main class="w-full max-w-[800px] px-sm md:px-lg pb-xl flex-grow flex flex-col gap-xl mt-md">
+<!-- Welcome Greeting -->
+<section class="flex flex-col gap-base">
+<h1 class="font-headline-lg text-headline-lg md:font-display-lg md:text-display-lg text-text-main">Hola, Mateo</h1>
+<p class="font-body-lg text-body-lg text-on-surface-variant">Aquí tienes un resumen de tu actividad.</p>
+</section>
+<!-- Bento Grid Layout -->
+<div class="grid grid-cols-1 md:grid-cols-12 gap-grid-gutter">
+<!-- Hero Card: Next Appointment (Spans 12 cols) -->
+<article class="col-span-1 md:col-span-12 bg-surface-white rounded-2xl p-md md:p-lg shadow-soft border border-surface-container transition-shadow duration-300 hover:shadow-hover hover:border-primary/20 relative overflow-hidden group">
+<!-- Decorative background blob -->
+<div class="absolute -right-16 -top-16 w-64 h-64 bg-primary-container/5 rounded-full blur-3xl group-hover:bg-primary-container/10 transition-colors duration-500"></div>
+<div class="relative z-10 flex flex-col gap-md">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-xs">
+<span class="material-symbols-outlined text-primary" data-icon="event" style="font-variation-settings: 'FILL' 1;">event</span>
+<h2 class="font-headline-md text-headline-md text-text-main">Tu próxima cita</h2>
+</div>
+<span class="inline-flex items-center px-3 py-1 rounded-full bg-primary-container/10 text-primary font-label-md text-label-md">
+                            Confirmada
+                        </span>
+</div>
+<div class="flex flex-col md:flex-row gap-lg md:items-center">
+<div class="flex items-start gap-sm flex-1">
+<div class="w-16 h-16 rounded-2xl bg-surface-container-low overflow-hidden flex-shrink-0 border border-surface-variant">
+<img alt="Dra. Elena Martínez" class="w-full h-full object-cover" data-alt="A professional, warm portrait of Dr. Elena Martinez, a female psychologist, in a bright, modern office with soft lighting. She looks empathetic and approachable. The aesthetic is clean, light-mode, and high-trust." src="https://lh3.googleusercontent.com/aida-public/AB6AXuA_dx1el7oFzUddITjXUVz6ZRTZ9B1tEX9g9p4nSi3Mluzbn9dN2VONqm7L2quvyOfiHPZ0Cvw3wr6F5o4izYuKv6FNInMeAZc-l43pNMdtAR2tm2sKzTUyoLIBgSo36yzlgsNyebilaZB12PlshTblFFu5gaWp-0K1VFTiGXTEwnC96mIuzZUVuw8SVbXTSCOUF3NiFPesc75jDo0ytuSX0fcYVx_rinoOrtnLBHFs2esMb5gBR8vr"/>
+</div>
+<div class="flex flex-col gap-base">
+<h3 class="font-label-md text-label-md text-text-main text-lg">Dra. Elena Martínez</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Psicología Clínica</p>
+<div class="flex items-center gap-xs text-on-surface-variant mt-1">
+<span class="material-symbols-outlined text-[18px]" data-icon="videocam">videocam</span>
+<span class="font-body-sm text-body-sm">Modalidad Online</span>
+</div>
+</div>
+</div>
+<div class="flex flex-col gap-xs p-sm bg-surface-container-low rounded-xl md:w-48 border border-surface-variant/50">
+<span class="font-label-md text-label-md text-on-surface-variant">Jueves, 26 de Octubre</span>
+<span class="font-headline-md text-headline-md text-primary">10:00</span>
+</div>
+</div>
+<div class="flex flex-col sm:flex-row gap-sm pt-sm mt-sm border-t border-surface-container-low">
+<button class="px-sm py-2 rounded-xl border border-secondary text-secondary font-label-md text-label-md hover:bg-secondary/5 transition-colors duration-200">
+                            Reprogramar
+                        </button>
+<button class="px-sm py-2 rounded-xl border border-outline text-on-surface-variant font-label-md text-label-md hover:bg-surface-container-high transition-colors duration-200">
+                            Cancelar
+                        </button>
+<button class="px-sm py-2 rounded-xl bg-primary text-on-primary font-label-md text-label-md hover:bg-primary/90 transition-colors duration-200 sm:ml-auto flex items-center justify-center gap-xs shadow-md shadow-primary/20">
+<span class="material-symbols-outlined text-[18px]" data-icon="login">login</span>
+                            Entrar a sesión
+                        </button>
+</div>
+</div>
+</article>
+<!-- Tasks List (Spans 6 cols on md) -->
+<article class="col-span-1 md:col-span-6 bg-surface-white rounded-2xl p-md shadow-soft border border-surface-container flex flex-col gap-md">
+<div class="flex items-center gap-xs">
+<span class="material-symbols-outlined text-warning" data-icon="assignment_late" style="font-variation-settings: 'FILL' 1;">assignment_late</span>
+<h2 class="font-headline-md text-headline-md text-text-main text-xl">Pendiente de ti</h2>
+</div>
+<div class="flex flex-col gap-sm">
+<!-- Task Item 1 -->
+<div class="group flex flex-col sm:flex-row gap-sm sm:items-center justify-between p-sm rounded-xl bg-surface-container-lowest border border-surface-container-low hover:border-primary/20 hover:shadow-sm transition-all duration-200 cursor-pointer">
+<div class="flex items-center gap-sm">
+<div class="w-10 h-10 rounded-full bg-warning/10 flex items-center justify-center flex-shrink-0 text-warning">
+<span class="material-symbols-outlined" data-icon="draw">draw</span>
+</div>
+<span class="font-body-md text-body-md text-text-main group-hover:text-primary transition-colors">Firma de consentimiento informado</span>
+</div>
+<button class="px-3 py-1.5 rounded-lg bg-primary-container text-on-primary-container font-label-md text-label-md text-sm hover:bg-primary-container/80 transition-colors w-full sm:w-auto text-center">
+                            Firmar
+                        </button>
+</div>
+<!-- Task Item 2 -->
+<div class="group flex flex-col sm:flex-row gap-sm sm:items-center justify-between p-sm rounded-xl bg-surface-container-lowest border border-surface-container-low hover:border-primary/20 hover:shadow-sm transition-all duration-200 cursor-pointer">
+<div class="flex items-center gap-sm">
+<div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 text-primary">
+<span class="material-symbols-outlined" data-icon="mood">mood</span>
+</div>
+<span class="font-body-md text-body-md text-text-main group-hover:text-primary transition-colors">Autorregistro de ansiedad semanal</span>
+</div>
+<button class="px-3 py-1.5 rounded-lg bg-primary text-on-primary font-label-md text-label-md text-sm hover:bg-primary/90 transition-colors w-full sm:w-auto text-center shadow-sm shadow-primary/20">
+                            Completar
+                        </button>
+</div>
+</div>
+</article>
+<!-- Billing & Invoices (Spans 6 cols on md) -->
+<article class="col-span-1 md:col-span-6 bg-surface-white rounded-2xl p-md shadow-soft border border-surface-container flex flex-col gap-md">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-xs">
+<span class="material-symbols-outlined text-secondary" data-icon="receipt_long" style="font-variation-settings: 'FILL' 1;">receipt_long</span>
+<h2 class="font-headline-md text-headline-md text-text-main text-xl">Pagos y facturas</h2>
+</div>
+<button class="text-primary font-label-md text-label-md hover:underline flex items-center text-sm">
+                        Ver todas
+                        <span class="material-symbols-outlined text-[16px]" data-icon="chevron_right">chevron_right</span>
+</button>
+</div>
+<div class="flex flex-col gap-xs">
+<!-- Invoice Item 1 (Unpaid) -->
+<div class="flex flex-col sm:flex-row gap-sm sm:items-center justify-between p-sm rounded-xl hover:bg-surface-container-low transition-colors duration-200 group border border-transparent hover:border-surface-variant/30 cursor-pointer">
+<div class="flex flex-col gap-base">
+<span class="font-body-md text-body-md text-text-main group-hover:text-primary transition-colors">Sesión de Terapia Individual</span>
+<div class="flex items-center gap-sm">
+<span class="font-body-sm text-body-sm text-on-surface-variant">26 Oct</span>
+<span class="inline-flex items-center px-2 py-0.5 rounded-full bg-warning/10 text-warning font-label-md text-[12px]">Pendiente</span>
+</div>
+</div>
+<div class="flex items-center justify-between sm:justify-end gap-md sm:gap-sm mt-2 sm:mt-0 w-full sm:w-auto">
+<span class="font-data-tabular text-data-tabular text-text-main">60,00 €</span>
+<button class="px-3 py-1.5 rounded-lg border border-primary text-primary font-label-md text-label-md text-sm hover:bg-primary/5 transition-colors">
+                                Pagar
+                            </button>
+</div>
+</div>
+<div class="h-px bg-surface-container-highest w-full my-1"></div>
+<!-- Invoice Item 2 (Paid) -->
+<div class="flex flex-col sm:flex-row gap-sm sm:items-center justify-between p-sm rounded-xl hover:bg-surface-container-low transition-colors duration-200 group border border-transparent hover:border-surface-variant/30 cursor-pointer">
+<div class="flex flex-col gap-base">
+<span class="font-body-md text-body-md text-text-main group-hover:text-primary transition-colors">Sesión de Terapia Individual</span>
+<div class="flex items-center gap-sm">
+<span class="font-body-sm text-body-sm text-on-surface-variant">19 Oct</span>
+<span class="inline-flex items-center px-2 py-0.5 rounded-full bg-success/10 text-success font-label-md text-[12px]">Pagada</span>
+</div>
+</div>
+<div class="flex items-center justify-between sm:justify-end gap-md sm:gap-sm mt-2 sm:mt-0 w-full sm:w-auto">
+<span class="font-data-tabular text-data-tabular text-text-main">60,00 €</span>
+<button class="p-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-primary/5 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100" title="Descargar Factura">
+<span class="material-symbols-outlined text-[20px]" data-icon="download">download</span>
+</button>
+</div>
+</div>
+</div>
+</article>
+</div>
+</main>
+</body></html>

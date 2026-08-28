@@ -9,8 +9,9 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Globe, MapPin, Plus, X, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
+
 import { toast } from 'sonner';
+import { Icon } from '@/components/ui/icon';
 
 export default function PublicReferralRegister() {
   const { centerSlug } = useParams<{ centerSlug: string }>();
@@ -135,7 +136,7 @@ export default function PublicReferralRegister() {
       <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">
         <Card className="max-w-md w-full">
           <CardContent className="pt-6 text-center">
-            <AlertCircle className="h-12 w-12 mx-auto mb-4 text-destructive" />
+            <Icon name="error" className="h-12 w-12 mx-auto mb-4 text-destructive" />
             <h2 className="text-xl font-semibold mb-2">Centro no encontrado</h2>
             <p className="text-muted-foreground">El enlace no es válido o el centro no existe.</p>
           </CardContent>
@@ -149,7 +150,7 @@ export default function PublicReferralRegister() {
       <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">
         <Card className="max-w-md w-full">
           <CardContent className="pt-6 text-center">
-            <CheckCircle2 className="h-12 w-12 mx-auto mb-4 text-primary" />
+            <Icon name="check_circle" className="h-12 w-12 mx-auto mb-4 text-primary" />
             <h2 className="text-xl font-semibold mb-2">¡Solicitud enviada!</h2>
             <p className="text-muted-foreground">
               Tu solicitud ha sido enviada y está pendiente de aprobación. Recibirás una notificación cuando sea revisada.
@@ -258,7 +259,7 @@ export default function PublicReferralRegister() {
                     size="sm"
                     onClick={() => toggleModality('online')}
                   >
-                    <Globe className="h-4 w-4 mr-1" />
+                    <Icon name="public" className="h-4 w-4 mr-1" />
                     Online
                   </Button>
                   <Button
@@ -267,7 +268,7 @@ export default function PublicReferralRegister() {
                     size="sm"
                     onClick={() => toggleModality('presencial')}
                   >
-                    <MapPin className="h-4 w-4 mr-1" />
+                    <Icon name="location_on" className="h-4 w-4 mr-1" />
                     Presencial
                   </Button>
                 </div>
@@ -284,14 +285,14 @@ export default function PublicReferralRegister() {
                     onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addProvince())}
                   />
                   <Button type="button" size="icon" variant="outline" onClick={addProvince}>
-                    <Plus className="h-4 w-4" />
+                    <Icon name="add" className="h-4 w-4" />
                   </Button>
                 </div>
                 <div className="flex flex-wrap gap-1">
                   {formData.provinces.map((prov) => (
                     <Badge key={prov} variant="secondary" className="gap-1">
                       {prov}
-                      <X className="h-3 w-3 cursor-pointer" onClick={() => removeProvince(prov)} />
+                      <Icon name="close" className="h-3 w-3 cursor-pointer" onClick={() => removeProvince(prov)} />
                     </Badge>
                   ))}
                 </div>
@@ -307,14 +308,14 @@ export default function PublicReferralRegister() {
                     onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addCity())}
                   />
                   <Button type="button" size="icon" variant="outline" onClick={addCity}>
-                    <Plus className="h-4 w-4" />
+                    <Icon name="add" className="h-4 w-4" />
                   </Button>
                 </div>
                 <div className="flex flex-wrap gap-1">
                   {formData.cities.map((city) => (
                     <Badge key={city} variant="secondary" className="gap-1">
                       {city}
-                      <X className="h-3 w-3 cursor-pointer" onClick={() => removeCity(city)} />
+                      <Icon name="close" className="h-3 w-3 cursor-pointer" onClick={() => removeCity(city)} />
                     </Badge>
                   ))}
                 </div>
@@ -325,7 +326,7 @@ export default function PublicReferralRegister() {
               {/* Specialties */}
               {loadingSpecialties ? (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Icon name="progress_activity" className="h-4 w-4 animate-spin" />
                   Cargando especialidades...
                 </div>
               ) : specialties.length > 0 ? (
@@ -382,7 +383,7 @@ export default function PublicReferralRegister() {
                   !formData.privacy_accepted
                 }
               >
-                {loading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                {loading && <Icon name="progress_activity" className="h-4 w-4 animate-spin mr-2" />}
                 Enviar solicitud
               </Button>
             </form>

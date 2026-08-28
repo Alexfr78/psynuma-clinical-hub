@@ -7,9 +7,10 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
-import { Brain, Mail, Lock, User, AlertCircle, Loader2, ShieldCheck } from 'lucide-react';
+
 import { useToast } from '@/hooks/use-toast';
 import { z } from 'zod';
+import { Icon } from '@/components/ui/icon';
 
 const loginSchema = z.object({
   email: z.string().email('Email inválido'),
@@ -190,7 +191,7 @@ export default function Auth() {
       <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-background via-background to-muted p-4">
         <div className="mb-8 flex flex-col items-center">
           <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl gradient-clinical shadow-clinical">
-            <Brain className="h-9 w-9 text-primary-foreground" />
+            <Icon name="psychology" className="h-9 w-9 text-primary-foreground" />
           </div>
           <h1 className="font-display text-3xl font-bold text-foreground">Psycma</h1>
           <p className="mt-1 text-muted-foreground">Verificación de doble factor</p>
@@ -199,7 +200,7 @@ export default function Auth() {
         <Card className="w-full max-w-md shadow-card">
           <CardHeader className="text-center">
             <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
-              <ShieldCheck className="h-6 w-6 text-primary" />
+              <Icon name="verified_user" className="h-6 w-6 text-primary" />
             </div>
             <CardTitle>Código de verificación</CardTitle>
             <CardDescription>
@@ -230,7 +231,7 @@ export default function Auth() {
             >
               {isLoading ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Icon name="progress_activity" className="mr-2 h-4 w-4 animate-spin" />
                   Verificando...
                 </>
               ) : (
@@ -247,7 +248,7 @@ export default function Auth() {
     <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-background via-background to-muted p-4">
       <div className="mb-8 flex flex-col items-center">
         <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl gradient-clinical shadow-clinical">
-          <Brain className="h-9 w-9 text-primary-foreground" />
+          <Icon name="psychology" className="h-9 w-9 text-primary-foreground" />
         </div>
         <h1 className="font-display text-3xl font-bold text-foreground">Psycma</h1>
         <p className="mt-1 text-muted-foreground">Gestión Clínica Profesional</p>
@@ -268,7 +269,7 @@ export default function Auth() {
                 <div className="space-y-2">
                   <Label htmlFor="login-email">Email</Label>
                   <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Icon name="mail" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
                       id="login-email"
                       type="email"
@@ -281,7 +282,7 @@ export default function Auth() {
                   </div>
                   {errors.email && (
                     <p className="flex items-center gap-1 text-sm text-destructive">
-                      <AlertCircle className="h-3 w-3" />
+                      <Icon name="error" className="h-3 w-3" />
                       {errors.email}
                     </p>
                   )}
@@ -290,7 +291,7 @@ export default function Auth() {
                 <div className="space-y-2">
                   <Label htmlFor="login-password">Contraseña</Label>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Icon name="lock" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
                       id="login-password"
                       type="password"
@@ -303,7 +304,7 @@ export default function Auth() {
                   </div>
                   {errors.password && (
                     <p className="flex items-center gap-1 text-sm text-destructive">
-                      <AlertCircle className="h-3 w-3" />
+                      <Icon name="error" className="h-3 w-3" />
                       {errors.password}
                     </p>
                   )}
@@ -312,7 +313,7 @@ export default function Auth() {
                 <Button type="submit" className="w-full" disabled={isLoading}>
                   {isLoading ? (
                     <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      <Icon name="progress_activity" className="mr-2 h-4 w-4 animate-spin" />
                       Iniciando sesión...
                     </>
                   ) : (
@@ -328,7 +329,7 @@ export default function Auth() {
                   <div className="space-y-2">
                     <Label htmlFor="firstName">Nombre</Label>
                     <div className="relative">
-                      <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <Icon name="person" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                       <Input
                         id="firstName"
                         type="text"
@@ -341,7 +342,7 @@ export default function Auth() {
                     </div>
                     {errors.firstName && (
                       <p className="flex items-center gap-1 text-sm text-destructive">
-                        <AlertCircle className="h-3 w-3" />
+                        <Icon name="error" className="h-3 w-3" />
                         {errors.firstName}
                       </p>
                     )}
@@ -359,7 +360,7 @@ export default function Auth() {
                     />
                     {errors.lastName && (
                       <p className="flex items-center gap-1 text-sm text-destructive">
-                        <AlertCircle className="h-3 w-3" />
+                        <Icon name="error" className="h-3 w-3" />
                         {errors.lastName}
                       </p>
                     )}
@@ -369,7 +370,7 @@ export default function Auth() {
                 <div className="space-y-2">
                   <Label htmlFor="signup-email">Email</Label>
                   <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Icon name="mail" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
                       id="signup-email"
                       type="email"
@@ -382,7 +383,7 @@ export default function Auth() {
                   </div>
                   {errors.email && (
                     <p className="flex items-center gap-1 text-sm text-destructive">
-                      <AlertCircle className="h-3 w-3" />
+                      <Icon name="error" className="h-3 w-3" />
                       {errors.email}
                     </p>
                   )}
@@ -391,7 +392,7 @@ export default function Auth() {
                 <div className="space-y-2">
                   <Label htmlFor="signup-password">Contraseña</Label>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Icon name="lock" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
                       id="signup-password"
                       type="password"
@@ -404,7 +405,7 @@ export default function Auth() {
                   </div>
                   {errors.password && (
                     <p className="flex items-center gap-1 text-sm text-destructive">
-                      <AlertCircle className="h-3 w-3" />
+                      <Icon name="error" className="h-3 w-3" />
                       {errors.password}
                     </p>
                   )}
@@ -413,7 +414,7 @@ export default function Auth() {
                 <Button type="submit" className="w-full" disabled={isLoading}>
                   {isLoading ? (
                     <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      <Icon name="progress_activity" className="mr-2 h-4 w-4 animate-spin" />
                       Creando cuenta...
                     </>
                   ) : (

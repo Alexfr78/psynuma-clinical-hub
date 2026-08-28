@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+
+<html class="h-full" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Análisis de Sesión con IA - Psycma</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Plus+Jakarta+Sans:wght@600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "inverse-on-surface": "#f1f1ef",
+                    "tertiary-fixed": "#ffdcc5",
+                    "error": "#ba1a1a",
+                    "tertiary": "#763b00",
+                    "inverse-surface": "#2f3130",
+                    "surface-container-low": "#f4f3f1",
+                    "on-surface-variant": "#474554",
+                    "on-primary-container": "#cbe1ff",
+                    "on-tertiary-fixed": "#301400",
+                    "on-secondary": "#ffffff",
+                    "primary-fixed-dim": "#9fcaff",
+                    "error-container": "#ffdad6",
+                    "secondary-fixed-dim": "#3cddc7",
+                    "on-primary-fixed-variant": "#00497d",
+                    "surface-container-lowest": "#ffffff",
+                    "surface-container-high": "#e9e8e6",
+                    "on-error": "#ffffff",
+                    "surface-container": "#efeeec",
+                    "secondary": "#006b5f",
+                    "surface-variant": "#e3e2e0",
+                    "on-background": "#1a1c1b",
+                    "on-primary": "#ffffff",
+                    "inverse-primary": "#9fcaff",
+                    "surface-dim": "#dadad8",
+                    "tertiary-fixed-dim": "#ffb782",
+                    "on-tertiary": "#ffffff",
+                    "background": "#faf9f7",
+                    "primary-fixed": "#d1e4ff",
+                    "on-secondary-fixed-variant": "#005047",
+                    "tertiary-container": "#994e00",
+                    "surface-container-highest": "#e3e2e0",
+                    "on-surface": "#1a1c1b",
+                    "surface-tint": "#1361a0",
+                    "on-tertiary-container": "#ffd7bc",
+                    "on-error-container": "#93000a",
+                    "on-secondary-fixed": "#00201c",
+                    "secondary-container": "#62fae3",
+                    "outline": "#787585",
+                    "surface-bright": "#faf9f7",
+                    "on-primary-fixed": "#001d36",
+                    "secondary-fixed": "#62fae3",
+                    "primary-container": "#1b65a5",
+                    "primary": "#004d84",
+                    "outline-variant": "#c8c4d6",
+                    "on-tertiary-fixed-variant": "#703800",
+                    "surface": "#faf9f7",
+                    "on-secondary-container": "#007165"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "base": "4px",
+                    "xl": "48px",
+                    "lg": "32px",
+                    "grid-gutter": "16px",
+                    "grid-margin": "24px",
+                    "xs": "8px",
+                    "md": "24px",
+                    "sm": "16px"
+            },
+            "fontFamily": {
+                    "label-md": [
+                            "Inter"
+                    ],
+                    "body-lg": [
+                            "Inter"
+                    ],
+                    "headline-md": [
+                            "Plus Jakarta Sans"
+                    ],
+                    "headline-lg": [
+                            "Plus Jakarta Sans"
+                    ],
+                    "headline-lg-mobile": [
+                            "Plus Jakarta Sans"
+                    ],
+                    "body-md": [
+                            "Inter"
+                    ],
+                    "display-lg": [
+                            "Plus Jakarta Sans"
+                    ],
+                    "data-tabular": [
+                            "Inter"
+                    ],
+                    "body-sm": [
+                            "Inter"
+                    ]
+            },
+            "fontSize": {
+                    "label-md": [
+                            "14px",
+                            {
+                                    "lineHeight": "16px",
+                                    "letterSpacing": "0.01em",
+                                    "fontWeight": "600"
+                            }
+                    ],
+                    "body-lg": [
+                            "18px",
+                            {
+                                    "lineHeight": "28px",
+                                    "fontWeight": "400"
+                            }
+                    ],
+                    "headline-md": [
+                            "24px",
+                            {
+                                    "lineHeight": "32px",
+                                    "fontWeight": "600"
+                            }
+                    ],
+                    "headline-lg": [
+                            "32px",
+                            {
+                                    "lineHeight": "40px",
+                                    "letterSpacing": "-0.01em",
+                                    "fontWeight": "600"
+                            }
+                    ],
+                    "headline-lg-mobile": [
+                            "28px",
+                            {
+                                    "lineHeight": "36px",
+                                    "fontWeight": "600"
+                            }
+                    ],
+                    "body-md": [
+                            "16px",
+                            {
+                                    "lineHeight": "24px",
+                                    "fontWeight": "400"
+                            }
+                    ],
+                    "display-lg": [
+                            "48px",
+                            {
+                                    "lineHeight": "56px",
+                                    "letterSpacing": "-0.02em",
+                                    "fontWeight": "700"
+                            }
+                    ],
+                    "data-tabular": [
+                            "14px",
+                            {
+                                    "lineHeight": "20px",
+                                    "fontWeight": "500"
+                            }
+                    ],
+                    "body-sm": [
+                            "14px",
+                            {
+                                    "lineHeight": "20px",
+                                    "fontWeight": "400"
+                            }
+                    ]
+            }
+    },
+        },
+      }
+    </script>
+<style>
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(240, 238, 235, 0.8);
+            box-shadow: 0 8px 32px rgba(78, 141, 207, 0.08);
+        }
+        
+        .waveform-bar {
+            width: 4px;
+            background-color: theme('colors.primary-container');
+            border-radius: 2px;
+            display: inline-block;
+            margin: 0 2px;
+            animation: pulse 1s infinite alternate ease-in-out;
+        }
+
+        @keyframes pulse {
+            0% { height: 10px; opacity: 0.5; }
+            100% { height: 40px; opacity: 1; }
+        }
+
+        .waveform-bar:nth-child(even) { animation-delay: 0.2s; }
+        .waveform-bar:nth-child(3n) { animation-delay: 0.4s; }
+        .waveform-bar:nth-child(4n) { animation-delay: 0.1s; }
+        .waveform-bar:nth-child(5n) { animation-delay: 0.6s; }
+        .waveform-bar:nth-child(7n) { animation-delay: 0.3s; }
+        
+        /* Simulating static bars for context */
+        .waveform-bar.static {
+            animation: none;
+            background-color: theme('colors.surface-variant');
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background font-body-md h-full flex overflow-hidden">
+<!-- SideNavBar -->
+<nav class="h-screen w-64 fixed left-0 top-0 hidden lg:flex flex-col bg-surface-white dark:bg-dark-surface shadow-[4px_0_24px_rgba(90,79,207,0.05)] z-50 flex flex-col h-full py-md px-sm">
+<!-- Logo / Header -->
+<div class="flex items-center gap-3 px-3 mb-10 mt-2">
+<div class="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-on-primary font-headline-md shadow-sm">
+                P
+            </div>
+<div>
+<h1 class="font-headline-md text-headline-md font-bold text-primary dark:text-primary-fixed-dim leading-none">Psycma</h1>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Gestión Clínica</span>
+</div>
+</div>
+<!-- CTA -->
+<button class="w-full bg-primary hover:bg-primary/90 text-on-primary font-label-md text-label-md py-3 rounded-lg flex items-center justify-center gap-2 mb-8 transition-colors shadow-[0_4px_12px_rgba(0,77,132,0.15)] cursor-pointer active:scale-95 transition-transform">
+<span class="material-symbols-outlined" data-icon="add" style="font-variation-settings: 'FILL' 0;">add</span>
+            Nueva Cita
+        </button>
+<!-- Main Nav -->
+<div class="flex flex-col gap-2 flex-grow">
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant dark:text-surface-variant hover:text-primary dark:hover:text-primary-fixed-dim hover:bg-surface-container-low dark:hover:bg-white/5 transition-colors duration-200 font-label-md text-label-md cursor-pointer active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+                Panel
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant dark:text-surface-variant hover:text-primary dark:hover:text-primary-fixed-dim hover:bg-surface-container-low dark:hover:bg-white/5 transition-colors duration-200 font-label-md text-label-md cursor-pointer active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="calendar_today">calendar_today</span>
+                Agenda
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-primary dark:text-primary-fixed-dim font-bold border-r-4 border-primary dark:border-primary-fixed-dim bg-primary-container/10 font-label-md text-label-md cursor-pointer active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="groups" style="font-variation-settings: 'FILL' 1;">groups</span>
+                Pacientes
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant dark:text-surface-variant hover:text-primary dark:hover:text-primary-fixed-dim hover:bg-surface-container-low dark:hover:bg-white/5 transition-colors duration-200 font-label-md text-label-md cursor-pointer active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="payments">payments</span>
+                Finanzas
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant dark:text-surface-variant hover:text-primary dark:hover:text-primary-fixed-dim hover:bg-surface-container-low dark:hover:bg-white/5 transition-colors duration-200 font-label-md text-label-md cursor-pointer active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="chat">chat</span>
+                Mensajes
+            </a>
+</div>
+<!-- Footer Nav -->
+<div class="flex flex-col gap-2 mt-auto border-t border-surface-variant/30 pt-4">
+<a class="flex items-center gap-3 px-4 py-2 rounded-lg text-on-surface-variant dark:text-surface-variant hover:text-primary dark:hover:text-primary-fixed-dim hover:bg-surface-container-low dark:hover:bg-white/5 transition-colors duration-200 font-label-md text-label-md cursor-pointer active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+                Configuración
+            </a>
+<a class="flex items-center gap-3 px-4 py-2 rounded-lg text-on-surface-variant dark:text-surface-variant hover:text-primary dark:hover:text-primary-fixed-dim hover:bg-surface-container-low dark:hover:bg-white/5 transition-colors duration-200 font-label-md text-label-md cursor-pointer active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="logout">logout</span>
+                Cerrar Sesión
+            </a>
+</div>
+</nav>
+<!-- Main Content Area -->
+<div class="flex-1 flex flex-col lg:pl-64 h-full relative">
+<!-- TopAppBar -->
+<header class="docked full-width top-0 sticky z-40 bg-surface-white/80 dark:bg-dark-surface/80 backdrop-blur-md border-b border-surface-variant/30 shadow-sm flex justify-between items-center w-full h-16 px-md">
+<!-- Mobile Logo -->
+<div class="lg:hidden flex items-center gap-2">
+<div class="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-on-primary font-bold">
+                    P
+                </div>
+<h1 class="font-headline-md text-headline-md font-bold text-primary dark:text-primary-fixed-dim">Psycma</h1>
+</div>
+<!-- Context Title (Desktop) -->
+<div class="hidden lg:flex flex-col">
+<div class="flex items-center gap-2 text-on-surface-variant font-body-sm text-body-sm">
+<span class="hover:text-primary cursor-pointer transition-colors">Pacientes</span>
+<span class="material-symbols-outlined text-[16px]" data-icon="chevron_right">chevron_right</span>
+<span class="hover:text-primary cursor-pointer transition-colors">Carlos Mendoza</span>
+<span class="material-symbols-outlined text-[16px]" data-icon="chevron_right">chevron_right</span>
+<span class="text-on-surface font-medium">Análisis de Sesión #12</span>
+</div>
+</div>
+<!-- Search -->
+<div class="hidden md:flex relative max-w-md w-full ml-8 mr-auto">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant" data-icon="search">search</span>
+<input class="w-full pl-10 pr-4 py-2 bg-surface-container-low border border-surface-variant/50 rounded-full font-body-sm text-body-sm focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all text-on-surface placeholder-on-surface-variant/70 focus-within:ring-2 focus-within:ring-primary/20" placeholder="Buscar en pacientes, notas..." type="text"/>
+</div>
+<!-- Actions -->
+<div class="flex items-center gap-2 ml-auto">
+<button class="text-on-surface-variant hover:text-primary hover:bg-surface-container-low rounded-full p-2 transition-all cursor-pointer">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="text-on-surface-variant hover:text-primary hover:bg-surface-container-low rounded-full p-2 transition-all cursor-pointer mr-2">
+<span class="material-symbols-outlined" data-icon="help">help</span>
+</button>
+<div class="w-9 h-9 rounded-full bg-tertiary-fixed-dim border-2 border-surface-bright shadow-sm overflow-hidden cursor-pointer">
+<img alt="Foto de perfil del psicólogo" class="w-full h-full object-cover" data-alt="A professional headshot of a friendly psychologist in a bright, modern office with soft natural lighting, high resolution, warm aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCaKvPqnX636iU7cjeSxlvKdE6sozspPF3ZgrjOz6G4tWIZ_FQbg7Utk8ivKpGQ8OZjNk8v5dbBx8uqZcY-g0MJSr8UoAxvhwanr7xwpMwt0puzsoIWMPP45Hzfkpt91utJOY-ahktNZVEJvHz1fbpD3_MVPX7G73FeMYgluYCuNmBkNgc-y18gQxPmSVEAmSpoALNj6i46SV5DBnCKyqBLH8C0U5lwJEj6wkNL6cdqlk2oBzDhBM_u"/>
+</div>
+</div>
+</header>
+<!-- Page Canvas -->
+<main class="flex-1 overflow-y-auto p-4 md:p-grid-margin bg-background">
+<!-- Page Header -->
+<div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+<div>
+<h2 class="font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-surface flex items-center gap-3">
+                        Análisis de Sesión con IA
+                        <span class="material-symbols-outlined text-primary-container" data-icon="auto_awesome" style="font-variation-settings: 'FILL' 1;">auto_awesome</span>
+</h2>
+<p class="font-body-md text-body-md text-on-surface-variant mt-1">12 de Octubre, 2023 • 45 min • Paciente: Carlos Mendoza</p>
+</div>
+<div class="flex gap-3">
+<button class="px-4 py-2 border border-outline-variant text-on-surface rounded-lg font-label-md text-label-md hover:bg-surface-container-low transition-colors flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]" data-icon="download">download</span>
+                        Exportar PDF
+                    </button>
+</div>
+</div>
+<!-- Split View Layout -->
+<div class="grid grid-cols-1 xl:grid-cols-12 gap-6 pb-20">
+<!-- LEFT COLUMN: Player & Transcript (8 cols) -->
+<div class="xl:col-span-8 flex flex-col gap-6">
+<!-- Audio Player -->
+<div class="glass-panel rounded-2xl p-6 flex flex-col gap-4">
+<div class="flex justify-between items-center">
+<h3 class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Grabación Original</h3>
+<span class="font-data-tabular text-data-tabular text-primary font-medium bg-primary-container/10 px-3 py-1 rounded-full">14:23 / 45:00</span>
+</div>
+<!-- Waveform visualization -->
+<div class="h-16 w-full flex items-center justify-center gap-px overflow-hidden rounded-lg bg-surface-container-lowest border border-surface-variant/30 p-2 relative">
+<!-- Decorative dynamic waveform -->
+<div class="absolute left-0 w-1/3 h-full bg-primary/10 rounded-l-lg border-r border-primary/30"></div>
+<div class="flex items-center h-full justify-between w-full px-2">
+<div class="waveform-bar static" style="height: 12px;"></div>
+<div class="waveform-bar static" style="height: 24px;"></div>
+<div class="waveform-bar static" style="height: 18px;"></div>
+<div class="waveform-bar static" style="height: 32px;"></div>
+<div class="waveform-bar static" style="height: 16px;"></div>
+<div class="waveform-bar static" style="height: 10px;"></div>
+<div class="waveform-bar" style="height: 20px;"></div>
+<div class="waveform-bar" style="height: 35px;"></div>
+<div class="waveform-bar" style="height: 42px;"></div>
+<div class="waveform-bar" style="height: 28px;"></div>
+<div class="waveform-bar" style="height: 15px;"></div>
+<div class="waveform-bar static" style="height: 12px;"></div>
+<div class="waveform-bar static" style="height: 22px;"></div>
+<div class="waveform-bar static" style="height: 18px;"></div>
+<div class="waveform-bar static" style="height: 30px;"></div>
+</div>
+</div>
+<!-- Controls -->
+<div class="flex items-center justify-between mt-2">
+<div class="flex items-center gap-4">
+<button class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-low transition-colors">
+<span class="material-symbols-outlined" data-icon="replay_10">replay_10</span>
+</button>
+<button class="w-12 h-12 rounded-full bg-primary text-on-primary flex items-center justify-center hover:bg-primary/90 transition-colors shadow-md">
+<span class="material-symbols-outlined text-[28px]" data-icon="pause" style="font-variation-settings: 'FILL' 1;">pause</span>
+</button>
+<button class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-low transition-colors">
+<span class="material-symbols-outlined" data-icon="forward_10">forward_10</span>
+</button>
+</div>
+<div class="flex items-center gap-6">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-on-surface-variant text-[20px]" data-icon="speed">speed</span>
+<select class="bg-transparent border-none text-on-surface font-body-sm text-body-sm focus:ring-0 cursor-pointer">
+<option>1.0x</option>
+<option>1.2x</option>
+<option>1.5x</option>
+</select>
+</div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-on-surface-variant text-[20px]" data-icon="volume_up">volume_up</span>
+<div class="w-24 h-1.5 bg-surface-variant rounded-full overflow-hidden">
+<div class="w-3/4 h-full bg-primary rounded-full"></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Transcript -->
+<div class="glass-panel rounded-2xl flex flex-col flex-1 min-h-[500px]">
+<!-- Transcript Header -->
+<div class="p-4 border-b border-surface-variant/40 flex justify-between items-center bg-surface-white/50 rounded-t-2xl">
+<h3 class="font-headline-md text-[18px] font-semibold text-on-surface flex items-center gap-2">
+<span class="material-symbols-outlined text-primary-container" data-icon="description">description</span>
+                                 Transcripción
+                             </h3>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[18px]" data-icon="search">search</span>
+<input class="pl-9 pr-4 py-1.5 bg-surface-container-low border border-surface-variant/50 rounded-lg font-body-sm text-body-sm focus:outline-none focus:border-primary/50 transition-colors w-64" placeholder="Buscar en el texto..." type="text"/>
+</div>
+</div>
+<!-- Transcript Content -->
+<div class="p-6 overflow-y-auto flex flex-col gap-6 font-headline-md text-body-md" style="font-family: 'Plus Jakarta Sans', sans-serif;">
+<!-- Terapeuta Msg -->
+<div class="flex gap-4 group">
+<div class="w-16 shrink-0 text-right pt-1">
+<span class="font-data-tabular text-data-tabular text-on-surface-variant/70">14:02</span>
+</div>
+<div class="w-8 h-8 rounded-full bg-surface-container-high border border-outline-variant/30 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[16px] text-on-surface-variant" data-icon="psychology">psychology</span>
+</div>
+<div>
+<p class="font-label-md text-label-md text-on-surface-variant mb-1">Dr. Rivera (Terapeuta)</p>
+<p class="text-on-surface leading-relaxed">Entiendo. Mencionaste que la semana pasada fue particularmente difícil en la oficina. ¿Qué fue exactamente lo que detonó esa sensación de ahogo el jueves?</p>
+</div>
+</div>
+<!-- Paciente Msg -->
+<div class="flex gap-4 group bg-primary-container/5 -mx-4 px-4 py-3 rounded-xl border border-primary/10 relative">
+<!-- Active playback indicator -->
+<div class="absolute left-0 top-0 bottom-0 w-1 bg-primary rounded-l-xl"></div>
+<div class="w-16 shrink-0 text-right pt-1">
+<span class="font-data-tabular text-data-tabular text-primary font-medium">14:23</span>
+</div>
+<div class="w-8 h-8 rounded-full bg-secondary-container text-on-secondary-container border border-secondary/20 flex items-center justify-center shrink-0 font-bold text-sm">
+                                    CM
+                                </div>
+<div>
+<p class="font-label-md text-label-md text-on-surface-variant mb-1">Carlos Mendoza</p>
+<p class="text-on-surface leading-relaxed font-medium">Fue... fue cuando mi jefe me pidió los resultados trimestrales delante de todo el equipo. No los tenía listos porque el sistema falló el día anterior. Sentí que todos me juzgaban, el corazón me latía tan rápido que pensé que me iba a desmayar ahí mismo.</p>
+</div>
+</div>
+<!-- Terapeuta Msg -->
+<div class="flex gap-4 group">
+<div class="w-16 shrink-0 text-right pt-1">
+<span class="font-data-tabular text-data-tabular text-on-surface-variant/70">15:10</span>
+</div>
+<div class="w-8 h-8 rounded-full bg-surface-container-high border border-outline-variant/30 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[16px] text-on-surface-variant" data-icon="psychology">psychology</span>
+</div>
+<div>
+<p class="font-label-md text-label-md text-on-surface-variant mb-1">Dr. Rivera (Terapeuta)</p>
+<p class="text-on-surface leading-relaxed">Esa es una reacción física muy fuerte ante la percepción de ser juzgado. Vamos a detenernos un momento aquí. Cuando dices "pensé que me iba a desmayar", ¿qué pensamientos pasaban por tu cabeza en ese instante preciso?</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- RIGHT COLUMN: AI Insights (4 cols) -->
+<div class="xl:col-span-4 flex flex-col gap-6">
+<div class="glass-panel rounded-2xl flex flex-col h-full sticky top-24 border-t-4 border-t-secondary">
+<div class="p-5 border-b border-surface-variant/40 flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-secondary/10 flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined" data-icon="insights">insights</span>
+</div>
+<div>
+<h3 class="font-headline-md text-[20px] font-bold text-on-surface leading-tight">Resumen Inteligente</h3>
+<p class="font-body-sm text-[13px] text-on-surface-variant">Generado automáticamente</p>
+</div>
+</div>
+<div class="p-6 flex flex-col gap-6 overflow-y-auto">
+<!-- Key Points -->
+<div>
+<h4 class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider mb-3 flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px]" data-icon="fact_check">fact_check</span>
+                                    Puntos Clave
+                                </h4>
+<ul class="space-y-3">
+<li class="flex items-start gap-3">
+<div class="w-1.5 h-1.5 rounded-full bg-primary mt-2 shrink-0"></div>
+<p class="font-body-sm text-body-sm text-on-surface">Episodio de ansiedad aguda en el entorno laboral frente al equipo.</p>
+</li>
+<li class="flex items-start gap-3">
+<div class="w-1.5 h-1.5 rounded-full bg-primary mt-2 shrink-0"></div>
+<p class="font-body-sm text-body-sm text-on-surface">Miedo al juicio social y perfeccionismo como detonantes.</p>
+</li>
+<li class="flex items-start gap-3">
+<div class="w-1.5 h-1.5 rounded-full bg-primary mt-2 shrink-0"></div>
+<p class="font-body-sm text-body-sm text-on-surface">Sintomatología física fuerte (taquicardia, sensación de desmayo).</p>
+</li>
+</ul>
+</div>
+<hr class="border-surface-variant/40"/>
+<!-- Themes -->
+<div>
+<h4 class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider mb-3 flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px]" data-icon="tag">tag</span>
+                                    Temas Detectados
+                                </h4>
+<div class="flex flex-wrap gap-2">
+<span class="px-3 py-1.5 bg-primary/10 text-primary-container font-label-md text-[13px] rounded-full border border-primary/20">Ansiedad Social</span>
+<span class="px-3 py-1.5 bg-secondary/10 text-secondary font-label-md text-[13px] rounded-full border border-secondary/20">Estrés Laboral</span>
+<span class="px-3 py-1.5 bg-tertiary-container/10 text-tertiary-container font-label-md text-[13px] rounded-full border border-tertiary-container/20">Somatización</span>
+</div>
+</div>
+<hr class="border-surface-variant/40"/>
+<!-- Mood Indicator -->
+<div>
+<h4 class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider mb-3 flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px]" data-icon="mood_bad">mood_bad</span>
+                                    Estado de Ánimo Principal
+                                </h4>
+<div class="bg-surface-container-low p-4 rounded-xl border border-surface-variant/50">
+<div class="flex justify-between items-center mb-2">
+<span class="font-body-md text-on-surface font-medium">Ansioso / Tenso</span>
+<span class="font-data-tabular text-error font-semibold">Alto</span>
+</div>
+<div class="w-full h-2 bg-surface-variant rounded-full overflow-hidden">
+<div class="w-[85%] h-full bg-gradient-to-r from-tertiary to-error rounded-full"></div>
+</div>
+</div>
+</div>
+<!-- Suggestions -->
+<div>
+<h4 class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider mb-3 flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px]" data-icon="lightbulb">lightbulb</span>
+                                    Sugerencias Próxima Sesión
+                                </h4>
+<div class="bg-secondary/5 border border-secondary/20 p-4 rounded-xl flex items-start gap-3">
+<span class="material-symbols-outlined text-secondary mt-0.5" data-icon="check_circle">check_circle</span>
+<p class="font-body-sm text-body-sm text-on-surface leading-relaxed">Trabajar técnicas de respiración diafragmática para control de taquicardia y reestructuración cognitiva sobre el error en público.</p>
+</div>
+</div>
+</div>
+<!-- CTA -->
+<div class="p-5 mt-auto border-t border-surface-variant/40 bg-surface-white/80 rounded-b-2xl">
+<button class="w-full bg-primary hover:bg-primary/90 text-on-primary font-label-md text-label-md py-3.5 rounded-xl flex items-center justify-center gap-2 transition-all shadow-[0_4px_16px_rgba(0,77,132,0.25)] hover:shadow-[0_6px_20px_rgba(0,77,132,0.35)] hover:-translate-y-0.5">
+<span class="material-symbols-outlined" data-icon="save">save</span>
+                                Guardar en notas clínicas
+                            </button>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+</body></html>

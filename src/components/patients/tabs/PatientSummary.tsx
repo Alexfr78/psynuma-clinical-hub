@@ -1,17 +1,6 @@
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { 
-  Calendar, 
-  CreditCard, 
-  Clock, 
-  TrendingUp,
-  User,
-  Mail,
-  Phone,
-  MapPin,
-  FileText,
-  AlertCircle
-} from 'lucide-react';
+
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -20,6 +9,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { PatientStatusBadge } from '../PatientStatusBadge';
 import { PatientStatusToggle } from '../PatientStatusToggle';
+import { Icon } from '@/components/ui/icon';
 
 interface PatientSummaryProps {
   patient: Patient & {
@@ -131,19 +121,19 @@ export function PatientSummary({ patient }: PatientSummaryProps) {
               <div className="mt-3 sm:mt-4 grid gap-2 sm:gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {patient.email && (
                   <div className="flex items-center justify-center sm:justify-start gap-2 text-xs sm:text-sm text-muted-foreground">
-                    <Mail className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
+                    <Icon name="mail" className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
                     <span className="truncate">{patient.email}</span>
                   </div>
                 )}
                 {patient.phone && (
                   <div className="flex items-center justify-center sm:justify-start gap-2 text-xs sm:text-sm text-muted-foreground">
-                    <Phone className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
+                    <Icon name="call" className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
                     <span>{patient.phone}</span>
                   </div>
                 )}
                 {patient.date_of_birth && (
                   <div className="flex items-center justify-center sm:justify-start gap-2 text-xs sm:text-sm text-muted-foreground">
-                    <Calendar className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
+                    <Icon name="calendar_month" className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
                     <span>
                       {format(new Date(patient.date_of_birth), "d MMM yyyy", { locale: es })}
                       {age !== null && ` (${age} años)`}
@@ -152,7 +142,7 @@ export function PatientSummary({ patient }: PatientSummaryProps) {
                 )}
                 {(patient.city || patient.address) && (
                   <div className="flex items-center justify-center sm:justify-start gap-2 text-xs sm:text-sm text-muted-foreground">
-                    <MapPin className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
+                    <Icon name="location_on" className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
                     <span className="truncate">{patient.city || patient.address}</span>
                   </div>
                 )}
@@ -160,7 +150,7 @@ export function PatientSummary({ patient }: PatientSummaryProps) {
 
               {patient.assigned_professional && (
                 <div className="mt-4 flex items-center gap-2 text-sm">
-                  <User className="h-4 w-4 text-primary" />
+                  <Icon name="person" className="h-4 w-4 text-primary" />
                   <span className="text-primary font-medium">
                     {patient.assigned_professional.first_name} {patient.assigned_professional.last_name}
                   </span>
@@ -183,7 +173,7 @@ export function PatientSummary({ patient }: PatientSummaryProps) {
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Sesiones
             </CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
+            <Icon name="schedule" className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats?.totalSessions || 0}</div>
@@ -198,7 +188,7 @@ export function PatientSummary({ patient }: PatientSummaryProps) {
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Bonos activos
             </CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            <Icon name="trending_up" className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats?.activeBonos || 0}</div>
@@ -213,7 +203,7 @@ export function PatientSummary({ patient }: PatientSummaryProps) {
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Deuda pendiente
             </CardTitle>
-            <CreditCard className="h-4 w-4 text-muted-foreground" />
+            <Icon name="credit_card" className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className={`text-2xl font-bold ${stats?.pendingDebt && stats.pendingDebt > 0 ? 'text-destructive' : ''}`}>
@@ -230,7 +220,7 @@ export function PatientSummary({ patient }: PatientSummaryProps) {
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Alta en sistema
             </CardTitle>
-            <FileText className="h-4 w-4 text-muted-foreground" />
+            <Icon name="description" className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
@@ -248,7 +238,7 @@ export function PatientSummary({ patient }: PatientSummaryProps) {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
-              <AlertCircle className="h-4 w-4 text-warning" />
+              <Icon name="error" className="h-4 w-4 text-warning" />
               Tutor/Responsable
             </CardTitle>
           </CardHeader>

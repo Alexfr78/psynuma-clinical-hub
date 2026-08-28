@@ -16,9 +16,10 @@ import {
 import { Button } from '@/components/ui/button';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
-import { Mail, Phone, CheckCircle, XCircle, Loader2 } from 'lucide-react';
+
 import { useSendInvoiceNotification } from '@/hooks/useSendInvoiceNotification';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { Icon } from '@/components/ui/icon';
 
 interface SendInvoiceDialogProps {
   open: boolean;
@@ -81,21 +82,21 @@ export function SendInvoiceDialog({ open, onOpenChange, invoice }: SendInvoiceDi
         <p className="text-sm text-muted-foreground">Datos de contacto</p>
         <div className="space-y-1">
           <div className="flex items-center gap-2 text-sm">
-            <Mail className="h-4 w-4 text-muted-foreground" />
+            <Icon name="mail" className="h-4 w-4 text-muted-foreground" />
             <span>{patient.email || 'No disponible'}</span>
             {hasEmail ? (
-              <CheckCircle className="h-4 w-4 text-green-500" />
+              <Icon name="check_circle" className="h-4 w-4 text-green-500" />
             ) : (
-              <XCircle className="h-4 w-4 text-destructive" />
+              <Icon name="cancel" className="h-4 w-4 text-destructive" />
             )}
           </div>
           <div className="flex items-center gap-2 text-sm">
-            <Phone className="h-4 w-4 text-muted-foreground" />
+            <Icon name="call" className="h-4 w-4 text-muted-foreground" />
             <span>{patient.phone || 'No disponible'}</span>
             {hasPhone ? (
-              <CheckCircle className="h-4 w-4 text-green-500" />
+              <Icon name="check_circle" className="h-4 w-4 text-green-500" />
             ) : (
-              <XCircle className="h-4 w-4 text-destructive" />
+              <Icon name="cancel" className="h-4 w-4 text-destructive" />
             )}
           </div>
         </div>
@@ -137,7 +138,7 @@ export function SendInvoiceDialog({ open, onOpenChange, invoice }: SendInvoiceDi
         Cancelar
       </Button>
       <Button onClick={handleSend} disabled={!canSend || sendInvoice.isPending}>
-        {sendInvoice.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+        {sendInvoice.isPending && <Icon name="progress_activity" className="mr-2 h-4 w-4 animate-spin" />}
         Enviar factura
       </Button>
     </>

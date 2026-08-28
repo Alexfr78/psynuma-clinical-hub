@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
-import { Send, Eye, Trash2 } from 'lucide-react';
+
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
@@ -18,6 +18,7 @@ import { PatientLinksList } from '@/components/autoregistros/PatientLinksList';
 import type { AutoregistroEntry } from '@/hooks/useAutoregistroEntries';
 import type { AutoregistroField } from '@/hooks/useAutoregistroTemplates';
 import { formatFieldValue } from '@/lib/autoregistro-format';
+import { Icon } from '@/components/ui/icon';
 
 interface PatientAutoregistrosProps {
   patientId: string;
@@ -75,11 +76,11 @@ export function PatientAutoregistros({ patientId }: PatientAutoregistrosProps) {
               className="text-destructive border-destructive/30 hover:bg-destructive/10"
               onClick={() => setConfirmDeleteOpen(true)}
             >
-              <Trash2 className="h-4 w-4 mr-2" /> Borrar respuestas
+              <Icon name="delete" className="h-4 w-4 mr-2" /> Borrar respuestas
             </Button>
           )}
           <Button size="sm" onClick={() => setSendOpen(true)}>
-            <Send className="h-4 w-4 mr-2" /> Enviar
+            <Icon name="send" className="h-4 w-4 mr-2" /> Enviar
           </Button>
         </div>
       </div>
@@ -190,7 +191,7 @@ export function PatientAutoregistros({ patientId }: PatientAutoregistrosProps) {
                             ))
                           )}
                           <TableCell>
-                            <Eye className="h-4 w-4 text-muted-foreground" />
+                            <Icon name="visibility" className="h-4 w-4 text-muted-foreground" />
                           </TableCell>
                         </TableRow>
                       );

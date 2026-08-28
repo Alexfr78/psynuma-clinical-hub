@@ -9,15 +9,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { SessionDetailDrawer } from '@/components/agenda/SessionDetailDrawer';
 import { useDebtStats } from '@/hooks/useDebts';
 import type { SessionWithRelations } from '@/hooks/useSessions';
-import {
-  Users,
-  Calendar,
-  Receipt,
-  TrendingUp,
-  Clock,
-  AlertCircle,
-  Package,
-} from 'lucide-react';
+import { AlertCircle, Users, Calendar, Receipt } from 'lucide-react';
+import { Icon } from '@/components/ui/icon';
 
 function useDashboardStats() {
   const { profile } = useAuth();
@@ -207,7 +200,7 @@ export default function Dashboard() {
       <Card className="shadow-card">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Clock className="h-5 w-5 text-primary" />
+            <Icon name="schedule" className="h-5 w-5 text-primary" />
             Agenda de Hoy
           </CardTitle>
           <CardDescription>Tus próximas sesiones programadas</CardDescription>
@@ -219,7 +212,7 @@ export default function Dashboard() {
             </div>
           ) : !todaySessions || todaySessions.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8 text-center">
-              <Calendar className="mb-4 h-12 w-12 text-muted-foreground/50" />
+              <Icon name="calendar_month" className="mb-4 h-12 w-12 text-muted-foreground/50" />
               <p className="text-muted-foreground">
                 No hay sesiones programadas para hoy
               </p>
@@ -234,7 +227,7 @@ export default function Dashboard() {
                 >
                   <div className="flex items-center gap-3">
                     <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
-                      <Users className="h-5 w-5 text-primary" />
+                      <Icon name="group" className="h-5 w-5 text-primary" />
                     </div>
                     <div>
                       <p className="font-medium">
@@ -267,7 +260,7 @@ export default function Dashboard() {
       <Card className="shadow-card">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <TrendingUp className="h-5 w-5 text-primary" />
+            <Icon name="trending_up" className="h-5 w-5 text-primary" />
             Acciones Rápidas
           </CardTitle>
           <CardDescription>Accesos directos a funciones frecuentes</CardDescription>
@@ -275,19 +268,19 @@ export default function Dashboard() {
         <CardContent>
           <div className="grid gap-3 grid-cols-2 sm:grid-cols-4">
             <Link to="/pacientes" className="flex flex-col items-center gap-2 rounded-lg border border-border bg-card p-4 transition-colors hover:bg-muted">
-              <Users className="h-6 w-6 text-primary" />
+              <Icon name="group" className="h-6 w-6 text-primary" />
               <span className="text-sm font-medium">Nuevo Contacto</span>
             </Link>
             <Link to="/agenda" className="flex flex-col items-center gap-2 rounded-lg border border-border bg-card p-4 transition-colors hover:bg-muted">
-              <Calendar className="h-6 w-6 text-primary" />
+              <Icon name="calendar_month" className="h-6 w-6 text-primary" />
               <span className="text-sm font-medium">Nueva Sesión</span>
             </Link>
             <Link to="/facturas" className="flex flex-col items-center gap-2 rounded-lg border border-border bg-card p-4 transition-colors hover:bg-muted">
-              <Receipt className="h-6 w-6 text-primary" />
+              <Icon name="receipt_long" className="h-6 w-6 text-primary" />
               <span className="text-sm font-medium">Nueva Factura</span>
             </Link>
             <Link to="/bonos" className="flex flex-col items-center gap-2 rounded-lg border border-border bg-card p-4 transition-colors hover:bg-muted">
-              <Package className="h-6 w-6 text-primary" />
+              <Icon name="package_2" className="h-6 w-6 text-primary" />
               <span className="text-sm font-medium">Nuevo Bono</span>
             </Link>
           </div>

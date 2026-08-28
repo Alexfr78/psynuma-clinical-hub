@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
-import { Copy, Link2Off, Trash2, Send } from 'lucide-react';
+
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import { useAutoregistroLinks } from '@/hooks/useAutoregistroLinks';
 import { SendAutoregistroDialog } from './SendAutoregistroDialog';
 import type { AutoregistroEntry } from '@/hooks/useAutoregistroEntries';
+import { Icon } from '@/components/ui/icon';
 
 interface PatientLinksListProps {
   patientId: string;
@@ -46,7 +47,7 @@ export function PatientLinksList({ patientId, entries }: PatientLinksListProps) 
           {links?.length ?? 0} enlace(s) enviado(s)
         </h4>
         <Button size="sm" onClick={() => setSendOpen(true)}>
-          <Send className="h-4 w-4 mr-2" /> Nuevo envío
+          <Icon name="send" className="h-4 w-4 mr-2" /> Nuevo envío
         </Button>
       </div>
 
@@ -85,15 +86,15 @@ export function PatientLinksList({ patientId, entries }: PatientLinksListProps) 
                   )}
                   <div className="flex gap-1 pt-2">
                     <Button size="sm" variant="outline" onClick={() => copyLink(link.access_token)}>
-                      <Copy className="h-3.5 w-3.5" />
+                      <Icon name="content_copy" className="h-3.5 w-3.5" />
                     </Button>
                     {!expired && (
                       <Button size="sm" variant="outline" onClick={() => deactivateLink.mutate(link.id)}>
-                        <Link2Off className="h-3.5 w-3.5" />
+                        <Icon name="link_off" className="h-3.5 w-3.5" />
                       </Button>
                     )}
                     <Button size="sm" variant="outline" className="text-destructive" onClick={() => setDeleteId(link.id)}>
-                      <Trash2 className="h-3.5 w-3.5" />
+                      <Icon name="delete" className="h-3.5 w-3.5" />
                     </Button>
                   </div>
                 </div>
@@ -137,15 +138,15 @@ export function PatientLinksList({ patientId, entries }: PatientLinksListProps) 
                       <TableCell>
                         <div className="flex gap-1 justify-end">
                           <Button size="sm" variant="ghost" title="Copiar enlace" onClick={() => copyLink(link.access_token)}>
-                            <Copy className="h-4 w-4" />
+                            <Icon name="content_copy" className="h-4 w-4" />
                           </Button>
                           {!expired && (
                             <Button size="sm" variant="ghost" title="Desactivar" onClick={() => deactivateLink.mutate(link.id)}>
-                              <Link2Off className="h-4 w-4" />
+                              <Icon name="link_off" className="h-4 w-4" />
                             </Button>
                           )}
                           <Button size="sm" variant="ghost" className="text-destructive" title="Eliminar" onClick={() => setDeleteId(link.id)}>
-                            <Trash2 className="h-4 w-4" />
+                            <Icon name="delete" className="h-4 w-4" />
                           </Button>
                         </div>
                       </TableCell>

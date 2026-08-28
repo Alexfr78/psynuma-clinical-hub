@@ -4,16 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import {
-  Layers,
-  CalendarIcon,
-  PencilLine,
-  X,
-  CheckCircle,
-  Tag,
-  AlertCircle,
-  Info,
-} from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -64,6 +55,7 @@ import {
 } from '@/hooks/useTariffPlans';
 import { usePatientCustomPrices } from '@/hooks/useCustomPrices';
 import { useAuth } from '@/hooks/useAuth';
+import { Icon } from '@/components/ui/icon';
 
 // ── Schema ────────────────────────────────────────────────────────────────────
 
@@ -112,7 +104,7 @@ function AssignDialog({
       <DialogContent className="sm:max-w-[440px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Layers className="h-5 w-5 text-violet-600" />
+            <Icon name="layers" className="h-5 w-5 text-violet-600" />
             Asignar plan tarifario
           </DialogTitle>
           <DialogDescription>
@@ -163,7 +155,7 @@ function AssignDialog({
                         <FormControl>
                           <Button variant="outline" className={cn('pl-3 text-left font-normal', !field.value && 'text-muted-foreground')}>
                             {field.value ? format(field.value, 'dd/MM/yyyy') : 'Seleccionar'}
-                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                            <Icon name="calendar_month" className="ml-auto h-4 w-4 opacity-50" />
                           </Button>
                         </FormControl>
                       </PopoverTrigger>
@@ -186,7 +178,7 @@ function AssignDialog({
                         <FormControl>
                           <Button variant="outline" className={cn('pl-3 text-left font-normal', !field.value && 'text-muted-foreground')}>
                             {field.value ? format(field.value, 'dd/MM/yyyy') : 'Indefinida'}
-                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                            <Icon name="calendar_month" className="ml-auto h-4 w-4 opacity-50" />
                           </Button>
                         </FormControl>
                       </PopoverTrigger>
@@ -277,7 +269,7 @@ export function PatientTariffAssignment({ patientId }: PatientTariffAssignmentPr
     <div className="rounded-lg border bg-card p-4 space-y-3">
       <div className="flex items-center justify-between">
         <h4 className="text-sm font-semibold flex items-center gap-1.5">
-          <Layers className="h-4 w-4 text-violet-600" />
+          <Icon name="layers" className="h-4 w-4 text-violet-600" />
           Tarifa asignada
         </h4>
         {canManage && (
@@ -285,7 +277,7 @@ export function PatientTariffAssignment({ patientId }: PatientTariffAssignmentPr
             {assignment && !isExpired ? (
               <>
                 <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => setAssignOpen(true)}>
-                  <PencilLine className="h-3 w-3" />
+                  <Icon name="edit_note" className="h-3 w-3" />
                   Cambiar
                 </Button>
                 <Button
@@ -294,13 +286,13 @@ export function PatientTariffAssignment({ patientId }: PatientTariffAssignmentPr
                   className="h-7 text-xs gap-1 text-destructive hover:text-destructive"
                   onClick={() => setConfirmRemove(true)}
                 >
-                  <X className="h-3 w-3" />
+                  <Icon name="close" className="h-3 w-3" />
                   Quitar
                 </Button>
               </>
             ) : (
               <Button size="sm" className="h-7 text-xs gap-1" onClick={() => setAssignOpen(true)}>
-                <Layers className="h-3 w-3" />
+                <Icon name="layers" className="h-3 w-3" />
                 Asignar tarifa
               </Button>
             )}
@@ -314,7 +306,7 @@ export function PatientTariffAssignment({ patientId }: PatientTariffAssignmentPr
         <div className="space-y-2">
           <div className="flex items-center gap-2 flex-wrap">
             <Badge className="bg-violet-100 text-violet-700 border-violet-200 gap-1" variant="outline">
-              <Layers className="h-3 w-3" />
+              <Icon name="layers" className="h-3 w-3" />
               {assignment.tariff_plan?.name ?? '—'}
             </Badge>
             {isTemporary && (
@@ -336,7 +328,7 @@ export function PatientTariffAssignment({ patientId }: PatientTariffAssignmentPr
         </div>
       ) : (
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <CheckCircle className="h-4 w-4 text-muted-foreground/50" />
+          <Icon name="check_circle" className="h-4 w-4 text-muted-foreground/50" />
           Sin tarifa asignada — se aplican precios generales
         </div>
       )}
@@ -346,21 +338,21 @@ export function PatientTariffAssignment({ patientId }: PatientTariffAssignmentPr
         <p className="font-medium text-muted-foreground">Prioridad de precios aplicados:</p>
         <div className="space-y-1">
           <PriorityRow
-            icon={<Tag className="h-3 w-3 text-emerald-600" />}
+            icon={<Icon name="sell" className="h-3 w-3 text-emerald-600" />}
             label="Excepción manual"
             detail={activeCustomPricesCount > 0 ? `${activeCustomPricesCount} activa${activeCustomPricesCount !== 1 ? 's' : ''}` : 'Ninguna'}
             active={activeCustomPricesCount > 0}
             priority={1}
           />
           <PriorityRow
-            icon={<Layers className="h-3 w-3 text-violet-600" />}
+            icon={<Icon name="layers" className="h-3 w-3 text-violet-600" />}
             label="Plan tarifario"
             detail={assignment && !isExpired ? (assignment.tariff_plan?.name ?? '—') : 'No asignado'}
             active={!!assignment && !isExpired}
             priority={2}
           />
           <PriorityRow
-            icon={<Info className="h-3 w-3 text-muted-foreground" />}
+            icon={<Icon name="info" className="h-3 w-3 text-muted-foreground" />}
             label="Tarifa general"
             detail="Precio base del servicio/bono"
             active={false}
@@ -371,7 +363,7 @@ export function PatientTariffAssignment({ patientId }: PatientTariffAssignmentPr
 
       {activeCustomPricesCount > 0 && (
         <Alert className="py-2 bg-emerald-50 border-emerald-200">
-          <Tag className="h-3.5 w-3.5 text-emerald-600" />
+          <Icon name="sell" className="h-3.5 w-3.5 text-emerald-600" />
           <AlertDescription className="text-xs text-emerald-700">
             Este paciente tiene {activeCustomPricesCount} excepción{activeCustomPricesCount !== 1 ? 'es' : ''} manual{activeCustomPricesCount !== 1 ? 'es' : ''} que tienen prioridad sobre la tarifa asignada.
           </AlertDescription>

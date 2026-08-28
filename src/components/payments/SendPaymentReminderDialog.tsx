@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Loader2, Mail, MessageCircle, Smartphone, CreditCard, Wallet, Building2 } from 'lucide-react';
+
 import {
   ResponsiveDialog as Dialog,
   ResponsiveDialogContent as DialogContent,
@@ -25,6 +25,7 @@ import {
   PAYMENT_REMINDER_VARIABLES 
 } from '@/hooks/useCommunicationTemplates';
 import type { DebtWithRelations } from '@/hooks/useDebts';
+import { Icon } from '@/components/ui/icon';
 
 interface SendPaymentReminderDialogProps {
   open: boolean;
@@ -210,15 +211,15 @@ export function SendPaymentReminderDialog({
           <Tabs value={channel} onValueChange={(v) => setChannel(v as Channel)}>
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="whatsapp" disabled={!canSendWhatsApp}>
-                <MessageCircle className="h-4 w-4 mr-2" />
+                <Icon name="chat" className="h-4 w-4 mr-2" />
                 WhatsApp
               </TabsTrigger>
               <TabsTrigger value="email" disabled={!canSendEmail}>
-                <Mail className="h-4 w-4 mr-2" />
+                <Icon name="mail" className="h-4 w-4 mr-2" />
                 Email
               </TabsTrigger>
               <TabsTrigger value="sms" disabled={!canSendSms}>
-                <Smartphone className="h-4 w-4 mr-2" />
+                <Icon name="smartphone" className="h-4 w-4 mr-2" />
                 SMS
               </TabsTrigger>
             </TabsList>
@@ -247,7 +248,7 @@ export function SendPaymentReminderDialog({
               />
               <div className="flex-1">
                 <Label htmlFor="stripe" className="flex items-center gap-2 cursor-pointer">
-                  <CreditCard className="h-4 w-4 text-blue-600" />
+                  <Icon name="credit_card" className="h-4 w-4 text-blue-600" />
                   Enlace de pago con tarjeta (Stripe)
                 </Label>
                 <p className="text-xs text-muted-foreground">
@@ -264,7 +265,7 @@ export function SendPaymentReminderDialog({
               />
               <div className="flex-1">
                 <Label htmlFor="bizum" className="flex items-center gap-2 cursor-pointer">
-                  <Smartphone className="h-4 w-4 text-green-600" />
+                  <Icon name="smartphone" className="h-4 w-4 text-green-600" />
                   Número de Bizum ({center?.bizum_phone || '609555514'})
                 </Label>
                 <p className="text-xs text-muted-foreground">
@@ -281,7 +282,7 @@ export function SendPaymentReminderDialog({
               />
               <div className="flex-1">
                 <Label htmlFor="transfer" className="flex items-center gap-2 cursor-pointer">
-                  <Building2 className="h-4 w-4 text-amber-600" />
+                  <Icon name="apartment" className="h-4 w-4 text-amber-600" />
                   Transferencia bancaria
                 </Label>
                 <p className="text-xs text-muted-foreground">
@@ -300,7 +301,7 @@ export function SendPaymentReminderDialog({
               />
               <div className="flex-1">
                 <Label htmlFor="bono" className="flex items-center gap-2 cursor-pointer">
-                  <Wallet className="h-4 w-4 text-purple-600" />
+                  <Icon name="account_balance_wallet" className="h-4 w-4 text-purple-600" />
                   Opción de comprar bono
                 </Label>
                 <p className="text-xs text-muted-foreground">
@@ -335,14 +336,14 @@ export function SendPaymentReminderDialog({
           >
             {isSending ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Icon name="progress_activity" className="mr-2 h-4 w-4 animate-spin" />
                 Enviando...
               </>
             ) : (
               <>
-                {channel === 'email' && <Mail className="mr-2 h-4 w-4" />}
-                {channel === 'whatsapp' && <MessageCircle className="mr-2 h-4 w-4" />}
-                {channel === 'sms' && <Smartphone className="mr-2 h-4 w-4" />}
+                {channel === 'email' && <Icon name="mail" className="mr-2 h-4 w-4" />}
+                {channel === 'whatsapp' && <Icon name="chat" className="mr-2 h-4 w-4" />}
+                {channel === 'sms' && <Icon name="smartphone" className="mr-2 h-4 w-4" />}
                 Enviar recordatorio
               </>
             )}

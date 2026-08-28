@@ -1,7 +1,8 @@
 import { useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
 import SignaturePad from 'signature_pad';
 import { Button } from '@/components/ui/button';
-import { Eraser } from 'lucide-react';
+import { Icon } from '@/components/ui/icon';
+
 
 interface SignatureCanvasProps {
   onSignatureChange?: (hasSignature: boolean) => void;
@@ -85,7 +86,7 @@ export const SignatureCanvas = forwardRef<SignatureCanvasRef, SignatureCanvasPro
             className="absolute right-2 top-2"
             onClick={handleClear}
           >
-            <Eraser className="h-4 w-4" />
+            <Icon name="ink_eraser" className="h-4 w-4" />
           </Button>
         </div>
         <p className="text-center text-xs text-muted-foreground">

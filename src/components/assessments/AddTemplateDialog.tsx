@@ -3,7 +3,7 @@ import { ResponsiveDialog as Dialog, ResponsiveDialogContent as DialogContent, R
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ClipboardCheck, Plus, Loader2, Check } from 'lucide-react';
+
 import { useAssessmentTemplates } from '@/hooks/useAssessmentTemplates';
 import { getPAITemplateData } from '@/data/pai-template';
 import { getBDI2TemplateData } from '@/data/bdi2-template';
@@ -13,6 +13,7 @@ import { getSTAITemplateData } from '@/data/stai-template';
 import { getEMOTemplateData } from '@/data/emo-template';
 import { getYBOCS2TemplateData } from '@/data/ybocs2-template';
 import { toast } from 'sonner';
+import { Icon } from '@/components/ui/icon';
 
 interface AddTemplateDialogProps {
   open: boolean;
@@ -104,7 +105,7 @@ export function AddTemplateDialog({ open, onOpenChange }: AddTemplateDialogProps
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <ClipboardCheck className="h-5 w-5" />
+            <Icon name="assignment_turned_in" className="h-5 w-5" />
             Añadir plantilla de evaluación
           </DialogTitle>
         </DialogHeader>
@@ -112,7 +113,7 @@ export function AddTemplateDialog({ open, onOpenChange }: AddTemplateDialogProps
         <div className="space-y-4 mt-4">
           {availableTemplates.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
-              <Check className="h-12 w-12 mx-auto mb-4 text-primary" />
+              <Icon name="check" className="h-12 w-12 mx-auto mb-4 text-primary" />
               <p>Ya tienes todas las plantillas disponibles</p>
             </div>
           ) : (
@@ -130,10 +131,10 @@ export function AddTemplateDialog({ open, onOpenChange }: AddTemplateDialogProps
                       disabled={adding === template.id}
                     >
                       {adding === template.id ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <Icon name="progress_activity" className="h-4 w-4 animate-spin" />
                       ) : (
                         <>
-                          <Plus className="h-4 w-4 mr-1" />
+                          <Icon name="add" className="h-4 w-4 mr-1" />
                           Añadir
                         </>
                       )}

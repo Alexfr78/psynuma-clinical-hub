@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { format, addDays, startOfDay, isBefore, startOfMonth, addMonths } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Loader2, Calendar as CalendarIcon, CheckCircle, Video, MapPin, AlertCircle, ShieldCheck } from 'lucide-react';
+
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -27,6 +27,7 @@ import {
 import { formatLocationLine, type RescheduleLocation } from '@/lib/reschedule-helpers';
 import type { PortalBookingRequirements, PortalCreateSessionResult, CancellationPolicyPreview } from '@/hooks/usePatientPortal';
 import { redirectTopLevel } from '@/lib/redirect';
+import { Icon } from '@/components/ui/icon';
 
 interface RescheduleTarget {
   sessionId: string;
@@ -466,7 +467,7 @@ export function PortalBooking({
       <Card>
         <CardContent className="py-8">
           <div className="flex items-center justify-center">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            <Icon name="progress_activity" className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
         </CardContent>
       </Card>
@@ -478,7 +479,7 @@ export function PortalBooking({
       <Card>
         <CardContent className="py-8">
           <div className="text-center space-y-4">
-            <CheckCircle className="h-16 w-16 mx-auto text-green-500" />
+            <Icon name="check_circle" className="h-16 w-16 mx-auto text-green-500" />
             <div>
               <h3 className="text-lg font-medium">¡Solicitud enviada!</h3>
               <p className="text-muted-foreground mt-2">{successMessage}</p>
@@ -519,7 +520,7 @@ export function PortalBooking({
                       : "border-border hover:bg-muted"
                   )}
                 >
-                  <MapPin className="h-4 w-4" />
+                  <Icon name="location_on" className="h-4 w-4" />
                   Presencial
                 </Label>
               </div>
@@ -536,7 +537,7 @@ export function PortalBooking({
                       : "border-border hover:bg-muted"
                   )}
                 >
-                  <Video className="h-4 w-4" />
+                  <Icon name="videocam" className="h-4 w-4" />
                   Online
                 </Label>
               </div>
@@ -545,7 +546,7 @@ export function PortalBooking({
           
           {!hasOnlineLocation && !hasInPersonLocations && (
             <div className="p-3 rounded-lg bg-amber-50 text-amber-700 text-sm flex items-center gap-2">
-              <AlertCircle className="h-4 w-4" />
+              <Icon name="error" className="h-4 w-4" />
               <span>No hay ubicaciones disponibles para reservar</span>
             </div>
           )}
@@ -553,7 +554,7 @@ export function PortalBooking({
 
         {canSelectLocation && selectedModality === 'online' && !onlineLocation && (
           <div className="p-3 rounded-lg bg-amber-50 text-amber-700 text-sm flex items-center gap-2">
-            <Video className="h-4 w-4" />
+            <Icon name="videocam" className="h-4 w-4" />
             <span>No hay disponibilidad online configurada para este centro</span>
           </div>
         )}
@@ -579,21 +580,21 @@ export function PortalBooking({
 
         {canSelectLocation && selectedModality === 'in_person' && filteredLocations.length === 0 && (
           <div className="p-3 rounded-lg bg-amber-50 text-amber-700 text-sm flex items-center gap-2">
-            <MapPin className="h-4 w-4" />
+            <Icon name="location_on" className="h-4 w-4" />
             <span>No hay ubicaciones presenciales disponibles</span>
           </div>
         )}
 
         {canSelectLocation && selectedModality === 'online' && selectedLocation && (
           <div className="p-3 rounded-lg bg-muted text-sm flex items-center gap-2">
-            <Video className="h-4 w-4 text-muted-foreground" />
+            <Icon name="videocam" className="h-4 w-4 text-muted-foreground" />
             <span>Sesión online</span>
           </div>
         )}
 
         {canSelectService && sessionTypes.length === 0 && (
           <div className="flex items-center gap-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-700">
-            <AlertCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
+            <Icon name="error" className="h-4 w-4 shrink-0" aria-hidden="true" />
             <span>No hay tipos de sesión disponibles para reservar</span>
           </div>
         )}
@@ -643,7 +644,7 @@ export function PortalBooking({
             <div className="border rounded-lg p-3">
               {monthLoading && Object.keys(monthAvailability).length === 0 ? (
                 <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                  <Icon name="progress_activity" className="h-5 w-5 animate-spin text-muted-foreground" />
                   <span className="ml-2 text-sm text-muted-foreground">Cargando disponibilidad...</span>
                 </div>
               ) : (
@@ -677,7 +678,7 @@ export function PortalBooking({
                 </p>
                 {daySlotsLoading ? (
                   <div className="flex items-center justify-center py-4">
-                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                    <Icon name="progress_activity" className="h-4 w-4 animate-spin text-muted-foreground" />
                     <span className="ml-2 text-sm text-muted-foreground">Cargando horarios...</span>
                   </div>
                 ) : daySlots.length === 0 ? (
@@ -712,7 +713,7 @@ export function PortalBooking({
         {/* Selected slot confirmation */}
         {selectedSlot && (
           <div className="p-3 rounded-lg bg-primary/10 text-sm flex items-center gap-2">
-            <CalendarIcon className="h-4 w-4 text-primary" />
+            <Icon name="calendar_month" className="h-4 w-4 text-primary" />
             <span>
               Seleccionado: {format(new Date(selectedSlot.date), "EEEE d 'de' MMMM", { locale: es })} a las {selectedSlot.time}
             </span>
@@ -728,7 +729,7 @@ export function PortalBooking({
           )}>
             {hasAcceptedCancellationPolicy ? (
               <div className="flex min-h-11 items-center gap-3">
-                <CheckCircle className="h-5 w-5 shrink-0 text-green-600" aria-hidden="true" />
+                <Icon name="check_circle" className="h-5 w-5 shrink-0 text-green-600" aria-hidden="true" />
                 <p className="text-sm font-medium">Política de cancelación ya aceptada</p>
               </div>
             ) : (
@@ -773,7 +774,7 @@ export function PortalBooking({
               <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle className="flex items-center gap-2">
-                    <ShieldCheck className="h-5 w-5 text-primary" aria-hidden="true" />
+                    <Icon name="verified_user" className="h-5 w-5 text-primary" aria-hidden="true" />
                     Política de cancelación
                   </DialogTitle>
                   <DialogDescription>
@@ -796,7 +797,7 @@ export function PortalBooking({
 
         {!isRescheduleMode && !bookingRequirementsLoaded && (
           <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-sm text-amber-800">
-            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+            <Icon name="error" className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
             No se pudieron verificar las condiciones de la reserva. Recarga la página antes de continuar.
           </div>
         )}
@@ -831,9 +832,9 @@ export function PortalBooking({
           }
         >
           {submitting ? (
-            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+            <Icon name="progress_activity" className="h-4 w-4 animate-spin mr-2" />
           ) : (
-            <CalendarIcon className="h-4 w-4 mr-2" />
+            <Icon name="calendar_month" className="h-4 w-4 mr-2" />
           )}
           {isRescheduleMode ? 'Reprogramar cita' : 'Solicitar cita'}
         </Button>
@@ -875,7 +876,7 @@ export function PortalBooking({
               </AlertDialogDescription>
             </AlertDialogHeader>
             <Alert className="border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-900 dark:bg-amber-950/20 dark:text-amber-100">
-              <AlertCircle className="h-4 w-4 text-amber-600" />
+              <Icon name="error" className="h-4 w-4 text-amber-600" />
               <AlertDescription>
                 {reschedulePreviewLoading ? (
                   'Comprobando la política de cancelación...'

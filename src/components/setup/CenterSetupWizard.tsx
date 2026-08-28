@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Loader2, Building2, CheckCircle } from 'lucide-react';
+
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -17,6 +17,7 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
+import { Icon } from '@/components/ui/icon';
 
 const centerSchema = z.object({
   name: z.string().min(1, 'El nombre es obligatorio').max(200),
@@ -88,7 +89,7 @@ export function CenterSetupWizard() {
       <Card className="w-full max-w-lg">
         <CardHeader className="text-center">
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
-            <Building2 className="h-8 w-8 text-primary" />
+            <Icon name="apartment" className="h-8 w-8 text-primary" />
           </div>
           <CardTitle className="font-display text-2xl">Configura tu centro</CardTitle>
           <CardDescription>
@@ -200,9 +201,9 @@ export function CenterSetupWizard() {
 
               <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Icon name="progress_activity" className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
-                  <CheckCircle className="mr-2 h-4 w-4" />
+                  <Icon name="check_circle" className="mr-2 h-4 w-4" />
                 )}
                 Crear Centro y Empezar
               </Button>

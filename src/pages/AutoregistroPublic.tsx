@@ -5,8 +5,9 @@ import { DynamicFormRenderer } from '@/components/autoregistros/DynamicFormRende
 import { PatientFeedbackPanel } from '@/components/autoregistros/PatientFeedbackPanel';
 import { InstallBanner } from '@/components/autoregistros/InstallBanner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { CheckCircle2, AlertCircle } from 'lucide-react';
+
 import { sanitizeDescription } from '@/components/autoregistros/RichDescriptionEditor';
+import { Icon } from '@/components/ui/icon';
 
 export default function AutoregistroPublic() {
   const { token } = useParams<{ token: string }>();
@@ -26,7 +27,7 @@ export default function AutoregistroPublic() {
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <Card className="max-w-md w-full">
           <CardContent className="p-6 text-center">
-            <AlertCircle className="h-10 w-10 text-destructive mx-auto mb-3" />
+            <Icon name="error" className="h-10 w-10 text-destructive mx-auto mb-3" />
             <p className="font-medium">Enlace no válido</p>
             <p className="text-sm text-muted-foreground mt-1">
               {(error as Error)?.message || 'Este enlace no existe o ha expirado.'}
@@ -42,7 +43,7 @@ export default function AutoregistroPublic() {
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <Card className="max-w-md w-full">
           <CardContent className="p-6 text-center">
-            <CheckCircle2 className="h-10 w-10 text-primary mx-auto mb-3" />
+            <Icon name="check_circle" className="h-10 w-10 text-primary mx-auto mb-3" />
             <p className="font-medium text-lg">¡Registro enviado!</p>
             <p className="text-sm text-muted-foreground mt-1">
               Gracias por completar el formulario.

@@ -1,6 +1,6 @@
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { FileText, Download, ExternalLink, Loader2 } from 'lucide-react';
+
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { Icon } from '@/components/ui/icon';
 
 export interface PortalInvoice {
   id: string;
@@ -82,7 +83,7 @@ export function PortalInvoices({ invoices, loading, sessionToken }: PortalInvoic
   if (!invoices || invoices.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12 text-center">
-        <FileText className="h-12 w-12 text-muted-foreground" />
+        <Icon name="description" className="h-12 w-12 text-muted-foreground" />
         <h3 className="mt-4 text-lg font-semibold">Sin facturas</h3>
         <p className="mt-2 max-w-sm text-sm text-muted-foreground">
           Aún no tienes facturas emitidas.
@@ -106,7 +107,7 @@ export function PortalInvoices({ invoices, loading, sessionToken }: PortalInvoic
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="space-y-1 min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <FileText className="h-4 w-4 text-primary shrink-0" />
+                    <Icon name="description" className="h-4 w-4 text-primary shrink-0" />
                     <span className={cn(
                       "font-medium text-sm",
                       isInvalidated && "line-through text-muted-foreground"
@@ -134,7 +135,7 @@ export function PortalInvoices({ invoices, loading, sessionToken }: PortalInvoic
                   <div className="flex flex-wrap gap-2">
                     {invoice.access_token && (
                       <Button variant="outline" size="sm" className="min-h-11" onClick={() => handleView(invoice)}>
-                        <ExternalLink className="mr-2 h-4 w-4" aria-hidden="true" />Ver
+                        <Icon name="open_in_new" className="mr-2 h-4 w-4" aria-hidden="true" />Ver
                       </Button>
                     )}
                     <Button
@@ -145,9 +146,9 @@ export function PortalInvoices({ invoices, loading, sessionToken }: PortalInvoic
                       disabled={downloadingId === invoice.id}
                     >
                       {downloadingId === invoice.id ? (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+                        <Icon name="progress_activity" className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
                       ) : (
-                        <Download className="mr-2 h-4 w-4" aria-hidden="true" />
+                        <Icon name="download" className="mr-2 h-4 w-4" aria-hidden="true" />
                       )}
                       Descargar
                     </Button>

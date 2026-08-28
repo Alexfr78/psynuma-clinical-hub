@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Calendar, Clock, User, Loader2, MapPin, Package } from 'lucide-react';
+
 import {
   ResponsiveDialog as Dialog,
   ResponsiveDialogContent as DialogContent,
@@ -27,6 +27,7 @@ import { usePatientActiveBonos } from '@/hooks/useBonos';
 import { useConvertCalendarEvent } from '@/hooks/useConvertCalendarEvent';
 import { CalendarEvent } from '@/hooks/useCalendarEvents';
 import { usePatient } from '@/hooks/usePatients';
+import { Icon } from '@/components/ui/icon';
 
 interface ConvertCalendarEventDialogProps {
   open: boolean;
@@ -158,11 +159,11 @@ export function ConvertCalendarEventDialog({
           {/* Event Info */}
           <div className="p-4 rounded-lg bg-muted/50 space-y-2">
             <div className="flex items-center gap-2 text-sm font-medium">
-              <Calendar className="h-4 w-4 text-muted-foreground" />
+              <Icon name="calendar_month" className="h-4 w-4 text-muted-foreground" />
               {format(startDate, "EEEE, d 'de' MMMM yyyy", { locale: es })}
             </div>
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Clock className="h-4 w-4" />
+              <Icon name="schedule" className="h-4 w-4" />
               {calendarEvent.all_day
                 ? 'Todo el día'
                 : `${formatTimeMadrid(startDate)} - ${formatTimeMadrid(endDate)}`}
@@ -177,13 +178,13 @@ export function ConvertCalendarEventDialog({
           {/* Patient Selector */}
           <div className="space-y-2">
             <Label className="flex items-center gap-2">
-              <User className="h-4 w-4" />
+              <Icon name="person" className="h-4 w-4" />
               Contacto *
             </Label>
             {patientId && patientName ? (
               <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
                 <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                  <User className="h-4 w-4 text-primary" />
+                  <Icon name="person" className="h-4 w-4 text-primary" />
                 </div>
                 <span className="font-medium flex-1">{patientName}</span>
                 <Button
@@ -236,7 +237,7 @@ export function ConvertCalendarEventDialog({
           {sessionModality === 'in_person' && locations && locations.length > 0 && (
             <div className="space-y-2">
               <Label className="flex items-center gap-2">
-                <MapPin className="h-4 w-4" />
+                <Icon name="location_on" className="h-4 w-4" />
                 Ubicación
               </Label>
               <Select value={locationId} onValueChange={setLocationId}>
@@ -258,7 +259,7 @@ export function ConvertCalendarEventDialog({
           {patientId && activeBonos.length > 0 && (
             <div className="space-y-2">
               <Label className="flex items-center gap-2">
-                <Package className="h-4 w-4" />
+                <Icon name="package_2" className="h-4 w-4" />
                 Bono
               </Label>
               <Select value={bonoId} onValueChange={setBonoId}>
@@ -305,7 +306,7 @@ export function ConvertCalendarEventDialog({
           >
             {convertMutation.isPending ? (
               <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                <Icon name="progress_activity" className="h-4 w-4 mr-2 animate-spin" />
                 Convirtiendo...
               </>
             ) : (

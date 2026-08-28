@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AlertCircle, CheckCircle2, FileCheck2, Loader2, ReceiptText } from 'lucide-react';
+
 import {
   ResponsiveDialog as Dialog,
   ResponsiveDialogContent as DialogContent,
@@ -24,6 +24,7 @@ import {
   useFixInvoiceType,
   useInvoiceTypeCorrectionContext,
 } from '@/hooks/useFixInvoiceType';
+import { Icon } from '@/components/ui/icon';
 
 interface FixInvoiceTypeDialogProps {
   open: boolean;
@@ -140,7 +141,7 @@ export function FixInvoiceTypeDialog({
       <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <ReceiptText className="h-5 w-5" />
+            <Icon name="receipt_long" className="h-5 w-5" />
             Corregir tipo de factura
           </DialogTitle>
           <DialogDescription>
@@ -155,13 +156,13 @@ export function FixInvoiceTypeDialog({
           </div>
         ) : contextQuery.isError ? (
           <Alert variant="destructive" role="alert">
-            <AlertCircle className="h-4 w-4" />
+            <Icon name="error" className="h-4 w-4" />
             <AlertTitle>No se pudo comprobar la factura</AlertTitle>
             <AlertDescription>{contextQuery.error.message}</AlertDescription>
           </Alert>
         ) : !context?.eligible ? (
           <Alert variant="destructive" role="alert">
-            <AlertCircle className="h-4 w-4" />
+            <Icon name="error" className="h-4 w-4" />
             <AlertTitle>Factura no elegible</AlertTitle>
             <AlertDescription>
               {BLOCKER_MESSAGES[context?.blocker || ''] || 'Esta factura no puede corregirse mediante este flujo.'}
@@ -172,8 +173,8 @@ export function FixInvoiceTypeDialog({
             ? 'border-green-600/40 bg-green-50 dark:bg-green-950/20'
             : 'border-amber-500/40 bg-amber-50 dark:bg-amber-950/20'} role="status">
             {result.status === 'registered' || result.status === 'already_completed'
-              ? <CheckCircle2 className="h-4 w-4 text-green-700" />
-              : <AlertCircle className="h-4 w-4 text-amber-700" />}
+              ? <Icon name="check_circle" className="h-4 w-4 text-green-700" />
+              : <Icon name="error" className="h-4 w-4 text-amber-700" />}
             <AlertTitle>
               {result.status === 'registered' || result.status === 'already_completed'
                 ? 'Corrección registrada'
@@ -282,7 +283,7 @@ export function FixInvoiceTypeDialog({
             {fixInvoiceType.isPending && (
               <div className="rounded-lg border p-4" role="status" aria-live="polite">
                 <div className="flex items-center gap-2 font-medium">
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Icon name="progress_activity" className="h-4 w-4 animate-spin" />
                   Creando y registrando la corrección…
                 </div>
                 <p className="mt-1 text-sm text-muted-foreground">No cierres esta ventana. Si AEAT tarda, podrás reanudar sin crear otra factura.</p>
@@ -291,7 +292,7 @@ export function FixInvoiceTypeDialog({
 
             {fixInvoiceType.isError && (
               <Alert variant="destructive" role="alert">
-                <AlertCircle className="h-4 w-4" />
+                <Icon name="error" className="h-4 w-4" />
                 <AlertTitle>No se pudo completar la corrección</AlertTitle>
                 <AlertDescription>{fixInvoiceType.error.message}</AlertDescription>
               </Alert>
@@ -305,7 +306,7 @@ export function FixInvoiceTypeDialog({
           </Button>
           {!result && context?.eligible && (
             <Button type="button" onClick={handleSubmit} disabled={!canSubmit} className="min-h-11">
-              {fixInvoiceType.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileCheck2 className="mr-2 h-4 w-4" />}
+              {fixInvoiceType.isPending ? <Icon name="progress_activity" className="mr-2 h-4 w-4 animate-spin" /> : <Icon name="task" className="mr-2 h-4 w-4" />}
               {operationType === 'f3_replacement' ? 'Emitir factura completa F3' : 'Emitir rectificativa sustitutiva'}
             </Button>
           )}

@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+
+<html class="light" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Consentimientos Informados - Psycma</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Plus+Jakarta+Sans:wght@600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-error-container": "#93000a",
+                        "error-container": "#ffdad6",
+                        "on-surface": "#1a1c1b",
+                        "primary": "#004d84",
+                        "error": "#ba1a1a",
+                        "on-tertiary": "#ffffff",
+                        "on-secondary-fixed": "#00201c",
+                        "on-tertiary-fixed-variant": "#703800",
+                        "surface-container-low": "#f4f3f1",
+                        "tertiary-fixed": "#ffdcc5",
+                        "surface-dim": "#dadad8",
+                        "inverse-surface": "#2f3130",
+                        "outline-variant": "#c8c4d6",
+                        "surface-container-high": "#e9e8e6",
+                        "surface-container-lowest": "#ffffff",
+                        "secondary-container": "#62fae3",
+                        "on-secondary-container": "#007165",
+                        "on-secondary": "#ffffff",
+                        "outline": "#787585",
+                        "primary-fixed-dim": "#9fcaff",
+                        "inverse-on-surface": "#f1f1ef",
+                        "surface": "#faf9f7",
+                        "background": "#faf9f7",
+                        "tertiary-fixed-dim": "#ffb782",
+                        "on-secondary-fixed-variant": "#005047",
+                        "surface-container": "#efeeec",
+                        "secondary-fixed-dim": "#3cddc7",
+                        "on-primary": "#ffffff",
+                        "primary-container": "#1b65a5",
+                        "tertiary": "#763b00",
+                        "secondary": "#006b5f",
+                        "secondary-fixed": "#62fae3",
+                        "on-error": "#ffffff",
+                        "on-primary-container": "#cbe1ff",
+                        "on-primary-fixed": "#001d36",
+                        "on-tertiary-container": "#ffd7bc",
+                        "tertiary-container": "#994e00",
+                        "surface-tint": "#1361a0",
+                        "on-surface-variant": "#474554",
+                        "on-background": "#1a1c1b",
+                        "inverse-primary": "#9fcaff",
+                        "surface-variant": "#e3e2e0",
+                        "surface-container-highest": "#e3e2e0",
+                        "on-tertiary-fixed": "#301400",
+                        "surface-bright": "#faf9f7",
+                        "primary-fixed": "#d1e4ff",
+                        "on-primary-fixed-variant": "#00497d"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "xl": "48px",
+                        "lg": "32px",
+                        "md": "24px",
+                        "xs": "8px",
+                        "grid-margin": "24px",
+                        "sm": "16px",
+                        "base": "4px",
+                        "grid-gutter": "16px"
+                    },
+                    "fontFamily": {
+                        "label-md": ["Inter"],
+                        "body-sm": ["Inter"],
+                        "body-md": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "headline-lg": ["Plus Jakarta Sans"],
+                        "display-lg": ["Plus Jakarta Sans"],
+                        "headline-md": ["Plus Jakarta Sans"],
+                        "headline-lg-mobile": ["Plus Jakarta Sans"],
+                        "data-tabular": ["Inter"]
+                    },
+                    "fontSize": {
+                        "label-md": ["14px", { "lineHeight": "16px", "letterSpacing": "0.01em", "fontWeight": "600" }],
+                        "body-sm": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+                        "display-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "headline-lg-mobile": ["28px", { "lineHeight": "36px", "fontWeight": "600" }],
+                        "data-tabular": ["14px", { "lineHeight": "20px", "fontWeight": "500" }]
+                    }
+                },
+            },
+        }
+    </script>
+</head>
+<body class="bg-background text-on-surface font-body-md h-screen flex overflow-hidden">
+<!-- SideNavBar -->
+<aside class="bg-surface-white dark:bg-dark-surface h-screen w-64 fixed left-0 top-0 hidden lg:flex flex-col shadow-[4px_0_24px_rgba(90,79,207,0.05)] z-50">
+<div class="flex flex-col h-full py-md px-sm">
+<div class="mb-lg">
+<div class="flex items-center gap-xs">
+<img class="w-8 h-8 object-contain" data-alt="Logotipo de Psycma, a clean and modern stylized brain icon in cerulean blue with organic curves, set against a pristine white background. High definition vector aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDee2FUNudlcUtXxCrCkVPTKOYTxrStgg4qcPlkHEc_azfP99k9Ahp5Mdd96b8BH3JOJAQEGSfIl4dHqMjLbJQK3I0--gQeoSp5nQ557GbtM2CODkCX8hR5MdX5vtt23IS-k9OO_aX8wi2C4Cr0frjXJeCYOciYfvWA4oQkwnuzzQQd5tDRq1mfMJPKnxkOAYolPANvvAQDVWSoM7TltRsSzXIhF0Y9zNRrXf5RcAysFqCjMMtsj-6o"/>
+<span class="font-headline-md text-headline-md font-bold text-primary dark:text-primary-fixed-dim">Psycma</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-base">Gestión Clínica</p>
+</div>
+<button class="bg-primary text-on-primary rounded-xl py-sm px-md mb-lg font-label-md text-label-md hover:bg-primary/90 transition-colors shadow-sm">
+                Nueva Cita
+            </button>
+<nav class="flex-1 flex flex-col gap-xs">
+<a class="flex items-center gap-sm px-sm py-xs rounded-lg text-on-surface-variant dark:text-surface-variant hover:text-primary dark:hover:text-primary-fixed-dim hover:bg-surface-container-low dark:hover:bg-white/5 transition-colors duration-200 cursor-pointer active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard" data-weight="fill" style="font-variation-settings: 'FILL' 1;">dashboard</span>
+<span class="font-label-md text-label-md">Panel</span>
+</a>
+<a class="flex items-center gap-sm px-sm py-xs rounded-lg text-on-surface-variant dark:text-surface-variant hover:text-primary dark:hover:text-primary-fixed-dim hover:bg-surface-container-low dark:hover:bg-white/5 transition-colors duration-200 cursor-pointer active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="calendar_today">calendar_today</span>
+<span class="font-label-md text-label-md">Agenda</span>
+</a>
+<a class="flex items-center gap-sm px-sm py-xs rounded-lg text-primary dark:text-primary-fixed-dim font-bold border-r-4 border-primary dark:border-primary-fixed-dim bg-primary-container/10 cursor-pointer active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="groups">groups</span>
+<span class="font-label-md text-label-md">Pacientes</span>
+</a>
+<a class="flex items-center gap-sm px-sm py-xs rounded-lg text-on-surface-variant dark:text-surface-variant hover:text-primary dark:hover:text-primary-fixed-dim hover:bg-surface-container-low dark:hover:bg-white/5 transition-colors duration-200 cursor-pointer active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="payments">payments</span>
+<span class="font-label-md text-label-md">Finanzas</span>
+</a>
+<a class="flex items-center gap-sm px-sm py-xs rounded-lg text-on-surface-variant dark:text-surface-variant hover:text-primary dark:hover:text-primary-fixed-dim hover:bg-surface-container-low dark:hover:bg-white/5 transition-colors duration-200 cursor-pointer active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="chat">chat</span>
+<span class="font-label-md text-label-md">Mensajes</span>
+</a>
+</nav>
+<div class="mt-auto flex flex-col gap-xs pt-md border-t border-surface-variant/30">
+<a class="flex items-center gap-sm px-sm py-xs rounded-lg text-on-surface-variant dark:text-surface-variant hover:text-primary dark:hover:text-primary-fixed-dim hover:bg-surface-container-low dark:hover:bg-white/5 transition-colors duration-200 cursor-pointer active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span class="font-label-md text-label-md">Configuración</span>
+</a>
+<a class="flex items-center gap-sm px-sm py-xs rounded-lg text-on-surface-variant dark:text-surface-variant hover:text-primary dark:hover:text-primary-fixed-dim hover:bg-surface-container-low dark:hover:bg-white/5 transition-colors duration-200 cursor-pointer active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="logout">logout</span>
+<span class="font-label-md text-label-md">Cerrar Sesión</span>
+</a>
+</div>
+</div>
+</aside>
+<!-- Main Content Area -->
+<div class="flex-1 flex flex-col lg:pl-64 h-screen overflow-hidden">
+<!-- TopAppBar -->
+<header class="bg-surface-white/80 dark:bg-dark-surface/80 backdrop-blur-md border-b border-surface-variant/30 shadow-sm docked full-width top-0 sticky z-40">
+<div class="flex justify-between items-center w-full h-16 px-md lg:pl-72">
+<div class="flex items-center gap-md">
+<button class="lg:hidden p-2 rounded-full hover:bg-surface-container-low transition-colors">
+<span class="material-symbols-outlined">menu</span>
+</button>
+<span class="font-headline-md text-headline-md font-bold text-primary dark:text-primary-fixed-dim lg:hidden">Psycma</span>
+<!-- Search Bar -->
+<div class="hidden md:flex items-center bg-surface-container-low rounded-xl px-sm py-2 focus-within:ring-2 focus-within:ring-primary/20 transition-all w-64">
+<span class="material-symbols-outlined text-on-surface-variant mr-2">search</span>
+<input class="bg-transparent border-none focus:ring-0 text-body-sm w-full p-0 text-on-surface placeholder:text-on-surface-variant" placeholder="Buscar..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-sm">
+<button class="p-2 rounded-full hover:bg-surface-container-low dark:hover:bg-white/5 transition-all text-on-surface-variant dark:text-surface-variant">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="p-2 rounded-full hover:bg-surface-container-low dark:hover:bg-white/5 transition-all text-on-surface-variant dark:text-surface-variant">
+<span class="material-symbols-outlined" data-icon="help">help</span>
+</button>
+<img class="w-10 h-10 rounded-full object-cover border-2 border-surface-container-low ml-xs" data-alt="Foto de perfil del psicólogo, a professional headshot of a friendly therapist smiling softly, well-lit studio lighting with a warm background. Crisp and approachable aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBxvtWJdyWry_dh73IW_VzMIdCSoVWLN3S0e0tlqWQNXpiCjaAR8v31n5KH7qcMKQhjSUYtw-OYP2S7WVEuQS8OUFhQtRHSDpYPxlD4CIIZCi6-04ueCqsMogqf0O96FJnpxgT6_xXgMAztIA_Nba8zycOdJ6Vp8Ce5_v9HzVEQcbU_8Wx3GVZRZneiDUrb45jYNAY2AxGk69aKtI3SWRfkeX5Vs29rGqs1HyjtGY9Sem09BeyH45CC"/>
+</div>
+</div>
+</header>
+<!-- Scrollable Content -->
+<main class="flex-1 overflow-y-auto p-md lg:p-xl bg-background">
+<div class="max-w-6xl mx-auto space-y-lg">
+<!-- Page Header -->
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-md">
+<div>
+<h1 class="font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-surface mb-xs">Consentimientos Informados</h1>
+<p class="font-body-md text-body-md text-on-surface-variant">Gestiona la documentación legal y firmas de tus pacientes.</p>
+</div>
+<div class="flex flex-wrap gap-sm">
+<button class="flex items-center gap-xs px-md py-sm rounded-xl border border-primary text-primary font-label-md text-label-md hover:bg-primary/5 transition-colors">
+<span class="material-symbols-outlined" style="font-size: 20px;">description</span>
+                            Gestionar Plantillas
+                        </button>
+<button class="flex items-center gap-xs px-md py-sm rounded-xl bg-primary text-on-primary font-label-md text-label-md hover:bg-primary/90 transition-colors shadow-sm">
+<span class="material-symbols-outlined" style="font-size: 20px;">send</span>
+                            Enviar consentimiento
+                        </button>
+</div>
+</div>
+</div>
+</main>
+</div>
+</body></html>

@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Consent, useConsentSignatures } from '@/hooks/useConsents';
-import { Download, ExternalLink, Loader2, CheckCircle2, XCircle, Phone } from 'lucide-react';
+
 import { toast } from 'sonner';
 import { useState, useEffect, useRef } from 'react';
 import { format } from 'date-fns';
@@ -17,6 +17,7 @@ import { sanitizeHtml } from '@/lib/sanitize';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuditLog } from '@/hooks/useAuditLog';
+import { Icon } from '@/components/ui/icon';
 
 interface ConsentDetailDialogProps {
   consent: Consent;
@@ -297,9 +298,9 @@ export function ConsentDetailDialog({
                       }`}
                     >
                       {isAuthorized ? (
-                        <CheckCircle2 className="h-5 w-5 shrink-0 text-green-600" />
+                        <Icon name="check_circle" className="h-5 w-5 shrink-0 text-green-600" />
                       ) : (
-                        <XCircle className="h-5 w-5 shrink-0 text-red-600" />
+                        <Icon name="cancel" className="h-5 w-5 shrink-0 text-red-600" />
                       )}
                       <div>
                         <p className="text-sm">{checkbox}</p>
@@ -321,7 +322,7 @@ export function ConsentDetailDialog({
             <div className="space-y-3">
               <p className="font-medium">Contacto de emergencia</p>
               <div className="flex items-start gap-3 rounded-md border p-3">
-                <Phone className="h-5 w-5 shrink-0 text-muted-foreground" />
+                <Icon name="call" className="h-5 w-5 shrink-0 text-muted-foreground" />
                 <div>
                   <p className="text-sm">{emergencyContactName || 'No indicado'}</p>
                   <p className="text-xs text-muted-foreground">{emergencyContactPhone || 'No indicado'}</p>
@@ -349,14 +350,14 @@ export function ConsentDetailDialog({
               </p>
               {signaturesLoading ? (
                 <div className="flex justify-center py-4">
-                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  <Icon name="progress_activity" className="h-6 w-6 animate-spin text-muted-foreground" />
                 </div>
               ) : (
                 <div className="space-y-2">
                   {isBookingClickwrapAcceptance && signatures.length === 0 && (
                     <Card className="border-green-500/30 bg-green-500/5 p-3">
                       <div className="flex items-start gap-3">
-                        <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-green-600" />
+                        <Icon name="check_circle" className="mt-0.5 h-5 w-5 shrink-0 text-green-600" />
                         <div>
                           <p className="font-medium">Aceptación electrónica durante la reserva</p>
                           <p className="text-xs text-muted-foreground">
@@ -413,9 +414,9 @@ export function ConsentDetailDialog({
           <div className="flex justify-end gap-3 pt-4">
             <Button onClick={handleDownloadPdf} disabled={generatingPdf}>
               {generatingPdf ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Icon name="progress_activity" className="mr-2 h-4 w-4 animate-spin" />
               ) : (
-                <Download className="mr-2 h-4 w-4" />
+                <Icon name="download" className="mr-2 h-4 w-4" />
               )}
               Descargar PDF
             </Button>
@@ -426,7 +427,7 @@ export function ConsentDetailDialog({
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  <ExternalLink className="mr-2 h-4 w-4" />
+                  <Icon name="open_in_new" className="mr-2 h-4 w-4" />
                   Abrir portal de firma
                 </a>
               </Button>

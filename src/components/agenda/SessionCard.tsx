@@ -1,4 +1,4 @@
-import { User, Clock, GripVertical, Move, Calendar, RefreshCw } from 'lucide-react';
+import { Calendar } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SessionWithRelations } from '@/hooks/useSessions';
 import { useCallback, useRef, useState, useEffect } from 'react';
@@ -6,6 +6,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { PaymentStatusIndicator } from './PaymentStatusIndicator';
 import { CancellationPolicyIndicator } from './CancellationPolicyIndicator';
+import { Icon } from '@/components/ui/icon';
 
 interface SessionCardProps {
   session: SessionWithRelations;
@@ -212,17 +213,17 @@ export function SessionCard({
       >
         {showMoveHint && (
           <div className="absolute inset-0 bg-primary/90 rounded-md flex items-center justify-center text-primary-foreground z-10">
-            <Move className="h-4 w-4 mr-1" />
+            <Icon name="open_with" className="h-4 w-4 mr-1" />
             <span className="text-xs font-medium">Soltar para mover</span>
           </div>
         )}
         <div className="flex items-center gap-1">
-          {draggable && !isMobile && <GripVertical className="h-3 w-3 opacity-50 flex-shrink-0" />}
+          {draggable && !isMobile && <Icon name="drag_indicator" className="h-3 w-3 opacity-50 flex-shrink-0" />}
           {isRecurring && (
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <RefreshCw className="h-3 w-3 opacity-60 flex-shrink-0" />
+                  <Icon name="refresh" className="h-3 w-3 opacity-60 flex-shrink-0" />
                 </TooltipTrigger>
                 <TooltipContent>Cita recurrente</TooltipContent>
               </Tooltip>
@@ -272,19 +273,19 @@ export function SessionCard({
     >
       {showMoveHint && (
         <div className="absolute inset-0 bg-primary/90 rounded-lg flex items-center justify-center text-primary-foreground z-10">
-          <Move className="h-5 w-5 mr-2" />
+          <Icon name="open_with" className="h-5 w-5 mr-2" />
           <span className="font-medium">Soltar para mover</span>
         </div>
       )}
       <div className="flex items-start justify-between gap-2">
-        {draggable && !isMobile && <GripVertical className="h-4 w-4 opacity-50 flex-shrink-0 mt-0.5" />}
+        {draggable && !isMobile && <Icon name="drag_indicator" className="h-4 w-4 opacity-50 flex-shrink-0 mt-0.5" />}
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
             {isRecurring && (
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <RefreshCw className="h-3.5 w-3.5 opacity-60 flex-shrink-0" />
+                    <Icon name="refresh" className="h-3.5 w-3.5 opacity-60 flex-shrink-0" />
                   </TooltipTrigger>
                   <TooltipContent>Cita recurrente</TooltipContent>
                 </Tooltip>
@@ -304,12 +305,12 @@ export function SessionCard({
           </div>
           <div className="mt-1 flex items-center gap-3 text-sm text-muted-foreground">
             <div className="flex items-center gap-1">
-              <Clock className="h-3.5 w-3.5" />
+              <Icon name="schedule" className="h-3.5 w-3.5" />
               <span>{session.start_time?.slice(0, 5)} - {session.end_time?.slice(0, 5)}</span>
             </div>
             {session.professional && (
               <div className="flex items-center gap-1">
-                <User className="h-3.5 w-3.5" />
+                <Icon name="person" className="h-3.5 w-3.5" />
                 <span className="truncate">
                   {session.professional.first_name}
                 </span>

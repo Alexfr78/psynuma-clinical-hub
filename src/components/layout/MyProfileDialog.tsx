@@ -14,7 +14,8 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { User, Lock, Mail, Phone, Briefcase } from 'lucide-react';
+import { Icon } from '@/components/ui/icon';
+
 
 interface MyProfileDialogProps {
   open: boolean;
@@ -60,7 +61,7 @@ export function MyProfileDialog({ open, onOpenChange }: MyProfileDialogProps) {
       <ResponsiveDialogContent className="sm:max-w-md">
         <ResponsiveDialogHeader>
           <ResponsiveDialogTitle className="flex items-center gap-2">
-            <User className="h-5 w-5" />
+            <Icon name="person" className="h-5 w-5" />
             Mi perfil
           </ResponsiveDialogTitle>
           <ResponsiveDialogDescription>
@@ -89,7 +90,7 @@ export function MyProfileDialog({ open, onOpenChange }: MyProfileDialogProps) {
 
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-sm">
-                <Mail className="h-4 w-4 text-muted-foreground" />
+                <Icon name="mail" className="h-4 w-4 text-muted-foreground" />
                 <span className="text-muted-foreground">Email:</span>
                 <span className="truncate font-medium text-foreground">
                   {user?.email || profile?.email || '—'}
@@ -97,14 +98,14 @@ export function MyProfileDialog({ open, onOpenChange }: MyProfileDialogProps) {
               </div>
               {profile?.phone && (
                 <div className="flex items-center gap-2 text-sm">
-                  <Phone className="h-4 w-4 text-muted-foreground" />
+                  <Icon name="call" className="h-4 w-4 text-muted-foreground" />
                   <span className="text-muted-foreground">Teléfono:</span>
                   <span className="font-medium text-foreground">{profile.phone}</span>
                 </div>
               )}
               {profile?.specialty && (
                 <div className="flex items-center gap-2 text-sm">
-                  <Briefcase className="h-4 w-4 text-muted-foreground" />
+                  <Icon name="work" className="h-4 w-4 text-muted-foreground" />
                   <span className="text-muted-foreground">Especialidad:</span>
                   <span className="font-medium text-foreground">{profile.specialty}</span>
                 </div>
@@ -117,7 +118,7 @@ export function MyProfileDialog({ open, onOpenChange }: MyProfileDialogProps) {
           {/* Change password */}
           <div className="space-y-3">
             <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
-              <Lock className="h-4 w-4" />
+              <Icon name="lock" className="h-4 w-4" />
               Cambiar contraseña
             </h3>
 

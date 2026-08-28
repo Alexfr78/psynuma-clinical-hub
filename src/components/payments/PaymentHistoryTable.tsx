@@ -1,6 +1,6 @@
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { CreditCard, Banknote, ArrowRightLeft, Smartphone, Pencil, Trash2, CalendarDays, Link2, RotateCcw } from 'lucide-react';
+
 import {
   Table,
   TableBody,
@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/tooltip';
 import type { PaymentWithRelations } from '@/hooks/usePayments';
 import { getNetPaymentAmount, getPaymentRefundState, getRefundedAmount } from '@/lib/payment-refunds';
+import { Icon } from '@/components/ui/icon';
 
 interface PaymentHistoryTableProps {
   payments: PaymentWithRelations[];
@@ -28,11 +29,11 @@ interface PaymentHistoryTableProps {
 }
 
 const methodConfig: Record<string, { label: string; icon: React.ReactNode }> = {
-  cash: { label: 'Efectivo', icon: <Banknote className="h-4 w-4" /> },
-  card: { label: 'Tarjeta', icon: <CreditCard className="h-4 w-4" /> },
-  stripe: { label: 'Stripe (tarjeta online)', icon: <CreditCard className="h-4 w-4" /> },
-  transfer: { label: 'Transferencia', icon: <ArrowRightLeft className="h-4 w-4" /> },
-  bizum: { label: 'Bizum', icon: <Smartphone className="h-4 w-4" /> },
+  cash: { label: 'Efectivo', icon: <Icon name="payments" className="h-4 w-4" /> },
+  card: { label: 'Tarjeta', icon: <Icon name="credit_card" className="h-4 w-4" /> },
+  stripe: { label: 'Stripe (tarjeta online)', icon: <Icon name="credit_card" className="h-4 w-4" /> },
+  transfer: { label: 'Transferencia', icon: <Icon name="sync_alt" className="h-4 w-4" /> },
+  bizum: { label: 'Bizum', icon: <Icon name="smartphone" className="h-4 w-4" /> },
 };
 
 export function PaymentHistoryTable({ payments, onEdit, onDelete, onLinkToInvoice }: PaymentHistoryTableProps) {
@@ -82,7 +83,7 @@ export function PaymentHistoryTable({ payments, onEdit, onDelete, onLinkToInvoic
                 </Badge>
                 {payment.sessions && (
                   <Badge variant="secondary" className="gap-1">
-                    <CalendarDays className="h-3 w-3" />
+                    <Icon name="calendar_month" className="h-3 w-3" />
                     {format(new Date(payment.sessions.session_date), "d MMM", { locale: es })}
                   </Badge>
                 )}
@@ -91,13 +92,13 @@ export function PaymentHistoryTable({ payments, onEdit, onDelete, onLinkToInvoic
                 )}
                 {refundState === 'refunded' && (
                   <Badge variant="destructive" className="gap-1">
-                    <RotateCcw className="h-3 w-3" />
+                    <Icon name="restart_alt" className="h-3 w-3" />
                     Reembolsado
                   </Badge>
                 )}
                 {refundState === 'partial' && (
                   <Badge variant="secondary" className="gap-1">
-                    <RotateCcw className="h-3 w-3" />
+                    <Icon name="restart_alt" className="h-3 w-3" />
                     Reembolso parcial: {refundedAmount.toFixed(2)}€
                   </Badge>
                 )}
@@ -111,7 +112,7 @@ export function PaymentHistoryTable({ payments, onEdit, onDelete, onLinkToInvoic
                     className="flex-1"
                     onClick={() => onLinkToInvoice(payment)}
                   >
-                    <Link2 className="h-4 w-4 mr-2" />
+                    <Icon name="link" className="h-4 w-4 mr-2" />
                     Vincular
                   </Button>
                 )}
@@ -121,7 +122,7 @@ export function PaymentHistoryTable({ payments, onEdit, onDelete, onLinkToInvoic
                   className="flex-1"
                   onClick={() => onEdit?.(payment)}
                 >
-                  <Pencil className="h-4 w-4 mr-2" />
+                  <Icon name="edit" className="h-4 w-4 mr-2" />
                   Editar
                 </Button>
                 <Button
@@ -130,7 +131,7 @@ export function PaymentHistoryTable({ payments, onEdit, onDelete, onLinkToInvoic
                   className="text-destructive hover:text-destructive"
                   onClick={() => onDelete?.(payment)}
                 >
-                  <Trash2 className="h-4 w-4" />
+                  <Icon name="delete" className="h-4 w-4" />
                 </Button>
               </div>}
             </div>
@@ -176,13 +177,13 @@ export function PaymentHistoryTable({ payments, onEdit, onDelete, onLinkToInvoic
                     </Badge>
                     {refundState === 'refunded' && (
                       <Badge variant="destructive" className="ml-2 gap-1">
-                        <RotateCcw className="h-3 w-3" />
+                        <Icon name="restart_alt" className="h-3 w-3" />
                         Reembolsado
                       </Badge>
                     )}
                     {refundState === 'partial' && (
                       <Badge variant="secondary" className="ml-2 gap-1">
-                        <RotateCcw className="h-3 w-3" />
+                        <Icon name="restart_alt" className="h-3 w-3" />
                         -{refundedAmount.toFixed(2)}€
                       </Badge>
                     )}
@@ -193,7 +194,7 @@ export function PaymentHistoryTable({ payments, onEdit, onDelete, onLinkToInvoic
                   <TableCell>
                     {payment.sessions ? (
                       <Badge variant="secondary" className="gap-1">
-                        <CalendarDays className="h-3 w-3" />
+                        <Icon name="calendar_month" className="h-3 w-3" />
                         {format(new Date(payment.sessions.session_date), "d MMM", { locale: es })}
                       </Badge>
                     ) : '-'}
@@ -219,7 +220,7 @@ export function PaymentHistoryTable({ payments, onEdit, onDelete, onLinkToInvoic
                               className="h-8 w-8"
                               onClick={() => onLinkToInvoice(payment)}
                             >
-                              <Link2 className="h-4 w-4" />
+                              <Icon name="link" className="h-4 w-4" />
                             </Button>
                           </TooltipTrigger>
                           <TooltipContent>Vincular a factura</TooltipContent>
@@ -233,7 +234,7 @@ export function PaymentHistoryTable({ payments, onEdit, onDelete, onLinkToInvoic
                             className="h-8 w-8"
                             onClick={() => onEdit?.(payment)}
                           >
-                            <Pencil className="h-4 w-4" />
+                            <Icon name="edit" className="h-4 w-4" />
                           </Button>
                         </TooltipTrigger>
                         <TooltipContent>Editar pago</TooltipContent>
@@ -246,7 +247,7 @@ export function PaymentHistoryTable({ payments, onEdit, onDelete, onLinkToInvoic
                             className="h-8 w-8 text-destructive hover:text-destructive"
                             onClick={() => onDelete?.(payment)}
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <Icon name="delete" className="h-4 w-4" />
                           </Button>
                         </TooltipTrigger>
                         <TooltipContent>Eliminar pago</TooltipContent>

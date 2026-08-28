@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format } from 'date-fns';
-import { CalendarIcon, CreditCard } from 'lucide-react';
+
 import {
   ResponsiveDialog as Dialog,
   ResponsiveDialogContent as DialogContent,
@@ -32,6 +32,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import { useUpdatePayment, PaymentWithRelations } from '@/hooks/usePayments';
+import { Icon } from '@/components/ui/icon';
 
 const formSchema = z.object({
   amount: z.coerce.number().min(0.01, 'El importe debe ser mayor a 0'),
@@ -104,7 +105,7 @@ export function EditPaymentDialog({ open, onOpenChange, payment }: EditPaymentDi
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <CreditCard className="h-5 w-5" />
+            <Icon name="credit_card" className="h-5 w-5" />
             Editar pago
           </DialogTitle>
         </DialogHeader>
@@ -185,7 +186,7 @@ export function EditPaymentDialog({ open, onOpenChange, payment }: EditPaymentDi
                           )}
                         >
                           {field.value ? format(field.value, "d 'de' MMMM yyyy") : <span>Seleccionar fecha</span>}
-                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                          <Icon name="calendar_month" className="ml-auto h-4 w-4 opacity-50" />
                         </Button>
                       </FormControl>
                     </PopoverTrigger>

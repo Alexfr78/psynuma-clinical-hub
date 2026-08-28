@@ -4,45 +4,45 @@
 
 @layer base {
   :root {
-    /* Psynuma Blue Clinical Theme - Light Mode */
-    --background: 210 40% 98%;
-    --foreground: 215 25% 15%;
-    
+    /* Psycma Material 3 Theme - Light Mode (extraído del rediseño Stitch) */
+    --background: 40 23% 97%;
+    --foreground: 246 16% 12%;
+
     --card: 0 0% 100%;
-    --card-foreground: 215 25% 15%;
-    
+    --card-foreground: 246 16% 12%;
+
     --popover: 0 0% 100%;
-    --popover-foreground: 215 25% 15%;
-    
-    --primary: 210 100% 45%;
+    --popover-foreground: 246 16% 12%;
+
+    --primary: 205 100% 26%;
     --primary-foreground: 0 0% 100%;
-    
-    --secondary: 210 40% 96%;
-    --secondary-foreground: 215 25% 25%;
-    
-    --muted: 210 30% 95%;
-    --muted-foreground: 215 15% 45%;
-    
-    --accent: 200 95% 48%;
+
+    --secondary: 173 100% 21%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 40 9% 93%;
+    --muted-foreground: 248 10% 30%;
+
+    --accent: 174 100% 22%;
     --accent-foreground: 0 0% 100%;
-    
-    --destructive: 0 84% 60%;
+
+    --destructive: 0 75% 42%;
     --destructive-foreground: 0 0% 100%;
-    
-    --success: 142 76% 36%;
+
+    --success: 160 84% 39%;
     --success-foreground: 0 0% 100%;
-    
+
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
-    
-    --info: 199 89% 48%;
+
+    --info: 207 79% 35%;
     --info-foreground: 0 0% 100%;
-    
-    --border: 210 25% 88%;
-    --input: 210 25% 88%;
-    --ring: 210 100% 45%;
-    
-    --radius: 0.625rem;
+
+    --border: 40 5% 88%;
+    --input: 40 5% 88%;
+    --ring: 205 100% 26%;
+
+    --radius: 0.75rem;
     
     /* Sidebar - Dark sidebar for contrast */
     --sidebar-background: 215 30% 12%;
@@ -56,43 +56,43 @@
   }
 
   .dark {
-    /* Psynuma Blue Clinical Theme - Dark Mode */
-    --background: 215 30% 8%;
-    --foreground: 210 20% 95%;
-    
-    --card: 215 30% 12%;
-    --card-foreground: 210 20% 95%;
-    
-    --popover: 215 30% 12%;
-    --popover-foreground: 210 20% 95%;
-    
-    --primary: 210 100% 55%;
-    --primary-foreground: 0 0% 100%;
-    
-    --secondary: 215 30% 18%;
-    --secondary-foreground: 210 20% 90%;
-    
-    --muted: 215 25% 15%;
-    --muted-foreground: 210 15% 55%;
-    
-    --accent: 200 95% 55%;
-    --accent-foreground: 0 0% 100%;
-    
-    --destructive: 0 72% 51%;
+    /* Psycma Material 3 Theme - Dark Mode (extraído del rediseño Stitch) */
+    --background: 245 25% 10%;
+    --foreground: 246 33% 94%;
+
+    --card: 244 19% 14%;
+    --card-foreground: 246 33% 94%;
+
+    --popover: 244 19% 14%;
+    --popover-foreground: 246 33% 94%;
+
+    --primary: 213 100% 81%;
+    --primary-foreground: 208 100% 11%;
+
+    --secondary: 172 70% 55%;
+    --secondary-foreground: 173 100% 6%;
+
+    --muted: 244 17% 20%;
+    --muted-foreground: 246 10% 65%;
+
+    --accent: 172 70% 55%;
+    --accent-foreground: 173 100% 6%;
+
+    --destructive: 0 75% 50%;
     --destructive-foreground: 0 0% 100%;
-    
-    --success: 142 70% 45%;
+
+    --success: 160 84% 45%;
     --success-foreground: 0 0% 100%;
-    
-    --warning: 38 92% 50%;
+
+    --warning: 38 92% 55%;
     --warning-foreground: 0 0% 100%;
-    
-    --info: 199 89% 55%;
+
+    --info: 207 79% 55%;
     --info-foreground: 0 0% 100%;
-    
-    --border: 215 25% 20%;
-    --input: 215 25% 20%;
-    --ring: 210 100% 55%;
+
+    --border: 244 15% 22%;
+    --input: 244 15% 22%;
+    --ring: 213 100% 81%;
     
     /* Sidebar - Dark */
     --sidebar-background: 215 35% 6%;

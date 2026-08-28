@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Plus, Pencil, Trash2, Building2, User, Ban, CalendarDays, List } from 'lucide-react';
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -12,6 +12,7 @@ import { useProfessionals } from '@/hooks/usePatients';
 import { getReasonLabel, ScheduleException } from '@/lib/schedule-exceptions';
 import { CreateScheduleExceptionDialog } from './CreateScheduleExceptionDialog';
 import { CalendarExceptionsManager } from './CalendarExceptionsManager';
+import { Icon } from '@/components/ui/icon';
 
 const REASON_COLORS: Record<string, string> = {
   holiday: 'bg-destructive/10 text-destructive dark:bg-destructive/20',
@@ -58,7 +59,7 @@ export function ScheduleExceptionsSection() {
       <CardHeader>
         <div>
           <CardTitle className="flex items-center gap-2">
-            <Ban className="h-5 w-5" />
+            <Icon name="block" className="h-5 w-5" />
             Días no laborables
           </CardTitle>
           <CardDescription>
@@ -71,16 +72,16 @@ export function ScheduleExceptionsSection() {
           <div className="flex items-center justify-between gap-2">
             <TabsList>
               <TabsTrigger value="calendar" className="gap-1.5">
-                <CalendarDays className="h-3.5 w-3.5" />
+                <Icon name="calendar_month" className="h-3.5 w-3.5" />
                 Calendario
               </TabsTrigger>
               <TabsTrigger value="list" className="gap-1.5">
-                <List className="h-3.5 w-3.5" />
+                <Icon name="list" className="h-3.5 w-3.5" />
                 Listado
               </TabsTrigger>
             </TabsList>
             <Button onClick={handleCreate} size="sm" variant="outline">
-              <Plus className="h-4 w-4 mr-1" /> Formulario detallado
+              <Icon name="add" className="h-4 w-4 mr-1" /> Formulario detallado
             </Button>
           </div>
 
@@ -103,7 +104,7 @@ export function ScheduleExceptionsSection() {
               <p className="text-muted-foreground text-sm py-4">Cargando...</p>
             ) : !exceptions?.length ? (
               <div className="text-center py-8 text-muted-foreground">
-                <Ban className="h-10 w-10 mx-auto mb-2 opacity-30" />
+                <Icon name="block" className="h-10 w-10 mx-auto mb-2 opacity-30" />
                 <p className="text-sm">No hay bloqueos configurados</p>
                 <p className="text-xs mt-1">Marca días en el calendario o usa el formulario detallado</p>
               </div>
@@ -118,9 +119,9 @@ export function ScheduleExceptionsSection() {
                         </Badge>
                         <Badge variant="secondary" className="text-xs">
                           {exc.scope === 'center' ? (
-                            <><Building2 className="h-3 w-3 mr-1" />Centro</>
+                            <><Icon name="apartment" className="h-3 w-3 mr-1" />Centro</>
                           ) : (
-                            <><User className="h-3 w-3 mr-1" />{getProfessionalName(exc.professional_id)}</>
+                            <><Icon name="person" className="h-3 w-3 mr-1" />{getProfessionalName(exc.professional_id)}</>
                           )}
                         </Badge>
                         {!exc.affects_booking && (
@@ -135,10 +136,10 @@ export function ScheduleExceptionsSection() {
                     </div>
                     <div className="flex gap-1 shrink-0">
                       <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(exc)}>
-                        <Pencil className="h-3.5 w-3.5" />
+                        <Icon name="edit" className="h-3.5 w-3.5" />
                       </Button>
                       <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteException.mutate(exc.id)}>
-                        <Trash2 className="h-3.5 w-3.5" />
+                        <Icon name="delete" className="h-3.5 w-3.5" />
                       </Button>
                     </div>
                   </div>

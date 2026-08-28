@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Download, Smartphone, Monitor, CheckCircle2, ArrowRight } from 'lucide-react';
+
 import { useNavigate } from 'react-router-dom';
+import { Icon } from '@/components/ui/icon';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -61,7 +62,7 @@ export default function Install() {
         <Card className="w-full max-w-md text-center">
           <CardHeader>
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
-              <CheckCircle2 className="h-8 w-8 text-green-600" />
+              <Icon name="check_circle" className="h-8 w-8 text-green-600" />
             </div>
             <CardTitle className="text-2xl">¡App Instalada!</CardTitle>
             <CardDescription>
@@ -71,7 +72,7 @@ export default function Install() {
           <CardContent>
             <Button onClick={() => navigate('/')} className="w-full">
               Abrir Psycma
-              <ArrowRight className="ml-2 h-4 w-4" />
+              <Icon name="arrow_forward" className="ml-2 h-4 w-4" />
             </Button>
           </CardContent>
         </Card>
@@ -100,7 +101,7 @@ export default function Install() {
           <div className="space-y-3">
             <div className="flex items-start gap-3">
               <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-                <Smartphone className="h-4 w-4 text-primary" />
+                <Icon name="smartphone" className="h-4 w-4 text-primary" />
               </div>
               <div>
                 <p className="font-medium text-sm">Acceso rápido</p>
@@ -111,7 +112,7 @@ export default function Install() {
             </div>
             <div className="flex items-start gap-3">
               <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-                <Monitor className="h-4 w-4 text-primary" />
+                <Icon name="desktop_windows" className="h-4 w-4 text-primary" />
               </div>
               <div>
                 <p className="font-medium text-sm">Experiencia completa</p>
@@ -122,7 +123,7 @@ export default function Install() {
             </div>
             <div className="flex items-start gap-3">
               <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-                <Download className="h-4 w-4 text-primary" />
+                <Icon name="download" className="h-4 w-4 text-primary" />
               </div>
               <div>
                 <p className="font-medium text-sm">Siempre disponible</p>
@@ -136,7 +137,7 @@ export default function Install() {
           {/* Install button or instructions */}
           {deferredPrompt ? (
             <Button onClick={handleInstallClick} className="w-full" size="lg">
-              <Download className="mr-2 h-5 w-5" />
+              <Icon name="download" className="mr-2 h-5 w-5" />
               Instalar Aplicación
             </Button>
           ) : isIOS ? (

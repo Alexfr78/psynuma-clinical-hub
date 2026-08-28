@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Plus, Loader2 } from 'lucide-react';
+
 import { validateSpanishTaxId } from '@/lib/nif-validation';
 import { Button } from '@/components/ui/button';
 import {
@@ -32,6 +32,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { useCreatePatient, useProfessionals } from '@/hooks/usePatients';
+import { Icon } from '@/components/ui/icon';
 
 const patientSchema = z.object({
   first_name: z.string().min(1, 'El nombre es obligatorio').max(100),
@@ -136,7 +137,7 @@ export function CreatePatientDialog() {
   return (
     <>
       <Button onClick={() => setOpen(true)}>
-        <Plus className="mr-2 h-4 w-4" />
+        <Icon name="add" className="mr-2 h-4 w-4" />
         Nuevo Contacto
       </Button>
       <ResponsiveDialog open={open} onOpenChange={setOpen}>
@@ -492,7 +493,7 @@ export function CreatePatientDialog() {
                 Cancelar
               </Button>
               <Button type="submit" disabled={createPatient.isPending}>
-                {createPatient.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {createPatient.isPending && <Icon name="progress_activity" className="mr-2 h-4 w-4 animate-spin" />}
                 Crear Contacto
               </Button>
             </div>

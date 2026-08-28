@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+
+<html class="light" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Agenda y Calendario - Psycma</title>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Plus+Jakarta+Sans:wght@600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Tailwind Configuration -->
+<script id="tailwind-config">tailwind.config = {darkMode: "class", theme: {extend: {colors: {"on-secondary": "#ffffff", "on-tertiary": "#ffffff", "surface-bright": "#faf9f7", tertiary: "#763b00", "tertiary-fixed-dim": "#ffb782", "secondary-container": "#62fae3", secondary: "#006b5f", primary: "#004d84", "inverse-primary": "#9fcaff", "on-background": "#1a1c1b", "surface-container-low": "#f4f3f1", "surface-container-highest": "#e3e2e0", "on-tertiary-container": "#ffd7bc", "primary-fixed-dim": "#9fcaff", "surface-white": "#FFFFFF", "on-error": "#ffffff", "secondary-fixed": "#62fae3", "on-primary-container": "#cbe1ff", "on-primary-fixed": "#001d36", "on-secondary-fixed-variant": "#005047", "tertiary-container": "#994e00", "surface-dim": "#dadad8", "on-secondary-container": "#007165", "text-main": "#1B1A24", "primary-container": "#1b65a5", warning: "#F59E0B", "surface-container-high": "#e9e8e6", "on-surface-variant": "#474554", error: "#ba1a1a", "error-container": "#ffdad6", "surface-variant": "#e3e2e0", "on-tertiary-fixed": "#301400", "surface-container-lowest": "#ffffff", success: "#10B981", "dark-surface": "#1E1D2B", "on-secondary-fixed": "#00201c", "on-primary-fixed-variant": "#00497d", background: "#faf9f7", "primary-fixed": "#d1e4ff", outline: "#787585", "on-tertiary-fixed-variant": "#703800", "tertiary-fixed": "#ffdcc5", "dark-text": "#ECEBF5", surface: "#faf9f7", "on-error-container": "#93000a", "surface-container": "#efeeec", "secondary-fixed-dim": "#3cddc7", "on-primary": "#ffffff", "inverse-on-surface": "#f1f1ef", "surface-tint": "#1361a0", "on-surface": "#1a1c1b", "inverse-surface": "#2f3130", "dark-bg": "#141320", "outline-variant": "#c8c4d6", "accent-teal": "#2DD4BF"}, borderRadius: {DEFAULT: "0.25rem", lg: "0.5rem", xl: "0.75rem", full: "9999px"}, spacing: {"grid-margin": "24px", "grid-gutter": "16px", xs: "8px", sm: "16px", xl: "48px", md: "24px", base: "4px", lg: "32px"}, fontFamily: {"label-md": ["Inter"], "headline-md": ["Plus Jakarta Sans"], "headline-lg": ["Plus Jakarta Sans"], "body-md": ["Inter"], "data-tabular": ["Inter"], "body-sm": ["Inter"], "body-lg": ["Inter"], "display-lg": ["Plus Jakarta Sans"], "headline-lg-mobile": ["Plus Jakarta Sans"], headline: ["Plus Jakarta Sans"], display: ["Plus Jakarta Sans"], body: ["Inter"], label: ["Inter"]}, fontSize: {"label-md": ["14px", {lineHeight: "16px", letterSpacing: "0.01em", fontWeight: "600"}], "headline-md": ["24px", {lineHeight: "32px", fontWeight: "600"}], "headline-lg": ["32px", {lineHeight: "40px", letterSpacing: "-0.01em", fontWeight: "600"}], "body-md": ["16px", {lineHeight: "24px", fontWeight: "400"}], "data-tabular": ["14px", {lineHeight: "20px", fontWeight: "500"}], "body-sm": ["14px", {lineHeight: "20px", fontWeight: "400"}], "body-lg": ["18px", {lineHeight: "28px", fontWeight: "400"}], "display-lg": ["48px", {lineHeight: "56px", letterSpacing: "-0.02em", fontWeight: "700"}], "headline-lg-mobile": ["28px", {lineHeight: "36px", fontWeight: "600"}]}}}};</script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .material-symbols-outlined.fill {
+            font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        /* Custom scrollbar for clinical density */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #faf9f7; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #e3e2e0; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #c8c4d6; 
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background font-body-md antialiased overflow-hidden">
+<!-- APP LAYOUT WRAPPER -->
+<div class="flex h-screen w-full">
+<!-- SIDENAV (Web only) -->
+<nav class="bg-surface dark:bg-dark-bg h-screen w-64 fixed left-0 top-0 hidden md:flex flex-col flex flex-col h-full py-md px-sm border-r border-surface-container-highest dark:border-outline-variant/20 z-50">
+<!-- Brand -->
+<div class="px-4 mb-8 flex items-center gap-3">
+<div class="w-10 h-10 rounded-xl bg-primary-container text-white flex items-center justify-center shadow-sm">
+<span class="material-symbols-outlined fill">psychology</span>
+</div>
+<div>
+<h1 class="font-headline-md text-headline-md font-bold text-primary dark:text-inverse-primary">Psycma</h1>
+<p class="font-label-md text-[11px] text-on-surface-variant uppercase tracking-wider">Gestión Clínica</p>
+</div>
+</div>
+<!-- Primary Action -->
+<div class="px-4 mb-8">
+<button class="w-full bg-primary-container hover:bg-primary-container/90 text-white font-label-md text-label-md py-3 px-4 rounded-xl shadow-[0_4px_12px_rgba(90,79,207,0.2)] transition-all duration-200 active:scale-95 flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-[20px]">add</span>
+                    Nueva Cita
+                </button>
+</div>
+<!-- Main Navigation -->
+<ul class="flex-1 space-y-1">
+<li>
+<a class="flex items-center gap-3 px-4 py-3 rounded-xl text-on-surface-variant dark:text-outline-variant hover:bg-surface-container-high dark:hover:bg-inverse-surface transition-colors duration-200 active:scale-95 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined text-[20px]">dashboard</span>
+<span class="font-label-md text-label-md">Panel</span>
+</a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-4 py-3 rounded-xl text-primary dark:text-primary-fixed font-bold bg-primary-container/10 dark:bg-primary-fixed/10 hover:bg-surface-container-high dark:hover:bg-inverse-surface transition-colors duration-200 active:scale-95 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined text-[20px] fill">calendar_today</span>
+<span class="font-label-md text-label-md">Agenda</span>
+</a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-4 py-3 rounded-xl text-on-surface-variant dark:text-outline-variant hover:bg-surface-container-high dark:hover:bg-inverse-surface transition-colors duration-200 active:scale-95 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined text-[20px]">groups</span>
+<span class="font-label-md text-label-md">Pacientes</span>
+</a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-4 py-3 rounded-xl text-on-surface-variant dark:text-outline-variant hover:bg-surface-container-high dark:hover:bg-inverse-surface transition-colors duration-200 active:scale-95 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined text-[20px]">payments</span>
+<span class="font-label-md text-label-md">Finanzas</span>
+</a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-4 py-3 rounded-xl text-on-surface-variant dark:text-outline-variant hover:bg-surface-container-high dark:hover:bg-inverse-surface transition-colors duration-200 active:scale-95 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined text-[20px]">chat</span>
+<span class="font-label-md text-label-md">Mensajes</span>
+<span class="ml-auto bg-error text-white text-[10px] font-bold px-2 py-0.5 rounded-full">3</span>
+</a>
+</li>
+</ul>
+<!-- Footer Navigation -->
+<div class="mt-auto pt-4 border-t border-surface-container-highest dark:border-outline-variant/20">
+<ul class="space-y-1">
+<li>
+<a class="flex items-center gap-3 px-4 py-3 rounded-xl text-on-surface-variant dark:text-outline-variant hover:bg-surface-container-high dark:hover:bg-inverse-surface transition-colors duration-200 active:scale-95 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined text-[20px]">settings</span>
+<span class="font-label-md text-label-md">Configuración</span>
+</a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-4 py-3 rounded-xl text-on-surface-variant dark:text-outline-variant hover:bg-surface-container-high dark:hover:bg-inverse-surface transition-colors duration-200 active:scale-95 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined text-[20px]">help</span>
+<span class="font-label-md text-label-md">Ayuda</span>
+</a>
+</li>
+</ul>
+</div>
+</nav>
+<!-- MAIN CONTENT AREA -->
+<main class="flex-1 flex flex-col md:ml-64 h-full relative">
+<!-- TOP APP BAR -->
+<header class="bg-surface/80 dark:bg-dark-bg/80 backdrop-blur-md fixed top-0 right-0 w-full md:w-[calc(100%-16rem)] z-40 flex justify-between items-center h-16 px-md w-full shadow-sm">
+<!-- Mobile Menu Button & Context Title -->
+<div class="flex items-center gap-4">
+<button class="md:hidden text-on-surface-variant p-2 -ml-2 rounded-lg hover:bg-surface-container-high">
+<span class="material-symbols-outlined">menu</span>
+</button>
+<h2 class="font-headline-md text-headline-md font-bold text-primary dark:text-inverse-primary hidden md:block">Agenda</h2>
+</div>
+<!-- Navigation Links (Web) -->
+<div class="hidden md:flex items-center gap-6">
+<a class="font-label-md text-label-md text-primary border-b-2 border-primary pb-1" href="#">Hoy</a>
+<a class="font-label-md text-label-md text-on-surface-variant dark:text-outline-variant hover:text-primary dark:hover:text-primary-fixed transition-colors" href="#">Pacientes</a>
+<a class="font-label-md text-label-md text-on-surface-variant dark:text-outline-variant hover:text-primary dark:hover:text-primary-fixed transition-colors" href="#">Reportes</a>
+</div>
+<!-- Actions & Profile -->
+<div class="flex items-center gap-3">
+<button class="hidden md:flex items-center gap-2 bg-primary-container/10 text-primary hover:bg-primary-container/20 px-4 py-2 rounded-xl font-label-md text-label-md transition-colors">
+<span class="material-symbols-outlined text-[18px]">add</span>
+                        Nueva Consulta
+                    </button>
+<button class="p-2 text-on-surface-variant hover:bg-surface-container-high rounded-full transition-colors relative">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-1.5 right-1.5 w-2 h-2 bg-error rounded-full border border-surface"></span>
+</button>
+<button class="p-2 text-on-surface-variant hover:bg-surface-container-high rounded-full transition-colors">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<div class="w-9 h-9 rounded-full bg-surface-container-high ml-2 border-2 border-surface-white overflow-hidden shadow-sm cursor-pointer">
+<img alt="Perfil del Psicólogo" class="w-full h-full object-cover" data-alt="A professional portrait photo of a warm, approachable clinical psychologist in a bright, modern office. Soft, natural lighting. Clean, medical yet friendly aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuADHlxE895wclL35wFE_u23iW6a_jFHoE83Lx3xumLVKXI9HOCfRCr81s5DU35GQ1_B0mQkHU-sKr0ka7kGRW_RSkHcYB0OHn-VGTtlHzW0dqJLuznQtmKyjpGeEQGY5L6qzLQeJx80TxUaBxhFalrxFc9ODwR26gQZ5iHXP4LhIY7XYKyke5WVQp_GwFrPp9KIPR2M4T-P2XU-vyCyHY7nxLUWJwhHRyyuCgUbP9B7iwqWVfWVKqDc"/>
+</div>
+</div>
+</header>
+<!-- CALENDAR CONTENT -->
+<div class="flex-1 mt-16 flex overflow-hidden">
+<!-- Main Calendar View -->
+<div class="flex-1 flex flex-col h-full overflow-hidden bg-surface-bright">
+<!-- Calendar Toolbar -->
+<div class="px-md py-4 border-b border-surface-container-highest flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-surface-white z-10">
+<div class="flex items-center gap-4">
+<h2 class="font-headline-lg-mobile md:font-headline-lg text-text-main">Octubre 2023</h2>
+<div class="flex items-center gap-1 bg-surface-container-low rounded-lg p-1">
+<button class="p-1.5 hover:bg-surface-white rounded-md text-on-surface-variant transition-colors shadow-sm"><span class="material-symbols-outlined text-[20px]">chevron_left</span></button>
+<button class="px-3 py-1.5 font-label-md text-label-md text-on-surface-variant hover:bg-surface-white rounded-md transition-colors">Hoy</button>
+<button class="p-1.5 hover:bg-surface-white rounded-md text-on-surface-variant transition-colors shadow-sm"><span class="material-symbols-outlined text-[20px]">chevron_right</span></button>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<!-- View Selector -->
+<div class="flex bg-surface-container-low rounded-xl p-1 shadow-inner">
+<button class="px-4 py-1.5 font-label-md text-label-md text-on-surface-variant rounded-lg hover:text-text-main transition-colors">Día</button>
+<button class="px-4 py-1.5 font-label-md text-label-md bg-surface-white text-primary rounded-lg shadow-sm transition-all">Semana</button>
+<button class="px-4 py-1.5 font-label-md text-label-md text-on-surface-variant rounded-lg hover:text-text-main transition-colors">Mes</button>
+</div>
+</div>
+</div>
+<!-- Calendar Grid (Cron/Cal.com style) -->
+<div class="flex-1 overflow-y-auto relative bg-surface-white">
+<div class="flex min-w-[800px] h-[1200px]">
+<!-- Time Column -->
+<div class="w-16 flex-none border-r border-surface-container-highest bg-surface-bright/50 pt-10">
+<!-- Generated times -->
+<div class="h-20 text-right pr-3 relative"><span class="absolute -top-3 right-3 font-data-tabular text-xs text-on-surface-variant">08:00</span></div>
+<div class="h-20 text-right pr-3 relative border-t border-surface-container-highest/30"><span class="absolute -top-3 right-3 font-data-tabular text-xs text-on-surface-variant">09:00</span></div>
+<div class="h-20 text-right pr-3 relative border-t border-surface-container-highest/30"><span class="absolute -top-3 right-3 font-data-tabular text-xs text-on-surface-variant">10:00</span></div>
+<div class="h-20 text-right pr-3 relative border-t border-surface-container-highest/30"><span class="absolute -top-3 right-3 font-data-tabular text-xs text-on-surface-variant">11:00</span></div>
+<div class="h-20 text-right pr-3 relative border-t border-surface-container-highest/30"><span class="absolute -top-3 right-3 font-data-tabular text-xs text-on-surface-variant">12:00</span></div>
+<div class="h-20 text-right pr-3 relative border-t border-surface-container-highest/30"><span class="absolute -top-3 right-3 font-data-tabular text-xs text-on-surface-variant">13:00</span></div>
+</div>
+<!-- Days Columns -->
+<div class="flex-1 grid grid-cols-5 border-t border-surface-container-highest relative">
+<!-- Day Headers (Sticky) -->
+<div class="absolute top-0 w-full grid grid-cols-5 bg-surface-white/95 backdrop-blur-sm z-20 border-b border-surface-container-highest shadow-[0_2px_10px_rgba(0,0,0,0.02)]">
+<div class="py-2 text-center border-r border-surface-container-highest/50">
+<div class="font-label-md text-[11px] text-on-surface-variant uppercase tracking-wider">Lun</div>
+<div class="font-headline-md text-xl text-text-main mt-0.5">16</div>
+</div>
+<div class="py-2 text-center border-r border-surface-container-highest/50 bg-primary/5">
+<div class="font-label-md text-[11px] text-primary uppercase tracking-wider">Mar</div>
+<div class="font-headline-md text-xl text-primary mt-0.5 bg-primary text-white w-8 h-8 rounded-full flex items-center justify-center mx-auto shadow-sm">17</div>
+</div>
+<div class="py-2 text-center border-r border-surface-container-highest/50">
+<div class="font-label-md text-[11px] text-on-surface-variant uppercase tracking-wider">Mié</div>
+<div class="font-headline-md text-xl text-text-main mt-0.5">18</div>
+</div>
+<div class="py-2 text-center border-r border-surface-container-highest/50">
+<div class="font-label-md text-[11px] text-on-surface-variant uppercase tracking-wider">Jue</div>
+<div class="font-headline-md text-xl text-text-main mt-0.5">19</div>
+</div>
+<div class="py-2 text-center">
+<div class="font-label-md text-[11px] text-on-surface-variant uppercase tracking-wider">Vie</div>
+<div class="font-headline-md text-xl text-text-main mt-0.5">20</div>
+</div>
+</div>
+<!-- Grid Lines -->
+<div class="col-span-5 absolute inset-0 mt-10 pointer-events-none z-0 flex flex-col">
+<div class="h-20 border-b border-surface-container-highest/30"></div>
+<div class="h-20 border-b border-surface-container-highest/30"></div>
+<div class="h-20 border-b border-surface-container-highest/30"></div>
+<div class="h-20 border-b border-surface-container-highest/30"></div>
+<div class="h-20 border-b border-surface-container-highest/30"></div>
+</div>
+<!-- Columns Content -->
+<div class="col-start-1 border-r border-surface-container-highest/50 relative mt-10"></div>
+<!-- Tuesday (Active Day) -->
+<div class="col-start-2 border-r border-surface-container-highest/50 relative mt-10 bg-primary/5">
+<!-- Current Time Indicator -->
+<div class="absolute w-full flex items-center z-20 pointer-events-none" style="top: 140px;">
+<div class="w-2 h-2 rounded-full bg-error -ml-1"></div>
+<div class="h-px bg-error w-full"></div>
+</div>
+<!-- Event: Confirmed (Primary) -->
+<div class="absolute w-[calc(100%-8px)] left-1 rounded-xl p-2.5 shadow-sm border border-primary/20 bg-primary-container text-white cursor-pointer hover:shadow-md transition-shadow group overflow-hidden" style="top: 20px; height: 75px;">
+<div class="flex justify-between items-start">
+<p class="font-label-md text-sm font-semibold truncate">Ana García</p>
+<span class="material-symbols-outlined text-[16px] opacity-70">videocam</span>
+</div>
+<p class="font-body-sm text-[12px] opacity-90 mt-0.5">08:15 - 09:10</p>
+<div class="absolute bottom-0 left-0 w-1 h-full bg-white/30 rounded-l-xl"></div>
+</div>
+<!-- Event: New Request (Accent Teal) -->
+<div class="absolute w-[calc(100%-8px)] left-1 rounded-xl p-2.5 shadow-sm border border-accent-teal/30 bg-[#E6FAF7] text-[#005047] cursor-pointer hover:shadow-md transition-shadow group overflow-hidden ring-2 ring-accent-teal/50 ring-offset-1" style="top: 160px; height: 55px;">
+<div class="flex justify-between items-start">
+<p class="font-label-md text-sm font-semibold truncate">Carlos Ruiz</p>
+<span class="w-2 h-2 rounded-full bg-accent-teal mt-1"></span>
+</div>
+<p class="font-body-sm text-[12px] opacity-80 mt-0.5">10:00 - 10:45 • Presencial</p>
+<div class="absolute bottom-0 left-0 w-1 h-full bg-accent-teal rounded-l-xl"></div>
+</div>
+</div>
+<div class="col-start-3 border-r border-surface-container-highest/50 relative mt-10"></div>
+<div class="col-start-4 border-r border-surface-container-highest/50 relative mt-10"></div>
+<div class="col-start-5 relative mt-10"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- RIGHT SIDEBAR: Event Details -->
+<aside class="hidden lg:flex w-80 bg-surface-white border-l border-surface-container-highest flex-col h-full shadow-[-4px_0_24px_rgba(90,79,207,0.03)] z-20">
+<!-- Detail Header -->
+<div class="p-6 border-b border-surface-container-highest">
+<div class="flex justify-between items-start mb-4">
+<div class="w-12 h-12 rounded-full bg-surface-container-low overflow-hidden">
+<img alt="Foto del paciente" class="w-full h-full object-cover" data-alt="A professional headshot of a young woman, patient in a clinical setting, calm expression, soft natural lighting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAFdyXrITngNDtH2zDBAyFDZdH4vWt4RnpO7LBIm2fNnCvVqp1G_XiuTTseAuaxEFG4bM3aAuygWYlspkjxiN7Sj53qvWpjj3ze2DGM4_uyyw8WdYaujM-pndJfwkePTsVNVqm21vA2Fats3a220UAReDK8f7k6JhWwbNhnZP89-2nwCp_9Xk48Tdj7NOKNZbUkCscN2Rc7QfjI3JXCiyIdRVG03UU91LMTJy8pRY4lUg_08RODV2in"/>
+</div>
+<div class="flex gap-2">
+<button class="w-8 h-8 rounded-full text-on-surface-variant hover:bg-surface-container-high flex items-center justify-center transition-colors">
+<span class="material-symbols-outlined text-[18px]">edit</span>
+</button>
+<button class="w-8 h-8 rounded-full text-on-surface-variant hover:bg-surface-container-high flex items-center justify-center transition-colors">
+<span class="material-symbols-outlined text-[18px]">close</span>
+</button>
+</div>
+</div>
+<h3 class="font-headline-md text-xl text-text-main">Ana García</h3>
+<p class="font-body-sm text-on-surface-variant mt-1 flex items-center gap-1.5">
+<span class="w-2 h-2 rounded-full bg-success"></span>
+                            Paciente Recurrente
+                        </p>
+</div>
+<!-- Appointment Info -->
+<div class="p-6 flex-1 overflow-y-auto space-y-6">
+<!-- Time & Type -->
+<div class="bg-surface-bright rounded-xl p-4 border border-surface-container-highest">
+<div class="flex items-center gap-3 mb-3">
+<span class="material-symbols-outlined text-primary">calendar_clock</span>
+<div>
+<p class="font-label-md text-sm text-text-main">Hoy, 08:15 - 09:10</p>
+<p class="font-body-sm text-xs text-on-surface-variant">55 minutos</p>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary">videocam</span>
+<div>
+<p class="font-label-md text-sm text-text-main">Sesión Online</p>
+<a class="font-body-sm text-xs text-primary hover:underline" href="#">Ver enlace de Google Meet</a>
+</div>
+</div>
+</div>
+<!-- Notes -->
+<div>
+<h4 class="font-label-md text-sm text-on-surface-variant uppercase tracking-wider mb-2">Motivo de Consulta</h4>
+<p class="font-body-sm text-text-main bg-surface-bright p-3 rounded-lg border border-surface-container-lowest">
+                                Seguimiento semanal. Tratamiento de ansiedad generalizada. Reporta mejora en el sueño durante la última semana.
+                            </p>
+</div>
+<!-- History brief -->
+<div>
+<h4 class="font-label-md text-sm text-on-surface-variant uppercase tracking-wider mb-2">Última Sesión</h4>
+<div class="flex items-center justify-between p-3 border border-surface-container-highest rounded-lg hover:border-primary/30 transition-colors cursor-pointer">
+<div>
+<p class="font-label-md text-sm text-text-main">9 de Octubre, 2023</p>
+<p class="font-body-sm text-xs text-on-surface-variant mt-0.5">Notas clínicas completadas</p>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant">chevron_right</span>
+</div>
+</div>
+</div>
+<!-- Action Buttons -->
+<div class="p-6 border-t border-surface-container-highest bg-surface-bright/50 space-y-3">
+<button class="w-full bg-primary-container hover:bg-primary-container/90 text-white font-label-md py-3 px-4 rounded-xl shadow-sm transition-all flex items-center justify-center gap-2">
+<span class="material-symbols-outlined">videocam</span>
+                            Iniciar Sesión
+                        </button>
+<div class="flex gap-3">
+<button class="flex-1 bg-surface-white border border-surface-container-highest hover:bg-surface-container-low text-text-main font-label-md py-2.5 rounded-xl transition-colors">
+                                Reprogramar
+                            </button>
+<button class="flex-1 bg-surface-white border border-error/20 hover:bg-error/5 text-error font-label-md py-2.5 rounded-xl transition-colors">
+                                Cancelar
+                            </button>
+</div>
+</div>
+</aside>
+</div>
+</main>
+<!-- BOTTOM NAV BAR (Mobile Only) -->
+<nav class="bg-surface/90 dark:bg-dark-bg/90 backdrop-blur-lg fixed bottom-0 w-full z-50 md:hidden rounded-t-xl bg-surface dark:bg-dark-surface shadow-[0_-4px_12px_rgba(90,79,207,0.08)] shadow-lg fixed bottom-0 left-0 w-full flex justify-around items-center px-4 py-3">
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-outline-variant px-4 py-1 hover:bg-surface-container-highest dark:hover:bg-inverse-surface active:scale-90 transition-all duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined mb-1">home</span>
+<span class="font-label-md text-[10px]">Inicio</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-primary-container/20 text-primary dark:text-primary-fixed rounded-xl px-4 py-1 hover:bg-surface-container-highest dark:hover:bg-inverse-surface active:scale-90 transition-all duration-200" href="#">
+<span class="material-symbols-outlined mb-1 fill">event</span>
+<span class="font-label-md text-[10px] font-bold">Citas</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-outline-variant px-4 py-1 hover:bg-surface-container-highest dark:hover:bg-inverse-surface active:scale-90 transition-all duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined mb-1">person</span>
+<span class="font-label-md text-[10px]">Pacientes</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-outline-variant px-4 py-1 hover:bg-surface-container-highest dark:hover:bg-inverse-surface active:scale-90 transition-all duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined mb-1">account_circle</span>
+<span class="font-label-md text-[10px]">Perfil</span>
+</a>
+</nav>
+</div>
+</body></html>

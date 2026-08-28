@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Save, Loader2, CreditCard, Bell, Clock, Globe, Landmark } from 'lucide-react';
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,6 +10,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Separator } from '@/components/ui/separator';
 import { useCenter } from '@/hooks/useCenter';
 import { useToast } from '@/hooks/use-toast';
+import { Icon } from '@/components/ui/icon';
 
 const PAYMENT_MODES = [
   { 
@@ -115,7 +116,7 @@ export function PaymentSettingsSection() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Globe className="h-5 w-5" />
+            <Icon name="public" className="h-5 w-5" />
             Dominio Público
           </CardTitle>
           <CardDescription>
@@ -144,7 +145,7 @@ export function PaymentSettingsSection() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Landmark className="h-5 w-5" />
+            <Icon name="account_balance" className="h-5 w-5" />
             Datos para cobros
           </CardTitle>
           <CardDescription>
@@ -185,7 +186,7 @@ export function PaymentSettingsSection() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <CreditCard className="h-5 w-5" />
+            <Icon name="credit_card" className="h-5 w-5" />
             Modo de Pago Predeterminado
           </CardTitle>
           <CardDescription>
@@ -215,7 +216,7 @@ export function PaymentSettingsSection() {
           {paymentMode === 'scheduled_before' && (
             <div className="ml-8 space-y-2 p-4 bg-muted/50 rounded-lg">
               <Label htmlFor="scheduled-hours" className="flex items-center gap-2">
-                <Clock className="h-4 w-4" />
+                <Icon name="schedule" className="h-4 w-4" />
                 Horas antes de la sesión para enviar enlace de pago
               </Label>
               <div className="flex items-center gap-2">
@@ -298,7 +299,7 @@ export function PaymentSettingsSection() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Bell className="h-5 w-5" />
+            <Icon name="notifications" className="h-5 w-5" />
             Recordatorios de Pago Pendiente
           </CardTitle>
           <CardDescription>
@@ -386,9 +387,9 @@ export function PaymentSettingsSection() {
               disabled={isSaving || (paymentMode === 'scheduled_before' && scheduledHoursBefore <= advancePaymentLimitHours)}
             >
               {isSaving ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Icon name="progress_activity" className="mr-2 h-4 w-4 animate-spin" />
               ) : (
-                <Save className="mr-2 h-4 w-4" />
+                <Icon name="save" className="mr-2 h-4 w-4" />
               )}
               Guardar Configuración
             </Button>

@@ -2,8 +2,9 @@ import type { KeyboardEvent } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Mail, Phone, Award, Percent, ShieldCheck, UserRound } from 'lucide-react';
+
 import type { Professional } from '@/hooks/useProfessionals';
+import { Icon } from '@/components/ui/icon';
 
 interface ProfessionalCardProps {
   professional: Professional;
@@ -58,9 +59,9 @@ export function ProfessionalCard({ professional, onClick }: ProfessionalCardProp
               className={isAdmin ? 'border-primary/30 bg-primary/5 text-primary' : undefined}
             >
               {isAdmin ? (
-                <ShieldCheck className="mr-1 h-3 w-3" aria-hidden="true" />
+                <Icon name="verified_user" className="mr-1 h-3 w-3" aria-hidden="true" />
               ) : (
-                <UserRound className="mr-1 h-3 w-3" aria-hidden="true" />
+                <Icon name="person" className="mr-1 h-3 w-3" aria-hidden="true" />
               )}
               {isAdmin ? 'Administrador' : 'Profesional'}
             </Badge>
@@ -70,24 +71,24 @@ export function ProfessionalCard({ professional, onClick }: ProfessionalCardProp
       <CardContent className="space-y-2">
         {professional.email && (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Mail className="h-4 w-4" aria-hidden="true" />
+            <Icon name="mail" className="h-4 w-4" aria-hidden="true" />
             <span className="truncate">{professional.email}</span>
           </div>
         )}
         {professional.phone && (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Phone className="h-4 w-4" aria-hidden="true" />
+            <Icon name="call" className="h-4 w-4" aria-hidden="true" />
             <span>{professional.phone}</span>
           </div>
         )}
         {professional.license_number && (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Award className="h-4 w-4" aria-hidden="true" />
+            <Icon name="military_tech" className="h-4 w-4" aria-hidden="true" />
             <span>Nº Col: {professional.license_number}</span>
           </div>
         )}
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Percent className="h-4 w-4" aria-hidden="true" />
+          <Icon name="percent" className="h-4 w-4" aria-hidden="true" />
           <span>Comisión: {professional.commission_rate || 0}%</span>
         </div>
       </CardContent>

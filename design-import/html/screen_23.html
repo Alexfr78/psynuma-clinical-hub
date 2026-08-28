@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+
+<html lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Autorregistro Emocional - Psycma</title>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Tailwind Theme Config from Style Guidance -->
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface": "#faf9f7",
+                        "on-secondary": "#ffffff",
+                        "on-primary-fixed-variant": "#00497d",
+                        "on-tertiary-container": "#ffd7bc",
+                        "surface-container": "#efeeec",
+                        "tertiary": "#763b00",
+                        "on-tertiary-fixed": "#301400",
+                        "surface-container-highest": "#e3e2e0",
+                        "on-error-container": "#93000a",
+                        "outline": "#787585",
+                        "on-background": "#1a1c1b",
+                        "inverse-on-surface": "#f1f1ef",
+                        "on-error": "#ffffff",
+                        "secondary-fixed": "#62fae3",
+                        "on-surface-variant": "#474554",
+                        "outline-variant": "#c8c4d6",
+                        "on-tertiary-fixed-variant": "#703800",
+                        "on-primary-container": "#cbe1ff",
+                        "surface-dim": "#dadad8",
+                        "secondary-fixed-dim": "#3cddc7",
+                        "tertiary-container": "#994e00",
+                        "primary": "#004d84",
+                        "tertiary-fixed-dim": "#ffb782",
+                        "surface-bright": "#faf9f7",
+                        "tertiary-fixed": "#ffdcc5",
+                        "on-secondary-fixed-variant": "#005047",
+                        "on-secondary-fixed": "#00201c",
+                        "surface-variant": "#e3e2e0",
+                        "secondary": "#006b5f",
+                        "primary-fixed-dim": "#9fcaff",
+                        "surface-container-lowest": "#ffffff",
+                        "primary-fixed": "#d1e4ff",
+                        "inverse-surface": "#2f3130",
+                        "background": "#faf9f7",
+                        "secondary-container": "#62fae3",
+                        "on-surface": "#1a1c1b",
+                        "inverse-primary": "#9fcaff",
+                        "on-secondary-container": "#007165",
+                        "on-primary": "#ffffff",
+                        "on-primary-fixed": "#001d36",
+                        "on-tertiary": "#ffffff",
+                        "error": "#ba1a1a",
+                        "surface-container-high": "#e9e8e6",
+                        "primary-container": "#1b65a5",
+                        "error-container": "#ffdad6",
+                        "surface-tint": "#1361a0",
+                        "surface-container-low": "#f4f3f1"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "xs": "8px",
+                        "grid-gutter": "16px",
+                        "sm": "16px",
+                        "lg": "32px",
+                        "md": "24px",
+                        "base": "4px",
+                        "xl": "48px",
+                        "grid-margin": "24px"
+                    },
+                    "fontFamily": {
+                        "label-md": ["Inter"],
+                        "body-sm": ["Inter"],
+                        "display-lg": ["Plus Jakarta Sans"],
+                        "body-md": ["Inter"],
+                        "data-tabular": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "headline-md": ["Plus Jakarta Sans"],
+                        "headline-lg": ["Plus Jakarta Sans"],
+                        "headline-lg-mobile": ["Plus Jakarta Sans"]
+                    },
+                    "fontSize": {
+                        "label-md": ["14px", { "lineHeight": "16px", "letterSpacing": "0.01em", "fontWeight": "600" }],
+                        "body-sm": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "display-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "data-tabular": ["14px", { "lineHeight": "20px", "fontWeight": "500" }],
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+                        "headline-lg-mobile": ["28px", { "lineHeight": "36px", "fontWeight": "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Plus+Jakarta+Sans:wght@600;700&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        /* Ambient shadows */
+        .ambient-shadow {
+            box-shadow: 0 4px 24px rgba(0, 77, 132, 0.08); /* Primary color shadow */
+        }
+        .ambient-shadow-hover:hover {
+            box-shadow: 0 8px 32px rgba(0, 77, 132, 0.12);
+        }
+        
+        /* Custom Slider Styling */
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 24px;
+            width: 24px;
+            border-radius: 50%;
+            background: #ffffff;
+            cursor: pointer;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+            border: 2px solid #004d84;
+            margin-top: -8px;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 8px;
+            cursor: pointer;
+            background: linear-gradient(to right, #006b5f, #004d84); /* teal to primary (indigo-ish) */
+            border-radius: 4px;
+        }
+        input[type=range]:focus {
+            outline: none;
+        }
+        
+        /* Input Focus Glow */
+        .input-glow:focus {
+            border-color: #004d84;
+            box-shadow: 0 0 0 4px rgba(0, 77, 132, 0.1);
+        }
+    </style>
+</head>
+<body class="bg-surface text-on-surface font-body-md antialiased selection:bg-primary-container selection:text-on-primary-container min-h-screen flex flex-col">
+<!-- Header (Public Form, Simplified TopAppBar) -->
+<header class="w-full bg-surface-container-lowest/80 backdrop-blur-md border-b border-surface-variant/30 sticky top-0 z-40 py-md px-md md:px-xl flex justify-center items-center h-16 shadow-sm">
+<div class="flex items-center gap-xs">
+<span class="material-symbols-outlined text-primary text-3xl" data-weight="fill" style="font-variation-settings: 'FILL' 1;">psychiatry</span>
+<span class="font-headline-md text-headline-md font-bold text-primary tracking-tight">Psycma</span>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="flex-grow flex items-start justify-center p-md md:p-xl mt-4 md:mt-8">
+<!-- Form Container (Centered, Fixed Width for Patient View) -->
+<div class="w-full max-w-[800px] bg-surface-container-lowest rounded-[16px] border border-surface-variant/50 ambient-shadow p-lg md:p-xl transition-all duration-300 ambient-shadow-hover">
+<div class="text-center mb-10">
+<h1 class="font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-surface mb-2">Autorregistro Emocional</h1>
+<p class="font-body-md text-body-md text-on-surface-variant">Tómate un momento para registrar cómo te sientes y qué está sucediendo.</p>
+</div>
+<form class="space-y-8">
+<!-- Date (Pre-filled) -->
+<div class="flex flex-col space-y-2">
+<label class="font-label-md text-label-md text-on-surface" for="fecha">Fecha y Hora</label>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline">calendar_today</span>
+<input class="w-full pl-10 pr-4 py-3 rounded-lg border border-surface-variant bg-surface-container-low text-on-surface font-body-md focus:outline-none cursor-not-allowed" id="fecha" name="fecha" readonly="" type="datetime-local" value="2023-10-27T10:30"/>
+</div>
+</div>
+<!-- Situation -->
+<div class="flex flex-col space-y-2">
+<label class="font-label-md text-label-md text-on-surface" for="situacion">Situación</label>
+<p class="font-body-sm text-body-sm text-on-surface-variant mb-1">¿Qué estaba pasando? ¿Dónde estabas? ¿Con quién?</p>
+<textarea class="w-full p-4 rounded-lg border border-surface-variant bg-surface-container-lowest text-on-surface font-body-md focus:outline-none input-glow transition-all resize-none" id="situacion" name="situacion" placeholder="Describe brevemente la situación..." rows="3"></textarea>
+</div>
+<!-- Emotion (Visual Selector) -->
+<div class="flex flex-col space-y-4">
+<label class="font-label-md text-label-md text-on-surface">Emoción Principal</label>
+<p class="font-body-sm text-body-sm text-on-surface-variant mb-1">¿Qué sentiste en ese momento?</p>
+<div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+<!-- Joy -->
+<label class="cursor-pointer relative group">
+<input class="peer sr-only" name="emocion" type="radio" value="alegria"/>
+<div class="flex flex-col items-center justify-center p-4 rounded-[12px] border border-surface-variant bg-surface-container-lowest peer-checked:border-primary peer-checked:bg-primary-container/10 peer-checked:shadow-[0_0_0_2px_rgba(0,77,132,0.2)] transition-all hover:bg-surface-container-low">
+<span class="material-symbols-outlined text-4xl mb-2 text-outline group-hover:text-primary peer-checked:text-primary transition-colors">sentiment_very_satisfied</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant peer-checked:text-on-surface peer-checked:font-medium">Alegría</span>
+</div>
+</label>
+<!-- Sadness -->
+<label class="cursor-pointer relative group">
+<input class="peer sr-only" name="emocion" type="radio" value="tristeza"/>
+<div class="flex flex-col items-center justify-center p-4 rounded-[12px] border border-surface-variant bg-surface-container-lowest peer-checked:border-primary peer-checked:bg-primary-container/10 peer-checked:shadow-[0_0_0_2px_rgba(0,77,132,0.2)] transition-all hover:bg-surface-container-low">
+<span class="material-symbols-outlined text-4xl mb-2 text-outline group-hover:text-primary peer-checked:text-primary transition-colors">sentiment_dissatisfied</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant peer-checked:text-on-surface peer-checked:font-medium">Tristeza</span>
+</div>
+</label>
+<!-- Anger -->
+<label class="cursor-pointer relative group">
+<input class="peer sr-only" name="emocion" type="radio" value="enojo"/>
+<div class="flex flex-col items-center justify-center p-4 rounded-[12px] border border-surface-variant bg-surface-container-lowest peer-checked:border-primary peer-checked:bg-primary-container/10 peer-checked:shadow-[0_0_0_2px_rgba(0,77,132,0.2)] transition-all hover:bg-surface-container-low">
+<span class="material-symbols-outlined text-4xl mb-2 text-outline group-hover:text-primary peer-checked:text-primary transition-colors">sentiment_extremely_dissatisfied</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant peer-checked:text-on-surface peer-checked:font-medium">Enojo</span>
+</div>
+</label>
+<!-- Fear/Anxiety -->
+<label class="cursor-pointer relative group">
+<input class="peer sr-only" name="emocion" type="radio" value="miedo"/>
+<div class="flex flex-col items-center justify-center p-4 rounded-[12px] border border-surface-variant bg-surface-container-lowest peer-checked:border-primary peer-checked:bg-primary-container/10 peer-checked:shadow-[0_0_0_2px_rgba(0,77,132,0.2)] transition-all hover:bg-surface-container-low">
+<span class="material-symbols-outlined text-4xl mb-2 text-outline group-hover:text-primary peer-checked:text-primary transition-colors">mood_bad</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant peer-checked:text-on-surface peer-checked:font-medium">Ansiedad</span>
+</div>
+</label>
+<!-- Other / Neutral -->
+<label class="cursor-pointer relative group">
+<input class="peer sr-only" name="emocion" type="radio" value="otra"/>
+<div class="flex flex-col items-center justify-center p-4 rounded-[12px] border border-surface-variant bg-surface-container-lowest peer-checked:border-primary peer-checked:bg-primary-container/10 peer-checked:shadow-[0_0_0_2px_rgba(0,77,132,0.2)] transition-all hover:bg-surface-container-low">
+<span class="material-symbols-outlined text-4xl mb-2 text-outline group-hover:text-primary peer-checked:text-primary transition-colors">sentiment_neutral</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant peer-checked:text-on-surface peer-checked:font-medium">Otra</span>
+</div>
+</label>
+</div>
+</div>
+<!-- Intensity (Slider) -->
+<div class="flex flex-col space-y-4 pt-2">
+<div class="flex justify-between items-end">
+<label class="font-label-md text-label-md text-on-surface" for="intensidad">Intensidad</label>
+<span class="font-headline-md text-headline-md text-primary font-bold" id="intensidad-valor">5</span>
+</div>
+<div class="relative pt-2 pb-6">
+<input class="w-full appearance-none bg-transparent" id="intensidad" max="10" min="0" name="intensidad" type="range" value="5"/>
+<div class="flex justify-between px-1 mt-2 text-xs text-on-surface-variant font-medium">
+<span>0 (Nada)</span>
+<span>10 (Máxima)</span>
+</div>
+</div>
+</div>
+<!-- Automatic Thought -->
+<div class="flex flex-col space-y-2">
+<label class="font-label-md text-label-md text-on-surface" for="pensamiento">Pensamiento Automático</label>
+<p class="font-body-sm text-body-sm text-on-surface-variant mb-1">¿Qué te pasó por la cabeza en ese momento?</p>
+<textarea class="w-full p-4 rounded-lg border border-surface-variant bg-surface-container-lowest text-on-surface font-body-md focus:outline-none input-glow transition-all resize-none" id="pensamiento" name="pensamiento" placeholder="Ej: 'Seguro piensan que lo hice mal...'" rows="3"></textarea>
+</div>
+<!-- Behavior -->
+<div class="flex flex-col space-y-2">
+<label class="font-label-md text-label-md text-on-surface" for="conducta">Conducta</label>
+<p class="font-body-sm text-body-sm text-on-surface-variant mb-1">¿Qué hiciste? ¿Cómo reaccionaste?</p>
+<textarea class="w-full p-4 rounded-lg border border-surface-variant bg-surface-container-lowest text-on-surface font-body-md focus:outline-none input-glow transition-all resize-none" id="conducta" name="conducta" placeholder="Describe tu reacción o lo que hiciste..." rows="3"></textarea>
+</div>
+<!-- Submit Button -->
+<div class="pt-6 border-t border-surface-variant/30 flex justify-end">
+<button class="bg-primary hover:bg-primary/90 text-on-primary font-label-md text-label-md py-3 px-8 rounded-[12px] transition-colors shadow-sm hover:shadow-md flex items-center gap-2" type="button">
+<span class="material-symbols-outlined text-xl">save</span>
+                        Guardar registro
+                    </button>
+</div>
+</form>
+</div>
+</main>
+<script>
+        // Simple script to update intensity value display
+        document.addEventListener('DOMContentLoaded', () => {
+            const slider = document.getElementById('intensidad');
+            const display = document.getElementById('intensidad-valor');
+            
+            if(slider && display) {
+                slider.addEventListener('input', (e) => {
+                    display.textContent = e.target.value;
+                });
+            }
+        });
+    </script>
+</body></html>

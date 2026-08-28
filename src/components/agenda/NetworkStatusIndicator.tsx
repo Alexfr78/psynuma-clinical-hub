@@ -1,8 +1,9 @@
-import { Wifi, WifiOff, CloudOff, RefreshCw, AlertTriangle } from 'lucide-react';
+import { Wifi } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
+import { Icon } from '@/components/ui/icon';
 
 interface NetworkStatusIndicatorProps {
   isOnline: boolean;
@@ -37,7 +38,7 @@ export function NetworkStatusIndicator({
       {/* Offline indicator */}
       {!isOnline && (
         <Badge variant="destructive" className="gap-1">
-          <WifiOff className="h-3 w-3" />
+          <Icon name="wifi_off" className="h-3 w-3" />
           Sin conexión
         </Badge>
       )}
@@ -45,7 +46,7 @@ export function NetworkStatusIndicator({
       {/* Slow connection warning */}
       {isOnline && isSlowConnection && (
         <Badge variant="secondary" className="gap-1 bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
-          <AlertTriangle className="h-3 w-3" />
+          <Icon name="warning" className="h-3 w-3" />
           Conexión lenta
         </Badge>
       )}
@@ -55,7 +56,7 @@ export function NetworkStatusIndicator({
         <Tooltip>
           <TooltipTrigger asChild>
             <Badge variant="outline" className="gap-1">
-              <CloudOff className="h-3 w-3" />
+              <Icon name="cloud_off" className="h-3 w-3" />
               Modo offline
             </Badge>
           </TooltipTrigger>
@@ -82,7 +83,7 @@ export function NetworkStatusIndicator({
       {/* Cache error */}
       {cacheError && (
         <Badge variant="destructive" className="gap-1">
-          <AlertTriangle className="h-3 w-3" />
+          <Icon name="warning" className="h-3 w-3" />
           {cacheError}
         </Badge>
       )}
@@ -101,7 +102,7 @@ export function NetworkStatusIndicator({
                 hasPendingChanges && "text-primary"
               )}
             >
-              <RefreshCw className={cn("h-4 w-4", isSyncing && "animate-spin")} />
+              <Icon name="refresh" className={cn("h-4 w-4", isSyncing && "animate-spin")} />
             </Button>
           </TooltipTrigger>
           <TooltipContent>

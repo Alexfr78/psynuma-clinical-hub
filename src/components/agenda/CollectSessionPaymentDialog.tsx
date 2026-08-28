@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { CreditCard, Calendar, Receipt, FileText, Loader2, Check, X, Mail, MessageSquare, ShieldCheck, AlertTriangle } from 'lucide-react';
+
 import { supabase } from '@/integrations/supabase/client';
 import {
   Dialog,
@@ -36,6 +36,7 @@ import { useCreateSignedInvoice } from '@/hooks/useCreateSignedInvoice';
 import { useSessionInvoiceStatus } from '@/hooks/useInvoices';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { toast } from 'sonner';
+import { Icon } from '@/components/ui/icon';
 
 interface CollectSessionPaymentDialogProps {
   open: boolean;
@@ -287,7 +288,7 @@ export function CollectSessionPaymentDialog({
       {/* Payment Date */}
       <div className="space-y-2">
         <Label htmlFor="payment-date" className="flex items-center gap-2">
-          <Calendar className="h-4 w-4" />
+          <Icon name="calendar_month" className="h-4 w-4" />
           Fecha de pago
         </Label>
         <Input
@@ -301,7 +302,7 @@ export function CollectSessionPaymentDialog({
       {/* Reference */}
       <div className="space-y-2">
         <Label htmlFor="reference" className="flex items-center gap-2">
-          <Receipt className="h-4 w-4" />
+          <Icon name="receipt_long" className="h-4 w-4" />
           Referencia (opcional)
         </Label>
         <Input
@@ -315,7 +316,7 @@ export function CollectSessionPaymentDialog({
       {/* Notes */}
       <div className="space-y-2">
         <Label htmlFor="notes" className="flex items-center gap-2">
-          <FileText className="h-4 w-4" />
+          <Icon name="description" className="h-4 w-4" />
           Notas (opcional)
         </Label>
         <Textarea
@@ -346,7 +347,7 @@ export function CollectSessionPaymentDialog({
     <div className="space-y-6">
       <div className="text-center space-y-2">
         <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-          <Check className="h-6 w-6 text-primary" />
+          <Icon name="check" className="h-6 w-6 text-primary" />
         </div>
         <h3 className="font-semibold text-lg">Pago registrado</h3>
         <p className="text-muted-foreground">
@@ -356,11 +357,11 @@ export function CollectSessionPaymentDialog({
 
       <div className="flex justify-center gap-4">
         <Button variant="outline" onClick={handleInvoiceQuestionNo} className="gap-2">
-          <X className="h-4 w-4" />
+          <Icon name="close" className="h-4 w-4" />
           No, solo el pago
         </Button>
         <Button onClick={handleInvoiceQuestionYes} className="gap-2">
-          <FileText className="h-4 w-4" />
+          <Icon name="description" className="h-4 w-4" />
           Sí, generar factura
         </Button>
       </div>
@@ -403,9 +404,9 @@ export function CollectSessionPaymentDialog({
       </div>
 
       <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 p-3 rounded-lg">
-        {sendChannel === 'email' && <><Mail className="h-4 w-4" /> Se enviará por email</>}
-        {sendChannel === 'whatsapp' && <><MessageSquare className="h-4 w-4" /> Se enviará por WhatsApp</>}
-        {sendChannel === 'both' && <><Mail className="h-4 w-4" /><MessageSquare className="h-4 w-4" /> Se enviará por email y WhatsApp</>}
+        {sendChannel === 'email' && <><Icon name="mail" className="h-4 w-4" /> Se enviará por email</>}
+        {sendChannel === 'whatsapp' && <><Icon name="forum" className="h-4 w-4" /> Se enviará por WhatsApp</>}
+        {sendChannel === 'both' && <><Icon name="mail" className="h-4 w-4" /><Icon name="forum" className="h-4 w-4" /> Se enviará por email y WhatsApp</>}
       </div>
 
       <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-4">
@@ -421,11 +422,11 @@ export function CollectSessionPaymentDialog({
 
   const renderProcessingStep = () => (
     <div className="py-8 text-center space-y-4">
-      <Loader2 className="h-12 w-12 animate-spin mx-auto text-primary" />
+      <Icon name="progress_activity" className="h-12 w-12 animate-spin mx-auto text-primary" />
       <p className="text-muted-foreground">{processingMessage}</p>
       {verifactuAutoEnabled && (
         <p className="text-xs text-muted-foreground flex items-center justify-center gap-1">
-          <ShieldCheck className="h-3 w-3" />
+          <Icon name="verified_user" className="h-3 w-3" />
           Registrando en AEAT...
         </p>
       )}
@@ -437,9 +438,9 @@ export function CollectSessionPaymentDialog({
       <div className="text-center space-y-2">
         <div className={`mx-auto w-12 h-12 rounded-full flex items-center justify-center ${verifactuPending ? 'bg-yellow-100' : 'bg-green-100'}`}>
           {verifactuPending ? (
-            <AlertTriangle className="h-6 w-6 text-yellow-600" />
+            <Icon name="warning" className="h-6 w-6 text-yellow-600" />
           ) : (
-            <Check className="h-6 w-6 text-green-600" />
+            <Icon name="check" className="h-6 w-6 text-green-600" />
           )}
         </div>
         <h3 className="font-semibold text-lg">
@@ -457,7 +458,7 @@ export function CollectSessionPaymentDialog({
       {verifactuPending && (
         <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4 space-y-2">
           <p className="text-sm font-medium text-yellow-800 flex items-center gap-2">
-            <ShieldCheck className="h-4 w-4" />
+            <Icon name="verified_user" className="h-4 w-4" />
             Pendiente AEAT
           </p>
           <p className="text-xs text-yellow-700">
@@ -512,7 +513,7 @@ export function CollectSessionPaymentDialog({
         <DrawerContent className="max-h-[90vh]">
           <DrawerHeader className="text-left">
             <DrawerTitle className="flex items-center gap-2">
-              <CreditCard className="h-5 w-5" />
+              <Icon name="credit_card" className="h-5 w-5" />
               {getDialogTitle()}
             </DrawerTitle>
             {getDialogDescription() && (
@@ -535,7 +536,7 @@ export function CollectSessionPaymentDialog({
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <CreditCard className="h-5 w-5" />
+            <Icon name="credit_card" className="h-5 w-5" />
             {getDialogTitle()}
           </DialogTitle>
           {getDialogDescription() && (

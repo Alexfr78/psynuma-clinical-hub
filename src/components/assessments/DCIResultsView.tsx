@@ -1,8 +1,9 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { AlertTriangle, Brain, Puzzle, ShieldAlert } from 'lucide-react';
+
 import { DCI_CUTOFFS } from '@/data/dci-template';
+import { Icon } from '@/components/ui/icon';
 
 interface DCIResultsViewProps {
   detScore: number;
@@ -29,7 +30,7 @@ export function DCIResultsView({ detScore, comScore, valScore }: DCIResultsViewP
         <Card className="border-amber-500 bg-amber-50 dark:bg-amber-950/20">
           <CardContent className="pt-4">
             <div className="flex items-start gap-3">
-              <ShieldAlert className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+              <Icon name="gpp_maybe" className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
               <div>
                 <p className="font-semibold text-amber-800 dark:text-amber-200">
                   Advertencia de Validez
@@ -52,12 +53,12 @@ export function DCIResultsView({ detScore, comScore, valScore }: DCIResultsViewP
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
               <CardTitle className="text-lg flex items-center gap-2">
-                <Brain className="h-5 w-5 text-primary" />
+                <Icon name="psychology" className="h-5 w-5 text-primary" />
                 Distanciamiento
               </CardTitle>
               {detClinical && (
                 <Badge variant="destructive" className="gap-1">
-                  <AlertTriangle className="h-3 w-3" />
+                  <Icon name="warning" className="h-3 w-3" />
                   Clínico
                 </Badge>
               )}
@@ -89,12 +90,12 @@ export function DCIResultsView({ detScore, comScore, valScore }: DCIResultsViewP
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
               <CardTitle className="text-lg flex items-center gap-2">
-                <Puzzle className="h-5 w-5 text-primary" />
+                <Icon name="extension" className="h-5 w-5 text-primary" />
                 Compartimentación
               </CardTitle>
               {comClinical && (
                 <Badge variant="destructive" className="gap-1">
-                  <AlertTriangle className="h-3 w-3" />
+                  <Icon name="warning" className="h-3 w-3" />
                   Clínico
                 </Badge>
               )}

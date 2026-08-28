@@ -7,7 +7,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { toast } from 'sonner';
 import { format, isBefore, startOfDay, addDays } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Loader2, MapPin, Video, Calendar as CalendarIcon, Clock, AlertTriangle, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+
 import { cn } from '@/lib/utils';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
@@ -22,6 +22,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import type { CancellationPolicyPreview } from '@/hooks/usePublicBooking';
+import { Icon } from '@/components/ui/icon';
 
 export default function PublicBookingManage() {
   const { centerSlug } = useParams<{ centerSlug: string }>();
@@ -157,7 +158,7 @@ export default function PublicBookingManage() {
   if (loading && !booking) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <Icon name="progress_activity" className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -167,7 +168,7 @@ export default function PublicBookingManage() {
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <Card className="max-w-md">
           <CardContent className="pt-6 text-center">
-            <AlertTriangle className="h-12 w-12 text-warning mx-auto mb-4" />
+            <Icon name="warning" className="h-12 w-12 text-warning mx-auto mb-4" />
             <p className="text-muted-foreground">{error || 'No se pudo cargar la cita. El enlace puede haber expirado.'}</p>
           </CardContent>
         </Card>
@@ -192,11 +193,11 @@ export default function PublicBookingManage() {
           <Card>
             <CardHeader className="text-center">
               {isCancelled ? (
-                <XCircle className="h-12 w-12 text-destructive mx-auto mb-2" />
+                <Icon name="cancel" className="h-12 w-12 text-destructive mx-auto mb-2" />
               ) : isPending ? (
-                <Clock className="h-12 w-12 text-warning mx-auto mb-2" />
+                <Icon name="schedule" className="h-12 w-12 text-warning mx-auto mb-2" />
               ) : (
-                <CheckCircle className="h-12 w-12 text-success mx-auto mb-2" />
+                <Icon name="check_circle" className="h-12 w-12 text-success mx-auto mb-2" />
               )}
               <CardTitle>
                 {isCancelled ? 'Cita cancelada' : isPending ? 'Pendiente de aprobación' : 'Cita confirmada'}
@@ -208,7 +209,7 @@ export default function PublicBookingManage() {
             <CardContent className="space-y-4">
               <div className="bg-muted p-4 rounded-lg space-y-3">
                 <div className="flex items-center gap-3">
-                  <CalendarIcon className="h-5 w-5 text-muted-foreground" />
+                  <Icon name="calendar_month" className="h-5 w-5 text-muted-foreground" />
                   <div>
                     <div className="font-medium">
                       {format(new Date(booking.session_date), "EEEE d 'de' MMMM 'de' yyyy", { locale: es })}
@@ -220,16 +221,16 @@ export default function PublicBookingManage() {
                 </div>
                 
                 <div className="flex items-center gap-3">
-                  <Clock className="h-5 w-5 text-muted-foreground" />
+                  <Icon name="schedule" className="h-5 w-5 text-muted-foreground" />
                   <div className="font-medium">{booking.session_type}</div>
                 </div>
 
                 {booking.location && (
                   <div className="flex items-start gap-3">
                     {booking.location.location_type === 'online' ? (
-                      <Video className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
+                      <Icon name="videocam" className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
                     ) : (
-                      <MapPin className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
+                      <Icon name="location_on" className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
                     )}
                     <div className="min-w-0 flex-1">
                       <div className="font-medium break-words">{booking.location.name}</div>
@@ -277,7 +278,7 @@ export default function PublicBookingManage() {
                       <AlertDialogFooter>
                         <AlertDialogCancel>Volver</AlertDialogCancel>
                         <AlertDialogAction onClick={handleCancel} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                          {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                          {loading ? <Icon name="progress_activity" className="h-4 w-4 animate-spin mr-2" /> : null}
                           Sí, cancelar
                         </AlertDialogAction>
                       </AlertDialogFooter>
@@ -334,7 +335,7 @@ export default function PublicBookingManage() {
                 />
                 {availabilityLoading && (
                   <div className="absolute inset-0 bg-background/50 flex items-center justify-center rounded-md">
-                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                    <Icon name="progress_activity" className="h-6 w-6 animate-spin text-primary" />
                   </div>
                 )}
               </div>
@@ -346,7 +347,7 @@ export default function PublicBookingManage() {
                   </h4>
                   {slotsLoading ? (
                     <div className="flex justify-center py-4">
-                      <Loader2 className="h-5 w-5 animate-spin" />
+                      <Icon name="progress_activity" className="h-5 w-5 animate-spin" />
                     </div>
                   ) : slots.length === 0 ? (
                     <p className="text-muted-foreground text-center py-4">
@@ -382,7 +383,7 @@ export default function PublicBookingManage() {
                   disabled={!selectedSlot || loading}
                   className="flex-1"
                 >
-                  {loading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                  {loading && <Icon name="progress_activity" className="h-4 w-4 animate-spin mr-2" />}
                   Confirmar
                 </Button>
               </div>
@@ -398,7 +399,7 @@ export default function PublicBookingManage() {
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <Alert className="border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-900 dark:bg-amber-950/20 dark:text-amber-100">
-                    <AlertCircle className="h-4 w-4 text-amber-600" />
+                    <Icon name="error" className="h-4 w-4 text-amber-600" />
                     <AlertDescription>
                       {reschedulePreviewLoading ? (
                         'Comprobando la política de cancelación...'
@@ -422,7 +423,7 @@ export default function PublicBookingManage() {
                   <AlertDialogFooter>
                     <AlertDialogCancel disabled={loading}>Volver</AlertDialogCancel>
                     <AlertDialogAction onClick={handleReschedule} disabled={loading}>
-                      {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                      {loading ? <Icon name="progress_activity" className="h-4 w-4 animate-spin mr-2" /> : null}
                       Sí, confirmar
                     </AlertDialogAction>
                   </AlertDialogFooter>

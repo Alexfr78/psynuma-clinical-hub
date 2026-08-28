@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, X, Loader2, Save, AlertCircle, Info, ChevronUp, ChevronDown, UserPlus } from 'lucide-react';
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,6 +27,7 @@ import {
   type ExemptionCode,
   type NonSubjectCode,
 } from '@/lib/verifactu-validation';
+import { Icon } from '@/components/ui/icon';
 
 const DURATION_OPTIONS = [
   { value: 15, label: '15 min' },
@@ -267,7 +268,7 @@ export function SessionTypesSection() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <Icon name="progress_activity" className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -318,7 +319,7 @@ export function SessionTypesSection() {
                       className="h-7 w-7"
                       title="Subir"
                     >
-                      <ChevronUp className="h-4 w-4" />
+                      <Icon name="expand_less" className="h-4 w-4" />
                     </Button>
                     <Button
                       variant="ghost"
@@ -328,7 +329,7 @@ export function SessionTypesSection() {
                       className="h-7 w-7"
                       title="Bajar"
                     >
-                      <ChevronDown className="h-4 w-4" />
+                      <Icon name="expand_more" className="h-4 w-4" />
                     </Button>
                   </div>
 
@@ -428,7 +429,7 @@ export function SessionTypesSection() {
                       disabled={deleteMutation.isPending}
                       className="h-9 w-9 text-muted-foreground hover:text-destructive"
                     >
-                      <X className="h-4 w-4" />
+                      <Icon name="close" className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>
@@ -438,8 +439,8 @@ export function SessionTypesSection() {
                   <div className="px-3 pb-2 md:px-2">
                     <CollapsibleTrigger asChild>
                       <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-muted-foreground">
-                        <Info className="h-3 w-3 mr-1" />
-                        Configuración fiscal {hasErrors && <AlertCircle className="h-3 w-3 ml-1 text-destructive" />}
+                        <Icon name="info" className="h-3 w-3 mr-1" />
+                        Configuración fiscal {hasErrors && <Icon name="error" className="h-3 w-3 ml-1 text-destructive" />}
                       </Button>
                     </CollapsibleTrigger>
                   </div>
@@ -449,7 +450,7 @@ export function SessionTypesSection() {
                       {/* Validation alerts */}
                       {issues.length > 0 && (
                         <Alert variant={hasErrors ? "destructive" : "default"} className="py-2">
-                          <AlertCircle className="h-4 w-4" />
+                          <Icon name="error" className="h-4 w-4" />
                           <AlertDescription className="text-xs space-y-1">
                             {issues.map((issue, i) => (
                               <div key={i}>
@@ -566,7 +567,7 @@ export function SessionTypesSection() {
                           onCheckedChange={(checked) => handleChange(index, 'is_first_consultation', !!checked)}
                         />
                         <Label htmlFor={`first-consultation-${itemId}`} className="text-sm flex items-center gap-2 cursor-pointer">
-                          <UserPlus className="h-4 w-4 text-muted-foreground" />
+                          <Icon name="person_add" className="h-4 w-4 text-muted-foreground" />
                           Es primera consulta
                         </Label>
                         <span className="text-xs text-muted-foreground ml-2">
@@ -587,7 +588,7 @@ export function SessionTypesSection() {
           onClick={handleAddNew}
           className="w-full"
         >
-          <Plus className="h-4 w-4 mr-2" />
+          <Icon name="add" className="h-4 w-4 mr-2" />
           Añadir nuevo tipo de sesión
         </Button>
 
@@ -599,9 +600,9 @@ export function SessionTypesSection() {
             className="w-full"
           >
             {isSaving ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              <Icon name="progress_activity" className="h-4 w-4 mr-2 animate-spin" />
             ) : (
-              <Save className="h-4 w-4 mr-2" />
+              <Icon name="save" className="h-4 w-4 mr-2" />
             )}
             Guardar cambios
           </Button>

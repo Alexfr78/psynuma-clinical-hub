@@ -1,6 +1,6 @@
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { FileText, Download, Loader2, Plus } from 'lucide-react';
+
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
@@ -12,6 +12,7 @@ import { useState, type MouseEvent } from 'react';
 import { toast } from 'sonner';
 import { CreateSimpleInvoiceDialog } from '@/components/invoices/CreateSimpleInvoiceDialog';
 import { downloadPdfFromUrl } from '@/lib/download-pdf';
+import { Icon } from '@/components/ui/icon';
 
 interface PatientInvoicesProps {
   patientId: string;
@@ -81,13 +82,13 @@ export function PatientInvoices({ patientId, onInvoiceClick }: PatientInvoicesPr
     return (
       <>
         <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12 text-center">
-          <FileText className="h-12 w-12 text-muted-foreground" />
+          <Icon name="description" className="h-12 w-12 text-muted-foreground" />
           <h3 className="mt-4 font-display text-lg font-semibold">Sin facturas</h3>
           <p className="mt-2 max-w-sm text-sm text-muted-foreground">
             Este contacto aún no tiene facturas emitidas.
           </p>
           <Button className="mt-5" onClick={() => setCreateInvoiceOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
+            <Icon name="add" className="mr-2 h-4 w-4" />
             Nueva factura
           </Button>
         </div>
@@ -104,7 +105,7 @@ export function PatientInvoices({ patientId, onInvoiceClick }: PatientInvoicesPr
     <div className="space-y-4">
       <div className="flex justify-end">
         <Button onClick={() => setCreateInvoiceOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
+          <Icon name="add" className="mr-2 h-4 w-4" />
           Nueva factura
         </Button>
       </div>
@@ -126,7 +127,7 @@ export function PatientInvoices({ patientId, onInvoiceClick }: PatientInvoicesPr
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="space-y-1 min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <FileText className="h-4 w-4 text-primary shrink-0" />
+                    <Icon name="description" className="h-4 w-4 text-primary shrink-0" />
                     <span className={cn("font-medium truncate max-w-[150px] sm:max-w-none", isInvalidated && "line-through text-muted-foreground")}>
                       {invoice.invoice_number}
                     </span>
@@ -161,9 +162,9 @@ export function PatientInvoices({ patientId, onInvoiceClick }: PatientInvoicesPr
                     title="Descargar PDF"
                   >
                     {downloadingId === invoice.id ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <Icon name="progress_activity" className="h-4 w-4 animate-spin" />
                     ) : (
-                      <Download className="h-4 w-4" />
+                      <Icon name="download" className="h-4 w-4" />
                     )}
                   </Button>
                 </div>

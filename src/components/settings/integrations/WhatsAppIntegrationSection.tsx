@@ -12,25 +12,11 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useProfessionalIntegrations } from "@/hooks/useProfessionalIntegrations";
 import { useCenter } from "@/hooks/useCenter";
 import { useWasender } from "@/hooks/useWasender";
-import { 
-  MessageSquare, 
-  Eye, 
-  EyeOff, 
-  ExternalLink, 
-  CheckCircle2, 
-  QrCode,
-  XCircle,
-  RefreshCw,
-  Phone,
-  Loader2,
-  Clock,
-  Send,
-  Shield,
-  AlertTriangle
-} from "lucide-react";
+
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { Icon } from '@/components/ui/icon';
 
 type WhatsAppSendMethod = 'web' | 'wasender' | 'api';
 
@@ -211,7 +197,7 @@ export function WhatsAppIntegrationSection() {
       if (emergencyStop) {
         return (
           <Badge variant="destructive" className="gap-1">
-            <AlertTriangle className="h-3 w-3" />
+            <Icon name="warning" className="h-3 w-3" />
             Pausado
           </Badge>
         );
@@ -219,14 +205,14 @@ export function WhatsAppIntegrationSection() {
       if (isConnected) {
         return (
           <Badge variant="outline" className="gap-1 text-green-600 border-green-200 bg-green-50">
-            <CheckCircle2 className="h-3 w-3" />
+            <Icon name="check_circle" className="h-3 w-3" />
             Conectado (Automático)
           </Badge>
         );
       }
       return (
         <Badge variant="outline" className="gap-1 text-yellow-600 border-yellow-200 bg-yellow-50">
-          <QrCode className="h-3 w-3" />
+          <Icon name="qr_code" className="h-3 w-3" />
           Pendiente de conexión
         </Badge>
       );
@@ -236,14 +222,14 @@ export function WhatsAppIntegrationSection() {
       if (accessToken || integrations?.whatsapp_access_token) {
         return (
           <Badge variant="outline" className="gap-1 text-green-600 border-green-200 bg-green-50">
-            <CheckCircle2 className="h-3 w-3" />
+            <Icon name="check_circle" className="h-3 w-3" />
             Meta API (Automático)
           </Badge>
         );
       }
       return (
         <Badge variant="outline" className="gap-1 text-yellow-600 border-yellow-200 bg-yellow-50">
-          <AlertTriangle className="h-3 w-3" />
+          <Icon name="warning" className="h-3 w-3" />
           Credenciales pendientes
         </Badge>
       );
@@ -251,7 +237,7 @@ export function WhatsAppIntegrationSection() {
     
     return (
       <Badge variant="outline" className="gap-1">
-        <MessageSquare className="h-3 w-3" />
+        <Icon name="forum" className="h-3 w-3" />
         Manual (Web)
       </Badge>
     );
@@ -263,7 +249,7 @@ export function WhatsAppIntegrationSection() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-green-500/10">
-              <MessageSquare className="h-5 w-5 text-green-600" />
+              <Icon name="forum" className="h-5 w-5 text-green-600" />
             </div>
             <div>
               <CardTitle className="text-lg">WhatsApp</CardTitle>
@@ -337,17 +323,17 @@ export function WhatsAppIntegrationSection() {
                   <div className="flex items-center gap-2">
                     {isConnected ? (
                       <Badge variant="outline" className="gap-1 text-green-600 border-green-200 bg-green-50">
-                        <CheckCircle2 className="h-3 w-3" />
+                        <Icon name="check_circle" className="h-3 w-3" />
                         Conectado
                       </Badge>
                     ) : session?.status === 'need_scan' ? (
                       <Badge variant="outline" className="gap-1 text-yellow-600 border-yellow-200 bg-yellow-50">
-                        <QrCode className="h-3 w-3" />
+                        <Icon name="qr_code" className="h-3 w-3" />
                         Esperando escaneo
                       </Badge>
                     ) : (
                       <Badge variant="outline" className="gap-1 text-red-600 border-red-200 bg-red-50">
-                        <XCircle className="h-3 w-3" />
+                        <Icon name="cancel" className="h-3 w-3" />
                         Desconectado
                       </Badge>
                     )}
@@ -356,7 +342,7 @@ export function WhatsAppIntegrationSection() {
                       size="icon"
                       onClick={() => refetchSession()}
                     >
-                      <RefreshCw className="h-4 w-4" />
+                      <Icon name="refresh" className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>
@@ -380,7 +366,7 @@ export function WhatsAppIntegrationSection() {
                     ) : (
                       <div className="flex flex-col items-center gap-4">
                         <div className="p-6 bg-muted rounded-lg">
-                          <QrCode className="h-16 w-16 text-muted-foreground" />
+                          <Icon name="qr_code" className="h-16 w-16 text-muted-foreground" />
                         </div>
                         <Button 
                           onClick={handleConnect}
@@ -388,12 +374,12 @@ export function WhatsAppIntegrationSection() {
                         >
                           {connectWhatsApp.isPending ? (
                             <>
-                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              <Icon name="progress_activity" className="h-4 w-4 mr-2 animate-spin" />
                               Conectando...
                             </>
                           ) : (
                             <>
-                              <Phone className="h-4 w-4 mr-2" />
+                              <Icon name="call" className="h-4 w-4 mr-2" />
                               Conectar WhatsApp
                             </>
                           )}
@@ -407,7 +393,7 @@ export function WhatsAppIntegrationSection() {
                 {isConnected && (
                   <div className="p-3 border rounded-lg bg-green-50/50 flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <Phone className="h-4 w-4 text-green-600" />
+                      <Icon name="call" className="h-4 w-4 text-green-600" />
                       <span className="text-sm">Conectado{session?.phone_number ? `: ${session.phone_number}` : ''}</span>
                     </div>
                     <Button
@@ -418,10 +404,10 @@ export function WhatsAppIntegrationSection() {
                       className="text-red-600 border-red-200 hover:bg-red-50"
                     >
                       {disconnectWhatsApp.isPending ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <Icon name="progress_activity" className="h-4 w-4 animate-spin" />
                       ) : (
                         <>
-                          <XCircle className="h-4 w-4 mr-1" />
+                          <Icon name="cancel" className="h-4 w-4 mr-1" />
                           Desconectar
                         </>
                       )}
@@ -438,7 +424,7 @@ export function WhatsAppIntegrationSection() {
                   <div className="space-y-3">
                     <div className="flex items-center justify-between p-3 border rounded-lg">
                       <div className="flex items-center gap-3">
-                        <Clock className="h-4 w-4 text-muted-foreground" />
+                        <Icon name="schedule" className="h-4 w-4 text-muted-foreground" />
                         <div>
                           <p className="text-sm font-medium">Recordatorio 24h antes</p>
                           <p className="text-xs text-muted-foreground">Enviar recordatorio un día antes de la cita</p>
@@ -452,7 +438,7 @@ export function WhatsAppIntegrationSection() {
 
                     <div className="flex items-center justify-between p-3 border rounded-lg">
                       <div className="flex items-center gap-3">
-                        <Clock className="h-4 w-4 text-muted-foreground" />
+                        <Icon name="schedule" className="h-4 w-4 text-muted-foreground" />
                         <div>
                           <p className="text-sm font-medium">Recordatorio 2h antes</p>
                           <p className="text-xs text-muted-foreground">Enviar recordatorio 2 horas antes de la cita</p>
@@ -466,7 +452,7 @@ export function WhatsAppIntegrationSection() {
 
                     <div className="flex items-center justify-between p-3 border rounded-lg">
                       <div className="flex items-center gap-3">
-                        <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
+                        <Icon name="check_circle" className="h-4 w-4 text-muted-foreground" />
                         <div>
                           <p className="text-sm font-medium">Confirmación de reserva</p>
                           <p className="text-xs text-muted-foreground">Enviar confirmación al crear una cita</p>
@@ -480,7 +466,7 @@ export function WhatsAppIntegrationSection() {
 
                     <div className="flex items-center justify-between p-3 border rounded-lg">
                       <div className="flex items-center gap-3">
-                        <RefreshCw className="h-4 w-4 text-muted-foreground" />
+                        <Icon name="refresh" className="h-4 w-4 text-muted-foreground" />
                         <div>
                           <p className="text-sm font-medium">Notificar cambio de cita</p>
                           <p className="text-xs text-muted-foreground">Enviar mensaje cuando el paciente reprograme su cita</p>
@@ -494,7 +480,7 @@ export function WhatsAppIntegrationSection() {
 
                     <div className="flex items-center justify-between p-3 border rounded-lg">
                       <div className="flex items-center gap-3">
-                        <XCircle className="h-4 w-4 text-muted-foreground" />
+                        <Icon name="cancel" className="h-4 w-4 text-muted-foreground" />
                         <div>
                           <p className="text-sm font-medium">Aviso de cancelación</p>
                           <p className="text-xs text-muted-foreground">Notificar cuando se cancela una cita</p>
@@ -506,7 +492,7 @@ export function WhatsAppIntegrationSection() {
                       />
                     <div className="flex items-center justify-between p-3 border rounded-lg">
                       <div className="flex items-center gap-3">
-                        <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
+                        <Icon name="check_circle" className="h-4 w-4 text-muted-foreground" />
                         <div>
                           <p className="text-sm font-medium">Confirmación de asistencia por respuesta</p>
                           <p className="text-xs text-muted-foreground">El recordatorio incluye "Responde SÍ para confirmar". La cita se marca automáticamente como confirmada.</p>
@@ -556,12 +542,12 @@ export function WhatsAppIntegrationSection() {
                         >
                           {isSendingTest ? (
                             <>
-                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              <Icon name="progress_activity" className="h-4 w-4 mr-2 animate-spin" />
                               Enviando...
                             </>
                           ) : (
                             <>
-                              <Send className="h-4 w-4 mr-2" />
+                              <Icon name="send" className="h-4 w-4 mr-2" />
                               Enviar prueba
                             </>
                           )}
@@ -598,7 +584,7 @@ export function WhatsAppIntegrationSection() {
                 {/* Emergency Stop */}
                 <Separator />
                 <Alert variant={emergencyStop ? "destructive" : "default"} className="border-2">
-                  <Shield className="h-4 w-4" />
+                  <Icon name="shield" className="h-4 w-4" />
                   <AlertDescription className="flex items-center justify-between">
                     <div>
                       <p className="font-medium">Parada de emergencia</p>
@@ -610,7 +596,7 @@ export function WhatsAppIntegrationSection() {
                     >
                       {emergencyStop ? (
                         <>
-                          <AlertTriangle className="h-4 w-4 mr-2" />
+                          <Icon name="warning" className="h-4 w-4 mr-2" />
                           ACTIVADA
                         </>
                       ) : (
@@ -634,7 +620,7 @@ export function WhatsAppIntegrationSection() {
                   rel="noopener noreferrer"
                   className="text-sm text-primary hover:underline flex items-center gap-1"
                 >
-                  <ExternalLink className="h-3 w-3" />
+                  <Icon name="open_in_new" className="h-3 w-3" />
                   Documentación
                 </a>
               </div>
@@ -660,7 +646,7 @@ export function WhatsAppIntegrationSection() {
                     className="absolute right-0 top-0 h-full"
                     onClick={() => setShowToken(!showToken)}
                   >
-                    {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    {showToken ? <Icon name="visibility_off" className="h-4 w-4" /> : <Icon name="visibility" className="h-4 w-4" />}
                   </Button>
                 </div>
               </div>

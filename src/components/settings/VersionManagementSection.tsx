@@ -1,10 +1,7 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import {
-  GitBranch, Plus, Package, CheckCircle2, AlertTriangle,
-  Archive, Eye, MoreHorizontal, Shield, Pencil, Loader2,
-} from 'lucide-react';
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -19,6 +16,7 @@ import { CreateVersionDialog } from './versions/CreateVersionDialog';
 import { type VersionFormValues } from './versions/CreateVersionDialog';
 import { VersionDetailSheet } from './versions/VersionDetailSheet';
 import { VerifactuSyncDialog } from './versions/VerifactuSyncDialog';
+import { Icon } from '@/components/ui/icon';
 
 const changeTypeBadge: Record<string, { label: string; className: string }> = {
   feature: { label: 'Feature', className: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' },
@@ -54,7 +52,7 @@ export function VersionManagementSection() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <Icon name="progress_activity" className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -79,7 +77,7 @@ export function VersionManagementSection() {
       <Card>
         <CardHeader className="space-y-1.5">
           <div className="flex items-center gap-2">
-            <Package className="h-5 w-5 text-primary shrink-0" />
+            <Icon name="package_2" className="h-5 w-5 text-primary shrink-0" />
             <CardTitle className="text-base sm:text-lg">Versión Actual</CardTitle>
           </div>
         </CardHeader>
@@ -103,7 +101,7 @@ export function VersionManagementSection() {
                   )}
                   {currentVersion.applies_to_verifactu && (
                     <span className="flex items-center gap-1">
-                      <Shield className="h-3 w-3" />
+                      <Icon name="shield" className="h-3 w-3" />
                       VeriFactu:
                       {currentVersion.verifactu_synced_at ? (
                         <span className="text-green-600 font-medium">Sincronizada</span>
@@ -115,13 +113,13 @@ export function VersionManagementSection() {
                 </div>
               </div>
               <Button variant="outline" size="sm" onClick={() => setDetailVersion(currentVersion)}>
-                <Eye className="mr-2 h-4 w-4" />
+                <Icon name="visibility" className="mr-2 h-4 w-4" />
                 Ver detalle
               </Button>
             </div>
           ) : (
             <div className="text-center py-8 text-muted-foreground">
-              <Package className="h-10 w-10 mx-auto mb-3 opacity-40" />
+              <Icon name="package_2" className="h-10 w-10 mx-auto mb-3 opacity-40" />
               <p>No hay versión activa. Crea y publica una versión para comenzar.</p>
             </div>
           )}
@@ -134,7 +132,7 @@ export function VersionManagementSection() {
           <div className="flex flex-col gap-2">
             <div>
               <div className="flex items-center gap-2">
-                <GitBranch className="h-5 w-5 text-primary shrink-0" />
+                <Icon name="account_tree" className="h-5 w-5 text-primary shrink-0" />
                 <CardTitle className="text-base sm:text-lg">Cambios Pendientes</CardTitle>
               </div>
               <CardDescription className="mt-1">Cambios registrados que aún no se han incluido en una versión</CardDescription>
@@ -146,11 +144,11 @@ export function VersionManagementSection() {
                 disabled={selectedChangeIds.length === 0}
                 onClick={() => setVersionDialogOpen(true)}
               >
-                <Package className="mr-2 h-4 w-4" />
+                <Icon name="package_2" className="mr-2 h-4 w-4" />
                 Crear versión ({selectedChangeIds.length})
               </Button>
               <Button size="sm" onClick={() => { setEditingChange(null); setChangeDialogOpen(true); }}>
-                <Plus className="mr-2 h-4 w-4" />
+                <Icon name="add" className="mr-2 h-4 w-4" />
                 Añadir cambio
               </Button>
             </div>
@@ -180,15 +178,15 @@ export function VersionManagementSection() {
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0">
-                              <MoreHorizontal className="h-4 w-4" />
+                              <Icon name="more_horiz" className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem onClick={() => { setEditingChange(change); setChangeDialogOpen(true); }}>
-                              <Pencil className="mr-2 h-4 w-4" /> Editar
+                              <Icon name="edit" className="mr-2 h-4 w-4" /> Editar
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => archiveChange.mutate(change.id)}>
-                              <Archive className="mr-2 h-4 w-4" /> Archivar
+                              <Icon name="archive" className="mr-2 h-4 w-4" /> Archivar
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -201,7 +199,7 @@ export function VersionManagementSection() {
                         <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${typeBadge.className}`}>
                           {typeBadge.label}
                         </span>
-                        {change.affects_verifactu && <Shield className="h-3.5 w-3.5 text-orange-500" />}
+                        {change.affects_verifactu && <Icon name="shield" className="h-3.5 w-3.5 text-orange-500" />}
                       </div>
                       {change.description && (
                         <p className="text-xs text-muted-foreground line-clamp-2">{change.description}</p>
@@ -259,7 +257,7 @@ export function VersionManagementSection() {
                               <TooltipProvider>
                                 <Tooltip>
                                   <TooltipTrigger>
-                                    <Shield className="h-4 w-4 text-orange-500" />
+                                    <Icon name="shield" className="h-4 w-4 text-orange-500" />
                                   </TooltipTrigger>
                                   <TooltipContent>Afecta VeriFactu</TooltipContent>
                                 </Tooltip>
@@ -270,15 +268,15 @@ export function VersionManagementSection() {
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <Button variant="ghost" size="icon" className="h-8 w-8">
-                                  <MoreHorizontal className="h-4 w-4" />
+                                  <Icon name="more_horiz" className="h-4 w-4" />
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
                                 <DropdownMenuItem onClick={() => { setEditingChange(change); setChangeDialogOpen(true); }}>
-                                  <Pencil className="mr-2 h-4 w-4" /> Editar
+                                  <Icon name="edit" className="mr-2 h-4 w-4" /> Editar
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => archiveChange.mutate(change.id)}>
-                                  <Archive className="mr-2 h-4 w-4" /> Archivar
+                                  <Icon name="archive" className="mr-2 h-4 w-4" /> Archivar
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
@@ -298,7 +296,7 @@ export function VersionManagementSection() {
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
-            <GitBranch className="h-5 w-5 text-primary" />
+            <Icon name="account_tree" className="h-5 w-5 text-primary" />
             <CardTitle>Historial de Versiones</CardTitle>
           </div>
         </CardHeader>
@@ -328,26 +326,26 @@ export function VersionManagementSection() {
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={(e) => e.stopPropagation()}>
-                              <MoreHorizontal className="h-4 w-4" />
+                              <Icon name="more_horiz" className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem onClick={() => setDetailVersion(v)}>
-                              <Eye className="mr-2 h-4 w-4" /> Ver detalle
+                              <Icon name="visibility" className="mr-2 h-4 w-4" /> Ver detalle
                             </DropdownMenuItem>
                             {v.status === 'draft' && (
                               <DropdownMenuItem onClick={() => publishVersion.mutate(v.id)}>
-                                <CheckCircle2 className="mr-2 h-4 w-4" /> Publicar
+                                <Icon name="check_circle" className="mr-2 h-4 w-4" /> Publicar
                               </DropdownMenuItem>
                             )}
                             {v.status === 'published' && !v.is_current && (
                               <DropdownMenuItem onClick={() => setAsCurrent.mutate(v.id)}>
-                                <Package className="mr-2 h-4 w-4" /> Marcar como actual
+                                <Icon name="package_2" className="mr-2 h-4 w-4" /> Marcar como actual
                               </DropdownMenuItem>
                             )}
                             {v.status !== 'archived' && !v.is_current && (
                               <DropdownMenuItem onClick={() => archiveVersion.mutate(v.id)}>
-                                <Archive className="mr-2 h-4 w-4" /> Archivar
+                                <Icon name="archive" className="mr-2 h-4 w-4" /> Archivar
                               </DropdownMenuItem>
                             )}
                           </DropdownMenuContent>
@@ -358,8 +356,8 @@ export function VersionManagementSection() {
                         <span>{format(new Date(v.created_at), 'dd/MM/yy')}</span>
                         {v.applies_to_verifactu && (
                           v.verifactu_synced_at
-                            ? <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
-                            : <AlertTriangle className="h-3.5 w-3.5 text-orange-500" />
+                            ? <Icon name="check_circle" className="h-3.5 w-3.5 text-green-600" />
+                            : <Icon name="warning" className="h-3.5 w-3.5 text-orange-500" />
                         )}
                       </div>
                     </div>
@@ -406,9 +404,9 @@ export function VersionManagementSection() {
                           <TableCell>
                             {v.applies_to_verifactu && (
                               v.verifactu_synced_at ? (
-                                <CheckCircle2 className="h-4 w-4 text-green-600" />
+                                <Icon name="check_circle" className="h-4 w-4 text-green-600" />
                               ) : (
-                                <AlertTriangle className="h-4 w-4 text-orange-500" />
+                                <Icon name="warning" className="h-4 w-4 text-orange-500" />
                               )
                             )}
                           </TableCell>
@@ -416,31 +414,31 @@ export function VersionManagementSection() {
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <Button variant="ghost" size="icon" className="h-8 w-8">
-                                  <MoreHorizontal className="h-4 w-4" />
+                                  <Icon name="more_horiz" className="h-4 w-4" />
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
                                 <DropdownMenuItem onClick={() => setDetailVersion(v)}>
-                                  <Eye className="mr-2 h-4 w-4" /> Ver detalle
+                                  <Icon name="visibility" className="mr-2 h-4 w-4" /> Ver detalle
                                 </DropdownMenuItem>
                                 {v.status === 'draft' && (
                                   <DropdownMenuItem onClick={() => publishVersion.mutate(v.id)}>
-                                    <CheckCircle2 className="mr-2 h-4 w-4" /> Publicar
+                                    <Icon name="check_circle" className="mr-2 h-4 w-4" /> Publicar
                                   </DropdownMenuItem>
                                 )}
                                 {v.status === 'published' && !v.is_current && (
                                   <DropdownMenuItem onClick={() => setAsCurrent.mutate(v.id)}>
-                                    <Package className="mr-2 h-4 w-4" /> Marcar como actual
+                                    <Icon name="package_2" className="mr-2 h-4 w-4" /> Marcar como actual
                                   </DropdownMenuItem>
                                 )}
                                 {(v.status === 'published' || v.is_current) && v.applies_to_verifactu && !v.verifactu_synced_at && (
                                   <DropdownMenuItem onClick={() => setSyncVersion(v)}>
-                                    <Shield className="mr-2 h-4 w-4" /> Sincronizar con VeriFactu
+                                    <Icon name="shield" className="mr-2 h-4 w-4" /> Sincronizar con VeriFactu
                                   </DropdownMenuItem>
                                 )}
                                 {v.status !== 'archived' && !v.is_current && (
                                   <DropdownMenuItem onClick={() => archiveVersion.mutate(v.id)}>
-                                    <Archive className="mr-2 h-4 w-4" /> Archivar
+                                    <Icon name="archive" className="mr-2 h-4 w-4" /> Archivar
                                   </DropdownMenuItem>
                                 )}
                                 {v.is_current && v.status !== 'archived' && (
@@ -448,7 +446,7 @@ export function VersionManagementSection() {
                                     <Tooltip>
                                       <TooltipTrigger asChild>
                                         <DropdownMenuItem disabled>
-                                          <Archive className="mr-2 h-4 w-4" /> Archivar
+                                          <Icon name="archive" className="mr-2 h-4 w-4" /> Archivar
                                         </DropdownMenuItem>
                                       </TooltipTrigger>
                                       <TooltipContent>No puedes archivar la versión activa</TooltipContent>

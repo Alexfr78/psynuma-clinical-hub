@@ -1,27 +1,28 @@
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { AlertTriangle, RotateCcw, RefreshCw, ShieldAlert, CheckCircle2 } from 'lucide-react';
+
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useStripeDiagnostics, type StripeDiagnosticEntry } from '@/hooks/useStripeDiagnostics';
+import { Icon } from '@/components/ui/icon';
 
 const CODE_META: Record<string, { label: string; icon: React.ReactNode }> = {
   webhook_repeated_failure: {
     label: 'Webhook con fallos repetidos',
-    icon: <ShieldAlert className="h-4 w-4 text-red-600" />,
+    icon: <Icon name="gpp_maybe" className="h-4 w-4 text-red-600" />,
   },
   refund_payment_not_found: {
     label: 'Reembolso sin pago local',
-    icon: <RotateCcw className="h-4 w-4 text-amber-600" />,
+    icon: <Icon name="restart_alt" className="h-4 w-4 text-amber-600" />,
   },
   bono_refund_needs_review: {
     label: 'Bono reembolsado a revisar',
-    icon: <AlertTriangle className="h-4 w-4 text-amber-600" />,
+    icon: <Icon name="warning" className="h-4 w-4 text-amber-600" />,
   },
   bono_partial_refund_needs_review: {
     label: 'Bono con reembolso parcial a revisar',
-    icon: <AlertTriangle className="h-4 w-4 text-amber-600" />,
+    icon: <Icon name="warning" className="h-4 w-4 text-amber-600" />,
   },
 };
 
@@ -29,7 +30,7 @@ function metaFor(entry: StripeDiagnosticEntry) {
   return (
     (entry.error_code && CODE_META[entry.error_code]) || {
       label: entry.error_code || 'Incidencia',
-      icon: <AlertTriangle className="h-4 w-4 text-muted-foreground" />,
+      icon: <Icon name="warning" className="h-4 w-4 text-muted-foreground" />,
     }
   );
 }
@@ -53,7 +54,7 @@ export function StripeDiagnosticsPanel() {
           disabled={isLoading || isRefetching}
           title="Actualizar"
         >
-          <RefreshCw className={`h-4 w-4 ${isRefetching ? 'animate-spin' : ''}`} />
+          <Icon name="refresh" className={`h-4 w-4 ${isRefetching ? 'animate-spin' : ''}`} />
         </Button>
       </div>
 
@@ -65,7 +66,7 @@ export function StripeDiagnosticsPanel() {
           </div>
         ) : !entries || entries.length === 0 ? (
           <div className="flex items-center gap-2 py-2 text-sm text-muted-foreground">
-            <CheckCircle2 className="h-4 w-4 text-green-600" />
+            <Icon name="check_circle" className="h-4 w-4 text-green-600" />
             Sin incidencias recientes.
           </div>
         ) : (

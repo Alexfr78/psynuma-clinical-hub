@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { MapPin, Trash2, Plus, Loader2 } from 'lucide-react';
+
 import {
   ResponsiveDialog as Dialog,
   ResponsiveDialogContent as DialogContent,
@@ -29,6 +29,7 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { useLocations, useCreateLocation, useDeleteLocation } from '@/hooks/useLocations';
+import { Icon } from '@/components/ui/icon';
 
 const locationSchema = z.object({
   country: z.string().max(200).default('España'),
@@ -97,7 +98,7 @@ export function EditLocationsDialog({ open, onOpenChange }: EditLocationsDialogP
       <DialogContent className="sm:max-w-[480px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <MapPin className="h-5 w-5" />
+            <Icon name="location_on" className="h-5 w-5" />
             Editar direcciones
           </DialogTitle>
         </DialogHeader>
@@ -213,7 +214,7 @@ export function EditLocationsDialog({ open, onOpenChange }: EditLocationsDialogP
                     Cancelar
                   </Button>
                   <Button type="submit" disabled={createLocation.isPending}>
-                    {createLocation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {createLocation.isPending && <Icon name="progress_activity" className="mr-2 h-4 w-4 animate-spin" />}
                     Añadir
                   </Button>
                 </div>
@@ -221,7 +222,7 @@ export function EditLocationsDialog({ open, onOpenChange }: EditLocationsDialogP
             </Form>
           ) : (
             <Button variant="outline" className="w-full" onClick={() => setShowForm(true)}>
-              <Plus className="h-4 w-4 mr-2" />
+              <Icon name="add" className="h-4 w-4 mr-2" />
               Añadir nueva dirección
             </Button>
           )}
@@ -234,7 +235,7 @@ export function EditLocationsDialog({ open, onOpenChange }: EditLocationsDialogP
             
             {isLoading ? (
               <div className="flex justify-center py-4">
-                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                <Icon name="progress_activity" className="h-5 w-5 animate-spin text-muted-foreground" />
               </div>
             ) : locations && locations.length > 0 ? (
               <div className="space-y-2">
@@ -245,7 +246,7 @@ export function EditLocationsDialog({ open, onOpenChange }: EditLocationsDialogP
                   >
                     <div className="flex items-center gap-3">
                       <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                        <MapPin className="h-4 w-4 text-primary" />
+                        <Icon name="location_on" className="h-4 w-4 text-primary" />
                       </div>
                       <div>
                         <p className="font-medium text-sm">{location.name}</p>
@@ -261,7 +262,7 @@ export function EditLocationsDialog({ open, onOpenChange }: EditLocationsDialogP
                       onClick={() => handleDelete(location.id)}
                       disabled={deleteLocation.isPending}
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Icon name="delete" className="h-4 w-4" />
                     </Button>
                   </div>
                 ))}

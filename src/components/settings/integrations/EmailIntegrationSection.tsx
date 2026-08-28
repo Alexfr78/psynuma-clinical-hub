@@ -5,8 +5,9 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Mail, CheckCircle2, ExternalLink, Info, Loader2 } from 'lucide-react';
+
 import { useCenter } from '@/hooks/useCenter';
+import { Icon } from '@/components/ui/icon';
 
 export function EmailIntegrationSection() {
   const { center, updateCenter } = useCenter();
@@ -32,14 +33,14 @@ export function EmailIntegrationSection() {
       <CardHeader>
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-lg bg-primary/10">
-            <Mail className="h-5 w-5 text-primary" />
+            <Icon name="mail" className="h-5 w-5 text-primary" />
           </div>
           <div className="flex-1">
             <CardTitle className="flex items-center gap-2">
               Email (Resend)
               {isConfigured && (
                 <Badge variant="default" className="gap-1">
-                  <CheckCircle2 className="h-3 w-3" />
+                  <Icon name="check_circle" className="h-3 w-3" />
                   Configurado
                 </Badge>
               )}
@@ -52,7 +53,7 @@ export function EmailIntegrationSection() {
       </CardHeader>
       <CardContent className="space-y-6">
         <Alert>
-          <Info className="h-4 w-4" />
+          <Icon name="info" className="h-4 w-4" />
           <AlertTitle>Integración con Resend</AlertTitle>
           <AlertDescription>
             El envío de emails está configurado mediante{' '}
@@ -62,7 +63,7 @@ export function EmailIntegrationSection() {
               rel="noopener noreferrer"
               className="font-medium underline inline-flex items-center gap-1"
             >
-              Resend <ExternalLink className="h-3 w-3" />
+              Resend <Icon name="open_in_new" className="h-3 w-3" />
             </a>
             . Esta integración permite enviar facturas, recordatorios de citas y otras comunicaciones a tus pacientes.
           </AlertDescription>
@@ -80,7 +81,7 @@ export function EmailIntegrationSection() {
                 onChange={(e) => setFromEmail(e.target.value)}
               />
               <Button onClick={handleSaveFromEmail} disabled={isSaving || !fromEmail}>
-                {isSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                {isSaving && <Icon name="progress_activity" className="h-4 w-4 mr-2 animate-spin" />}
                 Guardar
               </Button>
             </div>
@@ -94,19 +95,19 @@ export function EmailIntegrationSection() {
           <h4 className="font-medium text-sm">Funcionalidades habilitadas:</h4>
           <ul className="text-sm text-muted-foreground space-y-2">
             <li className="flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4 text-green-500" />
+              <Icon name="check_circle" className="h-4 w-4 text-green-500" />
               Envío de facturas por email
             </li>
             <li className="flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4 text-green-500" />
+              <Icon name="check_circle" className="h-4 w-4 text-green-500" />
               Recordatorios de citas
             </li>
             <li className="flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4 text-green-500" />
+              <Icon name="check_circle" className="h-4 w-4 text-green-500" />
               Envío de consentimientos informados
             </li>
             <li className="flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4 text-green-500" />
+              <Icon name="check_circle" className="h-4 w-4 text-green-500" />
               Envío de cuestionarios (assessments)
             </li>
           </ul>

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Upload, Loader2, FileText } from 'lucide-react';
+
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
@@ -24,6 +24,7 @@ import { useConsentTemplates } from '@/hooks/useConsentTemplates';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
+import { Icon } from '@/components/ui/icon';
 
 interface UploadConsentDialogProps {
   open: boolean;
@@ -177,12 +178,12 @@ export function UploadConsentDialog({
                 <div className="flex items-center justify-center gap-2 rounded-lg border-2 border-dashed border-muted-foreground/25 px-4 py-6 text-sm text-muted-foreground transition hover:border-primary/50 hover:text-foreground">
                   {file ? (
                     <div className="flex items-center gap-2">
-                      <FileText className="h-4 w-4 shrink-0" />
+                      <Icon name="description" className="h-4 w-4 shrink-0" />
                       <span className="truncate">{file.name}</span>
                     </div>
                   ) : (
                     <>
-                      <Upload className="h-5 w-5" />
+                      <Icon name="upload" className="h-5 w-5" />
                       <span>PDF, JPG o PNG (máx. 10 MB)</span>
                     </>
                   )}
@@ -216,12 +217,12 @@ export function UploadConsentDialog({
           >
             {isUploading ? (
               <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                <Icon name="progress_activity" className="h-4 w-4 mr-2 animate-spin" />
                 Subiendo...
               </>
             ) : (
               <>
-                <Upload className="h-4 w-4 mr-2" />
+                <Icon name="upload" className="h-4 w-4 mr-2" />
                 Guardar consentimiento
               </>
             )}

@@ -5,10 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { 
-  Brain, Heart, Users, AlertTriangle, Sparkles, Loader2, 
-  TrendingUp, TrendingDown, Activity, MessageSquare 
-} from 'lucide-react';
+
 import { 
   REGULATION_INDICATORS,
   RELATIONAL_INDICATORS,
@@ -22,6 +19,7 @@ import {
 } from '@/data/emo-template';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { Icon } from '@/components/ui/icon';
 
 interface EMOInterpretation {
   perfil_regulacion: string;
@@ -144,7 +142,7 @@ export function EMOResultsView({
         <Card>
           <CardContent className="pt-4 pb-4">
             <div className="flex items-center gap-2 text-muted-foreground text-sm mb-1">
-              <Heart className="h-4 w-4" />
+              <Icon name="favorite" className="h-4 w-4" />
               Emociones Problemáticas
             </div>
             <p className="text-2xl font-bold">{emotionsCount}</p>
@@ -155,7 +153,7 @@ export function EMOResultsView({
         <Card>
           <CardContent className="pt-4 pb-4">
             <div className="flex items-center gap-2 text-muted-foreground text-sm mb-1">
-              <Activity className="h-4 w-4" />
+              <Icon name="monitor_heart" className="h-4 w-4" />
               Indicadores
             </div>
             <p className="text-2xl font-bold">{detectedRegulation.length}</p>
@@ -166,7 +164,7 @@ export function EMOResultsView({
         <Card>
           <CardContent className="pt-4 pb-4">
             <div className="flex items-center gap-2 text-muted-foreground text-sm mb-1">
-              <Brain className="h-4 w-4" />
+              <Icon name="psychology" className="h-4 w-4" />
               Patrón
             </div>
             <p className={`text-lg font-semibold ${pattern.color}`}>{pattern.label}</p>
@@ -176,7 +174,7 @@ export function EMOResultsView({
         <Card>
           <CardContent className="pt-4 pb-4">
             <div className="flex items-center gap-2 text-muted-foreground text-sm mb-1">
-              <Users className="h-4 w-4" />
+              <Icon name="group" className="h-4 w-4" />
               Figuras Evaluadas
             </div>
             <p className="text-2xl font-bold">{figuresData.length}</p>
@@ -187,7 +185,7 @@ export function EMOResultsView({
       {/* Critical alerts */}
       {detectedRegulation.length >= 4 && (
         <Alert variant="destructive">
-          <AlertTriangle className="h-4 w-4" />
+          <Icon name="warning" className="h-4 w-4" />
           <AlertTitle>Patrón de disregulación significativo</AlertTitle>
           <AlertDescription>
             Se han identificado múltiples indicadores de dificultades en la regulación emocional.
@@ -307,7 +305,7 @@ export function EMOResultsView({
                 <Card key={figure.id || index}>
                   <CardHeader>
                     <CardTitle className="text-lg flex items-center gap-2">
-                      <Users className="h-5 w-5" />
+                      <Icon name="group" className="h-5 w-5" />
                       {figure.figure_name || `Figura ${index + 1}`}
                     </CardTitle>
                     <CardDescription>{figure.figure_relation}</CardDescription>
@@ -317,7 +315,7 @@ export function EMOResultsView({
                     {detectedRelational.length > 0 && (
                       <div>
                         <p className="text-sm font-medium text-amber-700 mb-2 flex items-center gap-1">
-                          <AlertTriangle className="h-4 w-4" />
+                          <Icon name="warning" className="h-4 w-4" />
                           Indicadores relacionales
                         </p>
                         <div className="flex flex-wrap gap-1">
@@ -334,7 +332,7 @@ export function EMOResultsView({
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <p className="text-sm font-medium text-green-700 mb-2 flex items-center gap-1">
-                          <TrendingUp className="h-4 w-4" />
+                          <Icon name="trending_up" className="h-4 w-4" />
                           Sentimientos positivos ({figureIndicators?.positiveCount || 0})
                         </p>
                         <div className="flex flex-wrap gap-1">
@@ -349,7 +347,7 @@ export function EMOResultsView({
                       </div>
                       <div>
                         <p className="text-sm font-medium text-red-700 mb-2 flex items-center gap-1">
-                          <TrendingDown className="h-4 w-4" />
+                          <Icon name="trending_down" className="h-4 w-4" />
                           Sentimientos negativos ({figureIndicators?.negativeCount || 0})
                         </p>
                         <div className="flex flex-wrap gap-1">
@@ -411,7 +409,7 @@ export function EMOResultsView({
           ) : (
             <Card>
               <CardContent className="py-8 text-center text-muted-foreground">
-                <Users className="h-10 w-10 mx-auto mb-2 opacity-50" />
+                <Icon name="group" className="h-10 w-10 mx-auto mb-2 opacity-50" />
                 <p>No se han evaluado figuras reguladoras</p>
               </CardContent>
             </Card>
@@ -424,7 +422,7 @@ export function EMOResultsView({
             <AccordionItem value="section1">
               <AccordionTrigger>
                 <span className="flex items-center gap-2">
-                  <Brain className="h-4 w-4" />
+                  <Icon name="psychology" className="h-4 w-4" />
                   Sección 1: Regulación Emocional Actual
                 </span>
               </AccordionTrigger>
@@ -465,7 +463,7 @@ export function EMOResultsView({
             <AccordionItem value="section2">
               <AccordionTrigger>
                 <span className="flex items-center gap-2">
-                  <Users className="h-4 w-4" />
+                  <Icon name="group" className="h-4 w-4" />
                   Sección 2: Historia de Crianza
                 </span>
               </AccordionTrigger>
@@ -510,7 +508,7 @@ export function EMOResultsView({
               <AccordionItem key={figure.id || index} value={`figure-${index}`}>
                 <AccordionTrigger>
                   <span className="flex items-center gap-2">
-                    <Users className="h-4 w-4" />
+                    <Icon name="group" className="h-4 w-4" />
                     {figure.figure_name || `Figura ${index + 1}`}
                   </span>
                 </AccordionTrigger>
@@ -562,7 +560,7 @@ export function EMOResultsView({
       <Card>
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2">
-            <Sparkles className="h-5 w-5" />
+            <Icon name="auto_awesome" className="h-5 w-5" />
             Interpretación Clínica (IA)
           </CardTitle>
           <CardDescription>
@@ -617,19 +615,19 @@ export function EMOResultsView({
             </div>
           ) : (
             <div className="text-center py-4">
-              <MessageSquare className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+              <Icon name="forum" className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
               <p className="text-sm text-muted-foreground mb-4">
                 No se ha generado interpretación todavía
               </p>
               <Button onClick={handleGenerateInterpretation} disabled={isGenerating}>
                 {isGenerating ? (
                   <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    <Icon name="progress_activity" className="h-4 w-4 mr-2 animate-spin" />
                     Generando...
                   </>
                 ) : (
                   <>
-                    <Sparkles className="h-4 w-4 mr-2" />
+                    <Icon name="auto_awesome" className="h-4 w-4 mr-2" />
                     Generar interpretación
                   </>
                 )}

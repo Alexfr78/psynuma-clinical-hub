@@ -1,20 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import {
-  ArrowLeft,
-  Loader2,
-  Mail,
-  MessageCircle,
-  RefreshCw,
-  ShieldCheck,
-  Smartphone,
-} from 'lucide-react';
+
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { usePatientPortal } from '@/hooks/usePatientPortal';
+import { Icon } from '@/components/ui/icon';
 
 type AccessMethod = 'whatsapp' | 'email';
 type AccessStep = 'identify' | 'verify';
@@ -160,7 +153,7 @@ export default function PatientPortal() {
   if (loading) {
     return (
       <div className="min-h-dvh flex items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" aria-label="Cargando portal" />
+        <Icon name="progress_activity" className="h-8 w-8 animate-spin text-primary" aria-label="Cargando portal" />
       </div>
     );
   }
@@ -195,9 +188,9 @@ export default function PatientPortal() {
           </div>
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
             {step === 'identify' ? (
-              method === 'whatsapp' ? <Smartphone className="h-6 w-6" /> : <Mail className="h-6 w-6" />
+              method === 'whatsapp' ? <Icon name="smartphone" className="h-6 w-6" /> : <Icon name="mail" className="h-6 w-6" />
             ) : (
-              <ShieldCheck className="h-6 w-6" />
+              <Icon name="verified_user" className="h-6 w-6" />
             )}
           </div>
         </CardHeader>
@@ -246,11 +239,11 @@ export default function PatientPortal() {
 
               <Button type="submit" className="h-12 w-full" disabled={submitting}>
                 {submitting ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Icon name="progress_activity" className="mr-2 h-4 w-4 animate-spin" />
                 ) : method === 'whatsapp' ? (
-                  <MessageCircle className="mr-2 h-4 w-4" />
+                  <Icon name="chat" className="mr-2 h-4 w-4" />
                 ) : (
-                  <Mail className="mr-2 h-4 w-4" />
+                  <Icon name="mail" className="mr-2 h-4 w-4" />
                 )}
                 Enviar código
               </Button>
@@ -261,7 +254,7 @@ export default function PatientPortal() {
                 className="h-11 w-full text-muted-foreground"
                 onClick={() => changeMethod(method === 'whatsapp' ? 'email' : 'whatsapp')}
               >
-                {method === 'whatsapp' ? <Mail className="mr-2 h-4 w-4" /> : <MessageCircle className="mr-2 h-4 w-4" />}
+                {method === 'whatsapp' ? <Icon name="mail" className="mr-2 h-4 w-4" /> : <Icon name="chat" className="mr-2 h-4 w-4" />}
                 {method === 'whatsapp' ? 'Prefiero recibirlo por correo' : 'Recibirlo por WhatsApp'}
               </Button>
             </form>
@@ -307,7 +300,7 @@ export default function PatientPortal() {
               </div>
 
               <Button type="submit" className="h-12 w-full" disabled={submitting || code.length !== 6}>
-                {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-2 h-4 w-4" />}
+                {submitting ? <Icon name="progress_activity" className="mr-2 h-4 w-4 animate-spin" /> : <Icon name="verified_user" className="mr-2 h-4 w-4" />}
                 Acceder al portal
               </Button>
 
@@ -319,7 +312,7 @@ export default function PatientPortal() {
                   disabled={submitting || cooldown > 0}
                   onClick={sendCode}
                 >
-                  <RefreshCw className="mr-2 h-4 w-4" />
+                  <Icon name="refresh" className="mr-2 h-4 w-4" />
                   {cooldown > 0 ? `Reenviar código en ${cooldown} s` : 'Reenviar código'}
                 </Button>
                 {method === 'whatsapp' && (
@@ -329,7 +322,7 @@ export default function PatientPortal() {
                     className="h-11 w-full text-muted-foreground"
                     onClick={() => changeMethod('email')}
                   >
-                    <Mail className="mr-2 h-4 w-4" />
+                    <Icon name="mail" className="mr-2 h-4 w-4" />
                     No me llega: usar correo
                   </Button>
                 )}
@@ -339,7 +332,7 @@ export default function PatientPortal() {
                   className="h-11 w-full text-muted-foreground"
                   onClick={goBack}
                 >
-                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  <Icon name="arrow_back" className="mr-2 h-4 w-4" />
                   Cambiar {method === 'whatsapp' ? 'teléfono' : 'correo'}
                 </Button>
               </div>

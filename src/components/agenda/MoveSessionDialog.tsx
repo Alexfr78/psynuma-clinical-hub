@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { format, addDays, subDays } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Clock, ChevronLeft, ChevronRight, AlertTriangle, Loader2 } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
 import {
   ResponsiveDialog as Dialog,
   ResponsiveDialogContent as DialogContent,
@@ -22,6 +22,7 @@ import { SessionWithRelations } from '@/hooks/useSessions';
 import { useAuth } from '@/hooks/useAuth';
 import { checkSessionConflicts, ConflictResult } from '@/lib/conflicts';
 import { ConflictsDialog } from './ConflictsDialog';
+import { Icon } from '@/components/ui/icon';
 
 interface MoveSessionDialogProps {
   session: SessionWithRelations | null;
@@ -127,7 +128,7 @@ export function MoveSessionDialog({ session, open, onOpenChange, onMove }: MoveS
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Clock className="h-5 w-5" />
+              <Icon name="schedule" className="h-5 w-5" />
               Mover sesión
             </DialogTitle>
           </DialogHeader>
@@ -150,7 +151,7 @@ export function MoveSessionDialog({ session, open, onOpenChange, onMove }: MoveS
                   size="icon"
                   onClick={() => setSelectedDate(d => subDays(d, 1))}
                 >
-                  <ChevronLeft className="h-4 w-4" />
+                  <Icon name="chevron_left" className="h-4 w-4" />
                 </Button>
                 <div className="flex-1 text-center">
                   <div className="font-medium">
@@ -165,7 +166,7 @@ export function MoveSessionDialog({ session, open, onOpenChange, onMove }: MoveS
                   size="icon"
                   onClick={() => setSelectedDate(d => addDays(d, 1))}
                 >
-                  <ChevronRight className="h-4 w-4" />
+                  <Icon name="chevron_right" className="h-4 w-4" />
                 </Button>
               </div>
             </div>
@@ -209,7 +210,7 @@ export function MoveSessionDialog({ session, open, onOpenChange, onMove }: MoveS
             <Button onClick={handleMove} disabled={isMoving || isCheckingConflicts}>
               {isCheckingConflicts ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Icon name="progress_activity" className="mr-2 h-4 w-4 animate-spin" />
                   Verificando...
                 </>
               ) : isMoving ? 'Moviendo...' : 'Mover sesión'}

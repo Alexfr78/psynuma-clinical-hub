@@ -5,7 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { CalendarIcon, User, Globe, ChevronDown, Plus, Video, MapPin, Ban, Settings2, Package, CreditCard, AlertCircle, Search, TriangleAlert } from 'lucide-react';
+
 import { isDateBlocked, ScheduleException } from '@/lib/schedule-exceptions';
 import { useScheduleExceptions } from '@/hooks/useScheduleExceptions';
 import { useSpecialDays } from '@/hooks/useSpecialDays';
@@ -83,6 +83,8 @@ import { useWhatsAppDelivery } from '@/hooks/useWhatsAppDelivery';
 import { useAllLocationSchedules } from '@/hooks/useLocationSchedules';
 import { getDefaultLocationForDate } from '@/lib/location-defaults';
 import { resolvePaymentSettings } from '@/lib/payment-mode';
+import { Icon } from '@/components/ui/icon';
+import { MapPin, Video, Settings2, CreditCard, CalendarIcon, Globe } from 'lucide-react';
 
 const quickSessionSchema = z.object({
   patient_id: z.string().uuid('Selecciona un contacto'),
@@ -969,7 +971,7 @@ export function QuickCreateSessionDialog({
           <AlertDialogHeader>
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300">
-                <TriangleAlert className="h-5 w-5" aria-hidden="true" />
+                <Icon name="warning" className="h-5 w-5" aria-hidden="true" />
               </div>
               <AlertDialogTitle>El centro está cerrado</AlertDialogTitle>
             </div>
@@ -1079,7 +1081,7 @@ export function QuickCreateSessionDialog({
                           {selectedPatient ? (
                             <span className="flex min-w-0 items-center gap-2">
                               <div className="h-6 w-6 rounded-full bg-muted flex items-center justify-center shrink-0">
-                                <User className="h-3 w-3" />
+                                <Icon name="person" className="h-3 w-3" />
                               </div>
                               <span className="truncate">
                                 {selectedPatient.first_name} {selectedPatient.last_name}
@@ -1088,14 +1090,14 @@ export function QuickCreateSessionDialog({
                           ) : (
                             'Buscar paciente...'
                           )}
-                          <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          <Icon name="expand_more" className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                         </Button>
                       </FormControl>
 
                       {patientPopoverOpen && (
                         <div className="rounded-md border bg-popover shadow-md">
                           <div className="flex items-center border-b px-3">
-                            <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+                            <Icon name="search" className="mr-2 h-4 w-4 shrink-0 opacity-50" />
                             <Input
                               autoFocus
                               placeholder="Buscar contacto..."
@@ -1122,7 +1124,7 @@ export function QuickCreateSessionDialog({
                                   }}
                                 >
                                   <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center shrink-0">
-                                    <User className="h-4 w-4" />
+                                    <Icon name="person" className="h-4 w-4" />
                                   </div>
                                   <div className="min-w-0">
                                     <p className="truncate font-medium">{patient.first_name} {patient.last_name}</p>
@@ -1146,7 +1148,7 @@ export function QuickCreateSessionDialog({
                                     setShowQuickPatientDialog(true);
                                   }}
                                 >
-                                  <Plus className="h-4 w-4 mr-2" />
+                                  <Icon name="add" className="h-4 w-4 mr-2" />
                                   Crear nueva ficha de paciente
                                 </Button>
                               </div>
@@ -1168,7 +1170,7 @@ export function QuickCreateSessionDialog({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel className="text-sm font-medium flex items-center gap-2">
-                      <Package className="h-4 w-4" />
+                      <Icon name="package_2" className="h-4 w-4" />
                       Bono
                     </FormLabel>
                     <div className="flex gap-2">
@@ -1197,7 +1199,7 @@ export function QuickCreateSessionDialog({
                         className="h-10 w-10"
                         onClick={() => setShowCreateBonoDialog(true)}
                       >
-                        <Plus className="h-4 w-4" />
+                        <Icon name="add" className="h-4 w-4" />
                       </Button>
                     </div>
                     {field.value && field.value !== 'none' && (
@@ -1224,7 +1226,7 @@ export function QuickCreateSessionDialog({
                         {selectedProfessional ? (
                           <span className="flex items-center gap-2 min-w-0">
                             <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                              <User className="h-3 w-3 text-primary" />
+                              <Icon name="person" className="h-3 w-3 text-primary" />
                             </div>
                             <span className="truncate">{selectedProfessional.first_name} {selectedProfessional.last_name}</span>
                             <Badge variant="secondary" className="ml-auto text-xs hidden sm:inline-flex shrink-0">
@@ -1309,7 +1311,7 @@ export function QuickCreateSessionDialog({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel className="text-sm font-medium flex items-center gap-2">
-                    <Ban className="h-4 w-4" />
+                    <Icon name="block" className="h-4 w-4" />
                     Cancelación
                   </FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
@@ -1336,7 +1338,7 @@ export function QuickCreateSessionDialog({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel className="text-sm font-medium flex items-center gap-2">
-                    <Video className="h-4 w-4" />
+                    <Icon name="videocam" className="h-4 w-4" />
                     Videollamada
                   </FormLabel>
                   <Select onValueChange={(v) => { field.onChange(v); setUserOverrodeLocation(true); }} value={field.value}>
@@ -1357,7 +1359,7 @@ export function QuickCreateSessionDialog({
                   {/* Google Meet warning if not configured */}
                   {field.value === 'google_meet' && (!integrations?.google_meet_enabled || !oauthConnections?.some(c => c.provider === 'google' && c.expires_at)) && (
                     <Alert variant="destructive" className="mt-2 py-2">
-                      <AlertCircle className="h-4 w-4" />
+                      <Icon name="error" className="h-4 w-4" />
                       <AlertDescription className="text-xs">
                         Google Meet no está conectado. El enlace no se generará automáticamente.{' '}
                         <Link to="/configuracion" className="underline font-medium hover:no-underline">
@@ -1369,7 +1371,7 @@ export function QuickCreateSessionDialog({
                   {/* Zoom warning if not configured */}
                   {field.value === 'zoom' && (!integrations?.zoom_enabled || !oauthConnections?.some(c => c.provider === 'zoom' && c.expires_at)) && (
                     <Alert variant="destructive" className="mt-2 py-2">
-                      <AlertCircle className="h-4 w-4" />
+                      <Icon name="error" className="h-4 w-4" />
                       <AlertDescription className="text-xs">
                         Zoom no está conectado. El enlace no se generará automáticamente.{' '}
                         <Link to="/configuracion" className="underline font-medium hover:no-underline">
@@ -1408,7 +1410,7 @@ export function QuickCreateSessionDialog({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel className="text-sm font-medium flex items-center gap-2">
-                      <MapPin className="h-4 w-4" />
+                      <Icon name="location_on" className="h-4 w-4" />
                       Dirección
                     </FormLabel>
                     <div className="flex gap-2">
@@ -1432,7 +1434,7 @@ export function QuickCreateSessionDialog({
                         className="h-10 w-10"
                         onClick={() => setShowLocationsDialog(true)}
                       >
-                        <Settings2 className="h-4 w-4" />
+                        <Icon name="tune" className="h-4 w-4" />
                       </Button>
                     </div>
                     <FormMessage />
@@ -1459,7 +1461,7 @@ export function QuickCreateSessionDialog({
                             !field.value && 'text-muted-foreground'
                           )}
                         >
-                          <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
+                          <Icon name="calendar_month" className="mr-2 h-4 w-4 shrink-0" />
                           <span className="capitalize truncate">
                             {field.value ? format(field.value, "EEE d 'de' MMM", { locale: es }) : 'Seleccionar fecha'}
                           </span>
@@ -1531,7 +1533,7 @@ export function QuickCreateSessionDialog({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel className="text-sm font-medium flex items-center gap-2">
-                    <CreditCard className="h-4 w-4" />
+                    <Icon name="credit_card" className="h-4 w-4" />
                     Modo de pago
                   </FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
@@ -1589,7 +1591,7 @@ export function QuickCreateSessionDialog({
             {/* Timezone (only show if not recurring) */}
             {!recurrenceEnabled && (
               <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                <Globe className="h-3 w-3" />
+                <Icon name="public" className="h-3 w-3" />
                 <span>Europe/Madrid</span>
               </div>
             )}

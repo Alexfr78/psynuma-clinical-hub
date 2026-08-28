@@ -1,7 +1,8 @@
-import { Mail, MessageSquare, Phone, Settings2, Zap, Link2 } from 'lucide-react';
+
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { useWhatsAppDelivery } from '@/hooks/useWhatsAppDelivery';
+import { Icon } from '@/components/ui/icon';
 
 interface NotificationSettingsProps {
   // Immediate notifications (send now)
@@ -50,7 +51,7 @@ export function SessionNotificationSettings({
         <div className="flex items-center justify-between">
           <span className="text-sm font-medium">Comunicaciones</span>
           <Badge variant={statusInfo.variant} className="text-xs flex items-center gap-1">
-            {isAutomatic ? <Zap className="h-3 w-3" /> : <Link2 className="h-3 w-3" />}
+            {isAutomatic ? <Icon name="bolt" className="h-3 w-3" /> : <Icon name="link" className="h-3 w-3" />}
             {statusInfo.label}
           </Badge>
         </div>
@@ -65,7 +66,7 @@ export function SessionNotificationSettings({
                   checked={notifyWhatsapp} 
                   onCheckedChange={(checked) => onNotifyWhatsappChange(!!checked)}
                 />
-                <MessageSquare className="h-3.5 w-3.5 text-green-600" />
+                <Icon name="forum" className="h-3.5 w-3.5 text-green-600" />
                 <span>WhatsApp</span>
               </label>
               <label className="flex items-center gap-2 text-sm cursor-pointer">
@@ -73,7 +74,7 @@ export function SessionNotificationSettings({
                   checked={notifyEmail} 
                   onCheckedChange={(checked) => onNotifyEmailChange(!!checked)}
                 />
-                <Mail className="h-3.5 w-3.5" />
+                <Icon name="mail" className="h-3.5 w-3.5" />
                 <span>Email</span>
               </label>
               <label className="flex items-center gap-2 text-sm cursor-pointer text-muted-foreground">
@@ -82,9 +83,9 @@ export function SessionNotificationSettings({
                   onCheckedChange={(checked) => onNotifySmsChange(!!checked)}
                   disabled
                 />
-                <Phone className="h-3.5 w-3.5" />
+                <Icon name="call" className="h-3.5 w-3.5" />
                 <span>SMS</span>
-                <Settings2 className="h-3 w-3" />
+                <Icon name="tune" className="h-3 w-3" />
               </label>
             </div>
           </div>
@@ -98,7 +99,7 @@ export function SessionNotificationSettings({
                   checked={reminderWhatsapp} 
                   onCheckedChange={(checked) => onReminderWhatsappChange(!!checked)}
                 />
-                <MessageSquare className="h-3.5 w-3.5 text-green-600" />
+                <Icon name="forum" className="h-3.5 w-3.5 text-green-600" />
                 <span>WhatsApp</span>
               </label>
               <label className="flex items-center gap-2 text-sm cursor-pointer">
@@ -106,7 +107,7 @@ export function SessionNotificationSettings({
                   checked={reminderEmail} 
                   onCheckedChange={(checked) => onReminderEmailChange(!!checked)}
                 />
-                <Mail className="h-3.5 w-3.5" />
+                <Icon name="mail" className="h-3.5 w-3.5" />
                 <span>Email</span>
               </label>
               <label className="flex items-center gap-2 text-sm cursor-pointer text-muted-foreground">
@@ -115,9 +116,9 @@ export function SessionNotificationSettings({
                   onCheckedChange={(checked) => onReminderSmsChange(!!checked)}
                   disabled
                 />
-                <Phone className="h-3.5 w-3.5" />
+                <Icon name="call" className="h-3.5 w-3.5" />
                 <span>SMS</span>
-                <Settings2 className="h-3 w-3" />
+                <Icon name="tune" className="h-3 w-3" />
               </label>
             </div>
           </div>
@@ -141,7 +142,7 @@ export function SessionNotificationSettings({
       <div className="flex items-center justify-between">
         <span className="text-sm font-medium">Comunicaciones</span>
         <Badge variant={statusInfo.variant} className="text-xs flex items-center gap-1">
-          {isAutomatic ? <Zap className="h-3 w-3" /> : <Link2 className="h-3 w-3" />}
+          {isAutomatic ? <Icon name="bolt" className="h-3 w-3" /> : <Icon name="link" className="h-3 w-3" />}
           {methodLabel}
         </Badge>
       </div>
@@ -160,7 +161,7 @@ export function SessionNotificationSettings({
                 checked={notifyWhatsapp} 
                 onCheckedChange={(checked) => onNotifyWhatsappChange(!!checked)}
               />
-              <MessageSquare className="h-4 w-4 text-green-600" />
+              <Icon name="forum" className="h-4 w-4 text-green-600" />
               <div className="flex-1">
                 <span className="text-sm">Notificar por WhatsApp</span>
                 <p className="text-xs text-muted-foreground">Se envía al paciente principal</p>
@@ -172,7 +173,7 @@ export function SessionNotificationSettings({
                 checked={notifyEmail} 
                 onCheckedChange={(checked) => onNotifyEmailChange(!!checked)}
               />
-              <Mail className="h-4 w-4" />
+              <Icon name="mail" className="h-4 w-4" />
               <div className="flex-1">
                 <span className="text-sm">Notificar por Email</span>
               </div>
@@ -184,10 +185,10 @@ export function SessionNotificationSettings({
                 onCheckedChange={(checked) => onNotifySmsChange(!!checked)}
                 disabled
               />
-              <Phone className="h-4 w-4" />
+              <Icon name="call" className="h-4 w-4" />
               <div className="flex-1 flex items-center gap-2">
                 <span className="text-sm">Configurar SMS</span>
-                <Settings2 className="h-3.5 w-3.5" />
+                <Icon name="tune" className="h-3.5 w-3.5" />
               </div>
             </label>
           </div>
@@ -216,7 +217,7 @@ export function SessionNotificationSettings({
                 checked={reminderWhatsapp} 
                 onCheckedChange={(checked) => onReminderWhatsappChange(!!checked)}
               />
-              <MessageSquare className="h-4 w-4 text-green-600" />
+              <Icon name="forum" className="h-4 w-4 text-green-600" />
               <div className="flex-1">
                 <span className="text-sm">Recordatorio por WhatsApp</span>
                 <p className="text-xs text-muted-foreground">Se envía al paciente principal</p>
@@ -228,7 +229,7 @@ export function SessionNotificationSettings({
                 checked={reminderEmail} 
                 onCheckedChange={(checked) => onReminderEmailChange(!!checked)}
               />
-              <Mail className="h-4 w-4" />
+              <Icon name="mail" className="h-4 w-4" />
               <div className="flex-1">
                 <span className="text-sm">Recordatorio por Email</span>
               </div>
@@ -240,10 +241,10 @@ export function SessionNotificationSettings({
                 onCheckedChange={(checked) => onReminderSmsChange(!!checked)}
                 disabled
               />
-              <Phone className="h-4 w-4" />
+              <Icon name="call" className="h-4 w-4" />
               <div className="flex-1 flex items-center gap-2">
                 <span className="text-sm">Configurar SMS</span>
-                <Settings2 className="h-3.5 w-3.5" />
+                <Icon name="tune" className="h-3.5 w-3.5" />
               </div>
             </label>
           </div>

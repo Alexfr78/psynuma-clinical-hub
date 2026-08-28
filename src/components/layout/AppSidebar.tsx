@@ -1,26 +1,5 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
-  LayoutDashboard,
-  Calendar,
-  Users,
-  UserCog,
-  FileText,
-  FileSignature,
-  ClipboardCheck,
-  NotebookPen,
-  Package,
-  Receipt,
-  CreditCard,
-  Bell,
-  Settings,
-  ClipboardList,
-  LogOut,
-  Moon,
-  Sun,
-  Brain,
-  ShieldCheck,
-} from 'lucide-react';
-import {
   Sidebar,
   SidebarContent,
   SidebarGroup,
@@ -38,36 +17,37 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { useState, useEffect } from 'react';
 import { MyProfileDialog } from '@/components/layout/MyProfileDialog';
+import { Icon } from '@/components/ui/icon';
 
 
 const mainNavItems = [
-  { title: 'Dashboard', url: '/dashboard', icon: LayoutDashboard },
-  { title: 'Agenda', url: '/agenda', icon: Calendar },
-  { title: 'Contactos', url: '/pacientes', icon: Users },
-  { title: 'Sesiones', url: '/sesiones', icon: FileText },
-  { title: 'Consents.', url: '/consentimientos', icon: FileSignature },
-  { title: 'Evaluaciones', url: '/evaluaciones', icon: ClipboardCheck },
-  { title: 'Autorregistros', url: '/autorregistros', icon: NotebookPen },
+  { title: 'Dashboard', url: '/dashboard', icon: 'dashboard' },
+  { title: 'Agenda', url: '/agenda', icon: 'calendar_month' },
+  { title: 'Contactos', url: '/pacientes', icon: 'group' },
+  { title: 'Sesiones', url: '/sesiones', icon: 'description' },
+  { title: 'Consents.', url: '/consentimientos', icon: 'edit_document' },
+  { title: 'Evaluaciones', url: '/evaluaciones', icon: 'assignment_turned_in' },
+  { title: 'Autorregistros', url: '/autorregistros', icon: 'edit_note' },
 ];
 
 const financeNavItems = [
-  { title: 'Bonos', url: '/bonos', icon: Package },
-  { title: 'Facturas', url: '/facturas', icon: Receipt },
-  { title: 'Cobros / Deudas', url: '/cobros', icon: CreditCard },
-  { title: 'Notificaciones', url: '/notificaciones', icon: Bell },
+  { title: 'Bonos', url: '/bonos', icon: 'package_2' },
+  { title: 'Facturas', url: '/facturas', icon: 'receipt_long' },
+  { title: 'Cobros / Deudas', url: '/cobros', icon: 'credit_card' },
+  { title: 'Notificaciones', url: '/notificaciones', icon: 'notifications' },
 ];
 
 // Items visible to admins only
 const adminOnlyNavItems = [
-  { title: 'Solicitudes', url: '/solicitudes', icon: ClipboardList },
-  { title: 'Profesionales', url: '/profesionales', icon: UserCog },
-  { title: 'Derivaciones', url: '/derivaciones', icon: Users },
-  { title: 'Auditoría', url: '/auditoria', icon: ShieldCheck },
-  { title: 'Auditoría Clínica', url: '/auditoria-clinica', icon: ShieldCheck },
+  { title: 'Solicitudes', url: '/solicitudes', icon: 'checklist' },
+  { title: 'Profesionales', url: '/profesionales', icon: 'manage_accounts' },
+  { title: 'Derivaciones', url: '/derivaciones', icon: 'group' },
+  { title: 'Auditoría', url: '/auditoria', icon: 'verified_user' },
+  { title: 'Auditoría Clínica', url: '/auditoria-clinica', icon: 'verified_user' },
 ];
 
 // Items visible to all users
-const settingsNavItem = { title: 'Configuración', url: '/configuracion', icon: Settings };
+const settingsNavItem = { title: 'Configuración', url: '/configuracion', icon: 'settings' };
 
 export function AppSidebar() {
   const location = useLocation();
@@ -118,7 +98,7 @@ export function AppSidebar() {
           }}
           className="flex items-center gap-3"
         >
-          <item.icon className="h-4 w-4 shrink-0" />
+          <Icon name={item.icon} className="h-4 w-4 shrink-0" />
           <span className="truncate">{item.title}</span>
         </a>
       </SidebarMenuButton>
@@ -131,7 +111,7 @@ export function AppSidebar() {
       <SidebarHeader className="p-4">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-sidebar-primary">
-            <Brain className="h-6 w-6 text-sidebar-primary-foreground" />
+            <Icon name="psychology" className="h-6 w-6 text-sidebar-primary-foreground" />
           </div>
           <div className="flex flex-col">
             <span className="font-display text-lg font-bold text-sidebar-foreground">
@@ -233,7 +213,7 @@ export function AppSidebar() {
               onClick={toggleTheme}
               className="flex-1 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground"
             >
-              {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+              {isDark ? <Icon name="light_mode" className="h-4 w-4" /> : <Icon name="dark_mode" className="h-4 w-4" />}
             </Button>
             <Button
               variant="ghost"
@@ -241,7 +221,7 @@ export function AppSidebar() {
               onClick={handleSignOut}
               className="flex-1 text-sidebar-foreground hover:bg-destructive hover:text-destructive-foreground"
             >
-              <LogOut className="h-4 w-4" />
+              <Icon name="logout" className="h-4 w-4" />
             </Button>
           </div>
         </div>

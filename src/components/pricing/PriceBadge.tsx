@@ -1,7 +1,8 @@
 import { Badge } from '@/components/ui/badge';
-import { Clock, Tag, CheckCircle, AlertCircle, Layers } from 'lucide-react';
+
 import { cn } from '@/lib/utils';
 import type { ResolvedPrice } from '@/hooks/useCustomPrices';
+import { Icon } from '@/components/ui/icon';
 
 interface PriceBadgeProps {
   resolvedPrice: ResolvedPrice | null | undefined;
@@ -25,7 +26,7 @@ export function PriceBadge({ resolvedPrice, compact = false, className }: PriceB
         variant="secondary"
         className={cn('gap-1 font-normal text-xs', className)}
       >
-        <CheckCircle className="h-3 w-3" />
+        <Icon name="check_circle" className="h-3 w-3" />
         Tarifa general
       </Badge>
     );
@@ -38,7 +39,7 @@ export function PriceBadge({ resolvedPrice, compact = false, className }: PriceB
         variant="outline"
         className={cn('gap-1 font-normal text-xs border-orange-300 text-orange-600 bg-orange-50', className)}
       >
-        <AlertCircle className="h-3 w-3" />
+        <Icon name="error" className="h-3 w-3" />
         Caducada
       </Badge>
     );
@@ -52,7 +53,7 @@ export function PriceBadge({ resolvedPrice, compact = false, className }: PriceB
           variant="outline"
           className={cn('gap-1 font-normal text-xs border-violet-300 text-violet-700 bg-violet-50', className)}
         >
-          <Clock className="h-3 w-3" />
+          <Icon name="schedule" className="h-3 w-3" />
           {compact
             ? (tariff_plan_name ?? 'Tarifa asignada')
             : `${tariff_plan_name ?? 'Tarifa asignada'} · hasta ${formatDate(valid_to)}`}
@@ -64,7 +65,7 @@ export function PriceBadge({ resolvedPrice, compact = false, className }: PriceB
         variant="outline"
         className={cn('gap-1 font-normal text-xs border-violet-300 text-violet-700 bg-violet-50', className)}
       >
-        <Layers className="h-3 w-3" />
+        <Icon name="layers" className="h-3 w-3" />
         {tariff_plan_name ?? 'Tarifa asignada'}
       </Badge>
     );
@@ -77,7 +78,7 @@ export function PriceBadge({ resolvedPrice, compact = false, className }: PriceB
         variant="outline"
         className={cn('gap-1 font-normal text-xs border-blue-300 text-blue-700 bg-blue-50', className)}
       >
-        <Clock className="h-3 w-3" />
+        <Icon name="schedule" className="h-3 w-3" />
         {compact ? 'Exc. temporal' : `Excepción · hasta ${formatDate(valid_to)}`}
       </Badge>
     );
@@ -88,7 +89,7 @@ export function PriceBadge({ resolvedPrice, compact = false, className }: PriceB
       variant="outline"
       className={cn('gap-1 font-normal text-xs border-emerald-300 text-emerald-700 bg-emerald-50', className)}
     >
-      <Tag className="h-3 w-3" />
+      <Icon name="sell" className="h-3 w-3" />
       Excepción manual
     </Badge>
   );

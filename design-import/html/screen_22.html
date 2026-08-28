@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+
+<html lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Pago Seguro - Psycma</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Plus+Jakarta+Sans:wght@600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface": "#faf9f7",
+                        "on-secondary": "#ffffff",
+                        "on-primary-fixed-variant": "#00497d",
+                        "on-tertiary-container": "#ffd7bc",
+                        "surface-container": "#efeeec",
+                        "tertiary": "#763b00",
+                        "on-tertiary-fixed": "#301400",
+                        "surface-container-highest": "#e3e2e0",
+                        "on-error-container": "#93000a",
+                        "outline": "#787585",
+                        "on-background": "#1a1c1b",
+                        "inverse-on-surface": "#f1f1ef",
+                        "on-error": "#ffffff",
+                        "secondary-fixed": "#62fae3",
+                        "on-surface-variant": "#474554",
+                        "outline-variant": "#c8c4d6",
+                        "on-tertiary-fixed-variant": "#703800",
+                        "on-primary-container": "#cbe1ff",
+                        "surface-dim": "#dadad8",
+                        "secondary-fixed-dim": "#3cddc7",
+                        "tertiary-container": "#994e00",
+                        "primary": "#004d84",
+                        "tertiary-fixed-dim": "#ffb782",
+                        "surface-bright": "#faf9f7",
+                        "tertiary-fixed": "#ffdcc5",
+                        "on-secondary-fixed-variant": "#005047",
+                        "on-secondary-fixed": "#00201c",
+                        "surface-variant": "#e3e2e0",
+                        "secondary": "#006b5f",
+                        "primary-fixed-dim": "#9fcaff",
+                        "surface-container-lowest": "#ffffff",
+                        "primary-fixed": "#d1e4ff",
+                        "inverse-surface": "#2f3130",
+                        "background": "#faf9f7",
+                        "secondary-container": "#62fae3",
+                        "on-surface": "#1a1c1b",
+                        "inverse-primary": "#9fcaff",
+                        "on-secondary-container": "#007165",
+                        "on-primary": "#ffffff",
+                        "on-primary-fixed": "#001d36",
+                        "on-tertiary": "#ffffff",
+                        "error": "#ba1a1a",
+                        "surface-container-high": "#e9e8e6",
+                        "primary-container": "#1b65a5",
+                        "error-container": "#ffdad6",
+                        "surface-tint": "#1361a0",
+                        "surface-container-low": "#f4f3f1"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "xs": "8px",
+                        "grid-gutter": "16px",
+                        "sm": "16px",
+                        "lg": "32px",
+                        "md": "24px",
+                        "base": "4px",
+                        "xl": "48px",
+                        "grid-margin": "24px"
+                    },
+                    "fontFamily": {
+                        "label-md": ["Inter"],
+                        "body-sm": ["Inter"],
+                        "display-lg": ["Plus Jakarta Sans"],
+                        "body-md": ["Inter"],
+                        "data-tabular": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "headline-md": ["Plus Jakarta Sans"],
+                        "headline-lg": ["Plus Jakarta Sans"],
+                        "headline-lg-mobile": ["Plus Jakarta Sans"]
+                    },
+                    "fontSize": {
+                        "label-md": ["14px", { "lineHeight": "16px", "letterSpacing": "0.01em", "fontWeight": "600" }],
+                        "body-sm": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "display-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "data-tabular": ["14px", { "lineHeight": "20px", "fontWeight": "500" }],
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+                        "headline-lg-mobile": ["28px", { "lineHeight": "36px", "fontWeight": "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .icon-fill {
+            font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+</head>
+<body class="bg-surface text-on-surface font-body-md min-h-screen flex flex-col selection:bg-primary-container selection:text-on-primary-container">
+<!-- Minimal Header for Transactional Page -->
+<header class="w-full py-md px-grid-margin flex justify-center items-center">
+<div class="flex items-center gap-xs">
+<span class="material-symbols-outlined text-primary text-3xl icon-fill">psychology</span>
+<span class="font-headline-lg font-bold text-primary">Psycma</span>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="flex-grow flex items-center justify-center px-grid-margin py-xl w-full">
+<!-- Payment Container (Bento/Split Layout) -->
+<div class="max-w-4xl w-full bg-surface-container-lowest rounded-xl shadow-lg border border-surface-variant flex flex-col md:flex-row overflow-hidden">
+<!-- Left Column: Summary -->
+<div class="w-full md:w-5/12 bg-surface-container-low p-md md:p-lg flex flex-col border-b md:border-b-0 md:border-r border-surface-variant">
+<div class="mb-lg">
+<h2 class="font-headline-md text-headline-md text-on-surface mb-xs">Resumen de pago</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Factura proforma #INV-1024</p>
+</div>
+<div class="flex-grow flex flex-col gap-sm">
+<div class="flex items-start gap-sm bg-surface-container-lowest p-sm rounded-lg border border-surface-variant">
+<div class="bg-primary-container/20 p-2 rounded-DEFAULT flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-primary">calendar_today</span>
+</div>
+<div class="flex-grow">
+<h3 class="font-label-md text-label-md text-on-surface">Sesión de Terapia Individual - 24 Oct</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-1">Consulta online de 60 minutos</p>
+</div>
+</div>
+</div>
+<div class="mt-lg pt-md border-t border-surface-variant">
+<div class="flex justify-between items-center mb-xs">
+<span class="font-body-md text-body-md text-on-surface-variant">Subtotal</span>
+<span class="font-data-tabular text-data-tabular text-on-surface">60,00 €</span>
+</div>
+<div class="flex justify-between items-center mb-sm">
+<span class="font-body-md text-body-md text-on-surface-variant">Impuestos</span>
+<span class="font-data-tabular text-data-tabular text-on-surface">0,00 €</span>
+</div>
+<div class="flex justify-between items-end mt-sm">
+<span class="font-label-md text-label-md text-on-surface">Total a pagar</span>
+<span class="font-headline-md text-headline-md text-primary font-bold">60,00 €</span>
+</div>
+</div>
+</div>
+<!-- Right Column: Form -->
+<div class="w-full md:w-7/12 bg-surface-container-lowest p-md md:p-lg flex flex-col justify-center">
+<div class="mb-md">
+<h2 class="font-headline-md text-headline-md text-on-surface mb-xs">Método de pago</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Introduce los datos de tu tarjeta de crédito o débito.</p>
+</div>
+<form class="flex flex-col gap-sm">
+<!-- Titular de la tarjeta -->
+<div class="flex flex-col gap-base">
+<label class="font-label-md text-label-md text-on-surface" for="card-name">Titular de la tarjeta</label>
+<div class="relative">
+<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+<span class="material-symbols-outlined text-outline">person</span>
+</div>
+<input class="w-full pl-10 pr-3 py-2 bg-surface-container-lowest border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface placeholder:text-outline focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" id="card-name" placeholder="Nombre que aparece en la tarjeta" type="text"/>
+</div>
+</div>
+<!-- Número de tarjeta -->
+<div class="flex flex-col gap-base">
+<label class="font-label-md text-label-md text-on-surface" for="card-number">Número de tarjeta</label>
+<div class="relative">
+<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+<span class="material-symbols-outlined text-outline">credit_card</span>
+</div>
+<input class="w-full pl-10 pr-16 py-2 bg-surface-container-lowest border border-outline-variant rounded-lg font-data-tabular text-data-tabular text-on-surface placeholder:text-outline focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" id="card-number" maxlength="19" placeholder="0000 0000 0000 0000" type="text"/>
+<div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none gap-1">
+<!-- Simulated Card Icons -->
+<div class="w-6 h-4 bg-surface-variant rounded flex items-center justify-center text-[8px] font-bold text-on-surface-variant">VISA</div>
+<div class="w-6 h-4 bg-surface-variant rounded flex items-center justify-center text-[8px] font-bold text-on-surface-variant">MC</div>
+</div>
+</div>
+</div>
+<!-- Caducidad y CVC -->
+<div class="grid grid-cols-2 gap-sm">
+<div class="flex flex-col gap-base">
+<label class="font-label-md text-label-md text-on-surface" for="card-expiry">Caducidad</label>
+<input class="w-full px-3 py-2 bg-surface-container-lowest border border-outline-variant rounded-lg font-data-tabular text-data-tabular text-on-surface placeholder:text-outline focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" id="card-expiry" maxlength="5" placeholder="MM/AA" type="text"/>
+</div>
+<div class="flex flex-col gap-base">
+<label class="font-label-md text-label-md text-on-surface" for="card-cvc">CVC</label>
+<div class="relative">
+<input class="w-full px-3 py-2 bg-surface-container-lowest border border-outline-variant rounded-lg font-data-tabular text-data-tabular text-on-surface placeholder:text-outline focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-shadow" id="card-cvc" maxlength="4" placeholder="123" type="text"/>
+<div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none group">
+<span class="material-symbols-outlined text-outline text-[18px] cursor-help">help</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Action Button -->
+<button class="mt-md w-full bg-primary hover:bg-surface-tint text-on-primary font-label-md text-label-md py-3 px-4 rounded-lg flex justify-center items-center gap-xs transition-colors shadow-sm" type="button">
+<span class="material-symbols-outlined text-[20px]">lock</span>
+                        Pagar 60,00 €
+                    </button>
+</form>
+<!-- Trust Footer -->
+<div class="mt-md flex justify-center items-center gap-xs text-on-surface-variant">
+<span class="material-symbols-outlined text-[16px] text-secondary">verified_user</span>
+<span class="font-body-sm text-body-sm">Pago seguro encriptado SSL</span>
+</div>
+</div>
+</div>
+</main>
+</body></html>

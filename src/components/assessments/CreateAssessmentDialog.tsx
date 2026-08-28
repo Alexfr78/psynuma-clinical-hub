@@ -9,7 +9,7 @@ import { useAssessments } from '@/hooks/useAssessments';
 import { useWhatsAppDelivery } from '@/hooks/useWhatsAppDelivery';
 import { useCenter } from '@/hooks/useCenter';
 import { WhatsAppLinkDialog } from '@/components/agenda/WhatsAppLinkDialog';
-import { Loader2, Check, ChevronsUpDown, User } from 'lucide-react';
+
 import { cn } from '@/lib/utils';
 import {
   Command,
@@ -24,6 +24,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import { Icon } from '@/components/ui/icon';
 
 interface CreateAssessmentDialogProps {
   open: boolean;
@@ -134,7 +135,7 @@ export function CreateAssessmentDialog({ open, onOpenChange, preselectedPatientI
                     ) : (
                       <span className="text-muted-foreground">Buscar contacto...</span>
                     )}
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    <Icon name="unfold_more" className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-[--radix-popover-trigger-width] p-0 z-[9999] pointer-events-auto" align="start" data-vaul-no-drag>
@@ -159,7 +160,7 @@ export function CreateAssessmentDialog({ open, onOpenChange, preselectedPatientI
                             className="flex items-center gap-2"
                           >
                             <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                              <User className="h-3.5 w-3.5 text-primary" />
+                              <Icon name="person" className="h-3.5 w-3.5 text-primary" />
                             </div>
                             <div className="flex-1 overflow-hidden">
                               <p className="truncate">
@@ -171,7 +172,7 @@ export function CreateAssessmentDialog({ open, onOpenChange, preselectedPatientI
                                 </p>
                               )}
                             </div>
-                            <Check
+                            <Icon name="check"
                               className={cn(
                                 "h-4 w-4 shrink-0",
                                 patientId === patient.id ? "opacity-100" : "opacity-0"
@@ -224,7 +225,7 @@ export function CreateAssessmentDialog({ open, onOpenChange, preselectedPatientI
                 Cancelar
               </Button>
               <Button onClick={handleSubmit} disabled={!patientId || !templateId || createAssessment.isPending}>
-                {createAssessment.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                {createAssessment.isPending && <Icon name="progress_activity" className="h-4 w-4 mr-2 animate-spin" />}
                 Crear evaluación
               </Button>
             </div>

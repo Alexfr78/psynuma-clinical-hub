@@ -5,8 +5,9 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
-import { ChevronDown, Variable } from 'lucide-react';
+
 import { useState } from 'react';
+import { Icon } from '@/components/ui/icon';
 
 export const TEMPLATE_VARIABLES = [
   { key: '{nombre_paciente}', label: 'Nombre del paciente', category: 'paciente' },
@@ -44,10 +45,10 @@ export function TemplateVariables({ onInsert }: TemplateVariablesProps) {
       <CollapsibleTrigger asChild>
         <Button variant="outline" className="w-full justify-between">
           <span className="flex items-center gap-2">
-            <Variable className="h-4 w-4" />
+            <Icon name="functions" className="h-4 w-4" />
             Variables dinámicas
           </span>
-          <ChevronDown
+          <Icon name="expand_more"
             className={`h-4 w-4 transition-transform ${isOpen ? 'rotate-180' : ''}`}
           />
         </Button>

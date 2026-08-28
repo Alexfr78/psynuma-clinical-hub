@@ -23,12 +23,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { LineChart as LineIcon, BarChart3, PieChart as PieIcon, X } from 'lucide-react';
+import { LineChart as LineIcon, BarChart3, PieChart as PieIcon } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import type { AutoregistroEntry } from '@/hooks/useAutoregistroEntries';
 import type { FieldDisplayMeta } from '@/lib/autoregistro-field-display';
 import { getScaleMax } from '@/lib/autoregistro-fields';
+import { Icon } from '@/components/ui/icon';
 
 const CHART_COLORS = [
   'hsl(var(--primary))',
@@ -265,7 +266,7 @@ function ChartPanel({ config, meta, entries, onKindChange, onRemove }: ChartPane
             onClick={onRemove}
             title="Quitar gráfico"
           >
-            <X className="h-3 w-3" />
+            <Icon name="close" className="h-3 w-3" />
           </Button>
         </div>
       </CardHeader>

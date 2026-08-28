@@ -1,9 +1,10 @@
-import { AlertTriangle, TrendingUp, Brain, Activity } from 'lucide-react';
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { BDI2_CUTOFFS } from '@/data/bdi2-template';
+import { Icon } from '@/components/ui/icon';
 
 interface BDI2ResultsViewProps {
   totalScore: number;
@@ -96,7 +97,7 @@ export function BDI2ResultsView({
       {/* Suicide Alert - Item 9 */}
       {(suicideAlert || (item9Score !== undefined && item9Score >= 2)) && (
         <Alert variant="destructive" className="border-2">
-          <AlertTriangle className="h-5 w-5" />
+          <Icon name="warning" className="h-5 w-5" />
           <AlertTitle className="text-lg font-bold">⚠️ ALERTA DE RIESGO SUICIDA</AlertTitle>
           <AlertDescription className="text-sm mt-2">
             <p className="font-medium mb-2">
@@ -117,7 +118,7 @@ export function BDI2ResultsView({
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg flex items-center gap-2">
-              <TrendingUp className="h-5 w-5" />
+              <Icon name="trending_up" className="h-5 w-5" />
               Puntuación Total BDI-II
             </CardTitle>
             <Badge className={`${colors.badge} text-white text-lg px-4 py-1`}>
@@ -168,7 +169,7 @@ export function BDI2ResultsView({
         <Card>
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
-              <Activity className="h-5 w-5" />
+              <Icon name="monitor_heart" className="h-5 w-5" />
               Análisis por Dimensiones
             </CardTitle>
             <CardDescription>
@@ -181,7 +182,7 @@ export function BDI2ResultsView({
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Brain className="h-4 w-4 text-primary" />
+                    <Icon name="psychology" className="h-4 w-4 text-primary" />
                     <span className="font-medium">Cognitivo-Afectivo</span>
                   </div>
                   <Badge variant="outline">{cogAffectScore ?? 0} / 42</Badge>
@@ -196,7 +197,7 @@ export function BDI2ResultsView({
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Activity className="h-4 w-4 text-primary" />
+                    <Icon name="monitor_heart" className="h-4 w-4 text-primary" />
                     <span className="font-medium">Somático-Vegetativo</span>
                   </div>
                   <Badge variant="outline">{somVegScore ?? 0} / 21</Badge>

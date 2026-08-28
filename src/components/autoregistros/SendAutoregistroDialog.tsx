@@ -21,7 +21,8 @@ import { useAutoregistroLinks } from '@/hooks/useAutoregistroLinks';
 import { usePatients } from '@/hooks/usePatients';
 import { useWhatsAppDelivery } from '@/hooks/useWhatsAppDelivery';
 import { useAuth } from '@/hooks/useAuth';
-import { Copy, Check, MessageCircle, Loader2 } from 'lucide-react';
+import { Icon } from '@/components/ui/icon';
+
 
 interface SendAutoregistroDialogProps {
   open: boolean;
@@ -126,14 +127,14 @@ export function SendAutoregistroDialog({ open, onOpenChange, preselectedPatientI
             <div className="flex gap-2">
               <Input value={generatedLink} readOnly className="text-xs" />
               <Button variant="outline" size="icon" onClick={handleCopy}>
-                {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                {copied ? <Icon name="check" className="h-4 w-4" /> : <Icon name="content_copy" className="h-4 w-4" />}
               </Button>
             </div>
             <Button variant="outline" className="w-full" onClick={handleWhatsApp} disabled={sendingWa}>
               {sendingWa ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Icon name="progress_activity" className="mr-2 h-4 w-4 animate-spin" />
               ) : (
-                <MessageCircle className="mr-2 h-4 w-4" />
+                <Icon name="chat" className="mr-2 h-4 w-4" />
               )}
               Enviar por WhatsApp
             </Button>

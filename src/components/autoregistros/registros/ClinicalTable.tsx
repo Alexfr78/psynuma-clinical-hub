@@ -4,13 +4,14 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Eye, ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle, AlertCircle, Check, X } from 'lucide-react';
+
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import type { AutoregistroEntry } from '@/hooks/useAutoregistroEntries';
 import type { FieldDisplayMeta, FormattedFieldValue } from '@/lib/autoregistro-field-display';
 import { formatFieldForDisplay } from '@/lib/autoregistro-field-display';
+import { Icon } from '@/components/ui/icon';
 
 interface ClinicalTableProps {
   entries: AutoregistroEntry[];
@@ -27,9 +28,9 @@ function FieldCell({ formatted }: { formatted: FormattedFieldValue }) {
   switch (formatted.type) {
     case 'boolean':
       return formatted.raw ? (
-        <Check className="h-4 w-4 text-green-600" />
+        <Icon name="check" className="h-4 w-4 text-green-600" />
       ) : (
-        <X className="h-4 w-4 text-muted-foreground/40" />
+        <Icon name="close" className="h-4 w-4 text-muted-foreground/40" />
       );
 
     case 'scale': {
@@ -133,10 +134,10 @@ export function ClinicalTable({
   const allSelected = entries.length > 0 && selectedIds.size === entries.length;
 
   const SortIcon = ({ field }: { field: string }) => {
-    if (sortField !== field) return <ArrowUpDown className="h-3 w-3 opacity-40" />;
+    if (sortField !== field) return <Icon name="swap_vert" className="h-3 w-3 opacity-40" />;
     return sortDir === 'asc'
-      ? <ArrowUp className="h-3 w-3" />
-      : <ArrowDown className="h-3 w-3" />;
+      ? <Icon name="arrow_upward" className="h-3 w-3" />
+      : <Icon name="arrow_downward" className="h-3 w-3" />;
   };
 
   return (
@@ -202,8 +203,8 @@ export function ClinicalTable({
                   {format(new Date(entry.submitted_at), "d MMM HH:mm", { locale: es })}
                 </TableCell>
                 <TableCell className="w-8">
-                  {hasAlert === 'critical' && <AlertTriangle className="h-3.5 w-3.5 text-red-500" />}
-                  {hasAlert === 'warning' && <AlertCircle className="h-3.5 w-3.5 text-amber-500" />}
+                  {hasAlert === 'critical' && <Icon name="warning" className="h-3.5 w-3.5 text-red-500" />}
+                  {hasAlert === 'warning' && <Icon name="error" className="h-3.5 w-3.5 text-amber-500" />}
                 </TableCell>
                 {visibleFields.map((meta) => {
                   const formatted = formatFieldForDisplay(meta, entry.values[meta.field.label]);
@@ -214,7 +215,7 @@ export function ClinicalTable({
                   );
                 })}
                 <TableCell>
-                  <Eye className="h-4 w-4 text-muted-foreground" />
+                  <Icon name="visibility" className="h-4 w-4 text-muted-foreground" />
                 </TableCell>
               </TableRow>
             );

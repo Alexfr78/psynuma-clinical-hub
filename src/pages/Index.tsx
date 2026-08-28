@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Calendar, FileText, CreditCard, Users, ClipboardCheck } from "lucide-react";
+import { Icon } from '@/components/ui/icon';
+
 
 const Index = () => {
   return (
@@ -18,23 +19,23 @@ const Index = () => {
             </h2>
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="flex items-start gap-3">
-                <Calendar className="h-5 w-5 text-primary mt-0.5 shrink-0" />
+                <Icon name="calendar_month" className="h-5 w-5 text-primary mt-0.5 shrink-0" />
                 <span className="text-muted-foreground">Gestión de agenda y citas con pacientes</span>
               </div>
               <div className="flex items-start gap-3">
-                <FileText className="h-5 w-5 text-primary mt-0.5 shrink-0" />
+                <Icon name="description" className="h-5 w-5 text-primary mt-0.5 shrink-0" />
                 <span className="text-muted-foreground">Historiales clínicos y evaluaciones psicológicas</span>
               </div>
               <div className="flex items-start gap-3">
-                <CreditCard className="h-5 w-5 text-primary mt-0.5 shrink-0" />
+                <Icon name="credit_card" className="h-5 w-5 text-primary mt-0.5 shrink-0" />
                 <span className="text-muted-foreground">Facturación y control de pagos</span>
               </div>
               <div className="flex items-start gap-3">
-                <ClipboardCheck className="h-5 w-5 text-primary mt-0.5 shrink-0" />
+                <Icon name="assignment_turned_in" className="h-5 w-5 text-primary mt-0.5 shrink-0" />
                 <span className="text-muted-foreground">Consentimientos informados digitales</span>
               </div>
               <div className="flex items-start gap-3 sm:col-span-2 justify-center">
-                <Users className="h-5 w-5 text-primary mt-0.5 shrink-0" />
+                <Icon name="group" className="h-5 w-5 text-primary mt-0.5 shrink-0" />
                 <span className="text-muted-foreground">Portal para pacientes</span>
               </div>
             </div>

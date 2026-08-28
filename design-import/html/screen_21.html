@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+
+<html class="light" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Psycma - Alta de Paciente</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface": "#faf9f7",
+                        "on-secondary": "#ffffff",
+                        "on-primary-fixed-variant": "#00497d",
+                        "on-tertiary-container": "#ffd7bc",
+                        "surface-container": "#efeeec",
+                        "tertiary": "#763b00",
+                        "on-tertiary-fixed": "#301400",
+                        "surface-container-highest": "#e3e2e0",
+                        "on-error-container": "#93000a",
+                        "outline": "#787585",
+                        "on-background": "#1a1c1b",
+                        "inverse-on-surface": "#f1f1ef",
+                        "on-error": "#ffffff",
+                        "secondary-fixed": "#62fae3",
+                        "on-surface-variant": "#474554",
+                        "outline-variant": "#c8c4d6",
+                        "on-tertiary-fixed-variant": "#703800",
+                        "on-primary-container": "#cbe1ff",
+                        "surface-dim": "#dadad8",
+                        "secondary-fixed-dim": "#3cddc7",
+                        "tertiary-container": "#994e00",
+                        "primary": "#004d84",
+                        "tertiary-fixed-dim": "#ffb782",
+                        "surface-bright": "#faf9f7",
+                        "tertiary-fixed": "#ffdcc5",
+                        "on-secondary-fixed-variant": "#005047",
+                        "on-secondary-fixed": "#00201c",
+                        "surface-variant": "#e3e2e0",
+                        "secondary": "#006b5f",
+                        "primary-fixed-dim": "#9fcaff",
+                        "surface-container-lowest": "#ffffff",
+                        "primary-fixed": "#d1e4ff",
+                        "inverse-surface": "#2f3130",
+                        "background": "#faf9f7",
+                        "secondary-container": "#62fae3",
+                        "on-surface": "#1a1c1b",
+                        "inverse-primary": "#9fcaff",
+                        "on-secondary-container": "#007165",
+                        "on-primary": "#ffffff",
+                        "on-primary-fixed": "#001d36",
+                        "on-tertiary": "#ffffff",
+                        "error": "#ba1a1a",
+                        "surface-container-high": "#e9e8e6",
+                        "primary-container": "#1b65a5",
+                        "error-container": "#ffdad6",
+                        "surface-tint": "#1361a0",
+                        "surface-container-low": "#f4f3f1"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "xs": "8px",
+                        "grid-gutter": "16px",
+                        "sm": "16px",
+                        "lg": "32px",
+                        "md": "24px",
+                        "base": "4px",
+                        "xl": "48px",
+                        "grid-margin": "24px"
+                    },
+                    "fontFamily": {
+                        "label-md": ["Inter"],
+                        "body-sm": ["Inter"],
+                        "display-lg": ["Plus Jakarta Sans"],
+                        "body-md": ["Inter"],
+                        "data-tabular": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "headline-md": ["Plus Jakarta Sans"],
+                        "headline-lg": ["Plus Jakarta Sans"],
+                        "headline-lg-mobile": ["Plus Jakarta Sans"]
+                    },
+                    "fontSize": {
+                        "label-md": ["14px", { "lineHeight": "16px", "letterSpacing": "0.01em", "fontWeight": "600" }],
+                        "body-sm": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "display-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "data-tabular": ["14px", { "lineHeight": "20px", "fontWeight": "500" }],
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+                        "headline-lg-mobile": ["28px", { "lineHeight": "36px", "fontWeight": "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .glass-header {
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+        .form-input {
+            border-color: #E5E4E2;
+            transition: all 0.2s ease-in-out;
+        }
+        .form-input:focus {
+            border-color: #004d84;
+            box-shadow: 0 0 0 4px rgba(0, 77, 132, 0.1);
+            outline: none;
+        }
+        .step-active {
+            color: #004d84;
+            border-color: #004d84;
+            font-weight: 600;
+        }
+        .step-inactive {
+            color: #787585;
+            border-color: #c8c4d6;
+        }
+        .step-line {
+            height: 2px;
+            background-color: #c8c4d6;
+            flex-grow: 1;
+            margin: 0 16px;
+        }
+    </style>
+</head>
+<body class="bg-surface-container-low min-h-screen text-on-surface font-body-md antialiased selection:bg-primary-container selection:text-on-primary-container">
+<!-- Top Navigation for Onboarding -->
+<header class="glass-header bg-surface-container-lowest/80 border-b border-surface-variant/30 sticky top-0 z-40">
+<div class="max-w-screen-xl mx-auto px-grid-margin h-16 flex items-center justify-between">
+<div class="flex items-center gap-sm">
+<!-- Simple Logo Anchor -->
+<span class="material-symbols-outlined text-primary" data-icon="psychology" style="font-variation-settings: 'FILL' 1;">psychology</span>
+<span class="font-headline-md text-headline-md font-bold text-primary tracking-tight">Psycma</span>
+</div>
+<div class="hidden md:flex items-center gap-xs">
+<span class="font-body-sm text-body-sm text-on-surface-variant">¿Necesitas ayuda?</span>
+<button class="font-label-md text-label-md text-primary hover:text-primary-container transition-colors">Contactar soporte</button>
+</div>
+</div>
+</header>
+<!-- Main Content Area (Patient View: Centered, Fixed-Width) -->
+<main class="max-w-[800px] mx-auto px-sm md:px-md xl:px-0 py-xl mt-md md:mt-lg flex flex-col gap-lg">
+<!-- Onboarding Header -->
+<div class="text-center flex flex-col gap-sm">
+<h1 class="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-surface">Bienvenido a Psycma</h1>
+<p class="font-body-lg text-body-lg text-on-surface-variant max-w-2xl mx-auto">
+                Para ofrecerte la mejor atención, necesitamos algunos datos iniciales. Este proceso solo tomará un par de minutos y tu información estará completamente segura.
+            </p>
+</div>
+<!-- Progress Indicator (Linear) -->
+<div class="flex items-center justify-center max-w-lg mx-auto w-full px-sm mb-sm">
+<!-- Step 1 (Active) -->
+<div class="flex flex-col items-center gap-xs">
+<div class="w-8 h-8 rounded-full border-2 border-primary bg-primary text-on-primary flex items-center justify-center font-label-md text-label-md">
+                    1
+                </div>
+<span class="font-label-md text-label-md text-primary absolute mt-10">Datos Personales</span>
+</div>
+<div class="step-line"></div>
+<!-- Step 2 (Inactive) -->
+<div class="flex flex-col items-center gap-xs">
+<div class="w-8 h-8 rounded-full border-2 step-inactive bg-surface-container-lowest flex items-center justify-center font-label-md text-label-md">
+                    2
+                </div>
+<span class="font-label-md text-label-md step-inactive absolute mt-10 hidden sm:block">Contacto</span>
+</div>
+<div class="step-line"></div>
+<!-- Step 3 (Inactive) -->
+<div class="flex flex-col items-center gap-xs">
+<div class="w-8 h-8 rounded-full border-2 step-inactive bg-surface-container-lowest flex items-center justify-center font-label-md text-label-md">
+                    3
+                </div>
+<span class="font-label-md text-label-md step-inactive absolute mt-10 hidden sm:block">Motivo</span>
+</div>
+</div>
+<!-- Form Card -->
+<div class="bg-surface-container-lowest rounded-xl shadow-[0_4px_24px_rgba(78,141,207,0.08)] border border-[#F0EEEB] p-md md:p-lg mt-md">
+<div class="mb-md">
+<h2 class="font-headline-md text-headline-md text-on-surface">1. Datos Personales</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-xs">
+                    Introduce tu información legal tal como aparece en tu documento de identidad.
+                </p>
+</div>
+<form class="flex flex-col gap-md">
+<!-- Grid layout for form fields -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-md">
+<!-- Nombre -->
+<div class="flex flex-col gap-xs">
+<label class="font-label-md text-label-md text-on-surface" for="nombre">Nombre</label>
+<input class="form-input rounded-lg border px-sm py-3 font-body-md text-body-md w-full bg-surface-bright" id="nombre" name="nombre" placeholder="Ej. María" required="" type="text"/>
+</div>
+<!-- Apellidos -->
+<div class="flex flex-col gap-xs">
+<label class="font-label-md text-label-md text-on-surface" for="apellidos">Apellidos</label>
+<input class="form-input rounded-lg border px-sm py-3 font-body-md text-body-md w-full bg-surface-bright" id="apellidos" name="apellidos" placeholder="Ej. García López" required="" type="text"/>
+</div>
+<!-- Fecha de nacimiento -->
+<div class="flex flex-col gap-xs">
+<label class="font-label-md text-label-md text-on-surface" for="fecha_nacimiento">Fecha de nacimiento</label>
+<div class="relative">
+<input class="form-input rounded-lg border px-sm py-3 font-body-md text-body-md w-full bg-surface-bright text-on-surface-variant appearance-none" id="fecha_nacimiento" name="fecha_nacimiento" required="" type="date"/>
+<span class="material-symbols-outlined absolute right-sm top-3 text-on-surface-variant pointer-events-none" data-icon="calendar_today">calendar_today</span>
+</div>
+</div>
+<!-- DNI/NIE -->
+<div class="flex flex-col gap-xs">
+<label class="font-label-md text-label-md text-on-surface" for="documento">DNI / NIE</label>
+<input class="form-input rounded-lg border px-sm py-3 font-body-md text-body-md w-full bg-surface-bright uppercase" id="documento" name="documento" placeholder="Ej. 12345678A" required="" type="text"/>
+</div>
+</div>
+<!-- Action Button -->
+<div class="mt-sm flex justify-end">
+<button class="bg-primary hover:bg-primary-container text-on-primary font-label-md text-label-md rounded-lg px-lg py-3 flex items-center justify-center gap-xs transition-colors w-full md:w-auto shadow-sm" type="button">
+                        Continuar
+                        <span class="material-symbols-outlined text-sm" data-icon="arrow_forward">arrow_forward</span>
+</button>
+</div>
+</form>
+</div>
+<!-- Privacy Assurance Note -->
+<div class="flex items-start gap-sm p-sm bg-surface-bright rounded-lg border border-surface-variant/50 mt-sm">
+<span class="material-symbols-outlined text-primary shrink-0" data-icon="shield_lock" style="font-variation-settings: 'FILL' 1;">shield_lock</span>
+<p class="font-body-sm text-body-sm text-on-surface-variant">
+                Tus datos están protegidos y encriptados de acuerdo con el Reglamento General de Protección de Datos (RGPD). Psycma garantiza la máxima confidencialidad en toda tu información clínica.
+            </p>
+</div>
+</main>
+</body></html>

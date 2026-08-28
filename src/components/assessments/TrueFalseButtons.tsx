@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/button';
-import { Check, X } from 'lucide-react';
+import { Icon } from '@/components/ui/icon';
+
 
 interface TrueFalseButtonsProps {
   value: number | undefined;
@@ -29,7 +30,7 @@ export function TrueFalseButtons({
             : 'hover:bg-blue-50 hover:border-blue-300 dark:hover:bg-blue-950'
         }`}
       >
-        <X className="h-4 w-4" />
+        <Icon name="close" className="h-4 w-4" />
         {falseLabel}
       </Button>
       <Button
@@ -43,7 +44,7 @@ export function TrueFalseButtons({
             : 'hover:bg-green-50 hover:border-green-300 dark:hover:bg-green-950'
         }`}
       >
-        <Check className="h-4 w-4" />
+        <Icon name="check" className="h-4 w-4" />
         {trueLabel}
       </Button>
     </div>

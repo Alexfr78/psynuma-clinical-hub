@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
-import { FileText, Plus, RefreshCw, ArrowUpDown, Hash, Calendar, Search, Download, AlertTriangle } from 'lucide-react';
+
 import { endOfMonth, format as formatDate, startOfMonth } from 'date-fns';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -44,6 +44,7 @@ import { toast } from 'sonner';
 import { hasInvoiceAeatRegistration } from '@/lib/invoice-immutability';
 import { usePayments } from '@/hooks/usePayments';
 import { downloadPdfFromUrl } from '@/lib/download-pdf';
+import { Icon } from '@/components/ui/icon';
 
 const getCurrentMonthRange = (): InvoiceDateRange => {
   const today = new Date();
@@ -453,13 +454,13 @@ export default function Invoices() {
         </div>
         <div className="flex items-center gap-2 w-full sm:w-auto">
           <Button variant="outline" size="sm" onClick={() => setExportDialogOpen(true)}>
-            <Download className="h-4 w-4 mr-2" />
+            <Icon name="download" className="h-4 w-4 mr-2" />
             Exportar
           </Button>
           <DropdownMenu open={newInvoiceMenuOpen} onOpenChange={setNewInvoiceMenuOpen}>
             <DropdownMenuTrigger asChild>
               <Button size="sm" className="flex-1 sm:flex-none">
-                <Plus className="h-4 w-4 mr-2" />
+                <Icon name="add" className="h-4 w-4 mr-2" />
                 Nueva factura
               </Button>
             </DropdownMenuTrigger>
@@ -508,7 +509,7 @@ export default function Invoices() {
 
       {orphanCount > 0 && (
         <Alert variant="destructive" className="border-amber-500 bg-amber-50 dark:bg-amber-950/20">
-          <AlertTriangle className="h-4 w-4 text-amber-600" />
+          <Icon name="warning" className="h-4 w-4 text-amber-600" />
           <AlertTitle className="text-amber-800 dark:text-amber-400">Facturas sin registrar en AEAT</AlertTitle>
           <AlertDescription className="text-amber-700 dark:text-amber-300">
             Hay {orphanCount} factura{orphanCount > 1 ? 's' : ''} emitida{orphanCount > 1 ? 's' : ''} que no {orphanCount > 1 ? 'han' : 'ha'} sido registrada{orphanCount > 1 ? 's' : ''} en la Agencia Tributaria. 
@@ -539,7 +540,7 @@ export default function Invoices() {
             <TabsTrigger value="issued" className="shrink-0 text-xs sm:text-sm px-2 sm:px-3 py-2 min-h-[40px]">Emitidas</TabsTrigger>
             <TabsTrigger value="paid" className="shrink-0 text-xs sm:text-sm px-2 sm:px-3 py-2 min-h-[40px]">Pagadas</TabsTrigger>
             <TabsTrigger value="verifactu_pending" className="gap-1 shrink-0 text-xs sm:text-sm px-2 sm:px-3 py-2 min-h-[40px]">
-              <RefreshCw className="h-3 w-3" />
+              <Icon name="refresh" className="h-3 w-3" />
               AEAT
             </TabsTrigger>
           </TabsList>
@@ -547,7 +548,7 @@ export default function Invoices() {
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
           <div className="relative flex-1 max-w-xs">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Icon name="search" className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Buscar nº, cliente, fecha..."
               value={searchQuery}
@@ -562,7 +563,7 @@ export default function Invoices() {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="justify-center sm:justify-start">
-                  <ArrowUpDown className="h-4 w-4 mr-2" />
+                  <Icon name="swap_vert" className="h-4 w-4 mr-2" />
                   <span className="sm:hidden">{sortBy === 'invoice_number' ? 'Nº' : 'Fecha'} {sortDirection === 'desc' ? '↓' : '↑'}</span>
                   <span className="hidden sm:inline">{getSortLabel()}</span>
                 </Button>
@@ -571,11 +572,11 @@ export default function Invoices() {
                 <DropdownMenuLabel>Ordenar por</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => handleSort('invoice_number')}>
-                  <Hash className="h-4 w-4 mr-2" />
+                  <Icon name="tag" className="h-4 w-4 mr-2" />
                   Número {sortBy === 'invoice_number' && (sortDirection === 'desc' ? '↓' : '↑')}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => handleSort('issue_date')}>
-                  <Calendar className="h-4 w-4 mr-2" />
+                  <Icon name="calendar_month" className="h-4 w-4 mr-2" />
                   Fecha {sortBy === 'issue_date' && (sortDirection === 'desc' ? '↓' : '↑')}
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -590,7 +591,7 @@ export default function Invoices() {
             </div>
           ) : filteredInvoices.length === 0 ? (
             <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12">
-              <FileText className="h-12 w-12 text-muted-foreground" />
+              <Icon name="description" className="h-12 w-12 text-muted-foreground" />
               <h3 className="mt-4 font-semibold">Sin facturas</h3>
               <p className="text-sm text-muted-foreground">
                 {searchQuery.trim() ? 'No se encontraron facturas con ese criterio' : 'No hay facturas en esta categoría'}

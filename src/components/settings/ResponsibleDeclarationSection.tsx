@@ -1,7 +1,8 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { FileCheck, Shield, Scale } from 'lucide-react';
+
 import { useCenter } from '@/hooks/useCenter';
+import { Icon } from '@/components/ui/icon';
 
 export function ResponsibleDeclarationSection() {
   const { center } = useCenter();
@@ -19,7 +20,7 @@ export function ResponsibleDeclarationSection() {
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
-            <Scale className="h-5 w-5 text-primary" />
+            <Icon name="balance" className="h-5 w-5 text-primary" />
             <CardTitle>Declaración Responsable</CardTitle>
           </div>
           <CardDescription>
@@ -29,7 +30,7 @@ export function ResponsibleDeclarationSection() {
         <CardContent className="space-y-6">
           <div className="rounded-lg border bg-muted/50 p-6 space-y-4">
             <div className="flex items-center gap-2">
-              <Shield className="h-5 w-5 text-green-600" />
+              <Icon name="shield" className="h-5 w-5 text-green-600" />
               <h3 className="font-semibold text-lg">Sistema VeriFactu Certificado</h3>
               <Badge variant="default" className="bg-green-600">Activo</Badge>
             </div>
@@ -56,7 +57,7 @@ export function ResponsibleDeclarationSection() {
 
           <div className="rounded-lg border p-6 space-y-4">
             <div className="flex items-center gap-2">
-              <FileCheck className="h-5 w-5 text-primary" />
+              <Icon name="task" className="h-5 w-5 text-primary" />
               <h4 className="font-medium">Texto de la Declaración Responsable</h4>
             </div>
             

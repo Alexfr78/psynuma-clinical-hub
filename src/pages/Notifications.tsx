@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Bell, Mail, MessageSquare, Phone, Clock, CheckCircle, XCircle, Loader2 } from 'lucide-react';
+
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -24,6 +24,7 @@ import { Badge } from '@/components/ui/badge';
 import { NotificationCard } from '@/components/notifications/NotificationCard';
 import { WhatsAppLinkDialog } from '@/components/agenda/WhatsAppLinkDialog';
 import { useNotifications, useSendNotification, usePendingNotifications, useDeleteNotification, NotificationWithRelations } from '@/hooks/useNotifications';
+import { Icon } from '@/components/ui/icon';
 
 export default function Notifications() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -108,7 +109,7 @@ export default function Notifications() {
         </div>
         {pendingNotifications && pendingNotifications.length > 0 && (
           <Button onClick={handleProcessPending} disabled={sendNotification.isPending} className="w-full sm:w-auto">
-            {sendNotification.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {sendNotification.isPending && <Icon name="progress_activity" className="mr-2 h-4 w-4 animate-spin" />}
             <span className="sm:hidden">Procesar ({pendingNotifications.length})</span>
             <span className="hidden sm:inline">Procesar {pendingNotifications.length} pendientes</span>
           </Button>
@@ -120,7 +121,7 @@ export default function Notifications() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-1 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
             <CardTitle className="text-xs sm:text-sm font-medium">Total</CardTitle>
-            <Bell className="h-4 w-4 text-muted-foreground" />
+            <Icon name="notifications" className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
             <div className="text-lg sm:text-2xl font-bold">{stats.total}</div>
@@ -129,7 +130,7 @@ export default function Notifications() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-1 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
             <CardTitle className="text-xs sm:text-sm font-medium">Pendientes</CardTitle>
-            <Clock className="h-4 w-4 text-amber-500" />
+            <Icon name="schedule" className="h-4 w-4 text-amber-500" />
           </CardHeader>
           <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
             <div className="text-lg sm:text-2xl font-bold text-amber-500">{stats.pending}</div>
@@ -138,7 +139,7 @@ export default function Notifications() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-1 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
             <CardTitle className="text-xs sm:text-sm font-medium">Enviadas</CardTitle>
-            <CheckCircle className="h-4 w-4 text-green-500" />
+            <Icon name="check_circle" className="h-4 w-4 text-green-500" />
           </CardHeader>
           <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
             <div className="text-lg sm:text-2xl font-bold text-green-500">{stats.sent}</div>
@@ -147,7 +148,7 @@ export default function Notifications() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-1 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
             <CardTitle className="text-xs sm:text-sm font-medium">Fallidas</CardTitle>
-            <XCircle className="h-4 w-4 text-destructive" />
+            <Icon name="cancel" className="h-4 w-4 text-destructive" />
           </CardHeader>
           <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
             <div className="text-lg sm:text-2xl font-bold text-destructive">{stats.failed}</div>
@@ -182,17 +183,17 @@ export default function Notifications() {
                 <SelectItem value="all">Todos</SelectItem>
                 <SelectItem value="email">
                   <span className="flex items-center gap-2">
-                    <Mail className="h-4 w-4" /> Email
+                    <Icon name="mail" className="h-4 w-4" /> Email
                   </span>
                 </SelectItem>
                 <SelectItem value="sms">
                   <span className="flex items-center gap-2">
-                    <Phone className="h-4 w-4" /> SMS
+                    <Icon name="call" className="h-4 w-4" /> SMS
                   </span>
                 </SelectItem>
                 <SelectItem value="whatsapp">
                   <span className="flex items-center gap-2">
-                    <MessageSquare className="h-4 w-4" /> WhatsApp
+                    <Icon name="forum" className="h-4 w-4" /> WhatsApp
                   </span>
                 </SelectItem>
               </SelectContent>
@@ -230,7 +231,7 @@ export default function Notifications() {
 
         {isLoading ? (
           <div className="flex justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            <Icon name="progress_activity" className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
         ) : (
           <>
@@ -238,7 +239,7 @@ export default function Notifications() {
               {notifications?.length === 0 ? (
                 <Card>
                   <CardContent className="flex flex-col items-center justify-center py-12">
-                    <Bell className="h-12 w-12 text-muted-foreground mb-4" />
+                    <Icon name="notifications" className="h-12 w-12 text-muted-foreground mb-4" />
                     <p className="text-muted-foreground">No hay notificaciones</p>
                   </CardContent>
                 </Card>

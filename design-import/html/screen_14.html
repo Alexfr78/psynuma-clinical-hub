@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+
+<html class="light" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Psycma - Gestión Clínica para Psicólogos</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">tailwind.config = {darkMode: "class", theme: {extend: {colors: {"surface-white": "#FFFFFF", "dark-surface": "#1E1D2B", "inverse-surface": "#2f3130", "on-primary-fixed": "#001d36", "secondary-fixed": "#62fae3", tertiary: "#763b00", success: "#10B981", "surface-dim": "#dadad8", "on-primary-fixed-variant": "#00497d", primary: "#004d84", "inverse-on-surface": "#f1f1ef", "on-surface-variant": "#474554", "on-secondary-container": "#007165", "on-tertiary-container": "#ffd7bc", "primary-fixed-dim": "#9fcaff", "surface-tint": "#1361a0", "primary-container": "#1b65a5", "on-secondary-fixed": "#00201c", "on-surface": "#1a1c1b", warning: "#F59E0B", background: "#faf9f7", "secondary-fixed-dim": "#3cddc7", outline: "#787585", error: "#ba1a1a", "outline-variant": "#c8c4d6", "on-error-container": "#93000a", "surface-container-low": "#f4f3f1", "text-main": "#1B1A24", "error-container": "#ffdad6", "secondary-container": "#62fae3", surface: "#faf9f7", "tertiary-container": "#994e00", "on-primary": "#ffffff", "on-error": "#ffffff", "inverse-primary": "#9fcaff", "tertiary-fixed-dim": "#ffb782", "on-primary-container": "#cbe1ff", "on-tertiary-fixed-variant": "#703800", "on-background": "#1a1c1b", "on-tertiary-fixed": "#301400", "dark-text": "#ECEBF5", secondary: "#006b5f", "dark-bg": "#141320", "surface-container-lowest": "#ffffff", "on-tertiary": "#ffffff", "on-secondary-fixed-variant": "#005047", "surface-container-highest": "#e3e2e0", "surface-container": "#efeeec", "on-secondary": "#ffffff", "surface-container-high": "#e9e8e6", "tertiary-fixed": "#ffdcc5", "surface-bright": "#faf9f7", "primary-fixed": "#d1e4ff", "surface-variant": "#e3e2e0"}, borderRadius: {DEFAULT: "0.25rem", lg: "0.5rem", xl: "0.75rem", full: "9999px"}, spacing: {lg: "32px", xl: "48px", sm: "16px", xs: "8px", "grid-margin": "24px", "grid-gutter": "16px", md: "24px", base: "4px"}, fontFamily: {"data-tabular": ["Inter"], "headline-lg-mobile": ["Plus Jakarta Sans"], "body-lg": ["Inter"], "label-md": ["Inter"], "headline-md": ["Plus Jakarta Sans"], "display-lg": ["Plus Jakarta Sans"], "body-sm": ["Inter"], "headline-lg": ["Plus Jakarta Sans"], "body-md": ["Inter"], headline: ["Plus Jakarta Sans"], display: ["Plus Jakarta Sans"], body: ["Inter"], label: ["Inter"]}, fontSize: {"data-tabular": ["14px", {lineHeight: "20px", fontWeight: "500"}], "headline-lg-mobile": ["28px", {lineHeight: "36px", fontWeight: "600"}], "body-lg": ["18px", {lineHeight: "28px", fontWeight: "400"}], "label-md": ["14px", {lineHeight: "16px", letterSpacing: "0.01em", fontWeight: "600"}], "headline-md": ["24px", {lineHeight: "32px", fontWeight: "600"}], "display-lg": ["48px", {lineHeight: "56px", letterSpacing: "-0.02em", fontWeight: "700"}], "body-sm": ["14px", {lineHeight: "20px", fontWeight: "400"}], "headline-lg": ["32px", {lineHeight: "40px", letterSpacing: "-0.01em", fontWeight: "600"}], "body-md": ["16px", {lineHeight: "24px", fontWeight: "400"}]}}}};</script>
+<style>
+        .mesh-bg {
+            background-color: #faf9f7;
+            background-image: 
+                radial-gradient(at 0% 0%, hsla(245,61%,85%,1) 0px, transparent 50%),
+                radial-gradient(at 100% 0%, hsla(168,100%,85%,1) 0px, transparent 50%);
+        }
+        .hero-shadow {
+            box-shadow: 0 25px 50px -12px rgba(90, 79, 207, 0.25);
+        }
+        .card-shadow {
+            box-shadow: 0 4px 6px -1px rgba(90, 79, 207, 0.05), 0 2px 4px -1px rgba(90, 79, 207, 0.03);
+        }
+    </style>
+</head>
+<body class="bg-background text-text-main font-body-md antialiased overflow-x-hidden">
+<!-- Navigation -->
+<nav class="fixed top-0 w-full z-50 bg-surface-white/80 backdrop-blur-md border-b border-surface-container-highest transition-all duration-300">
+<div class="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="font-headline-md text-headline-md text-primary font-bold">Psycma</span>
+</div>
+<div class="hidden md:flex items-center space-x-8">
+<a class="font-label-md text-label-md text-on-surface-variant hover:text-primary transition-colors" href="#producto">Producto</a>
+<a class="font-label-md text-label-md text-on-surface-variant hover:text-primary transition-colors" href="#precios">Precios</a>
+<a class="font-label-md text-label-md text-on-surface-variant hover:text-primary transition-colors" href="#recursos">Recursos</a>
+</div>
+<div class="flex items-center space-x-4">
+<a class="hidden md:inline-flex font-label-md text-label-md text-primary hover:text-primary-container transition-colors px-4 py-2" href="#">Iniciar sesión</a>
+<a class="bg-primary-container text-surface-white font-label-md text-label-md px-6 py-2.5 rounded-lg hover:bg-primary transition-colors shadow-sm" href="#">Empieza gratis</a>
+</div>
+</div>
+</nav>
+<!-- Hero Section -->
+<section class="relative pt-40 pb-24 md:pt-48 md:pb-32 overflow-hidden mesh-bg">
+<div class="max-w-7xl mx-auto px-6">
+<div class="grid md:grid-cols-2 gap-12 items-center">
+<div class="space-y-8 relative z-10">
+<div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-secondary-fixed/20 text-secondary border border-secondary/20">
+<span class="material-symbols-outlined text-[16px]">verified</span>
+<span class="font-label-md text-label-md">Facturación Verifactu · Cumple con la AEAT</span>
+</div>
+<h1 class="font-display-lg text-display-lg text-text-main">
+                        La plataforma todo-en-uno para tu consulta de psicología
+                    </h1>
+<p class="font-body-lg text-body-lg text-on-surface-variant max-w-lg">
+                        Simplifica tu práctica clínica. Gestiona pacientes, agenda, notas e integración fiscal en un entorno diseñado para la calma y el enfoque profesional.
+                    </p>
+<div class="flex flex-col sm:flex-row gap-4 pt-4">
+<a class="bg-primary-container text-surface-white font-label-md text-label-md px-8 py-4 rounded-lg hover:bg-primary transition-colors shadow-lg flex items-center justify-center gap-2" href="#">
+                            Empieza gratis
+                            <span class="material-symbols-outlined">arrow_forward</span>
+</a>
+<a class="bg-surface-white text-secondary font-label-md text-label-md px-8 py-4 rounded-lg border-2 border-secondary/20 hover:border-secondary hover:bg-secondary/5 transition-colors flex items-center justify-center" href="#">
+                            Ver demo
+                        </a>
+</div>
+</div>
+<div class="relative z-10 mt-12 md:mt-0 lg:-mr-12">
+<div class="relative rounded-2xl overflow-hidden hero-shadow border border-surface-white/50 bg-surface-white">
+<img alt="Dashboard de Psycma" class="w-full h-auto object-cover transform hover:scale-[1.02] transition-transform duration-700" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC_ewxcAmuppHx7cak6QnpKskFuKVGyZO2PRxLFviC6rNlCrbzx37UAscjwW_tytgKmrdo4L90UKcFHQsN2ta5oZTbRqiYXzew6nn9b-2RfzgIrtUa4awD6ral1b9i9cCJosSKRzinq1o5UZmPjbFc-PjHYNI7E4DDXYZL_6JW42Ntik9-lLs8byC-8lrRVh4JFe9UZQnftmV71E9K_vZPtWaFjm5zy4r8AMGH_L96INfuqM0GZXxF7"/>
+</div>
+<!-- Decorative floating elements -->
+<div class="absolute -top-6 -right-6 w-24 h-24 bg-secondary/10 rounded-full blur-2xl"></div>
+<div class="absolute -bottom-10 -left-10 w-32 h-32 bg-primary/10 rounded-full blur-3xl"></div>
+</div>
+</div>
+</div>
+</section>
+<!-- Social Proof -->
+<section class="py-12 bg-surface-white border-y border-surface-container-highest">
+<div class="max-w-7xl mx-auto px-6 text-center">
+<p class="font-label-md text-label-md text-outline mb-8 uppercase tracking-wider">La usan consultas de toda España</p>
+<div class="flex flex-wrap justify-center items-center gap-8 md:gap-16 opacity-60 grayscale">
+<!-- Placeholder logos using material symbols -->
+<div class="flex items-center gap-2"><span class="material-symbols-outlined text-3xl">spa</span><span class="font-headline-md text-headline-md font-semibold">Clínica Alma</span></div>
+<div class="flex items-center gap-2"><span class="material-symbols-outlined text-3xl">psychology</span><span class="font-headline-md text-headline-md font-semibold">Mente Sana</span></div>
+<div class="flex items-center gap-2"><span class="material-symbols-outlined text-3xl">self_improvement</span><span class="font-headline-md text-headline-md font-semibold">Equilibrio</span></div>
+<div class="flex items-center gap-2"><span class="material-symbols-outlined text-3xl">water_drop</span><span class="font-headline-md text-headline-md font-semibold">Centro Fluir</span></div>
+</div>
+</div>
+</section>
+<!-- Features Bento Grid -->
+<section class="py-24 bg-background" id="producto">
+<div class="max-w-7xl mx-auto px-6">
+<div class="text-center max-w-2xl mx-auto mb-16">
+<h2 class="font-headline-lg text-headline-lg text-text-main mb-4">Todo lo que necesitas, sin complicaciones</h2>
+<p class="font-body-lg text-body-lg text-on-surface-variant">Diseñado específicamente para las necesidades de psicólogos y terapeutas, combinando potencia técnica con una interfaz serena.</p>
+</div>
+<div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+<!-- Feature 1 -->
+<div class="bg-surface-white p-8 rounded-2xl card-shadow border border-surface-container-low hover:border-primary/20 transition-colors group">
+<div class="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-primary">calendar_month</span>
+</div>
+<h3 class="font-headline-md text-headline-md text-text-main mb-3 text-[20px]">Agenda Inteligente</h3>
+<p class="font-body-md text-body-md text-on-surface-variant">Sincronización bidireccional, recordatorios automáticos por WhatsApp y gestión de citas recurrentes.</p>
+</div>
+<!-- Feature 2 -->
+<div class="bg-surface-white p-8 rounded-2xl card-shadow border border-surface-container-low hover:border-primary/20 transition-colors group">
+<div class="w-12 h-12 bg-secondary/10 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-secondary">folder_shared</span>
+</div>
+<h3 class="font-headline-md text-headline-md text-text-main mb-3 text-[20px]">Fichas de Paciente</h3>
+<p class="font-body-md text-body-md text-on-surface-variant">Historia clínica detallada, evolución de sesiones y almacenamiento seguro de documentos adjuntos.</p>
+</div>
+<!-- Feature 3 -->
+<div class="bg-surface-white p-8 rounded-2xl card-shadow border border-surface-container-low hover:border-primary/20 transition-colors group">
+<div class="w-12 h-12 bg-tertiary-container/10 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-tertiary-container">receipt_long</span>
+</div>
+<h3 class="font-headline-md text-headline-md text-text-main mb-3 text-[20px]">Facturación y Verifactu</h3>
+<p class="font-body-md text-body-md text-on-surface-variant">Generación automática de facturas y cumplimiento estricto con la nueva normativa de la AEAT.</p>
+</div>
+<!-- Feature 4 -->
+<div class="bg-surface-white p-8 rounded-2xl card-shadow border border-surface-container-low hover:border-primary/20 transition-colors group">
+<div class="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-primary">assignment</span>
+</div>
+<h3 class="font-headline-md text-headline-md text-text-main mb-3 text-[20px]">Evaluaciones Psicológicas</h3>
+<p class="font-body-md text-body-md text-on-surface-variant">Plantillas predefinidas para tests comunes y gráficas de progreso visuales para el seguimiento.</p>
+</div>
+<!-- Feature 5 -->
+<div class="bg-surface-white p-8 rounded-2xl card-shadow border border-surface-container-low hover:border-primary/20 transition-colors group">
+<div class="w-12 h-12 bg-secondary/10 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-secondary">draw</span>
+</div>
+<h3 class="font-headline-md text-headline-md text-text-main mb-3 text-[20px]">Consentimientos Digitales</h3>
+<p class="font-body-md text-body-md text-on-surface-variant">Firma electrónica con validez legal para el RGPD y consentimientos informados desde cualquier dispositivo.</p>
+</div>
+<!-- Feature 6 -->
+<div class="bg-surface-white p-8 rounded-2xl card-shadow border border-surface-container-low hover:border-primary/20 transition-colors group">
+<div class="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-primary">devices</span>
+</div>
+<h3 class="font-headline-md text-headline-md text-text-main mb-3 text-[20px]">Portal del Paciente</h3>
+<p class="font-body-md text-body-md text-on-surface-variant">Un espacio seguro para que tus pacientes reserven citas, paguen facturas y suban documentación previa.</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Pricing Section -->
+<section class="py-24 bg-surface-white" id="precios">
+<div class="max-w-7xl mx-auto px-6">
+<div class="text-center max-w-2xl mx-auto mb-16">
+<h2 class="font-headline-lg text-headline-lg text-text-main mb-4">Planes claros, sin sorpresas</h2>
+<p class="font-body-lg text-body-lg text-on-surface-variant">Elige el plan que mejor se adapte al volumen de tu consulta clínica.</p>
+</div>
+<div class="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+<!-- Basic Plan -->
+<div class="bg-background rounded-2xl p-8 border border-surface-container-highest flex flex-col relative">
+<div class="mb-8">
+<h3 class="font-headline-md text-headline-md text-text-main mb-2">Esencial</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant mb-6">Para psicólogos que empiezan.</p>
+<div class="flex items-baseline gap-1">
+<span class="font-display-lg text-display-lg text-text-main">29€</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">/mes</span>
+</div>
+</div>
+<ul class="space-y-4 mb-8 flex-1">
+<li class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary text-[20px]">check</span>
+<span class="font-body-md text-body-md">Hasta 50 pacientes</span>
+</li>
+<li class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary text-[20px]">check</span>
+<span class="font-body-md text-body-md">Agenda básica</span>
+</li>
+<li class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary text-[20px]">check</span>
+<span class="font-body-md text-body-md">Facturación estándar</span>
+</li>
+</ul>
+<a class="w-full bg-surface-white text-primary font-label-md text-label-md py-3 rounded-lg border border-primary/20 hover:border-primary text-center transition-colors" href="#">Comenzar</a>
+</div>
+<!-- Pro Plan -->
+<div class="bg-surface-white rounded-2xl p-8 border-2 border-primary relative shadow-[0_0_30px_rgba(90,79,207,0.15)] flex flex-col transform md:-translate-y-4">
+<div class="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-primary text-surface-white font-label-md text-[12px] px-4 py-1 rounded-full uppercase tracking-wide">
+                        Más popular
+                    </div>
+<div class="mb-8 mt-2">
+<h3 class="font-headline-md text-headline-md text-text-main mb-2">Profesional</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant mb-6">Para consultas consolidadas.</p>
+<div class="flex items-baseline gap-1">
+<span class="font-display-lg text-display-lg text-text-main">59€</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">/mes</span>
+</div>
+</div>
+<ul class="space-y-4 mb-8 flex-1">
+<li class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary text-[20px]">check</span>
+<span class="font-body-md text-body-md">Pacientes ilimitados</span>
+</li>
+<li class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary text-[20px]">check</span>
+<span class="font-body-md text-body-md">Módulo Verifactu AEAT</span>
+</li>
+<li class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary text-[20px]">check</span>
+<span class="font-body-md text-body-md">Consentimientos digitales</span>
+</li>
+<li class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary text-[20px]">check</span>
+<span class="font-body-md text-body-md">Soporte prioritario</span>
+</li>
+</ul>
+<a class="w-full bg-primary-container text-surface-white font-label-md text-label-md py-3 rounded-lg hover:bg-primary text-center transition-colors shadow-md" href="#">Prueba gratis 14 días</a>
+</div>
+<!-- Clinic Plan -->
+<div class="bg-background rounded-2xl p-8 border border-surface-container-highest flex flex-col relative">
+<div class="mb-8">
+<h3 class="font-headline-md text-headline-md text-text-main mb-2">Clínica</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant mb-6">Para centros con múltiples profesionales.</p>
+<div class="flex items-baseline gap-1 mt-4">
+<span class="font-headline-md text-headline-md text-text-main">A medida</span>
+</div>
+</div>
+<ul class="space-y-4 mb-8 flex-1 mt-4">
+<li class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary text-[20px]">check</span>
+<span class="font-body-md text-body-md">Todo lo de Profesional</span>
+</li>
+<li class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary text-[20px]">check</span>
+<span class="font-body-md text-body-md">Gestión de múltiples agendas</span>
+</li>
+<li class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary text-[20px]">check</span>
+<span class="font-body-md text-body-md">Roles y permisos avanzados</span>
+</li>
+</ul>
+<a class="w-full bg-surface-white text-on-surface-variant font-label-md text-label-md py-3 rounded-lg border border-surface-container-highest hover:bg-surface-container-low text-center transition-colors" href="#">Contactar ventas</a>
+</div>
+</div>
+</div>
+</section>
+<!-- Footer CTA -->
+<footer class="relative overflow-hidden">
+<div class="absolute inset-0 bg-primary-container opacity-95 z-0"></div>
+<div class="absolute inset-0 z-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMSIgY3k9IjEiIHI9IjEiIGZpbGw9InJnYmEoMjU1LDI1NSwyNTUsMC4wNSkiLz48L3N2Zz4=')]"></div>
+<div class="relative z-10 max-w-7xl mx-auto px-6 pt-24 pb-12">
+<div class="text-center max-w-3xl mx-auto mb-20">
+<h2 class="font-display-lg text-display-lg text-surface-white mb-6">Lleva tu consulta al siguiente nivel</h2>
+<p class="font-body-lg text-body-lg text-primary-fixed-dim mb-8">Únete a los cientos de psicólogos que ya confían en Psycma para gestionar su práctica clínica de forma profesional, segura y humana.</p>
+<a class="inline-flex bg-surface-white text-primary-container font-label-md text-label-md px-8 py-4 rounded-lg hover:bg-surface-bright transition-colors shadow-lg" href="#">
+                    Empieza gratis hoy
+                </a>
+</div>
+<div class="border-t border-surface-white/10 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
+<div class="flex items-center gap-2">
+<span class="font-headline-md text-[20px] text-surface-white font-bold">Psycma</span>
+<span class="text-primary-fixed-dim text-sm">© 2024. Todos los derechos reservados.</span>
+</div>
+<div class="flex gap-6">
+<a class="text-primary-fixed-dim hover:text-surface-white transition-colors font-body-sm text-body-sm" href="#">Aviso Legal</a>
+<a class="text-primary-fixed-dim hover:text-surface-white transition-colors font-body-sm text-body-sm" href="#">Privacidad y RGPD</a>
+<a class="text-primary-fixed-dim hover:text-surface-white transition-colors font-body-sm text-body-sm" href="#">Contacto</a>
+</div>
+</div>
+</div>
+</footer>
+</body></html>

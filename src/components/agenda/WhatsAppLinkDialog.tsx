@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { MessageCircle, Loader2, Copy, Check, Send, AlertCircle } from 'lucide-react';
+
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -25,6 +25,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { useCenter } from '@/hooks/useCenter';
 import { useWasender } from '@/hooks/useWasender';
 import { Link } from 'react-router-dom';
+import { Icon } from '@/components/ui/icon';
 
 interface WhatsAppLinkDialogProps {
   open: boolean;
@@ -86,7 +87,7 @@ export function WhatsAppLinkDialog({
       {/* Hint when WasenderAPI is enabled but not connected */}
       {showWasenderHint && (
         <Alert variant="default" className="bg-muted/50">
-          <AlertCircle className="h-4 w-4" />
+          <Icon name="error" className="h-4 w-4" />
           <AlertDescription className="text-xs">
             Conecta WasenderAPI para envíos automáticos.{' '}
             <Link 
@@ -111,9 +112,9 @@ export function WhatsAppLinkDialog({
             onClick={handleCopyMessage}
           >
             {copied ? (
-              <Check className="h-3.5 w-3.5 text-primary" />
+              <Icon name="check" className="h-3.5 w-3.5 text-primary" />
             ) : (
-              <Copy className="h-3.5 w-3.5" />
+              <Icon name="content_copy" className="h-3.5 w-3.5" />
             )}
           </Button>
         </div>
@@ -129,9 +130,9 @@ export function WhatsAppLinkDialog({
         className="w-full h-11"
       >
         {isOpening ? (
-          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+          <Icon name="progress_activity" className="h-4 w-4 mr-2 animate-spin" />
         ) : (
-          <Send className="h-4 w-4 mr-2" />
+          <Icon name="send" className="h-4 w-4 mr-2" />
         )}
         {isOpening ? 'Abriendo...' : 'Enviar WhatsApp'}
       </Button>
@@ -149,7 +150,7 @@ export function WhatsAppLinkDialog({
         <DrawerContent className="px-4 pb-8 max-h-[90vh] overflow-y-auto">
           <DrawerHeader className="text-left">
             <DrawerTitle className="flex items-center gap-2">
-              <MessageCircle className="h-5 w-5 text-primary" />
+              <Icon name="chat" className="h-5 w-5 text-primary" />
               Enviar WhatsApp a {patientName}
             </DrawerTitle>
             <DrawerDescription>
@@ -167,7 +168,7 @@ export function WhatsAppLinkDialog({
       <DialogContent className="sm:max-w-[420px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <MessageCircle className="h-5 w-5 text-primary" />
+            <Icon name="chat" className="h-5 w-5 text-primary" />
             Enviar WhatsApp a {patientName}
           </DialogTitle>
           <DialogDescription>

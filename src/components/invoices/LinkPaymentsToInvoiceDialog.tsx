@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link2, CreditCard, Check } from 'lucide-react';
+
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
@@ -16,6 +16,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { usePayments } from '@/hooks/usePayments';
 import { useLinkPaymentToInvoice } from '@/hooks/useLinkPaymentToInvoice';
 import type { InvoiceWithPatient } from '@/hooks/useInvoices';
+import { Icon } from '@/components/ui/icon';
 
 interface LinkPaymentsToInvoiceDialogProps {
   open: boolean;
@@ -95,7 +96,7 @@ export function LinkPaymentsToInvoiceDialog({
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Link2 className="h-5 w-5" />
+            <Icon name="link" className="h-5 w-5" />
             Vincular cobros a factura
           </DialogTitle>
           <DialogDescription>
@@ -116,7 +117,7 @@ export function LinkPaymentsToInvoiceDialog({
 
           {unlinkedPayments.length === 0 ? (
             <div className="text-sm text-muted-foreground p-4 border rounded-lg text-center">
-              <CreditCard className="h-8 w-8 mx-auto mb-2 opacity-50" />
+              <Icon name="credit_card" className="h-8 w-8 mx-auto mb-2 opacity-50" />
               <p>No hay cobros sin vincular para este paciente</p>
             </div>
           ) : (
@@ -180,7 +181,7 @@ export function LinkPaymentsToInvoiceDialog({
               'Vinculando...'
             ) : (
               <>
-                <Check className="h-4 w-4 mr-2" />
+                <Icon name="check" className="h-4 w-4 mr-2" />
                 Vincular {selectedPaymentIds.length > 0 && `(${selectedPaymentIds.length})`}
               </>
             )}

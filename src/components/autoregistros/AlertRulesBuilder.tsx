@@ -12,7 +12,8 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Pencil, Trash2, X, Clock, Activity } from 'lucide-react';
+import { Icon } from '@/components/ui/icon';
+
 
 interface AlertCondition {
   field: string;
@@ -365,7 +366,7 @@ export default function AlertRulesBuilder({ templateId, fields }: Props) {
               <span className="flex-1 text-sm font-medium truncate">{rule.name}</span>
               {rule.rule_type === 'frequency' ? (
                 <Badge variant="outline" className="text-blue-700 border-blue-300 bg-blue-50">
-                  <Clock className="h-3 w-3 mr-1" />
+                  <Icon name="schedule" className="h-3 w-3 mr-1" />
                   {rule.frequency_threshold}+ en {rule.frequency_window_hours}h
                 </Badge>
               ) : rule.consecutive_count > 1 ? (
@@ -378,12 +379,12 @@ export default function AlertRulesBuilder({ templateId, fields }: Props) {
                 {rule.severity === 'critical' ? 'Crítico' : 'Aviso'}
               </Badge>
               <Button variant="ghost" size="icon" onClick={() => openEdit(rule)}>
-                <Pencil className="h-4 w-4" />
+                <Icon name="edit" className="h-4 w-4" />
               </Button>
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button variant="ghost" size="icon">
-                    <Trash2 className="h-4 w-4 text-destructive" />
+                    <Icon name="delete" className="h-4 w-4 text-destructive" />
                   </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
@@ -407,7 +408,7 @@ export default function AlertRulesBuilder({ templateId, fields }: Props) {
       )}
 
       <Button variant="outline" size="sm" onClick={openCreate}>
-        <Plus className="h-4 w-4 mr-1" /> Nueva regla
+        <Icon name="add" className="h-4 w-4 mr-1" /> Nueva regla
       </Button>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -432,10 +433,10 @@ export default function AlertRulesBuilder({ templateId, fields }: Props) {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="condition">
-                    <span className="flex items-center gap-2"><Activity className="h-4 w-4" /> Condición sobre valores</span>
+                    <span className="flex items-center gap-2"><Icon name="monitor_heart" className="h-4 w-4" /> Condición sobre valores</span>
                   </SelectItem>
                   <SelectItem value="frequency">
-                    <span className="flex items-center gap-2"><Clock className="h-4 w-4" /> Frecuencia de registros</span>
+                    <span className="flex items-center gap-2"><Icon name="schedule" className="h-4 w-4" /> Frecuencia de registros</span>
                   </SelectItem>
                 </SelectContent>
               </Select>
@@ -591,13 +592,13 @@ export default function AlertRulesBuilder({ templateId, fields }: Props) {
                         {renderValueInput(cond, idx)}
 
                         <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => removeCondition(idx)}>
-                          <X className="h-4 w-4" />
+                          <Icon name="close" className="h-4 w-4" />
                         </Button>
                       </div>
                     ))
                   )}
                   <Button variant="outline" size="sm" onClick={() => setConditions(prev => [...prev, { ...EMPTY_CONDITION }])}>
-                    <Plus className="h-4 w-4 mr-1" /> Añadir condición
+                    <Icon name="add" className="h-4 w-4 mr-1" /> Añadir condición
                   </Button>
                 </div>
               </>

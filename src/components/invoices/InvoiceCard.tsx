@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { FileText, User, Download, MoreVertical, ShieldCheck, Search, FileX, FilePlus2, RefreshCw, Mail, Link2, AlertTriangle, Trash2, LockKeyhole } from 'lucide-react';
+
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import type { InvoiceWithPatient } from '@/hooks/useInvoices';
 import { hasInvoiceAeatRegistration, isInvoiceFiscalLocked } from '@/lib/invoice-immutability';
+import { Icon } from '@/components/ui/icon';
 
 interface InvoiceCardProps {
   invoice: InvoiceWithPatient;
@@ -74,7 +75,7 @@ export function InvoiceCard({
             {/* Left: icon + info */}
             <div className="flex items-start gap-2 sm:gap-3 min-w-0 flex-1">
               <div className="rounded-lg bg-primary/10 p-2 shrink-0 hidden sm:flex">
-                <FileText className="h-5 w-5 text-primary" />
+                <Icon name="description" className="h-5 w-5 text-primary" />
               </div>
 
               <div className="flex-1 min-w-0 overflow-hidden">
@@ -91,32 +92,32 @@ export function InvoiceCard({
                   <Badge variant={status.variant} className="text-xs shrink-0">{status.label}</Badge>
                   {hasAeatRegistration && (
                     <Badge variant="default" className="gap-1 bg-green-600 hover:bg-green-700 text-xs shrink-0">
-                      <ShieldCheck className="h-3 w-3" />
+                      <Icon name="verified_user" className="h-3 w-3" />
                       <span className="hidden sm:inline">AEAT</span>
                     </Badge>
                   )}
                   {isFiscalLocked && !hasAeatRegistration && (
                     <Badge variant="outline" className="gap-1 text-xs shrink-0 border-green-600 text-green-700">
-                      <LockKeyhole className="h-3 w-3" />
+                      <Icon name="lock" className="h-3 w-3" />
                       <span className="hidden sm:inline">Cierre fiscal</span>
                     </Badge>
                   )}
                   {isPendingVerifactu && maxRetriesReached && (
                     <Badge variant="destructive" className="gap-1 text-xs shrink-0">
-                      <RefreshCw className="h-3 w-3" />
+                      <Icon name="refresh" className="h-3 w-3" />
                       Error
                     </Badge>
                   )}
                   {isOrphanVerifactu && (
                     <Badge variant="outline" className="gap-1 text-xs shrink-0 border-amber-500 text-amber-600">
-                      <AlertTriangle className="h-3 w-3" />
+                      <Icon name="warning" className="h-3 w-3" />
                       <span className="hidden sm:inline">Sin AEAT</span>
                     </Badge>
                   )}
                 </div>
 
                 <div className="flex items-center gap-1 text-xs sm:text-sm text-muted-foreground mt-1 min-w-0">
-                  <User className="h-3 w-3 shrink-0" />
+                  <Icon name="person" className="h-3 w-3 shrink-0" />
                   <span className="truncate">{invoice.patients.first_name} {invoice.patients.last_name}</span>
                 </div>
 
@@ -145,13 +146,13 @@ export function InvoiceCard({
                   onClick={onGeneratePDF}
                   title="Descargar PDF"
                 >
-                  <Download className="h-4 w-4" />
+                  <Icon name="download" className="h-4 w-4" />
                 </Button>
 
                 <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" size="icon" className="h-8 w-8 sm:h-9 sm:w-9">
-                      <MoreVertical className="h-4 w-4" />
+                      <Icon name="more_vert" className="h-4 w-4" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
@@ -164,7 +165,7 @@ export function InvoiceCard({
 
                     {(invoice.status === 'issued' || invoice.status === 'paid') && (
                       <DropdownMenuItem onClick={() => { setMenuOpen(false); onSendInvoice?.(); }}>
-                        <Mail className="h-4 w-4 mr-2" />
+                        <Icon name="mail" className="h-4 w-4 mr-2" />
                         Enviar factura
                       </DropdownMenuItem>
                     )}
@@ -173,21 +174,21 @@ export function InvoiceCard({
 
                     {invoice.status === 'draft' && !isFiscalLocked && !isPendingVerifactu && (
                       <DropdownMenuItem onClick={() => { setMenuOpen(false); onSealVerifactu?.(); }} className="text-green-600">
-                        <ShieldCheck className="h-4 w-4 mr-2" />
+                        <Icon name="verified_user" className="h-4 w-4 mr-2" />
                         Sellar con Verifactu
                       </DropdownMenuItem>
                     )}
 
                     {needsVerifactuSign && (
                       <DropdownMenuItem onClick={() => { setMenuOpen(false); onSealVerifactu?.(); }} className="text-orange-600">
-                        <ShieldCheck className="h-4 w-4 mr-2" />
+                        <Icon name="verified_user" className="h-4 w-4 mr-2" />
                         Firmar en Verifactu
                       </DropdownMenuItem>
                     )}
 
                     {isPendingVerifactu && (
                       <DropdownMenuItem onClick={() => { setMenuOpen(false); onRetryVerifactu?.(); }} className="text-amber-600">
-                        <RefreshCw className="h-4 w-4 mr-2" />
+                        <Icon name="refresh" className="h-4 w-4 mr-2" />
                         Reintentar Verifactu
                       </DropdownMenuItem>
                     )}
@@ -202,7 +203,7 @@ export function InvoiceCard({
                           onClick={() => { setMenuOpen(false); onDeleteDraft?.(); }}
                           className="text-destructive focus:text-destructive"
                         >
-                          <Trash2 className="h-4 w-4 mr-2" />
+                          <Icon name="delete" className="h-4 w-4 mr-2" />
                           Eliminar borrador
                         </DropdownMenuItem>
                       </>
@@ -211,7 +212,7 @@ export function InvoiceCard({
                     {invoice.status === 'issued' && (
                       <>
                         <DropdownMenuItem onClick={() => { setMenuOpen(false); onLinkPayments?.(); }}>
-                          <Link2 className="h-4 w-4 mr-2" />
+                          <Icon name="link" className="h-4 w-4 mr-2" />
                           Vincular cobros
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => { setMenuOpen(false); onStatusChange?.('paid'); }}>
@@ -225,7 +226,7 @@ export function InvoiceCard({
                       <>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem onClick={() => { setMenuOpen(false); onQueryVerifactu?.(); }}>
-                          <Search className="h-4 w-4 mr-2" />
+                          <Icon name="search" className="h-4 w-4 mr-2" />
                           Consultar RF en AEAT
                         </DropdownMenuItem>
                       </>
@@ -233,7 +234,7 @@ export function InvoiceCard({
 
                     {hasAeatRegistration && invoice.status !== 'cancelled' && !isInvalidated && (
                       <DropdownMenuItem onClick={() => { setMenuOpen(false); onCancelVerifactu?.(); }} className="text-destructive focus:text-destructive">
-                        <FileX className="h-4 w-4 mr-2" />
+                        <Icon name="delete" className="h-4 w-4 mr-2" />
                         Anular en AEAT
                       </DropdownMenuItem>
                     )}
@@ -243,7 +244,7 @@ export function InvoiceCard({
                       <>
                         {!hasAeatRegistration && <DropdownMenuSeparator />}
                         <DropdownMenuItem onClick={() => { setMenuOpen(false); onCreateRectificativa?.(); }}>
-                          <FilePlus2 className="h-4 w-4 mr-2" />
+                          <Icon name="note_add" className="h-4 w-4 mr-2" />
                           Crear Rectificativa
                         </DropdownMenuItem>
                       </>

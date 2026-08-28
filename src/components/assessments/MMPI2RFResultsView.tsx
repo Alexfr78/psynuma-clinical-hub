@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, Sparkles, AlertTriangle, CheckCircle, XCircle, BarChart3 } from 'lucide-react';
+
 import { useMMPI2RFInterpretation, MMPI2RFInterpretation } from '@/hooks/useMMPI2RFInterpretation';
 import { MMPI2RFInterpretationPanel } from './MMPI2RFInterpretationPanel';
 import { 
@@ -11,6 +11,7 @@ import {
   MMPI2RF_SCALE_ORDER, 
   MMPI2RF_CATEGORY_LABELS 
 } from '@/data/mmpi2rf-template';
+import { Icon } from '@/components/ui/icon';
 
 interface MMPI2RFResultsViewProps {
   assessmentId: string;
@@ -89,9 +90,9 @@ export function MMPI2RFResultsView({
         <Card>
           <CardContent className="pt-4 pb-4 text-center">
             <div className="flex items-center justify-center gap-2 mb-1">
-              {patternStatus.status === 'ok' && <CheckCircle className="h-5 w-5 text-green-600" />}
-              {patternStatus.status === 'caution' && <AlertTriangle className="h-5 w-5 text-yellow-600" />}
-              {patternStatus.status === 'warning' && <XCircle className="h-5 w-5 text-destructive" />}
+              {patternStatus.status === 'ok' && <Icon name="check_circle" className="h-5 w-5 text-green-600" />}
+              {patternStatus.status === 'caution' && <Icon name="warning" className="h-5 w-5 text-yellow-600" />}
+              {patternStatus.status === 'warning' && <Icon name="cancel" className="h-5 w-5 text-destructive" />}
             </div>
             <p className="text-sm text-muted-foreground">{patternStatus.message}</p>
           </CardContent>
@@ -116,7 +117,7 @@ export function MMPI2RFResultsView({
           <Card>
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
-                <BarChart3 className="h-5 w-5" />
+                <Icon name="bar_chart" className="h-5 w-5" />
                 Resumen del MMPI-2-RF
               </CardTitle>
               <CardDescription>
@@ -223,7 +224,7 @@ export function MMPI2RFResultsView({
           ) : (
             <Card>
               <CardContent className="py-12 text-center">
-                <Sparkles className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                <Icon name="auto_awesome" className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
                 <h3 className="text-lg font-medium mb-2">Interpretación IA del MMPI-2-RF</h3>
                 <p className="text-muted-foreground mb-6 max-w-md mx-auto">
                   Genera una interpretación clínica detallada basada en los patrones de respuesta 
@@ -237,12 +238,12 @@ export function MMPI2RFResultsView({
                 >
                   {isGenerating ? (
                     <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <Icon name="progress_activity" className="h-4 w-4 animate-spin" />
                       Analizando MMPI-2-RF...
                     </>
                   ) : (
                     <>
-                      <Sparkles className="h-4 w-4" />
+                      <Icon name="auto_awesome" className="h-4 w-4" />
                       Generar Interpretación IA
                     </>
                   )}

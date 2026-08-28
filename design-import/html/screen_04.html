@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+
+<html lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Psycma - Pacientes</title>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Plus+Jakarta+Sans:wght@600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .material-symbols-outlined.fill {
+            font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        /* Hide scrollbar for clean aesthetic */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #dadad8; /* surface-dim */
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #c8c4d6; /* outline-variant */
+        }
+    </style>
+<script id="tailwind-config">tailwind.config = {darkMode: "class", theme: {extend: {colors: {secondary: "#006b5f", "surface-variant": "#e3e2e0", "on-primary-container": "#cbe1ff", "surface-container-high": "#e9e8e6", "on-tertiary-container": "#ffd7bc", primary: "#004d84", "dark-surface": "#1E1D2B", "tertiary-container": "#994e00", "tertiary-fixed-dim": "#ffb782", "surface-bright": "#faf9f7", "primary-fixed-dim": "#9fcaff", "error-container": "#ffdad6", "on-primary-fixed": "#001d36", "tertiary-fixed": "#ffdcc5", "on-primary-fixed-variant": "#00497d", "on-tertiary-fixed": "#301400", "on-tertiary": "#ffffff", "outline-variant": "#c8c4d6", "surface-container": "#efeeec", "inverse-surface": "#2f3130", "primary-fixed": "#d1e4ff", "surface-container-lowest": "#ffffff", "surface-dim": "#dadad8", warning: "#F59E0B", "secondary-container": "#62fae3", "surface-container-highest": "#e3e2e0", background: "#faf9f7", "primary-container": "#1b65a5", "on-secondary-fixed": "#00201c", "secondary-fixed": "#62fae3", "inverse-on-surface": "#f1f1ef", "surface-tint": "#1361a0", "on-secondary": "#ffffff", "dark-bg": "#141320", success: "#10B981", "on-surface-variant": "#474554", "on-primary": "#ffffff", "on-secondary-container": "#007165", "on-secondary-fixed-variant": "#005047", error: "#ba1a1a", "surface-container-low": "#f4f3f1", "dark-text": "#ECEBF5", tertiary: "#763b00", "surface-white": "#FFFFFF", "secondary-fixed-dim": "#3cddc7", "on-error-container": "#93000a", "on-background": "#1a1c1b", "on-surface": "#1a1c1b", outline: "#787585", "text-main": "#1B1A24", "inverse-primary": "#9fcaff", "on-tertiary-fixed-variant": "#703800", "on-error": "#ffffff", surface: "#faf9f7"}, borderRadius: {DEFAULT: "0.25rem", lg: "0.5rem", xl: "0.75rem", full: "9999px"}, spacing: {"grid-gutter": "16px", "grid-margin": "24px", base: "4px", xs: "8px", md: "24px", lg: "32px", xl: "48px", sm: "16px"}, fontFamily: {"headline-lg-mobile": ["Plus Jakarta Sans"], "body-sm": ["Inter"], "headline-md": ["Plus Jakarta Sans"], "body-lg": ["Inter"], "display-lg": ["Plus Jakarta Sans"], "headline-lg": ["Plus Jakarta Sans"], "body-md": ["Inter"], "label-md": ["Inter"], "data-tabular": ["Inter"], headline: ["Plus Jakarta Sans"], display: ["Plus Jakarta Sans"], body: ["Inter"], label: ["Inter"]}, fontSize: {"headline-lg-mobile": ["28px", {lineHeight: "36px", fontWeight: "600"}], "body-sm": ["14px", {lineHeight: "20px", fontWeight: "400"}], "headline-md": ["24px", {lineHeight: "32px", fontWeight: "600"}], "body-lg": ["18px", {lineHeight: "28px", fontWeight: "400"}], "display-lg": ["48px", {lineHeight: "56px", letterSpacing: "-0.02em", fontWeight: "700"}], "headline-lg": ["32px", {lineHeight: "40px", letterSpacing: "-0.01em", fontWeight: "600"}], "body-md": ["16px", {lineHeight: "24px", fontWeight: "400"}], "label-md": ["14px", {lineHeight: "16px", letterSpacing: "0.01em", fontWeight: "600"}], "data-tabular": ["14px", {lineHeight: "20px", fontWeight: "500"}]}}}};</script>
+</head>
+<body class="bg-background text-text-main font-body-md text-body-md antialiased selection:bg-primary/20 selection:text-primary min-h-screen flex">
+<!-- SideNavBar (Shared Component) -->
+<nav class="bg-surface-white dark:bg-dark-surface shadow-[4px_0_24px_rgba(90,79,207,0.05)] h-screen w-64 fixed left-0 top-0 hidden lg:flex flex-col z-50">
+<div class="flex flex-col h-full py-md px-sm">
+<!-- Header -->
+<div class="flex items-center gap-3 px-3 mb-8">
+<div class="w-10 h-10 rounded-xl bg-primary-container flex items-center justify-center text-on-primary-container shadow-sm">
+<span class="material-symbols-outlined fill">psychiatry</span>
+</div>
+<div>
+<h1 class="font-headline-md text-headline-md font-bold text-primary dark:text-primary-fixed-dim tracking-tight">Psycma</h1>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Gestión Clínica</p>
+</div>
+</div>
+<!-- CTA -->
+<div class="px-3 mb-8">
+<button class="w-full bg-primary-container text-on-primary text-surface-white font-label-md text-label-md py-3 px-4 rounded-xl shadow-sm hover:shadow-md transition-all flex items-center justify-center gap-2 hover:-translate-y-0.5 duration-200">
+<span class="material-symbols-outlined">add</span>
+                    Nueva Cita
+                </button>
+</div>
+<!-- Tabs -->
+<div class="flex-1 flex flex-col gap-1 overflow-y-auto">
+<a class="flex items-center gap-3 px-4 py-3 rounded-xl text-on-surface-variant dark:text-surface-variant hover:text-primary dark:hover:text-primary-fixed-dim hover:bg-surface-container-low dark:hover:bg-white/5 transition-colors duration-200 cursor-pointer active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-label-md text-label-md">Panel</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-xl text-on-surface-variant dark:text-surface-variant hover:text-primary dark:hover:text-primary-fixed-dim hover:bg-surface-container-low dark:hover:bg-white/5 transition-colors duration-200 cursor-pointer active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined">calendar_today</span>
+<span class="font-label-md text-label-md">Agenda</span>
+</a>
+<!-- Active Tab -->
+<a class="flex items-center gap-3 px-4 py-3 rounded-xl text-primary dark:text-primary-fixed-dim font-bold border-r-4 border-primary dark:border-primary-fixed-dim bg-primary-container/10 cursor-pointer active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined fill">groups</span>
+<span class="font-label-md text-label-md">Pacientes</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-xl text-on-surface-variant dark:text-surface-variant hover:text-primary dark:hover:text-primary-fixed-dim hover:bg-surface-container-low dark:hover:bg-white/5 transition-colors duration-200 cursor-pointer active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined">payments</span>
+<span class="font-label-md text-label-md">Finanzas</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-xl text-on-surface-variant dark:text-surface-variant hover:text-primary dark:hover:text-primary-fixed-dim hover:bg-surface-container-low dark:hover:bg-white/5 transition-colors duration-200 cursor-pointer active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined">chat</span>
+<span class="font-label-md text-label-md">Mensajes</span>
+</a>
+</div>
+<!-- Footer Tabs -->
+<div class="flex flex-col gap-1 mt-auto pt-4 border-t border-surface-container-high">
+<a class="flex items-center gap-3 px-4 py-3 rounded-xl text-on-surface-variant dark:text-surface-variant hover:text-primary dark:hover:text-primary-fixed-dim hover:bg-surface-container-low dark:hover:bg-white/5 transition-colors duration-200 cursor-pointer active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-label-md text-label-md">Configuración</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-xl text-on-surface-variant dark:text-surface-variant hover:error hover:bg-error-container/20 transition-colors duration-200 cursor-pointer active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined">logout</span>
+<span class="font-label-md text-label-md">Cerrar Sesión</span>
+</a>
+</div>
+</div>
+</nav>
+<!-- Main Content Wrapper -->
+<div class="flex-1 flex flex-col min-w-0 lg:ml-64 relative">
+<!-- TopAppBar (Shared Component) -->
+<header class="bg-surface-white/80 dark:bg-dark-surface/80 backdrop-blur-md sticky top-0 z-40 shadow-sm flex justify-between items-center w-full h-16 px-md transition-all">
+<!-- Mobile Brand -->
+<div class="font-headline-md text-headline-md font-bold text-primary dark:text-primary-fixed-dim lg:hidden">
+                Psycma
+            </div>
+<!-- Search (Left on Desktop) -->
+<div class="hidden lg:flex items-center w-96 bg-surface-container-lowest border border-surface-variant rounded-xl px-4 py-2 focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary transition-all shadow-sm">
+<span class="material-symbols-outlined text-outline mr-2 text-[20px]">search</span>
+<input class="w-full bg-transparent border-none p-0 focus:ring-0 font-body-sm text-body-sm text-on-surface placeholder:text-outline-variant outline-none" placeholder="Buscar pacientes, citas..." type="text"/>
+</div>
+<!-- Trailing Actions -->
+<div class="flex items-center gap-2 lg:gap-4 ml-auto">
+<button class="text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-low dark:hover:bg-white/5 rounded-full p-2 transition-all relative">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-2 right-2.5 w-2 h-2 bg-error rounded-full border border-surface-white"></span>
+</button>
+<button class="text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-low dark:hover:bg-white/5 rounded-full p-2 transition-all hidden sm:block">
+<span class="material-symbols-outlined">help</span>
+</button>
+<div class="w-px h-6 bg-surface-variant mx-1 hidden sm:block"></div>
+<button class="flex items-center gap-2 hover:bg-surface-container-low dark:hover:bg-white/5 p-1 pr-3 rounded-full transition-all border border-transparent hover:border-surface-variant">
+<img alt="Foto de perfil del psicólogo" class="w-8 h-8 rounded-full object-cover shadow-sm" data-alt="A professional headshot of a female clinical psychologist in a modern, well-lit office environment. Soft natural lighting, warm neutral background. The aesthetic is high-definition, minimalist, and approachable." src="https://lh3.googleusercontent.com/aida-public/AB6AXuACKVb5xcm81J2jS2YMLn96Hs-RViQjkAiKCXzFp7j50ffVgBlJZPwIOX3_t-HvOMJI3c-LxAUEyAMY-yhoXNN7tJvLW8vZgGtJ8n-Dhq9Tb659LhaI7-AaB2F_ZH5qc_tiSbDCLQndCGmyx4a69U6J-XNcIlgJb2nbBrYykYAzgU8zcDAlaabUkhig4R6Eibnio1z_jB6wKcDIO-_Z2Em5wy-BX8U3KmVhbGiBCjPqr-jxsY7QvD4D"/>
+<span class="font-label-md text-label-md text-on-surface hidden md:block">Dra. Silva</span>
+<span class="material-symbols-outlined text-outline text-[18px] hidden md:block">expand_more</span>
+</button>
+</div>
+</header>
+<!-- Page Canvas -->
+<main class="flex-1 p-sm md:p-grid-margin lg:p-xl flex flex-col gap-6 max-w-[1400px] w-full mx-auto">
+<!-- Page Header -->
+<div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+<div>
+<h2 class="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg text-text-main tracking-tight">Pacientes</h2>
+<p class="font-body-md text-body-md text-on-surface-variant mt-1">Gestiona el historial y seguimiento de tus pacientes.</p>
+</div>
+<button class="bg-primary-container text-surface-white font-label-md text-label-md px-5 py-2.5 rounded-xl shadow-[0_4px_12px_rgba(90,79,207,0.2)] hover:shadow-[0_6px_16px_rgba(90,79,207,0.3)] hover:-translate-y-0.5 transition-all flex items-center gap-2 whitespace-nowrap">
+<span class="material-symbols-outlined text-[20px]">add</span>
+                    Nuevo paciente
+                </button>
+</div>
+<!-- Data Card (The Semantic Shell for the Table) -->
+<div class="bg-surface-white rounded-[16px] shadow-[0_4px_24px_rgba(90,79,207,0.05)] border border-surface-container-high overflow-hidden flex flex-col">
+<!-- Toolbar -->
+<div class="p-4 md:p-6 border-b border-surface-container-high flex flex-col lg:flex-row gap-4 justify-between items-start lg:items-center bg-surface-bright/50">
+<!-- Search (Mobile/Tablet specific, though TopAppBar has one, local context is good) -->
+<div class="w-full lg:w-72 flex items-center bg-surface-white border border-surface-variant rounded-xl px-3 py-2 focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary transition-all shadow-sm">
+<span class="material-symbols-outlined text-outline mr-2 text-[18px]">search</span>
+<input class="w-full bg-transparent border-none p-0 focus:ring-0 font-body-sm text-body-sm text-on-surface placeholder:text-outline-variant outline-none" placeholder="Buscar por nombre o teléfono..." type="text"/>
+</div>
+<!-- Filters -->
+<div class="flex flex-wrap items-center gap-2 w-full lg:w-auto">
+<span class="font-label-md text-label-md text-on-surface-variant mr-1 hidden sm:inline-block">Filtros:</span>
+<!-- Status Filter -->
+<div class="relative group">
+<button class="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-surface-variant bg-surface-white hover:bg-surface-container-low transition-colors font-label-md text-label-md text-on-surface shadow-sm">
+                                Estado: Todos
+                                <span class="material-symbols-outlined text-[16px]">expand_more</span>
+</button>
+</div>
+<!-- Professional Filter -->
+<div class="relative group hidden sm:block">
+<button class="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-surface-variant bg-surface-white hover:bg-surface-container-low transition-colors font-label-md text-label-md text-on-surface shadow-sm">
+                                Profesional
+                                <span class="material-symbols-outlined text-[16px]">expand_more</span>
+</button>
+</div>
+<!-- Tags Filter -->
+<button class="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-surface-variant bg-surface-white hover:bg-surface-container-low transition-colors font-label-md text-label-md text-on-surface shadow-sm hidden md:flex">
+<span class="material-symbols-outlined text-[16px]">label</span>
+                            Etiquetas
+                        </button>
+<!-- Reset -->
+<button class="p-1.5 rounded-xl text-outline hover:text-primary hover:bg-primary-container/10 transition-colors ml-auto lg:ml-0" title="Limpiar filtros">
+<span class="material-symbols-outlined text-[20px]">filter_alt_off</span>
+</button>
+</div>
+</div>
+<!-- Table Container -->
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse min-w-[900px]">
+<thead>
+<tr class="bg-surface-bright border-b border-surface-container-high font-label-md text-label-md text-on-surface-variant">
+<th class="py-4 px-6 font-semibold w-1/4">Paciente</th>
+<th class="py-4 px-6 font-semibold">Teléfono</th>
+<th class="py-4 px-6 font-semibold">Última sesión</th>
+<th class="py-4 px-6 font-semibold">Próxima cita</th>
+<th class="py-4 px-6 font-semibold">Estado</th>
+<th class="py-4 px-6 font-semibold text-right w-16"></th>
+</tr>
+</thead>
+<tbody class="divide-y divide-surface-container font-body-sm text-body-sm text-on-surface">
+<!-- Row 1 -->
+<tr class="h-[64px] hover:bg-surface-container-lowest/50 hover:shadow-[inset_2px_0_0_#5a4fcf] transition-all cursor-pointer group">
+<td class="py-2 px-6">
+<div class="flex items-center gap-3">
+<img class="w-10 h-10 rounded-full object-cover border border-surface-variant" data-alt="A bright, minimalist digital portrait of a young Hispanic woman with a warm, friendly expression. The background is a soft gradient of light beige. High resolution, clean UI aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuC18qF0ZMySVgf-iv0xUL1uJ8RDqfqOzoovuk96AJ4rmP33yisTYz6im1yZzyfI-Uy22WK847Cn-7EpWPucWKbDp28PW09tMrXrX6QwlP3Su9REgqfk0b5lQ2nbq4u_Fib_jzaXZzjJmDJ23ALqzOjSRbaRkmwQdLferhrkKSHgsiWvwmH7MViHpjxb3IrhIlKR_eD6B57A0xEF_IxG0_eF9bfC7AZAn5xI8qn3L18aodVa5GXAyl_n"/>
+<div>
+<p class="font-label-md text-label-md text-text-main group-hover:text-primary transition-colors">María Fernanda López</p>
+<p class="font-body-sm text-body-sm text-outline text-[12px] mt-0.5">Ansiedad generalizada</p>
+</div>
+</div>
+</td>
+<td class="py-2 px-6 font-data-tabular text-data-tabular text-on-surface-variant">+34 600 123 456</td>
+<td class="py-2 px-6 font-data-tabular text-data-tabular">12 Oct 2023</td>
+<td class="py-2 px-6">
+<div class="flex items-center gap-1.5 font-data-tabular text-data-tabular font-medium text-primary">
+<span class="material-symbols-outlined text-[16px]">event</span>
+                                        26 Oct, 10:00
+                                    </div>
+</td>
+<td class="py-2 px-6">
+<span class="inline-flex items-center px-2.5 py-1 rounded-full font-label-md text-label-md text-[12px] bg-success/10 text-success border border-success/20">
+                                        Activo
+                                    </span>
+</td>
+<td class="py-2 px-6 text-right">
+<button class="p-1.5 rounded-lg text-outline hover:text-primary hover:bg-surface-container-low transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100">
+<span class="material-symbols-outlined">more_horiz</span>
+</button>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="h-[64px] hover:bg-surface-container-lowest/50 hover:shadow-[inset_2px_0_0_#5a4fcf] transition-all cursor-pointer group">
+<td class="py-2 px-6">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center font-headline-md text-headline-md text-[16px] border border-surface-variant">CR</div>
+<div>
+<p class="font-label-md text-label-md text-text-main group-hover:text-primary transition-colors">Carlos Rodríguez</p>
+<p class="font-body-sm text-body-sm text-outline text-[12px] mt-0.5">Terapia de pareja</p>
+</div>
+</div>
+</td>
+<td class="py-2 px-6 font-data-tabular text-data-tabular text-on-surface-variant">+34 611 234 567</td>
+<td class="py-2 px-6 font-data-tabular text-data-tabular">05 Oct 2023</td>
+<td class="py-2 px-6">
+<div class="flex items-center gap-1.5 font-data-tabular text-data-tabular font-medium text-primary">
+<span class="material-symbols-outlined text-[16px]">event</span>
+                                        19 Oct, 16:30
+                                    </div>
+</td>
+<td class="py-2 px-6">
+<span class="inline-flex items-center px-2.5 py-1 rounded-full font-label-md text-label-md text-[12px] bg-success/10 text-success border border-success/20">
+                                        Activo
+                                    </span>
+</td>
+<td class="py-2 px-6 text-right">
+<button class="p-1.5 rounded-lg text-outline hover:text-primary hover:bg-surface-container-low transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100">
+<span class="material-symbols-outlined">more_horiz</span>
+</button>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="h-[64px] hover:bg-surface-container-lowest/50 hover:shadow-[inset_2px_0_0_#F59E0B] transition-all cursor-pointer group bg-surface-container-lowest/30">
+<td class="py-2 px-6">
+<div class="flex items-center gap-3">
+<img class="w-10 h-10 rounded-full object-cover border border-surface-variant opacity-80" data-alt="A minimalist digital portrait of a middle-aged woman with glasses, looking thoughtful. Soft, neutral color palette with warm lighting. Designed for a modern web application avatar." src="https://lh3.googleusercontent.com/aida-public/AB6AXuApC4v5QWiUCrhulDmcHQdBQhoSTYYfK6Lp_NUIpIRX_sjQeF3jybk5yvtdszQVOlh4zZceDmCjYyAlYXNQgz3B-aO7U56gRFg8wyUxzGOK5S1vrwJOeWwZBZq47fNW-KO98XsAM2ZoxNgqU7asGZThaZUwTPDnYfSmkFvVc686E3kPy-o1xrpMXVoi_pHtrJMq4jDVNZV9OmElXferB7GyErTG5sEaZphOAfRJt05Vf90__710f1bv"/>
+<div>
+<p class="font-label-md text-label-md text-text-main group-hover:text-warning transition-colors">Ana Sofía Torres</p>
+<p class="font-body-sm text-body-sm text-outline text-[12px] mt-0.5">Gestión de estrés</p>
+</div>
+</div>
+</td>
+<td class="py-2 px-6 font-data-tabular text-data-tabular text-on-surface-variant">+34 622 345 678</td>
+<td class="py-2 px-6 font-data-tabular text-data-tabular">28 Sep 2023</td>
+<td class="py-2 px-6 text-outline font-data-tabular text-data-tabular">
+                                    Sin programar
+                                </td>
+<td class="py-2 px-6">
+<span class="inline-flex items-center px-2.5 py-1 rounded-full font-label-md text-label-md text-[12px] bg-warning/10 text-warning border border-warning/20">
+                                        En pausa
+                                    </span>
+</td>
+<td class="py-2 px-6 text-right">
+<button class="p-1.5 rounded-lg text-outline hover:text-primary hover:bg-surface-container-low transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100">
+<span class="material-symbols-outlined">more_horiz</span>
+</button>
+</td>
+</tr>
+<!-- Row 4 -->
+<tr class="h-[64px] hover:bg-surface-container-lowest/50 hover:shadow-[inset_2px_0_0_#787585] transition-all cursor-pointer group bg-surface-container-low/20 opacity-80 hover:opacity-100">
+<td class="py-2 px-6">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-surface-variant text-on-surface-variant flex items-center justify-center font-headline-md text-headline-md text-[16px] border border-outline-variant">LM</div>
+<div>
+<p class="font-label-md text-label-md text-text-main group-hover:text-on-surface transition-colors">Laura Mendoza</p>
+<p class="font-body-sm text-body-sm text-outline text-[12px] mt-0.5">Depresión leve</p>
+</div>
+</div>
+</td>
+<td class="py-2 px-6 font-data-tabular text-data-tabular text-on-surface-variant">+34 633 456 789</td>
+<td class="py-2 px-6 font-data-tabular text-data-tabular">15 Sep 2023</td>
+<td class="py-2 px-6 text-outline font-data-tabular text-data-tabular">
+                                    -
+                                </td>
+<td class="py-2 px-6">
+<span class="inline-flex items-center px-2.5 py-1 rounded-full font-label-md text-label-md text-[12px] bg-surface-variant/50 text-on-surface-variant border border-outline-variant/30">
+                                        Alta
+                                    </span>
+</td>
+<td class="py-2 px-6 text-right">
+<button class="p-1.5 rounded-lg text-outline hover:text-primary hover:bg-surface-container-low transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100">
+<span class="material-symbols-outlined">more_horiz</span>
+</button>
+</td>
+</tr>
+<!-- Row 5 -->
+<tr class="h-[64px] hover:bg-surface-container-lowest/50 hover:shadow-[inset_2px_0_0_#5a4fcf] transition-all cursor-pointer group">
+<td class="py-2 px-6">
+<div class="flex items-center gap-3">
+<img class="w-10 h-10 rounded-full object-cover border border-surface-variant" data-alt="A clean, modern avatar illustration of a Hispanic male in his 30s. Soft lighting, minimalist background in pale gray. Professional, calm aesthetic suitable for a healthcare application." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCWND0k3GmkRvHNWnLkXTAsNUn6B5OnyY-mNb3lRknMB1xiUMuKflH4CXjOlcOWW_dNufGNzlODhzvjFsfqHwPBB1RJYhO4hgyJ3qxCAinBCrfuj9Jg_H9iS4ILYPW3lLmaiVJXmma0uzeDbY9pXTXw4aDB3F5G0CLtOibhfPSeNXocF8mUkRmKm17XmnRxXUvH9vbn4GUx5eTJ0v7eo09kQZ0EvyeZhrC8sOYSwc3rduF4drAEqMMx"/>
+<div>
+<p class="font-label-md text-label-md text-text-main group-hover:text-primary transition-colors">Roberto Silva</p>
+<p class="font-body-sm text-body-sm text-outline text-[12px] mt-0.5">Autoestima</p>
+</div>
+</div>
+</td>
+<td class="py-2 px-6 font-data-tabular text-data-tabular text-on-surface-variant">+34 644 567 890</td>
+<td class="py-2 px-6 font-data-tabular text-data-tabular">10 Oct 2023</td>
+<td class="py-2 px-6">
+<div class="flex items-center gap-1.5 font-data-tabular text-data-tabular font-medium text-primary">
+<span class="material-symbols-outlined text-[16px]">event</span>
+                                        24 Oct, 12:00
+                                    </div>
+</td>
+<td class="py-2 px-6">
+<span class="inline-flex items-center px-2.5 py-1 rounded-full font-label-md text-label-md text-[12px] bg-success/10 text-success border border-success/20">
+                                        Activo
+                                    </span>
+</td>
+<td class="py-2 px-6 text-right">
+<button class="p-1.5 rounded-lg text-outline hover:text-primary hover:bg-surface-container-low transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100">
+<span class="material-symbols-outlined">more_horiz</span>
+</button>
+</td>
+</tr>
+<!-- Row 6 -->
+<tr class="h-[64px] hover:bg-surface-container-lowest/50 hover:shadow-[inset_2px_0_0_#5a4fcf] transition-all cursor-pointer group">
+<td class="py-2 px-6">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-headline-md text-headline-md text-[16px] border border-primary/20">MV</div>
+<div>
+<p class="font-label-md text-label-md text-text-main group-hover:text-primary transition-colors">Mateo Vargas</p>
+<p class="font-body-sm text-body-sm text-outline text-[12px] mt-0.5">Terapia infantil</p>
+</div>
+</div>
+</td>
+<td class="py-2 px-6 font-data-tabular text-data-tabular text-on-surface-variant">+34 655 678 901</td>
+<td class="py-2 px-6 font-data-tabular text-data-tabular">02 Oct 2023</td>
+<td class="py-2 px-6">
+<div class="flex items-center gap-1.5 font-data-tabular text-data-tabular font-medium text-primary">
+<span class="material-symbols-outlined text-[16px]">event</span>
+                                        16 Oct, 09:15
+                                    </div>
+</td>
+<td class="py-2 px-6">
+<span class="inline-flex items-center px-2.5 py-1 rounded-full font-label-md text-label-md text-[12px] bg-success/10 text-success border border-success/20">
+                                        Activo
+                                    </span>
+</td>
+<td class="py-2 px-6 text-right">
+<button class="p-1.5 rounded-lg text-outline hover:text-primary hover:bg-surface-container-low transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100">
+<span class="material-symbols-outlined">more_horiz</span>
+</button>
+</td>
+</tr>
+<!-- Row 7 -->
+<tr class="h-[64px] hover:bg-surface-container-lowest/50 hover:shadow-[inset_2px_0_0_#787585] transition-all cursor-pointer group bg-surface-container-low/20 opacity-80 hover:opacity-100">
+<td class="py-2 px-6">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-surface-variant text-on-surface-variant flex items-center justify-center font-headline-md text-headline-md text-[16px] border border-outline-variant">LJ</div>
+<div>
+<p class="font-label-md text-label-md text-text-main group-hover:text-on-surface transition-colors">Lucía Jiménez</p>
+<p class="font-body-sm text-body-sm text-outline text-[12px] mt-0.5">Duelo</p>
+</div>
+</div>
+</td>
+<td class="py-2 px-6 font-data-tabular text-data-tabular text-on-surface-variant">+34 666 789 012</td>
+<td class="py-2 px-6 font-data-tabular text-data-tabular">20 Ago 2023</td>
+<td class="py-2 px-6 text-outline font-data-tabular text-data-tabular">
+                                    -
+                                </td>
+<td class="py-2 px-6">
+<span class="inline-flex items-center px-2.5 py-1 rounded-full font-label-md text-label-md text-[12px] bg-surface-variant/50 text-on-surface-variant border border-outline-variant/30">
+                                        Alta
+                                    </span>
+</td>
+<td class="py-2 px-6 text-right">
+<button class="p-1.5 rounded-lg text-outline hover:text-primary hover:bg-surface-container-low transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100">
+<span class="material-symbols-outlined">more_horiz</span>
+</button>
+</td>
+</tr>
+<!-- Row 8 -->
+<tr class="h-[64px] hover:bg-surface-container-lowest/50 hover:shadow-[inset_2px_0_0_#5a4fcf] transition-all cursor-pointer group">
+<td class="py-2 px-6">
+<div class="flex items-center gap-3">
+<img class="w-10 h-10 rounded-full object-cover border border-surface-variant" data-alt="A professional headshot of a young man, minimalist aesthetic. Bright white lighting, soft shadows, warm undertones. Modern clinical software UI design placeholder." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCRgp4IyOda0jDy83gEQf0JuXc0MdWLi2xPSZwaTi1QTaWzMsQTzxFGiXbRkEp4FotbPgmYyMRzEQPRnAltUQ64VHmz_C9bM_NAJb3CyqteItQU1mGIGlALI7tuEOjVjR4cMHtbvtvn4kwkaTzK2JIdfFMEwif8VpWtChAEmhcWcnnuNwWsiKYlFOSke-N7CtRHt5MDSpTpG4sTWLbSeqyDF4npZPx5Otk_ccEpTr0_2aY0SjVHwWs5"/>
+<div>
+<p class="font-label-md text-label-md text-text-main group-hover:text-primary transition-colors">Diego Navarro</p>
+<p class="font-body-sm text-body-sm text-outline text-[12px] mt-0.5">Fobias específicas</p>
+</div>
+</div>
+</td>
+<td class="py-2 px-6 font-data-tabular text-data-tabular text-on-surface-variant">+34 677 890 123</td>
+<td class="py-2 px-6 font-data-tabular text-data-tabular">14 Oct 2023</td>
+<td class="py-2 px-6">
+<div class="flex items-center gap-1.5 font-data-tabular text-data-tabular font-medium text-primary">
+<span class="material-symbols-outlined text-[16px]">event</span>
+                                        28 Oct, 18:00
+                                    </div>
+</td>
+<td class="py-2 px-6">
+<span class="inline-flex items-center px-2.5 py-1 rounded-full font-label-md text-label-md text-[12px] bg-success/10 text-success border border-success/20">
+                                        Activo
+                                    </span>
+</td>
+<td class="py-2 px-6 text-right">
+<button class="p-1.5 rounded-lg text-outline hover:text-primary hover:bg-surface-container-low transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100">
+<span class="material-symbols-outlined">more_horiz</span>
+</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Pagination Footer -->
+<div class="p-4 md:p-6 border-t border-surface-container-high bg-surface-bright flex flex-col sm:flex-row justify-between items-center gap-4">
+<p class="font-body-sm text-body-sm text-on-surface-variant">
+                        Mostrando <span class="font-semibold text-text-main">1</span> a <span class="font-semibold text-text-main">8</span> de <span class="font-semibold text-text-main">32</span> pacientes
+                    </p>
+<div class="flex items-center gap-1">
+<button class="p-2 rounded-xl text-outline border border-surface-variant hover:bg-surface-container-low hover:text-text-main transition-colors disabled:opacity-50 disabled:cursor-not-allowed" disabled="">
+<span class="material-symbols-outlined text-[20px]">chevron_left</span>
+</button>
+<div class="flex items-center px-2">
+<button class="w-8 h-8 rounded-lg bg-primary/10 text-primary font-label-md text-label-md flex items-center justify-center">1</button>
+<button class="w-8 h-8 rounded-lg text-on-surface-variant hover:bg-surface-container-low font-label-md text-label-md flex items-center justify-center transition-colors">2</button>
+<button class="w-8 h-8 rounded-lg text-on-surface-variant hover:bg-surface-container-low font-label-md text-label-md flex items-center justify-center transition-colors">3</button>
+<span class="w-8 text-center text-outline">...</span>
+</div>
+<button class="p-2 rounded-xl text-outline border border-surface-variant hover:bg-surface-container-low hover:text-text-main transition-colors">
+<span class="material-symbols-outlined text-[20px]">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+</main>
+</div>
+</body></html>

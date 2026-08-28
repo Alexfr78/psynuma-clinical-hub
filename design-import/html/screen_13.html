@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+
+<html class="light" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Psycma - Ficha del Paciente</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Plus+Jakarta+Sans:wght@600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">tailwind.config = {darkMode: "class", theme: {extend: {colors: {"on-secondary": "#ffffff", "on-tertiary": "#ffffff", "surface-bright": "#faf9f7", tertiary: "#763b00", "tertiary-fixed-dim": "#ffb782", "secondary-container": "#62fae3", secondary: "#006b5f", primary: "#004d84", "inverse-primary": "#9fcaff", "on-background": "#1a1c1b", "surface-container-low": "#f4f3f1", "surface-container-highest": "#e3e2e0", "on-tertiary-container": "#ffd7bc", "primary-fixed-dim": "#9fcaff", "surface-white": "#FFFFFF", "on-error": "#ffffff", "secondary-fixed": "#62fae3", "on-primary-container": "#cbe1ff", "on-primary-fixed": "#001d36", "on-secondary-fixed-variant": "#005047", "tertiary-container": "#994e00", "surface-dim": "#dadad8", "on-secondary-container": "#007165", "text-main": "#1B1A24", "primary-container": "#1b65a5", warning: "#F59E0B", "surface-container-high": "#e9e8e6", "on-surface-variant": "#474554", error: "#ba1a1a", "error-container": "#ffdad6", "surface-variant": "#e3e2e0", "on-tertiary-fixed": "#301400", "surface-container-lowest": "#ffffff", success: "#10B981", "dark-surface": "#1E1D2B", "on-secondary-fixed": "#00201c", "on-primary-fixed-variant": "#00497d", background: "#faf9f7", "primary-fixed": "#d1e4ff", outline: "#787585", "on-tertiary-fixed-variant": "#703800", "tertiary-fixed": "#ffdcc5", "dark-text": "#ECEBF5", surface: "#faf9f7", "on-error-container": "#93000a", "surface-container": "#efeeec", "secondary-fixed-dim": "#3cddc7", "on-primary": "#ffffff", "inverse-on-surface": "#f1f1ef", "surface-tint": "#1361a0", "on-surface": "#1a1c1b", "inverse-surface": "#2f3130", "dark-bg": "#141320", "outline-variant": "#c8c4d6"}, borderRadius: {DEFAULT: "0.25rem", lg: "0.5rem", xl: "0.75rem", full: "9999px"}, spacing: {"grid-margin": "24px", "grid-gutter": "16px", xs: "8px", sm: "16px", xl: "48px", md: "24px", base: "4px", lg: "32px"}, fontFamily: {"label-md": ["Inter"], "headline-md": ["Plus Jakarta Sans"], "headline-lg": ["Plus Jakarta Sans"], "body-md": ["Inter"], "data-tabular": ["Inter"], "body-sm": ["Inter"], "body-lg": ["Inter"], "display-lg": ["Plus Jakarta Sans"], "headline-lg-mobile": ["Plus Jakarta Sans"], headline: ["Plus Jakarta Sans"], display: ["Plus Jakarta Sans"], body: ["Inter"], label: ["Inter"]}, fontSize: {"label-md": ["14px", {lineHeight: "16px", letterSpacing: "0.01em", fontWeight: "600"}], "headline-md": ["24px", {lineHeight: "32px", fontWeight: "600"}], "headline-lg": ["32px", {lineHeight: "40px", letterSpacing: "-0.01em", fontWeight: "600"}], "body-md": ["16px", {lineHeight: "24px", fontWeight: "400"}], "data-tabular": ["14px", {lineHeight: "20px", fontWeight: "500"}], "body-sm": ["14px", {lineHeight: "20px", fontWeight: "400"}], "body-lg": ["18px", {lineHeight: "28px", fontWeight: "400"}], "display-lg": ["48px", {lineHeight: "56px", letterSpacing: "-0.02em", fontWeight: "700"}], "headline-lg-mobile": ["28px", {lineHeight: "36px", fontWeight: "600"}]}}}};</script>
+<style>
+        body { background-color: theme('colors.background'); color: theme('colors.text-main'); }
+        .shadow-ambient { box-shadow: 0 4px 12px rgba(90, 79, 207, 0.08); }
+        .glass-panel { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid theme('colors.surface-container-highest'); }
+        .editor-content p { margin-bottom: 1rem; }
+        .timeline-line::before { content: ''; position: absolute; left: 11px; top: 24px; bottom: -24px; width: 2px; background-color: theme('colors.surface-container-highest'); }
+        .timeline-item:last-child .timeline-line::before { display: none; }
+    </style>
+</head>
+<body class="font-body-md text-body-md flex h-screen overflow-hidden bg-surface">
+<!-- SideNavBar (from JSON) -->
+<nav class="bg-surface dark:bg-dark-bg h-screen w-64 fixed left-0 top-0 hidden md:flex flex-col flex flex-col h-full py-md px-sm border-r border-surface-container-highest dark:border-outline-variant/20 z-50">
+<div class="mb-xl flex items-center gap-sm px-sm">
+<div class="w-10 h-10 rounded-lg bg-primary flex items-center justify-center text-surface-white font-headline-md text-headline-md font-bold">P</div>
+<div>
+<h1 class="font-headline-md text-headline-md font-bold text-primary dark:text-inverse-primary">Psycma</h1>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Gestión Clínica</p>
+</div>
+</div>
+<button class="mb-md w-full py-sm px-md bg-primary text-surface-white font-label-md text-label-md rounded-lg shadow-ambient hover:bg-surface-tint transition-colors duration-200 active:scale-95 transition-transform duration-150 flex items-center justify-center gap-xs">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">add</span>
+            Nueva Cita
+        </button>
+<ul class="flex flex-col gap-xs flex-1">
+<li>
+<a class="flex items-center gap-sm px-sm py-xs rounded-lg text-on-surface-variant dark:text-outline-variant font-label-md text-label-md hover:bg-surface-container-high dark:hover:bg-inverse-surface transition-colors duration-200 active:scale-95 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+                    Panel
+                </a>
+</li>
+<li>
+<a class="flex items-center gap-sm px-sm py-xs rounded-lg text-on-surface-variant dark:text-outline-variant font-label-md text-label-md hover:bg-surface-container-high dark:hover:bg-inverse-surface transition-colors duration-200 active:scale-95 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined">calendar_today</span>
+                    Agenda
+                </a>
+</li>
+<li>
+<a class="flex items-center gap-sm px-sm py-xs rounded-lg text-primary dark:text-primary-fixed font-bold bg-primary-container/10 dark:bg-primary-fixed/10 font-label-md text-label-md hover:bg-surface-container-high dark:hover:bg-inverse-surface transition-colors duration-200 active:scale-95 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">groups</span>
+                    Pacientes
+                </a>
+</li>
+<li>
+<a class="flex items-center gap-sm px-sm py-xs rounded-lg text-on-surface-variant dark:text-outline-variant font-label-md text-label-md hover:bg-surface-container-high dark:hover:bg-inverse-surface transition-colors duration-200 active:scale-95 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined">payments</span>
+                    Finanzas
+                </a>
+</li>
+<li>
+<a class="flex items-center gap-sm px-sm py-xs rounded-lg text-on-surface-variant dark:text-outline-variant font-label-md text-label-md hover:bg-surface-container-high dark:hover:bg-inverse-surface transition-colors duration-200 active:scale-95 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined">chat</span>
+                    Mensajes
+                </a>
+</li>
+</ul>
+<ul class="flex flex-col gap-xs mt-auto pt-md border-t border-surface-container-highest">
+<li>
+<a class="flex items-center gap-sm px-sm py-xs rounded-lg text-on-surface-variant dark:text-outline-variant font-label-md text-label-md hover:bg-surface-container-high dark:hover:bg-inverse-surface transition-colors duration-200 active:scale-95 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined">settings</span>
+                    Configuración
+                </a>
+</li>
+<li>
+<a class="flex items-center gap-sm px-sm py-xs rounded-lg text-on-surface-variant dark:text-outline-variant font-label-md text-label-md hover:bg-surface-container-high dark:hover:bg-inverse-surface transition-colors duration-200 active:scale-95 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined">help</span>
+                    Ayuda
+                </a>
+</li>
+</ul>
+</nav>
+<!-- Main Content Area -->
+<main class="flex-1 ml-0 md:ml-64 flex flex-col h-screen overflow-hidden relative">
+<!-- TopAppBar (from JSON) -->
+<header class="bg-surface/80 dark:bg-dark-bg/80 backdrop-blur-md fixed top-0 right-0 w-full md:w-[calc(100%-16rem)] z-40 flex justify-between items-center h-16 px-md w-full shadow-sm">
+<div class="flex items-center gap-md">
+<!-- Mobile Menu Button -->
+<button class="md:hidden text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined">menu</span>
+</button>
+<div class="hidden md:flex items-center bg-surface-container-low rounded-lg px-sm py-xs focus-within:ring-2 focus-within:ring-primary/20 w-64">
+<span class="material-symbols-outlined text-on-surface-variant mr-2">search</span>
+<input class="bg-transparent border-none outline-none text-body-sm text-text-main w-full placeholder-on-surface-variant" placeholder="Buscar paciente..." type="text"/>
+</div>
+</div>
+<nav class="hidden md:flex gap-md">
+<a class="text-on-surface-variant dark:text-outline-variant font-label-md text-label-md hover:text-primary dark:hover:text-primary-fixed transition-colors" href="#">Hoy</a>
+<a class="text-primary border-b-2 border-primary pb-1 font-label-md text-label-md hover:text-primary dark:hover:text-primary-fixed transition-colors" href="#">Pacientes</a>
+<a class="text-on-surface-variant dark:text-outline-variant font-label-md text-label-md hover:text-primary dark:hover:text-primary-fixed transition-colors" href="#">Reportes</a>
+</nav>
+<div class="flex items-center gap-sm">
+<button class="hidden md:flex items-center gap-xs bg-primary text-surface-white font-label-md text-label-md py-xs px-sm rounded-lg hover:bg-surface-tint transition-colors">
+                    Nueva Consulta
+                </button>
+<button class="text-on-surface-variant hover:text-primary transition-colors relative">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-0 right-0 w-2 h-2 bg-error rounded-full"></span>
+</button>
+<button class="text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<img alt="Perfil del Psicólogo" class="w-8 h-8 rounded-full object-cover border border-surface-container-highest ml-xs cursor-pointer" data-alt="A professional headshot of a female psychologist in her 30s. She has warm, approachable facial features and is smiling subtly. She is wearing a smart-casual clinical outfit, perhaps a light blazer over a plain blouse. The background is a soft, blurred modern office environment with neutral tones and a hint of natural light coming from a window. The overall aesthetic is highly professional, trustworthy, and calm, suitable for a modern SaaS healthcare application profile picture." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBKv60QcPKE3n0VwrzYTQNxuA_P2A_rL9R2bzWAYZ0XxTWHA-OHBwbexPLQUxmhwGFKHEUyAk6JOnKPlioaTL1vk2HJ7FxbLVq4hjjn-Hp00j-v5QJzXU_-XH4UyPqUrJgCvWsv3fAMImCKPfznl8mA2M_H84WIn24W6Zjx4og8wx-jyiXFcTXiMAHwOItDg8IAfXs1SsjAu1K7IuOZLPIqBFHVF0Z79ELRIye4soUqT2-yxLToZ2Sx"/>
+</div>
+</header>
+<!-- Scrollable Content -->
+<div class="flex-1 overflow-y-auto pt-16 pb-20 md:pb-0 px-4 md:px-grid-margin mt-md">
+<div class="max-w-[1200px] mx-auto w-full flex flex-col gap-md">
+<!-- Patient Header (Bento Grid Style) -->
+<div class="bg-surface-white rounded-xl border border-surface-container-highest shadow-ambient p-md flex flex-col md:flex-row items-start md:items-center gap-md relative overflow-hidden">
+<!-- Subtle background decorative element -->
+<div class="absolute top-0 right-0 w-64 h-64 bg-primary-fixed/20 rounded-full blur-3xl -z-10 translate-x-1/2 -translate-y-1/2 pointer-events-none"></div>
+<img alt="Avatar de paciente" class="w-24 h-24 md:w-32 md:h-32 rounded-full object-cover border-4 border-surface shadow-sm" data-alt="A high-quality portrait photo of a young adult male patient, around 28 years old, looking relaxed but slightly pensive. He has casual, modern attire, like a plain crew neck sweater. The lighting is soft, natural, and flattering, creating a high-definition calm mood. The background is a very light, neutral gradient, ensuring the subject stands out clearly. The image fits perfectly within a modern, minimalist healthcare dashboard as a patient profile avatar." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCFVYd7w21Ul0QktAKcPiHujdozVXiEShdz1-5n2cWZqAw3hUQjBCe3pVDroufzGHPZCdSritFmm8ewqfMH_YmyVETxqf1jRxBlBDaQ2L2pHf6X4g2GIDCulishKVIwgPBRW2Y_JYH_PEey_pH2i3ReUvgZtIT686XYFJVN5N7ibT4UY7bj3WJqezjVbYYz-3Dsd0q7X0a8Rop-Nqp48ASPbMCitJ2C7GppwGo5XXTEi9unQxA9RF3Z"/>
+<div class="flex-1 flex flex-col gap-xs">
+<div class="flex flex-wrap items-center gap-sm">
+<h2 class="font-headline-lg text-headline-lg text-text-main">Mateo Vargas</h2>
+<span class="px-3 py-1 rounded-full bg-secondary-container/20 text-on-secondary-container font-label-md text-label-md flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">psychology</span>
+                                Trastorno de Ansiedad Generalizada
+                            </span>
+</div>
+<p class="font-body-lg text-body-lg text-on-surface-variant flex items-center gap-2">
+                            28 años <span class="text-surface-dim">•</span> Pronombres: Él/Lo <span class="text-surface-dim">•</span> ID: #PAC-8472
+                        </p>
+<div class="flex flex-wrap gap-sm mt-sm">
+<button class="flex items-center gap-xs px-3 py-1.5 rounded-lg border border-surface-container-highest hover:border-primary/50 text-on-surface-variant hover:text-primary font-data-tabular text-data-tabular transition-colors bg-surface-bright">
+<span class="material-symbols-outlined text-[18px]">call</span>
+                                +34 600 123 456
+                            </button>
+<button class="flex items-center gap-xs px-3 py-1.5 rounded-lg border border-surface-container-highest hover:border-primary/50 text-on-surface-variant hover:text-primary font-data-tabular text-data-tabular transition-colors bg-surface-bright">
+<span class="material-symbols-outlined text-[18px]">mail</span>
+                                m.vargas@email.com
+                            </button>
+<button class="flex items-center gap-xs px-3 py-1.5 rounded-lg text-primary hover:bg-primary-container/10 font-label-md text-label-md transition-colors ml-auto">
+<span class="material-symbols-outlined text-[18px]">edit</span>
+                                Editar Perfil
+                            </button>
+</div>
+</div>
+</div>
+<!-- Internal Navigation Tabs -->
+<div class="flex border-b border-surface-container-highest overflow-x-auto hide-scrollbar">
+<button class="px-md py-sm font-label-md text-label-md text-on-surface-variant hover:text-primary transition-colors whitespace-nowrap">Historia Clínica</button>
+<button class="px-md py-sm font-label-md text-label-md text-primary border-b-2 border-primary whitespace-nowrap">Notas de Sesión</button>
+<button class="px-md py-sm font-label-md text-label-md text-on-surface-variant hover:text-primary transition-colors whitespace-nowrap">Documentos</button>
+<button class="px-md py-sm font-label-md text-label-md text-on-surface-variant hover:text-primary transition-colors whitespace-nowrap">Facturación</button>
+</div>
+<!-- Content Grid (Session Notes Active) -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-grid-gutter mt-sm">
+<!-- Left Sidebar: Session Timeline -->
+<div class="lg:col-span-3 bg-surface-white rounded-xl border border-surface-container-highest shadow-ambient p-md h-[calc(100vh-22rem)] overflow-y-auto">
+<h3 class="font-headline-md text-[18px] text-text-main mb-md flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">history</span>
+                            Historial
+                        </h3>
+<div class="flex flex-col relative">
+<!-- Session Item (Active) -->
+<div class="timeline-item flex gap-sm relative pb-md group cursor-pointer">
+<div class="timeline-line flex flex-col items-center">
+<div class="w-6 h-6 rounded-full bg-primary flex items-center justify-center z-10 border-4 border-surface-white shadow-sm">
+<span class="material-symbols-outlined text-[12px] text-surface-white">edit_document</span>
+</div>
+</div>
+<div class="flex-1 bg-primary-container/5 rounded-lg p-3 border border-primary/20">
+<p class="font-label-md text-label-md text-primary mb-1">Hoy, 10:00 AM</p>
+<p class="font-body-sm text-body-sm text-text-main font-medium">Borrador actual</p>
+</div>
+</div>
+<!-- Session Item (Past) -->
+<div class="timeline-item flex gap-sm relative pb-md group cursor-pointer">
+<div class="timeline-line flex flex-col items-center">
+<div class="w-6 h-6 rounded-full bg-surface-container-highest group-hover:bg-primary/50 transition-colors flex items-center justify-center z-10 border-4 border-surface-white">
+<span class="material-symbols-outlined text-[12px] text-on-surface-variant group-hover:text-surface-white">check</span>
+</div>
+</div>
+<div class="flex-1 group-hover:bg-surface-bright rounded-lg p-2 transition-colors">
+<p class="font-label-md text-label-md text-on-surface-variant mb-1">12 Oct, 2023</p>
+<p class="font-body-sm text-body-sm text-text-main line-clamp-2">Revisión de exposición gradual. Niveles de ansiedad reportados menores.</p>
+</div>
+</div>
+<!-- Session Item (Past) -->
+<div class="timeline-item flex gap-sm relative pb-md group cursor-pointer">
+<div class="timeline-line flex flex-col items-center">
+<div class="w-6 h-6 rounded-full bg-surface-container-highest group-hover:bg-primary/50 transition-colors flex items-center justify-center z-10 border-4 border-surface-white">
+<span class="material-symbols-outlined text-[12px] text-on-surface-variant group-hover:text-surface-white">check</span>
+</div>
+</div>
+<div class="flex-1 group-hover:bg-surface-bright rounded-lg p-2 transition-colors">
+<p class="font-label-md text-label-md text-on-surface-variant mb-1">28 Sep, 2023</p>
+<p class="font-body-sm text-body-sm text-text-main line-clamp-2">Identificación de distorsiones cognitivas en el entorno laboral.</p>
+</div>
+</div>
+<!-- Session Item (Past) -->
+<div class="timeline-item flex gap-sm relative pb-md group cursor-pointer">
+<div class="timeline-line flex flex-col items-center">
+<div class="w-6 h-6 rounded-full bg-surface-container-highest group-hover:bg-primary/50 transition-colors flex items-center justify-center z-10 border-4 border-surface-white">
+<span class="material-symbols-outlined text-[12px] text-on-surface-variant group-hover:text-surface-white">check</span>
+</div>
+</div>
+<div class="flex-1 group-hover:bg-surface-bright rounded-lg p-2 transition-colors">
+<p class="font-label-md text-label-md text-on-surface-variant mb-1">14 Sep, 2023</p>
+<p class="font-body-sm text-body-sm text-text-main line-clamp-2">Primera sesión. Evaluación inicial y establecimiento de rapport.</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Center: Text Editor (Notion Style) -->
+<div class="lg:col-span-6 bg-surface-white rounded-xl border border-surface-container-highest shadow-ambient flex flex-col h-[calc(100vh-22rem)]">
+<!-- Editor Toolbar -->
+<div class="border-b border-surface-container-highest p-2 flex items-center gap-1 bg-surface-bright rounded-t-xl">
+<button class="p-1.5 rounded hover:bg-surface-container-highest text-on-surface-variant transition-colors" title="Negrita"><span class="material-symbols-outlined text-[20px]">format_bold</span></button>
+<button class="p-1.5 rounded hover:bg-surface-container-highest text-on-surface-variant transition-colors" title="Cursiva"><span class="material-symbols-outlined text-[20px]">format_italic</span></button>
+<button class="p-1.5 rounded hover:bg-surface-container-highest text-on-surface-variant transition-colors" title="Subrayado"><span class="material-symbols-outlined text-[20px]">format_underlined</span></button>
+<div class="w-px h-6 bg-surface-container-highest mx-1"></div>
+<button class="p-1.5 rounded hover:bg-surface-container-highest text-on-surface-variant transition-colors" title="Lista numerada"><span class="material-symbols-outlined text-[20px]">format_list_numbered</span></button>
+<button class="p-1.5 rounded hover:bg-surface-container-highest text-on-surface-variant transition-colors" title="Lista con viñetas"><span class="material-symbols-outlined text-[20px]">format_list_bulleted</span></button>
+<div class="w-px h-6 bg-surface-container-highest mx-1"></div>
+<button class="p-1.5 rounded hover:bg-surface-container-highest text-on-surface-variant transition-colors flex items-center gap-1" title="Plantillas">
+<span class="material-symbols-outlined text-[20px]">magic_button</span>
+<span class="font-label-md text-xs">Plantillas</span>
+</button>
+<div class="ml-auto flex items-center gap-2 pr-2">
+<span class="font-body-sm text-xs text-on-surface-variant">Guardado hace 2m</span>
+<button class="bg-primary/10 text-primary px-3 py-1 rounded-md font-label-md text-xs hover:bg-primary/20 transition-colors">Guardar</button>
+</div>
+</div>
+<!-- Editor Canvas -->
+<div class="flex-1 p-lg overflow-y-auto editor-content font-body-md text-text-main outline-none" contenteditable="true">
+<h1 class="font-headline-lg text-[28px] mb-6 outline-none" contenteditable="true">Sesión de Seguimiento - 26 Oct</h1>
+<p class="text-on-surface-variant outline-none" contenteditable="true" data-placeholder="Escribe el desarrollo de la sesión aquí... (Usa '/' para comandos)">El paciente reporta haber tenido una semana relativamente tranquila. Menciona que los ejercicios de respiración diafragmática recomendados en la última sesión le han sido útiles durante los picos de estrés en la oficina.</p>
+<h3 class="font-label-md text-[16px] text-text-main mt-6 mb-2">Temas abordados:</h3>
+<ul class="list-disc pl-6 space-y-1">
+<li>Revisión de registros de pensamientos automáticos.</li>
+<li>Técnicas de reestructuración cognitiva (ejemplo específico con supervisor).</li>
+<li>Planificación de exposición gradual para la próxima semana.</li>
+</ul>
+<h3 class="font-label-md text-[16px] text-text-main mt-6 mb-2">Observaciones Clínicas:</h3>
+<p>Estado de ánimo eutímico. Discurso fluido y coherente. Ligera tensión motora al hablar sobre la relación con su figura paterna, tema a explorar en futuras sesiones.</p>
+</div>
+</div>
+<!-- Right Sidebar: Context Info -->
+<div class="lg:col-span-3 flex flex-col gap-grid-gutter h-[calc(100vh-22rem)] overflow-y-auto">
+<!-- Alerts Card -->
+<div class="bg-error-container/30 border border-error/20 rounded-xl p-md">
+<h3 class="font-label-md text-label-md text-error flex items-center gap-2 mb-xs">
+<span class="material-symbols-outlined text-[18px]">warning</span>
+                                Alertas Importantes
+                            </h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">El paciente reportó ideación pasiva en evaluación de hace 3 meses. Mantener monitoreo regular.</p>
+</div>
+<!-- Medication Card -->
+<div class="bg-surface-white rounded-xl border border-surface-container-highest shadow-ambient p-md">
+<h3 class="font-headline-md text-[18px] text-text-main flex items-center gap-2 mb-md">
+<span class="material-symbols-outlined text-primary">pill</span>
+                                Medicación Actual
+                            </h3>
+<ul class="flex flex-col gap-3">
+<li class="flex items-start justify-between pb-3 border-b border-surface-container-highest last:border-0 last:pb-0">
+<div>
+<p class="font-data-tabular text-data-tabular text-text-main">Sertralina 50mg</p>
+<p class="font-body-sm text-xs text-on-surface-variant">1 vez al día (Mañana)</p>
+</div>
+<span class="material-symbols-outlined text-success text-[18px]" title="Adherencia reportada buena">check_circle</span>
+</li>
+<li class="flex items-start justify-between">
+<div>
+<p class="font-data-tabular text-data-tabular text-text-main">Lorazepam 1mg</p>
+<p class="font-body-sm text-xs text-on-surface-variant">SOS (Ataques de pánico)</p>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant text-[18px]">info</span>
+</li>
+</ul>
+</div>
+<!-- Goals Card -->
+<div class="bg-surface-white rounded-xl border border-surface-container-highest shadow-ambient p-md">
+<div class="flex items-center justify-between mb-md">
+<h3 class="font-headline-md text-[18px] text-text-main flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">flag</span>
+                                    Objetivos
+                                </h3>
+<button class="text-primary hover:bg-primary-container/10 p-1 rounded-full transition-colors">
+<span class="material-symbols-outlined text-[18px]">add</span>
+</button>
+</div>
+<div class="flex flex-col gap-2">
+<label class="flex items-start gap-2 cursor-pointer group">
+<input class="mt-1 rounded border-surface-container-highest text-primary focus:ring-primary/20" type="checkbox"/>
+<span class="font-body-sm text-body-sm text-text-main group-hover:text-primary transition-colors">Reducir frecuencia de ataques de pánico (a &lt; 1 mes)</span>
+</label>
+<label class="flex items-start gap-2 cursor-pointer group">
+<input checked="" class="mt-1 rounded border-surface-container-highest text-primary focus:ring-primary/20" type="checkbox"/>
+<span class="font-body-sm text-body-sm text-on-surface-variant line-through group-hover:text-primary transition-colors">Establecer rutina de higiene del sueño</span>
+</label>
+<label class="flex items-start gap-2 cursor-pointer group">
+<input class="mt-1 rounded border-surface-container-highest text-primary focus:ring-primary/20" type="checkbox"/>
+<span class="font-body-sm text-body-sm text-text-main group-hover:text-primary transition-colors">Exposición a hablar en público en reuniones</span>
+</label>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- BottomNavBar (from JSON - Mobile Only) -->
+<nav class="bg-surface/90 dark:bg-dark-bg/90 backdrop-blur-lg fixed bottom-0 w-full z-50 md:hidden rounded-t-xl shadow-lg fixed bottom-0 left-0 w-full flex justify-around items-center px-4 py-3 border-t border-surface-container-highest">
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-outline-variant px-4 py-1 hover:bg-surface-container-highest dark:hover:bg-inverse-surface rounded-xl transition-all duration-200 active:scale-90" href="#">
+<span class="material-symbols-outlined mb-1">home</span>
+<span class="font-label-md text-[10px]">Inicio</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-outline-variant px-4 py-1 hover:bg-surface-container-highest dark:hover:bg-inverse-surface rounded-xl transition-all duration-200 active:scale-90" href="#">
+<span class="material-symbols-outlined mb-1">event</span>
+<span class="font-label-md text-[10px]">Citas</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-primary-container/20 text-primary dark:text-primary-fixed rounded-xl px-4 py-1 transition-all duration-200 active:scale-90" href="#">
+<span class="material-symbols-outlined mb-1" style="font-variation-settings: 'FILL' 1;">person</span>
+<span class="font-label-md text-[10px] font-bold">Pacientes</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-outline-variant px-4 py-1 hover:bg-surface-container-highest dark:hover:bg-inverse-surface rounded-xl transition-all duration-200 active:scale-90" href="#">
+<span class="material-symbols-outlined mb-1">account_circle</span>
+<span class="font-label-md text-[10px]">Perfil</span>
+</a>
+</nav>
+</body></html>

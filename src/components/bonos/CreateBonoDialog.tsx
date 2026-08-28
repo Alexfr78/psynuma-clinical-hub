@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { addDays, format } from 'date-fns';
-import { CalendarIcon, Package, Plus, X, FileText } from 'lucide-react';
+
 import {
   Dialog,
   DialogContent,
@@ -63,6 +63,7 @@ import { useIssueInvoice } from '@/hooks/useIssueInvoice';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { SendInvoiceDialog } from '@/components/invoices/SendInvoiceDialog';
+import { Icon } from '@/components/ui/icon';
 
 const formSchema = z.object({
   patient_id: z.string().min(1, 'Selecciona un contacto'),
@@ -437,7 +438,7 @@ export function CreateBonoDialog({ open, onOpenChange, preselectedPatientId, onS
               ))}
               <SelectItem value="custom">
                 <span className="flex items-center gap-2">
-                  <Plus className="h-4 w-4" />
+                  <Icon name="add" className="h-4 w-4" />
                   Personalizado
                 </span>
               </SelectItem>
@@ -535,7 +536,7 @@ export function CreateBonoDialog({ open, onOpenChange, preselectedPatientId, onS
                       ) : (
                         <span>Sin fecha de expiración</span>
                       )}
-                      <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                      <Icon name="calendar_month" className="ml-auto h-4 w-4 opacity-50" />
                     </Button>
                   </FormControl>
                 </PopoverTrigger>
@@ -642,12 +643,12 @@ export function CreateBonoDialog({ open, onOpenChange, preselectedPatientId, onS
             <DrawerHeader className="px-4 pt-4 pb-2 border-b">
               <div className="flex items-center justify-between gap-3">
                 <DrawerTitle className="flex items-center gap-2">
-                  <Package className="h-5 w-5" />
+                  <Icon name="package_2" className="h-5 w-5" />
                   Crear nuevo bono
                 </DrawerTitle>
                 <DrawerClose asChild>
                   <Button type="button" variant="ghost" size="icon" aria-label="Cerrar">
-                    <X className="h-4 w-4" />
+                    <Icon name="close" className="h-4 w-4" />
                   </Button>
                 </DrawerClose>
               </div>
@@ -669,7 +670,7 @@ export function CreateBonoDialog({ open, onOpenChange, preselectedPatientId, onS
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5" />
+                <Icon name="description" className="h-5 w-5" />
                 ¿Generar factura?
               </AlertDialogTitle>
               <AlertDialogDescription>
@@ -696,7 +697,7 @@ export function CreateBonoDialog({ open, onOpenChange, preselectedPatientId, onS
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Package className="h-5 w-5" />
+              <Icon name="package_2" className="h-5 w-5" />
               Crear nuevo bono
             </DialogTitle>
           </DialogHeader>
@@ -715,7 +716,7 @@ export function CreateBonoDialog({ open, onOpenChange, preselectedPatientId, onS
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5" />
+              <Icon name="description" className="h-5 w-5" />
               ¿Generar factura?
             </AlertDialogTitle>
             <AlertDialogDescription>

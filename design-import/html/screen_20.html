@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+
+<html class="h-full" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Psycma - Notificaciones</title>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Plus+Jakarta+Sans:wght@600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "tertiary-container": "#994e00",
+                        "outline": "#787585",
+                        "secondary-container": "#62fae3",
+                        "on-primary": "#ffffff",
+                        "on-primary-fixed-variant": "#00497d",
+                        "surface-container": "#efeeec",
+                        "tertiary-fixed-dim": "#ffb782",
+                        "on-secondary-container": "#007165",
+                        "on-primary-container": "#cbe1ff",
+                        "surface-container-lowest": "#ffffff",
+                        "error-container": "#ffdad6",
+                        "surface-container-highest": "#e3e2e0",
+                        "inverse-on-surface": "#f1f1ef",
+                        "inverse-surface": "#2f3130",
+                        "primary-fixed": "#d1e4ff",
+                        "on-secondary-fixed-variant": "#005047",
+                        "secondary": "#006b5f",
+                        "secondary-fixed": "#62fae3",
+                        "inverse-primary": "#9fcaff",
+                        "on-surface-variant": "#474554",
+                        "on-secondary": "#ffffff",
+                        "on-tertiary-container": "#ffd7bc",
+                        "surface-dim": "#dadad8",
+                        "error": "#ba1a1a",
+                        "on-secondary-fixed": "#00201c",
+                        "outline-variant": "#c8c4d6",
+                        "background": "#faf9f7",
+                        "on-error": "#ffffff",
+                        "secondary-fixed-dim": "#3cddc7",
+                        "tertiary": "#763b00",
+                        "surface-container-high": "#e9e8e6",
+                        "on-surface": "#1a1c1b",
+                        "on-tertiary": "#ffffff",
+                        "surface": "#faf9f7",
+                        "surface-variant": "#e3e2e0",
+                        "on-background": "#1a1c1b",
+                        "primary-container": "#1b65a5",
+                        "on-tertiary-fixed-variant": "#703800",
+                        "surface-tint": "#1361a0",
+                        "on-primary-fixed": "#001d36",
+                        "primary-fixed-dim": "#9fcaff",
+                        "on-error-container": "#93000a",
+                        "tertiary-fixed": "#ffdcc5",
+                        "surface-container-low": "#f4f3f1",
+                        "on-tertiary-fixed": "#301400",
+                        "primary": "#004d84",
+                        "surface-bright": "#faf9f7"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "xs": "8px",
+                        "sm": "16px",
+                        "lg": "32px",
+                        "xl": "48px",
+                        "md": "24px",
+                        "grid-margin": "24px",
+                        "grid-gutter": "16px",
+                        "base": "4px"
+                    },
+                    "fontFamily": {
+                        "body-md": ["Inter"],
+                        "display-lg": ["Plus Jakarta Sans"],
+                        "body-sm": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "data-tabular": ["Inter"],
+                        "headline-md": ["Plus Jakarta Sans"],
+                        "label-md": ["Inter"],
+                        "headline-lg": ["Plus Jakarta Sans"],
+                        "headline-lg-mobile": ["Plus Jakarta Sans"]
+                    },
+                    "fontSize": {
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "display-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "body-sm": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+                        "data-tabular": ["14px", { "lineHeight": "20px", "fontWeight": "500" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "label-md": ["14px", { "lineHeight": "16px", "letterSpacing": "0.01em", "fontWeight": "600" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+                        "headline-lg-mobile": ["28px", { "lineHeight": "36px", "fontWeight": "600" }]
+                    }
+                },
+            }
+        }
+    </script>
+</head>
+<body class="bg-background text-on-surface h-full flex antialiased">
+<!-- SideNavBar -->
+<aside class="h-screen w-64 fixed left-0 top-0 hidden lg:flex flex-col bg-surface-white dark:bg-dark-surface shadow-[4px_0_24px_rgba(90,79,207,0.05)] shadow-sm z-50">
+<div class="flex flex-col h-full py-md px-sm">
+<div class="flex items-center gap-3 mb-xl px-sm">
+<div class="w-10 h-10 rounded-lg bg-primary-container flex items-center justify-center text-on-primary-container">
+<span class="material-symbols-outlined font-bold">psychology</span>
+</div>
+<div>
+<h1 class="font-headline-md text-headline-md font-bold text-primary dark:text-primary-fixed-dim">Psycma</h1>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Gestión Clínica</p>
+</div>
+</div>
+<button class="w-full mb-8 bg-primary text-on-primary rounded-xl py-3 px-4 flex items-center justify-center gap-2 font-label-md text-label-md hover:bg-surface-tint transition-colors shadow-sm cursor-pointer active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-[20px]">add</span>
+                Nueva Cita
+            </button>
+<nav class="flex-1 space-y-2">
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant dark:text-surface-variant hover:text-primary dark:hover:text-primary-fixed-dim hover:bg-surface-container-low dark:hover:bg-white/5 transition-colors duration-200 cursor-pointer active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-body-md text-body-md">Panel</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant dark:text-surface-variant hover:text-primary dark:hover:text-primary-fixed-dim hover:bg-surface-container-low dark:hover:bg-white/5 transition-colors duration-200 cursor-pointer active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined">calendar_today</span>
+<span class="font-body-md text-body-md">Agenda</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant dark:text-surface-variant hover:text-primary dark:hover:text-primary-fixed-dim hover:bg-surface-container-low dark:hover:bg-white/5 transition-colors duration-200 cursor-pointer active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined">groups</span>
+<span class="font-body-md text-body-md">Pacientes</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant dark:text-surface-variant hover:text-primary dark:hover:text-primary-fixed-dim hover:bg-surface-container-low dark:hover:bg-white/5 transition-colors duration-200 cursor-pointer active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined">payments</span>
+<span class="font-body-md text-body-md">Finanzas</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant dark:text-surface-variant hover:text-primary dark:hover:text-primary-fixed-dim hover:bg-surface-container-low dark:hover:bg-white/5 transition-colors duration-200 cursor-pointer active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined">chat</span>
+<span class="font-body-md text-body-md">Mensajes</span>
+</a>
+</nav>
+<div class="mt-auto space-y-2 pt-4 border-t border-surface-variant">
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant dark:text-surface-variant hover:text-primary dark:hover:text-primary-fixed-dim hover:bg-surface-container-low dark:hover:bg-white/5 transition-colors duration-200 cursor-pointer active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-body-md text-body-md">Configuración</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant dark:text-surface-variant hover:text-primary dark:hover:text-primary-fixed-dim hover:bg-surface-container-low dark:hover:bg-white/5 transition-colors duration-200 cursor-pointer active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined">logout</span>
+<span class="font-body-md text-body-md">Cerrar Sesión</span>
+</a>
+</div>
+</div>
+</aside>
+<div class="flex-1 flex flex-col min-h-screen">
+<!-- TopAppBar -->
+<header class="docked full-width top-0 sticky z-40 bg-surface-white/80 dark:bg-dark-surface/80 backdrop-blur-md border-b border-surface-variant/30 shadow-sm">
+<div class="flex justify-between items-center w-full h-16 px-md lg:pl-72">
+<div class="flex items-center gap-4">
+<h1 class="font-headline-md text-headline-md font-bold text-primary dark:text-primary-fixed-dim lg:hidden">Psycma</h1>
+</div>
+<div class="flex items-center gap-2">
+<button class="relative text-primary dark:text-primary-fixed-dim font-bold hover:bg-surface-container-low dark:hover:bg-white/5 rounded-full p-2 transition-all focus-within:ring-2 focus-within:ring-primary/20">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-error rounded-full"></span>
+</button>
+<button class="text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-low dark:hover:bg-white/5 rounded-full p-2 transition-all focus-within:ring-2 focus-within:ring-primary/20">
+<span class="material-symbols-outlined">help</span>
+</button>
+<div class="w-8 h-8 rounded-full overflow-hidden ml-2 border border-surface-variant">
+<img alt="Foto de perfil del psicólogo" class="w-full h-full object-cover" data-alt="A professional headshot of a clinical psychologist in a bright, modern office with soft lighting. They are smiling warmly. The color palette is composed of bright whites, soft grays, and touches of cerulean blue." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDJTVBkfdMFM2pFVonsK0FkcH_J6GNBrobBmlpiHhu0ytG97o22harc2xzKBlXH1emn3MujkKPTDpoSHWHFaiyTlnq7_sl9OBBGRbK4UQlMNnTrFZORedXt6-n3TQPPBGkUTDHEcSsNR_Bp53n-y7jlQr-fVe15DDfkgLy03MPdE-527O_wzufeljLIBLq2ocszN7DT6H3-KAaXPbDikX9eWtu3ahk_zju4MIXQLh_atzBTJ0w1czLJ"/>
+</div>
+</div>
+</div>
+</header>
+<!-- Main Content -->
+<main class="flex-1 lg:pl-64 p-4 md:p-8 w-full max-w-5xl mx-auto">
+<div class="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
+<h2 class="font-headline-lg text-headline-lg text-on-surface font-bold">Notificaciones</h2>
+<button class="text-primary font-label-md text-label-md hover:bg-primary-fixed rounded-lg px-4 py-2 transition-colors flex items-center gap-2 w-fit">
+<span class="material-symbols-outlined text-[18px]">done_all</span>
+                    Marcar todo como leído
+                </button>
+</div>
+<!-- Filters -->
+<div class="flex overflow-x-auto pb-4 mb-6 gap-2 scrollbar-hide -mx-4 px-4 md:mx-0 md:px-0">
+<button class="whitespace-nowrap px-4 py-1.5 rounded-full bg-primary-container text-on-primary-container font-label-md text-label-md shadow-sm border border-transparent">Todas</button>
+<button class="whitespace-nowrap px-4 py-1.5 rounded-full bg-surface-container-low text-on-surface-variant font-label-md text-label-md border border-outline-variant hover:bg-surface-container-high transition-colors">Pagos</button>
+<button class="whitespace-nowrap px-4 py-1.5 rounded-full bg-surface-container-low text-on-surface-variant font-label-md text-label-md border border-outline-variant hover:bg-surface-container-high transition-colors">Citas</button>
+<button class="whitespace-nowrap px-4 py-1.5 rounded-full bg-surface-container-low text-on-surface-variant font-label-md text-label-md border border-outline-variant hover:bg-surface-container-high transition-colors">Documentos</button>
+<button class="whitespace-nowrap px-4 py-1.5 rounded-full bg-surface-container-low text-on-surface-variant font-label-md text-label-md border border-outline-variant hover:bg-surface-container-high transition-colors flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px] text-tertiary">warning</span>
+                    Alertas IA
+                </button>
+</div>
+<!-- Notifications List -->
+<div class="bg-surface-container-lowest rounded-2xl border border-outline-variant/30 shadow-[0_4px_24px_rgba(78,141,207,0.03)] overflow-hidden">
+<!-- Notification Item 1 (Unread) -->
+<div class="group flex items-start gap-4 p-4 md:p-6 border-b border-surface-variant/40 hover:bg-surface-container-low transition-colors cursor-pointer relative bg-primary-fixed/5">
+<div class="absolute left-0 top-0 bottom-0 w-1 bg-primary rounded-r-full"></div>
+<div class="w-10 h-10 rounded-full bg-secondary-container/20 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-secondary" style="font-variation-settings: 'FILL' 1;">payments</span>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex flex-col md:flex-row md:items-start justify-between gap-1 md:gap-4 mb-1">
+<h3 class="font-body-md text-body-md text-on-surface font-semibold truncate">Pago recibido de Mateo Vargas - Sesión 24/10</h3>
+<span class="font-body-sm text-body-sm text-primary font-medium shrink-0 flex items-center gap-1.5">
+<span class="w-2 h-2 rounded-full bg-primary inline-block"></span>
+                                Hace 10 min
+                            </span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant truncate">Se ha confirmado el pago de $50.00 USD mediante transferencia.</p>
+</div>
+</div>
+<!-- Notification Item 2 -->
+<div class="group flex items-start gap-4 p-4 md:p-6 border-b border-surface-variant/40 hover:bg-surface-container-low transition-colors cursor-pointer">
+<div class="w-10 h-10 rounded-full bg-primary-container/10 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">description</span>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex flex-col md:flex-row md:items-start justify-between gap-1 md:gap-4 mb-1">
+<h3 class="font-body-md text-body-md text-on-surface truncate">Ana Sofía Torres ha firmado el Consentimiento Informado</h3>
+<span class="font-body-sm text-body-sm text-on-surface-variant shrink-0">Hace 1 hora</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant truncate">El documento ha sido guardado en el expediente del paciente.</p>
+</div>
+</div>
+<!-- Notification Item 3 -->
+<div class="group flex items-start gap-4 p-4 md:p-6 border-b border-surface-variant/40 hover:bg-surface-container-low transition-colors cursor-pointer">
+<div class="w-10 h-10 rounded-full bg-primary-container/10 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">calendar_today</span>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex flex-col md:flex-row md:items-start justify-between gap-1 md:gap-4 mb-1">
+<h3 class="font-body-md text-body-md text-on-surface truncate">Recordatorio de cita enviado a Carlos Rodríguez (WhatsApp)</h3>
+<span class="font-body-sm text-body-sm text-on-surface-variant shrink-0">Hace 3 horas</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant truncate">Para la sesión de mañana a las 15:00 hrs.</p>
+</div>
+</div>
+<!-- Notification Item 4 -->
+<div class="group flex items-start gap-4 p-4 md:p-6 border-b border-surface-variant/40 hover:bg-surface-container-low transition-colors cursor-pointer">
+<div class="w-10 h-10 rounded-full bg-tertiary-container/10 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-tertiary" style="font-variation-settings: 'FILL' 1;">warning</span>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex flex-col md:flex-row md:items-start justify-between gap-1 md:gap-4 mb-1">
+<h3 class="font-body-md text-body-md text-on-surface font-semibold truncate">Alerta de Autorregistro: Intensidad emocional alta detectada en María Fernanda López</h3>
+<span class="font-body-sm text-body-sm text-on-surface-variant shrink-0">Ayer, 18:30</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant truncate">La paciente registró niveles altos de ansiedad en su diario clínico.</p>
+</div>
+</div>
+<!-- Notification Item 5 -->
+<div class="group flex items-start gap-4 p-4 md:p-6 hover:bg-surface-container-low transition-colors cursor-pointer">
+<div class="w-10 h-10 rounded-full bg-surface-variant/50 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-on-surface-variant" style="font-variation-settings: 'FILL' 1;">cloud_done</span>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex flex-col md:flex-row md:items-start justify-between gap-1 md:gap-4 mb-1">
+<h3 class="font-body-md text-body-md text-on-surface truncate">Integración con Google Calendar sincronizada correctamente</h3>
+<span class="font-body-sm text-body-sm text-on-surface-variant shrink-0">Ayer, 09:00</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant truncate">Tus eventos han sido actualizados en ambos calendarios.</p>
+</div>
+</div>
+</div>
+<div class="mt-6 flex justify-center">
+<button class="text-primary font-label-md text-label-md hover:bg-primary-fixed rounded-full px-6 py-2 transition-colors border border-primary/20">
+                    Cargar más notificaciones
+                </button>
+</div>
+</main>
+</div>
+</body></html>

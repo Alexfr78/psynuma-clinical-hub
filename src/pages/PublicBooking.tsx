@@ -12,10 +12,11 @@ import { Calendar } from '@/components/ui/calendar';
 import { toast } from 'sonner';
 import { format, addDays, isBefore, startOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Loader2, MapPin, Video, Clock, User, CheckCircle, ArrowLeft, ArrowRight, Copy, AlertCircle, RefreshCw, CreditCard, ExternalLink, ShieldCheck } from 'lucide-react';
+
 import { cn } from '@/lib/utils';
 import { ClosedAgendaScreen } from '@/components/booking/ClosedAgendaScreen';
 import { redirectTopLevel } from '@/lib/redirect';
+import { Icon } from '@/components/ui/icon';
 
 type Step = 'service' | 'location' | 'professional' | 'datetime' | 'patient' | 'confirmation';
 
@@ -222,7 +223,7 @@ export default function PublicBooking() {
   if (loading && !config) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <Icon name="progress_activity" className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -234,7 +235,7 @@ export default function PublicBooking() {
       <div className={cn("min-h-screen flex items-center justify-center bg-background", isEmbed && "p-4")}>
         <Card className="max-w-md w-full">
           <CardHeader className="text-center">
-            <AlertCircle className="h-10 w-10 text-destructive mx-auto mb-2" />
+            <Icon name="error" className="h-10 w-10 text-destructive mx-auto mb-2" />
             <CardTitle>No se pudo cargar la reserva</CardTitle>
             <CardDescription>
               {isRateLimited
@@ -244,7 +245,7 @@ export default function PublicBooking() {
           </CardHeader>
           <CardContent className="flex justify-center">
             <Button onClick={loadInitial} disabled={loading}>
-              <RefreshCw className={cn('h-4 w-4 mr-2', loading && 'animate-spin')} />
+              <Icon name="refresh" className={cn('h-4 w-4 mr-2', loading && 'animate-spin')} />
               Reintentar
             </Button>
           </CardContent>
@@ -288,7 +289,7 @@ export default function PublicBooking() {
           </CardHeader>
           <CardContent className="flex justify-center">
             <Button variant="outline" onClick={loadInitial} disabled={loading}>
-              <RefreshCw className={cn('h-4 w-4 mr-2', loading && 'animate-spin')} />
+              <Icon name="refresh" className={cn('h-4 w-4 mr-2', loading && 'animate-spin')} />
               Reintentar
             </Button>
           </CardContent>
@@ -320,9 +321,9 @@ export default function PublicBooking() {
           <Card>
             <CardHeader className="text-center">
               {bookingResult.paymentRequired ? (
-                <Clock className="h-16 w-16 text-warning mx-auto mb-4" />
+                <Icon name="schedule" className="h-16 w-16 text-warning mx-auto mb-4" />
               ) : (
-                <CheckCircle className="h-16 w-16 text-success mx-auto mb-4" />
+                <Icon name="check_circle" className="h-16 w-16 text-success mx-auto mb-4" />
               )}
               <CardTitle>
                 {bookingResult.paymentRequired
@@ -349,12 +350,12 @@ export default function PublicBooking() {
                     onClick={() => window.open(bookingResult.checkoutUrl, isEmbed ? '_top' : '_self')}
                     className="w-full"
                   >
-                    <CreditCard className="h-4 w-4 mr-2" />
+                    <Icon name="credit_card" className="h-4 w-4 mr-2" />
                     Ir al pago seguro
                   </Button>
                 )}
                 <Button variant="outline" onClick={copyManageLink} className="w-full">
-                  <Copy className="h-4 w-4 mr-2" />
+                  <Icon name="content_copy" className="h-4 w-4 mr-2" />
                   Copiar enlace de gestión
                 </Button>
                 <Button onClick={() => window.location.href = bookingResult.manageUrl} className="w-full">
@@ -399,7 +400,7 @@ export default function PublicBooking() {
                     >
                       <div className="font-medium">{service.name}</div>
                       <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
-                        <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{service.duration_minutes} min</span>
+                        <span className="flex items-center gap-1"><Icon name="schedule" className="h-3 w-3" />{service.duration_minutes} min</span>
                       </div>
                     </button>
                   ))}
@@ -420,7 +421,7 @@ export default function PublicBooking() {
                       )}
                     >
                       <div className="flex items-center gap-2">
-                        {location.location_type === 'online' ? <Video className="h-4 w-4" /> : <MapPin className="h-4 w-4" />}
+                        {location.location_type === 'online' ? <Icon name="videocam" className="h-4 w-4" /> : <Icon name="location_on" className="h-4 w-4" />}
                         <span className="font-medium">{location.name}</span>
                       </div>
                       {location.street && <div className="text-sm text-muted-foreground mt-1">{location.street}, {location.city}</div>}
@@ -443,7 +444,7 @@ export default function PublicBooking() {
                       )}
                     >
                       <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center">
-                        {prof.avatar_url ? <img src={prof.avatar_url} className="h-10 w-10 rounded-full" /> : <User className="h-5 w-5" />}
+                        {prof.avatar_url ? <img src={prof.avatar_url} className="h-10 w-10 rounded-full" /> : <Icon name="person" className="h-5 w-5" />}
                       </div>
                       <div>
                         <div className="font-medium">{prof.first_name} {prof.last_name}</div>
@@ -504,7 +505,7 @@ export default function PublicBooking() {
                     {/* Loading overlay */}
                     {availabilityLoading && (
                       <div className="absolute inset-0 bg-background/50 flex items-center justify-center rounded-md">
-                        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                        <Icon name="progress_activity" className="h-6 w-6 animate-spin text-primary" />
                       </div>
                     )}
                   </div>
@@ -513,7 +514,7 @@ export default function PublicBooking() {
                     <div>
                       <h4 className="font-medium mb-2">Horarios disponibles para {format(selectedDate, "d 'de' MMMM", { locale: es })}</h4>
                       {slotsLoading ? (
-                        <div className="flex justify-center py-4"><Loader2 className="h-5 w-5 animate-spin" /></div>
+                        <div className="flex justify-center py-4"><Icon name="progress_activity" className="h-5 w-5 animate-spin" /></div>
                       ) : slots.length === 0 ? (
                         <p className="text-muted-foreground text-center py-4">No hay horarios disponibles este día</p>
                       ) : (
@@ -582,7 +583,7 @@ export default function PublicBooking() {
                           onClick={event => event.stopPropagation()}
                         >
                           política de privacidad
-                          <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+                          <Icon name="open_in_new" className="h-3.5 w-3.5" aria-hidden="true" />
                         </a>{' '}*
                       </Label>
                     </div>
@@ -613,7 +614,7 @@ export default function PublicBooking() {
                             <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto">
                               <DialogHeader>
                                 <DialogTitle className="flex items-center gap-2">
-                                  <ShieldCheck className="h-5 w-5 text-primary" aria-hidden="true" />
+                                  <Icon name="verified_user" className="h-5 w-5 text-primary" aria-hidden="true" />
                                   Política de cancelación
                                 </DialogTitle>
                                 <DialogDescription>
@@ -641,7 +642,7 @@ export default function PublicBooking() {
               <div className="flex justify-between pt-4">
                 {step !== 'service' && (
                   <Button variant="outline" onClick={handleBack}>
-                    <ArrowLeft className="h-4 w-4 mr-2" />Atrás
+                    <Icon name="arrow_back" className="h-4 w-4 mr-2" />Atrás
                   </Button>
                 )}
                 <div className="ml-auto">
@@ -650,7 +651,7 @@ export default function PublicBooking() {
                       onClick={handleSubmit} 
                       disabled={loading || !patient.firstName || !patient.lastName || !patient.email || !acceptPrivacy || (!!cancellationPolicy && !acceptCancellationPolicy)}
                     >
-                      {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                      {loading && <Icon name="progress_activity" className="h-4 w-4 mr-2 animate-spin" />}
                       Confirmar reserva
                     </Button>
                   ) : (
@@ -663,7 +664,7 @@ export default function PublicBooking() {
                         (step === 'datetime' && !selectedSlot)
                       }
                     >
-                      Siguiente<ArrowRight className="h-4 w-4 ml-2" />
+                      Siguiente<Icon name="arrow_forward" className="h-4 w-4 ml-2" />
                     </Button>
                   )}
                 </div>

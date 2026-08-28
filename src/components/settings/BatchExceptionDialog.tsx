@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { AlertTriangle, Loader2 } from 'lucide-react';
+
 import {
   ResponsiveDialog as Dialog,
   ResponsiveDialogContent as DialogContent,
@@ -20,6 +20,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useCreateScheduleException, useConflictingSessions } from '@/hooks/useScheduleExceptions';
 import { ScheduleException } from '@/lib/schedule-exceptions';
 import { useToast } from '@/hooks/use-toast';
+import { Icon } from '@/components/ui/icon';
 
 const REASON_OPTIONS = [
   { value: 'holiday', label: 'Festivo' },
@@ -250,7 +251,7 @@ export function BatchExceptionDialog({
           {/* Duplicate warning */}
           {duplicateDates.length > 0 && (
             <Alert>
-              <AlertTriangle className="h-4 w-4" />
+              <Icon name="warning" className="h-4 w-4" />
               <AlertDescription className="text-xs">
                 {duplicateDates.length} día{duplicateDates.length > 1 ? 's' : ''} ya tiene{duplicateDates.length === 1 ? '' : 'n'} bloqueo equivalente y se omitirá{duplicateDates.length > 1 ? 'n' : ''}.
               </AlertDescription>
@@ -260,7 +261,7 @@ export function BatchExceptionDialog({
           {/* Conflict warning */}
           {conflictingSessions && conflictingSessions.length > 0 && (
             <Alert variant="destructive">
-              <AlertTriangle className="h-4 w-4" />
+              <Icon name="warning" className="h-4 w-4" />
               <AlertDescription>
                 <p className="font-medium mb-1 text-xs">Hay {conflictingSessions.length} cita(s) en este rango:</p>
                 <ul className="text-xs space-y-0.5 max-h-20 overflow-y-auto">
@@ -280,7 +281,7 @@ export function BatchExceptionDialog({
               Cancelar
             </Button>
             <Button onClick={handleSave} disabled={saving}>
-              {saving && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+              {saving && <Icon name="progress_activity" className="h-4 w-4 mr-1 animate-spin" />}
               Crear {selectedDates.length - duplicateDates.length} bloqueo{(selectedDates.length - duplicateDates.length) !== 1 ? 's' : ''}
             </Button>
           </div>

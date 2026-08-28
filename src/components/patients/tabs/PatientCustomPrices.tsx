@@ -1,16 +1,7 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import {
-  Tag,
-  Plus,
-  Pencil,
-  PowerOff,
-  History,
-  ChevronDown,
-  ChevronUp,
-  Filter,
-} from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -55,6 +46,7 @@ import { CustomPriceDialog } from '@/components/pricing/CustomPriceDialog';
 import { PriceBadge } from '@/components/pricing/PriceBadge';
 import { PatientTariffAssignment } from '@/components/patients/PatientTariffAssignment';
 import { useAuth } from '@/hooks/useAuth';
+import { Icon } from '@/components/ui/icon';
 
 // ── Helper ─────────────────────────────────────────────────────────────────────
 
@@ -203,7 +195,7 @@ export function PatientCustomPrices({ patientId }: PatientCustomPricesProps) {
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-base font-semibold flex items-center gap-2">
-            <Tag className="h-4 w-4 text-emerald-600" />
+            <Icon name="sell" className="h-4 w-4 text-emerald-600" />
             Tarifas personalizadas
           </h3>
           <p className="text-sm text-muted-foreground mt-0.5">
@@ -217,12 +209,12 @@ export function PatientCustomPrices({ patientId }: PatientCustomPricesProps) {
             className="gap-1"
             onClick={() => setShowOnlyActive(v => !v)}
           >
-            <Filter className="h-3.5 w-3.5" />
+            <Icon name="filter_list" className="h-3.5 w-3.5" />
             {showOnlyActive ? 'Ver todas' : 'Solo activas'}
           </Button>
           {canManage && (
             <Button size="sm" className="gap-1" onClick={handleNewPrice}>
-              <Plus className="h-4 w-4" />
+              <Icon name="add" className="h-4 w-4" />
               Nueva tarifa
             </Button>
           )}
@@ -236,7 +228,7 @@ export function PatientCustomPrices({ patientId }: PatientCustomPricesProps) {
         </div>
       ) : filteredPrices.length === 0 ? (
         <div className="border rounded-lg py-12 flex flex-col items-center gap-3 text-center bg-muted/20">
-          <Tag className="h-8 w-8 text-muted-foreground/40" />
+          <Icon name="sell" className="h-8 w-8 text-muted-foreground/40" />
           <div>
             <p className="font-medium text-muted-foreground">Sin tarifas personalizadas</p>
             <p className="text-sm text-muted-foreground/70 mt-1">
@@ -247,7 +239,7 @@ export function PatientCustomPrices({ patientId }: PatientCustomPricesProps) {
           </div>
           {canManage && !showOnlyActive && (
             <Button size="sm" variant="outline" onClick={handleNewPrice} className="mt-2 gap-1">
-              <Plus className="h-4 w-4" />
+              <Icon name="add" className="h-4 w-4" />
               Añadir primera tarifa
             </Button>
           )}
@@ -304,9 +296,9 @@ export function PatientCustomPrices({ patientId }: PatientCustomPricesProps) {
                           title="Ver historial"
                         >
                           {isExpanded ? (
-                            <ChevronUp className="h-3.5 w-3.5" />
+                            <Icon name="expand_less" className="h-3.5 w-3.5" />
                           ) : (
-                            <History className="h-3.5 w-3.5 text-muted-foreground" />
+                            <Icon name="history" className="h-3.5 w-3.5 text-muted-foreground" />
                           )}
                         </Button>
                       </TableCell>
@@ -395,7 +387,7 @@ export function PatientCustomPrices({ patientId }: PatientCustomPricesProps) {
                                       className="h-7 w-7"
                                       onClick={() => handleEdit(price)}
                                     >
-                                      <Pencil className="h-3.5 w-3.5" />
+                                      <Icon name="edit" className="h-3.5 w-3.5" />
                                     </Button>
                                   </TooltipTrigger>
                                   <TooltipContent>Editar tarifa</TooltipContent>
@@ -408,7 +400,7 @@ export function PatientCustomPrices({ patientId }: PatientCustomPricesProps) {
                                       className="h-7 w-7 text-destructive hover:text-destructive"
                                       onClick={() => setDeactivatingId(price.id)}
                                     >
-                                      <PowerOff className="h-3.5 w-3.5" />
+                                      <Icon name="power_off" className="h-3.5 w-3.5" />
                                     </Button>
                                   </TooltipTrigger>
                                   <TooltipContent>Desactivar tarifa</TooltipContent>

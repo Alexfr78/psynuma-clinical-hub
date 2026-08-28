@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { CreditCard, Loader2, Trash2 } from 'lucide-react';
+
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import type { PortalPaymentMethod as PaymentMethod } from '@/hooks/usePatientPortal';
+import { Icon } from '@/components/ui/icon';
 
 interface PortalPaymentMethodProps {
   getPaymentMethod: () => Promise<PaymentMethod | null>;
@@ -58,7 +59,7 @@ export function PortalPaymentMethod({ getPaymentMethod, removePaymentMethod }: P
     return (
       <Card>
         <CardContent className="flex min-h-28 items-center justify-center" role="status" aria-live="polite">
-          <Loader2 className="mr-2 h-5 w-5 animate-spin text-muted-foreground" aria-hidden="true" />
+          <Icon name="progress_activity" className="mr-2 h-5 w-5 animate-spin text-muted-foreground" aria-hidden="true" />
           <span className="text-sm text-muted-foreground">Cargando método de pago...</span>
         </CardContent>
       </Card>
@@ -70,7 +71,7 @@ export function PortalPaymentMethod({ getPaymentMethod, removePaymentMethod }: P
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
-            <CreditCard className="h-4 w-4" aria-hidden="true" />
+            <Icon name="credit_card" className="h-4 w-4" aria-hidden="true" />
             Método de pago
           </CardTitle>
         </CardHeader>
@@ -91,7 +92,7 @@ export function PortalPaymentMethod({ getPaymentMethod, removePaymentMethod }: P
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
-          <CreditCard className="h-4 w-4" />
+          <Icon name="credit_card" className="h-4 w-4" />
           Medios de pago
         </CardTitle>
       </CardHeader>
@@ -107,7 +108,7 @@ export function PortalPaymentMethod({ getPaymentMethod, removePaymentMethod }: P
         <AlertDialog>
           <AlertDialogTrigger asChild>
             <Button variant="outline" size="sm" className="min-h-11" disabled={removing}>
-              {removing ? <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" /> : <Trash2 className="mr-1 h-4 w-4" aria-hidden="true" />}
+              {removing ? <Icon name="progress_activity" className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" /> : <Icon name="delete" className="mr-1 h-4 w-4" aria-hidden="true" />}
               Quitar
             </Button>
           </AlertDialogTrigger>

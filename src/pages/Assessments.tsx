@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ClipboardCheck, Plus, Loader2, FileText } from 'lucide-react';
+
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAssessments, Assessment } from '@/hooks/useAssessments';
@@ -8,6 +8,7 @@ import { CreateAssessmentDialog } from '@/components/assessments/CreateAssessmen
 import { AssessmentDetailDialog } from '@/components/assessments/AssessmentDetailDialog';
 import { SendAssessmentDialog } from '@/components/assessments/SendAssessmentDialog';
 import { AddTemplateDialog } from '@/components/assessments/AddTemplateDialog';
+import { Icon } from '@/components/ui/icon';
 
 export default function Assessments() {
   const { assessments, isLoading, revokeAssessment, deleteAssessment } = useAssessments();
@@ -28,7 +29,7 @@ export default function Assessments() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <Icon name="progress_activity" className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -38,19 +39,19 @@ export default function Assessments() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="font-display text-2xl sm:text-3xl font-bold flex items-center gap-2">
-            <ClipboardCheck className="h-5 w-5 sm:h-6 sm:w-6" />
+            <Icon name="assignment_turned_in" className="h-5 w-5 sm:h-6 sm:w-6" />
             Evaluaciones
           </h1>
           <p className="text-muted-foreground text-sm">Gestiona las evaluaciones de tus pacientes</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" className="sm:size-default" onClick={() => setAddTemplateOpen(true)}>
-            <FileText className="h-4 w-4 sm:mr-2" />
+            <Icon name="description" className="h-4 w-4 sm:mr-2" />
             <span className="hidden sm:inline">Añadir plantilla</span>
             <span className="sm:hidden">Plantilla</span>
           </Button>
           <Button size="sm" className="sm:size-default" onClick={() => setCreateOpen(true)}>
-            <Plus className="h-4 w-4 sm:mr-2" />
+            <Icon name="add" className="h-4 w-4 sm:mr-2" />
             <span className="hidden sm:inline">Nueva evaluación</span>
             <span className="sm:hidden">Nueva</span>
           </Button>
@@ -71,7 +72,7 @@ export default function Assessments() {
         <TabsContent value="pending" className="mt-6">
           {pending.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
-              <ClipboardCheck className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <Icon name="assignment_turned_in" className="h-12 w-12 mx-auto mb-4 opacity-50" />
               <p>No hay evaluaciones pendientes</p>
             </div>
           ) : (
@@ -93,7 +94,7 @@ export default function Assessments() {
         <TabsContent value="completed" className="mt-6">
           {completed.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
-              <ClipboardCheck className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <Icon name="assignment_turned_in" className="h-12 w-12 mx-auto mb-4 opacity-50" />
               <p>No hay evaluaciones completadas</p>
             </div>
           ) : (
@@ -115,7 +116,7 @@ export default function Assessments() {
         <TabsContent value="other" className="mt-6">
           {other.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
-              <ClipboardCheck className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <Icon name="assignment_turned_in" className="h-12 w-12 mx-auto mb-4 opacity-50" />
               <p>No hay evaluaciones caducadas o revocadas</p>
             </div>
           ) : (

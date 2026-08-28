@@ -13,11 +13,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { 
-  Clock, Users, Mail, Phone, MapPin, Globe, FileCheck, 
-  MessageSquare, CheckCircle2, XCircle, Loader2, Shield
-} from 'lucide-react';
+
 import type { IntakeRequest } from '@/hooks/useIntakeRequests';
+import { Icon } from '@/components/ui/icon';
 
 interface IntakeRequestDetailDialogProps {
   request: IntakeRequest | null;
@@ -73,8 +71,8 @@ export function IntakeRequestDetailDialog({
   };
 
   const typeBadge = request.request_type === 'waitlist' 
-    ? <Badge variant="secondary"><Clock className="h-3 w-3 mr-1" />Lista de espera</Badge>
-    : <Badge variant="secondary"><Users className="h-3 w-3 mr-1" />Derivación</Badge>;
+    ? <Badge variant="secondary"><Icon name="schedule" className="h-3 w-3 mr-1" />Lista de espera</Badge>
+    : <Badge variant="secondary"><Icon name="group" className="h-3 w-3 mr-1" />Derivación</Badge>;
 
   const referralContext = request.referral_context as Record<string, any> | null;
 
@@ -97,14 +95,14 @@ export function IntakeRequestDetailDialog({
             <h4 className="text-sm font-medium text-muted-foreground">Contacto</h4>
             <div className="grid grid-cols-1 gap-2 text-sm">
               <div className="flex items-center gap-2">
-                <Mail className="h-4 w-4 text-muted-foreground" />
+                <Icon name="mail" className="h-4 w-4 text-muted-foreground" />
                 <a href={`mailto:${request.email}`} className="text-primary hover:underline">
                   {request.email}
                 </a>
               </div>
               {request.phone && (
                 <div className="flex items-center gap-2">
-                  <Phone className="h-4 w-4 text-muted-foreground" />
+                  <Icon name="call" className="h-4 w-4 text-muted-foreground" />
                   <a href={`tel:${request.phone}`} className="text-primary hover:underline">
                     {request.phone}
                   </a>
@@ -123,19 +121,19 @@ export function IntakeRequestDetailDialog({
                 <div className="grid grid-cols-2 gap-3 text-sm">
                   {request.modality && (
                     <div className="flex items-center gap-2">
-                      <Globe className="h-4 w-4 text-muted-foreground" />
+                      <Icon name="public" className="h-4 w-4 text-muted-foreground" />
                       <span className="capitalize">{request.modality}</span>
                     </div>
                   )}
                   {request.specialty && (
                     <div className="flex items-center gap-2">
-                      <FileCheck className="h-4 w-4 text-muted-foreground" />
+                      <Icon name="task" className="h-4 w-4 text-muted-foreground" />
                       <span>{request.specialty}</span>
                     </div>
                   )}
                   {(referralContext?.province || referralContext?.city) && (
                     <div className="flex items-center gap-2 col-span-2">
-                      <MapPin className="h-4 w-4 text-muted-foreground" />
+                      <Icon name="location_on" className="h-4 w-4 text-muted-foreground" />
                       <span>
                         {[referralContext?.city, referralContext?.province]
                           .filter(Boolean)
@@ -167,10 +165,10 @@ export function IntakeRequestDetailDialog({
 
           {/* Privacy */}
           <div className="flex items-center gap-2 text-sm">
-            <Shield className="h-4 w-4 text-muted-foreground" />
+            <Icon name="shield" className="h-4 w-4 text-muted-foreground" />
             {request.privacy_accepted ? (
               <span className="text-success flex items-center gap-1">
-                <CheckCircle2 className="h-3 w-3" />
+                <Icon name="check_circle" className="h-3 w-3" />
                 RGPD aceptado el {request.privacy_accepted_at 
                   ? format(new Date(request.privacy_accepted_at), "d MMM yyyy 'a las' HH:mm", { locale: es })
                   : ''}
@@ -200,7 +198,7 @@ export function IntakeRequestDetailDialog({
               onClick={handleSaveNotes}
               disabled={saving || internalNotes === request.internal_notes}
             >
-              {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <MessageSquare className="h-4 w-4 mr-1" />}
+              {saving ? <Icon name="progress_activity" className="h-4 w-4 animate-spin mr-1" /> : <Icon name="forum" className="h-4 w-4 mr-1" />}
               Guardar notas
             </Button>
           </div>
@@ -223,7 +221,7 @@ export function IntakeRequestDetailDialog({
                 disabled={loading}
                 className="flex-1"
               >
-                <CheckCircle2 className="h-4 w-4 mr-2" />
+                <Icon name="check_circle" className="h-4 w-4 mr-2" />
                 Marcar contactado
               </Button>
             )}
@@ -234,7 +232,7 @@ export function IntakeRequestDetailDialog({
                 disabled={loading}
                 className="flex-1"
               >
-                <XCircle className="h-4 w-4 mr-2" />
+                <Icon name="cancel" className="h-4 w-4 mr-2" />
                 Cerrar
               </Button>
             )}

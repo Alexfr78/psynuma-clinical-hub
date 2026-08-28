@@ -5,8 +5,9 @@ import { Button } from '@/components/ui/button';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
-import { Shield, ShieldCheck, ShieldOff, Loader2, QrCode, Smartphone } from 'lucide-react';
+
 import { QRCodeSVG } from 'qrcode.react';
+import { Icon } from '@/components/ui/icon';
 
 type MfaStatus = 'loading' | 'disabled' | 'enrolling' | 'verifying' | 'enabled';
 
@@ -121,7 +122,7 @@ export function SecuritySection() {
     return (
       <Card>
         <CardContent className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <Icon name="progress_activity" className="h-8 w-8 animate-spin text-primary" />
         </CardContent>
       </Card>
     );
@@ -131,7 +132,7 @@ export function SecuritySection() {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Shield className="h-5 w-5" />
+          <Icon name="shield" className="h-5 w-5" />
           Seguridad de la cuenta
         </CardTitle>
         <CardDescription>
@@ -142,7 +143,7 @@ export function SecuritySection() {
         {status === 'enabled' && (
           <div className="space-y-4">
             <div className="flex items-start gap-3 rounded-lg border border-green-200 bg-green-50 p-3 sm:p-4 dark:border-green-900 dark:bg-green-950">
-              <ShieldCheck className="h-6 w-6 shrink-0 text-green-600 dark:text-green-400" />
+              <Icon name="verified_user" className="h-6 w-6 shrink-0 text-green-600 dark:text-green-400" />
               <div className="min-w-0">
                 <p className="font-medium text-green-800 dark:text-green-200">2FA activado</p>
                 <p className="text-sm text-green-600 dark:text-green-400 break-words">
@@ -158,9 +159,9 @@ export function SecuritySection() {
                 className="w-full sm:w-auto"
               >
                 {isProcessing ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Icon name="progress_activity" className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
-                  <ShieldOff className="mr-2 h-4 w-4" />
+                  <Icon name="gpp_bad" className="mr-2 h-4 w-4" />
                 )}
                 Desactivar 2FA
               </Button>
@@ -175,7 +176,7 @@ export function SecuritySection() {
                   });
                 }}
               >
-                <Smartphone className="mr-2 h-4 w-4" />
+                <Icon name="smartphone" className="mr-2 h-4 w-4" />
                 Revocar dispositivos
               </Button>
             </div>
@@ -185,7 +186,7 @@ export function SecuritySection() {
         {status === 'disabled' && (
           <div className="space-y-4">
             <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 sm:p-4 dark:border-amber-900 dark:bg-amber-950">
-              <Shield className="h-6 w-6 shrink-0 text-amber-600 dark:text-amber-400" />
+              <Icon name="shield" className="h-6 w-6 shrink-0 text-amber-600 dark:text-amber-400" />
               <div className="min-w-0">
                 <p className="font-medium text-amber-800 dark:text-amber-200">2FA no activado</p>
                 <p className="text-sm text-amber-600 dark:text-amber-400 break-words">
@@ -195,9 +196,9 @@ export function SecuritySection() {
             </div>
             <Button onClick={handleEnroll} disabled={isProcessing} className="w-full sm:w-auto">
               {isProcessing ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Icon name="progress_activity" className="mr-2 h-4 w-4 animate-spin" />
               ) : (
-                <QrCode className="mr-2 h-4 w-4" />
+                <Icon name="qr_code" className="mr-2 h-4 w-4" />
               )}
               Activar autenticación de doble factor
             </Button>
@@ -256,9 +257,9 @@ export function SecuritySection() {
                 className="w-full sm:w-auto"
               >
                 {isProcessing ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Icon name="progress_activity" className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
-                  <ShieldCheck className="mr-2 h-4 w-4" />
+                  <Icon name="verified_user" className="mr-2 h-4 w-4" />
                 )}
                 Verificar y activar
               </Button>

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { User, Phone } from 'lucide-react';
+
 import { Button } from '@/components/ui/button';
 import {
   ResponsiveDialog as Dialog,
@@ -29,6 +29,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { useCreatePatient } from '@/hooks/usePatients';
 import { useProfessionals } from '@/hooks/usePatients';
+import { Icon } from '@/components/ui/icon';
 
 const quickPatientSchema = z.object({
   full_name: z.string().min(1, 'El nombre es obligatorio'),
@@ -153,7 +154,7 @@ export function QuickCreatePatientDialog({
                           {selectedProfessional && (
                             <span className="flex items-center gap-2">
                               <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center">
-                                <User className="h-3 w-3 text-primary" />
+                                <Icon name="person" className="h-3 w-3 text-primary" />
                               </div>
                               {selectedProfessional.first_name} {selectedProfessional.last_name}
                             </span>
@@ -247,7 +248,7 @@ export function QuickCreatePatientDialog({
                     </Select>
                     <FormControl>
                       <div className="relative flex-1">
-                        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Icon name="call" className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input
                           placeholder="612 345 678"
                           className="h-10 pl-10"

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Loader2, Save, Globe, Zap, ExternalLink, Eye, EyeOff, CheckCircle, Send, MessageCircle } from 'lucide-react';
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,6 +12,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import type { WhatsAppSendMethod } from '@/lib/whatsapp';
 import { WhatsAppLinkDialog } from '@/components/agenda/WhatsAppLinkDialog';
+import { Icon } from '@/components/ui/icon';
 
 export function WhatsAppSettingsSection() {
   const { center, updateCenter, isLoading } = useCenter();
@@ -147,7 +148,7 @@ export function WhatsAppSettingsSection() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <Icon name="progress_activity" className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -182,7 +183,7 @@ export function WhatsAppSettingsSection() {
             >
               <div className="flex items-center gap-3">
                 <div className="rounded-full bg-green-100 p-2 dark:bg-green-900/30">
-                  <Globe className="h-5 w-5 text-green-600 dark:text-green-400" />
+                  <Icon name="public" className="h-5 w-5 text-green-600 dark:text-green-400" />
                 </div>
                 <div>
                   <p className="font-medium">WhatsApp Web</p>
@@ -211,7 +212,7 @@ export function WhatsAppSettingsSection() {
             >
               <div className="flex items-center gap-3">
                 <div className="rounded-full bg-blue-100 p-2 dark:bg-blue-900/30">
-                  <Zap className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                  <Icon name="bolt" className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                 </div>
                 <div>
                   <p className="font-medium">API de Meta</p>
@@ -240,7 +241,7 @@ export function WhatsAppSettingsSection() {
                 className="flex items-center gap-1 text-sm text-primary hover:underline"
               >
                 ¿Cómo obtener credenciales?
-                <ExternalLink className="h-3 w-3" />
+                <Icon name="open_in_new" className="h-3 w-3" />
               </a>
             </div>
 
@@ -271,9 +272,9 @@ export function WhatsAppSettingsSection() {
                     onClick={() => setShowToken(!showToken)}
                   >
                     {showToken ? (
-                      <EyeOff className="h-4 w-4 text-muted-foreground" />
+                      <Icon name="visibility_off" className="h-4 w-4 text-muted-foreground" />
                     ) : (
-                      <Eye className="h-4 w-4 text-muted-foreground" />
+                      <Icon name="visibility" className="h-4 w-4 text-muted-foreground" />
                     )}
                   </Button>
                 </div>
@@ -313,7 +314,7 @@ export function WhatsAppSettingsSection() {
 
             {isApiConfigured && (
               <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
-                <CheckCircle className="h-4 w-4" />
+                <Icon name="check_circle" className="h-4 w-4" />
                 API configurada correctamente
               </div>
             )}
@@ -326,21 +327,21 @@ export function WhatsAppSettingsSection() {
           <div className="flex items-center gap-2">
             {sendMethod === 'web' ? (
               <>
-                <Globe className="h-4 w-4 text-green-600" />
+                <Icon name="public" className="h-4 w-4 text-green-600" />
                 <span className="text-sm">
                   Usando <strong>WhatsApp Web</strong> - Los mensajes se abrirán en WhatsApp para enviar manualmente
                 </span>
               </>
             ) : isApiConfigured ? (
               <>
-                <Zap className="h-4 w-4 text-blue-600" />
+                <Icon name="bolt" className="h-4 w-4 text-blue-600" />
                 <span className="text-sm">
                   Usando <strong>API de Meta</strong> - Los mensajes se enviarán automáticamente
                 </span>
               </>
             ) : (
               <>
-                <Zap className="h-4 w-4 text-amber-600" />
+                <Icon name="bolt" className="h-4 w-4 text-amber-600" />
                 <span className="text-sm text-amber-600">
                   API de Meta seleccionada pero <strong>faltan credenciales</strong>
                 </span>
@@ -352,7 +353,7 @@ export function WhatsAppSettingsSection() {
         {/* Test Section */}
         <div className="space-y-3 rounded-lg border p-4">
           <h4 className="font-medium flex items-center gap-2">
-            <MessageCircle className="h-4 w-4" />
+            <Icon name="chat" className="h-4 w-4" />
             Probar configuración
           </h4>
           <p className="text-sm text-muted-foreground">
@@ -371,9 +372,9 @@ export function WhatsAppSettingsSection() {
               variant="secondary"
             >
               {isTesting ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Icon name="progress_activity" className="mr-2 h-4 w-4 animate-spin" />
               ) : (
-                <Send className="mr-2 h-4 w-4" />
+                <Icon name="send" className="mr-2 h-4 w-4" />
               )}
               Enviar prueba
             </Button>
@@ -390,9 +391,9 @@ export function WhatsAppSettingsSection() {
           <div className="flex justify-end">
             <Button onClick={handleSave} disabled={isSaving}>
               {isSaving ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Icon name="progress_activity" className="mr-2 h-4 w-4 animate-spin" />
               ) : (
-                <Save className="mr-2 h-4 w-4" />
+                <Icon name="save" className="mr-2 h-4 w-4" />
               )}
               Guardar configuración
             </Button>

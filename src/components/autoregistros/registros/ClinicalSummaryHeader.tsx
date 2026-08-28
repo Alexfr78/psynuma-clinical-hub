@@ -1,11 +1,12 @@
 import { useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { AlertTriangle, AlertCircle, Info, Calendar, FileText, TrendingUp, Clock } from 'lucide-react';
+import { AlertTriangle, AlertCircle, Info } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import type { AutoregistroEntry } from '@/hooks/useAutoregistroEntries';
 import type { ClinicalAlert } from '@/lib/autoregistro-field-display';
+import { Icon } from '@/components/ui/icon';
 
 interface ClinicalSummaryHeaderProps {
   patientName: string;
@@ -64,11 +65,11 @@ export function ClinicalSummaryHeader({
           {stats && (
             <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm text-muted-foreground">
               <span className="flex items-center gap-1.5">
-                <FileText className="h-3.5 w-3.5" />
+                <Icon name="description" className="h-3.5 w-3.5" />
                 {stats.total} registro{stats.total !== 1 ? 's' : ''}
               </span>
               <span className="flex items-center gap-1.5">
-                <Clock className="h-3.5 w-3.5" />
+                <Icon name="schedule" className="h-3.5 w-3.5" />
                 Último: {format(stats.lastDate, "d MMM yyyy", { locale: es })}
                 {stats.daysSinceLast > 0 && (
                   <span className="text-xs">
@@ -77,12 +78,12 @@ export function ClinicalSummaryHeader({
                 )}
               </span>
               <span className="flex items-center gap-1.5">
-                <Calendar className="h-3.5 w-3.5" />
+                <Icon name="calendar_month" className="h-3.5 w-3.5" />
                 {format(stats.firstDate, "d MMM", { locale: es })} — {format(stats.lastDate, "d MMM yyyy", { locale: es })}
               </span>
               {dateRange?.from && dateRange?.to && (
                 <span className="flex items-center gap-1.5">
-                  <TrendingUp className="h-3.5 w-3.5" />
+                  <Icon name="trending_up" className="h-3.5 w-3.5" />
                   Mostrando: {format(dateRange.from, "d MMM", { locale: es })} — {format(dateRange.to, "d MMM", { locale: es })}
                 </span>
               )}

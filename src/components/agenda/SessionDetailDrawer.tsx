@@ -4,37 +4,7 @@ import { es } from 'date-fns/locale';
 import { SESSION_STATUS_LABELS, getSessionStatusDisplay } from '@/lib/payment-status';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import {
-  Calendar,
-  Clock,
-  User,
-  CreditCard,
-  ChevronDown,
-  ChevronRight,
-  Mail,
-  Phone,
-  FileText,
-  Link as LinkIcon,
-  Edit2,
-  X,
-  Check,
-  Loader2,
-  Package,
-  DoorOpen,
-  Plus,
-  ExternalLink,
-  Video,
-  MapPin,
-  Ban,
-  Trash2,
-  CheckCircle2,
-  Send,
-  RefreshCw,
-  FileSignature,
-  ClipboardCheck,
-  NotebookPen,
-  Copy,
-} from 'lucide-react';
+import { Clock } from 'lucide-react';
 import {
   Sheet,
   SheetContent,
@@ -143,6 +113,7 @@ import { PaymentStatusIndicator } from './PaymentStatusIndicator';
 import { CancellationPolicyIndicator } from './CancellationPolicyIndicator';
 import { Receipt, Brain } from 'lucide-react';
 import { useAuditLog } from '@/hooks/useAuditLog';
+import { Icon } from '@/components/ui/icon';
 
 interface SessionDetailDrawerProps {
   session: SessionWithRelations | null;
@@ -1049,13 +1020,13 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
         className="h-8 w-8 shrink-0"
         onClick={() => onOpenChange(false)}
       >
-        <X className="h-5 w-5" />
+        <Icon name="close" className="h-5 w-5" />
       </Button>
       <div className="flex-1 text-center">
         <span className="text-lg font-semibold">Detalle de sesión</span>
         {isRecurringSession && (
           <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground mt-0.5">
-            <RefreshCw className="h-3 w-3" />
+            <Icon name="refresh" className="h-3 w-3" />
             <span>Cita recurrente</span>
           </div>
         )}
@@ -1095,7 +1066,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                 value="info"
                 className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-3 sm:px-4 py-3 shrink-0"
               >
-                {isMobile ? <FileText className="h-4 w-4" /> : 'Info'}
+                {isMobile ? <Icon name="description" className="h-4 w-4" /> : 'Info'}
               </TabsTrigger>
             </TooltipTrigger>
             {isMobile && <TooltipContent>Info</TooltipContent>}
@@ -1106,7 +1077,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                 value="evaluaciones"
                 className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-3 sm:px-4 py-3 shrink-0"
               >
-                {isMobile ? <ClipboardCheck className="h-4 w-4" /> : 'Evaluaciones'}
+                {isMobile ? <Icon name="assignment_turned_in" className="h-4 w-4" /> : 'Evaluaciones'}
               </TabsTrigger>
             </TooltipTrigger>
             {isMobile && <TooltipContent>Evaluaciones</TooltipContent>}
@@ -1117,7 +1088,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                 value="consentimientos"
                 className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-3 sm:px-4 py-3 shrink-0"
               >
-                {isMobile ? <FileSignature className="h-4 w-4" /> : 'Consentimientos'}
+                {isMobile ? <Icon name="edit_document" className="h-4 w-4" /> : 'Consentimientos'}
               </TabsTrigger>
             </TooltipTrigger>
             {isMobile && <TooltipContent>Consentimientos</TooltipContent>}
@@ -1128,7 +1099,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                 value="autoregistros"
                 className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-3 sm:px-4 py-3 shrink-0"
               >
-                {isMobile ? <NotebookPen className="h-4 w-4" /> : 'Autorregistros'}
+                {isMobile ? <Icon name="edit_note" className="h-4 w-4" /> : 'Autorregistros'}
               </TabsTrigger>
             </TooltipTrigger>
             {isMobile && <TooltipContent>Autorregistros</TooltipContent>}
@@ -1150,7 +1121,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                 value="otras"
                 className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-3 sm:px-4 py-3 shrink-0"
               >
-                {isMobile ? <Calendar className="h-4 w-4" /> : 'Otras sesiones'}
+                {isMobile ? <Icon name="calendar_month" className="h-4 w-4" /> : 'Otras sesiones'}
               </TabsTrigger>
             </TooltipTrigger>
             {isMobile && <TooltipContent>Otras sesiones</TooltipContent>}
@@ -1188,7 +1159,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
               // Blocked session without patient - show conversion UI
               <div className="p-4 rounded-lg border-2 border-dashed border-primary/40 bg-primary/5 space-y-3">
                 <div className="flex items-center gap-2 text-primary">
-                  <RefreshCw className="h-5 w-5" />
+                  <Icon name="refresh" className="h-5 w-5" />
                   <h3 className="font-semibold">Convertir a cita</h3>
                 </div>
                 <p className="text-sm text-muted-foreground">
@@ -1200,7 +1171,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                 />
                 {isConvertingSession && (
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <Icon name="progress_activity" className="h-4 w-4 animate-spin" />
                     Convirtiendo...
                   </div>
                 )}
@@ -1216,7 +1187,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                     className="h-8 w-8"
                     onClick={() => setEditingPatient(false)}
                   >
-                    <X className="h-4 w-4" />
+                    <Icon name="close" className="h-4 w-4" />
                   </Button>
                 </div>
                 <PatientSelector 
@@ -1225,7 +1196,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                 />
                 {isConvertingSession && (
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <Icon name="progress_activity" className="h-4 w-4 animate-spin" />
                     Actualizando...
                   </div>
                 )}
@@ -1243,7 +1214,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                   }}
                 >
                   <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                    <User className="h-6 w-6 text-primary" />
+                    <Icon name="person" className="h-6 w-6 text-primary" />
                   </div>
                   <div className="flex-1">
                     <h3 className="font-semibold">{patientName}</h3>
@@ -1251,7 +1222,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                       <p className="text-sm text-muted-foreground">{displayPatient.email}</p>
                     )}
                   </div>
-                  <ChevronRight className="h-5 w-5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <Icon name="chevron_right" className="h-5 w-5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                 </div>
                 <Button
                   variant="ghost"
@@ -1262,7 +1233,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                     setEditingPatient(true);
                   }}
                 >
-                  <Edit2 className="h-4 w-4" />
+                  <Icon name="edit" className="h-4 w-4" />
                 </Button>
               </div>
             )}
@@ -1270,7 +1241,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
             {/* Tags */}
             <div className="flex items-center gap-2">
               <Button variant="ghost" size="sm" className="h-7 text-xs">
-                <Plus className="h-3 w-3 mr-1" />
+                <Icon name="add" className="h-3 w-3 mr-1" />
                 Añadir etiqueta
               </Button>
             </div>
@@ -1281,13 +1252,13 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
             <div className="space-y-4">
               {/* Date & Time */}
               <div className="flex items-start gap-3">
-                <Calendar className="h-5 w-5 text-muted-foreground mt-0.5" />
+                <Icon name="calendar_month" className="h-5 w-5 text-muted-foreground mt-0.5" />
                 {editingDateTime ? (
                   <div className="flex-1 space-y-3">
                     <Popover modal={true}>
                       <PopoverTrigger asChild>
                         <Button variant="outline" className="h-8 w-full justify-start text-left font-normal">
-                          <Calendar className="mr-2 h-4 w-4" />
+                          <Icon name="calendar_month" className="mr-2 h-4 w-4" />
                           {dateTimeValue.date
                             ? format(parse(dateTimeValue.date, 'yyyy-MM-dd', new Date()), "dd/MM/yyyy")
                             : 'Seleccionar fecha'}
@@ -1366,7 +1337,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                         size="sm"
                         onClick={() => { setDetectedConflicts([]); setEditingDateTime(false); }}
                       >
-                        <X className="h-4 w-4" />
+                        <Icon name="close" className="h-4 w-4" />
                       </Button>
                       <Button
                         variant="default"
@@ -1375,9 +1346,9 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                         disabled={isSavingDateTime || updateSession.isPending || isCheckingConflicts || detectedConflicts.length > 0}
                       >
                         {isSavingDateTime || updateSession.isPending || isCheckingConflicts ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
+                          <Icon name="progress_activity" className="h-4 w-4 animate-spin" />
                         ) : (
-                          <Check className="h-4 w-4" />
+                          <Icon name="check" className="h-4 w-4" />
                         )}
                       </Button>
                     </div>
@@ -1399,7 +1370,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                       className="h-9 w-9 border-primary text-primary hover:bg-primary/10"
                       onClick={handleDateTimeEdit}
                     >
-                      <Edit2 className="h-4 w-4" />
+                      <Icon name="edit" className="h-4 w-4" />
                     </Button>
                   </>
                 )}
@@ -1408,7 +1379,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
               {/* Professional */}
               {session.professional && (
                 <div className="flex items-center gap-3">
-                  <User className="h-5 w-5 text-muted-foreground" />
+                  <Icon name="person" className="h-5 w-5 text-muted-foreground" />
                   <p className="flex-1">
                     {session.professional.first_name} {session.professional.last_name}
                   </p>
@@ -1417,16 +1388,16 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
 
               {/* Session Type */}
               <div className="flex items-center gap-3">
-                <FileText className="h-5 w-5 text-muted-foreground" />
+                <Icon name="description" className="h-5 w-5 text-muted-foreground" />
                 <div className="flex-1 flex items-center gap-2">
                   <span>{sessionTypeLabels[session.session_type || 'individual'] || session.session_type}</span>
-                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                  <Icon name="expand_more" className="h-4 w-4 text-muted-foreground" />
                 </div>
               </div>
 
               {/* Bono */}
               <div className="flex items-center gap-3">
-                <Package className="h-5 w-5 text-muted-foreground" />
+                <Icon name="package_2" className="h-5 w-5 text-muted-foreground" />
                 <div className="flex gap-2 flex-1">
                   <Select
                     value={localBonoId || '__none__'}
@@ -1478,14 +1449,14 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                     className="h-8 w-8"
                     onClick={() => setShowCreateBonoDialog(true)}
                   >
-                    <Plus className="h-4 w-4" />
+                    <Icon name="add" className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
 
               {/* Room */}
               <div className="flex items-center gap-3">
-                <DoorOpen className="h-5 w-5 text-muted-foreground" />
+                <Icon name="meeting_room" className="h-5 w-5 text-muted-foreground" />
                 <Select
                   value={sessionData.room || '__none__'}
                   onValueChange={(value) => handleRoomSave(value === '__none__' ? '' : value)}
@@ -1505,7 +1476,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
 
               {/* Session Modality */}
               <div className="flex items-center gap-3">
-                <Video className="h-5 w-5 text-muted-foreground" />
+                <Icon name="videocam" className="h-5 w-5 text-muted-foreground" />
                 <Select
                   value={sessionData.session_modality || 'in_person'}
                   onValueChange={handleModalityChange}
@@ -1514,7 +1485,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                   <SelectTrigger className="flex-1 h-8">
                     {isChangingModality ? (
                       <div className="flex items-center gap-2">
-                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <Icon name="progress_activity" className="h-4 w-4 animate-spin" />
                         <span>Cambiando...</span>
                       </div>
                     ) : (
@@ -1533,7 +1504,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
               {/* Show current video link if exists for google_meet or zoom */}
               {(sessionData.session_modality === 'google_meet' || sessionData.session_modality === 'zoom') && sessionData.video_call_link && (
                 <div className="flex items-center gap-3 ml-8">
-                  <LinkIcon className="h-5 w-5 text-muted-foreground" />
+                  <Icon name="link" className="h-5 w-5 text-muted-foreground" />
                   <span className="text-sm text-muted-foreground truncate flex-1">{sessionData.video_call_link}</span>
                   <a 
                     href={sessionData.video_call_link} 
@@ -1541,7 +1512,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                     rel="noopener noreferrer"
                   >
                     <Button variant="ghost" size="icon" className="h-8 w-8">
-                      <ExternalLink className="h-4 w-4" />
+                      <Icon name="open_in_new" className="h-4 w-4" />
                     </Button>
                   </a>
                 </div>
@@ -1550,7 +1521,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
               {/* Custom Video Link - Only show when custom_link is selected */}
               {sessionData.session_modality === 'custom_link' && (
                 <div className="flex items-center gap-3 ml-8">
-                  <LinkIcon className="h-5 w-5 text-muted-foreground" />
+                  <Icon name="link" className="h-5 w-5 text-muted-foreground" />
                   <Input
                     type="url"
                     placeholder="https://..."
@@ -1565,7 +1536,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                       rel="noopener noreferrer"
                     >
                       <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <ExternalLink className="h-4 w-4" />
+                        <Icon name="open_in_new" className="h-4 w-4" />
                       </Button>
                     </a>
                   )}
@@ -1575,7 +1546,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
               {/* Location - Only show when in_person */}
               {(sessionData.session_modality === 'in_person' || !sessionData.session_modality) && (
                 <div className="flex items-center gap-3">
-                  <MapPin className="h-5 w-5 text-muted-foreground" />
+                  <Icon name="location_on" className="h-5 w-5 text-muted-foreground" />
                   <Select
                     value={sessionData.location_id || '__none__'}
                     onValueChange={(value) => handleFieldSave('location_id', value === '__none__' ? null : value)}
@@ -1597,7 +1568,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
 
               {/* Cancellation Policy */}
               <div className="flex items-center gap-3">
-                <Ban className="h-5 w-5 text-muted-foreground" />
+                <Icon name="block" className="h-5 w-5 text-muted-foreground" />
                 <Select
                   value={sessionData.cancellation_policy || '24_hours'}
                   onValueChange={(value) => handleFieldSave('cancellation_policy', value)}
@@ -1626,7 +1597,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
 
               {/* Price */}
               <div className="flex items-center gap-3">
-                <CreditCard className="h-5 w-5 text-muted-foreground" />
+                <Icon name="credit_card" className="h-5 w-5 text-muted-foreground" />
                 {editingPrice ? (
                   <div className="flex items-center gap-2">
                     <Input
@@ -1638,10 +1609,10 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                     />
                     <span className="text-sm">€</span>
                     <Button size="sm" variant="ghost" onClick={handlePriceSave}>
-                      <Check className="h-4 w-4" />
+                      <Icon name="check" className="h-4 w-4" />
                     </Button>
                     <Button size="sm" variant="ghost" onClick={() => setEditingPrice(false)}>
-                      <X className="h-4 w-4" />
+                      <Icon name="close" className="h-4 w-4" />
                     </Button>
                   </div>
                 ) : (
@@ -1650,17 +1621,17 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                     {/* Payment Status Badge */}
                     {localBonoId ? (
                       <Badge variant="secondary" className="bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
-                        <Package className="h-3 w-3 mr-1" />
+                        <Icon name="package_2" className="h-3 w-3 mr-1" />
                         Cubierto por bono
                       </Badge>
                     ) : paymentStatus?.isRefunded ? (
                       <Badge variant="secondary" className="bg-slate-100 text-slate-800 dark:bg-slate-900 dark:text-slate-200">
-                        <RefreshCw className="h-3 w-3 mr-1" />
+                        <Icon name="refresh" className="h-3 w-3 mr-1" />
                         Reembolsado
                       </Badge>
                     ) : paymentStatus?.isPaid ? (
                       <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-                        <CheckCircle2 className="h-3 w-3 mr-1" />
+                        <Icon name="check_circle" className="h-3 w-3 mr-1" />
                         Pagado
                       </Badge>
                     ) : paymentStatus?.isPartial ? (
@@ -1687,14 +1658,14 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                           setEditingPrice(true);
                         }}
                       >
-                        <Edit2 className="h-3 w-3" />
+                        <Icon name="edit" className="h-3 w-3" />
                       </Button>
                     ) : (
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <span className="h-6 w-6 flex items-center justify-center text-muted-foreground">
-                              <LinkIcon className="h-3 w-3" />
+                              <Icon name="link" className="h-3 w-3" />
                             </span>
                           </TooltipTrigger>
                           <TooltipContent>
@@ -1740,7 +1711,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                           )}
                           onClick={() => navigate('/facturas')}
                         >
-                          <FileText className="h-4 w-4 mr-1" />
+                          <Icon name="description" className="h-4 w-4 mr-1" />
                           {inv.invoice_number}
                           {!inv.is_valid && <span className="ml-1 text-amber-600">(Anulada)</span>}
                         </Button>
@@ -1753,14 +1724,14 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                         variant="outline"
                         onClick={() => setShowInvoiceDialog(true)}
                       >
-                        <FileText className="h-4 w-4 mr-1" />
+                        <Icon name="description" className="h-4 w-4 mr-1" />
                         Nueva factura
                       </Button>
                     )}
                   </div>
                 ) : paymentStatus?.isRefunded ? (
                   <Badge variant="secondary" className="w-fit bg-slate-100 text-slate-800 dark:bg-slate-900 dark:text-slate-200">
-                    <RefreshCw className="h-4 w-4 mr-1" />
+                    <Icon name="refresh" className="h-4 w-4 mr-1" />
                     Pago reembolsado
                   </Badge>
                 ) : localBonoId ? (
@@ -1769,7 +1740,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <Button size="sm" variant="outline" disabled>
-                            <Package className="h-4 w-4 mr-1" />
+                            <Icon name="package_2" className="h-4 w-4 mr-1" />
                             Cubierto por bono
                           </Button>
                         </TooltipTrigger>
@@ -1786,7 +1757,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                         className="text-purple-600 border-purple-300 hover:bg-purple-50"
                         onClick={() => setShowBonoPaymentDialog(true)}
                       >
-                        <CreditCard className="h-4 w-4 mr-1" />
+                        <Icon name="credit_card" className="h-4 w-4 mr-1" />
                         Cobrar bono
                       </Button>
                     )}
@@ -1796,7 +1767,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Button size="sm" variant="outline" disabled>
-                          <FileText className="h-4 w-4 mr-1" />
+                          <Icon name="description" className="h-4 w-4 mr-1" />
                           Sin cargo
                         </Button>
                       </TooltipTrigger>
@@ -1811,7 +1782,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                     variant="outline"
                     onClick={() => setShowInvoiceDialog(true)}
                   >
-                    <FileText className="h-4 w-4 mr-1" />
+                    <Icon name="description" className="h-4 w-4 mr-1" />
                     Crear factura
                   </Button>
                 )}
@@ -1824,7 +1795,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                     variant="outline"
                     onClick={() => setShowPaymentDialog(true)}
                   >
-                    <CreditCard className="h-4 w-4 mr-1" />
+                    <Icon name="credit_card" className="h-4 w-4 mr-1" />
                     {paymentStatus?.isPartial
                       ? `Cobrar pendiente (${paymentStatus.remainingAmount.toFixed(2)}€)`
                       : 'Cobrar sesión'}
@@ -1870,7 +1841,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
               {!paymentStatus?.isPaid && !paymentStatus?.isRefunded && localPrice > 0 && !localBonoId && !session.bono_id && (
                 <div className="rounded-lg border bg-muted/30 p-3 space-y-3">
                   <div className="flex items-start gap-2">
-                    <LinkIcon className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
+                    <Icon name="link" className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
                     <div>
                       <p className="text-sm font-medium">Enlace de pago online</p>
                       <p className="text-xs text-muted-foreground">
@@ -1887,17 +1858,17 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                     >
                       {isGeneratingPaymentLink ? (
                         <>
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          <Icon name="progress_activity" className="h-4 w-4 mr-2 animate-spin" />
                           Generando...
                         </>
                       ) : paymentLinkUrl ? (
                         <>
-                          <Copy className="h-4 w-4 mr-2" />
+                          <Icon name="content_copy" className="h-4 w-4 mr-2" />
                           Copiar enlace
                         </>
                       ) : (
                         <>
-                          <LinkIcon className="h-4 w-4 mr-2" />
+                          <Icon name="link" className="h-4 w-4 mr-2" />
                           Generar enlace
                         </>
                       )}
@@ -1910,7 +1881,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                           rel="noopener noreferrer"
                           aria-label="Abrir enlace de pago en una pestaña nueva"
                         >
-                          <ExternalLink className="h-4 w-4" />
+                          <Icon name="open_in_new" className="h-4 w-4" />
                         </a>
                       </Button>
                     )}
@@ -1939,7 +1910,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                       checked={session.send_reminder_whatsapp || false} 
                       onCheckedChange={(checked) => handleFieldSave('send_reminder_whatsapp', !!checked)}
                     />
-                    <Phone className="h-4 w-4 text-green-600" />
+                    <Icon name="call" className="h-4 w-4 text-green-600" />
                     WhatsApp
                   </label>
                   <label className="flex items-center gap-2 text-sm cursor-pointer">
@@ -1948,7 +1919,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                       onCheckedChange={(checked) => handleFieldSave('send_reminder_sms', !!checked)}
                       disabled
                     />
-                    <Phone className="h-4 w-4 text-muted-foreground" />
+                    <Icon name="call" className="h-4 w-4 text-muted-foreground" />
                     SMS
                   </label>
                   <label className="flex items-center gap-2 text-sm cursor-pointer">
@@ -1956,7 +1927,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                       checked={session.send_reminder_email || false} 
                       onCheckedChange={(checked) => handleFieldSave('send_reminder_email', !!checked)}
                     />
-                    <Mail className="h-4 w-4" />
+                    <Icon name="mail" className="h-4 w-4" />
                     Email
                   </label>
                 </div>
@@ -2046,9 +2017,9 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                     }}
                   >
                     {isSendingWhatsAppNow ? (
-                      <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                      <Icon name="progress_activity" className="h-4 w-4 mr-1 animate-spin" />
                     ) : (
-                      <Send className="h-4 w-4 mr-1" />
+                      <Icon name="send" className="h-4 w-4 mr-1" />
                     )}
                     WhatsApp
                   </Button>
@@ -2057,7 +2028,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                     size="sm"
                     disabled
                   >
-                    <Send className="h-4 w-4 mr-1" />
+                    <Icon name="send" className="h-4 w-4 mr-1" />
                     SMS
                   </Button>
                   <Button 
@@ -2094,9 +2065,9 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                     }}
                   >
                     {sendEmailNotification.isPending ? (
-                      <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                      <Icon name="progress_activity" className="h-4 w-4 mr-1 animate-spin" />
                     ) : (
-                      <Send className="h-4 w-4 mr-1" />
+                      <Icon name="send" className="h-4 w-4 mr-1" />
                     )}
                     Email
                   </Button>
@@ -2116,7 +2087,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
               <CollapsibleTrigger asChild>
                 <Button variant="ghost" className="w-full justify-between p-0 h-auto">
                   <span className="font-medium text-sm">Apuntes privados de la sesión</span>
-                  <ChevronDown className={cn('h-4 w-4 transition-transform', notesOpen && 'rotate-180')} />
+                  <Icon name="expand_more" className={cn('h-4 w-4 transition-transform', notesOpen && 'rotate-180')} />
                 </Button>
               </CollapsibleTrigger>
               <CollapsibleContent className="pt-3">
@@ -2166,14 +2137,14 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                         <Brain className="h-4 w-4 text-primary" />
                         Informes IA generados
                       </span>
-                      <ChevronDown className="h-4 w-4 transition-transform" />
+                      <Icon name="expand_more" className="h-4 w-4 transition-transform" />
                     </Button>
                   </CollapsibleTrigger>
                   <CollapsibleContent className="pt-3 space-y-3">
                     {sessionData.ai_summary_clinical && (
                       <div className="space-y-1">
                         <p className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
-                          <FileText className="h-3 w-3" />
+                          <Icon name="description" className="h-3 w-3" />
                           Informe clínico
                         </p>
                         <div className="rounded-md bg-muted p-3 text-sm whitespace-pre-wrap max-h-48 overflow-y-auto">
@@ -2185,7 +2156,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                     {sessionData.ai_summary_patient && (
                       <div className="space-y-2">
                         <p className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
-                          <User className="h-3 w-3" />
+                          <Icon name="person" className="h-3 w-3" />
                           Informe para el paciente
                         </p>
                         <div className="rounded-md bg-muted p-3 text-sm whitespace-pre-wrap max-h-48 overflow-y-auto">
@@ -2198,7 +2169,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                               variant="outline"
                               onClick={() => handleSendAIReport('whatsapp')}
                             >
-                              <Phone className="h-3 w-3 mr-1" />
+                              <Icon name="call" className="h-3 w-3 mr-1" />
                               WhatsApp
                             </Button>
                           )}
@@ -2208,7 +2179,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                               variant="outline"
                               onClick={() => handleSendAIReport('email')}
                             >
-                              <Mail className="h-3 w-3 mr-1" />
+                              <Icon name="mail" className="h-3 w-3 mr-1" />
                               Email
                             </Button>
                           )}
@@ -2226,7 +2197,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                           setTimeout(() => onAnalyzeTranscription(session.id), 300);
                         }}
                       >
-                        <RefreshCw className="h-3 w-3 mr-1" />
+                        <Icon name="refresh" className="h-3 w-3 mr-1" />
                         Regenerar informes
                       </Button>
                     )}
@@ -2264,7 +2235,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button variant="destructive" className="w-full mt-4">
-                    <Trash2 className="mr-2 h-4 w-4" />
+                    <Icon name="delete" className="mr-2 h-4 w-4" />
                     Eliminar bloqueo
                   </Button>
                 </AlertDialogTrigger>
@@ -2306,7 +2277,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                     setShowRecurringScopeDialog(true);
                   }}
                 >
-                  <Trash2 className="mr-2 h-4 w-4" />
+                  <Icon name="delete" className="mr-2 h-4 w-4" />
                   Cancelar cita recurrente
                 </Button>
               ) : (
@@ -2314,7 +2285,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
                     <Button variant="destructive" className="w-full mt-4">
-                      <Trash2 className="mr-2 h-4 w-4" />
+                      <Icon name="delete" className="mr-2 h-4 w-4" />
                       Eliminar sesión
                     </Button>
                   </AlertDialogTrigger>
@@ -2373,11 +2344,11 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                   }
                 }}
               >
-                <ExternalLink className="h-3 w-3 mr-1" />
+                <Icon name="open_in_new" className="h-3 w-3 mr-1" />
                 Historia clínica
               </Button>
               <Button variant="link" size="sm" className="h-auto p-0 text-xs">
-                <FileText className="h-3 w-3 mr-1" />
+                <Icon name="description" className="h-3 w-3 mr-1" />
                 Justificante de asistencia
               </Button>
               {onAnalyzeTranscription && (
@@ -2403,7 +2374,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
           <TabsContent value="evaluaciones" className="mt-0 px-4 sm:px-6 py-4">
             {!session.patient ? (
               <div className="text-center py-8 text-muted-foreground">
-                <ClipboardCheck className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <Icon name="assignment_turned_in" className="h-8 w-8 mx-auto mb-2 opacity-50" />
                 <p className="text-sm">Asigna un paciente para ver sus evaluaciones</p>
               </div>
             ) : (
@@ -2414,12 +2385,12 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
           <TabsContent value="consentimientos" className="mt-0 px-4 sm:px-6 py-4">
             {!session.patient ? (
               <div className="text-center py-8 text-muted-foreground">
-                <FileSignature className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <Icon name="edit_document" className="h-8 w-8 mx-auto mb-2 opacity-50" />
                 <p className="text-sm">Asigna un paciente para gestionar consentimientos</p>
               </div>
             ) : consentsLoading ? (
               <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                <Icon name="progress_activity" className="h-6 w-6 animate-spin text-primary" />
               </div>
             ) : (
               <div className="space-y-4">
@@ -2432,7 +2403,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                     onClick={() => setShowCreateConsentDialog(true)}
                     disabled={consentTemplates.filter(t => t.is_active).length === 0}
                   >
-                    <Plus className="h-4 w-4 mr-1" />
+                    <Icon name="add" className="h-4 w-4 mr-1" />
                     Nuevo
                   </Button>
                 </div>
@@ -2447,7 +2418,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                 {/* List of consents */}
                 {consents.length === 0 ? (
                   <div className="text-center py-6 text-muted-foreground">
-                    <FileSignature className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                    <Icon name="edit_document" className="h-8 w-8 mx-auto mb-2 opacity-50" />
                     <p className="text-sm">Sin consentimientos</p>
                     <p className="text-xs mt-1">Crea un consentimiento para enviar al paciente</p>
                   </div>
@@ -2467,7 +2438,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
               <PatientAutoregistros patientId={session.patient_id} />
             ) : (
               <div className="text-center py-8 text-muted-foreground">
-                <NotebookPen className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <Icon name="edit_note" className="h-8 w-8 mx-auto mb-2 opacity-50" />
                 <p className="text-sm">Asigna un paciente para ver sus autorregistros</p>
               </div>
             )}
@@ -2503,7 +2474,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
               />
             ) : (
               <div className="text-center py-8 text-muted-foreground">
-                <Calendar className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <Icon name="calendar_month" className="h-8 w-8 mx-auto mb-2 opacity-50" />
                 <p className="text-sm">Sin paciente asignado</p>
               </div>
             )}

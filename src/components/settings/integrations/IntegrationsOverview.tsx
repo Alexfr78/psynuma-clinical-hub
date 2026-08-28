@@ -2,7 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { useProfessionalIntegrations } from "@/hooks/useProfessionalIntegrations";
 import { useCenter } from "@/hooks/useCenter";
-import { MessageSquare, Video, Calendar, CreditCard, Mail, Brain, CheckCircle2, XCircle } from "lucide-react";
+
 import { Skeleton } from "@/components/ui/skeleton";
 import { Label } from "@/components/ui/label";
 import {
@@ -12,6 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Icon } from '@/components/ui/icon';
 
 interface IntegrationStatusProps {
   icon: React.ReactNode;
@@ -38,12 +39,12 @@ function IntegrationStatus({ icon, name, description, enabled, connected }: Inte
       <Badge variant={isActive ? "default" : "secondary"} className="gap-1">
         {isActive ? (
           <>
-            <CheckCircle2 className="h-3 w-3" />
+            <Icon name="check_circle" className="h-3 w-3" />
             Activo
           </>
         ) : (
           <>
-            <XCircle className="h-3 w-3" />
+            <Icon name="cancel" className="h-3 w-3" />
             Inactivo
           </>
         )}
@@ -92,7 +93,7 @@ export function IntegrationsOverview() {
       </CardHeader>
       <CardContent className="space-y-3">
         <IntegrationStatus
-          icon={<Mail className="h-5 w-5" />}
+          icon={<Icon name="mail" className="h-5 w-5" />}
           name="Email (Resend)"
           description="Envío de facturas, recordatorios y notificaciones"
           enabled={true}
@@ -100,21 +101,21 @@ export function IntegrationsOverview() {
         />
         
         <IntegrationStatus
-          icon={<MessageSquare className="h-5 w-5" />}
+          icon={<Icon name="forum" className="h-5 w-5" />}
           name="WhatsApp Business"
           description="Envío de notificaciones y recordatorios"
           enabled={integrations?.whatsapp_enabled ?? false}
         />
         
         <IntegrationStatus
-          icon={<MessageSquare className="h-5 w-5" />}
+          icon={<Icon name="forum" className="h-5 w-5" />}
           name="WasenderAPI"
           description="Automatización WhatsApp con tu número"
           enabled={center?.wasender_enabled ?? false}
         />
         
         <IntegrationStatus
-          icon={<Video className="h-5 w-5" />}
+          icon={<Icon name="videocam" className="h-5 w-5" />}
           name="Zoom"
           description="Videollamadas automáticas"
           enabled={integrations?.zoom_enabled ?? false}
@@ -122,7 +123,7 @@ export function IntegrationsOverview() {
         />
         
         <IntegrationStatus
-          icon={<Calendar className="h-5 w-5" />}
+          icon={<Icon name="calendar_month" className="h-5 w-5" />}
           name="Google Calendar"
           description="Sincronización de citas"
           enabled={integrations?.google_calendar_enabled ?? false}
@@ -130,7 +131,7 @@ export function IntegrationsOverview() {
         />
         
         <IntegrationStatus
-          icon={<Video className="h-5 w-5" />}
+          icon={<Icon name="videocam" className="h-5 w-5" />}
           name="Google Meet"
           description="Videollamadas con Google Meet"
           enabled={integrations?.google_meet_enabled ?? false}
@@ -138,7 +139,7 @@ export function IntegrationsOverview() {
         />
         
         <IntegrationStatus
-          icon={<CreditCard className="h-5 w-5" />}
+          icon={<Icon name="credit_card" className="h-5 w-5" />}
           name="Stripe"
           description="Cobros online"
           enabled={integrations?.stripe_enabled ?? false}
@@ -146,7 +147,7 @@ export function IntegrationsOverview() {
         />
         
         <IntegrationStatus
-          icon={<Brain className="h-5 w-5" />}
+          icon={<Icon name="psychology" className="h-5 w-5" />}
           name="Inteligencia Artificial"
           description="Análisis de transcripciones y generación de informes"
           enabled={!!(center?.openai_api_key_encrypted || center?.gemini_api_key_encrypted)}

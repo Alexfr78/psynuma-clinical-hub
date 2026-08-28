@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { MapPin, Plus, Trash2, Clock, ChevronDown, ChevronUp, Loader2, Globe, Lock, Video } from 'lucide-react';
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,6 +22,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Icon } from '@/components/ui/icon';
+import { Video, MapPin } from 'lucide-react';
 
 const DAYS_LABELS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
@@ -80,12 +82,12 @@ function LocationCard({ location, schedules, onDelete, onScheduleChange, onVisib
                   <Badge variant={isPublic ? 'default' : 'secondary'} className="text-xs">
                     {isPublic ? (
                       <>
-                        <Globe className="h-3 w-3 mr-1" />
+                        <Icon name="public" className="h-3 w-3 mr-1" />
                         Público
                       </>
                     ) : (
                       <>
-                        <Lock className="h-3 w-3 mr-1" />
+                        <Icon name="lock" className="h-3 w-3 mr-1" />
                         Privado
                       </>
                     )}
@@ -97,12 +99,12 @@ function LocationCard({ location, schedules, onDelete, onScheduleChange, onVisib
             <div className="flex items-center gap-2">
               <CollapsibleTrigger asChild>
                 <Button variant="ghost" size="sm">
-                  <Clock className="mr-2 h-4 w-4" />
+                  <Icon name="schedule" className="mr-2 h-4 w-4" />
                   <span className="hidden sm:inline">Horarios</span>
                   {isOpen ? (
-                    <ChevronUp className="ml-2 h-4 w-4" />
+                    <Icon name="expand_less" className="ml-2 h-4 w-4" />
                   ) : (
-                    <ChevronDown className="ml-2 h-4 w-4" />
+                    <Icon name="expand_more" className="ml-2 h-4 w-4" />
                   )}
                 </Button>
               </CollapsibleTrigger>
@@ -112,7 +114,7 @@ function LocationCard({ location, schedules, onDelete, onScheduleChange, onVisib
                 className="text-destructive hover:text-destructive"
                 onClick={() => setDeleteDialogOpen(true)}
               >
-                <Trash2 className="h-4 w-4" />
+                <Icon name="delete" className="h-4 w-4" />
               </Button>
             </div>
           </div>
@@ -124,7 +126,7 @@ function LocationCard({ location, schedules, onDelete, onScheduleChange, onVisib
               <div className="flex items-center justify-between rounded-lg border p-3">
                 <div className="space-y-0.5">
                   <div className="flex items-center gap-2 text-sm font-medium">
-                    {isPublic ? <Globe className="h-4 w-4 text-primary" /> : <Lock className="h-4 w-4 text-muted-foreground" />}
+                    {isPublic ? <Icon name="public" className="h-4 w-4 text-primary" /> : <Icon name="lock" className="h-4 w-4 text-muted-foreground" />}
                     Visible para pacientes
                   </div>
                   <p className="text-xs text-muted-foreground">
@@ -142,9 +144,9 @@ function LocationCard({ location, schedules, onDelete, onScheduleChange, onVisib
 
               {/* Schedule section */}
               <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                <Clock className="h-4 w-4" />
+                <Icon name="schedule" className="h-4 w-4" />
                 Horarios de apertura
-                {isUpdating && <Loader2 className="h-3 w-3 animate-spin" />}
+                {isUpdating && <Icon name="progress_activity" className="h-3 w-3 animate-spin" />}
               </div>
               
               <div className="space-y-2">
@@ -285,7 +287,7 @@ function NewLocationForm({ onSubmit, onCancel, isLoading, onlineExists }: NewLoc
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="in_person" id="type_in_person" />
                 <Label htmlFor="type_in_person" className="flex items-center gap-1.5 cursor-pointer">
-                  <MapPin className="h-4 w-4" />
+                  <Icon name="location_on" className="h-4 w-4" />
                   Presencial
                 </Label>
               </div>
@@ -299,7 +301,7 @@ function NewLocationForm({ onSubmit, onCancel, isLoading, onlineExists }: NewLoc
                   htmlFor="type_online" 
                   className={`flex items-center gap-1.5 cursor-pointer ${onlineExists ? 'text-muted-foreground' : ''}`}
                 >
-                  <Video className="h-4 w-4" />
+                  <Icon name="videocam" className="h-4 w-4" />
                   Online
                   {onlineExists && (
                     <span className="text-xs text-amber-600">(Ya existe)</span>
@@ -390,7 +392,7 @@ function NewLocationForm({ onSubmit, onCancel, isLoading, onlineExists }: NewLoc
               Cancelar
             </Button>
             <Button type="submit" disabled={isLoading}>
-              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isLoading && <Icon name="progress_activity" className="mr-2 h-4 w-4 animate-spin" />}
               Guardar
             </Button>
           </div>
@@ -503,7 +505,7 @@ export function LocationsSection() {
     return (
       <Card>
         <CardContent className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <Icon name="progress_activity" className="h-8 w-8 animate-spin text-primary" />
         </CardContent>
       </Card>
     );
@@ -513,7 +515,7 @@ export function LocationsSection() {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <MapPin className="h-5 w-5" />
+          <Icon name="location_on" className="h-5 w-5" />
           Ubicaciones del Centro
         </CardTitle>
         <CardDescription>
@@ -539,7 +541,7 @@ export function LocationsSection() {
           </div>
         ) : !showNewForm ? (
           <div className="text-center py-8 text-muted-foreground">
-            <MapPin className="mx-auto h-12 w-12 opacity-50" />
+            <Icon name="location_on" className="mx-auto h-12 w-12 opacity-50" />
             <p className="mt-2">No hay ubicaciones configuradas</p>
             <p className="text-sm">Añade tu primera ubicación para gestionar horarios</p>
           </div>
@@ -558,7 +560,7 @@ export function LocationsSection() {
             className="w-full"
             onClick={() => setShowNewForm(true)}
           >
-            <Plus className="mr-2 h-4 w-4" />
+            <Icon name="add" className="mr-2 h-4 w-4" />
             Añadir nueva ubicación
           </Button>
         )}

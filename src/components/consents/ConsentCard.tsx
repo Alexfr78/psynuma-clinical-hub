@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FileText, Eye, Download, MoreVertical, XCircle, Send, Copy, ExternalLink, Loader2, Upload } from 'lucide-react';
+
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -18,6 +18,7 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { Icon } from '@/components/ui/icon';
 
 interface ConsentCardProps {
   consent: Consent;
@@ -97,7 +98,7 @@ export function ConsentCard({ consent, patientPhone }: ConsentCardProps) {
         <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
           <div className="flex items-start gap-3">
             <div className={`rounded-lg p-2 ${displayStatus.color}/10`}>
-              <FileText className={`h-5 w-5 ${displayStatus.color.replace('bg-', 'text-')}`} />
+              <Icon name="description" className={`h-5 w-5 ${displayStatus.color.replace('bg-', 'text-')}`} />
             </div>
             <div className="min-w-0 flex-1">
               <h3 className="font-semibold break-words">
@@ -111,27 +112,27 @@ export function ConsentCard({ consent, patientPhone }: ConsentCardProps) {
           <DropdownMenu modal={false}>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="h-8 w-8">
-                <MoreVertical className="h-4 w-4" />
+                <Icon name="more_vert" className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" usePortal={false}>
               <DropdownMenuItem onClick={() => setDetailOpen(true)}>
-                <Eye className="mr-2 h-4 w-4" />
+                <Icon name="visibility" className="mr-2 h-4 w-4" />
                 Ver documento
               </DropdownMenuItem>
               {consent.status === 'pending' && !isExpired && (
                 <>
                   <DropdownMenuItem onClick={() => setSendOpen(true)}>
-                    <Send className="mr-2 h-4 w-4" />
+                    <Icon name="send" className="mr-2 h-4 w-4" />
                     Reenviar enlace
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={handleCopyLink}>
-                    <Copy className="mr-2 h-4 w-4" />
+                    <Icon name="content_copy" className="mr-2 h-4 w-4" />
                     Copiar enlace
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
                     <a href={consentUrl} target="_blank" rel="noopener noreferrer">
-                      <ExternalLink className="mr-2 h-4 w-4" />
+                      <Icon name="open_in_new" className="mr-2 h-4 w-4" />
                       Abrir portal
                     </a>
                   </DropdownMenuItem>
@@ -139,9 +140,9 @@ export function ConsentCard({ consent, patientPhone }: ConsentCardProps) {
               )}
               <DropdownMenuItem onClick={handleDownloadPdf} disabled={generatingPdf}>
                 {generatingPdf ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Icon name="progress_activity" className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
-                  <Download className="mr-2 h-4 w-4" />
+                  <Icon name="download" className="mr-2 h-4 w-4" />
                 )}
                 Descargar PDF
               </DropdownMenuItem>
@@ -152,7 +153,7 @@ export function ConsentCard({ consent, patientPhone }: ConsentCardProps) {
                     onClick={() => setRevokeOpen(true)}
                     className="text-destructive focus:text-destructive"
                   >
-                    <XCircle className="mr-2 h-4 w-4" />
+                    <Icon name="cancel" className="mr-2 h-4 w-4" />
                     Revocar
                   </DropdownMenuItem>
                 </>
@@ -170,7 +171,7 @@ export function ConsentCard({ consent, patientPhone }: ConsentCardProps) {
             </Badge>
             {isUploaded && (
               <Badge variant="outline" className="gap-1">
-                <Upload className="h-3 w-3" />
+                <Icon name="upload" className="h-3 w-3" />
                 Subido
               </Badge>
             )}

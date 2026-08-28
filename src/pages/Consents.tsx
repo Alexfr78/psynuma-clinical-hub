@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, FileText, Loader2, Clock, Copy, ExternalLink, MessageCircle, Send } from 'lucide-react';
+
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,7 @@ import { useWhatsAppDelivery } from '@/hooks/useWhatsAppDelivery';
 import { useCenter } from '@/hooks/useCenter';
 import { usePatients } from '@/hooks/usePatients';
 import { toast } from 'sonner';
+import { Icon } from '@/components/ui/icon';
 
 export default function Consents() {
   const { templates, isLoading: templatesLoading } = useConsentTemplates();
@@ -39,7 +40,7 @@ export default function Consents() {
           </p>
         </div>
         <Button onClick={() => setCreateDialogOpen(true)} size="sm" className="w-full sm:w-auto sm:size-default">
-          <Plus className="mr-2 h-4 w-4" />
+          <Icon name="add" className="mr-2 h-4 w-4" />
           <span className="hidden sm:inline">Nueva plantilla</span>
           <span className="sm:hidden">Nueva</span>
         </Button>
@@ -48,7 +49,7 @@ export default function Consents() {
       <Tabs defaultValue="pending">
         <TabsList className="w-full sm:w-auto">
           <TabsTrigger value="pending" className="flex-1 sm:flex-initial gap-2">
-            <Clock className="h-4 w-4" />
+            <Icon name="schedule" className="h-4 w-4" />
             <span className="hidden sm:inline">Pendientes de firma</span>
             <span className="sm:hidden">Pendientes</span>
             {pendingConsents.length > 0 && (
@@ -58,7 +59,7 @@ export default function Consents() {
             )}
           </TabsTrigger>
           <TabsTrigger value="templates" className="flex-1 sm:flex-initial gap-2">
-            <FileText className="h-4 w-4" />
+            <Icon name="description" className="h-4 w-4" />
             <span className="hidden sm:inline">Plantillas</span>
             <span className="sm:hidden">Plantillas</span>
           </TabsTrigger>
@@ -68,12 +69,12 @@ export default function Consents() {
         <TabsContent value="pending" className="mt-4">
           {consentsLoading ? (
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <Icon name="progress_activity" className="h-8 w-8 animate-spin text-primary" />
             </div>
           ) : pendingConsents.length === 0 ? (
             <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12 text-center">
               <div className="rounded-full bg-muted p-4">
-                <Clock className="h-8 w-8 text-muted-foreground" />
+                <Icon name="schedule" className="h-8 w-8 text-muted-foreground" />
               </div>
               <h3 className="mt-4 font-semibold">Sin consentimientos pendientes</h3>
               <p className="mt-2 text-sm text-muted-foreground">
@@ -93,19 +94,19 @@ export default function Consents() {
         <TabsContent value="templates" className="mt-4">
           {templatesLoading ? (
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <Icon name="progress_activity" className="h-8 w-8 animate-spin text-primary" />
             </div>
           ) : templates.length === 0 ? (
             <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12 text-center">
               <div className="rounded-full bg-muted p-4">
-                <FileText className="h-8 w-8 text-muted-foreground" />
+                <Icon name="description" className="h-8 w-8 text-muted-foreground" />
               </div>
               <h3 className="mt-4 font-semibold">No hay plantillas</h3>
               <p className="mt-2 text-sm text-muted-foreground">
                 Crea tu primera plantilla de consentimiento informado
               </p>
               <Button className="mt-4" onClick={() => setCreateDialogOpen(true)}>
-                <Plus className="mr-2 h-4 w-4" />
+                <Icon name="add" className="mr-2 h-4 w-4" />
                 Crear plantilla
               </Button>
             </div>
@@ -197,7 +198,7 @@ function PendingConsentCard({ consent }: { consent: Consent }) {
             </p>
           </div>
           <Badge variant="secondary" className="bg-amber-500/10 text-amber-600 shrink-0">
-            <Clock className="h-3 w-3 mr-1" />
+            <Icon name="schedule" className="h-3 w-3 mr-1" />
             Pendiente
           </Badge>
         </div>
@@ -215,7 +216,7 @@ function PendingConsentCard({ consent }: { consent: Consent }) {
             className="flex-1"
             onClick={handleCopyLink}
           >
-            <Copy className="h-4 w-4 mr-2" />
+            <Icon name="content_copy" className="h-4 w-4 mr-2" />
             Copiar enlace
           </Button>
           
@@ -228,11 +229,11 @@ function PendingConsentCard({ consent }: { consent: Consent }) {
               title={methodLabel}
             >
               {isSending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Icon name="progress_activity" className="h-4 w-4 animate-spin" />
               ) : isAutomatic ? (
-                <Send className="h-4 w-4 text-green-500" />
+                <Icon name="send" className="h-4 w-4 text-green-500" />
               ) : (
-                <MessageCircle className="h-4 w-4 text-green-500" />
+                <Icon name="chat" className="h-4 w-4 text-green-500" />
               )}
             </Button>
           )}
@@ -243,7 +244,7 @@ function PendingConsentCard({ consent }: { consent: Consent }) {
             asChild
           >
             <a href={consentUrl} target="_blank" rel="noopener noreferrer">
-              <ExternalLink className="h-4 w-4" />
+              <Icon name="open_in_new" className="h-4 w-4" />
             </a>
           </Button>
         </div>

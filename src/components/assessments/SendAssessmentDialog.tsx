@@ -3,11 +3,12 @@ import { ResponsiveDialog as Dialog, ResponsiveDialogContent as DialogContent, R
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Assessment, useAssessments } from '@/hooks/useAssessments';
-import { Copy, MessageCircle, Check, Send, Loader2 } from 'lucide-react';
+
 import { toast } from 'sonner';
 import { useWhatsAppDelivery } from '@/hooks/useWhatsAppDelivery';
 import { useCenter } from '@/hooks/useCenter';
 import { WhatsAppLinkDialog } from '@/components/agenda/WhatsAppLinkDialog';
+import { Icon } from '@/components/ui/icon';
 
 interface SendAssessmentDialogProps {
   assessment: Assessment | null;
@@ -95,9 +96,9 @@ export function SendAssessmentDialog({ assessment, onClose }: SendAssessmentDial
                 </code>
                 <Button size="icon" variant="outline" className="shrink-0" onClick={handleCopyLink}>
                   {copied ? (
-                    <Check className="h-4 w-4 text-green-500" />
+                    <Icon name="check" className="h-4 w-4 text-green-500" />
                   ) : (
-                    <Copy className="h-4 w-4" />
+                    <Icon name="content_copy" className="h-4 w-4" />
                   )}
                 </Button>
               </div>
@@ -120,9 +121,9 @@ export function SendAssessmentDialog({ assessment, onClose }: SendAssessmentDial
                   disabled={isSending}
                 >
                   {isSending ? (
-                    <Loader2 className="h-4 w-4 animate-spin text-green-500" />
+                    <Icon name="progress_activity" className="h-4 w-4 animate-spin text-green-500" />
                   ) : (
-                    <MessageCircle className="h-4 w-4 text-green-500" />
+                    <Icon name="chat" className="h-4 w-4 text-green-500" />
                   )}
                   {isSending
                     ? 'Enviando...'
@@ -131,7 +132,7 @@ export function SendAssessmentDialog({ assessment, onClose }: SendAssessmentDial
                       : 'Abrir WhatsApp'
                   }
                   {isAutomatic && !isSending && (
-                    <Send className="h-3 w-3 ml-auto opacity-50" />
+                    <Icon name="send" className="h-3 w-3 ml-auto opacity-50" />
                   )}
                 </Button>
               ) : (
@@ -148,7 +149,7 @@ export function SendAssessmentDialog({ assessment, onClose }: SendAssessmentDial
                 className="w-full justify-start gap-3"
                 onClick={handleCopyMessage}
               >
-                <Copy className="h-4 w-4" />
+                <Icon name="content_copy" className="h-4 w-4" />
                 Copiar mensaje completo
               </Button>
             </div>

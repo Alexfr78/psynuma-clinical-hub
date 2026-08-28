@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { Loader2, MailPlus } from 'lucide-react';
+
 import { toast } from 'sonner';
 import {
   ResponsiveDialog,
@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { useInviteProfessional } from '@/hooks/useProfessionals';
+import { Icon } from '@/components/ui/icon';
 
 const inviteProfessionalSchema = z.object({
   first_name: z.string().trim().min(1, 'Introduce el nombre').max(100, 'Máximo 100 caracteres'),
@@ -88,7 +89,7 @@ export function InviteProfessionalDialog({
       <ResponsiveDialogContent className="sm:max-w-lg">
         <ResponsiveDialogHeader>
           <ResponsiveDialogTitle className="flex items-center gap-2">
-            <MailPlus className="h-5 w-5" aria-hidden="true" />
+            <Icon name="forward_to_inbox" className="h-5 w-5" aria-hidden="true" />
             Invitar profesional
           </ResponsiveDialogTitle>
           <ResponsiveDialogDescription>
@@ -159,9 +160,9 @@ export function InviteProfessionalDialog({
               </Button>
               <Button type="submit" disabled={inviteProfessional.isPending}>
                 {inviteProfessional.isPending ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+                  <Icon name="progress_activity" className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
                 ) : (
-                  <MailPlus className="mr-2 h-4 w-4" aria-hidden="true" />
+                  <Icon name="forward_to_inbox" className="mr-2 h-4 w-4" aria-hidden="true" />
                 )}
                 {inviteProfessional.isPending ? 'Enviando…' : 'Enviar invitación'}
               </Button>

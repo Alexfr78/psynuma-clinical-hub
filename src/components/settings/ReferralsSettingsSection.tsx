@@ -1,8 +1,5 @@
 import { useState } from 'react';
-import { 
-  Users, Plus, Pencil, Trash2, Loader2, Check, X, 
-  Globe, MapPin, ExternalLink, GripVertical, ToggleLeft, Link2, Clock, CheckCircle2, XCircle
-} from 'lucide-react';
+import { GripVertical } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -51,6 +48,7 @@ import { useCenter } from '@/hooks/useCenter';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { Icon } from '@/components/ui/icon';
 
 // ===== SPECIALTY FORM =====
 interface SpecialtyFormProps {
@@ -103,7 +101,7 @@ function SpecialtyForm({ specialty, onSubmit, onCancel, loading }: SpecialtyForm
       <DialogFooter>
         <Button type="button" variant="outline" onClick={onCancel}>Cancelar</Button>
         <Button type="submit" disabled={loading || !name.trim()}>
-          {loading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+          {loading && <Icon name="progress_activity" className="h-4 w-4 animate-spin mr-2" />}
           {specialty ? 'Guardar' : 'Crear'}
         </Button>
       </DialogFooter>
@@ -287,7 +285,7 @@ function PartnerForm({ partner, specialties, onSubmit, onCancel, loading }: Part
             size="sm"
             onClick={() => toggleModality('online')}
           >
-            <Globe className="h-4 w-4 mr-1" />
+            <Icon name="public" className="h-4 w-4 mr-1" />
             Online
           </Button>
           <Button
@@ -296,7 +294,7 @@ function PartnerForm({ partner, specialties, onSubmit, onCancel, loading }: Part
             size="sm"
             onClick={() => toggleModality('presencial')}
           >
-            <MapPin className="h-4 w-4 mr-1" />
+            <Icon name="location_on" className="h-4 w-4 mr-1" />
             Presencial
           </Button>
         </div>
@@ -315,14 +313,14 @@ function PartnerForm({ partner, specialties, onSubmit, onCancel, loading }: Part
                 onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addProvince())}
               />
               <Button type="button" size="icon" variant="outline" onClick={addProvince}>
-                <Plus className="h-4 w-4" />
+                <Icon name="add" className="h-4 w-4" />
               </Button>
             </div>
             <div className="flex flex-wrap gap-1">
               {formData.provinces.map(prov => (
                 <Badge key={prov} variant="secondary" className="gap-1">
                   {prov}
-                  <X className="h-3 w-3 cursor-pointer" onClick={() => removeProvince(prov)} />
+                  <Icon name="close" className="h-3 w-3 cursor-pointer" onClick={() => removeProvince(prov)} />
                 </Badge>
               ))}
             </div>
@@ -338,14 +336,14 @@ function PartnerForm({ partner, specialties, onSubmit, onCancel, loading }: Part
                 onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addCity())}
               />
               <Button type="button" size="icon" variant="outline" onClick={addCity}>
-                <Plus className="h-4 w-4" />
+                <Icon name="add" className="h-4 w-4" />
               </Button>
             </div>
             <div className="flex flex-wrap gap-1">
               {formData.cities.map(city => (
                 <Badge key={city} variant="secondary" className="gap-1">
                   {city}
-                  <X className="h-3 w-3 cursor-pointer" onClick={() => removeCity(city)} />
+                  <Icon name="close" className="h-3 w-3 cursor-pointer" onClick={() => removeCity(city)} />
                 </Badge>
               ))}
             </div>
@@ -366,7 +364,7 @@ function PartnerForm({ partner, specialties, onSubmit, onCancel, loading }: Part
               className="cursor-pointer"
               onClick={() => toggleSpecialty(spec.name)}
             >
-              {formData.specialties.includes(spec.name) && <Check className="h-3 w-3 mr-1" />}
+              {formData.specialties.includes(spec.name) && <Icon name="check" className="h-3 w-3 mr-1" />}
               {spec.name}
             </Badge>
           ))}
@@ -402,7 +400,7 @@ function PartnerForm({ partner, specialties, onSubmit, onCancel, loading }: Part
       <DialogFooter className="pt-4">
         <Button type="button" variant="outline" onClick={onCancel}>Cancelar</Button>
         <Button type="submit" disabled={loading || !formData.name.trim() || formData.modality.length === 0}>
-          {loading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+          {loading && <Icon name="progress_activity" className="h-4 w-4 animate-spin mr-2" />}
           {partner ? 'Guardar' : 'Crear'}
         </Button>
       </DialogFooter>
@@ -493,7 +491,7 @@ export function ReferralsSettingsSection() {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Users className="h-5 w-5" />
+          <Icon name="group" className="h-5 w-5" />
           Derivaciones
         </CardTitle>
         <CardDescription>
@@ -525,7 +523,7 @@ export function ReferralsSettingsSection() {
                   toast.success('Enlace copiado al portapapeles');
                 }}
               >
-                <Link2 className="h-4 w-4 mr-2" />
+                <Icon name="link" className="h-4 w-4 mr-2" />
                 Copiar enlace de registro
               </Button>
             )}
@@ -535,7 +533,7 @@ export function ReferralsSettingsSection() {
           <TabsContent value="partners" className="space-y-4">
             <div className="flex justify-end">
               <Button onClick={handleCreatePartner}>
-                <Plus className="h-4 w-4 mr-2" />
+                <Icon name="add" className="h-4 w-4 mr-2" />
                 Añadir profesional
               </Button>
             </div>
@@ -546,7 +544,7 @@ export function ReferralsSettingsSection() {
               </div>
             ) : partners.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
-                <Users className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                <Icon name="group" className="h-12 w-12 mx-auto mb-2 opacity-50" />
                 <p>No hay profesionales configurados</p>
                 <p className="text-sm">Añade profesionales de confianza para derivaciones</p>
               </div>
@@ -582,7 +580,7 @@ export function ReferralsSettingsSection() {
                               rel="noopener noreferrer"
                               className="text-xs text-primary flex items-center gap-1 hover:underline"
                             >
-                              <ExternalLink className="h-3 w-3" />
+                              <Icon name="open_in_new" className="h-3 w-3" />
                               Web
                             </a>
                           )}
@@ -591,7 +589,7 @@ export function ReferralsSettingsSection() {
                           <div className="flex gap-1">
                             {partner.modality.map(m => (
                               <Badge key={m} variant="outline" className="text-xs">
-                                {m === 'online' ? <Globe className="h-3 w-3 mr-1" /> : <MapPin className="h-3 w-3 mr-1" />}
+                                {m === 'online' ? <Icon name="public" className="h-3 w-3 mr-1" /> : <Icon name="location_on" className="h-3 w-3 mr-1" />}
                                 {m}
                               </Badge>
                             ))}
@@ -623,10 +621,10 @@ export function ReferralsSettingsSection() {
                         <TableCell>
                           <div className="flex gap-1">
                             <Button size="icon" variant="ghost" onClick={() => handleEditPartner(partner)}>
-                              <Pencil className="h-4 w-4" />
+                              <Icon name="edit" className="h-4 w-4" />
                             </Button>
                             <Button size="icon" variant="ghost" onClick={() => setDeletePartnerId(partner.id)}>
-                              <Trash2 className="h-4 w-4 text-destructive" />
+                              <Icon name="delete" className="h-4 w-4 text-destructive" />
                             </Button>
                           </div>
                         </TableCell>
@@ -642,7 +640,7 @@ export function ReferralsSettingsSection() {
           <TabsContent value="specialties" className="space-y-4">
             <div className="flex justify-end">
               <Button onClick={handleCreateSpec}>
-                <Plus className="h-4 w-4 mr-2" />
+                <Icon name="add" className="h-4 w-4 mr-2" />
                 Añadir especialidad
               </Button>
             </div>
@@ -653,7 +651,7 @@ export function ReferralsSettingsSection() {
               </div>
             ) : specialties.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
-                <ToggleLeft className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                <Icon name="toggle_off" className="h-12 w-12 mx-auto mb-2 opacity-50" />
                 <p>No hay especialidades configuradas</p>
                 <p className="text-sm">Crea especialidades para clasificar las derivaciones</p>
               </div>
@@ -682,10 +680,10 @@ export function ReferralsSettingsSection() {
                         <TableCell>
                           <div className="flex gap-1">
                             <Button size="icon" variant="ghost" onClick={() => handleEditSpec(spec)}>
-                              <Pencil className="h-4 w-4" />
+                              <Icon name="edit" className="h-4 w-4" />
                             </Button>
                             <Button size="icon" variant="ghost" onClick={() => setDeleteSpecId(spec.id)}>
-                              <Trash2 className="h-4 w-4 text-destructive" />
+                              <Icon name="delete" className="h-4 w-4 text-destructive" />
                             </Button>
                           </div>
                         </TableCell>
@@ -705,7 +703,7 @@ export function ReferralsSettingsSection() {
               </div>
             ) : requests.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
-                <Clock className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                <Icon name="schedule" className="h-12 w-12 mx-auto mb-2 opacity-50" />
                 <p>No hay solicitudes de registro</p>
                 <p className="text-sm">Comparte el enlace de registro para que profesionales se den de alta</p>
               </div>
@@ -732,7 +730,7 @@ export function ReferralsSettingsSection() {
                           <div className="flex gap-1 flex-wrap">
                             {request.modality.map(m => (
                               <Badge key={m} variant="outline" className="text-xs">
-                                {m === 'online' ? <Globe className="h-3 w-3 mr-1" /> : <MapPin className="h-3 w-3 mr-1" />}
+                                {m === 'online' ? <Icon name="public" className="h-3 w-3 mr-1" /> : <Icon name="location_on" className="h-3 w-3 mr-1" />}
                                 {m}
                               </Badge>
                             ))}
@@ -760,9 +758,9 @@ export function ReferralsSettingsSection() {
                             disabled={approveRequest.isPending}
                           >
                             {approveRequest.isPending ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
+                              <Icon name="progress_activity" className="h-4 w-4 animate-spin" />
                             ) : (
-                              <CheckCircle2 className="h-4 w-4 mr-1" />
+                              <Icon name="check_circle" className="h-4 w-4 mr-1" />
                             )}
                             Aprobar
                           </Button>
@@ -775,7 +773,7 @@ export function ReferralsSettingsSection() {
                               setRejectDialogOpen(true);
                             }}
                           >
-                            <XCircle className="h-4 w-4 mr-1" />
+                            <Icon name="cancel" className="h-4 w-4 mr-1" />
                             Rechazar
                           </Button>
                         </div>
@@ -897,7 +895,7 @@ export function ReferralsSettingsSection() {
                   }
                 }}
               >
-                {rejectRequest.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                {rejectRequest.isPending && <Icon name="progress_activity" className="h-4 w-4 animate-spin mr-2" />}
                 Rechazar
               </Button>
             </DialogFooter>

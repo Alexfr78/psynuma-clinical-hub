@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { Loader2, CheckCircle2, AlertCircle, Clock } from 'lucide-react';
+
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { usePublicAssessment } from '@/hooks/usePublicAssessment';
@@ -11,6 +11,7 @@ import { AssessmentProgress } from '@/components/assessments/AssessmentProgress'
 import { PercentageSlider } from '@/components/assessments/PercentageSlider';
 import { ExampleInput } from '@/components/assessments/ExampleInput';
 import EMOPublic from '@/pages/EMOPublic';
+import { Icon } from '@/components/ui/icon';
 
 export default function AssessmentPublic() {
   const { token } = useParams<{ token: string }>();
@@ -27,7 +28,7 @@ export default function AssessmentPublic() {
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <Icon name="progress_activity" className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -37,7 +38,7 @@ export default function AssessmentPublic() {
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <Card className="max-w-md w-full">
           <CardContent className="pt-6 text-center">
-            <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
+            <Icon name="error" className="h-12 w-12 text-destructive mx-auto mb-4" />
             <h2 className="text-xl font-semibold mb-2">Enlace no válido</h2>
             <p className="text-muted-foreground">Este enlace no existe o ya no está disponible.</p>
           </CardContent>
@@ -51,7 +52,7 @@ export default function AssessmentPublic() {
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <Card className="max-w-md w-full">
           <CardContent className="pt-6 text-center">
-            <Clock className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+            <Icon name="schedule" className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
             <h2 className="text-xl font-semibold mb-2">Enlace caducado</h2>
             <p className="text-muted-foreground">Este enlace ha expirado. Por favor, contacta con tu terapeuta.</p>
           </CardContent>
@@ -65,7 +66,7 @@ export default function AssessmentPublic() {
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <Card className="max-w-md w-full">
           <CardContent className="pt-6 text-center">
-            <CheckCircle2 className="h-12 w-12 text-green-600 mx-auto mb-4" />
+            <Icon name="check_circle" className="h-12 w-12 text-green-600 mx-auto mb-4" />
             <h2 className="text-xl font-semibold mb-2">Evaluación completada</h2>
             <p className="text-muted-foreground">Ya has enviado tus respuestas. Gracias por participar.</p>
           </CardContent>
@@ -79,7 +80,7 @@ export default function AssessmentPublic() {
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <Card className="max-w-md w-full">
           <CardContent className="pt-6 text-center">
-            <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
+            <Icon name="error" className="h-12 w-12 text-destructive mx-auto mb-4" />
             <h2 className="text-xl font-semibold mb-2">Evaluación revocada</h2>
             <p className="text-muted-foreground">Esta evaluación ha sido cancelada.</p>
           </CardContent>
@@ -222,7 +223,7 @@ export default function AssessmentPublic() {
           >
             {submitResponses.isPending ? (
               <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                <Icon name="progress_activity" className="h-4 w-4 mr-2 animate-spin" />
                 Enviando...
               </>
             ) : (

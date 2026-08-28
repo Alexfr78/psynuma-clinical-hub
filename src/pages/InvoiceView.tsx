@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Printer, Download, FileText, AlertCircle, Loader2 } from 'lucide-react';
+
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { getInvoiceDocumentType } from '@/lib/invoiceDocumentType';
@@ -13,6 +13,7 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { QRCodeSVG } from 'qrcode.react';
 import { downloadPdfFromUrl } from '@/lib/download-pdf';
+import { Icon } from '@/components/ui/icon';
 
 export default function InvoiceView() {
   const { token } = useParams<{ token: string }>();
@@ -63,7 +64,7 @@ export default function InvoiceView() {
       <div className="min-h-screen bg-muted/30 flex items-center justify-center p-4">
         <Card className="max-w-md w-full">
           <CardContent className="pt-6 text-center space-y-4">
-            <AlertCircle className="h-12 w-12 text-destructive mx-auto" />
+            <Icon name="error" className="h-12 w-12 text-destructive mx-auto" />
             <h1 className="text-xl font-semibold">Factura no encontrada</h1>
             <p className="text-muted-foreground">
               El enlace de la factura no es válido o ha expirado.
@@ -100,7 +101,7 @@ export default function InvoiceView() {
       <div className="print:hidden bg-background border-b sticky top-0 z-10">
         <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <FileText className="h-6 w-6 text-primary" />
+            <Icon name="description" className="h-6 w-6 text-primary" />
             <div>
               <h1 className="font-semibold">Factura {invoice.invoice_number}</h1>
               <p className="text-sm text-muted-foreground">
@@ -110,14 +111,14 @@ export default function InvoiceView() {
           </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={handlePrint}>
-              <Printer className="h-4 w-4 mr-2" />
+              <Icon name="print" className="h-4 w-4 mr-2" />
               Imprimir
             </Button>
             <Button size="sm" onClick={handleDownloadPDF} disabled={downloading}>
               {downloading ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                <Icon name="progress_activity" className="h-4 w-4 mr-2 animate-spin" />
               ) : (
-                <Download className="h-4 w-4 mr-2" />
+                <Icon name="download" className="h-4 w-4 mr-2" />
               )}
               Descargar PDF
             </Button>

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Calendar, Clock, User, FileText } from 'lucide-react';
+
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
@@ -11,6 +11,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SessionDetailDrawer } from '@/components/agenda/SessionDetailDrawer';
 import type { SessionWithRelations } from '@/hooks/useSessions';
 import { getSessionStatusDisplay } from '@/lib/payment-status';
+import { Icon } from '@/components/ui/icon';
 
 interface PatientSessionsProps {
   patientId: string;
@@ -106,7 +107,7 @@ export function PatientSessions({ patientId }: PatientSessionsProps) {
 
       {filteredSessions.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12 text-center">
-          <Calendar className="h-12 w-12 text-muted-foreground" />
+          <Icon name="calendar_month" className="h-12 w-12 text-muted-foreground" />
           <h3 className="mt-4 font-display text-lg font-semibold">Sin sesiones</h3>
           <p className="mt-2 max-w-sm text-sm text-muted-foreground">{emptyLabel}</p>
         </div>
@@ -125,7 +126,7 @@ export function PatientSessions({ patientId }: PatientSessionsProps) {
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-primary" />
+                    <Icon name="calendar_month" className="h-4 w-4 text-primary" />
                     <span className="font-medium">
                       {format(new Date(session.session_date), "EEEE, d 'de' MMMM yyyy", { locale: es })}
                     </span>
@@ -134,13 +135,13 @@ export function PatientSessions({ patientId }: PatientSessionsProps) {
                   
                   <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
                     <div className="flex items-center gap-1">
-                      <Clock className="h-3.5 w-3.5" />
+                      <Icon name="schedule" className="h-3.5 w-3.5" />
                       <span>{session.start_time} - {session.end_time}</span>
                     </div>
                     
                     {session.professional && (
                       <div className="flex items-center gap-1">
-                        <User className="h-3.5 w-3.5" />
+                        <Icon name="person" className="h-3.5 w-3.5" />
                         <span>
                           {session.professional.first_name} {session.professional.last_name}
                         </span>
@@ -149,7 +150,7 @@ export function PatientSessions({ patientId }: PatientSessionsProps) {
                     
                     {session.session_type && (
                       <div className="flex items-center gap-1">
-                        <FileText className="h-3.5 w-3.5" />
+                        <Icon name="description" className="h-3.5 w-3.5" />
                         <span className="capitalize">{session.session_type}</span>
                       </div>
                     )}

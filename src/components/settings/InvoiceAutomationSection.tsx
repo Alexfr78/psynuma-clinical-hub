@@ -1,4 +1,4 @@
-import { Zap, Mail, MessageSquare, ShieldCheck, AlertTriangle } from 'lucide-react';
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -8,6 +8,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
+import { Icon } from '@/components/ui/icon';
 
 type InvoiceOnPaymentMode = 'ask' | 'auto' | 'disabled';
 type InvoiceSendChannel = 'email' | 'whatsapp' | 'both';
@@ -48,7 +49,7 @@ export function InvoiceAutomationSection() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Zap className="h-5 w-5 text-primary" />
+            <Icon name="bolt" className="h-5 w-5 text-primary" />
             Facturación al cobrar sesión
           </CardTitle>
           <CardDescription>
@@ -127,7 +128,7 @@ export function InvoiceAutomationSection() {
                     <div className="flex items-center space-x-3 rounded-lg border p-4 hover:bg-muted/50 transition-colors">
                       <RadioGroupItem value="email" id="channel-email" />
                       <Label htmlFor="channel-email" className="flex items-center gap-2 cursor-pointer">
-                        <Mail className="h-4 w-4" />
+                        <Icon name="mail" className="h-4 w-4" />
                         Email
                       </Label>
                     </div>
@@ -135,7 +136,7 @@ export function InvoiceAutomationSection() {
                     <div className="flex items-center space-x-3 rounded-lg border p-4 hover:bg-muted/50 transition-colors">
                       <RadioGroupItem value="whatsapp" id="channel-whatsapp" />
                       <Label htmlFor="channel-whatsapp" className="flex items-center gap-2 cursor-pointer">
-                        <MessageSquare className="h-4 w-4" />
+                        <Icon name="forum" className="h-4 w-4" />
                         WhatsApp
                       </Label>
                     </div>
@@ -143,8 +144,8 @@ export function InvoiceAutomationSection() {
                     <div className="flex items-center space-x-3 rounded-lg border p-4 hover:bg-muted/50 transition-colors">
                       <RadioGroupItem value="both" id="channel-both" />
                       <Label htmlFor="channel-both" className="flex items-center gap-2 cursor-pointer">
-                        <Mail className="h-4 w-4" />
-                        <MessageSquare className="h-4 w-4" />
+                        <Icon name="mail" className="h-4 w-4" />
+                        <Icon name="forum" className="h-4 w-4" />
                         Ambos
                       </Label>
                     </div>
@@ -168,7 +169,7 @@ export function InvoiceAutomationSection() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <ShieldCheck className="h-5 w-5 text-primary" />
+            <Icon name="verified_user" className="h-5 w-5 text-primary" />
             Verifactu automático
             {verifactuAutoEnabled && (
               <Badge variant={verifactuEnvironment === 'production' ? 'default' : 'secondary'} className="ml-2">
@@ -183,7 +184,7 @@ export function InvoiceAutomationSection() {
         <CardContent className="space-y-4">
           {!hasCertificate && (
             <Alert variant="destructive">
-              <AlertTriangle className="h-4 w-4" />
+              <Icon name="warning" className="h-4 w-4" />
               <AlertDescription>
                 No hay certificado digital configurado. Configúralo en Verifactu antes de activar esta opción.
               </AlertDescription>
@@ -193,7 +194,7 @@ export function InvoiceAutomationSection() {
           <div className="flex items-center justify-between rounded-lg border p-4">
             <div className="flex items-start gap-4">
               <div className="rounded-full bg-primary/10 p-2">
-                <ShieldCheck className="h-5 w-5 text-primary" />
+                <Icon name="verified_user" className="h-5 w-5 text-primary" />
               </div>
               <div className="space-y-1">
                 <Label htmlFor="verifactu-auto" className="text-base font-medium">
@@ -257,7 +258,7 @@ export function InvoiceAutomationSection() {
           <div className="flex items-center justify-between rounded-lg border p-4">
             <div className="flex items-start gap-4">
               <div className="rounded-full bg-primary/10 p-2">
-                <Zap className="h-5 w-5 text-primary" />
+                <Icon name="bolt" className="h-5 w-5 text-primary" />
               </div>
               <div className="space-y-1">
                 <Label htmlFor="auto-invoicing" className="text-base font-medium">

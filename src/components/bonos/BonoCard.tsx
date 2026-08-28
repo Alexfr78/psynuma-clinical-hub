@@ -1,11 +1,12 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Calendar, AlertTriangle, User } from 'lucide-react';
+
 import { format, differenceInDays, isPast } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { BonoWithPatient } from '@/hooks/useBonos';
 import { getBonoStatusDisplay } from '@/lib/payment-status';
+import { Icon } from '@/components/ui/icon';
 
 interface BonoCardProps {
   bono: BonoWithPatient;
@@ -36,7 +37,7 @@ export function BonoCard({ bono, onClick }: BonoCardProps) {
             <CardTitle className="text-base font-semibold truncate">{bono.name}</CardTitle>
             {bono.patients && (
               <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                <User className="h-3.5 w-3.5 flex-shrink-0" />
+                <Icon name="person" className="h-3.5 w-3.5 flex-shrink-0" />
                 <span className="truncate">
                   {bono.patients.first_name} {bono.patients.last_name}
                 </span>
@@ -52,7 +53,7 @@ export function BonoCard({ bono, onClick }: BonoCardProps) {
         {/* Advertencia de expiración próxima */}
         {isExpiringSoon && bono.status === 'active' && (
           <div className="flex items-center gap-2 text-amber-600 dark:text-amber-500 text-sm bg-amber-50 dark:bg-amber-950/30 rounded-md p-2">
-            <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+            <Icon name="warning" className="h-4 w-4 flex-shrink-0" />
             <span>Expira en {differenceInDays(new Date(bono.expires_at!), new Date())} días</span>
           </div>
         )}
@@ -89,12 +90,12 @@ export function BonoCard({ bono, onClick }: BonoCardProps) {
         {/* Fechas */}
         <div className="flex flex-col gap-1.5 text-xs text-muted-foreground border-t pt-3">
           <div className="flex items-center gap-1.5">
-            <Calendar className="h-3.5 w-3.5" />
+            <Icon name="calendar_month" className="h-3.5 w-3.5" />
             <span>Creado: {format(new Date(bono.created_at), "d MMM yyyy", { locale: es })}</span>
           </div>
           {bono.expires_at && (
             <div className={`flex items-center gap-1.5 ${isExpired ? 'text-destructive' : ''}`}>
-              <Calendar className="h-3.5 w-3.5" />
+              <Icon name="calendar_month" className="h-3.5 w-3.5" />
               <span>
                 {isExpired ? 'Expiró' : 'Expira'}: {format(new Date(bono.expires_at), "d MMM yyyy", { locale: es })}
               </span>

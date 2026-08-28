@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ChevronDown, ChevronUp, AlertTriangle, AlertCircle, Check, X } from 'lucide-react';
+
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import type { AutoregistroEntry } from '@/hooks/useAutoregistroEntries';
 import type { FieldDisplayMeta } from '@/lib/autoregistro-field-display';
 import { formatFieldForDisplay } from '@/lib/autoregistro-field-display';
+import { Icon } from '@/components/ui/icon';
 
 interface MobileEntryCardsProps {
   entries: AutoregistroEntry[];
@@ -21,9 +22,9 @@ function MobileFieldValue({ meta, value }: { meta: FieldDisplayMeta; value: any 
 
   if (formatted.type === 'boolean') {
     return formatted.raw ? (
-      <Check className="h-4 w-4 text-green-600" />
+      <Icon name="check" className="h-4 w-4 text-green-600" />
     ) : (
-      <X className="h-4 w-4 text-muted-foreground/40" />
+      <Icon name="close" className="h-4 w-4 text-muted-foreground/40" />
     );
   }
 
@@ -88,8 +89,8 @@ function EntryCard({
         onClick={() => onViewDetail(entry)}
       >
         <div className="flex items-center gap-2">
-          {hasAlert === 'critical' && <AlertTriangle className="h-3.5 w-3.5 text-red-500" />}
-          {hasAlert === 'warning' && <AlertCircle className="h-3.5 w-3.5 text-amber-500" />}
+          {hasAlert === 'critical' && <Icon name="warning" className="h-3.5 w-3.5 text-red-500" />}
+          {hasAlert === 'warning' && <Icon name="error" className="h-3.5 w-3.5 text-amber-500" />}
           <span className="text-xs font-medium text-muted-foreground">
             {format(new Date(entry.submitted_at), "d MMM yyyy · HH:mm", { locale: es })}
           </span>
@@ -135,9 +136,9 @@ function EntryCard({
               onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
             >
               {expanded ? (
-                <><ChevronUp className="h-3 w-3" /> Menos campos</>
+                <><Icon name="expand_less" className="h-3 w-3" /> Menos campos</>
               ) : (
-                <><ChevronDown className="h-3 w-3" /> +{expandableFields.length} campos</>
+                <><Icon name="expand_more" className="h-3 w-3" /> +{expandableFields.length} campos</>
               )}
             </Button>
           </div>

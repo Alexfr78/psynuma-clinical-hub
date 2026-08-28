@@ -2,10 +2,7 @@ import { useState, useMemo, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { format, subDays, formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
-import {
-  ShieldCheck, Search, CalendarIcon, Eye, AlertTriangle, RefreshCw,
-  FileText, RotateCcw, ChevronLeft, ChevronRight, Download,
-} from 'lucide-react';
+import { FileText } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { usePatients } from '@/hooks/usePatients';
@@ -28,6 +25,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { useNavigate } from 'react-router-dom';
+import { Icon } from '@/components/ui/icon';
 
 const ACTION_OPTIONS = [
   'VIEW', 'CREATE', 'UPDATE', 'DELETE', 'EXPORT', 'DOWNLOAD',
@@ -200,7 +198,7 @@ export default function AuditLog() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-primary/10 rounded-lg shrink-0">
-            <ShieldCheck className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
+            <Icon name="verified_user" className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
           </div>
           <div>
             <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Registro de Auditoría</h1>
@@ -211,11 +209,11 @@ export default function AuditLog() {
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <Button variant="outline" size="sm" onClick={() => refetch()}>
-            <RefreshCw className="h-4 w-4 sm:mr-2" />
+            <Icon name="refresh" className="h-4 w-4 sm:mr-2" />
             <span className="hidden sm:inline">Actualizar</span>
           </Button>
           <Button variant="outline" size="sm" onClick={exportCSV} disabled={!logs.length}>
-            <Download className="h-4 w-4 sm:mr-2" />
+            <Icon name="download" className="h-4 w-4 sm:mr-2" />
             <span className="hidden sm:inline">Exportar CSV</span>
           </Button>
         </div>
@@ -226,7 +224,7 @@ export default function AuditLog() {
         <Card className="border-orange-500/50 bg-orange-500/5">
           <CardContent className="p-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <AlertTriangle className="h-5 w-5 text-orange-500" />
+              <Icon name="warning" className="h-5 w-5 text-orange-500" />
               <span className="text-sm font-medium">
                 ⚠ {anomalyCount} evento{anomalyCount > 1 ? 's' : ''} anómalo{anomalyCount > 1 ? 's' : ''} detectado{anomalyCount > 1 ? 's' : ''} en este periodo
               </span>
@@ -243,7 +241,7 @@ export default function AuditLog() {
         <CardContent className="p-4 space-y-4">
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Icon name="search" className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Buscar..."
                 value={searchText}
@@ -252,7 +250,7 @@ export default function AuditLog() {
               />
             </div>
             <Button variant="ghost" size="sm" onClick={resetFilters}>
-              <RotateCcw className="h-4 w-4 mr-2" />
+              <Icon name="restart_alt" className="h-4 w-4 mr-2" />
               Limpiar
             </Button>
           </div>
@@ -262,7 +260,7 @@ export default function AuditLog() {
             <Popover>
               <PopoverTrigger asChild>
                 <Button variant="outline" className="w-full justify-start text-xs">
-                  <CalendarIcon className="mr-1 h-3.5 w-3.5" />
+                  <Icon name="calendar_month" className="mr-1 h-3.5 w-3.5" />
                   {format(fromDate, 'dd/MM/yy')}
                 </Button>
               </PopoverTrigger>
@@ -275,7 +273,7 @@ export default function AuditLog() {
             <Popover>
               <PopoverTrigger asChild>
                 <Button variant="outline" className="w-full justify-start text-xs">
-                  <CalendarIcon className="mr-1 h-3.5 w-3.5" />
+                  <Icon name="calendar_month" className="mr-1 h-3.5 w-3.5" />
                   {format(toDate, 'dd/MM/yy')}
                 </Button>
               </PopoverTrigger>
@@ -358,7 +356,7 @@ export default function AuditLog() {
             </div>
           ) : logs.length === 0 ? (
             <div className="text-center py-16">
-              <ShieldCheck className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <Icon name="verified_user" className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <p className="text-muted-foreground font-medium">No hay eventos para estos filtros</p>
               <p className="text-xs text-muted-foreground mt-1">Ajusta los filtros o el rango de fechas</p>
             </div>
@@ -388,7 +386,7 @@ export default function AuditLog() {
                     </div>
                     {entry.is_anomalous && (
                       <div className="flex items-center gap-1 text-orange-500 text-xs">
-                        <AlertTriangle className="h-3 w-3" />
+                        <Icon name="warning" className="h-3 w-3" />
                         <span>{entry.anomaly_reason}</span>
                       </div>
                     )}
@@ -448,7 +446,7 @@ export default function AuditLog() {
                             {entry.is_anomalous && (
                               <Tooltip>
                                 <TooltipTrigger>
-                                  <AlertTriangle className="h-4 w-4 text-orange-500" />
+                                  <Icon name="warning" className="h-4 w-4 text-orange-500" />
                                 </TooltipTrigger>
                                 <TooltipContent>{entry.anomaly_reason}</TooltipContent>
                               </Tooltip>
@@ -456,7 +454,7 @@ export default function AuditLog() {
                           </TableCell>
                           <TableCell>
                             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setSelectedEntry(entry)}>
-                              <Eye className="h-4 w-4" />
+                              <Icon name="visibility" className="h-4 w-4" />
                             </Button>
                           </TableCell>
                         </TableRow>
@@ -473,10 +471,10 @@ export default function AuditLog() {
                 </p>
                 <div className="flex gap-2">
                   <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage(p => p - 1)}>
-                    <ChevronLeft className="h-4 w-4" />
+                    <Icon name="chevron_left" className="h-4 w-4" />
                   </Button>
                   <Button variant="outline" size="sm" disabled={logs.length < PAGE_SIZE} onClick={() => setPage(p => p + 1)}>
-                    <ChevronRight className="h-4 w-4" />
+                    <Icon name="chevron_right" className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
@@ -490,7 +488,7 @@ export default function AuditLog() {
         <SheetContent className="sm:max-w-lg overflow-y-auto">
           <SheetHeader>
             <SheetTitle className="flex items-center gap-2">
-              <ShieldCheck className="h-5 w-5" />
+              <Icon name="verified_user" className="h-5 w-5" />
               Detalle del Evento
             </SheetTitle>
           </SheetHeader>
@@ -527,7 +525,7 @@ export default function AuditLog() {
                     <Separator />
                     <div className="p-3 rounded-lg bg-orange-500/10 border border-orange-500/30">
                       <div className="flex items-center gap-2 mb-1">
-                        <AlertTriangle className="h-4 w-4 text-orange-500" />
+                        <Icon name="warning" className="h-4 w-4 text-orange-500" />
                         <span className="font-medium text-sm text-orange-700 dark:text-orange-400">Evento Anómalo</span>
                       </div>
                       <p className="text-xs text-orange-600 dark:text-orange-300">{selectedEntry.anomaly_reason}</p>

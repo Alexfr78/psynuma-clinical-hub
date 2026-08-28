@@ -9,7 +9,7 @@ import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle, Brain, Check, CheckCircle2, ChevronDown, Info, Loader2, Save, RotateCcw, Thermometer } from 'lucide-react';
+
 import { Slider } from '@/components/ui/slider';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { cn } from '@/lib/utils';
@@ -22,6 +22,7 @@ import {
   DEFAULT_LAYER2_PROMPT,
   DEFAULT_LAYER3_PROMPT,
 } from '@/lib/defaultPrompts';
+import { Icon } from '@/components/ui/icon';
 
 export function AISettingsSection() {
   const { center, updateCenter, centerId } = useCenter();
@@ -185,7 +186,7 @@ export function AISettingsSection() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Brain className="h-5 w-5" />
+            <Icon name="psychology" className="h-5 w-5" />
             Proveedor de IA activo
           </CardTitle>
           <CardDescription>
@@ -206,7 +207,7 @@ export function AISettingsSection() {
               <p className="font-medium">OpenAI</p>
               <p className="text-sm text-muted-foreground">GPT-4.1 · Whisper (audio)</p>
             </div>
-            {aiProvider === 'openai' && <Check className="h-5 w-5 text-primary" />}
+            {aiProvider === 'openai' && <Icon name="check" className="h-5 w-5 text-primary" />}
           </button>
 
           <button
@@ -221,12 +222,12 @@ export function AISettingsSection() {
               <p className="font-medium">Google Gemini</p>
               <p className="text-sm text-muted-foreground">Gemini 2.5 Pro</p>
             </div>
-            {aiProvider === 'gemini' && <Check className="h-5 w-5 text-primary" />}
+            {aiProvider === 'gemini' && <Icon name="check" className="h-5 w-5 text-primary" />}
           </button>
 
           {aiProvider === 'gemini' && (
             <Alert>
-              <Info className="h-4 w-4" />
+              <Icon name="info" className="h-4 w-4" />
               <AlertDescription>
                 La transcripción de audio con Whisper solo está disponible con OpenAI. Con Gemini deberás subir la transcripción en texto.
               </AlertDescription>
@@ -258,29 +259,29 @@ export function AISettingsSection() {
             </p>
             {openaiConfigured && !openaiApiKey && (
               <div className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400 mt-1">
-                <CheckCircle2 className="h-3 w-3" />
+                <Icon name="check_circle" className="h-3 w-3" />
                 API key configurada y guardada. Deja vacío para mantener la actual.
               </div>
             )}
             {!openaiConfigured && !openaiApiKey && (
               <div className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400 mt-1">
-                <AlertCircle className="h-3 w-3" />
+                <Icon name="error" className="h-3 w-3" />
                 API key no configurada. Introduce tu key y guarda.
               </div>
             )}
             <div className="flex items-center gap-2 mt-2">
               <Button size="sm" variant="outline" onClick={handleVerifyOpenAI} disabled={isVerifying || (!openaiConfigured && !openaiApiKey)}>
-                {isVerifying ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : null}
+                {isVerifying ? <Icon name="progress_activity" className="h-3 w-3 mr-1 animate-spin" /> : null}
                 Verificar conexión
               </Button>
               {verifyResult === 'ok' && (
                 <span className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                  <CheckCircle2 className="h-3 w-3" /> Conexión correcta — API key funcionando
+                  <Icon name="check_circle" className="h-3 w-3" /> Conexión correcta — API key funcionando
                 </span>
               )}
               {verifyResult === 'error' && (
                 <span className="text-xs text-destructive flex items-center gap-1">
-                  <AlertCircle className="h-3 w-3" /> Error: {verifyError}
+                  <Icon name="error" className="h-3 w-3" /> Error: {verifyError}
                 </span>
               )}
             </div>
@@ -377,7 +378,7 @@ export function AISettingsSection() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Thermometer className="h-5 w-5" />
+            <Icon name="thermostat" className="h-5 w-5" />
             Temperatura del modelo
           </CardTitle>
           <CardDescription>
@@ -455,11 +456,11 @@ export function AISettingsSection() {
           <Collapsible open={promptsOpen} onOpenChange={setPromptsOpen}>
             <CollapsibleTrigger className="flex w-full items-center justify-between">
               <div className="flex items-center gap-2">
-                <Brain className="h-4 w-4" />
+                <Icon name="psychology" className="h-4 w-4" />
                 <span className="font-medium">Prompts personalizados</span>
                 <Badge variant="secondary" className="text-xs">Avanzado</Badge>
               </div>
-              <ChevronDown className={cn("h-4 w-4 transition-transform", promptsOpen && "rotate-180")} />
+              <Icon name="expand_more" className={cn("h-4 w-4 transition-transform", promptsOpen && "rotate-180")} />
             </CollapsibleTrigger>
             <CollapsibleContent className="mt-4 space-y-4">
               {promptFields.map(({ key, label, state, setter, defaultVal }) => (
@@ -467,7 +468,7 @@ export function AISettingsSection() {
                   <div className="flex items-center justify-between">
                     <Label>{label}</Label>
                     <Button variant="ghost" size="sm" onClick={() => setter('')}>
-                      <RotateCcw className="h-3 w-3 mr-1" />
+                      <Icon name="restart_alt" className="h-3 w-3 mr-1" />
                       Restaurar por defecto
                     </Button>
                   </div>
@@ -488,7 +489,7 @@ export function AISettingsSection() {
 
       <div className="flex justify-end">
         <Button onClick={handleSave} disabled={isSaving}>
-          {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+          {isSaving ? <Icon name="progress_activity" className="h-4 w-4 mr-2 animate-spin" /> : <Icon name="save" className="h-4 w-4 mr-2" />}
           Guardar configuración de IA
         </Button>
       </div>

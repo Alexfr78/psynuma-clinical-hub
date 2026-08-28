@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { Loader2, AlertCircle } from "lucide-react";
+
 import { Card, CardContent } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
+import { Icon } from '@/components/ui/icon';
 
 export default function PublicShortLinkRedirect() {
   const { code } = useParams<{ code: string }>();
@@ -45,12 +46,12 @@ export default function PublicShortLinkRedirect() {
         <CardContent className="py-10 text-center">
           {error ? (
             <>
-              <AlertCircle className="h-10 w-10 text-destructive mx-auto mb-4" />
+              <Icon name="error" className="h-10 w-10 text-destructive mx-auto mb-4" />
               <p className="text-muted-foreground">{error}</p>
             </>
           ) : (
             <>
-              <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-4" />
+              <Icon name="progress_activity" className="h-8 w-8 animate-spin text-primary mx-auto mb-4" />
               <p className="text-muted-foreground">Abriendo enlace...</p>
             </>
           )}

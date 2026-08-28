@@ -2,37 +2,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { 
-  Building2, 
-  FileText, 
-  Save, 
-  Loader2,
-  Receipt,
-  Pencil,
-  List,
-  Zap,
-  MapPin,
-  Calendar,
-  HardDrive,
-  Mail,
-  MessageCircle,
-  Smartphone,
-  Shield,
-  Settings2,
-  Video,
-  CreditCard,
-  Plug,
-  Wallet,
-  Bell,
-  Users,
-  FileDown,
-  CalendarDays,
-  CalendarCheck2,
-  CalendarRange,
-  Ban,
-  Brain,
-  GitBranch
-} from 'lucide-react';
+import { Building2, FileText, Receipt, Pencil, List, Zap, MapPin, Calendar, HardDrive, Mail, MessageCircle, Smartphone, Settings2, Video, CreditCard, Plug, Wallet, Bell, Users, FileDown, CalendarDays, CalendarCheck2, CalendarRange, Ban, Brain, GitBranch, Shield } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -80,6 +50,7 @@ import { AISettingsSection } from '@/components/settings/integrations/AISettings
 import { VersionManagementSection } from '@/components/settings/VersionManagementSection';
 import { TariffPlansSection } from '@/components/settings/TariffPlansSection';
 import { Layers } from 'lucide-react';
+import { Icon } from '@/components/ui/icon';
 
 const centerSchema = z.object({
   name: z.string().min(1, 'El nombre es obligatorio'),
@@ -239,7 +210,7 @@ export default function Settings() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <Icon name="progress_activity" className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -360,9 +331,9 @@ export default function Settings() {
                   <div className="flex justify-end">
                     <Button type="submit" disabled={updateCenter.isPending}>
                       {updateCenter.isPending ? (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        <Icon name="progress_activity" className="mr-2 h-4 w-4 animate-spin" />
                       ) : (
-                        <Save className="mr-2 h-4 w-4" />
+                        <Icon name="save" className="mr-2 h-4 w-4" />
                       )}
                       Guardar Cambios
                     </Button>
@@ -550,7 +521,7 @@ export default function Settings() {
                         {Object.entries(group.subgroups).map(([subgroupName, subItems]) => (
                           <div key={subgroupName} className="mt-3 space-y-1">
                             <div className="flex items-center gap-2 px-3 py-1">
-                              <Shield className="h-3 w-3 text-muted-foreground" />
+                              <Icon name="shield" className="h-3 w-3 text-muted-foreground" />
                               <span className="text-xs font-medium text-muted-foreground">{subgroupName}</span>
                             </div>
                             <div className="ml-2 space-y-1 border-l border-dashed pl-3">

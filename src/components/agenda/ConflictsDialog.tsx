@@ -1,6 +1,6 @@
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { AlertTriangle, Calendar, Clock, User } from 'lucide-react';
+
 import {
   Dialog,
   DialogContent,
@@ -12,6 +12,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { ConflictResult } from '@/lib/conflicts';
+import { Icon } from '@/components/ui/icon';
 
 interface ConflictsDialogProps {
   open: boolean;
@@ -61,7 +62,7 @@ export function ConflictsDialog({
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-amber-600">
-            <AlertTriangle className="h-5 w-5" />
+            <Icon name="warning" className="h-5 w-5" />
             Conflictos detectados
           </DialogTitle>
           <DialogDescription>
@@ -83,10 +84,10 @@ export function ConflictsDialog({
                 className="rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-900 dark:bg-amber-950/30"
               >
                 <div className="flex items-center gap-2 font-medium text-amber-800 dark:text-amber-200">
-                  <Calendar className="h-4 w-4" />
+                  <Icon name="calendar_month" className="h-4 w-4" />
                   {format(conflict.start, "EEEE d 'de' MMMM", { locale: es })}
                   <span className="flex items-center gap-1 text-sm">
-                    <Clock className="h-3 w-3" />
+                    <Icon name="schedule" className="h-3 w-3" />
                     {format(conflict.start, 'HH:mm')} - {format(conflict.end, 'HH:mm')}
                   </span>
                 </div>
@@ -99,7 +100,7 @@ export function ConflictsDialog({
                       key={c.id || i}
                       className="flex items-center gap-2 text-foreground"
                     >
-                      <User className="h-3 w-3 text-muted-foreground" />
+                      <Icon name="person" className="h-3 w-3 text-muted-foreground" />
                       <span>
                         {c.start.slice(0, 5)} - {c.end.slice(0, 5)}
                         {c.patientName && `: ${c.patientName}`}

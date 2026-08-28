@@ -1,10 +1,11 @@
 import { useMemo } from 'react';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Calendar } from 'lucide-react';
+
 import { SessionWithRelations } from '@/hooks/useSessions';
 import { SessionCard } from './SessionCard';
 import { useSwipeNavigation } from '@/hooks/useSwipeNavigation';
+import { Icon } from '@/components/ui/icon';
 
 interface ListViewProps {
   sessions: SessionWithRelations[];
@@ -45,7 +46,7 @@ export function ListView({ sessions, onSessionClick, onSwipeLeft, onSwipeRight }
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
-        <Calendar className="h-12 w-12 text-muted-foreground" />
+        <Icon name="calendar_month" className="h-12 w-12 text-muted-foreground" />
         <h3 className="mt-4 font-display text-lg font-semibold">Sin sesiones</h3>
         <p className="mt-2 max-w-sm text-sm text-muted-foreground">
           No hay sesiones programadas para este período.

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { AlertTriangle, Calendar, Loader2, Package } from 'lucide-react';
+
 import {
   Dialog,
   DialogContent,
@@ -23,6 +23,7 @@ import {
 import { useApplyBonoToSession, usePatientActiveBonos } from '@/hooks/useBonos';
 import type { DebtWithRelations } from '@/hooks/useDebts';
 import { toast } from 'sonner';
+import { Icon } from '@/components/ui/icon';
 
 interface AssignBonoToDebtDialogProps {
   open: boolean;
@@ -92,7 +93,7 @@ export function AssignBonoToDebtDialog({ open, onOpenChange, debt }: AssignBonoT
       <DialogContent className="sm:max-w-[460px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Package className="h-5 w-5" />
+            <Icon name="package_2" className="h-5 w-5" />
             Asignar bono
           </DialogTitle>
           <DialogDescription>
@@ -107,7 +108,7 @@ export function AssignBonoToDebtDialog({ open, onOpenChange, debt }: AssignBonoT
               <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                 {sessionDate && (
                   <span className="inline-flex items-center gap-1">
-                    <Calendar className="h-3.5 w-3.5" />
+                    <Icon name="calendar_month" className="h-3.5 w-3.5" />
                     {sessionDate}
                   </span>
                 )}
@@ -117,7 +118,7 @@ export function AssignBonoToDebtDialog({ open, onOpenChange, debt }: AssignBonoT
 
             {!canAssign && (
               <Alert variant="destructive">
-                <AlertTriangle className="h-4 w-4" />
+                <Icon name="warning" className="h-4 w-4" />
                 <AlertDescription>
                   Esta deuda no se puede liquidar con bono porque tiene factura, pagos parciales o no pertenece a una sesión pendiente.
                 </AlertDescription>
@@ -156,7 +157,7 @@ export function AssignBonoToDebtDialog({ open, onOpenChange, debt }: AssignBonoT
 
             {canAssign && !isLoading && bonos.length === 0 && (
               <Alert>
-                <Package className="h-4 w-4" />
+                <Icon name="package_2" className="h-4 w-4" />
                 <AlertDescription>
                   Este contacto no tiene bonos activos con sesiones disponibles.
                 </AlertDescription>
@@ -173,7 +174,7 @@ export function AssignBonoToDebtDialog({ open, onOpenChange, debt }: AssignBonoT
             onClick={handleAssign}
             disabled={!canAssign || !selectedBonoId || bonos.length === 0 || applyBonoToSession.isPending}
           >
-            {applyBonoToSession.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {applyBonoToSession.isPending && <Icon name="progress_activity" className="mr-2 h-4 w-4 animate-spin" />}
             Asignar bono
           </Button>
         </DialogFooter>

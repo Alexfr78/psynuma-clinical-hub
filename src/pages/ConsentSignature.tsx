@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Loader2, AlertCircle, CheckCircle2, Clock, XCircle, Download } from 'lucide-react';
+
 import { usePublicConsent } from '@/hooks/usePublicConsent';
 import { MultiSignatureFlow } from '@/components/consents/MultiSignatureFlow';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,7 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { Icon } from '@/components/ui/icon';
 
 export default function ConsentSignature() {
   const { token } = useParams<{ token: string }>();
@@ -41,7 +42,7 @@ export default function ConsentSignature() {
       <div className="flex min-h-screen items-center justify-center bg-muted/30 p-4">
         <Card className="w-full max-w-md">
           <CardContent className="flex flex-col items-center justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <Icon name="progress_activity" className="h-8 w-8 animate-spin text-primary" />
             <p className="mt-4 text-muted-foreground">Cargando documento...</p>
           </CardContent>
         </Card>
@@ -55,7 +56,7 @@ export default function ConsentSignature() {
         <Card className="w-full max-w-md">
           <CardContent className="flex flex-col items-center justify-center py-12 text-center">
             <div className="rounded-full bg-destructive/10 p-4">
-              <AlertCircle className="h-8 w-8 text-destructive" />
+              <Icon name="error" className="h-8 w-8 text-destructive" />
             </div>
             <h2 className="mt-4 font-display text-xl font-semibold">
               Documento no encontrado
@@ -75,7 +76,7 @@ export default function ConsentSignature() {
         <Card className="w-full max-w-md">
           <CardContent className="flex flex-col items-center justify-center py-12 text-center">
             <div className="rounded-full bg-amber-500/10 p-4">
-              <Clock className="h-8 w-8 text-amber-500" />
+              <Icon name="schedule" className="h-8 w-8 text-amber-500" />
             </div>
             <h2 className="mt-4 font-display text-xl font-semibold">
               Enlace expirado
@@ -99,7 +100,7 @@ export default function ConsentSignature() {
         <Card className="w-full max-w-md">
           <CardContent className="flex flex-col items-center justify-center py-12 text-center">
             <div className="rounded-full bg-green-500/10 p-4">
-              <CheckCircle2 className="h-8 w-8 text-green-500" />
+              <Icon name="check_circle" className="h-8 w-8 text-green-500" />
             </div>
             <h2 className="mt-4 font-display text-xl font-semibold">
               Documento firmado
@@ -111,12 +112,12 @@ export default function ConsentSignature() {
             <Button className="mt-6" onClick={handleDownloadPdf} disabled={downloadingPdf}>
               {downloadingPdf ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Icon name="progress_activity" className="mr-2 h-4 w-4 animate-spin" />
                   Generando documento...
                 </>
               ) : (
                 <>
-                  <Download className="mr-2 h-4 w-4" />
+                  <Icon name="download" className="mr-2 h-4 w-4" />
                   Descargar documento firmado
                 </>
               )}
@@ -133,7 +134,7 @@ export default function ConsentSignature() {
         <Card className="w-full max-w-md">
           <CardContent className="flex flex-col items-center justify-center py-12 text-center">
             <div className="rounded-full bg-destructive/10 p-4">
-              <XCircle className="h-8 w-8 text-destructive" />
+              <Icon name="cancel" className="h-8 w-8 text-destructive" />
             </div>
             <h2 className="mt-4 font-display text-xl font-semibold">
               Consentimiento revocado

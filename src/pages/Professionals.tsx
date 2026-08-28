@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { Search, Loader2, UserCog, UserPlus } from 'lucide-react';
+
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useProfessionalsWithRoles } from '@/hooks/useProfessionals';
 import { ProfessionalCard } from '@/components/professionals/ProfessionalCard';
 import { ProfessionalDetailDialog } from '@/components/professionals/ProfessionalDetailDialog';
 import { InviteProfessionalDialog } from '@/components/professionals/InviteProfessionalDialog';
+import { Icon } from '@/components/ui/icon';
 
 export default function Professionals() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -40,13 +41,13 @@ export default function Professionals() {
           </p>
         </div>
         <Button onClick={() => setInviteDialogOpen(true)} className="w-full sm:w-auto">
-          <UserPlus className="mr-2 h-4 w-4" aria-hidden="true" />
+          <Icon name="person_add" className="mr-2 h-4 w-4" aria-hidden="true" />
           Invitar profesional
         </Button>
       </div>
 
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Icon name="search" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           placeholder="Buscar..."
           value={searchQuery}
@@ -57,11 +58,11 @@ export default function Professionals() {
 
       {isLoading ? (
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <Icon name="progress_activity" className="h-8 w-8 animate-spin text-primary" />
         </div>
       ) : filteredProfessionals.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 text-center">
-          <UserCog className="h-12 w-12 text-muted-foreground/50" />
+          <Icon name="manage_accounts" className="h-12 w-12 text-muted-foreground/50" />
           <h3 className="mt-4 text-lg font-medium">No hay profesionales</h3>
           <p className="text-sm text-muted-foreground">
             {searchQuery

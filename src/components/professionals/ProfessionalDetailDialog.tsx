@@ -21,7 +21,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { toast } from 'sonner';
-import { Loader2, Plus, Trash2 } from 'lucide-react';
+
 import {
   useProfessional,
   useUpdateProfessional,
@@ -38,6 +38,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Icon } from '@/components/ui/icon';
 
 const profileSchema = z.object({
   first_name: z.string().min(1, 'El nombre es requerido'),
@@ -174,7 +175,7 @@ export function ProfessionalDetailDialog({
 
         {isLoading ? (
           <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <Icon name="progress_activity" className="h-8 w-8 animate-spin text-primary" />
           </div>
         ) : (
           <Tabs defaultValue="datos" className="w-full">
@@ -316,7 +317,7 @@ export function ProfessionalDetailDialog({
                     className="w-full"
                   >
                     {updateProfessional.isPending && (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      <Icon name="progress_activity" className="mr-2 h-4 w-4 animate-spin" />
                     )}
                     Guardar cambios
                   </Button>
@@ -371,9 +372,9 @@ export function ProfessionalDetailDialog({
                       size="icon"
                     >
                       {createAvailability.isPending ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <Icon name="progress_activity" className="h-4 w-4 animate-spin" />
                       ) : (
-                        <Plus className="h-4 w-4" />
+                        <Icon name="add" className="h-4 w-4" />
                       )}
                     </Button>
                   </div>
@@ -409,7 +410,7 @@ export function ProfessionalDetailDialog({
                                 className="h-8 w-8 text-destructive hover:text-destructive"
                                 onClick={() => handleDeleteSlot(slot.id)}
                               >
-                                <Trash2 className="h-4 w-4" />
+                                <Icon name="delete" className="h-4 w-4" />
                               </Button>
                             </div>
                           ))}

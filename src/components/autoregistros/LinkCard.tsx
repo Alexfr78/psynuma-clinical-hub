@@ -2,13 +2,14 @@ import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Copy, XCircle, Trash2, MessageCircle, Loader2 } from 'lucide-react';
+
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import type { AutoregistroLink } from '@/hooks/useAutoregistroLinks';
 import { useWhatsAppDelivery } from '@/hooks/useWhatsAppDelivery';
 import { useAuth } from '@/hooks/useAuth';
+import { Icon } from '@/components/ui/icon';
 
 interface LinkCardProps {
   link: AutoregistroLink;
@@ -84,21 +85,21 @@ export function LinkCard({ link, onDeactivate, onDelete }: LinkCardProps) {
         </p>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" onClick={handleCopy}>
-            <Copy className="h-3 w-3 mr-1" /> Copiar enlace
+            <Icon name="content_copy" className="h-3 w-3 mr-1" /> Copiar enlace
           </Button>
           {link.status === 'active' && !isExpired && (
             <Button variant="outline" size="sm" onClick={handleWhatsApp} disabled={sending}>
               {sending ? (
-                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                <Icon name="progress_activity" className="h-3 w-3 mr-1 animate-spin" />
               ) : (
-                <MessageCircle className="h-3 w-3 mr-1" />
+                <Icon name="chat" className="h-3 w-3 mr-1" />
               )}
               WhatsApp
             </Button>
           )}
           {link.status === 'active' && !isExpired && (
             <Button variant="ghost" size="sm" onClick={() => onDeactivate(link.id)}>
-              <XCircle className="h-3 w-3 mr-1" /> Desactivar
+              <Icon name="cancel" className="h-3 w-3 mr-1" /> Desactivar
             </Button>
           )}
           <Button
@@ -107,7 +108,7 @@ export function LinkCard({ link, onDeactivate, onDelete }: LinkCardProps) {
             className="text-destructive hover:text-destructive hover:bg-destructive/10"
             onClick={() => onDelete(link.id)}
           >
-            <Trash2 className="h-3 w-3 mr-1" /> Eliminar
+            <Icon name="delete" className="h-3 w-3 mr-1" /> Eliminar
           </Button>
         </div>
       </CardContent>

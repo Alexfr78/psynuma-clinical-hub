@@ -6,12 +6,13 @@ import { Switch } from "@/components/ui/switch";
 import { useProfessionalIntegrations } from "@/hooks/useProfessionalIntegrations";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { CreditCard, ExternalLink, CheckCircle2, AlertCircle, Loader2, Clock, RefreshCw, Settings2 } from "lucide-react";
+
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
 import { StripeDiagnosticsPanel } from "./StripeDiagnosticsPanel";
+import { Icon } from '@/components/ui/icon';
 
 interface StripeIntegrationSectionProps {
   onOpenPaymentSettings?: () => void;
@@ -176,7 +177,7 @@ export function StripeIntegrationSection({ onOpenPaymentSettings }: StripeIntegr
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-purple-500/10">
-              <CreditCard className="h-5 w-5 text-purple-600" />
+              <Icon name="credit_card" className="h-5 w-5 text-purple-600" />
             </div>
             <div>
               <CardTitle className="text-lg">Stripe</CardTitle>
@@ -199,7 +200,7 @@ export function StripeIntegrationSection({ onOpenPaymentSettings }: StripeIntegr
         {!hasConnection ? (
           <>
             <Alert>
-              <AlertCircle className="h-4 w-4" />
+              <Icon name="error" className="h-4 w-4" />
               <AlertDescription>
                 Conecta tu cuenta de Stripe para recibir pagos online. Tus ingresos se depositarán directamente en tu cuenta bancaria.
               </AlertDescription>
@@ -207,19 +208,19 @@ export function StripeIntegrationSection({ onOpenPaymentSettings }: StripeIntegr
             
             <Button onClick={handleConnect} className="w-full gap-2" disabled={isConnecting}>
               {isConnecting ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Icon name="progress_activity" className="h-4 w-4 animate-spin" />
               ) : (
-                <CreditCard className="h-4 w-4" />
+                <Icon name="credit_card" className="h-4 w-4" />
               )}
               {isConnecting ? 'Conectando...' : 'Conectar con Stripe'}
-              {!isConnecting && <ExternalLink className="h-3 w-3 ml-1" />}
+              {!isConnecting && <Icon name="open_in_new" className="h-3 w-3 ml-1" />}
             </Button>
           </>
         ) : (
           <div className="space-y-6">
             <div className="flex items-center justify-between p-3 border rounded-lg bg-muted/30">
               <div className="flex items-center gap-3">
-                <CheckCircle2 className="h-5 w-5 text-green-600" />
+                <Icon name="check_circle" className="h-5 w-5 text-green-600" />
                 <div>
                   <p className="font-medium">Cuenta conectada</p>
                   <p className="text-sm text-muted-foreground">
@@ -236,7 +237,7 @@ export function StripeIntegrationSection({ onOpenPaymentSettings }: StripeIntegr
                   disabled={isRefreshing}
                   title="Actualizar estado"
                 >
-                  <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                  <Icon name="refresh" className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
                 </Button>
                 <Button 
                   variant="outline" 
@@ -245,7 +246,7 @@ export function StripeIntegrationSection({ onOpenPaymentSettings }: StripeIntegr
                   disabled={disconnectProvider.isPending}
                 >
                   {disconnectProvider.isPending ? (
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    <Icon name="progress_activity" className="h-4 w-4 animate-spin mr-2" />
                   ) : null}
                   Desconectar
                 </Button>
@@ -254,11 +255,11 @@ export function StripeIntegrationSection({ onOpenPaymentSettings }: StripeIntegr
 
             {accountStatus === 'pending' && (
               <Alert>
-                <Clock className="h-4 w-4" />
+                <Icon name="schedule" className="h-4 w-4" />
                 <AlertDescription className="flex items-center justify-between">
                   <span>Tu cuenta está pendiente de verificación. Completa el proceso en Stripe.</span>
                   <Button size="sm" variant="outline" onClick={handleConnect} disabled={isConnecting}>
-                    {isConnecting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Continuar verificación'}
+                    {isConnecting ? <Icon name="progress_activity" className="h-4 w-4 animate-spin" /> : 'Continuar verificación'}
                   </Button>
                 </AlertDescription>
               </Alert>
@@ -266,7 +267,7 @@ export function StripeIntegrationSection({ onOpenPaymentSettings }: StripeIntegr
 
             {accountStatus === 'active' && enabled && (
               <Alert>
-                <Settings2 className="h-4 w-4" />
+                <Icon name="tune" className="h-4 w-4" />
                 <AlertDescription className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <span>
                     Stripe está listo. El momento del cobro se configura una sola vez en

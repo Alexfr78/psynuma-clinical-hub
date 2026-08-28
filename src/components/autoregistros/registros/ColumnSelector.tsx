@@ -2,9 +2,10 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
-import { Settings2, RotateCcw } from 'lucide-react';
+
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { FieldDisplayMeta } from '@/lib/autoregistro-field-display';
+import { Icon } from '@/components/ui/icon';
 
 interface ColumnSelectorProps {
   allFields: FieldDisplayMeta[];
@@ -28,7 +29,7 @@ export function ColumnSelector({
     <Popover>
       <PopoverTrigger asChild>
         <Button variant="outline" size="sm" className="gap-1.5">
-          <Settings2 className="h-4 w-4" />
+          <Icon name="tune" className="h-4 w-4" />
           <span className="hidden sm:inline">Columnas</span>
         </Button>
       </PopoverTrigger>
@@ -42,7 +43,7 @@ export function ColumnSelector({
               className="h-7 px-2 text-xs gap-1"
               onClick={onReset}
             >
-              <RotateCcw className="h-3 w-3" />
+              <Icon name="restart_alt" className="h-3 w-3" />
               Restaurar
             </Button>
           )}

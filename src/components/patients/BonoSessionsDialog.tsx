@@ -1,6 +1,6 @@
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Calendar, Clock, Ticket } from 'lucide-react';
+
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import {
@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { SESSION_STATUS_LABELS, getSessionStatusDisplay } from '@/lib/payment-status';
+import { Icon } from '@/components/ui/icon';
 
 interface BonoSessionsDialogProps {
   bonoId: string | null;
@@ -61,7 +62,7 @@ export function BonoSessionsDialog({
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Ticket className="h-5 w-5 text-primary" />
+            <Icon name="confirmation_number" className="h-5 w-5 text-primary" />
             Sesiones del bono
           </DialogTitle>
           <DialogDescription>
@@ -83,7 +84,7 @@ export function BonoSessionsDialog({
             </div>
           ) : !sessions || sessions.length === 0 ? (
             <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-10 text-center">
-              <Calendar className="h-10 w-10 text-muted-foreground" />
+              <Icon name="calendar_month" className="h-10 w-10 text-muted-foreground" />
               <p className="mt-3 text-sm text-muted-foreground">
                 Este bono aún no tiene sesiones asignadas.
               </p>
@@ -102,11 +103,11 @@ export function BonoSessionsDialog({
                   >
                     <div className="flex flex-col gap-1">
                       <div className="flex items-center gap-2 text-sm font-medium">
-                        <Calendar className="h-4 w-4 text-muted-foreground" />
+                        <Icon name="calendar_month" className="h-4 w-4 text-muted-foreground" />
                         {format(new Date(session.session_date), "EEEE d 'de' MMMM yyyy", { locale: es })}
                       </div>
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <Clock className="h-3.5 w-3.5" />
+                        <Icon name="schedule" className="h-3.5 w-3.5" />
                         {session.start_time?.slice(0, 5)} - {session.end_time?.slice(0, 5)}
                         {session.session_type && (
                           <span className="ml-1">· {session.session_type}</span>

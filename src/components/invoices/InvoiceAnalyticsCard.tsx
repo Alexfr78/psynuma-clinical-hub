@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { addDays, endOfMonth, endOfQuarter, endOfWeek, endOfYear, format, parseISO, startOfMonth, startOfQuarter, startOfWeek, startOfYear, subMonths } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Bar, CartesianGrid, ComposedChart, Line, XAxis, YAxis } from 'recharts';
-import { CalendarDays, RotateCcw } from 'lucide-react';
+
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
@@ -18,6 +18,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import type { InvoiceWithPatient } from '@/hooks/useInvoices';
 import type { PaymentWithRelations } from '@/hooks/usePayments';
 import { cn } from '@/lib/utils';
+import { Icon } from '@/components/ui/icon';
 
 export type InvoiceDateRange = {
   startDate: string;
@@ -241,7 +242,7 @@ export function InvoiceAnalyticsCard({
       <CardHeader className="gap-4">
         <div className="flex flex-col gap-1">
           <CardTitle className="flex items-center gap-2">
-            <CalendarDays className="h-5 w-5 text-primary" />
+            <Icon name="calendar_month" className="h-5 w-5 text-primary" />
             Evolución de facturación
           </CardTitle>
           <CardDescription>Consulta lo facturado y cobrado por rango de fechas</CardDescription>
@@ -335,7 +336,7 @@ export function InvoiceAnalyticsCard({
               Listado filtrado por <strong>{selectedBucket.label}</strong>
             </span>
             <Button variant="ghost" size="sm" onClick={() => onSelectedBucketChange(null)}>
-              <RotateCcw className="h-4 w-4" />
+              <Icon name="restart_alt" className="h-4 w-4" />
               Ver todo el rango
             </Button>
           </div>

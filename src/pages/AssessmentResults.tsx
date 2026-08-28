@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { ArrowLeft, User, Calendar, FileText, CheckCircle2, AlertTriangle, Loader2, Activity, Sparkles, Download } from 'lucide-react';
+
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -32,6 +32,7 @@ import {
   isAlert,
   getHighFactors,
 } from '@/lib/assessment-utils';
+import { Icon } from '@/components/ui/icon';
 
 export default function AssessmentResults() {
   const { assessmentId } = useParams<{ assessmentId: string }>();
@@ -90,7 +91,7 @@ export default function AssessmentResults() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <Icon name="progress_activity" className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
   }
@@ -99,7 +100,7 @@ export default function AssessmentResults() {
     return (
       <div className="p-6">
         <Button variant="ghost" onClick={() => navigate('/evaluaciones')} className="mb-4">
-          <ArrowLeft className="h-4 w-4 mr-2" />
+          <Icon name="arrow_back" className="h-4 w-4 mr-2" />
           Volver a evaluaciones
         </Button>
         <Card>
@@ -156,7 +157,7 @@ export default function AssessmentResults() {
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={() => navigate('/evaluaciones')}>
-            <ArrowLeft className="h-5 w-5" />
+            <Icon name="arrow_back" className="h-5 w-5" />
           </Button>
           <div>
             <h1 className="text-2xl font-bold">Resultados de Evaluación</h1>
@@ -171,9 +172,9 @@ export default function AssessmentResults() {
             className="gap-2"
           >
             {isDownloading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <Icon name="progress_activity" className="h-4 w-4 animate-spin" />
             ) : (
-              <Download className="h-4 w-4" />
+              <Icon name="download" className="h-4 w-4" />
             )}
             <span className="hidden sm:inline">Descargar PDF</span>
           </Button>
@@ -185,7 +186,7 @@ export default function AssessmentResults() {
         <Card>
           <CardContent className="pt-4 pb-4">
             <div className="flex items-center gap-2 text-muted-foreground text-sm mb-1">
-              <User className="h-4 w-4" />
+              <Icon name="person" className="h-4 w-4" />
               Paciente
             </div>
             <p className="font-medium truncate">
@@ -197,7 +198,7 @@ export default function AssessmentResults() {
         <Card>
           <CardContent className="pt-4 pb-4">
             <div className="flex items-center gap-2 text-muted-foreground text-sm mb-1">
-              <Calendar className="h-4 w-4 shrink-0" />
+              <Icon name="calendar_month" className="h-4 w-4 shrink-0" />
               <span className="truncate">Fecha completado</span>
             </div>
             <p className="font-medium text-sm sm:text-base">
@@ -211,7 +212,7 @@ export default function AssessmentResults() {
         <Card>
           <CardContent className="pt-4 pb-4">
             <div className="flex items-center gap-2 text-muted-foreground text-sm mb-1">
-              <FileText className="h-4 w-4" />
+              <Icon name="description" className="h-4 w-4" />
               Plantilla
             </div>
             <p className="font-medium truncate">{template.name}</p>
@@ -221,7 +222,7 @@ export default function AssessmentResults() {
         <Card>
           <CardContent className="pt-4 pb-4">
             <div className="flex items-center gap-2 text-muted-foreground text-sm mb-1">
-              <CheckCircle2 className="h-4 w-4" />
+              <Icon name="check_circle" className="h-4 w-4" />
               Estado
             </div>
             <Badge variant={status === 'completed' ? 'default' : 'secondary'} className="capitalize">
@@ -538,7 +539,7 @@ export default function AssessmentResults() {
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-lg flex items-center gap-2">
-                  <Activity className="h-5 w-5" />
+                  <Icon name="monitor_heart" className="h-5 w-5" />
                   Índices Globales
                 </CardTitle>
                 <CardDescription>
@@ -704,7 +705,7 @@ export default function AssessmentResults() {
           <div className="space-y-4">
             <div className="flex items-center justify-between gap-4">
               <h2 className="text-lg font-semibold flex items-center gap-2">
-                <AlertTriangle className="h-5 w-5 text-yellow-500" />
+                <Icon name="warning" className="h-5 w-5 text-yellow-500" />
                 Interpretación y Sugerencias de Intervención
               </h2>
               {isPAI && !storedInterpretation && (
@@ -715,12 +716,12 @@ export default function AssessmentResults() {
                 >
                   {isGenerating ? (
                     <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <Icon name="progress_activity" className="h-4 w-4 animate-spin" />
                       Generando...
                     </>
                   ) : (
                     <>
-                      <Sparkles className="h-4 w-4" />
+                      <Icon name="auto_awesome" className="h-4 w-4" />
                       Generar Interpretación IA
                     </>
                   )}
@@ -740,7 +741,7 @@ export default function AssessmentResults() {
                 ) : (
                   <Card>
                     <CardContent className="py-8 text-center">
-                      <Sparkles className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                      <Icon name="auto_awesome" className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
                       <p className="text-muted-foreground mb-4">
                         Genera una interpretación clínica detallada del PAI usando inteligencia artificial.
                       </p>
@@ -751,12 +752,12 @@ export default function AssessmentResults() {
                       >
                         {isGenerating ? (
                           <>
-                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <Icon name="progress_activity" className="h-4 w-4 animate-spin" />
                             Analizando perfil...
                           </>
                         ) : (
                           <>
-                            <Sparkles className="h-4 w-4" />
+                            <Icon name="auto_awesome" className="h-4 w-4" />
                             Generar Interpretación IA
                           </>
                         )}

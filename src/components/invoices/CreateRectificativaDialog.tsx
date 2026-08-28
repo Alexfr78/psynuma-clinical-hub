@@ -29,7 +29,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Loader2, AlertTriangle, Info } from 'lucide-react';
+
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -39,6 +39,7 @@ import { useInvoiceSeries } from '@/hooks/useInvoiceSeries';
 import type { InvoiceWithPatient } from '@/hooks/useInvoices';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { getCompleteInvoiceMissingFields } from '@/lib/complete-invoice-requirements';
+import { Icon } from '@/components/ui/icon';
 
 interface CreateRectificativaDialogProps {
   open: boolean;
@@ -378,7 +379,7 @@ export function CreateRectificativaDialog({
 
         {rectificativaSeries.length === 0 ? (
           <div className="flex flex-col items-center gap-4 py-6 text-center">
-            <AlertTriangle className="h-12 w-12 text-amber-500" />
+            <Icon name="warning" className="h-12 w-12 text-amber-500" />
             <div>
               <p className="font-semibold">No hay series de rectificativas</p>
               <p className="text-sm text-muted-foreground mt-1">
@@ -469,7 +470,7 @@ export function CreateRectificativaDialog({
 
               {isSubstitution && (
                 <Alert>
-                  <Info className="h-4 w-4" />
+                  <Icon name="info" className="h-4 w-4" />
                   <AlertDescription>
                     Para facturas sustitutivas, debes indicar los importes de la factura original que se rectifican (BaseRectificada y CuotaRectificada según Verifactu).
                   </AlertDescription>
@@ -592,7 +593,7 @@ export function CreateRectificativaDialog({
                   Cancelar
                 </Button>
                 <Button type="submit" disabled={isSubmitting}>
-                  {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {isSubmitting && <Icon name="progress_activity" className="mr-2 h-4 w-4 animate-spin" />}
                   Crear y Emitir
                 </Button>
               </DialogFooter>

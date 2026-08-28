@@ -12,19 +12,12 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { getBonoStatusDisplay, SESSION_STATUS_LABELS, getSessionStatusDisplay } from '@/lib/payment-status';
-import {
-  Calendar,
-  User,
-  Package,
-  Check,
-  X,
-  Trash2,
-  AlertTriangle,
-} from 'lucide-react';
+
 import { format, differenceInDays, isPast } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { BonoWithPatient, useBonoSessions } from '@/hooks/useBonos';
 import { DeleteBonoDialog } from './DeleteBonoDialog';
+import { Icon } from '@/components/ui/icon';
 
 interface BonoDetailDialogProps {
   bono: BonoWithPatient | null;
@@ -73,7 +66,7 @@ export function BonoDetailDialog({ bono, open, onOpenChange }: BonoDetailDialogP
                 <DialogTitle className="text-xl">{bono.name}</DialogTitle>
                 {bono.patients && (
                   <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                    <User className="h-4 w-4" />
+                    <Icon name="person" className="h-4 w-4" />
                     <span>{bono.patients.first_name} {bono.patients.last_name}</span>
                   </div>
                 )}
@@ -114,7 +107,7 @@ export function BonoDetailDialog({ bono, open, onOpenChange }: BonoDetailDialogP
               {/* Advertencia de expiración */}
               {daysUntilExpiry !== null && daysUntilExpiry <= 7 && daysUntilExpiry > 0 && bono.status === 'active' && (
                 <div className="flex items-center gap-2 text-amber-600 dark:text-amber-500 text-sm bg-amber-50 dark:bg-amber-950/30 rounded-md p-3">
-                  <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+                  <Icon name="warning" className="h-4 w-4 flex-shrink-0" />
                   <span>Este bono expira en {daysUntilExpiry} días</span>
                 </div>
               )}
@@ -138,13 +131,13 @@ export function BonoDetailDialog({ bono, open, onOpenChange }: BonoDetailDialogP
                   <h4 className="font-medium text-sm">Fechas</h4>
                   <div className="space-y-2 text-sm">
                     <div className="flex items-center gap-2">
-                      <Calendar className="h-4 w-4 text-muted-foreground" />
+                      <Icon name="calendar_month" className="h-4 w-4 text-muted-foreground" />
                       <span className="text-muted-foreground">Creado:</span>
                       <span>{format(new Date(bono.created_at), "d MMM yyyy", { locale: es })}</span>
                     </div>
                     {bono.expires_at && (
                       <div className={`flex items-center gap-2 ${isExpired ? 'text-destructive' : ''}`}>
-                        <Calendar className="h-4 w-4 text-muted-foreground" />
+                        <Icon name="calendar_month" className="h-4 w-4 text-muted-foreground" />
                         <span className="text-muted-foreground">{isExpired ? 'Expiró:' : 'Expira:'}</span>
                         <span>{format(new Date(bono.expires_at), "d MMM yyyy", { locale: es })}</span>
                       </div>
@@ -158,7 +151,7 @@ export function BonoDetailDialog({ bono, open, onOpenChange }: BonoDetailDialogP
               {/* Sesiones vinculadas */}
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
-                  <Package className="h-4 w-4" />
+                  <Icon name="package_2" className="h-4 w-4" />
                   <h4 className="font-medium">Sesiones vinculadas</h4>
                   <span className="text-sm text-muted-foreground">
                     ({sessions?.length || 0})
@@ -173,7 +166,7 @@ export function BonoDetailDialog({ bono, open, onOpenChange }: BonoDetailDialogP
                   </div>
                 ) : sessionsError ? (
                   <div className="text-center py-8 text-destructive bg-destructive/10 rounded-lg">
-                    <AlertTriangle className="h-8 w-8 mx-auto mb-2" />
+                    <Icon name="warning" className="h-8 w-8 mx-auto mb-2" />
                     <p className="font-medium">Error al cargar sesiones</p>
                     <p className="text-sm text-muted-foreground mt-1">
                       No se pudieron cargar las sesiones vinculadas. Intenta recargar la página.
@@ -181,7 +174,7 @@ export function BonoDetailDialog({ bono, open, onOpenChange }: BonoDetailDialogP
                   </div>
                 ) : !sessions || sessions.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
-                    <Package className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                    <Icon name="package_2" className="h-8 w-8 mx-auto mb-2 opacity-50" />
                     <p>No hay sesiones vinculadas a este bono</p>
                   </div>
                 ) : (
@@ -220,12 +213,12 @@ export function BonoDetailDialog({ bono, open, onOpenChange }: BonoDetailDialogP
                           <div className="flex items-center gap-2">
                             {session.consumes_bono ? (
                               <Badge variant="default" className="gap-1">
-                                <Check className="h-3 w-3" />
+                                <Icon name="check" className="h-3 w-3" />
                                 Consume bono
                               </Badge>
                             ) : (
                               <Badge variant="outline" className="gap-1 text-muted-foreground">
-                                <X className="h-3 w-3" />
+                                <Icon name="close" className="h-3 w-3" />
                                 No consume
                               </Badge>
                             )}
@@ -246,7 +239,7 @@ export function BonoDetailDialog({ bono, open, onOpenChange }: BonoDetailDialogP
                 variant="destructive"
                 onClick={() => setDeleteDialogOpen(true)}
               >
-                <Trash2 className="h-4 w-4 mr-2" />
+                <Icon name="delete" className="h-4 w-4 mr-2" />
                 Eliminar bono
               </Button>
             </div>

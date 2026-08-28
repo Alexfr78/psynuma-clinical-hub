@@ -1,10 +1,7 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import {
-  User, Globe, Plus, Video, MapPin, Ban, Settings2,
-  Package, CreditCard, AlertCircle, X, CalendarIcon,
-} from 'lucide-react';
+
 import { UseFormReturn } from 'react-hook-form';
 import { Link } from 'react-router-dom';
 import type { Patient } from '@/hooks/usePatients';
@@ -41,6 +38,8 @@ import { SessionNotificationSettings } from './SessionNotificationSettings';
 import { RecurrenceSettings } from './RecurrenceSettings';
 import { MobilePatientSearch } from './MobilePatientSearch';
 import { RecurrenceConfig } from '@/types/recurring';
+import { Icon } from '@/components/ui/icon';
+import { MapPin, Video, Settings2, CreditCard, CalendarIcon, Globe } from 'lucide-react';
 
 /* ────────── shared constants (same as in QuickCreateSessionDialog) ────────── */
 
@@ -154,7 +153,7 @@ export function MobileSessionForm({
               className="h-10 w-10"
               onClick={() => onOpenChange(false)}
             >
-              <X className="h-5 w-5" />
+              <Icon name="close" className="h-5 w-5" />
             </Button>
           </div>
 
@@ -180,7 +179,7 @@ export function MobileSessionForm({
                           onClick={() => setPatientSearchOpen(true)}
                         >
                           <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                            <User className="h-4 w-4 text-primary" />
+                            <Icon name="person" className="h-4 w-4 text-primary" />
                           </div>
                           <span className="flex-1 truncate text-base">
                             {selectedPatient
@@ -202,7 +201,7 @@ export function MobileSessionForm({
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel className="text-sm font-medium flex items-center gap-2">
-                          <Package className="h-4 w-4" />
+                          <Icon name="package_2" className="h-4 w-4" />
                           Bono
                         </FormLabel>
                         <div className="flex gap-2">
@@ -231,7 +230,7 @@ export function MobileSessionForm({
                             className="h-12 w-12"
                             onClick={onShowCreateBonoDialog}
                           >
-                            <Plus className="h-4 w-4" />
+                            <Icon name="add" className="h-4 w-4" />
                           </Button>
                         </div>
                         {field.value && field.value !== 'none' && (
@@ -258,7 +257,7 @@ export function MobileSessionForm({
                             {selectedProfessional ? (
                               <span className="flex items-center gap-2">
                                 <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                                  <User className="h-3 w-3 text-primary" />
+                                  <Icon name="person" className="h-3 w-3 text-primary" />
                                 </div>
                                 <span className="truncate">
                                   {selectedProfessional.first_name} {selectedProfessional.last_name}
@@ -329,7 +328,7 @@ export function MobileSessionForm({
                         className="w-full flex items-center gap-2 rounded-md border border-input bg-background px-3 py-3 text-left min-h-[48px] text-base"
                         onClick={() => setCalendarExpanded(!calendarExpanded)}
                       >
-                        <CalendarIcon className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <Icon name="calendar_month" className="h-4 w-4 text-muted-foreground shrink-0" />
                         <span className="capitalize">
                           {field.value
                             ? format(field.value, "EEEE d 'de' MMMM yyyy", { locale: es })
@@ -403,7 +402,7 @@ export function MobileSessionForm({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel className="text-sm font-medium flex items-center gap-2">
-                        <Ban className="h-4 w-4" />
+                        <Icon name="block" className="h-4 w-4" />
                         Cancelación
                       </FormLabel>
                       <Select onValueChange={field.onChange} value={field.value}>
@@ -430,7 +429,7 @@ export function MobileSessionForm({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel className="text-sm font-medium flex items-center gap-2">
-                        <Video className="h-4 w-4" />
+                        <Icon name="videocam" className="h-4 w-4" />
                         Modalidad
                       </FormLabel>
                       <Select
@@ -453,7 +452,7 @@ export function MobileSessionForm({
                       </Select>
                       {field.value === 'google_meet' && (!integrations?.google_meet_enabled || !oauthConnections?.some((c) => c.provider === 'google' && c.expires_at)) && (
                         <Alert variant="destructive" className="mt-2 py-2">
-                          <AlertCircle className="h-4 w-4" />
+                          <Icon name="error" className="h-4 w-4" />
                           <AlertDescription className="text-xs">
                             Google Meet no está conectado.{' '}
                             <Link to="/configuracion" className="underline font-medium">Configúralo aquí</Link>
@@ -462,7 +461,7 @@ export function MobileSessionForm({
                       )}
                       {field.value === 'zoom' && (!integrations?.zoom_enabled || !oauthConnections?.some((c) => c.provider === 'zoom' && c.expires_at)) && (
                         <Alert variant="destructive" className="mt-2 py-2">
-                          <AlertCircle className="h-4 w-4" />
+                          <Icon name="error" className="h-4 w-4" />
                           <AlertDescription className="text-xs">
                             Zoom no está conectado.{' '}
                             <Link to="/configuracion" className="underline font-medium">Configúralo aquí</Link>
@@ -499,7 +498,7 @@ export function MobileSessionForm({
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel className="text-sm font-medium flex items-center gap-2">
-                          <MapPin className="h-4 w-4" />
+                          <Icon name="location_on" className="h-4 w-4" />
                           Dirección
                         </FormLabel>
                         <div className="flex gap-2">
@@ -524,7 +523,7 @@ export function MobileSessionForm({
                             className="h-12 w-12"
                             onClick={onShowLocationsDialog}
                           >
-                            <Settings2 className="h-4 w-4" />
+                            <Icon name="tune" className="h-4 w-4" />
                           </Button>
                         </div>
                         <FormMessage />
@@ -540,7 +539,7 @@ export function MobileSessionForm({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel className="text-sm font-medium flex items-center gap-2">
-                        <CreditCard className="h-4 w-4" />
+                        <Icon name="credit_card" className="h-4 w-4" />
                         Modo de pago
                       </FormLabel>
                       <Select onValueChange={field.onChange} value={field.value}>
@@ -598,7 +597,7 @@ export function MobileSessionForm({
                 {/* Timezone */}
                 {!recurrenceEnabled && (
                   <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                    <Globe className="h-3 w-3" />
+                    <Icon name="public" className="h-3 w-3" />
                     <span>Europe/Madrid</span>
                   </div>
                 )}

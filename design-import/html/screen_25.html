@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+
+<html class="light" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Consentimiento Informado - Psycma</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "surface": "#faf9f7",
+                      "on-secondary": "#ffffff",
+                      "on-primary-fixed-variant": "#00497d",
+                      "on-tertiary-container": "#ffd7bc",
+                      "surface-container": "#efeeec",
+                      "tertiary": "#763b00",
+                      "on-tertiary-fixed": "#301400",
+                      "surface-container-highest": "#e3e2e0",
+                      "on-error-container": "#93000a",
+                      "outline": "#787585",
+                      "on-background": "#1a1c1b",
+                      "inverse-on-surface": "#f1f1ef",
+                      "on-error": "#ffffff",
+                      "secondary-fixed": "#62fae3",
+                      "on-surface-variant": "#474554",
+                      "outline-variant": "#c8c4d6",
+                      "on-tertiary-fixed-variant": "#703800",
+                      "on-primary-container": "#cbe1ff",
+                      "surface-dim": "#dadad8",
+                      "secondary-fixed-dim": "#3cddc7",
+                      "tertiary-container": "#994e00",
+                      "primary": "#004d84",
+                      "tertiary-fixed-dim": "#ffb782",
+                      "surface-bright": "#faf9f7",
+                      "tertiary-fixed": "#ffdcc5",
+                      "on-secondary-fixed-variant": "#005047",
+                      "on-secondary-fixed": "#00201c",
+                      "surface-variant": "#e3e2e0",
+                      "secondary": "#006b5f",
+                      "primary-fixed-dim": "#9fcaff",
+                      "surface-container-lowest": "#ffffff",
+                      "primary-fixed": "#d1e4ff",
+                      "inverse-surface": "#2f3130",
+                      "background": "#faf9f7",
+                      "secondary-container": "#62fae3",
+                      "on-surface": "#1a1c1b",
+                      "inverse-primary": "#9fcaff",
+                      "on-secondary-container": "#007165",
+                      "on-primary": "#ffffff",
+                      "on-primary-fixed": "#001d36",
+                      "on-tertiary": "#ffffff",
+                      "error": "#ba1a1a",
+                      "surface-container-high": "#e9e8e6",
+                      "primary-container": "#1b65a5",
+                      "error-container": "#ffdad6",
+                      "surface-tint": "#1361a0",
+                      "surface-container-low": "#f4f3f1"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "xs": "8px",
+                      "grid-gutter": "16px",
+                      "sm": "16px",
+                      "lg": "32px",
+                      "md": "24px",
+                      "base": "4px",
+                      "xl": "48px",
+                      "grid-margin": "24px"
+              },
+              "fontFamily": {
+                      "label-md": ["Inter"],
+                      "body-sm": ["Inter"],
+                      "display-lg": ["Plus Jakarta Sans"],
+                      "body-md": ["Inter"],
+                      "data-tabular": ["Inter"],
+                      "body-lg": ["Inter"],
+                      "headline-md": ["Plus Jakarta Sans"],
+                      "headline-lg": ["Plus Jakarta Sans"],
+                      "headline-lg-mobile": ["Plus Jakarta Sans"]
+              },
+              "fontSize": {
+                      "label-md": ["14px", {"lineHeight": "16px", "letterSpacing": "0.01em", "fontWeight": "600"}],
+                      "body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                      "display-lg": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                      "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                      "data-tabular": ["14px", {"lineHeight": "20px", "fontWeight": "500"}],
+                      "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                      "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                      "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                      "headline-lg-mobile": ["28px", {"lineHeight": "36px", "fontWeight": "600"}]
+              }
+            }
+          }
+        }
+    </script>
+<style>
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+        .signature-canvas {
+            touch-action: none;
+        }
+        
+        /* Custom Scrollbar for legal text */
+        .legal-scroll::-webkit-scrollbar {
+            width: 6px;
+        }
+        .legal-scroll::-webkit-scrollbar-track {
+            background: #efeeec;
+            border-radius: 4px;
+        }
+        .legal-scroll::-webkit-scrollbar-thumb {
+            background: #c8c4d6;
+            border-radius: 4px;
+        }
+        .legal-scroll::-webkit-scrollbar-thumb:hover {
+            background: #787585;
+        }
+    </style>
+</head>
+<body class="bg-surface text-on-surface font-body-md min-h-screen flex flex-col items-center">
+<!-- Header / Brand Anchor -->
+<header class="w-full max-w-[800px] mx-auto py-lg px-md flex items-center justify-center">
+<div class="flex items-center gap-2 text-primary">
+<span class="material-symbols-outlined text-[32px]">psychiatry</span>
+<span class="font-headline-lg text-headline-lg">Psycma</span>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="w-full max-w-[800px] mx-auto px-md pb-xl flex-grow flex flex-col items-center">
+<!-- Header Text -->
+<div class="text-center mb-lg">
+<h1 class="font-headline-md text-headline-md md:font-headline-lg md:text-headline-lg text-on-surface mb-xs">
+                Consentimiento Informado para Tratamiento
+            </h1>
+<p class="font-body-sm text-body-sm text-on-surface-variant flex items-center justify-center gap-1">
+<span class="material-symbols-outlined text-[16px]">lock</span>
+                Este documento es privado y seguro.
+            </p>
+</div>
+<!-- Central Card -->
+<div class="w-full bg-surface-container-lowest rounded-xl border border-surface-variant shadow-[0_4px_24px_rgba(78,141,207,0.08)] overflow-hidden">
+<!-- Legal Text Area with Internal Scroll -->
+<div class="p-lg md:p-xl border-b border-surface-variant">
+<div class="h-[300px] md:h-[400px] overflow-y-auto legal-scroll pr-sm font-body-sm text-body-sm text-on-surface-variant space-y-4">
+<h3 class="font-label-md text-label-md text-on-surface mb-2">1. Naturaleza y Propósito del Tratamiento</h3>
+<p>
+                        Por medio del presente documento, otorgo mi consentimiento libre y voluntario para participar en sesiones de evaluación y tratamiento psicológico. Comprendo que la terapia es un proceso colaborativo que requiere mi participación activa y honesta.
+                    </p>
+<h3 class="font-label-md text-label-md text-on-surface mt-4 mb-2">2. Confidencialidad y Privacidad</h3>
+<p>
+                        Toda la información compartida durante las sesiones es estrictamente confidencial. Los registros clínicos se mantienen bajo estrictas medidas de seguridad, cumpliendo con la legislación vigente en materia de protección de datos personales.
+                    </p>
+<p>
+                        Excepciones a la confidencialidad: El profesional está obligado a romper el secreto profesional únicamente en situaciones de riesgo inminente para la vida del paciente o de terceros, o por orden judicial explícita.
+                    </p>
+<h3 class="font-label-md text-label-md text-on-surface mt-4 mb-2">3. Honorarios y Cancelaciones</h3>
+<p>
+                        Las sesiones tienen una duración aproximada de 50 minutos. En caso de no poder asistir, me comprometo a notificar con al menos 24 horas de antelación. Las cancelaciones fuera de este plazo o inasistencias podrán estar sujetas al cobro de la sesión.
+                    </p>
+<h3 class="font-label-md text-label-md text-on-surface mt-4 mb-2">4. Derechos del Paciente</h3>
+<p>
+                        Como paciente, tengo derecho a hacer preguntas sobre el proceso terapéutico, a solicitar un resumen de mi historial clínico, y a interrumpir el tratamiento en cualquier momento que lo considere oportuno, notificando previamente al profesional.
+                    </p>
+<h3 class="font-label-md text-label-md text-on-surface mt-4 mb-2">5. Uso de Plataformas Digitales</h3>
+<p>
+                        Si las sesiones se realizan de forma online, acepto utilizar las plataformas provistas por Psycma, entendiendo que estas cumplen con los estándares de encriptación y seguridad requeridos para la telepsicología.
+                    </p>
+</div>
+</div>
+<!-- Interaction Area -->
+<div class="p-lg md:p-xl bg-surface-bright">
+<!-- Checkbox -->
+<label class="flex items-start gap-3 cursor-pointer group mb-lg">
+<div class="relative flex items-center">
+<input class="peer h-5 w-5 cursor-pointer appearance-none rounded border border-outline-variant bg-surface transition-all checked:border-primary checked:bg-primary hover:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20" id="accept-terms" type="checkbox"/>
+<span class="material-symbols-outlined absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-on-primary opacity-0 peer-checked:opacity-100 pointer-events-none text-[16px]">check</span>
+</div>
+<span class="font-body-md text-body-md text-on-surface select-none mt-[-2px] group-hover:text-primary transition-colors">
+                        He leído y acepto los términos del consentimiento informado
+                    </span>
+</label>
+<!-- Signature Area -->
+<div class="mb-lg">
+<div class="flex justify-between items-end mb-2">
+<label class="font-label-md text-label-md text-on-surface">Firma del Paciente</label>
+<button class="font-body-sm text-body-sm text-primary hover:text-primary-container transition-colors" id="clear-signature" type="button">
+                            Limpiar
+                        </button>
+</div>
+<div class="relative w-full h-[150px] bg-surface-container-low rounded-lg border border-outline-variant overflow-hidden group focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 transition-all">
+<span class="absolute inset-0 flex items-center justify-center font-body-md text-body-md text-outline pointer-events-none transition-opacity" id="signature-placeholder">
+                            Firme aquí
+                        </span>
+<canvas class="w-full h-full signature-canvas cursor-crosshair" id="signature-pad"></canvas>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-2">
+                        Utilice su ratón o dedo para firmar en el recuadro superior.
+                    </p>
+</div>
+<!-- Submit Action -->
+<button class="w-full py-3 px-6 bg-primary text-on-primary font-label-md text-label-md rounded-lg shadow-sm hover:shadow-md hover:bg-primary-container disabled:bg-surface-variant disabled:text-outline disabled:cursor-not-allowed transition-all flex justify-center items-center gap-2" disabled="" id="submit-btn" type="button">
+<span class="material-symbols-outlined text-[20px]">send</span>
+                    Firmar y enviar
+                </button>
+</div>
+</div>
+<!-- Footer Info -->
+<div class="mt-lg text-center">
+<p class="font-body-sm text-body-sm text-on-surface-variant flex items-center justify-center gap-1">
+<span class="material-symbols-outlined text-[16px]">verified_user</span>
+                Conexión segura y cifrada
+            </p>
+</div>
+</main>
+<script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const canvas = document.getElementById('signature-pad');
+            const ctx = canvas.getContext('2d');
+            const clearBtn = document.getElementById('clear-signature');
+            const placeholder = document.getElementById('signature-placeholder');
+            const checkbox = document.getElementById('accept-terms');
+            const submitBtn = document.getElementById('submit-btn');
+            
+            let isDrawing = false;
+            let hasSignature = false;
+
+            // Resize canvas to fit container
+            function resizeCanvas() {
+                const rect = canvas.parentElement.getBoundingClientRect();
+                canvas.width = rect.width;
+                canvas.height = rect.height;
+                // Style the line
+                ctx.lineWidth = 2;
+                ctx.lineCap = 'round';
+                ctx.strokeStyle = '#004d84'; // Primary color
+            }
+
+            window.addEventListener('resize', resizeCanvas);
+            resizeCanvas();
+
+            // Drawing logic
+            function startDrawing(e) {
+                isDrawing = true;
+                hasSignature = true;
+                placeholder.style.opacity = '0';
+                draw(e);
+                validateForm();
+            }
+
+            function stopDrawing() {
+                isDrawing = false;
+                ctx.beginPath();
+            }
+
+            function draw(e) {
+                if (!isDrawing) return;
+                
+                e.preventDefault(); // Prevent scrolling on touch
+                
+                let clientX, clientY;
+                if (e.type.includes('touch')) {
+                    clientX = e.touches[0].clientX;
+                    clientY = e.touches[0].clientY;
+                } else {
+                    clientX = e.clientX;
+                    clientY = e.clientY;
+                }
+
+                const rect = canvas.getBoundingClientRect();
+                const x = clientX - rect.left;
+                const y = clientY - rect.top;
+
+                ctx.lineTo(x, y);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(x, y);
+            }
+
+            // Mouse events
+            canvas.addEventListener('mousedown', startDrawing);
+            canvas.addEventListener('mousemove', draw);
+            canvas.addEventListener('mouseup', stopDrawing);
+            canvas.addEventListener('mouseout', stopDrawing);
+
+            // Touch events
+            canvas.addEventListener('touchstart', startDrawing, { passive: false });
+            canvas.addEventListener('touchmove', draw, { passive: false });
+            canvas.addEventListener('touchend', stopDrawing);
+
+            // Clear logic
+            clearBtn.addEventListener('click', () => {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                hasSignature = false;
+                placeholder.style.opacity = '1';
+                validateForm();
+            });
+
+            // Validation logic
+            checkbox.addEventListener('change', validateForm);
+
+            function validateForm() {
+                if (checkbox.checked && hasSignature) {
+                    submitBtn.disabled = false;
+                } else {
+                    submitBtn.disabled = true;
+                }
+            }
+        });
+    </script>
+</body></html>

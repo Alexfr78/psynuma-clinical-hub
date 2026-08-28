@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FileText, Link2, AlertCircle, ArrowRight } from 'lucide-react';
+
 import {
   ResponsiveDialog as Dialog,
   ResponsiveDialogContent as DialogContent,
@@ -21,6 +21,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useInvoices } from '@/hooks/useInvoices';
 import { useLinkPaymentToInvoice } from '@/hooks/useLinkPaymentToInvoice';
 import type { PaymentWithRelations } from '@/hooks/usePayments';
+import { Icon } from '@/components/ui/icon';
 
 interface LinkPaymentToInvoiceDialogProps {
   open: boolean;
@@ -104,7 +105,7 @@ export function LinkPaymentToInvoiceDialog({
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Link2 className="h-5 w-5" />
+            <Icon name="link" className="h-5 w-5" />
             Vincular pago a factura
           </DialogTitle>
           <DialogDescription>
@@ -129,10 +130,10 @@ export function LinkPaymentToInvoiceDialog({
 
           {rectificativaForCurrent && (
             <Alert>
-              <AlertCircle className="h-4 w-4" />
+              <Icon name="error" className="h-4 w-4" />
               <AlertDescription className="flex items-center gap-1 text-sm">
                 La factura actual fue rectificada.
-                <ArrowRight className="h-3 w-3" />
+                <Icon name="arrow_forward" className="h-3 w-3" />
                 Se sugiere reasignar a la rectificativa.
               </AlertDescription>
             </Alert>
@@ -142,7 +143,7 @@ export function LinkPaymentToInvoiceDialog({
             <Label htmlFor="invoice-select">Seleccionar factura</Label>
             {sortedInvoices.length === 0 ? (
               <div className="text-sm text-muted-foreground p-3 border rounded-lg">
-                <FileText className="h-4 w-4 inline mr-2" />
+                <Icon name="description" className="h-4 w-4 inline mr-2" />
                 No hay facturas v&aacute;lidas disponibles para este contacto
               </div>
             ) : (
@@ -161,7 +162,7 @@ export function LinkPaymentToInvoiceDialog({
                     return (
                       <SelectItem key={invoice.id} value={invoice.id}>
                         <div className="flex items-center gap-2 flex-wrap">
-                          <FileText className="h-4 w-4 shrink-0" />
+                          <Icon name="description" className="h-4 w-4 shrink-0" />
                           <span className="font-medium">{invoice.invoice_number}</span>
                           <span className="text-muted-foreground">
                             {Number(invoice.total).toFixed(2)}&euro;

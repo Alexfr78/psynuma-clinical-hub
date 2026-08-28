@@ -10,8 +10,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { UserCheck, RotateCcw, Loader2 } from 'lucide-react';
+
 import { useSetPatientDischarged, useRemovePatientDischarged } from '@/hooks/usePatientStatus';
+import { Icon } from '@/components/ui/icon';
 
 interface PatientStatusToggleProps {
   patientId: string;
@@ -54,11 +55,11 @@ export function PatientStatusToggle({
         className="gap-2"
       >
         {isPending ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
+          <Icon name="progress_activity" className="h-4 w-4 animate-spin" />
         ) : isDischargedManual ? (
-          <RotateCcw className="h-4 w-4" />
+          <Icon name="restart_alt" className="h-4 w-4" />
         ) : (
-          <UserCheck className="h-4 w-4" />
+          <Icon name="how_to_reg" className="h-4 w-4" />
         )}
         {isDischargedManual ? 'Quitar Alta' : 'Marcar Alta'}
       </Button>

@@ -2,18 +2,7 @@ import { useState } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { SESSION_STATUS_LABELS, getSessionStatusDisplay } from '@/lib/payment-status';
-import { 
-  Calendar, 
-  Clock, 
-  User, 
-  FileText, 
-  CreditCard,
-  X,
-  Check,
-  XCircle,
-  Loader2,
-  Brain,
-} from 'lucide-react';
+import { X, Check, XCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import {
   ResponsiveDialog as Dialog,
@@ -33,6 +22,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { SessionWithRelations, useUpdateSession } from '@/hooks/useSessions';
 import { useGoogleCalendarUpdate } from '@/hooks/useGoogleCalendarUpdate';
+import { Icon } from '@/components/ui/icon';
 
 interface SessionDetailDialogProps {
   session: SessionWithRelations | null;
@@ -139,7 +129,7 @@ export function SessionDetailDialog({ session, open, onOpenChange, onAnalyzeTran
             }}
           >
             <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-              <User className="h-6 w-6 text-primary" />
+              <Icon name="person" className="h-6 w-6 text-primary" />
             </div>
             <div>
               <h3 className="font-semibold">{patientName}</h3>
@@ -152,7 +142,7 @@ export function SessionDetailDialog({ session, open, onOpenChange, onAnalyzeTran
           {/* Session Details */}
           <div className="grid gap-4">
             <div className="flex items-center gap-3">
-              <Calendar className="h-5 w-5 text-muted-foreground" />
+              <Icon name="calendar_month" className="h-5 w-5 text-muted-foreground" />
               <div>
                 <p className="font-medium capitalize">
                   {format(new Date(session.session_date), "EEEE, d 'de' MMMM yyyy", { locale: es })}
@@ -161,26 +151,26 @@ export function SessionDetailDialog({ session, open, onOpenChange, onAnalyzeTran
             </div>
 
             <div className="flex items-center gap-3">
-              <Clock className="h-5 w-5 text-muted-foreground" />
+              <Icon name="schedule" className="h-5 w-5 text-muted-foreground" />
               <p>{session.start_time?.slice(0, 5)} - {session.end_time?.slice(0, 5)}</p>
             </div>
 
             {session.professional && (
               <div className="flex items-center gap-3">
-                <User className="h-5 w-5 text-muted-foreground" />
+                <Icon name="person" className="h-5 w-5 text-muted-foreground" />
                 <p>{session.professional.first_name} {session.professional.last_name}</p>
               </div>
             )}
 
             {session.session_type && (
               <div className="flex items-center gap-3">
-                <FileText className="h-5 w-5 text-muted-foreground" />
+                <Icon name="description" className="h-5 w-5 text-muted-foreground" />
                 <p className="capitalize">{session.session_type}</p>
               </div>
             )}
 
             <div className="flex items-center gap-3">
-              <CreditCard className="h-5 w-5 text-muted-foreground" />
+              <Icon name="credit_card" className="h-5 w-5 text-muted-foreground" />
               <p className="font-semibold">{Number(session.price).toFixed(2)}€</p>
             </div>
           </div>
@@ -226,7 +216,7 @@ export function SessionDetailDialog({ session, open, onOpenChange, onAnalyzeTran
                   disabled={isUpdating}
                 >
                   {isUpdating ? (
-                    <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                    <Icon name="progress_activity" className="mr-1 h-4 w-4 animate-spin" />
                   ) : (
                     <Icon className="mr-1 h-4 w-4" />
                   )}
@@ -246,7 +236,7 @@ export function SessionDetailDialog({ session, open, onOpenChange, onAnalyzeTran
                 setTimeout(() => onAnalyzeTranscription(session.id), 300);
               }}
             >
-              <Brain className="mr-2 h-4 w-4" />
+              <Icon name="psychology" className="mr-2 h-4 w-4" />
               {(session as { ai_summary_clinical?: string | null; ai_summary_patient?: string | null }).ai_summary_clinical || (session as { ai_summary_clinical?: string | null; ai_summary_patient?: string | null }).ai_summary_patient
                 ? 'Ver / Regenerar informes'
                 : 'Analizar transcripción'}

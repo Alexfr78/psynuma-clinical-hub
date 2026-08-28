@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
-import { CreditCard, Calendar, Receipt, FileText, Loader2, Check, Package, ShieldCheck, AlertTriangle, FileQuestion } from 'lucide-react';
+
 import {
   Dialog,
   DialogContent,
@@ -31,6 +31,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { Icon } from '@/components/ui/icon';
 
 interface CollectBonoPaymentDialogProps {
   open: boolean;
@@ -258,7 +259,7 @@ export function CollectBonoPaymentDialog({
       {/* Bono Info */}
       <div className="p-4 rounded-lg bg-purple-50 dark:bg-purple-950/30 space-y-2">
         <div className="flex items-center gap-2 text-purple-700 dark:text-purple-300">
-          <Package className="h-5 w-5" />
+          <Icon name="package_2" className="h-5 w-5" />
           <span className="font-semibold">{bonoName}</span>
         </div>
         <div className="text-sm text-muted-foreground">
@@ -280,7 +281,7 @@ export function CollectBonoPaymentDialog({
       {/* Payment Amount */}
       <div className="space-y-2">
         <Label htmlFor="payment-amount" className="flex items-center gap-2">
-          <CreditCard className="h-4 w-4" />
+          <Icon name="credit_card" className="h-4 w-4" />
           Importe a cobrar (€)
         </Label>
         <Input
@@ -327,7 +328,7 @@ export function CollectBonoPaymentDialog({
       {/* Payment Date */}
       <div className="space-y-2">
         <Label htmlFor="payment-date" className="flex items-center gap-2">
-          <Calendar className="h-4 w-4" />
+          <Icon name="calendar_month" className="h-4 w-4" />
           Fecha de pago
         </Label>
         <Input
@@ -341,7 +342,7 @@ export function CollectBonoPaymentDialog({
       {/* Reference */}
       <div className="space-y-2">
         <Label htmlFor="reference" className="flex items-center gap-2">
-          <Receipt className="h-4 w-4" />
+          <Icon name="receipt_long" className="h-4 w-4" />
           Referencia (opcional)
         </Label>
         <Input
@@ -355,7 +356,7 @@ export function CollectBonoPaymentDialog({
       {/* Notes */}
       <div className="space-y-2">
         <Label htmlFor="notes" className="flex items-center gap-2">
-          <FileText className="h-4 w-4" />
+          <Icon name="description" className="h-4 w-4" />
           Notas (opcional)
         </Label>
         <Textarea
@@ -382,7 +383,7 @@ export function CollectBonoPaymentDialog({
     <div className="space-y-6">
       <div className="text-center space-y-2">
         <div className="mx-auto w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
-          <FileQuestion className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+          <Icon name="help" className="h-6 w-6 text-blue-600 dark:text-blue-400" />
         </div>
         <h3 className="font-semibold text-lg">¿Generar factura?</h3>
         <p className="text-sm text-muted-foreground">
@@ -401,7 +402,7 @@ export function CollectBonoPaymentDialog({
           disabled={collectDebtPayment.isPending || createSignedInvoice.isPending}
           className="w-full"
         >
-          <Receipt className="h-4 w-4 mr-2" />
+          <Icon name="receipt_long" className="h-4 w-4 mr-2" />
           Generar factura y cobrar
         </Button>
         <Button 
@@ -428,11 +429,11 @@ export function CollectBonoPaymentDialog({
 
   const renderProcessingStep = () => (
     <div className="py-8 text-center space-y-4">
-      <Loader2 className="h-12 w-12 animate-spin mx-auto text-primary" />
+      <Icon name="progress_activity" className="h-12 w-12 animate-spin mx-auto text-primary" />
       <p className="text-muted-foreground">Registrando pago...</p>
       {verifactuAutoEnabled && (
         <p className="text-xs text-muted-foreground flex items-center justify-center gap-1">
-          <ShieldCheck className="h-3 w-3" />
+          <Icon name="verified_user" className="h-3 w-3" />
           Emitiendo factura...
         </p>
       )}
@@ -444,9 +445,9 @@ export function CollectBonoPaymentDialog({
       <div className="text-center space-y-2">
         <div className={`mx-auto w-12 h-12 rounded-full flex items-center justify-center ${verifactuPending ? 'bg-yellow-100' : 'bg-green-100'}`}>
           {verifactuPending ? (
-            <AlertTriangle className="h-6 w-6 text-yellow-600" />
+            <Icon name="warning" className="h-6 w-6 text-yellow-600" />
           ) : (
-            <Check className="h-6 w-6 text-green-600" />
+            <Icon name="check" className="h-6 w-6 text-green-600" />
           )}
         </div>
         <h3 className="font-semibold text-lg">
@@ -462,7 +463,7 @@ export function CollectBonoPaymentDialog({
       {verifactuPending && (
         <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4 space-y-2">
           <p className="text-sm font-medium text-yellow-800 flex items-center gap-2">
-            <ShieldCheck className="h-4 w-4" />
+            <Icon name="verified_user" className="h-4 w-4" />
             Pendiente AEAT
           </p>
           <p className="text-xs text-yellow-700">
@@ -494,7 +495,7 @@ export function CollectBonoPaymentDialog({
         <DrawerContent className="max-h-[90vh]">
           <DrawerHeader className="text-left">
             <DrawerTitle className="flex items-center gap-2">
-              <Package className="h-5 w-5" />
+              <Icon name="package_2" className="h-5 w-5" />
               Cobrar bono
             </DrawerTitle>
           </DrawerHeader>
@@ -511,7 +512,7 @@ export function CollectBonoPaymentDialog({
       <DialogContent className="sm:max-w-[450px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Package className="h-5 w-5" />
+            <Icon name="package_2" className="h-5 w-5" />
             Cobrar bono
           </DialogTitle>
         </DialogHeader>

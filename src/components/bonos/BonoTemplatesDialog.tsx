@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Settings, Plus, Trash2, Pencil } from 'lucide-react';
+
 import {
   ResponsiveDialog as Dialog,
   ResponsiveDialogContent as DialogContent,
@@ -27,6 +27,7 @@ import {
   useUpdateBonoTemplate,
   useDeleteBonoTemplate,
 } from '@/hooks/useBonos';
+import { Icon } from '@/components/ui/icon';
 
 const formSchema = z.object({
   name: z.string().min(1, 'El nombre es obligatorio'),
@@ -131,7 +132,7 @@ export function BonoTemplatesDialog({ open, onOpenChange }: BonoTemplatesDialogP
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Settings className="h-5 w-5" />
+            <Icon name="settings" className="h-5 w-5" />
             Gestionar plantillas de bonos
           </DialogTitle>
         </DialogHeader>
@@ -139,7 +140,7 @@ export function BonoTemplatesDialog({ open, onOpenChange }: BonoTemplatesDialogP
         <div className="space-y-4">
           {!showForm && (
             <Button onClick={() => setShowForm(true)} variant="outline" className="w-full">
-              <Plus className="h-4 w-4 mr-2" />
+              <Icon name="add" className="h-4 w-4 mr-2" />
               Nueva plantilla
             </Button>
           )}
@@ -274,7 +275,7 @@ export function BonoTemplatesDialog({ open, onOpenChange }: BonoTemplatesDialogP
                           onClick={() => handleEdit(template)}
                           aria-label="Editar plantilla"
                         >
-                          <Pencil className="h-4 w-4" />
+                          <Icon name="edit" className="h-4 w-4" />
                         </Button>
                         <Button
                           variant="ghost"
@@ -283,7 +284,7 @@ export function BonoTemplatesDialog({ open, onOpenChange }: BonoTemplatesDialogP
                           disabled={deleteTemplate.isPending}
                           aria-label="Eliminar plantilla"
                         >
-                          <Trash2 className="h-4 w-4 text-destructive" />
+                          <Icon name="delete" className="h-4 w-4 text-destructive" />
                         </Button>
                       </div>
                     </CardContent>

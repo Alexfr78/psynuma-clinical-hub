@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+
+<html class="light" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Gestión de Bonos - Psycma</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">tailwind.config = {darkMode: "class", theme: {extend: {colors: {secondary: "#006b5f", "surface-variant": "#e3e2e0", "on-primary-container": "#cbe1ff", "surface-container-high": "#e9e8e6", "on-tertiary-container": "#ffd7bc", primary: "#004d84", "dark-surface": "#1E1D2B", "tertiary-container": "#994e00", "tertiary-fixed-dim": "#ffb782", "surface-bright": "#faf9f7", "primary-fixed-dim": "#9fcaff", "error-container": "#ffdad6", "on-primary-fixed": "#001d36", "tertiary-fixed": "#ffdcc5", "on-primary-fixed-variant": "#00497d", "on-tertiary-fixed": "#301400", "on-tertiary": "#ffffff", "outline-variant": "#c8c4d6", "surface-container": "#efeeec", "inverse-surface": "#2f3130", "primary-fixed": "#d1e4ff", "surface-container-lowest": "#ffffff", "surface-dim": "#dadad8", warning: "#F59E0B", "secondary-container": "#62fae3", "surface-container-highest": "#e3e2e0", background: "#faf9f7", "primary-container": "#1b65a5", "on-secondary-fixed": "#00201c", "secondary-fixed": "#62fae3", "inverse-on-surface": "#f1f1ef", "surface-tint": "#1361a0", "on-secondary": "#ffffff", "dark-bg": "#141320", success: "#10B981", "on-surface-variant": "#474554", "on-primary": "#ffffff", "on-secondary-container": "#007165", "on-secondary-fixed-variant": "#005047", error: "#ba1a1a", "surface-container-low": "#f4f3f1", "dark-text": "#ECEBF5", tertiary: "#763b00", "surface-white": "#FFFFFF", "secondary-fixed-dim": "#3cddc7", "on-error-container": "#93000a", "on-background": "#1a1c1b", "on-surface": "#1a1c1b", outline: "#787585", "text-main": "#1B1A24", "inverse-primary": "#9fcaff", "on-tertiary-fixed-variant": "#703800", "on-error": "#ffffff", surface: "#faf9f7"}, borderRadius: {DEFAULT: "0.25rem", lg: "0.5rem", xl: "0.75rem", full: "9999px"}, spacing: {"grid-gutter": "16px", "grid-margin": "24px", base: "4px", xs: "8px", md: "24px", lg: "32px", xl: "48px", sm: "16px"}, fontFamily: {"headline-lg-mobile": ["Plus Jakarta Sans"], "body-sm": ["Inter"], "headline-md": ["Plus Jakarta Sans"], "body-lg": ["Inter"], "display-lg": ["Plus Jakarta Sans"], "headline-lg": ["Plus Jakarta Sans"], "body-md": ["Inter"], "label-md": ["Inter"], "data-tabular": ["Inter"], headline: ["Plus Jakarta Sans"], display: ["Plus Jakarta Sans"], body: ["Inter"], label: ["Inter"]}, fontSize: {"headline-lg-mobile": ["28px", {lineHeight: "36px", fontWeight: "600"}], "body-sm": ["14px", {lineHeight: "20px", fontWeight: "400"}], "headline-md": ["24px", {lineHeight: "32px", fontWeight: "600"}], "body-lg": ["18px", {lineHeight: "28px", fontWeight: "400"}], "display-lg": ["48px", {lineHeight: "56px", letterSpacing: "-0.02em", fontWeight: "700"}], "headline-lg": ["32px", {lineHeight: "40px", letterSpacing: "-0.01em", fontWeight: "600"}], "body-md": ["16px", {lineHeight: "24px", fontWeight: "400"}], "label-md": ["14px", {lineHeight: "16px", letterSpacing: "0.01em", fontWeight: "600"}], "data-tabular": ["14px", {lineHeight: "20px", fontWeight: "500"}]}}}};</script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .icon-fill {
+            font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface font-body-md text-body-md antialiased flex">
+<!-- SideNavBar -->
+<nav class="bg-surface-white shadow-[4px_0_24px_rgba(90,79,207,0.05)] shadow-sm h-screen w-64 fixed left-0 top-0 hidden lg:flex flex-col py-md px-sm z-50">
+<div class="flex items-center gap-3 mb-xl px-2">
+<div class="w-10 h-10 rounded-full bg-primary-container text-on-primary flex items-center justify-center font-bold text-lg">P</div>
+<div>
+<h1 class="font-headline-md text-headline-md font-bold text-primary">Psycma</h1>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Gestión Clínica</p>
+</div>
+</div>
+<button class="bg-primary text-on-primary rounded-xl py-3 px-4 flex items-center justify-center gap-2 font-label-md text-label-md mb-8 hover:bg-primary-container transition-colors shadow-[0_4px_12px_rgba(90,79,207,0.2)]">
+<span class="material-symbols-outlined">add</span>
+            Nueva Cita
+        </button>
+<ul class="flex-1 space-y-2">
+<li>
+<a class="flex items-center gap-3 px-4 py-3 rounded-xl text-on-surface-variant hover:text-primary hover:bg-surface-container-low transition-colors duration-200 cursor-pointer active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+                    Panel
+                </a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-4 py-3 rounded-xl text-on-surface-variant hover:text-primary hover:bg-surface-container-low transition-colors duration-200 cursor-pointer active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="calendar_today">calendar_today</span>
+                    Agenda
+                </a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-4 py-3 rounded-xl text-on-surface-variant hover:text-primary hover:bg-surface-container-low transition-colors duration-200 cursor-pointer active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="groups">groups</span>
+                    Pacientes
+                </a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-4 py-3 rounded-xl text-primary font-bold border-r-4 border-primary bg-primary-container/10 transition-colors duration-200 cursor-pointer active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined icon-fill" data-icon="payments">payments</span>
+                    Finanzas
+                </a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-4 py-3 rounded-xl text-on-surface-variant hover:text-primary hover:bg-surface-container-low transition-colors duration-200 cursor-pointer active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="chat">chat</span>
+                    Mensajes
+                </a>
+</li>
+</ul>
+<ul class="space-y-2 mt-auto pt-6 border-t border-surface-variant/30">
+<li>
+<a class="flex items-center gap-3 px-4 py-3 rounded-xl text-on-surface-variant hover:text-primary hover:bg-surface-container-low transition-colors duration-200 cursor-pointer active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+                    Configuración
+                </a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-4 py-3 rounded-xl text-on-surface-variant hover:text-primary hover:bg-surface-container-low transition-colors duration-200 cursor-pointer active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="logout">logout</span>
+                    Cerrar Sesión
+                </a>
+</li>
+</ul>
+</nav>
+<!-- Main Content Wrapper -->
+<div class="flex-1 lg:pl-64 flex flex-col min-h-screen">
+<!-- TopAppBar -->
+<header class="bg-surface-white/80 backdrop-blur-md border-b border-surface-variant/30 shadow-sm docked full-width top-0 sticky z-40 flex justify-between items-center w-full h-16 px-md">
+<div class="flex items-center gap-4">
+<span class="font-headline-md text-headline-md font-bold text-primary lg:hidden">Psycma</span>
+<!-- Search -->
+<div class="hidden md:flex items-center bg-surface-container-low rounded-xl px-4 py-2 focus-within:ring-2 focus-within:ring-primary/20 transition-all">
+<span class="material-symbols-outlined text-outline">search</span>
+<input class="bg-transparent border-none focus:ring-0 text-body-sm font-body-sm w-64 text-on-surface placeholder:text-outline ml-2" placeholder="Buscar paciente o bono..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<button class="text-on-surface-variant hover:bg-surface-container-low rounded-full p-2 transition-all">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="text-on-surface-variant hover:bg-surface-container-low rounded-full p-2 transition-all mr-2">
+<span class="material-symbols-outlined" data-icon="help">help</span>
+</button>
+<div class="w-8 h-8 rounded-full overflow-hidden border border-surface-variant cursor-pointer">
+<img alt="Foto de perfil del psicólogo" class="w-full h-full object-cover" data-alt="A professional headshot of a psychologist in a bright, modern office with soft lighting, communicating a high-end, trustworthy medical SaaS application aesthetic. Warm neutral tones." src="https://lh3.googleusercontent.com/aida-public/AB6AXuB36pAuhnq3diEMDzKVHQqhBpXI-LZzHqhV_gwxSrP2Rw2XdtQqCiiy8jQfnq4XKMjRwk5TaPc9ulIb6EbeQfIKBm_u3szA0qBJHxDL6IzxehEkzP5vyLO-JtGAqBj7RRfgEAXWCLFtL0z_ClrxbHGzp38_Z3rS2Kz1JOjRui_It4Ku0y8T4Y8hJy1kgQ45sD0v3dC_NEASD4b6BpmCB5wntSB_g9qWgqqEwHCykSFyladYYlgPdeee"/>
+</div>
+</div>
+</header>
+<!-- Main Canvas -->
+<main class="flex-1 p-grid-margin w-full max-w-7xl mx-auto">
+<!-- Header Section -->
+<div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-xl gap-4">
+<div>
+<h2 class="font-headline-lg text-headline-lg text-on-surface">Bonos de Sesiones</h2>
+<p class="font-body-md text-body-md text-on-surface-variant mt-1">Gestiona los paquetes de sesiones y el progreso de tus pacientes.</p>
+</div>
+<button class="bg-primary text-on-primary rounded-xl py-3 px-6 flex items-center justify-center gap-2 font-label-md text-label-md hover:bg-primary-container transition-colors shadow-[0_4px_12px_rgba(90,79,207,0.2)]">
+<span class="material-symbols-outlined">add</span>
+                    Nuevo bono
+                </button>
+</div>
+<!-- Dashboard Stats -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-xl">
+<div class="bg-surface-white rounded-[16px] p-md border border-[#F0EEEB] shadow-[0_4px_24px_rgba(90,79,207,0.03)] hover:shadow-[0_8px_32px_rgba(90,79,207,0.08)] hover:border-primary/20 transition-all">
+<div class="flex items-center justify-between mb-4">
+<span class="font-body-sm text-body-sm text-on-surface-variant">Bonos Activos</span>
+<div class="w-8 h-8 rounded-full bg-primary-container/10 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-sm">confirmation_number</span>
+</div>
+</div>
+<div class="font-display-lg text-display-lg text-on-surface">24</div>
+</div>
+<div class="bg-surface-white rounded-[16px] p-md border border-[#F0EEEB] shadow-[0_4px_24px_rgba(90,79,207,0.03)] hover:shadow-[0_8px_32px_rgba(90,79,207,0.08)] hover:border-primary/20 transition-all">
+<div class="flex items-center justify-between mb-4">
+<span class="font-body-sm text-body-sm text-on-surface-variant">Sesiones Pendientes</span>
+<div class="w-8 h-8 rounded-full bg-warning/10 flex items-center justify-center text-warning">
+<span class="material-symbols-outlined text-sm">pending_actions</span>
+</div>
+</div>
+<div class="font-display-lg text-display-lg text-on-surface">87</div>
+</div>
+<div class="bg-surface-white rounded-[16px] p-md border border-[#F0EEEB] shadow-[0_4px_24px_rgba(90,79,207,0.03)] hover:shadow-[0_8px_32px_rgba(90,79,207,0.08)] hover:border-primary/20 transition-all">
+<div class="flex items-center justify-between mb-4">
+<span class="font-body-sm text-body-sm text-on-surface-variant">Ingresos (Mes)</span>
+<div class="w-8 h-8 rounded-full bg-success/10 flex items-center justify-center text-success">
+<span class="material-symbols-outlined text-sm">euro</span>
+</div>
+</div>
+<div class="font-display-lg text-display-lg text-on-surface">2.160,00 €</div>
+</div>
+</div>
+<!-- Active Bonos Grid -->
+<h3 class="font-headline-md text-headline-md text-on-surface mb-6">Bonos Activos por Paciente</h3>
+<div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 mb-xl">
+<!-- Card 1 -->
+<div class="bg-surface-white rounded-[16px] p-md border border-[#F0EEEB] shadow-[0_4px_24px_rgba(90,79,207,0.05)] hover:shadow-[0_8px_32px_rgba(90,79,207,0.08)] hover:border-primary/20 transition-all flex flex-col group cursor-pointer">
+<div class="flex justify-between items-start mb-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full overflow-hidden bg-surface-container-low">
+<img class="w-full h-full object-cover" data-alt="Portrait of a male patient in a modern clinical setting, soft natural light, conveying a sense of calm and well-being, high-end SaaS application style." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCYrzYtsUYlhRFs6OS9WcQU1bvuOU9HeXK2Wors5y5e-QLIZuJmgLiwW5KF95T2KPxOeR2XMlai9vWoUEkJ5afSY9keaVg70-dzEsuzTVuvfS7IWJhbuP4efO9XiLaxjt1jeuQ6TQVN_fEZkE3zeYNhAR4XSx7YplIk5KBkdHA57CXER8ZgIevGpvTFZlso1vrAIqAkhd_7lyk7-gJ9ULyb53m6iM64WRIELDAB01bu39k9UIbTbfwQ"/>
+</div>
+<div>
+<h4 class="font-label-md text-label-md text-on-surface">Carlos Mendoza</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Bono 10 sesiones</p>
+</div>
+</div>
+<span class="px-3 py-1 bg-success/10 text-success rounded-full font-label-md text-[12px] uppercase tracking-wider">Activo</span>
+</div>
+<div class="mt-2 mb-4">
+<div class="flex justify-between font-body-sm text-body-sm text-on-surface-variant mb-2">
+<span>Progreso</span>
+<span class="font-data-tabular text-data-tabular">4/10 consumidas</span>
+</div>
+<div class="w-full h-2 bg-surface-container-low rounded-full overflow-hidden">
+<div class="h-full bg-primary rounded-full transition-all duration-500" style="width: 40%"></div>
+</div>
+</div>
+<div class="flex justify-between items-end mt-auto pt-4 border-t border-[#FAF9F7]">
+<div>
+<p class="font-body-sm text-body-sm text-on-surface-variant mb-1">Importe Total</p>
+<p class="font-data-tabular text-data-tabular text-on-surface font-semibold">540,00 €</p>
+</div>
+<div class="text-right">
+<p class="font-body-sm text-body-sm text-on-surface-variant mb-1">Caducidad</p>
+<p class="font-data-tabular text-data-tabular text-on-surface">12 Nov, 2024</p>
+</div>
+</div>
+</div>
+<!-- Card 2 -->
+<div class="bg-surface-white rounded-[16px] p-md border border-[#F0EEEB] shadow-[0_4px_24px_rgba(90,79,207,0.05)] hover:shadow-[0_8px_32px_rgba(90,79,207,0.08)] hover:border-primary/20 transition-all flex flex-col group cursor-pointer">
+<div class="flex justify-between items-start mb-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full overflow-hidden bg-surface-container-low">
+<img class="w-full h-full object-cover" data-alt="Portrait of a female patient smiling gently, bright and airy modern clinical environment, high definition calm aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBzJz5r6oQVmiHrQ0NR-MQIF8QEec8_ejMI8mpfb5atrNlSeMETWHy5mOH7Kb4AJh5-JNolCmyM6pUk9cSgcMrNh7e1XA268f7H5DpcjdGGMNo_CIL8LXLKvqWWS7SvCr5oAndMN-0KVdLhy-3s3e8lFhQoV2-t6ZGs1Yc40J-MxAROMvwU9Z706uSQQMQRt441JWuZQOHJam-Ny_04ILtDySTrBfAPiG8dG22uOB94up_PszV8RsUs"/>
+</div>
+<div>
+<h4 class="font-label-md text-label-md text-on-surface">Elena Ruiz</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Bono 5 sesiones</p>
+</div>
+</div>
+<span class="px-3 py-1 bg-warning/10 text-warning rounded-full font-label-md text-[12px] uppercase tracking-wider">A punto</span>
+</div>
+<div class="mt-2 mb-4">
+<div class="flex justify-between font-body-sm text-body-sm text-on-surface-variant mb-2">
+<span>Progreso</span>
+<span class="font-data-tabular text-data-tabular">4/5 consumidas</span>
+</div>
+<div class="w-full h-2 bg-surface-container-low rounded-full overflow-hidden">
+<div class="h-full bg-warning rounded-full transition-all duration-500" style="width: 80%"></div>
+</div>
+</div>
+<div class="flex justify-between items-end mt-auto pt-4 border-t border-[#FAF9F7]">
+<div>
+<p class="font-body-sm text-body-sm text-on-surface-variant mb-1">Importe Total</p>
+<p class="font-data-tabular text-data-tabular text-on-surface font-semibold">285,00 €</p>
+</div>
+<div class="text-right">
+<p class="font-body-sm text-body-sm text-on-surface-variant mb-1">Caducidad</p>
+<p class="font-data-tabular text-data-tabular text-on-surface">30 Oct, 2024</p>
+</div>
+</div>
+</div>
+<!-- Card 3 -->
+<div class="bg-surface-white rounded-[16px] p-md border border-[#F0EEEB] shadow-[0_4px_24px_rgba(90,79,207,0.05)] hover:shadow-[0_8px_32px_rgba(90,79,207,0.08)] hover:border-primary/20 transition-all flex flex-col group cursor-pointer opacity-75">
+<div class="flex justify-between items-start mb-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full overflow-hidden bg-surface-container-low flex items-center justify-center text-outline">
+<span class="material-symbols-outlined">person</span>
+</div>
+<div>
+<h4 class="font-label-md text-label-md text-on-surface">Miguel Vargas</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Bono 10 sesiones</p>
+</div>
+</div>
+<span class="px-3 py-1 bg-surface-variant text-on-surface-variant rounded-full font-label-md text-[12px] uppercase tracking-wider">Agotado</span>
+</div>
+<div class="mt-2 mb-4">
+<div class="flex justify-between font-body-sm text-body-sm text-on-surface-variant mb-2">
+<span>Progreso</span>
+<span class="font-data-tabular text-data-tabular">10/10 consumidas</span>
+</div>
+<div class="w-full h-2 bg-surface-container-low rounded-full overflow-hidden">
+<div class="h-full bg-surface-variant rounded-full transition-all duration-500" style="width: 100%"></div>
+</div>
+</div>
+<div class="flex justify-between items-end mt-auto pt-4 border-t border-[#FAF9F7]">
+<div>
+<p class="font-body-sm text-body-sm text-on-surface-variant mb-1">Importe Total</p>
+<p class="font-data-tabular text-data-tabular text-on-surface font-semibold">540,00 €</p>
+</div>
+<div class="text-right">
+<p class="font-body-sm text-body-sm text-on-surface-variant mb-1">Caducidad</p>
+<p class="font-data-tabular text-data-tabular text-on-surface">01 Oct, 2024</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Plantillas de Bonos -->
+<div class="bg-surface-white rounded-[16px] border border-[#F0EEEB] shadow-[0_4px_24px_rgba(90,79,207,0.03)] overflow-hidden">
+<div class="p-6 border-b border-[#FAF9F7] flex justify-between items-center bg-surface-bright">
+<div>
+<h3 class="font-headline-md text-headline-md text-on-surface">Plantillas de Bonos</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-1">Crea nuevos bonos rápidamente usando estas configuraciones.</p>
+</div>
+<button class="text-primary hover:bg-primary/5 px-4 py-2 rounded-lg font-label-md text-label-md transition-colors border border-primary/20">
+                        Gestionar plantillas
+                    </button>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="border-b border-[#FAF9F7] bg-surface-bright/50">
+<th class="p-4 font-label-md text-label-md text-on-surface-variant">Nombre de Plantilla</th>
+<th class="p-4 font-label-md text-label-md text-on-surface-variant">Sesiones</th>
+<th class="p-4 font-label-md text-label-md text-on-surface-variant">Validez</th>
+<th class="p-4 font-label-md text-label-md text-on-surface-variant">Importe</th>
+<th class="p-4 font-label-md text-label-md text-on-surface-variant text-right">Acción</th>
+</tr>
+</thead>
+<tbody>
+<tr class="border-b border-[#FAF9F7] hover:bg-surface-container-low/50 transition-colors cursor-pointer group h-14">
+<td class="p-4 font-body-sm text-body-sm text-on-surface font-medium flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-sm">auto_awesome</span>
+                                    Bono Básico 5
+                                </td>
+<td class="p-4 font-data-tabular text-data-tabular text-on-surface">5</td>
+<td class="p-4 font-body-sm text-body-sm text-on-surface">3 meses</td>
+<td class="p-4 font-data-tabular text-data-tabular text-on-surface">285,00 €</td>
+<td class="p-4 text-right">
+<button class="text-primary hover:bg-primary/10 px-3 py-1 rounded-md font-label-md text-label-md transition-colors opacity-0 group-hover:opacity-100">
+                                        Aplicar
+                                    </button>
+</td>
+</tr>
+<tr class="border-b border-[#FAF9F7] hover:bg-surface-container-low/50 transition-colors cursor-pointer group h-14">
+<td class="p-4 font-body-sm text-body-sm text-on-surface font-medium flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-sm">auto_awesome</span>
+                                    Bono Standard 10
+                                </td>
+<td class="p-4 font-data-tabular text-data-tabular text-on-surface">10</td>
+<td class="p-4 font-body-sm text-body-sm text-on-surface">6 meses</td>
+<td class="p-4 font-data-tabular text-data-tabular text-on-surface">540,00 €</td>
+<td class="p-4 text-right">
+<button class="text-primary hover:bg-primary/10 px-3 py-1 rounded-md font-label-md text-label-md transition-colors opacity-0 group-hover:opacity-100">
+                                        Aplicar
+                                    </button>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-low/50 transition-colors cursor-pointer group h-14">
+<td class="p-4 font-body-sm text-body-sm text-on-surface font-medium flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-sm">auto_awesome</span>
+                                    Bono Premium 20
+                                </td>
+<td class="p-4 font-data-tabular text-data-tabular text-on-surface">20</td>
+<td class="p-4 font-body-sm text-body-sm text-on-surface">12 meses</td>
+<td class="p-4 font-data-tabular text-data-tabular text-on-surface">1.000,00 €</td>
+<td class="p-4 text-right">
+<button class="text-primary hover:bg-primary/10 px-3 py-1 rounded-md font-label-md text-label-md transition-colors opacity-0 group-hover:opacity-100">
+                                        Aplicar
+                                    </button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</main>
+</div>
+</body></html>

@@ -7,9 +7,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Clock, Users, ArrowRight, ArrowLeft, X, UserPlus, ExternalLink, Globe, MapPin, Check, AlertCircle } from 'lucide-react';
+import { Check } from 'lucide-react';
 import { toast } from 'sonner';
 import type { ReferralFilters, ReferralPartner } from '@/hooks/usePublicBooking';
+import { Icon } from '@/components/ui/icon';
 
 const PRIVACY_POLICY_URL = 'https://psicologosexual.com/politica-de-privacidad/';
 
@@ -171,7 +172,7 @@ export function ClosedAgendaScreen({
       <Card className="max-w-lg mx-auto">
         <CardHeader className="text-center">
           <div className="mx-auto mb-4 h-16 w-16 rounded-full bg-success/10 flex items-center justify-center">
-            <UserPlus className="h-8 w-8 text-success" />
+            <Icon name="person_add" className="h-8 w-8 text-success" />
           </div>
           <CardTitle>¡Solicitud enviada!</CardTitle>
           <CardDescription>
@@ -199,7 +200,7 @@ export function ClosedAgendaScreen({
             <img src={centerLogo} alt={centerName} className="h-12 mx-auto mb-4" />
           )}
           <div className="mx-auto mb-4 h-16 w-16 rounded-full bg-warning/10 flex items-center justify-center">
-            <Clock className="h-8 w-8 text-warning" />
+            <Icon name="schedule" className="h-8 w-8 text-warning" />
           </div>
           <CardTitle>Agenda cerrada</CardTitle>
           <CardDescription>
@@ -216,7 +217,7 @@ export function ClosedAgendaScreen({
               <div className="font-medium">Ya soy paciente</div>
               <div className="text-xs opacity-80">Acceder al portal de pacientes</div>
             </div>
-            <ExternalLink className="h-5 w-5" />
+            <Icon name="open_in_new" className="h-5 w-5" />
           </Button>
 
           <Button
@@ -228,7 +229,7 @@ export function ClosedAgendaScreen({
               <div className="font-medium">Lista de espera</div>
               <div className="text-xs text-muted-foreground">Me avisáis cuando haya hueco</div>
             </div>
-            <Clock className="h-5 w-5" />
+            <Icon name="schedule" className="h-5 w-5" />
           </Button>
 
           <Button
@@ -243,7 +244,7 @@ export function ClosedAgendaScreen({
               <div className="font-medium">Derivación a otro profesional</div>
               <div className="text-xs text-muted-foreground">Que me recomienden un colega</div>
             </div>
-            <Users className="h-5 w-5" />
+            <Icon name="group" className="h-5 w-5" />
           </Button>
 
           <Button
@@ -255,7 +256,7 @@ export function ClosedAgendaScreen({
               <div className="font-medium">Abandonar</div>
               <div className="text-xs">Volver atrás</div>
             </div>
-            <X className="h-5 w-5" />
+            <Icon name="close" className="h-5 w-5" />
           </Button>
         </CardContent>
       </Card>
@@ -268,7 +269,7 @@ export function ClosedAgendaScreen({
       <Card className="max-w-lg mx-auto">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Clock className="h-5 w-5" />
+            <Icon name="schedule" className="h-5 w-5" />
             Lista de espera
           </CardTitle>
           <CardDescription>
@@ -359,7 +360,7 @@ export function ClosedAgendaScreen({
               }}
               className="flex-1"
             >
-              <ArrowLeft className="h-4 w-4 mr-2" />
+              <Icon name="arrow_back" className="h-4 w-4 mr-2" />
               Volver
             </Button>
             <Button
@@ -368,9 +369,9 @@ export function ClosedAgendaScreen({
               className="flex-1"
             >
               {loading ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                <Icon name="progress_activity" className="h-4 w-4 animate-spin mr-2" />
               ) : (
-                <ArrowRight className="h-4 w-4 mr-2" />
+                <Icon name="arrow_forward" className="h-4 w-4 mr-2" />
               )}
               Enviar solicitud
             </Button>
@@ -392,7 +393,7 @@ export function ClosedAgendaScreen({
         <CardHeader>
           <div className="flex items-center justify-between mb-2">
             <CardTitle className="flex items-center gap-2 text-lg">
-              <Users className="h-5 w-5" />
+              <Icon name="group" className="h-5 w-5" />
               Encontrar profesional
             </CardTitle>
             <span className="text-sm text-muted-foreground">
@@ -409,7 +410,7 @@ export function ClosedAgendaScreen({
         <CardContent className="space-y-4">
           {filtersLoading ? (
             <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              <Icon name="progress_activity" className="h-6 w-6 animate-spin text-primary" />
             </div>
           ) : (
             <>
@@ -425,7 +426,7 @@ export function ClosedAgendaScreen({
                       className="h-24 flex-col gap-2"
                       onClick={() => setSelectedModality('online')}
                     >
-                      <Globe className="h-8 w-8" />
+                      <Icon name="public" className="h-8 w-8" />
                       <span>Online</span>
                     </Button>
                     <Button
@@ -433,7 +434,7 @@ export function ClosedAgendaScreen({
                       className="h-24 flex-col gap-2"
                       onClick={() => setSelectedModality('presencial')}
                     >
-                      <MapPin className="h-8 w-8" />
+                      <Icon name="location_on" className="h-8 w-8" />
                       <span>Presencial</span>
                     </Button>
                   </div>
@@ -443,7 +444,7 @@ export function ClosedAgendaScreen({
                       onClick={() => setStep('options')}
                       className="flex-1"
                     >
-                      <ArrowLeft className="h-4 w-4 mr-2" />
+                      <Icon name="arrow_back" className="h-4 w-4 mr-2" />
                       Volver
                     </Button>
                     <Button
@@ -458,7 +459,7 @@ export function ClosedAgendaScreen({
                       className="flex-1"
                     >
                       Continuar
-                      <ArrowRight className="h-4 w-4 ml-2" />
+                      <Icon name="arrow_forward" className="h-4 w-4 ml-2" />
                     </Button>
                   </div>
                 </>
@@ -507,7 +508,7 @@ export function ClosedAgendaScreen({
                       onClick={() => setReferralStep('modality')}
                       className="flex-1"
                     >
-                      <ArrowLeft className="h-4 w-4 mr-2" />
+                      <Icon name="arrow_back" className="h-4 w-4 mr-2" />
                       Volver
                     </Button>
                     <Button
@@ -522,7 +523,7 @@ export function ClosedAgendaScreen({
                       className="flex-1"
                     >
                       Continuar
-                      <ArrowRight className="h-4 w-4 ml-2" />
+                      <Icon name="arrow_forward" className="h-4 w-4 ml-2" />
                     </Button>
                   </div>
                 </>
@@ -553,7 +554,7 @@ export function ClosedAgendaScreen({
                       onClick={() => setReferralStep(selectedModality === 'presencial' ? 'location' : 'modality')}
                       className="flex-1"
                     >
-                      <ArrowLeft className="h-4 w-4 mr-2" />
+                      <Icon name="arrow_back" className="h-4 w-4 mr-2" />
                       Volver
                     </Button>
                     <Button
@@ -568,7 +569,7 @@ export function ClosedAgendaScreen({
                       className="flex-1"
                     >
                       Buscar profesionales
-                      <ArrowRight className="h-4 w-4 ml-2" />
+                      <Icon name="arrow_forward" className="h-4 w-4 ml-2" />
                     </Button>
                   </div>
                 </>
@@ -579,7 +580,7 @@ export function ClosedAgendaScreen({
                 <>
                   {recommendationsLoading ? (
                     <div className="flex flex-col items-center justify-center py-8 gap-2">
-                      <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                      <Icon name="progress_activity" className="h-6 w-6 animate-spin text-primary" />
                       <span className="text-sm text-muted-foreground">Buscando profesionales...</span>
                     </div>
                   ) : recommendations.length > 0 ? (
@@ -629,7 +630,7 @@ export function ClosedAgendaScreen({
                                   )}
                                   {partner.website && (
                                     <a href={partner.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-primary hover:underline">
-                                      <ExternalLink className="h-3.5 w-3.5" />
+                                      <Icon name="open_in_new" className="h-3.5 w-3.5" />
                                       {partner.website.replace(/^https?:\/\//, '').replace(/\/$/, '')}
                                     </a>
                                   )}
@@ -646,7 +647,7 @@ export function ClosedAgendaScreen({
                   ) : (
                     <div className="flex flex-col items-center justify-center py-8 gap-3 text-center">
                       <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center">
-                        <AlertCircle className="h-6 w-6 text-muted-foreground" />
+                        <Icon name="error" className="h-6 w-6 text-muted-foreground" />
                       </div>
                       <div>
                         <p className="font-medium">No encontramos profesionales</p>
@@ -663,7 +664,7 @@ export function ClosedAgendaScreen({
                       onClick={() => setReferralStep('specialty')}
                       className="flex-1"
                     >
-                      <ArrowLeft className="h-4 w-4 mr-2" />
+                      <Icon name="arrow_back" className="h-4 w-4 mr-2" />
                       Volver
                     </Button>
                     <Button

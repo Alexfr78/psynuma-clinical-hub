@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+
+<html class="light" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Resultados de Evaluación - PAI | Psycma</title>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Fonts & Icons -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Plus+Jakarta+Sans:wght@600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Chart.js for visualization -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<!-- Tailwind Config injected from Design System -->
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "error": "#ba1a1a",
+                        "surface-container": "#efeeec",
+                        "surface-bright": "#faf9f7",
+                        "on-secondary-container": "#007165",
+                        "tertiary-fixed": "#ffdcc5",
+                        "on-primary-fixed": "#001d36",
+                        "on-tertiary": "#ffffff",
+                        "secondary-fixed": "#62fae3",
+                        "on-surface-variant": "#474554",
+                        "surface-tint": "#1361a0",
+                        "primary-fixed": "#d1e4ff",
+                        "on-error": "#ffffff",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-container-low": "#f4f3f1",
+                        "background": "#faf9f7",
+                        "on-surface": "#1a1c1b",
+                        "surface-dim": "#dadad8",
+                        "secondary-fixed-dim": "#3cddc7",
+                        "secondary": "#006b5f",
+                        "secondary-container": "#62fae3",
+                        "inverse-surface": "#2f3130",
+                        "primary-fixed-dim": "#9fcaff",
+                        "surface-container-highest": "#e3e2e0",
+                        "outline": "#787585",
+                        "tertiary": "#763b00",
+                        "on-secondary-fixed": "#00201c",
+                        "primary-container": "#1b65a5",
+                        "on-tertiary-fixed-variant": "#703800",
+                        "surface-variant": "#e3e2e0",
+                        "inverse-primary": "#9fcaff",
+                        "on-secondary-fixed-variant": "#005047",
+                        "on-primary": "#ffffff",
+                        "on-tertiary-container": "#ffd7bc",
+                        "primary": "#004d84",
+                        "on-tertiary-fixed": "#301400",
+                        "inverse-on-surface": "#f1f1ef",
+                        "on-background": "#1a1c1b",
+                        "on-primary-fixed-variant": "#00497d",
+                        "on-error-container": "#93000a",
+                        "on-primary-container": "#cbe1ff",
+                        "outline-variant": "#c8c4d6",
+                        "surface-container-high": "#e9e8e6",
+                        "surface": "#faf9f7",
+                        "on-secondary": "#ffffff",
+                        "tertiary-container": "#994e00",
+                        "tertiary-fixed-dim": "#ffb782",
+                        "error-container": "#ffdad6"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "lg": "32px",
+                        "xl": "48px",
+                        "base": "4px",
+                        "sm": "16px",
+                        "grid-margin": "24px",
+                        "grid-gutter": "16px",
+                        "xs": "8px",
+                        "md": "24px"
+                    },
+                    "fontFamily": {
+                        "label-md": ["Inter"],
+                        "data-tabular": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "body-md": ["Inter"],
+                        "body-sm": ["Inter"],
+                        "headline-lg-mobile": ["Plus Jakarta Sans"],
+                        "headline-lg": ["Plus Jakarta Sans"],
+                        "display-lg": ["Plus Jakarta Sans"],
+                        "headline-md": ["Plus Jakarta Sans"]
+                    },
+                    "fontSize": {
+                        "label-md": ["14px", { "lineHeight": "16px", "letterSpacing": "0.01em", "fontWeight": "600" }],
+                        "data-tabular": ["14px", { "lineHeight": "20px", "fontWeight": "500" }],
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "body-sm": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "headline-lg-mobile": ["28px", { "lineHeight": "36px", "fontWeight": "600" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+                        "display-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body {
+            background-color: theme('colors.background');
+            color: theme('colors.on-background');
+        }
+        /* Custom scrollbar for tables */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background-color: theme('colors.surface-variant');
+            border-radius: 20px;
+        }
+        
+        /* Glassmorphism utility */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        .ia-glass-panel {
+            background: linear-gradient(135deg, rgba(27, 101, 165, 0.05) 0%, rgba(0, 107, 95, 0.05) 100%);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(27, 101, 165, 0.1);
+        }
+    </style>
+</head>
+<body class="antialiased min-h-screen flex font-body-md text-body-md">
+<!-- JSON Navigation Component Injection: SideNavBar -->
+<aside class="h-screen w-64 fixed left-0 top-0 hidden lg:flex flex-col bg-surface-white dark:bg-dark-surface shadow-[4px_0_24px_rgba(90,79,207,0.05)] shadow-sm z-30">
+<div class="flex flex-col h-full py-md px-sm">
+<!-- Header -->
+<div class="flex items-center gap-3 mb-xl px-2">
+<div class="w-10 h-10 rounded-lg bg-primary-container flex items-center justify-center">
+<span class="font-headline-md text-headline-md font-bold text-on-primary-container">P</span>
+</div>
+<div>
+<h1 class="font-headline-md text-headline-md font-bold text-primary dark:text-primary-fixed-dim">Psycma</h1>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Gestión Clínica</p>
+</div>
+</div>
+<!-- CTA -->
+<button class="mb-lg w-full bg-primary text-on-primary py-3 rounded-lg font-label-md text-label-md flex items-center justify-center gap-2 hover:bg-primary/90 transition-colors shadow-sm">
+<span class="material-symbols-outlined" style="font-size: 20px;">add</span>
+                Nueva Cita
+            </button>
+<!-- Navigation Links -->
+<nav class="flex-1 flex flex-col gap-2">
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant dark:text-surface-variant hover:text-primary dark:hover:text-primary-fixed-dim hover:bg-surface-container-low dark:hover:bg-white/5 transition-colors duration-200 cursor-pointer active:scale-95 transition-transform group" href="#">
+<span class="material-symbols-outlined text-[22px] group-hover:text-primary opacity-70 group-hover:opacity-100 transition-opacity" data-icon="dashboard">dashboard</span>
+<span class="font-label-md text-label-md">Panel</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant dark:text-surface-variant hover:text-primary dark:hover:text-primary-fixed-dim hover:bg-surface-container-low dark:hover:bg-white/5 transition-colors duration-200 cursor-pointer active:scale-95 transition-transform group" href="#">
+<span class="material-symbols-outlined text-[22px] group-hover:text-primary opacity-70 group-hover:opacity-100 transition-opacity" data-icon="calendar_today">calendar_today</span>
+<span class="font-label-md text-label-md">Agenda</span>
+</a>
+<!-- Active State applied to Pacientes based on context -->
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-primary dark:text-primary-fixed-dim font-bold border-r-4 border-primary dark:border-primary-fixed-dim bg-primary-container/10 cursor-pointer active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined text-[22px]" data-icon="groups" data-weight="fill" style="font-variation-settings: 'FILL' 1;">groups</span>
+<span class="font-label-md text-label-md">Pacientes</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant dark:text-surface-variant hover:text-primary dark:hover:text-primary-fixed-dim hover:bg-surface-container-low dark:hover:bg-white/5 transition-colors duration-200 cursor-pointer active:scale-95 transition-transform group" href="#">
+<span class="material-symbols-outlined text-[22px] group-hover:text-primary opacity-70 group-hover:opacity-100 transition-opacity" data-icon="payments">payments</span>
+<span class="font-label-md text-label-md">Finanzas</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant dark:text-surface-variant hover:text-primary dark:hover:text-primary-fixed-dim hover:bg-surface-container-low dark:hover:bg-white/5 transition-colors duration-200 cursor-pointer active:scale-95 transition-transform group" href="#">
+<span class="material-symbols-outlined text-[22px] group-hover:text-primary opacity-70 group-hover:opacity-100 transition-opacity" data-icon="chat">chat</span>
+<span class="font-label-md text-label-md">Mensajes</span>
+</a>
+</nav>
+<!-- Footer Links -->
+<div class="mt-auto flex flex-col gap-2 pt-4 border-t border-surface-variant/30">
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant dark:text-surface-variant hover:text-primary dark:hover:text-primary-fixed-dim hover:bg-surface-container-low dark:hover:bg-white/5 transition-colors duration-200 cursor-pointer active:scale-95 transition-transform group" href="#">
+<span class="material-symbols-outlined text-[22px] opacity-70 group-hover:opacity-100 transition-opacity" data-icon="settings">settings</span>
+<span class="font-label-md text-label-md">Configuración</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-error hover:bg-error-container/50 transition-colors duration-200 cursor-pointer active:scale-95 transition-transform group" href="#">
+<span class="material-symbols-outlined text-[22px]" data-icon="logout">logout</span>
+<span class="font-label-md text-label-md">Cerrar Sesión</span>
+</a>
+</div>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="flex-1 lg:ml-64 flex flex-col min-h-screen">
+<!-- Mobile Top App Bar (Mocked for responsive context, normally injected via JSON if requested) -->
+<header class="lg:hidden flex items-center justify-between px-4 py-4 bg-surface-white/80 backdrop-blur-md sticky top-0 z-40 border-b border-surface-variant/30">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[28px]" data-icon="menu">menu</span>
+<span class="font-headline-md text-headline-md font-bold text-primary">Psycma</span>
+</div>
+<div class="w-8 h-8 rounded-full bg-surface-container overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="A small, professional profile picture avatar of a clinical psychologist in a modern light-mode setting, warm and approachable." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDlth8j11Y8zENc_mCCvTiQ6t1c9GJpDnqwfWi4c13uey9JlXdSEyvsoVqrURJxhbaXOr68ybZJpWkbVm7M-pItDCfj4DoRm1bZ5lahImBY87Isi175IAu4cSR5PidhIzcMLiB3InV8TOFUv3DGhD86b8ZL5KV5IuMZquLB0pvmrePmDctk44ZxCtSPg4jzSxujsblE4eLnRX4muvShgQ6M4Zy6c_PUC6Tp3E5aUnDnL2OsrKbRhrhl"/>
+</div>
+</header>
+<!-- Canvas -->
+<div class="flex-1 p-4 md:p-grid-margin max-w-7xl mx-auto w-full">
+<!-- Breadcrumbs & Header Actions -->
+<div class="flex flex-col md:flex-row md:items-center justify-between mb-xl gap-4">
+<div>
+<div class="flex items-center gap-2 text-on-surface-variant font-body-sm text-body-sm mb-2">
+<a class="hover:text-primary transition-colors" href="#">Pacientes</a>
+<span class="material-symbols-outlined text-[16px]">chevron_right</span>
+<a class="hover:text-primary transition-colors" href="#">María Fernanda López</a>
+<span class="material-symbols-outlined text-[16px]">chevron_right</span>
+<span class="text-on-surface">Resultados Evaluación</span>
+</div>
+<h2 class="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-surface">Resultados: PAI</h2>
+<p class="font-body-md text-body-md text-on-surface-variant mt-1">Inventario de Evaluación de la Personalidad • Realizado el 24 Oct, 2023</p>
+</div>
+<button class="bg-primary text-on-primary px-6 py-2.5 rounded-lg font-label-md text-label-md flex items-center gap-2 hover:bg-primary/90 transition-colors shadow-sm self-start md:self-auto hover:shadow-md">
+<span class="material-symbols-outlined" data-icon="download" style="font-size: 20px;">download</span>
+                    Descargar informe PDF
+                </button>
+</div>
+<!-- Bento Grid Layout -->
+<div class="grid grid-cols-1 xl:grid-cols-12 gap-6">
+<!-- Left Column: Chart & Table (Spans 8 columns on large screens) -->
+<div class="xl:col-span-8 flex flex-col gap-6">
+<!-- Chart Card -->
+<div class="bg-surface-container-lowest rounded-xl p-md border border-surface-variant shadow-[0_4px_24px_rgba(78,141,207,0.05)]">
+<div class="flex items-center justify-between mb-6">
+<h3 class="font-headline-md text-headline-md text-on-surface">Perfil de Escalas Clínicas</h3>
+<div class="flex gap-2">
+<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary-container/10 text-primary-container font-label-md text-label-md text-[12px]">
+<span class="w-2 h-2 rounded-full bg-primary"></span> T &gt; 70 Significativo
+                                </span>
+</div>
+</div>
+<div class="w-full h-[320px] relative">
+<canvas id="paiChart"></canvas>
+</div>
+</div>
+<!-- Scores Table Card -->
+<div class="bg-surface-container-lowest rounded-xl p-md border border-surface-variant shadow-[0_4px_24px_rgba(78,141,207,0.05)] overflow-hidden">
+<h3 class="font-headline-md text-headline-md text-on-surface mb-6">Desglose de Puntuaciones</h3>
+<div class="overflow-x-auto custom-scrollbar">
+<table class="w-full text-left border-collapse min-w-[500px]">
+<thead>
+<tr class="border-b border-surface-variant/50">
+<th class="pb-3 px-4 font-label-md text-label-md text-on-surface-variant">Escala</th>
+<th class="pb-3 px-4 font-label-md text-label-md text-on-surface-variant">Descripción</th>
+<th class="pb-3 px-4 font-label-md text-label-md text-on-surface-variant text-right">Puntuación T</th>
+<th class="pb-3 px-4 font-label-md text-label-md text-on-surface-variant">Rango Interpretativo</th>
+</tr>
+</thead>
+<tbody class="font-data-tabular text-data-tabular">
+<tr class="border-b border-surface-variant/30 hover:bg-surface-container-low transition-colors cursor-pointer group">
+<td class="py-4 px-4 font-medium text-on-surface">SOM</td>
+<td class="py-4 px-4 text-on-surface-variant">Quejas Somáticas</td>
+<td class="py-4 px-4 text-right">55</td>
+<td class="py-4 px-4">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full bg-secondary-container/20 text-secondary font-label-md text-[12px]">Normal</span>
+</td>
+</tr>
+<tr class="border-b border-surface-variant/30 hover:bg-surface-container-low transition-colors cursor-pointer group">
+<td class="py-4 px-4 font-medium text-on-surface">ANX</td>
+<td class="py-4 px-4 text-on-surface-variant">Ansiedad</td>
+<td class="py-4 px-4 text-right font-bold text-tertiary-container">78</td>
+<td class="py-4 px-4">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full bg-tertiary-container/10 text-tertiary-container font-label-md text-[12px]">Significativo</span>
+</td>
+</tr>
+<tr class="border-b border-surface-variant/30 hover:bg-surface-container-low transition-colors cursor-pointer group">
+<td class="py-4 px-4 font-medium text-on-surface">ARD</td>
+<td class="py-4 px-4 text-on-surface-variant">Trastornos Relacionados con Ansiedad</td>
+<td class="py-4 px-4 text-right">62</td>
+<td class="py-4 px-4">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full bg-primary-container/10 text-primary-container font-label-md text-[12px]">Leve</span>
+</td>
+</tr>
+<tr class="border-b border-surface-variant/30 hover:bg-surface-container-low transition-colors cursor-pointer group">
+<td class="py-4 px-4 font-medium text-on-surface">DEP</td>
+<td class="py-4 px-4 text-on-surface-variant">Depresión</td>
+<td class="py-4 px-4 text-right font-bold text-tertiary-container">72</td>
+<td class="py-4 px-4">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full bg-tertiary-container/10 text-tertiary-container font-label-md text-[12px]">Significativo</span>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-low transition-colors cursor-pointer group">
+<td class="py-4 px-4 font-medium text-on-surface">MAN</td>
+<td class="py-4 px-4 text-on-surface-variant">Manía</td>
+<td class="py-4 px-4 text-right">45</td>
+<td class="py-4 px-4">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full bg-secondary-container/20 text-secondary font-label-md text-[12px]">Normal</span>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<!-- Right Column: AI Interpretation & Patient Info (Spans 4 columns on large screens) -->
+<div class="xl:col-span-4 flex flex-col gap-6">
+<!-- AI Interpretation Card (Glassmorphism/Gradient) -->
+<div class="ia-glass-panel rounded-xl p-6 shadow-[0_8px_32px_rgba(27,101,165,0.08)] relative overflow-hidden h-full flex flex-col">
+<!-- Decorative glow -->
+<div class="absolute -top-12 -right-12 w-32 h-32 bg-secondary-fixed opacity-20 rounded-full blur-2xl"></div>
+<div class="absolute -bottom-12 -left-12 w-40 h-40 bg-primary opacity-10 rounded-full blur-2xl"></div>
+<div class="flex items-center gap-3 mb-6 relative z-10">
+<div class="w-10 h-10 rounded-full bg-primary-container/20 flex items-center justify-center">
+<span class="material-symbols-outlined text-primary-container" data-icon="auto_awesome">auto_awesome</span>
+</div>
+<h3 class="font-headline-md text-headline-md text-on-surface">Interpretación con IA</h3>
+</div>
+<div class="relative z-10 flex-1 flex flex-col gap-4">
+<p class="font-body-md text-body-md text-on-surface leading-relaxed">
+                                El perfil actual sugiere una elevación clínicamente significativa en las escalas de Ansiedad (ANX, T=78) y Depresión (DEP, T=72). La configuración indica un nivel elevado de distrés emocional, caracterizado por tensión generalizada, preocupación aprensiva y estado de ánimo disfórico.
+                            </p>
+<div class="bg-surface-container-lowest/60 rounded-lg p-4 border border-surface-variant/50 mt-2">
+<h4 class="font-label-md text-label-md text-on-surface mb-2 flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px] text-secondary" data-icon="lightbulb">lightbulb</span>
+                                    Foco Clínico Sugerido
+                                </h4>
+<ul class="list-disc pl-5 font-body-sm text-body-sm text-on-surface-variant space-y-1">
+<li>Evaluación del riesgo asociado a la sintomatología depresiva.</li>
+<li>Exploración de desencadenantes ansiosos recientes.</li>
+<li>Posible consideración de apoyo farmacológico coadyuvante.</li>
+</ul>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant/70 italic mt-auto pt-4 text-center">
+                                Este resumen es un apoyo asistencial. Requiere juicio clínico del profesional.
+                            </p>
+</div>
+</div>
+<!-- Additional Context Card (Minimalist) -->
+<div class="bg-surface-container-lowest rounded-xl p-md border border-surface-variant shadow-[0_4px_24px_rgba(78,141,207,0.05)]">
+<h4 class="font-label-md text-label-md text-on-surface mb-4 uppercase tracking-wider text-xs">Validez de la Prueba</h4>
+<div class="space-y-4">
+<div>
+<div class="flex justify-between font-body-sm text-body-sm mb-1">
+<span class="text-on-surface-variant">Inconsistencia (ICN)</span>
+<span class="font-medium text-on-surface">T = 48</span>
+</div>
+<div class="w-full bg-surface-container-highest rounded-full h-1.5">
+<div class="bg-secondary h-1.5 rounded-full" style="width: 48%"></div>
+</div>
+</div>
+<div>
+<div class="flex justify-between font-body-sm text-body-sm mb-1">
+<span class="text-on-surface-variant">Infrecuencia (INF)</span>
+<span class="font-medium text-on-surface">T = 52</span>
+</div>
+<div class="w-full bg-surface-container-highest rounded-full h-1.5">
+<div class="bg-secondary h-1.5 rounded-full" style="width: 52%"></div>
+</div>
+</div>
+<div>
+<div class="flex justify-between font-body-sm text-body-sm mb-1">
+<span class="text-on-surface-variant">Impresión Negativa (NIM)</span>
+<span class="font-medium text-on-surface">T = 65</span>
+</div>
+<div class="w-full bg-surface-container-highest rounded-full h-1.5">
+<div class="bg-primary-container h-1.5 rounded-full" style="width: 65%"></div>
+</div>
+</div>
+<div class="pt-2 border-t border-surface-variant/50">
+<p class="font-body-sm text-body-sm text-on-surface-variant flex items-start gap-2">
+<span class="material-symbols-outlined text-[18px] text-secondary mt-0.5" data-icon="check_circle">check_circle</span>
+                                    Los indicadores sugieren que el perfil es válido e interpretable. Actitud adecuada hacia la evaluación.
+                                </p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Chart Configuration Script -->
+<script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const ctx = document.getElementById('paiChart').getContext('2d');
+            
+            // Tailwind colors matching the design system
+            const primaryColor = '#004d84'; // primary
+            const secondaryColor = '#006b5f'; // secondary
+            const warningColor = '#994e00'; // tertiary-container (using as warning for high scores)
+            const gridColor = '#e3e2e0'; // surface-variant
+            const textColor = '#474554'; // on-surface-variant
+
+            const data = {
+                labels: ['SOM', 'ANX', 'ARD', 'DEP', 'MAN', 'PAR', 'SCZ', 'BOR', 'ANT', 'ALC', 'DRG'],
+                datasets: [{
+                    label: 'Puntuación T',
+                    data: [55, 78, 62, 72, 45, 50, 48, 60, 42, 40, 38],
+                    backgroundColor: function(context) {
+                        const index = context.dataIndex;
+                        const value = context.dataset.data[index];
+                        // Change color based on clinical significance (T > 70)
+                        return value >= 70 ? warningColor : primaryColor;
+                    },
+                    borderRadius: 6,
+                    barPercentage: 0.6
+                }]
+            };
+
+            const config = {
+                type: 'bar',
+                data: data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false // Hidden as we use custom legend in HTML
+                        },
+                        tooltip: {
+                            backgroundColor: '#2f3130', // inverse-surface
+                            titleFont: { family: 'Inter', size: 14, weight: '600' },
+                            bodyFont: { family: 'Inter', size: 14 },
+                            padding: 12,
+                            cornerRadius: 8,
+                            displayColors: false,
+                            callbacks: {
+                                label: function(context) {
+                                    return `T = ${context.parsed.y}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: false,
+                            min: 30,
+                            max: 110,
+                            grid: {
+                                color: gridColor,
+                                drawBorder: false,
+                            },
+                            ticks: {
+                                color: textColor,
+                                font: { family: 'Inter', size: 12 },
+                                stepSize: 10
+                            }
+                        },
+                        x: {
+                            grid: {
+                                display: false,
+                                drawBorder: false,
+                            },
+                            ticks: {
+                                color: textColor,
+                                font: { family: 'Inter', size: 12, weight: '500' }
+                            }
+                        }
+                    },
+                    // Draw clinical cutoff line at T=70
+                    animation: {
+                        onComplete: function(animation) {
+                            const chartInstance = animation.chart;
+                            const ctx = chartInstance.ctx;
+                            const yAxis = chartInstance.scales.y;
+                            const xAxis = chartInstance.scales.x;
+                            
+                            const y70 = yAxis.getPixelForValue(70);
+                            
+                            ctx.save();
+                            ctx.beginPath();
+                            ctx.moveTo(xAxis.left, y70);
+                            ctx.lineTo(xAxis.right, y70);
+                            ctx.lineWidth = 2;
+                            ctx.strokeStyle = '#ba1a1a'; // error color for cutoff line
+                            ctx.setLineDash([5, 5]);
+                            ctx.stroke();
+                            
+                            // Label for cutoff
+                            ctx.fillStyle = '#ba1a1a';
+                            ctx.font = '12px Inter';
+                            ctx.fillText('Nivel Clínico', xAxis.right - 70, y70 - 8);
+                            ctx.restore();
+                        }
+                    }
+                }
+            };
+
+            new Chart(ctx, config);
+        });
+    </script>
+</body></html>

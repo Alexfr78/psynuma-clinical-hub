@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Calendar, Loader2, Search, Filter } from 'lucide-react';
+
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import {
@@ -17,6 +17,7 @@ import { SessionCard } from '@/components/agenda/SessionCard';
 import { CreateSessionDialog } from '@/components/agenda/CreateSessionDialog';
 import { SessionDetailDialog } from '@/components/agenda/SessionDetailDialog';
 import { TranscriptionAnalysisDialog } from '@/components/agenda/TranscriptionAnalysisDialog';
+import { Icon } from '@/components/ui/icon';
 
 export default function Sessions() {
   const [search, setSearch] = useState('');
@@ -70,7 +71,7 @@ export default function Sessions() {
       {/* Filters */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Icon name="search" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="Buscar por contacto..."
             value={search}
@@ -81,7 +82,7 @@ export default function Sessions() {
 
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="w-full sm:w-[150px]">
-            <Filter className="mr-2 h-4 w-4" />
+            <Icon name="filter_list" className="mr-2 h-4 w-4" />
             <SelectValue placeholder="Estado" />
           </SelectTrigger>
           <SelectContent>
@@ -112,7 +113,7 @@ export default function Sessions() {
       {/* Sessions List */}
       {isLoading ? (
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <Icon name="progress_activity" className="h-8 w-8 animate-spin text-primary" />
         </div>
       ) : filteredSessions.length > 0 ? (
         <div className="space-y-6">
@@ -135,7 +136,7 @@ export default function Sessions() {
         </div>
       ) : (
         <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12 text-center">
-          <Calendar className="h-12 w-12 text-muted-foreground" />
+          <Icon name="calendar_month" className="h-12 w-12 text-muted-foreground" />
           <h3 className="mt-4 font-display text-lg font-semibold">Sin sesiones</h3>
           <p className="mt-2 max-w-sm text-sm text-muted-foreground">
             {search || statusFilter !== 'all'

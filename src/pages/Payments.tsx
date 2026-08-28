@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { CreditCard, Plus, AlertTriangle, Search } from 'lucide-react';
+
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -28,6 +28,7 @@ import { CancellationChargesPanel } from '@/components/payments/CancellationChar
 import { SendInvoiceDialog } from '@/components/invoices/SendInvoiceDialog';
 import { useCancellationCharges } from '@/hooks/useCancellationCharges';
 import { format } from 'date-fns';
+import { Icon } from '@/components/ui/icon';
 
 type InvoicePatient = {
   id: string;
@@ -154,7 +155,7 @@ export default function Payments() {
           <p className="text-muted-foreground">Gestiona pagos y deudas pendientes</p>
         </div>
         <Button onClick={() => { setSelectedDebt(null); setPaymentOpen(true); }}>
-          <Plus className="h-4 w-4 mr-2" />
+          <Icon name="add" className="h-4 w-4 mr-2" />
           Registrar pago
         </Button>
       </div>
@@ -171,7 +172,7 @@ export default function Payments() {
         <Card className={debtStats?.overdueCount ? 'border-destructive/50' : ''}>
           <CardHeader className="pb-1 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
             <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground flex items-center gap-1">
-              {debtStats?.overdueCount ? <AlertTriangle className="h-3 w-3 sm:h-4 sm:w-4 text-destructive" /> : null}
+              {debtStats?.overdueCount ? <Icon name="warning" className="h-3 w-3 sm:h-4 sm:w-4 text-destructive" /> : null}
               Vencido
             </CardTitle>
           </CardHeader>
@@ -236,7 +237,7 @@ export default function Payments() {
         {/* Search bar */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between my-4">
           <div className="relative flex-1 max-w-xs">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Icon name="search" className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Buscar cliente, nº factura, fecha..."
               value={searchQuery}
@@ -253,7 +254,7 @@ export default function Payments() {
             </div>
           ) : filteredDebts.length === 0 ? (
             <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12">
-              <CreditCard className="h-12 w-12 text-muted-foreground" />
+              <Icon name="credit_card" className="h-12 w-12 text-muted-foreground" />
               <h3 className="mt-4 font-semibold">Sin deudas pendientes</h3>
               <p className="text-sm text-muted-foreground">
                 {searchQuery.trim() ? 'No se encontraron deudas con ese criterio' : 'Todos los pagos están al día'}

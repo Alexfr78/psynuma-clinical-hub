@@ -13,7 +13,7 @@ import { useProfessionalIntegrations } from "@/hooks/useProfessionalIntegrations
 import { useAuth } from "@/hooks/useAuth";
 import { useCenter } from "@/hooks/useCenter";
 import { useGoogleCalendarWatch } from "@/hooks/useGoogleCalendarWatch";
-import { Calendar, Video, ExternalLink, CheckCircle2, AlertCircle, Loader2, Settings2, Zap, RefreshCw, Activity, Clock, Database, Trash2, Download, Copy, FileJson, Bug, ShieldCheck } from "lucide-react";
+import { FileJson } from 'lucide-react';
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
@@ -23,6 +23,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { formatDistanceToNow, format, addDays, startOfWeek, endOfWeek } from "date-fns";
 import { es } from "date-fns/locale";
+import { Icon } from '@/components/ui/icon';
 
 interface GoogleCalendar {
   id: string;
@@ -529,13 +530,13 @@ export function GoogleIntegrationSection() {
     switch (status) {
       case 'ok':
       case 'watch_configured':
-        return { label: status, color: 'bg-green-500/10 text-green-600 border-green-500/20', icon: <CheckCircle2 className="h-3 w-3 mr-1" /> };
+        return { label: status, color: 'bg-green-500/10 text-green-600 border-green-500/20', icon: <Icon name="check_circle" className="h-3 w-3 mr-1" /> };
       case 'needs_reconnect':
       case 'watch_setup_failed':
         return { 
           label: status === 'watch_setup_failed' ? 'Error en notificaciones' : status, 
           color: 'bg-red-500/10 text-red-600 border-red-500/20', 
-          icon: <AlertCircle className="h-3 w-3 mr-1" /> 
+          icon: <Icon name="error" className="h-3 w-3 mr-1" /> 
         };
       default:
         return { label: status, color: 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20', icon: null };
@@ -547,7 +548,7 @@ export function GoogleIntegrationSection() {
       <CardHeader>
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-lg bg-red-500/10">
-            <Calendar className="h-5 w-5 text-red-600" />
+            <Icon name="calendar_month" className="h-5 w-5 text-red-600" />
           </div>
           <div>
             <CardTitle className="text-lg">Google Calendar y Meet</CardTitle>
@@ -562,7 +563,7 @@ export function GoogleIntegrationSection() {
         {!isConnected ? (
           <>
             <Alert>
-              <AlertCircle className="h-4 w-4" />
+              <Icon name="error" className="h-4 w-4" />
               <AlertDescription>
                 Conecta tu cuenta de Google para sincronizar tu calendario y crear reuniones de Meet.
               </AlertDescription>
@@ -570,9 +571,9 @@ export function GoogleIntegrationSection() {
             
             <div className="space-y-3">
               <Button onClick={handleConnect} className="w-full gap-2">
-                <Calendar className="h-4 w-4" />
+                <Icon name="calendar_month" className="h-4 w-4" />
                 Conectar con Google
-                <ExternalLink className="h-3 w-3 ml-1" />
+                <Icon name="open_in_new" className="h-3 w-3 ml-1" />
               </Button>
               
               <div className="p-3 bg-muted/50 rounded-lg text-sm space-y-2">
@@ -594,7 +595,7 @@ export function GoogleIntegrationSection() {
             {/* Reconnection Alert - Shows when needs_reconnect is true */}
             {healthData?.needs_reconnect && (
               <Alert variant="destructive" className="border-destructive/50 bg-destructive/10">
-                <AlertCircle className="h-4 w-4" />
+                <Icon name="error" className="h-4 w-4" />
                 <AlertDescription className="flex flex-col gap-3">
                   <div>
                     {healthData?.last_sync_error_code === 'invalid_client' ? (
@@ -637,7 +638,7 @@ export function GoogleIntegrationSection() {
                       size="sm"
                       onClick={handleConnect}
                     >
-                      <RefreshCw className="h-4 w-4 mr-2" />
+                      <Icon name="refresh" className="h-4 w-4 mr-2" />
                       Reconectar ahora
                     </Button>
                   </div>
@@ -648,9 +649,9 @@ export function GoogleIntegrationSection() {
             <div className="flex items-center justify-between p-3 border rounded-lg bg-muted/30">
               <div className="flex items-center gap-3">
                 {healthData?.needs_reconnect ? (
-                  <AlertCircle className="h-5 w-5 text-destructive" />
+                  <Icon name="error" className="h-5 w-5 text-destructive" />
                 ) : (
-                  <CheckCircle2 className="h-5 w-5 text-green-600" />
+                  <Icon name="check_circle" className="h-5 w-5 text-green-600" />
                 )}
                 <div>
                   <p className="font-medium">
@@ -668,7 +669,7 @@ export function GoogleIntegrationSection() {
                 disabled={disconnectProvider.isPending}
               >
                 {disconnectProvider.isPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  <Icon name="progress_activity" className="h-4 w-4 animate-spin mr-2" />
                 ) : null}
                 Desconectar
               </Button>
@@ -680,7 +681,7 @@ export function GoogleIntegrationSection() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium flex items-center gap-2">
-                      <Trash2 className="h-4 w-4 text-destructive" />
+                      <Icon name="delete" className="h-4 w-4 text-destructive" />
                       Eliminar eventos de Psycma en Google
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">
@@ -696,13 +697,13 @@ export function GoogleIntegrationSection() {
                     onClick={() => setShowCleanupConfirm(true)}
                     className="text-destructive hover:text-destructive border-destructive/30 hover:bg-destructive/10"
                   >
-                    <Trash2 className="h-4 w-4 mr-2" />
+                    <Icon name="delete" className="h-4 w-4 mr-2" />
                     Eliminar eventos
                   </Button>
                 ) : (
                   <div className="space-y-2">
                     <Alert variant="destructive">
-                      <AlertCircle className="h-4 w-4" />
+                      <Icon name="error" className="h-4 w-4" />
                       <AlertDescription>
                         ¿Eliminar todos los eventos creados por Psycma en tu calendario de Google?
                         Solo se eliminarán eventos dentro del rango configurado ({syncDaysPast} días pasados / {syncDaysFuture} días futuros).
@@ -716,7 +717,7 @@ export function GoogleIntegrationSection() {
                         disabled={isCleaningUp}
                       >
                         {isCleaningUp ? (
-                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                          <Icon name="progress_activity" className="h-4 w-4 animate-spin mr-2" />
                         ) : null}
                         Confirmar eliminación
                       </Button>
@@ -740,7 +741,7 @@ export function GoogleIntegrationSection() {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <Calendar className="h-5 w-5 text-muted-foreground" />
+                  <Icon name="calendar_month" className="h-5 w-5 text-muted-foreground" />
                   <div>
                     <p className="font-medium">Google Calendar</p>
                     <p className="text-sm text-muted-foreground">
@@ -820,7 +821,7 @@ export function GoogleIntegrationSection() {
                     </RadioGroup>
                     {syncMode === 'two_way' && (
                       <Alert>
-                        <ShieldCheck className="h-4 w-4" />
+                        <Icon name="verified_user" className="h-4 w-4" />
                         <AlertDescription className="text-xs leading-relaxed">
                           Si una cita cambia solo en Google, Psycma actualizará su horario. Si la
                           misma cita cambia a la vez en ambos calendarios, se conservarán las dos
@@ -834,7 +835,7 @@ export function GoogleIntegrationSection() {
                   <Collapsible>
                     <CollapsibleTrigger asChild>
                       <Button variant="ghost" size="sm" className="gap-2 w-full justify-start">
-                        <Activity className="h-4 w-4" />
+                        <Icon name="monitor_heart" className="h-4 w-4" />
                         Estado de sincronización
                       </Button>
                     </CollapsibleTrigger>
@@ -858,7 +859,7 @@ export function GoogleIntegrationSection() {
                           {/* Last Sync */}
                           <div className="flex items-center justify-between">
                             <span className="text-sm text-muted-foreground flex items-center gap-1">
-                              <Clock className="h-3 w-3" />
+                              <Icon name="schedule" className="h-3 w-3" />
                               Última sincronización
                             </span>
                             <span className="text-sm">
@@ -884,7 +885,7 @@ export function GoogleIntegrationSection() {
                           {syncMode === 'two_way' && (
                             <div className="flex items-center justify-between">
                               <span className="text-sm text-muted-foreground flex items-center gap-1">
-                                <Zap className="h-3 w-3" />
+                                <Icon name="bolt" className="h-3 w-3" />
                                 Push webhook
                               </span>
                               <span className="text-sm">
@@ -900,7 +901,7 @@ export function GoogleIntegrationSection() {
                           {/* Events Count */}
                           <div className="flex items-center justify-between">
                             <span className="text-sm text-muted-foreground flex items-center gap-1">
-                              <Database className="h-3 w-3" />
+                              <Icon name="database" className="h-3 w-3" />
                               Eventos esta semana
                             </span>
                             <span className="text-sm font-medium">{healthData.eventsThisWeek}</span>
@@ -909,7 +910,7 @@ export function GoogleIntegrationSection() {
                           {/* Reconnect Warning */}
                           {healthData.needs_reconnect && (
                             <Alert variant="destructive" className="mt-2">
-                              <AlertCircle className="h-4 w-4" />
+                              <Icon name="error" className="h-4 w-4" />
                               <AlertDescription>
                                 Se requiere reconexión. Desconecta y vuelve a conectar tu cuenta de Google.
                               </AlertDescription>
@@ -919,7 +920,7 @@ export function GoogleIntegrationSection() {
                           {/* Watch Setup Failed Warning */}
                           {healthData.last_sync_status === 'watch_setup_failed' && (
                             <Alert variant="destructive" className="mt-2">
-                              <AlertCircle className="h-4 w-4" />
+                              <Icon name="error" className="h-4 w-4" />
                               <AlertDescription>
                                 Error al configurar notificaciones en tiempo real. La sincronización funcionará mediante polling cada 15 minutos.
                               </AlertDescription>
@@ -948,9 +949,9 @@ export function GoogleIntegrationSection() {
                               className="w-full gap-2"
                             >
                               {isForceResyncing ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
+                                <Icon name="progress_activity" className="h-4 w-4 animate-spin" />
                               ) : (
-                                <RefreshCw className="h-4 w-4" />
+                                <Icon name="refresh" className="h-4 w-4" />
                               )}
                               Forzar resincronización completa
                             </Button>
@@ -962,7 +963,7 @@ export function GoogleIntegrationSection() {
                             onClick={() => refetchHealth()}
                             className="w-full mt-2"
                           >
-                            <RefreshCw className="h-3 w-3 mr-2" />
+                            <Icon name="refresh" className="h-3 w-3 mr-2" />
                             Actualizar estado
                           </Button>
 
@@ -971,7 +972,7 @@ export function GoogleIntegrationSection() {
                           <Collapsible open={showDiagnostics} onOpenChange={setShowDiagnostics}>
                             <CollapsibleTrigger asChild>
                               <Button variant="ghost" size="sm" className="gap-2 w-full justify-start text-xs">
-                                <Bug className="h-3 w-3" />
+                                <Icon name="bug_report" className="h-3 w-3" />
                                 Diagnóstico avanzado
                               </Button>
                             </CollapsibleTrigger>
@@ -1004,7 +1005,7 @@ export function GoogleIntegrationSection() {
                                   disabled={isLoadingDiagnostics}
                                   className="flex-1 text-xs"
                                 >
-                                  {isLoadingDiagnostics ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Download className="h-3 w-3 mr-1" />}
+                                  {isLoadingDiagnostics ? <Icon name="progress_activity" className="h-3 w-3 animate-spin mr-1" /> : <Icon name="download" className="h-3 w-3 mr-1" />}
                                   Descargar JSON
                                 </Button>
                                 <Button 
@@ -1014,7 +1015,7 @@ export function GoogleIntegrationSection() {
                                   disabled={isLoadingDiagnostics}
                                   className="flex-1 text-xs"
                                 >
-                                  {isLoadingDiagnostics ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Copy className="h-3 w-3 mr-1" />}
+                                  {isLoadingDiagnostics ? <Icon name="progress_activity" className="h-3 w-3 animate-spin mr-1" /> : <Icon name="content_copy" className="h-3 w-3 mr-1" />}
                                   Copiar
                                 </Button>
                               </div>
@@ -1037,17 +1038,17 @@ export function GoogleIntegrationSection() {
                     <div className="p-3 border rounded-lg bg-muted/30 space-y-3">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <Zap className="h-4 w-4 text-yellow-500" />
+                          <Icon name="bolt" className="h-4 w-4 text-yellow-500" />
                           <Label className="text-sm font-medium">Sincronización en tiempo real</Label>
                         </div>
                         {watchStatus.isActive ? (
                           <Badge variant="secondary" className="bg-green-500/10 text-green-600 border-green-500/20">
-                            <CheckCircle2 className="h-3 w-3 mr-1" />
+                            <Icon name="check_circle" className="h-3 w-3 mr-1" />
                             Activa
                           </Badge>
                         ) : (
                           <Badge variant="secondary" className="bg-yellow-500/10 text-yellow-600 border-yellow-500/20">
-                            <AlertCircle className="h-3 w-3 mr-1" />
+                            <Icon name="error" className="h-3 w-3 mr-1" />
                             Inactiva
                           </Badge>
                         )}
@@ -1066,9 +1067,9 @@ export function GoogleIntegrationSection() {
                           className="w-full"
                         >
                           {isSettingUp ? (
-                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                            <Icon name="progress_activity" className="h-4 w-4 animate-spin mr-2" />
                           ) : (
-                            <RefreshCw className="h-4 w-4 mr-2" />
+                            <Icon name="refresh" className="h-4 w-4 mr-2" />
                           )}
                           Activar sincronización instantánea
                         </Button>
@@ -1112,7 +1113,7 @@ export function GoogleIntegrationSection() {
                       onClick={handleSaveSyncDays}
                       disabled={isSaving}
                     >
-                      {isSaving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                      {isSaving && <Icon name="progress_activity" className="h-4 w-4 animate-spin mr-2" />}
                       Guardar rango
                     </Button>
                   </div>
@@ -1121,7 +1122,7 @@ export function GoogleIntegrationSection() {
                   <Collapsible open={showFormatSettings} onOpenChange={setShowFormatSettings}>
                     <CollapsibleTrigger asChild>
                       <Button variant="ghost" size="sm" className="gap-2 w-full justify-start">
-                        <Settings2 className="h-4 w-4" />
+                        <Icon name="tune" className="h-4 w-4" />
                         Personalizar formato del evento
                       </Button>
                     </CollapsibleTrigger>
@@ -1165,7 +1166,7 @@ export function GoogleIntegrationSection() {
                         onClick={handleSaveFormats}
                         disabled={isSaving}
                       >
-                        {isSaving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                        {isSaving && <Icon name="progress_activity" className="h-4 w-4 animate-spin mr-2" />}
                         Guardar formato
                       </Button>
                     </CollapsibleContent>
@@ -1179,7 +1180,7 @@ export function GoogleIntegrationSection() {
             {/* Google Meet */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <Video className="h-5 w-5 text-muted-foreground" />
+                <Icon name="videocam" className="h-5 w-5 text-muted-foreground" />
                 <div>
                   <p className="font-medium">Google Meet</p>
                   <p className="text-sm text-muted-foreground">

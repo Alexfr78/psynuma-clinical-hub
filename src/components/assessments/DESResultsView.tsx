@@ -1,8 +1,9 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { AlertTriangle, CheckCircle2, Activity, Brain, Sparkles, MessageSquareText, Lightbulb, Quote, Info } from 'lucide-react';
+
 import { Progress } from '@/components/ui/progress';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Icon } from '@/components/ui/icon';
 
 interface ItemAnalysis {
   example: string;
@@ -150,7 +151,7 @@ export function DESResultsView({
       {isTaxonPositive && (
         <Card className="border-destructive bg-destructive/5">
           <CardContent className="py-4 flex items-start gap-3">
-            <AlertTriangle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+            <Icon name="warning" className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
             <div>
               <p className="font-semibold text-destructive">Taxón Disociativo Positivo</p>
               <p className="text-sm text-muted-foreground">
@@ -167,7 +168,7 @@ export function DESResultsView({
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center justify-between">
             <span className="flex items-center gap-2">
-              <Brain className="h-5 w-5" />
+              <Icon name="psychology" className="h-5 w-5" />
               Puntuación Total DES
             </span>
             <Badge variant={isClinical ? 'destructive' : isElevated ? 'secondary' : 'default'}>
@@ -196,7 +197,7 @@ export function DESResultsView({
       <Card>
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2">
-            <Activity className="h-5 w-5" />
+            <Icon name="monitor_heart" className="h-5 w-5" />
             Subescalas DES
           </CardTitle>
           <CardDescription>
@@ -248,7 +249,7 @@ export function DESResultsView({
         <Card>
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
-              <Quote className="h-5 w-5" />
+              <Icon name="format_quote" className="h-5 w-5" />
               Ejemplos del Contacto
             </CardTitle>
             <CardDescription>
@@ -261,7 +262,7 @@ export function DESResultsView({
                 <AccordionItem key={category} value={category}>
                   <AccordionTrigger className="text-sm">
                     <span className="flex items-center gap-2">
-                      <MessageSquareText className="h-4 w-4" />
+                      <Icon name="forum" className="h-4 w-4" />
                       {CATEGORY_LABELS[category] || category}
                       <Badge variant="outline" className="ml-2">
                         {examplesByCategory[category].length} ejemplo{examplesByCategory[category].length > 1 ? 's' : ''}
@@ -292,7 +293,7 @@ export function DESResultsView({
         <Card className="border-primary/20">
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-primary" />
+              <Icon name="auto_awesome" className="h-5 w-5 text-primary" />
               Análisis Profundo de Experiencias
             </CardTitle>
             <CardDescription>
@@ -311,7 +312,7 @@ export function DESResultsView({
             {aiAnalysis.overallPatterns && aiAnalysis.overallPatterns.length > 0 && (
               <div className="space-y-2">
                 <h4 className="font-medium flex items-center gap-2">
-                  <Lightbulb className="h-4 w-4 text-warning" />
+                  <Icon name="lightbulb" className="h-4 w-4 text-warning" />
                   Patrones Identificados
                 </h4>
                 <ul className="space-y-1">
@@ -331,7 +332,7 @@ export function DESResultsView({
                 <AccordionItem key={category} value={category}>
                   <AccordionTrigger className="text-sm">
                     <span className="flex items-center gap-2">
-                      <MessageSquareText className="h-4 w-4" />
+                      <Icon name="forum" className="h-4 w-4" />
                       {CATEGORY_LABELS[category] || category}
                       <Badge variant="outline" className="ml-2">
                         {analysisByCategory[category].length} ejemplo{analysisByCategory[category].length > 1 ? 's' : ''}
@@ -407,7 +408,7 @@ export function DESResultsView({
           ) : hasElevatedSubscales ? (
             <div className="border-l-4 border-warning pl-4 py-2">
               <div className="flex items-start gap-2">
-                <Info className="h-5 w-5 text-warning shrink-0 mt-0.5" />
+                <Icon name="info" className="h-5 w-5 text-warning shrink-0 mt-0.5" />
                 <div>
                   <p className="font-semibold text-warning mb-2">Atención: Subescalas Elevadas</p>
                   <p className="text-sm text-muted-foreground mb-2">
@@ -431,7 +432,7 @@ export function DESResultsView({
             </div>
           ) : (
             <div className="border-l-4 border-green-500 pl-4 py-2 flex items-start gap-2">
-              <CheckCircle2 className="h-5 w-5 text-green-600 shrink-0" />
+              <Icon name="check_circle" className="h-5 w-5 text-green-600 shrink-0" />
               <div>
                 <p className="font-semibold text-green-600 mb-2">Rango Normal (&lt;20)</p>
                 <p className="text-sm text-muted-foreground">

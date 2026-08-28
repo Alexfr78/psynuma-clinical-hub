@@ -1,6 +1,6 @@
 import { format, addWeeks, subWeeks, addMonths, subMonths, addDays, subDays, formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Plus, RefreshCw } from 'lucide-react';
+
 import { Button } from '@/components/ui/button';
 import {
   Select,
@@ -14,6 +14,7 @@ import { useProfessionals } from '@/hooks/usePatients';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useGoogleCalendarSync } from '@/hooks/useGoogleCalendarSync';
 import { cn } from '@/lib/utils';
+import { Icon } from '@/components/ui/icon';
 
 export type CalendarView = 'day' | 'week' | 'month' | 'list';
 
@@ -97,13 +98,13 @@ export function CalendarHeader({
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1 sm:gap-2">
           <Button variant="outline" size="icon" className="h-8 w-8 sm:h-9 sm:w-9" onClick={navigatePrevious}>
-            <ChevronLeft className="h-4 w-4" />
+            <Icon name="chevron_left" className="h-4 w-4" />
           </Button>
           <Button variant="outline" size="icon" className="h-8 w-8 sm:h-9 sm:w-9" onClick={navigateNext}>
-            <ChevronRight className="h-4 w-4" />
+            <Icon name="chevron_right" className="h-4 w-4" />
           </Button>
           <Button variant="outline" size="sm" className="h-8 px-2 sm:px-3" onClick={goToToday}>
-            {isMobile ? <CalendarIcon className="h-4 w-4" /> : 'Hoy'}
+            {isMobile ? <Icon name="calendar_month" className="h-4 w-4" /> : 'Hoy'}
           </Button>
         </div>
         <h2 className="font-display text-base sm:text-xl font-semibold capitalize truncate max-w-[150px] sm:max-w-none">
@@ -121,7 +122,7 @@ export function CalendarHeader({
                   disabled={isSyncing}
                   className="h-8 sm:h-9"
                 >
-                  <RefreshCw className={cn("h-4 w-4", isSyncing && "animate-spin")} />
+                  <Icon name="refresh" className={cn("h-4 w-4", isSyncing && "animate-spin")} />
                   {!isMobile && <span className="ml-2">Sincronizar</span>}
                 </Button>
               </TooltipTrigger>
@@ -161,7 +162,7 @@ export function CalendarHeader({
 
         <Select value={view} onValueChange={(v) => onViewChange(v as CalendarView)}>
           <SelectTrigger className="w-[100px] sm:w-[120px] h-8 sm:h-9 text-sm shrink-0">
-            <CalendarIcon className="mr-1 sm:mr-2 h-4 w-4" />
+            <Icon name="calendar_month" className="mr-1 sm:mr-2 h-4 w-4" />
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -180,7 +181,7 @@ export function CalendarHeader({
           className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg z-50"
           size="icon"
         >
-          <Plus className="h-6 w-6" />
+          <Icon name="add" className="h-6 w-6" />
         </Button>
       )}
     </div>

@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { FileText, AlertTriangle, Building2, User, Pencil, Trash2, Plus, Check, X, ShieldCheck, Loader2, FlaskConical } from 'lucide-react';
+
 import {
   Dialog,
   DialogContent,
@@ -38,6 +38,7 @@ import { useUpdatePatient, usePatient } from '@/hooks/usePatients';
 import { SessionWithRelations } from '@/hooks/useSessions';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { Icon } from '@/components/ui/icon';
 
 interface CreatedInvoice {
   id: string;
@@ -511,7 +512,7 @@ export function CreateSessionInvoiceDialog({
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <h4 className="font-medium flex items-center gap-2">
-              <User className="h-4 w-4" />
+              <Icon name="person" className="h-4 w-4" />
               Receptor
             </h4>
             {!editingPatient && invoiceType === 'complete' && missingFields.length > 0 && (
@@ -585,7 +586,7 @@ export function CreateSessionInvoiceDialog({
                     });
                   }}
                 >
-                  <X className="h-4 w-4 mr-1" />
+                  <Icon name="close" className="h-4 w-4 mr-1" />
                   Cancelar
                 </Button>
                 <Button
@@ -594,9 +595,9 @@ export function CreateSessionInvoiceDialog({
                   disabled={savingPatient}
                 >
                   {savingPatient ? (
-                    <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                    <Icon name="progress_activity" className="h-4 w-4 animate-spin mr-1" />
                   ) : (
-                    <Check className="h-4 w-4 mr-1" />
+                    <Icon name="check" className="h-4 w-4 mr-1" />
                   )}
                   Guardar
                 </Button>
@@ -624,7 +625,7 @@ export function CreateSessionInvoiceDialog({
         {/* Emisor (Center) */}
         <div className="space-y-3">
           <h4 className="font-medium flex items-center gap-2">
-            <Building2 className="h-4 w-4" />
+            <Icon name="apartment" className="h-4 w-4" />
             Emisor
           </h4>
           <div className="text-sm space-y-1">
@@ -661,12 +662,12 @@ export function CreateSessionInvoiceDialog({
             <AlertDescription className="flex items-center gap-2 text-sm">
               {center?.verifactu_environment === 'test' ? (
                 <>
-                  <FlaskConical className="h-4 w-4 flex-shrink-0" />
+                  <Icon name="science" className="h-4 w-4 flex-shrink-0" />
                   <span><strong>Modo pruebas:</strong> La factura se firmará pero NO se enviará a AEAT producción.</span>
                 </>
               ) : (
                 <>
-                  <ShieldCheck className="h-4 w-4 flex-shrink-0" />
+                  <Icon name="verified_user" className="h-4 w-4 flex-shrink-0" />
                   <span><strong>Verifactu activo:</strong> La factura se firmará y enviará a la AEAT.</span>
                 </>
               )}
@@ -676,7 +677,7 @@ export function CreateSessionInvoiceDialog({
         
         {!selectedSeriesId && availableSeries.length > 1 && (
           <Alert className="border-amber-500/50 bg-amber-500/10">
-            <AlertTriangle className="h-4 w-4 text-amber-600" />
+            <Icon name="warning" className="h-4 w-4 text-amber-600" />
             <AlertDescription>
               Hay varias series compatibles sin una predeterminada. Selecciona una para esta factura o configura la predeterminada en Ajustes.
             </AlertDescription>
@@ -685,7 +686,7 @@ export function CreateSessionInvoiceDialog({
 
         {availableSeries.length === 0 && (
           <Alert>
-            <AlertTriangle className="h-4 w-4" />
+            <Icon name="warning" className="h-4 w-4" />
             <AlertDescription>
               No hay una serie activa para este tipo de factura. Créala en Ajustes → Facturación → Series de facturas.
             </AlertDescription>
@@ -717,7 +718,7 @@ export function CreateSessionInvoiceDialog({
             size="sm"
             onClick={handleAddItem}
           >
-            <Plus className="h-4 w-4 mr-1" />
+            <Icon name="add" className="h-4 w-4 mr-1" />
             Añadir ítem
           </Button>
         </div>
@@ -808,11 +809,11 @@ export function CreateSessionInvoiceDialog({
 
                   <div className="flex justify-end gap-2 pt-2 border-t">
                     <Button size="sm" variant="ghost" onClick={() => setEditingItemId(null)}>
-                      <X className="h-4 w-4 mr-1" />
+                      <Icon name="close" className="h-4 w-4 mr-1" />
                       Cancelar
                     </Button>
                     <Button size="sm" onClick={() => handleUpdateItem(item.id)}>
-                      <Check className="h-4 w-4 mr-1" />
+                      <Icon name="check" className="h-4 w-4 mr-1" />
                       Guardar
                     </Button>
                   </div>
@@ -836,7 +837,7 @@ export function CreateSessionInvoiceDialog({
                       className="h-7 w-7"
                       onClick={() => handleStartEditItem(item)}
                     >
-                      <Pencil className="h-3 w-3" />
+                      <Icon name="edit" className="h-3 w-3" />
                     </Button>
                     <Button
                       variant="ghost"
@@ -845,7 +846,7 @@ export function CreateSessionInvoiceDialog({
                       onClick={() => handleDeleteItem(item.id)}
                       disabled={items.length === 1}
                     >
-                      <Trash2 className="h-3 w-3" />
+                      <Icon name="delete" className="h-3 w-3" />
                     </Button>
                   </div>
                 </div>
@@ -896,7 +897,7 @@ export function CreateSessionInvoiceDialog({
       {/* Missing Fields Warning */}
       {invoiceType === 'complete' && missingFields.length > 0 && !editingPatient && (
         <Alert variant="destructive">
-          <AlertTriangle className="h-4 w-4" />
+          <Icon name="warning" className="h-4 w-4" />
           <AlertDescription className="flex items-center justify-between">
             <span>Faltan datos fiscales del paciente para factura completa.</span>
             <Button 
@@ -922,20 +923,20 @@ export function CreateSessionInvoiceDialog({
         >
           {createInvoice.isPending ? (
             <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <Icon name="progress_activity" className="mr-2 h-4 w-4 animate-spin" />
               Creando...
             </>
           ) : isSigningVerifactu ? (
             <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <Icon name="progress_activity" className="mr-2 h-4 w-4 animate-spin" />
               Firmando con Verifactu...
             </>
           ) : (
             <>
               {center?.verifactu_certificate_base64 && (
                 center?.verifactu_environment === 'test' 
-                  ? <FlaskConical className="mr-2 h-4 w-4" /> 
-                  : <ShieldCheck className="mr-2 h-4 w-4" />
+                  ? <Icon name="science" className="mr-2 h-4 w-4" /> 
+                  : <Icon name="verified_user" className="mr-2 h-4 w-4" />
               )}
               Emitir factura
             </>
@@ -952,12 +953,12 @@ export function CreateSessionInvoiceDialog({
           <DrawerHeader className="px-4 pt-4 pb-2 border-b">
             <div className="flex items-center justify-between gap-3">
               <DrawerTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5" />
+                <Icon name="description" className="h-5 w-5" />
                 Crear factura
               </DrawerTitle>
               <DrawerClose asChild>
                 <Button type="button" variant="ghost" size="icon" aria-label="Cerrar">
-                  <X className="h-4 w-4" />
+                  <Icon name="close" className="h-4 w-4" />
                 </Button>
               </DrawerClose>
             </div>
@@ -976,7 +977,7 @@ export function CreateSessionInvoiceDialog({
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5" />
+            <Icon name="description" className="h-5 w-5" />
             Crear factura
           </DialogTitle>
         </DialogHeader>

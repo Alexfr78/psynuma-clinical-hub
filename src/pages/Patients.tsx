@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { Users, Loader2 } from 'lucide-react';
+
 import { usePatients, PatientFilters as Filters } from '@/hooks/usePatients';
 import { PatientFilters } from '@/components/patients/PatientFilters';
 import { PatientCard } from '@/components/patients/PatientCard';
 import { CreatePatientDialog } from '@/components/patients/CreatePatientDialog';
+import { Icon } from '@/components/ui/icon';
 
 export default function Patients() {
   const [filters, setFilters] = useState<Filters>({
@@ -18,7 +19,7 @@ export default function Patients() {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
         <div className="rounded-full bg-destructive/10 p-4">
-          <Users className="h-8 w-8 text-destructive" />
+          <Icon name="group" className="h-8 w-8 text-destructive" />
         </div>
          <h2 className="mt-4 font-display text-xl font-semibold">Error al cargar contactos</h2>
         <p className="mt-2 text-muted-foreground">
@@ -47,7 +48,7 @@ export default function Patients() {
       {/* Patient List */}
       {isLoading ? (
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <Icon name="progress_activity" className="h-8 w-8 animate-spin text-primary" />
         </div>
       ) : patients && patients.length > 0 ? (
         <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
@@ -58,7 +59,7 @@ export default function Patients() {
       ) : (
         <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12 text-center">
           <div className="rounded-full bg-muted p-4">
-            <Users className="h-8 w-8 text-muted-foreground" />
+            <Icon name="group" className="h-8 w-8 text-muted-foreground" />
           </div>
           <h2 className="mt-4 font-display text-xl font-semibold">No hay contactos</h2>
           <p className="mt-2 max-w-sm text-muted-foreground">

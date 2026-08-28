@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { AlertTriangle, Brain, CheckCircle, XCircle, Loader2, AlertCircle } from 'lucide-react';
+
 import { PAI_SCALE_ORDER, PAI_SCALE_LABELS, PAI_THRESHOLDS, PAI_CRITICAL_SCALES } from '@/data/pai-template';
 import { usePAIInterpretation, PAIInterpretation } from '@/hooks/usePAIInterpretation';
 import { PAIInterpretationPanel } from './PAIInterpretationPanel';
@@ -18,6 +18,7 @@ import {
   ResponsiveContainer,
   Cell,
 } from 'recharts';
+import { Icon } from '@/components/ui/icon';
 
 interface PAIResultsViewProps {
   assessmentId: string;
@@ -60,9 +61,9 @@ function ValidityIndicator({ code, score }: { code: string; score: number }) {
     }`}>
       <div className="flex items-center gap-2">
         {isElevated ? (
-          <XCircle className="h-5 w-5 text-destructive" />
+          <Icon name="cancel" className="h-5 w-5 text-destructive" />
         ) : (
-          <CheckCircle className="h-5 w-5 text-green-600" />
+          <Icon name="check_circle" className="h-5 w-5 text-green-600" />
         )}
         <span className="font-medium">{label}</span>
         <span className="text-sm text-muted-foreground">({code})</span>
@@ -183,7 +184,7 @@ export function PAIResultsView({
         <Card className="border-destructive">
           <CardHeader className="pb-2 bg-destructive/10">
             <CardTitle className="text-base flex items-center gap-2 text-destructive">
-              <AlertCircle className="h-5 w-5" />
+              <Icon name="error" className="h-5 w-5" />
               Alertas Críticas
             </CardTitle>
           </CardHeader>
@@ -218,12 +219,12 @@ export function PAIResultsView({
               <CardTitle className="text-base flex items-center gap-2">
                 {isProtocolValid ? (
                   <>
-                    <CheckCircle className="h-5 w-5 text-green-600" />
+                    <Icon name="check_circle" className="h-5 w-5 text-green-600" />
                     Protocolo Válido
                   </>
                 ) : (
                   <>
-                    <AlertTriangle className="h-5 w-5 text-yellow-600" />
+                    <Icon name="warning" className="h-5 w-5 text-yellow-600" />
                     Validez Cuestionable
                   </>
                 )}
@@ -244,7 +245,7 @@ export function PAIResultsView({
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-base flex items-center gap-2">
-                  <AlertTriangle className="h-5 w-5 text-yellow-600" />
+                  <Icon name="warning" className="h-5 w-5 text-yellow-600" />
                   Escalas Clínicas Elevadas (T ≥ 65)
                 </CardTitle>
               </CardHeader>
@@ -277,7 +278,7 @@ export function PAIResultsView({
             <Card>
               <CardContent className="pt-6">
                 <div className="text-center space-y-4">
-                  <Brain className="h-12 w-12 mx-auto text-muted-foreground" />
+                  <Icon name="psychology" className="h-12 w-12 mx-auto text-muted-foreground" />
                   <div>
                     <h3 className="font-semibold">Interpretación con IA</h3>
                     <p className="text-sm text-muted-foreground mt-1">
@@ -291,12 +292,12 @@ export function PAIResultsView({
                   >
                     {isGenerating ? (
                       <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <Icon name="progress_activity" className="h-4 w-4 animate-spin" />
                         Generando...
                       </>
                     ) : (
                       <>
-                        <Brain className="h-4 w-4" />
+                        <Icon name="psychology" className="h-4 w-4" />
                         Generar Interpretación
                       </>
                     )}
@@ -346,7 +347,7 @@ export function PAIResultsView({
             <Card>
               <CardContent className="pt-6">
                 <div className="text-center space-y-4">
-                  <Brain className="h-12 w-12 mx-auto text-muted-foreground" />
+                  <Icon name="psychology" className="h-12 w-12 mx-auto text-muted-foreground" />
                   <div>
                     <h3 className="font-semibold">Sin interpretación generada</h3>
                     <p className="text-sm text-muted-foreground mt-1">
@@ -360,12 +361,12 @@ export function PAIResultsView({
                   >
                     {isGenerating ? (
                       <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <Icon name="progress_activity" className="h-4 w-4 animate-spin" />
                         Generando...
                       </>
                     ) : (
                       <>
-                        <Brain className="h-4 w-4" />
+                        <Icon name="psychology" className="h-4 w-4" />
                         Generar Interpretación
                       </>
                     )}

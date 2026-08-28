@@ -1,8 +1,9 @@
-import { TrendingUp, Brain, Activity, Repeat } from 'lucide-react';
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { YBOCS2_CUTOFFS } from '@/data/ybocs2-template';
+import { Icon } from '@/components/ui/icon';
 
 interface YBOCS2ResultsViewProps {
   totalScore: number;
@@ -92,7 +93,7 @@ export function YBOCS2ResultsView({
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg flex items-center gap-2">
-              <TrendingUp className="h-5 w-5" />
+              <Icon name="trending_up" className="h-5 w-5" />
               Puntuación Total Y-BOCS-II
             </CardTitle>
             <Badge className={`${colors.badge} text-white text-lg px-4 py-1`}>
@@ -144,7 +145,7 @@ export function YBOCS2ResultsView({
         <Card>
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
-              <Activity className="h-5 w-5" />
+              <Icon name="monitor_heart" className="h-5 w-5" />
               Análisis por Subescalas
             </CardTitle>
             <CardDescription>
@@ -157,7 +158,7 @@ export function YBOCS2ResultsView({
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Brain className="h-4 w-4 text-primary" />
+                    <Icon name="psychology" className="h-4 w-4 text-primary" />
                     <span className="font-medium">Obsesiones</span>
                   </div>
                   <Badge variant="outline">{obsessionScore ?? 0} / 25</Badge>
@@ -172,7 +173,7 @@ export function YBOCS2ResultsView({
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Repeat className="h-4 w-4 text-primary" />
+                    <Icon name="repeat" className="h-4 w-4 text-primary" />
                     <span className="font-medium">Compulsiones</span>
                   </div>
                   <Badge variant="outline">{compulsionScore ?? 0} / 25</Badge>

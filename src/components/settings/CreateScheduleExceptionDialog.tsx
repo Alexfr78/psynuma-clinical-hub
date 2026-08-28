@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { CalendarIcon, AlertTriangle } from 'lucide-react';
+
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -33,6 +33,7 @@ import { useCenter } from '@/hooks/useCenter';
 import { useProfessionals } from '@/hooks/usePatients';
 import { useCreateScheduleException, useUpdateScheduleException, useConflictingSessions } from '@/hooks/useScheduleExceptions';
 import { ScheduleException } from '@/lib/schedule-exceptions';
+import { Icon } from '@/components/ui/icon';
 
 const REASON_OPTIONS = [
   { value: 'holiday', label: 'Festivo' },
@@ -206,7 +207,7 @@ export function CreateScheduleExceptionDialog({ open, onOpenChange, editExceptio
                       <FormControl>
                         <Button variant="outline" className={cn('w-full pl-3 text-left font-normal', !field.value && 'text-muted-foreground')}>
                           {field.value ? format(field.value, 'dd/MM/yyyy') : 'Seleccionar'}
-                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                          <Icon name="calendar_month" className="ml-auto h-4 w-4 opacity-50" />
                         </Button>
                       </FormControl>
                     </PopoverTrigger>
@@ -225,7 +226,7 @@ export function CreateScheduleExceptionDialog({ open, onOpenChange, editExceptio
                       <FormControl>
                         <Button variant="outline" className={cn('w-full pl-3 text-left font-normal', !field.value && 'text-muted-foreground')}>
                           {field.value ? format(field.value, 'dd/MM/yyyy') : 'Seleccionar'}
-                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                          <Icon name="calendar_month" className="ml-auto h-4 w-4 opacity-50" />
                         </Button>
                       </FormControl>
                     </PopoverTrigger>
@@ -310,7 +311,7 @@ export function CreateScheduleExceptionDialog({ open, onOpenChange, editExceptio
             {/* Conflict warning */}
             {conflictingSessions && conflictingSessions.length > 0 && (
               <Alert variant="destructive">
-                <AlertTriangle className="h-4 w-4" />
+                <Icon name="warning" className="h-4 w-4" />
                 <AlertDescription>
                   <p className="font-medium mb-1">Hay {conflictingSessions.length} cita(s) en este rango:</p>
                   <ul className="text-xs space-y-0.5 max-h-24 overflow-y-auto">

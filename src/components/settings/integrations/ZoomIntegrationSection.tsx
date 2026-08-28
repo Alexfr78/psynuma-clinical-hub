@@ -6,11 +6,12 @@ import { Switch } from "@/components/ui/switch";
 import { useProfessionalIntegrations } from "@/hooks/useProfessionalIntegrations";
 import { useAuth } from "@/hooks/useAuth";
 import { useCenter } from "@/hooks/useCenter";
-import { Video, ExternalLink, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
+
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
+import { Icon } from '@/components/ui/icon';
 
 export function ZoomIntegrationSection() {
   const { profile } = useAuth();
@@ -116,7 +117,7 @@ export function ZoomIntegrationSection() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-blue-500/10">
-              <Video className="h-5 w-5 text-blue-600" />
+              <Icon name="videocam" className="h-5 w-5 text-blue-600" />
             </div>
             <div>
               <CardTitle className="text-lg">Zoom</CardTitle>
@@ -137,7 +138,7 @@ export function ZoomIntegrationSection() {
         {!isConnected ? (
           <>
             <Alert>
-              <AlertCircle className="h-4 w-4" />
+              <Icon name="error" className="h-4 w-4" />
               <AlertDescription>
                 Conecta tu cuenta de Zoom para crear reuniones automáticamente al programar sesiones.
               </AlertDescription>
@@ -145,9 +146,9 @@ export function ZoomIntegrationSection() {
             
             <div className="space-y-3">
               <Button onClick={handleConnect} className="w-full gap-2">
-                <Video className="h-4 w-4" />
+                <Icon name="videocam" className="h-4 w-4" />
                 Conectar con Zoom
-                <ExternalLink className="h-3 w-3 ml-1" />
+                <Icon name="open_in_new" className="h-3 w-3 ml-1" />
               </Button>
               
               <div className="p-3 bg-muted/50 rounded-lg text-sm space-y-2">
@@ -166,7 +167,7 @@ export function ZoomIntegrationSection() {
           <div className="space-y-4">
             <div className="flex items-center justify-between p-3 border rounded-lg bg-muted/30">
               <div className="flex items-center gap-3">
-                <CheckCircle2 className="h-5 w-5 text-green-600" />
+                <Icon name="check_circle" className="h-5 w-5 text-green-600" />
                 <div>
                   <p className="font-medium">Cuenta conectada</p>
                   <p className="text-sm text-muted-foreground">
@@ -187,7 +188,7 @@ export function ZoomIntegrationSection() {
                 disabled={disconnectProvider.isPending}
               >
                 {disconnectProvider.isPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  <Icon name="progress_activity" className="h-4 w-4 animate-spin mr-2" />
                 ) : null}
                 Desconectar
               </Button>

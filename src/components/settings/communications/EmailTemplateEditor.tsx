@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, Save, RotateCcw, Info, Mail } from 'lucide-react';
+
 import { TemplateVariableBadges } from './TemplateVariableBadges';
 import { 
   useCommunicationTemplate, 
@@ -14,6 +14,7 @@ import {
   DEFAULT_TEMPLATES,
   TemplateType,
 } from '@/hooks/useCommunicationTemplates';
+import { Icon } from '@/components/ui/icon';
 
 export function EmailTemplateEditor() {
   const [activeTab, setActiveTab] = useState<TemplateType>('notification');
@@ -139,7 +140,7 @@ export function EmailTemplateEditor() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <Icon name="progress_activity" className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -148,7 +149,7 @@ export function EmailTemplateEditor() {
     <Card>
       <CardHeader>
         <div className="flex items-center gap-2">
-          <Mail className="h-5 w-5 text-primary" />
+          <Icon name="mail" className="h-5 w-5 text-primary" />
           <CardTitle>Plantillas de Email</CardTitle>
         </div>
         <CardDescription>
@@ -157,7 +158,7 @@ export function EmailTemplateEditor() {
       </CardHeader>
       <CardContent className="space-y-6">
         <Alert>
-          <Info className="h-4 w-4" />
+          <Icon name="info" className="h-4 w-4" />
           <AlertDescription>
             Las variables entre llaves se reemplazarán automáticamente con los datos correspondientes al enviar el mensaje.
           </AlertDescription>
@@ -301,14 +302,14 @@ export function EmailTemplateEditor() {
 
             <div className="flex justify-between">
               <Button variant="outline" onClick={handleResetToDefault}>
-                <RotateCcw className="mr-2 h-4 w-4" />
+                <Icon name="restart_alt" className="mr-2 h-4 w-4" />
                 Usar texto por defecto
               </Button>
               <Button onClick={handleSave} disabled={upsertMutation.isPending}>
                 {upsertMutation.isPending ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Icon name="progress_activity" className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
-                  <Save className="mr-2 h-4 w-4" />
+                  <Icon name="save" className="mr-2 h-4 w-4" />
                 )}
                 Guardar cambios
               </Button>

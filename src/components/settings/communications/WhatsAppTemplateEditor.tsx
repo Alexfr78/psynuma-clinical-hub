@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Save, RotateCcw, Info, MessageCircle, Globe, Zap } from 'lucide-react';
+
 import { TemplateVariableBadges } from './TemplateVariableBadges';
 import { useCenter } from '@/hooks/useCenter';
 import { 
@@ -15,6 +15,7 @@ import {
   DEFAULT_TEMPLATES,
   TemplateType 
 } from '@/hooks/useCommunicationTemplates';
+import { Icon } from '@/components/ui/icon';
 
 export function WhatsAppTemplateEditor() {
   const [activeTab, setActiveTab] = useState<TemplateType>('notification');
@@ -92,7 +93,7 @@ export function WhatsAppTemplateEditor() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <Icon name="progress_activity" className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -102,17 +103,17 @@ export function WhatsAppTemplateEditor() {
       <CardHeader>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <MessageCircle className="h-5 w-5 text-green-600" />
+            <Icon name="chat" className="h-5 w-5 text-green-600" />
             <CardTitle>Plantillas de WhatsApp</CardTitle>
           </div>
           {whatsappMethod === 'web' ? (
             <Badge variant="secondary" className="gap-1">
-              <Globe className="h-3 w-3" />
+              <Icon name="public" className="h-3 w-3" />
               WhatsApp Web
             </Badge>
           ) : (
             <Badge variant="default" className="gap-1 bg-blue-600">
-              <Zap className="h-3 w-3" />
+              <Icon name="bolt" className="h-3 w-3" />
               API Meta
             </Badge>
           )}
@@ -123,7 +124,7 @@ export function WhatsAppTemplateEditor() {
       </CardHeader>
       <CardContent className="space-y-6">
         <Alert>
-          <Info className="h-4 w-4" />
+          <Icon name="info" className="h-4 w-4" />
           <AlertDescription>
             Los mensajes de WhatsApp tienen formato de texto plano. Las variables se reemplazarán automáticamente al enviar.
           </AlertDescription>
@@ -185,14 +186,14 @@ export function WhatsAppTemplateEditor() {
 
             <div className="flex justify-between">
               <Button variant="outline" onClick={handleResetToDefault}>
-                <RotateCcw className="mr-2 h-4 w-4" />
+                <Icon name="restart_alt" className="mr-2 h-4 w-4" />
                 Usar texto por defecto
               </Button>
               <Button onClick={handleSave} disabled={upsertMutation.isPending}>
                 {upsertMutation.isPending ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Icon name="progress_activity" className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
-                  <Save className="mr-2 h-4 w-4" />
+                  <Icon name="save" className="mr-2 h-4 w-4" />
                 )}
                 Guardar cambios
               </Button>

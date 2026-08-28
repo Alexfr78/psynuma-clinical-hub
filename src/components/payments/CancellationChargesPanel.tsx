@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { AlertTriangle, Calendar, CheckCircle2, CreditCard, Loader2, User, XCircle } from 'lucide-react';
+
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
@@ -16,6 +16,7 @@ import {
   useConfirmCancellationCharge,
   useForgiveCancellationCharge,
 } from '@/hooks/useCancellationCharges';
+import { Icon } from '@/components/ui/icon';
 
 interface CancellationChargesPanelProps {
   onRecordPayment?: (debtInfo: {
@@ -73,7 +74,7 @@ function CancellationChargeList({
   if (isLoading) {
     return (
       <div className="flex items-center justify-center rounded-lg border py-12 text-muted-foreground">
-        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+        <Icon name="progress_activity" className="mr-2 h-5 w-5 animate-spin" />
         Cargando cancelaciones...
       </div>
     );
@@ -82,7 +83,7 @@ function CancellationChargeList({
   if (charges.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12 text-center">
-        <CheckCircle2 className="h-12 w-12 text-muted-foreground" />
+        <Icon name="check_circle" className="h-12 w-12 text-muted-foreground" />
         <h3 className="mt-4 font-semibold">Sin cancelaciones</h3>
         <p className="text-sm text-muted-foreground">
           No hay cargos por cancelación en esta vista.
@@ -100,7 +101,7 @@ function CancellationChargeList({
               <div className="min-w-0 space-y-2">
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge variant="outline" className="gap-1">
-                    <AlertTriangle className="h-3 w-3" />
+                    <Icon name="warning" className="h-3 w-3" />
                     {status === 'pending_review' ? 'Pendiente de revisión' : status === 'confirmed' ? 'Deuda generada' : 'Perdonado'}
                   </Badge>
                   <span className="text-xs text-muted-foreground">
@@ -114,11 +115,11 @@ function CancellationChargeList({
 
                 <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
                   <span className="flex items-center gap-1">
-                    <User className="h-4 w-4" />
+                    <Icon name="person" className="h-4 w-4" />
                     {patientName(charge)}
                   </span>
                   <span className="flex items-center gap-1">
-                    <Calendar className="h-4 w-4" />
+                    <Icon name="calendar_month" className="h-4 w-4" />
                     {sessionLabel(charge)}
                   </span>
                 </div>
@@ -173,7 +174,7 @@ function CancellationChargeList({
                     })}
                     disabled={isMutating}
                   >
-                    <XCircle className="mr-2 h-4 w-4" />
+                    <Icon name="cancel" className="mr-2 h-4 w-4" />
                     Perdonar
                   </Button>
                   {charge.hasActiveCard && (
@@ -182,8 +183,8 @@ function CancellationChargeList({
                       disabled={isMutating || Number(charge.amount || 0) <= 0}
                     >
                       {chargeCard.isPending
-                        ? <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        : <CreditCard className="mr-2 h-4 w-4" />}
+                        ? <Icon name="progress_activity" className="mr-2 h-4 w-4 animate-spin" />
+                        : <Icon name="credit_card" className="mr-2 h-4 w-4" />}
                       Cobrar a la tarjeta
                     </Button>
                   )}
@@ -196,7 +197,7 @@ function CancellationChargeList({
                     })}
                     disabled={isMutating || Number(amounts[charge.id] ?? charge.amount) <= 0}
                   >
-                    <CheckCircle2 className="mr-2 h-4 w-4" />
+                    <Icon name="check_circle" className="mr-2 h-4 w-4" />
                     Generar deuda
                   </Button>
                 </div>

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, FileText, Loader2, Upload, CheckCircle2, AlertTriangle, Clock } from 'lucide-react';
+
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -12,6 +12,7 @@ import { UploadConsentDialog } from '@/components/consents/UploadConsentDialog';
 import { Patient } from '@/hooks/usePatients';
 import { useActiveCancellationPolicy, useCreateCancellationPolicyConsent } from '@/hooks/useCancellationPolicy';
 import { useCenter } from '@/hooks/useCenter';
+import { Icon } from '@/components/ui/icon';
 
 interface PatientConsentsProps {
   patientId: string;
@@ -59,7 +60,7 @@ export function PatientConsents({ patientId, patient }: PatientConsentsProps) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <Icon name="progress_activity" className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -80,19 +81,19 @@ export function PatientConsents({ patientId, patient }: PatientConsentsProps) {
               disabled={createCancellationPolicyConsent.isPending}
             >
               {createCancellationPolicyConsent.isPending ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Icon name="progress_activity" className="mr-2 h-4 w-4 animate-spin" />
               ) : (
-                <FileText className="mr-2 h-4 w-4" />
+                <Icon name="description" className="mr-2 h-4 w-4" />
               )}
               Política cancelación
             </Button>
           )}
           <Button variant="outline" size="sm" className="w-full sm:w-auto" onClick={() => setUploadOpen(true)}>
-            <Upload className="mr-2 h-4 w-4" />
+            <Icon name="upload" className="mr-2 h-4 w-4" />
             Subir firmado
           </Button>
           <Button size="sm" className="w-full sm:w-auto" onClick={() => setCreateDialogOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
+            <Icon name="add" className="mr-2 h-4 w-4" />
             Nuevo
           </Button>
         </div>
@@ -104,11 +105,11 @@ export function PatientConsents({ patientId, patient }: PatientConsentsProps) {
             <div className="flex items-start gap-3">
               <div className="rounded-lg bg-muted p-2">
                 {policyStatus === 'signed' ? (
-                  <CheckCircle2 className="h-5 w-5 text-green-600" />
+                  <Icon name="check_circle" className="h-5 w-5 text-green-600" />
                 ) : policyStatus === 'pending' ? (
-                  <Clock className="h-5 w-5 text-amber-600" />
+                  <Icon name="schedule" className="h-5 w-5 text-amber-600" />
                 ) : (
-                  <AlertTriangle className="h-5 w-5 text-destructive" />
+                  <Icon name="warning" className="h-5 w-5 text-destructive" />
                 )}
               </div>
               <div className="space-y-1">
@@ -138,9 +139,9 @@ export function PatientConsents({ patientId, patient }: PatientConsentsProps) {
                 disabled={createCancellationPolicyConsent.isPending}
               >
                 {createCancellationPolicyConsent.isPending ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Icon name="progress_activity" className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
-                  <FileText className="mr-2 h-4 w-4" />
+                  <Icon name="description" className="mr-2 h-4 w-4" />
                 )}
                 Enviar política
               </Button>
@@ -152,14 +153,14 @@ export function PatientConsents({ patientId, patient }: PatientConsentsProps) {
       {consents.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12 text-center">
           <div className="rounded-full bg-muted p-4">
-            <FileText className="h-8 w-8 text-muted-foreground" />
+            <Icon name="description" className="h-8 w-8 text-muted-foreground" />
           </div>
           <h3 className="mt-4 font-semibold">Sin consentimientos</h3>
           <p className="mt-2 text-sm text-muted-foreground">
             Este contacto no tiene consentimientos registrados
           </p>
           <Button className="mt-4" onClick={() => setCreateDialogOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
+            <Icon name="add" className="mr-2 h-4 w-4" />
             Crear consentimiento
           </Button>
         </div>

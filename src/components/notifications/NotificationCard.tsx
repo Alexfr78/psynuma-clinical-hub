@@ -1,11 +1,12 @@
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Mail, MessageSquare, Phone, Clock, CheckCircle, XCircle, Send, Smartphone, Trash2, Zap } from 'lucide-react';
+import { Mail, MessageSquare, Phone, Clock, CheckCircle, XCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useWhatsAppDelivery } from '@/hooks/useWhatsAppDelivery';
 import type { NotificationWithRelations } from '@/hooks/useNotifications';
+import { Icon } from '@/components/ui/icon';
 
 interface NotificationCardProps {
   notification: NotificationWithRelations;
@@ -64,7 +65,7 @@ export function NotificationCard({ notification, onSend, onDelete }: Notificatio
                     : 'text-amber-600 border-amber-300'
                 }`}
               >
-                {isAutomatic ? <Zap className="h-3 w-3" /> : <Smartphone className="h-3 w-3" />}
+                {isAutomatic ? <Icon name="bolt" className="h-3 w-3" /> : <Icon name="smartphone" className="h-3 w-3" />}
                 <span className="hidden lg:inline">
                   {isAutomatic ? 'Auto' : 'Manual'}
                 </span>
@@ -80,7 +81,7 @@ export function NotificationCard({ notification, onSend, onDelete }: Notificatio
                 onClick={() => onDelete(notification.id)}
                 className="h-6 w-6 text-muted-foreground hover:text-destructive flex-shrink-0"
               >
-                <Trash2 className="h-3 w-3" />
+                <Icon name="delete" className="h-3 w-3" />
               </Button>
             )}
           </div>
@@ -103,7 +104,7 @@ export function NotificationCard({ notification, onSend, onDelete }: Notificatio
           
           {notification.status === 'pending' && onSend && (
             <Button size="sm" variant="outline" onClick={() => onSend(notification.id)} className="h-7 text-xs px-2">
-              <Send className="h-3 w-3 mr-1" />
+              <Icon name="send" className="h-3 w-3 mr-1" />
               {notification.type === 'whatsapp' && !isAutomatic ? 'WhatsApp' : 'Enviar'}
             </Button>
           )}

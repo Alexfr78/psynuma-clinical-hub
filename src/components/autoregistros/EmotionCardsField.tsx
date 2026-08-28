@@ -1,6 +1,7 @@
 import { cn } from '@/lib/utils';
 import type { EmotionOption } from '@/hooks/useAutoregistroTemplates';
-import { SmilePlus } from 'lucide-react';
+import { Icon } from '@/components/ui/icon';
+
 
 interface EmotionCardsFieldProps {
   options: EmotionOption[];
@@ -53,7 +54,7 @@ export function EmotionCardsField({ options, value, onChange, allowDeselect }: E
                 />
               ) : null}
               <div className={cn('flex items-center justify-center', opt.imageUrl ? 'hidden' : '')}>
-                <SmilePlus className="h-8 w-8 text-muted-foreground/50" />
+                <Icon name="mood" className="h-8 w-8 text-muted-foreground/50" />
               </div>
             </div>
             <span className={cn(

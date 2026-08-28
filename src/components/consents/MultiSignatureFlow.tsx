@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { SignatureCanvas, SignatureCanvasRef } from './SignatureCanvas';
 import { PublicConsent, usePublicConsent } from '@/hooks/usePublicConsent';
-import { Loader2, CheckCircle2, ArrowRight, Download, AlertCircle } from 'lucide-react';
+
 import { supabase } from '@/integrations/supabase/client';
 import { sanitizeHtml } from '@/lib/sanitize';
 import {
@@ -16,6 +16,7 @@ import {
   isCancellationPolicyAccepted,
   VerificationResponse,
 } from '@/lib/consent-acceptance';
+import { Icon } from '@/components/ui/icon';
 
 interface MultiSignatureFlowProps {
   consent: PublicConsent;
@@ -339,7 +340,7 @@ export function MultiSignatureFlow({ consent, token }: MultiSignatureFlowProps) 
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
         <div className="rounded-full bg-green-500/10 p-4">
-          <CheckCircle2 className="h-12 w-12 text-green-500" />
+          <Icon name="check_circle" className="h-12 w-12 text-green-500" />
         </div>
         <h2 className="mt-4 font-display text-xl font-semibold">
           ¡Documento firmado correctamente!
@@ -354,12 +355,12 @@ export function MultiSignatureFlow({ consent, token }: MultiSignatureFlowProps) 
         >
           {isGeneratingPdf ? (
             <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <Icon name="progress_activity" className="mr-2 h-4 w-4 animate-spin" />
               Generando documento...
             </>
           ) : (
             <>
-              <Download className="mr-2 h-4 w-4" />
+              <Icon name="download" className="mr-2 h-4 w-4" />
               Descargar documento firmado
             </>
           )}
@@ -401,7 +402,7 @@ export function MultiSignatureFlow({ consent, token }: MultiSignatureFlowProps) 
           {/* Warning if not all answered */}
           {verificationCheckboxes.length > 0 && !allVerificationsAnswered && (
             <div className="flex items-center gap-2 rounded-md border border-amber-500/50 bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-400">
-              <AlertCircle className="h-4 w-4 shrink-0" />
+              <Icon name="error" className="h-4 w-4 shrink-0" />
               <span>Debes indicar si autorizas o no cada uno de los campos de autorización antes de continuar.</span>
             </div>
           )}
@@ -411,7 +412,7 @@ export function MultiSignatureFlow({ consent, token }: MultiSignatureFlowProps) 
               role="alert"
               className="flex items-start gap-2 rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive"
             >
-              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              <Icon name="error" className="mt-0.5 h-4 w-4 shrink-0" />
               <span>
                 Para firmar esta política debes aceptarla expresamente. Si no estás de acuerdo,
                 no se registrará como aceptada y puedes contactar con el centro.
@@ -421,7 +422,7 @@ export function MultiSignatureFlow({ consent, token }: MultiSignatureFlowProps) 
 
           {requiresEmergencyContact && !emergencyContactComplete && (
             <div className="flex items-center gap-2 rounded-md border border-amber-500/50 bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-400">
-              <AlertCircle className="h-4 w-4 shrink-0" />
+              <Icon name="error" className="h-4 w-4 shrink-0" />
               <span>Debes indicar el nombre y teléfono del contacto de emergencia antes de continuar.</span>
             </div>
           )}
@@ -433,13 +434,13 @@ export function MultiSignatureFlow({ consent, token }: MultiSignatureFlowProps) 
             >
               {isSubmitting ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Icon name="progress_activity" className="mr-2 h-4 w-4 animate-spin" />
                   Guardando...
                 </>
               ) : (
                 <>
                   Proceder a firmar
-                  <ArrowRight className="ml-2 h-4 w-4" />
+                  <Icon name="arrow_forward" className="ml-2 h-4 w-4" />
                 </>
               )}
             </Button>
@@ -479,7 +480,7 @@ export function MultiSignatureFlow({ consent, token }: MultiSignatureFlowProps) 
           >
             {isSubmitting ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Icon name="progress_activity" className="mr-2 h-4 w-4 animate-spin" />
                 Guardando firma...
               </>
             ) : (
@@ -521,7 +522,7 @@ export function MultiSignatureFlow({ consent, token }: MultiSignatureFlowProps) 
           >
             {isSubmitting ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Icon name="progress_activity" className="mr-2 h-4 w-4 animate-spin" />
                 Guardando firma...
               </>
             ) : (

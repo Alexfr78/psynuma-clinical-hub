@@ -2,7 +2,7 @@ import { useState, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Save, Loader2, Upload, X, Image, FileText, ShieldCheck } from 'lucide-react';
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -12,6 +12,7 @@ import { useCenter } from '@/hooks/useCenter';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { Icon } from '@/components/ui/icon';
 
 const invoiceEditSchema = z.object({
   invoice_footer: z.string().max(2000).optional(),
@@ -114,15 +115,15 @@ export function InvoiceEditSection() {
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid w-full max-w-md grid-cols-3">
             <TabsTrigger value="logo" className="flex items-center gap-2">
-              <Image className="h-4 w-4" />
+              <Icon name="image" className="h-4 w-4" />
               Logo
             </TabsTrigger>
             <TabsTrigger value="footer" className="flex items-center gap-2">
-              <FileText className="h-4 w-4" />
+              <Icon name="description" className="h-4 w-4" />
               Pie de página
             </TabsTrigger>
             <TabsTrigger value="data-protection" className="flex items-center gap-2">
-              <ShieldCheck className="h-4 w-4" />
+              <Icon name="verified_user" className="h-4 w-4" />
               RGPD
             </TabsTrigger>
           </TabsList>
@@ -148,7 +149,7 @@ export function InvoiceEditSection() {
                         className="absolute -right-2 -top-2 h-6 w-6"
                         onClick={handleRemoveLogo}
                       >
-                        <X className="h-4 w-4" />
+                        <Icon name="close" className="h-4 w-4" />
                       </Button>
                     )}
                   </div>
@@ -160,9 +161,9 @@ export function InvoiceEditSection() {
                         disabled={uploading}
                       >
                         {uploading ? (
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          <Icon name="progress_activity" className="mr-2 h-4 w-4 animate-spin" />
                         ) : (
-                          <Upload className="mr-2 h-4 w-4" />
+                          <Icon name="upload" className="mr-2 h-4 w-4" />
                         )}
                         Cambiar logo
                       </Button>
@@ -176,10 +177,10 @@ export function InvoiceEditSection() {
                     onClick={() => fileInputRef.current?.click()}
                   >
                     {uploading ? (
-                      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                      <Icon name="progress_activity" className="h-8 w-8 animate-spin text-muted-foreground" />
                     ) : (
                       <>
-                        <Upload className="h-8 w-8 text-muted-foreground" />
+                        <Icon name="upload" className="h-8 w-8 text-muted-foreground" />
                         <p className="mt-2 text-sm text-muted-foreground">
                           Haz clic para subir tu logo
                         </p>
@@ -222,9 +223,9 @@ export function InvoiceEditSection() {
                 <div className="flex justify-end">
                   <Button type="submit" disabled={updateCenter.isPending}>
                     {updateCenter.isPending ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      <Icon name="progress_activity" className="mr-2 h-4 w-4 animate-spin" />
                     ) : (
-                      <Save className="mr-2 h-4 w-4" />
+                      <Icon name="save" className="mr-2 h-4 w-4" />
                     )}
                     Guardar
                   </Button>
@@ -252,9 +253,9 @@ export function InvoiceEditSection() {
                 <div className="flex justify-end">
                   <Button type="submit" disabled={updateCenter.isPending}>
                     {updateCenter.isPending ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      <Icon name="progress_activity" className="mr-2 h-4 w-4 animate-spin" />
                     ) : (
-                      <Save className="mr-2 h-4 w-4" />
+                      <Icon name="save" className="mr-2 h-4 w-4" />
                     )}
                     Guardar
                   </Button>

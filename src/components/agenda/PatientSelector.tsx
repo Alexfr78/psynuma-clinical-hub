@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Check, ChevronsUpDown, User, ArrowRight } from 'lucide-react';
+import { Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
@@ -16,6 +16,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { usePatients } from '@/hooks/usePatients';
+import { Icon } from '@/components/ui/icon';
 
 interface PatientSelectorProps {
   onSelect: (patientId: string) => void;
@@ -38,10 +39,10 @@ export function PatientSelector({ onSelect, disabled }: PatientSelectorProps) {
           disabled={disabled}
         >
           <div className="flex items-center gap-2 text-muted-foreground">
-            <User className="h-4 w-4" />
+            <Icon name="person" className="h-4 w-4" />
             <span>Buscar contacto...</span>
           </div>
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          <Icon name="unfold_more" className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[300px] p-0 z-[9999] pointer-events-auto" align="start" data-vaul-no-drag>
@@ -68,7 +69,7 @@ export function PatientSelector({ onSelect, disabled }: PatientSelectorProps) {
                   className="flex items-center gap-3 py-2"
                 >
                   <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                    <User className="h-4 w-4 text-primary" />
+                    <Icon name="person" className="h-4 w-4 text-primary" />
                   </div>
                   <div className="flex-1 overflow-hidden">
                     <p className="font-medium truncate">
@@ -80,7 +81,7 @@ export function PatientSelector({ onSelect, disabled }: PatientSelectorProps) {
                       </p>
                     )}
                   </div>
-                  <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                  <Icon name="arrow_forward" className="h-4 w-4 text-muted-foreground" />
                 </CommandItem>
               ))}
             </CommandGroup>

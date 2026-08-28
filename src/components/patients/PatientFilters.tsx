@@ -1,4 +1,4 @@
-import { Search, Filter, X } from 'lucide-react';
+
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import {
@@ -9,6 +9,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useProfessionals, PatientFilters as Filters } from '@/hooks/usePatients';
+import { Icon } from '@/components/ui/icon';
 
 interface PatientFiltersProps {
   filters: Filters;
@@ -27,7 +28,7 @@ export function PatientFilters({ filters, onFiltersChange }: PatientFiltersProps
   return (
     <div className="flex flex-col gap-3 sm:gap-4">
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Icon name="search" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           placeholder="Buscar por nombre o email..."
           value={filters.search || ''}
@@ -42,7 +43,7 @@ export function PatientFilters({ filters, onFiltersChange }: PatientFiltersProps
           onValueChange={(value) => onFiltersChange({ ...filters, status: value })}
         >
           <SelectTrigger className="w-full sm:w-[160px]">
-            <Filter className="mr-2 h-4 w-4 shrink-0 text-muted-foreground" />
+            <Icon name="filter_list" className="mr-2 h-4 w-4 shrink-0 text-muted-foreground" />
             <SelectValue placeholder="Estado" />
           </SelectTrigger>
           <SelectContent>
@@ -72,7 +73,7 @@ export function PatientFilters({ filters, onFiltersChange }: PatientFiltersProps
 
         {hasActiveFilters && (
           <Button variant="ghost" size="sm" onClick={clearFilters} className="w-full sm:w-auto">
-            <X className="mr-1 h-4 w-4" />
+            <Icon name="close" className="mr-1 h-4 w-4" />
             Limpiar filtros
           </Button>
         )}

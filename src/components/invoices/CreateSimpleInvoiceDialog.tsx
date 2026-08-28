@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { FileText, AlertTriangle, Building2, User, Pencil, Trash2, Plus, Check, X, ShieldCheck, Loader2, FlaskConical, CalendarIcon } from 'lucide-react';
+
 import {
   ResponsiveDialog as Dialog,
   ResponsiveDialogContent as DialogContent,
@@ -43,6 +43,7 @@ import { usePatients, useUpdatePatient, usePatient } from '@/hooks/usePatients';
 import { COMPLETE_INVOICE_FIELD_LABELS, getCompleteInvoiceMissingFields } from '@/lib/complete-invoice-requirements';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { Icon } from '@/components/ui/icon';
 
 interface CreateSimpleInvoiceDialogProps {
   open: boolean;
@@ -495,7 +496,7 @@ export function CreateSimpleInvoiceDialog({ open, onOpenChange, preselectedPatie
       <DialogContent className="w-[95vw] max-w-3xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5" />
+            <Icon name="description" className="h-5 w-5" />
             Nueva factura
           </DialogTitle>
           <DialogDescription>
@@ -535,7 +536,7 @@ export function CreateSimpleInvoiceDialog({ open, onOpenChange, preselectedPatie
                   )}
                 >
                   {issueDate ? format(issueDate, "d 'de' MMMM yyyy", { locale: es }) : <span>Seleccionar fecha</span>}
-                  <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                  <Icon name="calendar_month" className="ml-auto h-4 w-4 opacity-50" />
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
@@ -576,7 +577,7 @@ export function CreateSimpleInvoiceDialog({ open, onOpenChange, preselectedPatie
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <h4 className="font-medium flex items-center gap-2">
-                    <User className="h-4 w-4" />
+                    <Icon name="person" className="h-4 w-4" />
                     Receptor
                   </h4>
                   {!editingPatient && invoiceType === 'complete' && missingFields.length > 0 && (
@@ -652,7 +653,7 @@ export function CreateSimpleInvoiceDialog({ open, onOpenChange, preselectedPatie
                       invoiceType === 'complete' && !patientFormData.tax_id && "text-destructive"
                     )}>
                       {invoiceType === 'complete' && !patientFormData.tax_id && (
-                        <AlertTriangle className="h-3 w-3" />
+                        <Icon name="warning" className="h-3 w-3" />
                       )}
                       <span>NIF: {patientFormData.tax_id || 'Sin especificar'}</span>
                     </div>
@@ -662,7 +663,7 @@ export function CreateSimpleInvoiceDialog({ open, onOpenChange, preselectedPatie
                       invoiceType === 'complete' && (!patientFormData.address || !patientFormData.city || !patientFormData.postal_code) && "text-destructive"
                     )}>
                       {invoiceType === 'complete' && (!patientFormData.address || !patientFormData.city || !patientFormData.postal_code) && (
-                        <AlertTriangle className="h-3 w-3" />
+                        <Icon name="warning" className="h-3 w-3" />
                       )}
                       <span>
                         {patientFormData.address 
@@ -678,7 +679,7 @@ export function CreateSimpleInvoiceDialog({ open, onOpenChange, preselectedPatie
               {/* Emisor (Center) */}
               <div className="space-y-3">
                 <h4 className="font-medium flex items-center gap-2">
-                  <Building2 className="h-4 w-4" />
+                  <Icon name="apartment" className="h-4 w-4" />
                   Emisor
                 </h4>
                 <div className="space-y-1.5 text-sm">
@@ -710,14 +711,14 @@ export function CreateSimpleInvoiceDialog({ open, onOpenChange, preselectedPatie
               {center?.verifactu_certificate_base64 ? (
                 isTestMode ? (
                   <Alert className="border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950">
-                    <FlaskConical className="h-4 w-4 text-amber-600" />
+                    <Icon name="science" className="h-4 w-4 text-amber-600" />
                     <AlertDescription className="text-amber-800 dark:text-amber-200">
                       <strong>Modo pruebas:</strong> La factura se firmará pero NO se enviará a AEAT producción.
                     </AlertDescription>
                   </Alert>
                 ) : (
                   <Alert className="border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950">
-                    <ShieldCheck className="h-4 w-4 text-green-600" />
+                    <Icon name="verified_user" className="h-4 w-4 text-green-600" />
                     <AlertDescription className="text-green-800 dark:text-green-200">
                       La factura se emitirá y registrará automáticamente en AEAT con Verifactu.
                     </AlertDescription>
@@ -732,7 +733,7 @@ export function CreateSimpleInvoiceDialog({ open, onOpenChange, preselectedPatie
                 <>
                   {!selectedSeriesId && availableSeries.length > 1 && (
                     <Alert className="border-amber-500/50 bg-amber-500/10">
-                      <AlertTriangle className="h-4 w-4 text-amber-600" />
+                      <Icon name="warning" className="h-4 w-4 text-amber-600" />
                       <AlertDescription>
                         Hay varias series compatibles sin una predeterminada. Selecciona una para esta factura o configura la predeterminada en Ajustes.
                       </AlertDescription>
@@ -758,7 +759,7 @@ export function CreateSimpleInvoiceDialog({ open, onOpenChange, preselectedPatie
                 </>
               ) : (
                 <Alert>
-                  <AlertTriangle className="h-4 w-4" />
+                  <Icon name="warning" className="h-4 w-4" />
                   <AlertDescription>
                     No hay series de facturación disponibles para el tipo seleccionado.
                     Crea una en Configuración → Facturación.
@@ -877,7 +878,7 @@ export function CreateSimpleInvoiceDialog({ open, onOpenChange, preselectedPatie
                             className="h-7 w-7 text-primary"
                             onClick={() => handleUpdateItem(item.id)}
                           >
-                            <Check className="h-4 w-4" />
+                            <Icon name="check" className="h-4 w-4" />
                           </Button>
                           <Button
                             variant="ghost"
@@ -885,7 +886,7 @@ export function CreateSimpleInvoiceDialog({ open, onOpenChange, preselectedPatie
                             className="h-7 w-7"
                             onClick={() => setEditingItemId(null)}
                           >
-                            <X className="h-4 w-4" />
+                            <Icon name="close" className="h-4 w-4" />
                           </Button>
                         </div>
                       </div>
@@ -918,7 +919,7 @@ export function CreateSimpleInvoiceDialog({ open, onOpenChange, preselectedPatie
                           className="h-7 w-7"
                           onClick={() => handleStartEditItem(item)}
                         >
-                          <Pencil className="h-3.5 w-3.5" />
+                          <Icon name="edit" className="h-3.5 w-3.5" />
                         </Button>
                         <Button
                           variant="ghost"
@@ -927,7 +928,7 @@ export function CreateSimpleInvoiceDialog({ open, onOpenChange, preselectedPatie
                           onClick={() => handleDeleteItem(item.id)}
                           disabled={items.length <= 1}
                         >
-                          <Trash2 className="h-3.5 w-3.5" />
+                          <Icon name="delete" className="h-3.5 w-3.5" />
                         </Button>
                       </div>
                     </div>
@@ -1026,7 +1027,7 @@ export function CreateSimpleInvoiceDialog({ open, onOpenChange, preselectedPatie
                           className="h-7 w-7 text-primary"
                           onClick={handleAddItem}
                         >
-                          <Check className="h-4 w-4" />
+                          <Icon name="check" className="h-4 w-4" />
                         </Button>
                         <Button
                           variant="ghost"
@@ -1043,7 +1044,7 @@ export function CreateSimpleInvoiceDialog({ open, onOpenChange, preselectedPatie
                             });
                           }}
                         >
-                          <X className="h-4 w-4" />
+                          <Icon name="close" className="h-4 w-4" />
                         </Button>
                       </div>
                     </div>
@@ -1059,7 +1060,7 @@ export function CreateSimpleInvoiceDialog({ open, onOpenChange, preselectedPatie
                   className="h-auto p-0 text-primary"
                   onClick={() => setAddingItem(true)}
                 >
-                  <Plus className="h-4 w-4 mr-1" />
+                  <Icon name="add" className="h-4 w-4 mr-1" />
                   Añadir ítem
                 </Button>
               )}
@@ -1102,7 +1103,7 @@ export function CreateSimpleInvoiceDialog({ open, onOpenChange, preselectedPatie
             {/* Missing Data Warning */}
             {invoiceType === 'complete' && missingFields.length > 0 && !editingPatient && (
               <Alert variant="destructive">
-                <AlertTriangle className="h-4 w-4" />
+                <Icon name="warning" className="h-4 w-4" />
                 <AlertDescription>
                   Para crear una factura completa se requieren los datos fiscales del paciente.
                   <Button 
@@ -1129,18 +1130,18 @@ export function CreateSimpleInvoiceDialog({ open, onOpenChange, preselectedPatie
           >
             {createInvoice.isPending ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Icon name="progress_activity" className="mr-2 h-4 w-4 animate-spin" />
                 Creando...
               </>
             ) : isSigningVerifactu ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Icon name="progress_activity" className="mr-2 h-4 w-4 animate-spin" />
                 Firmando con Verifactu...
               </>
             ) : (
               <>
                 {center?.verifactu_certificate_base64 && (
-                  isTestMode ? <FlaskConical className="mr-2 h-4 w-4" /> : <ShieldCheck className="mr-2 h-4 w-4" />
+                  isTestMode ? <Icon name="science" className="mr-2 h-4 w-4" /> : <Icon name="verified_user" className="mr-2 h-4 w-4" />
                 )}
                 Emitir factura
               </>

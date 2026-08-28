@@ -1,6 +1,6 @@
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Calendar, CalendarPlus, Clock, User, MapPin, Loader2, CheckCircle, XCircle, AlertCircle, RefreshCw, CreditCard, ExternalLink, Video } from 'lucide-react';
+
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -18,6 +18,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { Icon } from '@/components/ui/icon';
+import { CheckCircle, Calendar, AlertCircle, CreditCard, XCircle } from 'lucide-react';
 
 interface PortalAppointmentsProps {
   sessions: PortalSession[];
@@ -118,7 +120,7 @@ export function PortalAppointments({
   if (loading) {
     return (
       <div className="flex items-center justify-center py-8">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <Icon name="progress_activity" className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
     );
   }
@@ -126,7 +128,7 @@ export function PortalAppointments({
   if (sessions.length === 0) {
     return (
       <div className="text-center py-8 text-muted-foreground">
-        <Calendar className="h-12 w-12 mx-auto mb-3 opacity-50" />
+        <Icon name="calendar_month" className="h-12 w-12 mx-auto mb-3 opacity-50" />
         <p>{emptyMessage}</p>
       </div>
     );
@@ -157,7 +159,7 @@ export function PortalAppointments({
             <div className="flex items-start justify-between gap-2">
               <div className="flex min-w-0 items-center gap-3">
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                  <Calendar className="h-5 w-5" aria-hidden="true" />
+                  <Icon name="calendar_month" className="h-5 w-5" aria-hidden="true" />
                 </div>
                 <span className="font-semibold capitalize">
                   {format(new Date(session.session_date), "EEEE, d 'de' MMMM", { locale: es })}
@@ -172,14 +174,14 @@ export function PortalAppointments({
             {/* Time and Type */}
             <div className="grid gap-3 text-sm text-muted-foreground sm:grid-cols-2">
               <div className="flex items-center gap-2">
-                <Clock className="h-4 w-4 shrink-0" aria-hidden="true" />
+                <Icon name="schedule" className="h-4 w-4 shrink-0" aria-hidden="true" />
                 <span>
                   {session.start_time.substring(0, 5)} - {session.end_time.substring(0, 5)}
                 </span>
               </div>
               {session.professional && (
                 <div className="flex items-center gap-2">
-                  <User className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  <Icon name="person" className="h-4 w-4 shrink-0" aria-hidden="true" />
                   <span>
                     {session.professional.first_name} {session.professional.last_name}
                   </span>
@@ -193,12 +195,12 @@ export function PortalAppointments({
               {session.location && (
                 mapsUrl ? (
                   <a href={mapsUrl} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-2 rounded-md px-2 text-muted-foreground underline-offset-4 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                    <MapPin className="h-4 w-4 shrink-0" aria-hidden="true" />
+                    <Icon name="location_on" className="h-4 w-4 shrink-0" aria-hidden="true" />
                     <span>{session.location.name}{address ? ` - ${address}` : ''}</span>
-                    <ExternalLink className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                    <Icon name="open_in_new" className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                   </a>
                 ) : (
-                  <div className="flex items-center gap-2 text-muted-foreground"><MapPin className="h-4 w-4" aria-hidden="true" /><span>{session.location.name}</span></div>
+                  <div className="flex items-center gap-2 text-muted-foreground"><Icon name="location_on" className="h-4 w-4" aria-hidden="true" /><span>{session.location.name}</span></div>
                 )
               )}
             </div>
@@ -216,13 +218,13 @@ export function PortalAppointments({
                 {canJoinVideo && (
                   <Button asChild size="sm" className="min-h-11">
                     <a href={session.video_call_link || undefined} target="_blank" rel="noopener noreferrer">
-                      <Video className="mr-2 h-4 w-4" aria-hidden="true" />Entrar en videollamada
+                      <Icon name="videocam" className="mr-2 h-4 w-4" aria-hidden="true" />Entrar en videollamada
                     </a>
                   </Button>
                 )}
                 {!isPast && (
                   <Button variant="outline" size="sm" className="min-h-11" onClick={() => addToCalendar(session)}>
-                    <CalendarPlus className="mr-2 h-4 w-4" aria-hidden="true" />Añadir al calendario
+                    <Icon name="event_available" className="mr-2 h-4 w-4" aria-hidden="true" />Añadir al calendario
                   </Button>
                 )}
                 {canSaveCard && (
@@ -232,7 +234,7 @@ export function PortalAppointments({
                     className="min-h-11"
                     onClick={() => onSaveCard?.(session.id)}
                   >
-                    <CreditCard className="h-4 w-4 mr-1" />
+                    <Icon name="credit_card" className="h-4 w-4 mr-1" />
                     Guardar tarjeta
                   </Button>
                 )}
@@ -243,7 +245,7 @@ export function PortalAppointments({
                     className="min-h-11"
                     onClick={() => onConfirm(session.id)}
                   >
-                    <CheckCircle className="h-4 w-4 mr-1" />
+                    <Icon name="check_circle" className="h-4 w-4 mr-1" />
                     Confirmar
                   </Button>
                 )}
@@ -254,7 +256,7 @@ export function PortalAppointments({
                     className="min-h-11"
                     onClick={() => onReschedule(session)}
                   >
-                    <RefreshCw className="h-4 w-4 mr-1" />
+                    <Icon name="refresh" className="h-4 w-4 mr-1" />
                     Reprogramar
                   </Button>
                 )}
@@ -265,7 +267,7 @@ export function PortalAppointments({
                   >
                     <AlertDialogTrigger asChild>
                       <Button variant="outline" size="sm" className="min-h-11 text-destructive hover:bg-destructive hover:text-destructive-foreground">
-                        <XCircle className="h-4 w-4 mr-1" />
+                        <Icon name="cancel" className="h-4 w-4 mr-1" />
                         Cancelar
                       </Button>
                     </AlertDialogTrigger>
@@ -277,7 +279,7 @@ export function PortalAppointments({
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <Alert className="border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-900 dark:bg-amber-950/20 dark:text-amber-100">
-                        <AlertCircle className="h-4 w-4 text-amber-600" />
+                        <Icon name="error" className="h-4 w-4 text-amber-600" />
                         <AlertDescription>
                           {cancellationPreviewLoading ? (
                             'Comprobando la política de cancelación...'

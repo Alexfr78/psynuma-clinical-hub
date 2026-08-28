@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { AlertTriangle, Loader2, Trash2, ShieldAlert } from 'lucide-react';
+
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -16,6 +16,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
+import { Icon } from '@/components/ui/icon';
 
 interface DeletePatientGDPRDialogProps {
   patientId: string;
@@ -68,14 +69,14 @@ export function DeletePatientGDPRDialog({ patientId, patientName }: DeletePatien
     <AlertDialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setConfirmText(''); }}>
       <AlertDialogTrigger asChild>
         <Button variant="destructive" size="sm" className="gap-2">
-          <Trash2 className="h-4 w-4" />
+          <Icon name="delete" className="h-4 w-4" />
           Eliminar contacto (RGPD)
         </Button>
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle className="flex items-center gap-2 text-destructive">
-            <ShieldAlert className="h-5 w-5" />
+            <Icon name="gpp_maybe" className="h-5 w-5" />
             Eliminar contacto — Derecho de supresión (RGPD)
           </AlertDialogTitle>
           <AlertDialogDescription asChild>
@@ -93,7 +94,7 @@ export function DeletePatientGDPRDialog({ patientId, patientName }: DeletePatien
                 <li>Autoregistros</li>
               </ul>
               <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 flex gap-2">
-                <AlertTriangle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
+                <Icon name="warning" className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
                 <p className="text-sm text-destructive">
                   Esta acción es <strong>irreversible</strong>. Todos los datos serán eliminados
                   permanentemente y no se podrán recuperar.
@@ -120,7 +121,7 @@ export function DeletePatientGDPRDialog({ patientId, patientName }: DeletePatien
             onClick={() => deleteMutation.mutate()}
             disabled={!canConfirm || deleteMutation.isPending}
           >
-            {deleteMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {deleteMutation.isPending && <Icon name="progress_activity" className="mr-2 h-4 w-4 animate-spin" />}
             Eliminar permanentemente
           </Button>
         </AlertDialogFooter>

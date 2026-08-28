@@ -5,11 +5,12 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { CreditCard, Smartphone, Package, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
+
 import { usePublicDebt, usePublicBonoTemplates } from '@/hooks/usePublicDebt';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { Icon } from '@/components/ui/icon';
 
 export default function PayDebt() {
   const { token } = useParams<{ token: string }>();
@@ -107,7 +108,7 @@ export default function PayDebt() {
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <Card className="w-full max-w-md">
           <CardContent className="py-8 text-center">
-            <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
+            <Icon name="error" className="h-12 w-12 text-destructive mx-auto mb-4" />
             <h2 className="text-xl font-semibold mb-2">Enlace no válido</h2>
             <p className="text-muted-foreground">
               Este enlace de pago no existe o ha expirado.
@@ -123,7 +124,7 @@ export default function PayDebt() {
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <Card className="w-full max-w-md">
           <CardContent className="py-8 text-center">
-            <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-4" />
+            <Icon name="check_circle" className="h-12 w-12 text-green-500 mx-auto mb-4" />
             <h2 className="text-xl font-semibold mb-2">Pago completado</h2>
             <p className="text-muted-foreground">
               Esta deuda ya ha sido saldada. ¡Gracias!
@@ -183,9 +184,9 @@ export default function PayDebt() {
                 size="lg"
               >
                 {processingPayment === 'session' ? (
-                  <Loader2 className="h-5 w-5 mr-3 animate-spin" />
+                  <Icon name="progress_activity" className="h-5 w-5 mr-3 animate-spin" />
                 ) : (
-                  <CreditCard className="h-5 w-5 mr-3" />
+                  <Icon name="credit_card" className="h-5 w-5 mr-3" />
                 )}
                 <div className="text-left">
                   <div className="font-semibold">Pagar {pendingAmount.toFixed(2)}€ con tarjeta</div>
@@ -202,7 +203,7 @@ export default function PayDebt() {
                 className="w-full justify-start h-auto py-4"
                 size="lg"
               >
-                <Smartphone className="h-5 w-5 mr-3" />
+                <Icon name="smartphone" className="h-5 w-5 mr-3" />
                 <div className="text-left">
                   <div className="font-semibold">Pagar con Bizum</div>
                   <div className="text-sm opacity-70">Transferencia instantánea</div>
@@ -212,7 +213,7 @@ export default function PayDebt() {
 
             {showBizum && hasBizum && (
               <Alert>
-                <Smartphone className="h-4 w-4" />
+                <Icon name="smartphone" className="h-4 w-4" />
                 <AlertDescription>
                   <p className="font-semibold mb-1">Envía {pendingAmount.toFixed(2)}€ por Bizum a:</p>
                   <p className="text-2xl font-mono font-bold">{debt.center.bizum_phone}</p>
@@ -230,7 +231,7 @@ export default function PayDebt() {
           <Card>
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
-                <Package className="h-5 w-5" />
+                <Icon name="package_2" className="h-5 w-5" />
                 Bonos de sesiones
               </CardTitle>
               <CardDescription>
@@ -254,9 +255,9 @@ export default function PayDebt() {
                   >
                     <div className="flex items-center">
                       {isProcessing ? (
-                        <Loader2 className="h-5 w-5 mr-3 animate-spin" />
+                        <Icon name="progress_activity" className="h-5 w-5 mr-3 animate-spin" />
                       ) : (
-                        <Package className="h-5 w-5 mr-3" />
+                        <Icon name="package_2" className="h-5 w-5 mr-3" />
                       )}
                       <div className="text-left">
                         <div className="font-semibold">{template.name}</div>

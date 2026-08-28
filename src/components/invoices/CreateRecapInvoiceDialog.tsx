@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { CalendarIcon, FileText } from 'lucide-react';
+
 import {
   ResponsiveDialog as Dialog,
   ResponsiveDialogContent as DialogContent,
@@ -36,6 +36,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import { usePatients } from '@/hooks/usePatients';
 import { useCreateInvoice, useUnbilledSessions } from '@/hooks/useInvoices';
+import { Icon } from '@/components/ui/icon';
 
 const formSchema = z.object({
   patient_id: z.string().min(1, 'Selecciona un contacto'),
@@ -135,7 +136,7 @@ export function CreateRecapInvoiceDialog({ open, onOpenChange }: CreateRecapInvo
       <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5" />
+            <Icon name="description" className="h-5 w-5" />
             Nueva factura recapitulativa
           </DialogTitle>
           <DialogDescription>
@@ -234,7 +235,7 @@ export function CreateRecapInvoiceDialog({ open, onOpenChange }: CreateRecapInvo
                             )}
                           >
                             {field.value ? format(field.value, "d MMM yyyy") : <span>Seleccionar</span>}
-                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                            <Icon name="calendar_month" className="ml-auto h-4 w-4 opacity-50" />
                           </Button>
                         </FormControl>
                       </PopoverTrigger>

@@ -1,7 +1,7 @@
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
-import { Clock, CheckCircle2, XCircle, AlertCircle, MoreVertical, Send, Copy, Eye, Ban, Trash2, Download, Loader2, CalendarClock } from 'lucide-react';
+
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -36,6 +36,7 @@ import { Label } from '@/components/ui/label';
 import { Assessment, useAssessments } from '@/hooks/useAssessments';
 import { toast } from 'sonner';
 import { useState } from 'react';
+import { Icon } from '@/components/ui/icon';
 
 interface AssessmentCardProps {
   assessment: Assessment;
@@ -97,7 +98,7 @@ export function AssessmentCard({ assessment, onView, onSend, onRevoke, onDelete 
     if (isExpired || assessment.status === 'expired') {
       return (
         <Badge variant="outline" className="text-muted-foreground">
-          <AlertCircle className="w-3 h-3 mr-1" />
+          <Icon name="error" className="w-3 h-3 mr-1" />
           Caducada
         </Badge>
       );
@@ -107,21 +108,21 @@ export function AssessmentCard({ assessment, onView, onSend, onRevoke, onDelete 
       case 'pending':
         return (
           <Badge variant="outline" className="text-yellow-600 border-yellow-600">
-            <Clock className="w-3 h-3 mr-1" />
+            <Icon name="schedule" className="w-3 h-3 mr-1" />
             Pendiente
           </Badge>
         );
       case 'completed':
         return (
           <Badge variant="outline" className="text-green-600 border-green-600">
-            <CheckCircle2 className="w-3 h-3 mr-1" />
+            <Icon name="check_circle" className="w-3 h-3 mr-1" />
             Completada
           </Badge>
         );
       case 'revoked':
         return (
           <Badge variant="outline" className="text-red-600 border-red-600">
-            <XCircle className="w-3 h-3 mr-1" />
+            <Icon name="cancel" className="w-3 h-3 mr-1" />
             Revocada
           </Badge>
         );
@@ -198,21 +199,21 @@ export function AssessmentCard({ assessment, onView, onSend, onRevoke, onDelete 
             <DropdownMenu modal={false}>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="shrink-0">
-                  <MoreVertical className="h-4 w-4" />
+                  <Icon name="more_vert" className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" usePortal={false}>
                 {assessment.status === 'completed' && (
                   <>
                     <DropdownMenuItem onClick={() => navigate(`/evaluaciones/${assessment.id}/resultados`)}>
-                      <Eye className="h-4 w-4 mr-2" />
+                      <Icon name="visibility" className="h-4 w-4 mr-2" />
                       Ver resultados
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={handleDownloadPDF} disabled={isDownloading}>
                       {isDownloading ? (
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        <Icon name="progress_activity" className="h-4 w-4 mr-2 animate-spin" />
                       ) : (
-                        <Download className="h-4 w-4 mr-2" />
+                        <Icon name="download" className="h-4 w-4 mr-2" />
                       )}
                       Descargar PDF
                     </DropdownMenuItem>
@@ -221,28 +222,28 @@ export function AssessmentCard({ assessment, onView, onSend, onRevoke, onDelete 
                 {isPending && (
                   <>
                     <DropdownMenuItem onClick={() => onSend(assessment)}>
-                      <Send className="h-4 w-4 mr-2" />
+                      <Icon name="send" className="h-4 w-4 mr-2" />
                       Enviar enlace
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={handleCopyLink}>
-                      <Copy className="h-4 w-4 mr-2" />
+                      <Icon name="content_copy" className="h-4 w-4 mr-2" />
                       Copiar enlace
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => onRevoke(assessment)} className="text-destructive">
-                      <Ban className="h-4 w-4 mr-2" />
+                      <Icon name="block" className="h-4 w-4 mr-2" />
                       Revocar
                     </DropdownMenuItem>
                   </>
                 )}
                 {canEditExpiration && (
                   <DropdownMenuItem onClick={openExpirationDialog}>
-                    <CalendarClock className="h-4 w-4 mr-2" />
+                    <Icon name="event" className="h-4 w-4 mr-2" />
                     Cambiar caducidad
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => setShowDeleteDialog(true)} className="text-destructive">
-                  <Trash2 className="h-4 w-4 mr-2" />
+                  <Icon name="delete" className="h-4 w-4 mr-2" />
                   Eliminar
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -292,7 +293,7 @@ export function AssessmentCard({ assessment, onView, onSend, onRevoke, onDelete 
               Cancelar
             </Button>
             <Button onClick={handleSaveExpiration} disabled={updateExpiration.isPending}>
-              {updateExpiration.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {updateExpiration.isPending && <Icon name="progress_activity" className="h-4 w-4 mr-2 animate-spin" />}
               Guardar
             </Button>
           </DialogFooter>

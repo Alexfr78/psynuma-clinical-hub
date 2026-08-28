@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+
+<html class="light" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Iniciar Sesión - Psycma</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Plus+Jakarta+Sans:wght@600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">tailwind.config = {darkMode: "class", theme: {extend: {colors: {"inverse-on-surface": "#f1f1ef", "on-primary-fixed": "#001d36", "on-error-container": "#93000a", "secondary-fixed": "#62fae3", "tertiary-fixed-dim": "#ffb782", "primary-fixed-dim": "#9fcaff", warning: "#F59E0B", "on-secondary-fixed": "#00201c", "surface-tint": "#1361a0", "surface-container-high": "#e9e8e6", "secondary-fixed-dim": "#3cddc7", "on-error": "#ffffff", "on-primary-fixed-variant": "#00497d", "on-tertiary-fixed": "#301400", "on-primary-container": "#cbe1ff", "on-secondary-container": "#007165", "on-tertiary": "#ffffff", "dark-surface": "#1E1D2B", "inverse-surface": "#2f3130", "surface-container": "#efeeec", "on-background": "#1a1c1b", "tertiary-fixed": "#ffdcc5", primary: "#004d84", "surface-container-low": "#f4f3f1", "surface-dim": "#dadad8", "on-secondary": "#ffffff", secondary: "#006b5f", "on-secondary-fixed-variant": "#005047", "on-tertiary-fixed-variant": "#703800", "dark-text": "#ECEBF5", "tertiary-container": "#994e00", "on-tertiary-container": "#ffd7bc", "primary-container": "#1b65a5", "primary-fixed": "#d1e4ff", success: "#10B981", "dark-bg": "#141320", error: "#ba1a1a", "on-primary": "#ffffff", "text-main": "#1B1A24", outline: "#787585", "inverse-primary": "#9fcaff", tertiary: "#763b00", "on-surface-variant": "#474554", "secondary-container": "#62fae3", "surface-variant": "#e3e2e0", background: "#faf9f7", "on-surface": "#1a1c1b", "outline-variant": "#c8c4d6", "error-container": "#ffdad6", "surface-bright": "#faf9f7", surface: "#faf9f7", "surface-container-highest": "#e3e2e0", "surface-white": "#FFFFFF", "surface-container-lowest": "#ffffff"}, borderRadius: {DEFAULT: "0.25rem", lg: "0.5rem", xl: "0.75rem", full: "9999px"}, spacing: {xs: "8px", md: "24px", sm: "16px", base: "4px", "grid-margin": "24px", xl: "48px", "grid-gutter": "16px", lg: "32px"}, fontFamily: {"display-lg": ["Plus Jakarta Sans"], "headline-lg": ["Plus Jakarta Sans"], "data-tabular": ["Inter"], "label-md": ["Inter"], "body-sm": ["Inter"], "headline-lg-mobile": ["Plus Jakarta Sans"], "headline-md": ["Plus Jakarta Sans"], "body-lg": ["Inter"], "body-md": ["Inter"], headline: ["Plus Jakarta Sans"], display: ["Plus Jakarta Sans"], body: ["Inter"], label: ["Inter"]}, fontSize: {"display-lg": ["48px", {lineHeight: "56px", letterSpacing: "-0.02em", fontWeight: "700"}], "headline-lg": ["32px", {lineHeight: "40px", letterSpacing: "-0.01em", fontWeight: "600"}], "data-tabular": ["14px", {lineHeight: "20px", fontWeight: "500"}], "label-md": ["14px", {lineHeight: "16px", letterSpacing: "0.01em", fontWeight: "600"}], "body-sm": ["14px", {lineHeight: "20px", fontWeight: "400"}], "headline-lg-mobile": ["28px", {lineHeight: "36px", fontWeight: "600"}], "headline-md": ["24px", {lineHeight: "32px", fontWeight: "600"}], "body-lg": ["18px", {lineHeight: "28px", fontWeight: "400"}], "body-md": ["16px", {lineHeight: "24px", fontWeight: "400"}]}}}};</script>
+<style>
+        .mesh-gradient {
+            background-color: #5A4FCF;
+            background-image: 
+                radial-gradient(at 0% 0%, hsla(247,56%,56%,1) 0px, transparent 50%),
+                radial-gradient(at 100% 0%, hsla(280,50%,60%,1) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, hsla(174,100%,29%,0.8) 0px, transparent 50%),
+                radial-gradient(at 0% 100%, hsla(247,56%,76%,1) 0px, transparent 50%);
+        }
+        .glass-blob {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        /* Custom ring for input focus to match brand tint */
+        .input-ring:focus {
+            --tw-ring-color: rgba(90, 79, 207, 0.2);
+            --tw-ring-offset-shadow: var(--tw-ring-inset) 0 0 0 var(--tw-ring-offset-width) var(--tw-ring-offset-color);
+            --tw-ring-shadow: var(--tw-ring-inset) 0 0 0 calc(4px + var(--tw-ring-offset-width)) var(--tw-ring-color);
+            box-shadow: var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow, 0 0 #0000);
+            border-color: #5A4FCF;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface h-screen w-screen overflow-hidden flex selection:bg-primary-container selection:text-on-primary-container">
+<!-- Left Side: Form Container -->
+<div class="w-full lg:w-1/2 h-full flex flex-col justify-center px-6 sm:px-12 lg:px-24 bg-surface-bright relative z-10">
+<!-- Top Logo -->
+<div class="absolute top-8 left-6 sm:left-12 lg:left-24">
+<span class="font-headline-md text-headline-md font-bold text-primary">Psycma</span>
+</div>
+<div class="w-full max-w-[420px] mx-auto">
+<!-- Headers -->
+<div class="mb-lg">
+<h1 class="font-headline-lg text-headline-lg text-text-main mb-2">Bienvenido de nuevo</h1>
+<p class="font-body-md text-body-md text-on-surface-variant">Gestiona tu clínica con serenidad y eficiencia.</p>
+</div>
+<!-- Form -->
+<form action="#" class="space-y-sm" method="POST">
+<!-- Email Input -->
+<div>
+<label class="block font-label-md text-label-md text-text-main mb-2" for="email">Correo electrónico</label>
+<div class="relative">
+<input autocomplete="email" class="block w-full rounded-xl border border-[#E5E4E2] bg-surface-white px-4 py-3 text-on-surface placeholder:text-outline-variant focus:outline-none input-ring transition-all duration-200" id="email" name="email" placeholder="ejemplo@clinica.com" required="" type="email"/>
+</div>
+</div>
+<!-- Password Input -->
+<div>
+<div class="flex items-center justify-between mb-2">
+<label class="block font-label-md text-label-md text-text-main" for="password">Contraseña</label>
+<a class="font-body-sm text-body-sm text-primary hover:text-primary-fixed-dim transition-colors" href="#">¿Olvidaste tu contraseña?</a>
+</div>
+<div class="relative">
+<input autocomplete="current-password" class="block w-full rounded-xl border border-[#E5E4E2] bg-surface-white px-4 py-3 text-on-surface placeholder:text-outline-variant focus:outline-none input-ring transition-all duration-200" id="password" name="password" placeholder="••••••••" required="" type="password"/>
+</div>
+</div>
+<!-- 2FA Info Note -->
+<div class="flex items-start gap-2 py-2">
+<span class="material-symbols-outlined text-outline text-[18px] mt-0.5" style="font-variation-settings: 'FILL' 0;">shield_lock</span>
+<p class="font-body-sm text-body-sm text-on-surface-variant text-sm">Tu cuenta cuenta con verificación en dos pasos (2FA) para mayor seguridad.</p>
+</div>
+<!-- Submit Button -->
+<div class="pt-2">
+<button class="w-full flex justify-center py-3 px-4 rounded-xl text-on-primary bg-primary-container hover:bg-surface-tint focus:outline-none focus:ring-4 focus:ring-primary-container/30 font-label-md text-label-md transition-all shadow-[0_4px_12px_rgba(90,79,207,0.15)] hover:shadow-[0_6px_16px_rgba(90,79,207,0.25)] active:scale-[0.98]" type="submit">
+                        Iniciar sesión
+                    </button>
+</div>
+</form>
+<!-- Footer -->
+<div class="mt-8 text-center">
+<p class="font-body-sm text-body-sm text-on-surface-variant">
+                    ¿No tienes cuenta? 
+                    <a class="font-label-md text-label-md text-primary hover:text-primary-fixed-dim transition-colors" href="#">Crea tu centro</a>
+</p>
+</div>
+</div>
+</div>
+<!-- Right Side: Visual Panel (Hidden on Mobile) -->
+<div class="hidden lg:flex w-1/2 h-full mesh-gradient relative overflow-hidden items-center justify-center p-12">
+<!-- Decorative Organic Shape / Blob -->
+<div class="absolute top-1/4 left-1/4 w-96 h-96 bg-primary-fixed rounded-full mix-blend-multiply filter blur-3xl opacity-50 animate-pulse" style="animation-duration: 8s;"></div>
+<div class="absolute bottom-1/4 right-1/4 w-80 h-80 bg-secondary-fixed rounded-full mix-blend-multiply filter blur-3xl opacity-40 animate-pulse" style="animation-duration: 10s; animation-delay: 2s;"></div>
+<!-- Glassmorphism Container for Text -->
+<div class="relative z-10 glass-blob rounded-[32px] p-12 max-w-lg text-center shadow-2xl">
+<span class="material-symbols-outlined text-on-primary mb-6 text-5xl" style="font-variation-settings: 'FILL' 1;">psychiatry</span>
+<h2 class="font-display-lg text-display-lg text-on-primary mb-4 leading-tight">Todo tu centro,<br/>en un solo lugar.</h2>
+<p class="font-body-lg text-body-lg text-on-primary/80">Simplifica la gestión, enfócate en el cuidado.</p>
+</div>
+</div>
+</body></html>

@@ -1,4 +1,4 @@
-import { AlertTriangle, Brain, Heart, Activity, TrendingUp, TrendingDown, FileText, Scale } from 'lucide-react';
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -12,6 +12,7 @@ import {
   type Gender,
 } from '@/data/stai-baremos';
 import { getSTAITemplateData } from '@/data/stai-template';
+import { Icon } from '@/components/ui/icon';
 
 interface STAIResultsViewProps {
   aeScore: number;
@@ -128,7 +129,7 @@ export function STAIResultsView({
       <Card className="border-2 border-primary/20 bg-primary/5">
         <CardHeader className="pb-2">
           <CardTitle className="text-lg flex items-center gap-2">
-            <Scale className="h-5 w-5" />
+            <Icon name="balance" className="h-5 w-5" />
             Información Metodológica (Uso Pericial)
           </CardTitle>
         </CardHeader>
@@ -152,7 +153,7 @@ export function STAIResultsView({
             </div>
           </div>
           <Alert className="mt-2">
-            <FileText className="h-4 w-4" />
+            <Icon name="description" className="h-4 w-4" />
             <AlertDescription className="text-xs">
               Puntuaciones transformadas según Tabla 10 del manual oficial (pág. 38). 
               Los resultados no constituyen diagnóstico y deben integrarse con entrevista clínica.
@@ -164,7 +165,7 @@ export function STAIResultsView({
       {/* Alert for high anxiety */}
       {isHighAnxiety && (
         <Alert variant="destructive" className="border-2">
-          <AlertTriangle className="h-5 w-5" />
+          <Icon name="warning" className="h-5 w-5" />
           <AlertTitle className="text-lg font-bold">Niveles Clínicamente Significativos</AlertTitle>
           <AlertDescription className="text-sm mt-2">
             <p className="font-medium mb-2">
@@ -185,7 +186,7 @@ export function STAIResultsView({
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
               <CardTitle className="text-lg flex items-center gap-2">
-                <Heart className="h-5 w-5" />
+                <Icon name="favorite" className="h-5 w-5" />
                 Ansiedad Estado (A/E)
               </CardTitle>
               <Badge className={`${aeColors.badge} text-white text-lg px-4 py-1`}>
@@ -231,7 +232,7 @@ export function STAIResultsView({
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
               <CardTitle className="text-lg flex items-center gap-2">
-                <Brain className="h-5 w-5" />
+                <Icon name="psychology" className="h-5 w-5" />
                 Ansiedad Rasgo (A/R)
               </CardTitle>
               <Badge className={`${arColors.badge} text-white text-lg px-4 py-1`}>
@@ -277,7 +278,7 @@ export function STAIResultsView({
       <Card>
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2">
-            <Activity className="h-5 w-5" />
+            <Icon name="monitor_heart" className="h-5 w-5" />
             Comparación Estado vs Rasgo
           </CardTitle>
           <CardDescription>
@@ -291,9 +292,9 @@ export function STAIResultsView({
                 <span className="font-medium">Estado (A/E)</span>
                 <div className="flex items-center gap-2">
                   {aeScore > arScore ? (
-                    <TrendingUp className="h-4 w-4 text-orange-500" />
+                    <Icon name="trending_up" className="h-4 w-4 text-orange-500" />
                   ) : aeScore < arScore ? (
-                    <TrendingDown className="h-4 w-4 text-blue-500" />
+                    <Icon name="trending_down" className="h-4 w-4 text-blue-500" />
                   ) : null}
                   <Badge variant="outline">{aeScore} (P{aeData.percentile})</Badge>
                 </div>
@@ -306,9 +307,9 @@ export function STAIResultsView({
                 <span className="font-medium">Rasgo (A/R)</span>
                 <div className="flex items-center gap-2">
                   {arScore > aeScore ? (
-                    <TrendingUp className="h-4 w-4 text-orange-500" />
+                    <Icon name="trending_up" className="h-4 w-4 text-orange-500" />
                   ) : arScore < aeScore ? (
-                    <TrendingDown className="h-4 w-4 text-blue-500" />
+                    <Icon name="trending_down" className="h-4 w-4 text-blue-500" />
                   ) : null}
                   <Badge variant="outline">{arScore} (P{arData.percentile})</Badge>
                 </div>
@@ -383,7 +384,7 @@ export function STAIResultsView({
           </div>
           
           <Alert className="border-amber-500/50 bg-amber-50 dark:bg-amber-900/20">
-            <AlertTriangle className="h-4 w-4 text-amber-600" />
+            <Icon name="warning" className="h-4 w-4 text-amber-600" />
             <AlertDescription className="text-xs text-amber-800 dark:text-amber-200">
               <strong>ADVERTENCIA PERICIAL:</strong> Esta interpretación es orientativa y no sustituye 
               el juicio clínico profesional. Los resultados del STAI reflejan el autoinforme del 

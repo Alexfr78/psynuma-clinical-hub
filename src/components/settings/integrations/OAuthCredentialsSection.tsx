@@ -3,12 +3,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Key, Eye, EyeOff, Save, Check, Loader2 } from "lucide-react";
+
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useCenter } from "@/hooks/useCenter";
+import { Icon } from '@/components/ui/icon';
 
 interface CredentialFieldProps {
   label: string;
@@ -41,7 +42,7 @@ function CredentialField({ label, placeholder, value, onChange, isSecret = false
               className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
               onClick={() => setShowValue(!showValue)}
             >
-              {showValue ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              {showValue ? <Icon name="visibility_off" className="h-4 w-4" /> : <Icon name="visibility" className="h-4 w-4" />}
             </Button>
           )}
         </div>
@@ -144,7 +145,7 @@ export function OAuthCredentialsSection() {
       <CardHeader>
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-lg bg-amber-500/10">
-            <Key className="h-5 w-5 text-amber-600" />
+            <Icon name="key" className="h-5 w-5 text-amber-600" />
           </div>
           <div>
             <CardTitle className="text-lg">Credenciales OAuth</CardTitle>
@@ -172,7 +173,7 @@ export function OAuthCredentialsSection() {
                 <span className="font-medium">Google (Calendar, Meet)</span>
                 {savedProviders.includes('google') && (
                   <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50 text-xs">
-                    <Check className="h-3 w-3 mr-1" />
+                    <Icon name="check" className="h-3 w-3 mr-1" />
                     Configurado
                   </Badge>
                 )}
@@ -199,7 +200,7 @@ export function OAuthCredentialsSection() {
                   disabled={!google.clientId || !google.clientSecret || saving === 'google'}
                   className="gap-2"
                 >
-                  {saving === 'google' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  {saving === 'google' ? <Icon name="progress_activity" className="h-4 w-4 animate-spin" /> : <Icon name="save" className="h-4 w-4" />}
                   Guardar credenciales Google
                 </Button>
               </div>
@@ -229,7 +230,7 @@ export function OAuthCredentialsSection() {
                 <span className="font-medium">Google Drive (documentos)</span>
                 {savedProviders.includes('google_drive') && (
                   <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50 text-xs">
-                    <Check className="h-3 w-3 mr-1" />
+                    <Icon name="check" className="h-3 w-3 mr-1" />
                     Configurado
                   </Badge>
                 )}
@@ -259,7 +260,7 @@ export function OAuthCredentialsSection() {
                   disabled={!googleDrive.clientId || !googleDrive.clientSecret || saving === 'google_drive'}
                   className="gap-2"
                 >
-                  {saving === 'google_drive' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  {saving === 'google_drive' ? <Icon name="progress_activity" className="h-4 w-4 animate-spin" /> : <Icon name="save" className="h-4 w-4" />}
                   Guardar credenciales Google Drive
                 </Button>
               </div>
@@ -290,7 +291,7 @@ export function OAuthCredentialsSection() {
                 <span className="font-medium">Zoom</span>
                 {savedProviders.includes('zoom') && (
                   <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50 text-xs">
-                    <Check className="h-3 w-3 mr-1" />
+                    <Icon name="check" className="h-3 w-3 mr-1" />
                     Configurado
                   </Badge>
                 )}
@@ -317,7 +318,7 @@ export function OAuthCredentialsSection() {
                   disabled={!zoom.clientId || !zoom.clientSecret || saving === 'zoom'}
                   className="gap-2"
                 >
-                  {saving === 'zoom' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  {saving === 'zoom' ? <Icon name="progress_activity" className="h-4 w-4 animate-spin" /> : <Icon name="save" className="h-4 w-4" />}
                   Guardar credenciales Zoom
                 </Button>
               </div>
@@ -347,7 +348,7 @@ export function OAuthCredentialsSection() {
                 <span className="font-medium">Stripe</span>
                 {savedProviders.includes('stripe') && (
                   <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50 text-xs">
-                    <Check className="h-3 w-3 mr-1" />
+                    <Icon name="check" className="h-3 w-3 mr-1" />
                     Configurado
                   </Badge>
                 )}
@@ -374,7 +375,7 @@ export function OAuthCredentialsSection() {
                   disabled={(!stripe.publishableKey && !stripe.secretKey) || saving === 'stripe'}
                   className="gap-2"
                 >
-                  {saving === 'stripe' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  {saving === 'stripe' ? <Icon name="progress_activity" className="h-4 w-4 animate-spin" /> : <Icon name="save" className="h-4 w-4" />}
                   Guardar credenciales Stripe
                 </Button>
               </div>

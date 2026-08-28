@@ -4,30 +4,14 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import {
-  Loader2,
-  FileText,
-  User,
-  Stethoscope,
-  Download,
-  RotateCcw,
-  CheckCircle2,
-  ChevronRight,
-  X,
-  Save,
-  MessageCircle,
-  Mail,
-  Mic,
-  AlertCircle,
-  Upload,
-  Brain,
-} from "lucide-react";
+
 import { Checkbox } from "@/components/ui/checkbox";
 import { useTranscriptionAnalysis } from "@/hooks/useTranscriptionAnalysis";
 import { useCenter } from "@/hooks/useCenter";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { Icon } from '@/components/ui/icon';
 
 interface TranscriptionAnalysisDialogProps {
   open: boolean;
@@ -207,7 +191,7 @@ export function TranscriptionAnalysisDialog({
         <div className="flex items-start justify-between gap-4 border-b px-6 py-4 shrink-0">
           <div className="space-y-1">
             <h2 id="transcription-analysis-title" className="flex items-center gap-2 text-lg font-semibold">
-              <FileText className="h-5 w-5" />
+              <Icon name="description" className="h-5 w-5" />
               Análisis de transcripción de sesión
             </h2>
             {patientName && (
@@ -217,7 +201,7 @@ export function TranscriptionAnalysisDialog({
             )}
           </div>
           <Button variant="ghost" size="icon" onClick={() => handleClose(false)} className="shrink-0">
-            <X className="h-4 w-4" />
+            <Icon name="close" className="h-4 w-4" />
           </Button>
         </div>
 
@@ -227,12 +211,12 @@ export function TranscriptionAnalysisDialog({
           {isSingleMode ? (
             isAnalyzing ? (
               <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 rounded px-3 py-2">
-                <Loader2 className="h-3 w-3 animate-spin" />
+                <Icon name="progress_activity" className="h-3 w-3 animate-spin" />
                 Generando ambos informes en una sola pasada...
               </div>
             ) : clinicalReport || patientReport ? (
               <div className="flex items-center gap-2 text-xs bg-muted/50 rounded px-3 py-2">
-                <CheckCircle2 className="h-3 w-3 text-primary" />
+                <Icon name="check_circle" className="h-3 w-3 text-primary" />
                 Informes generados con análisis directo
               </div>
             ) : null
@@ -240,15 +224,15 @@ export function TranscriptionAnalysisDialog({
             <>
               <div className="flex items-center gap-2 text-sm flex-wrap">
                 <StepBadge n={1} done={!!baseAnalysis} active={currentLayer === 1} label="Extracción base" />
-                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                <Icon name="chevron_right" className="h-4 w-4 text-muted-foreground" />
                 <StepBadge n={2} done={!!clinicalReport} active={currentLayer === 2} label="Informe clínico" />
-                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                <Icon name="chevron_right" className="h-4 w-4 text-muted-foreground" />
                 <StepBadge n={3} done={!!patientReport} active={currentLayer === 3} label="Informe paciente" />
               </div>
 
               {isAnalyzing && (
                 <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 rounded px-3 py-2">
-                  <Loader2 className="h-3 w-3 animate-spin" />
+                  <Icon name="progress_activity" className="h-3 w-3 animate-spin" />
                   {currentLayer === 1 && "Paso 1 — Extrayendo base clínica..."}
                   {currentLayer === 2 && `Paso 2${generatePatient ? "/3" : "/2"} — Generando informe clínico...`}
                   {currentLayer === 3 &&
@@ -263,7 +247,7 @@ export function TranscriptionAnalysisDialog({
           {/* Audio upload section */}
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <Mic className="h-4 w-4" />
+              <Icon name="mic" className="h-4 w-4" />
               <span className="text-sm font-medium">Transcripción automática de audio</span>
               {!isOpenAI && (
                 <Badge variant="outline" className="text-xs">
@@ -308,21 +292,21 @@ export function TranscriptionAnalysisDialog({
 
                 {isTranscribing ? (
                   <div className="flex flex-col items-center gap-2 text-center">
-                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    <Icon name="progress_activity" className="h-8 w-8 animate-spin text-primary" />
                     <p className="text-sm font-medium">Transcribiendo con Whisper...</p>
                     <p className="text-xs text-muted-foreground">{audioFileName}</p>
                     <p className="text-xs text-muted-foreground">Puede tardar 1-2 minutos para sesiones largas</p>
                   </div>
                 ) : audioFileName && transcription ? (
                   <div className="flex flex-col items-center gap-2 text-center">
-                    <CheckCircle2 className="h-8 w-8 text-primary" />
+                    <Icon name="check_circle" className="h-8 w-8 text-primary" />
                     <p className="text-sm font-medium">Audio transcrito correctamente</p>
                     <p className="text-xs text-muted-foreground">{audioFileName}</p>
                     <p className="text-xs text-muted-foreground">Haz clic para cambiar el archivo</p>
                   </div>
                 ) : (
                   <div className="flex flex-col items-center gap-2 text-center">
-                    <Upload className="h-8 w-8 text-muted-foreground" />
+                    <Icon name="upload" className="h-8 w-8 text-muted-foreground" />
                     <p className="text-sm font-medium">Arrastra el audio aquí o haz clic para seleccionar</p>
                     <p className="text-xs text-muted-foreground">
                       MP3, M4A, WAV, MP4, OGG · Hasta 200MB · archivos grandes se dividen automáticamente
@@ -333,7 +317,7 @@ export function TranscriptionAnalysisDialog({
               </div>
             ) : (
               <div className="flex items-start gap-2 rounded-lg border border-border bg-muted/50 p-4">
-                <AlertCircle className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
+                <Icon name="error" className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
                 <p className="text-sm text-muted-foreground">
                   La transcripción de audio requiere OpenAI como proveedor activo. Cámbialo en Ajustes → Inteligencia
                   Artificial.
@@ -426,7 +410,7 @@ export function TranscriptionAnalysisDialog({
               >
                 {isAnalyzing ? (
                   <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    <Icon name="progress_activity" className="h-4 w-4 mr-2 animate-spin" />
                     {isSingleMode
                       ? "Generando informes..."
                       : currentLayer === 1
@@ -437,7 +421,7 @@ export function TranscriptionAnalysisDialog({
                   </>
                 ) : (
                   <>
-                    <Brain className="h-4 w-4 mr-2" />
+                    <Icon name="psychology" className="h-4 w-4 mr-2" />
                     Generar informes
                   </>
                 )}
@@ -451,11 +435,11 @@ export function TranscriptionAnalysisDialog({
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <h3 className="flex items-center gap-2 text-sm font-semibold">
-                  <CheckCircle2 className="h-4 w-4 text-primary" />
+                  <Icon name="check_circle" className="h-4 w-4 text-primary" />
                   Extracción clínica base
                 </h3>
                 <Button variant="ghost" size="sm" onClick={() => downloadTxt(baseAnalysis, `${filePrefix}_base.txt`)}>
-                  <Download className="mr-1 h-3 w-3" />
+                  <Icon name="download" className="mr-1 h-3 w-3" />
                   Descargar
                 </Button>
               </div>
@@ -467,11 +451,11 @@ export function TranscriptionAnalysisDialog({
 
               <div className="flex gap-2">
                 <Button size="sm" variant="outline" onClick={() => analyze(transcription, 2)} disabled={isAnalyzing}>
-                  <RotateCcw className="h-3 w-3 mr-1" />
+                  <Icon name="restart_alt" className="h-3 w-3 mr-1" />
                   Regenerar clínico
                 </Button>
                 <Button size="sm" variant="outline" onClick={() => analyze(transcription, 3)} disabled={isAnalyzing}>
-                  <RotateCcw className="h-3 w-3 mr-1" />
+                  <Icon name="restart_alt" className="h-3 w-3 mr-1" />
                   Regenerar paciente
                 </Button>
               </div>
@@ -483,7 +467,7 @@ export function TranscriptionAnalysisDialog({
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <h3 className="flex items-center gap-2 text-sm font-semibold">
-                  <Stethoscope className="h-4 w-4 text-primary" />
+                  <Icon name="stethoscope" className="h-4 w-4 text-primary" />
                   Informe clínico para profesionales
                   {sessionId && (
                     <Badge variant="outline" className="text-xs text-green-600">
@@ -496,7 +480,7 @@ export function TranscriptionAnalysisDialog({
                   size="sm"
                   onClick={() => downloadTxt(editedClinical || clinicalReport, `${filePrefix}_informe_clinico.txt`)}
                 >
-                  <Download className="mr-1 h-3 w-3" />
+                  <Icon name="download" className="mr-1 h-3 w-3" />
                   Descargar .txt
                 </Button>
               </div>
@@ -509,7 +493,7 @@ export function TranscriptionAnalysisDialog({
               />
               {sessionId && editedClinical !== clinicalReport && (
                 <Button size="sm" onClick={() => saveClinicalReport(editedClinical)} disabled={isSaving}>
-                  {isSaving ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Save className="h-4 w-4 mr-1" />}
+                  {isSaving ? <Icon name="progress_activity" className="h-4 w-4 mr-1 animate-spin" /> : <Icon name="save" className="h-4 w-4 mr-1" />}
                   Guardar cambios
                 </Button>
               )}
@@ -521,7 +505,7 @@ export function TranscriptionAnalysisDialog({
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <h3 className="flex items-center gap-2 text-sm font-semibold">
-                  <User className="h-4 w-4 text-primary" />
+                  <Icon name="person" className="h-4 w-4 text-primary" />
                   Informe de sesión para el contacto
                   {sessionId && (
                     <Badge variant="outline" className="text-xs text-green-600">
@@ -534,7 +518,7 @@ export function TranscriptionAnalysisDialog({
                   size="sm"
                   onClick={() => downloadTxt(editedPatient || patientReport, `${filePrefix}_informe_paciente.txt`)}
                 >
-                  <Download className="mr-1 h-3 w-3" />
+                  <Icon name="download" className="mr-1 h-3 w-3" />
                   Descargar .txt
                 </Button>
               </div>
@@ -548,7 +532,7 @@ export function TranscriptionAnalysisDialog({
               <div className="flex flex-wrap gap-2">
                 {sessionId && editedPatient !== patientReport && (
                   <Button size="sm" onClick={() => savePatientReport(editedPatient)} disabled={isSaving}>
-                    {isSaving ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Save className="h-4 w-4 mr-1" />}
+                    {isSaving ? <Icon name="progress_activity" className="h-4 w-4 mr-1 animate-spin" /> : <Icon name="save" className="h-4 w-4 mr-1" />}
                     Guardar cambios
                   </Button>
                 )}
@@ -560,16 +544,16 @@ export function TranscriptionAnalysisDialog({
                     disabled={isSending}
                   >
                     {isSending ? (
-                      <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                      <Icon name="progress_activity" className="h-4 w-4 mr-1 animate-spin" />
                     ) : (
-                      <MessageCircle className="h-4 w-4 mr-1" />
+                      <Icon name="chat" className="h-4 w-4 mr-1" />
                     )}
                     Enviar por WhatsApp
                   </Button>
                 )}
                 {patientEmail && (
                   <Button size="sm" variant="outline" onClick={() => sendPatientReport("email", editedPatient)} disabled={isSending}>
-                    {isSending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Mail className="h-4 w-4 mr-1" />}
+                    {isSending ? <Icon name="progress_activity" className="h-4 w-4 mr-1 animate-spin" /> : <Icon name="mail" className="h-4 w-4 mr-1" />}
                     Enviar por email
                   </Button>
                 )}
@@ -580,7 +564,7 @@ export function TranscriptionAnalysisDialog({
           {/* Botón nuevo análisis */}
           {(baseAnalysis || clinicalReport || patientReport) && (
             <Button variant="outline" onClick={handleReset} className="w-full">
-              <RotateCcw className="mr-2 h-3 w-3" />
+              <Icon name="restart_alt" className="mr-2 h-3 w-3" />
               Nuevo análisis
             </Button>
           )}
@@ -597,7 +581,7 @@ function StepBadge({ n, done, active, label }: { n: number; done: boolean; activ
       variant={done ? "default" : active ? "secondary" : "outline"}
       className={`text-xs ${active ? "animate-pulse" : ""}`}
     >
-      {done ? <CheckCircle2 className="mr-1 h-3 w-3" /> : null}
+      {done ? <Icon name="check_circle" className="mr-1 h-3 w-3" /> : null}
       {n}. {label}
     </Badge>
   );

@@ -1,17 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import {
-  ArrowLeft,
-  CalendarDays,
-  CalendarPlus,
-  CircleUserRound,
-  FileText,
-  Files,
-  Loader2,
-  ReceiptText,
-  User,
-  WalletCards,
-} from 'lucide-react';
+
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -28,6 +17,7 @@ import { PortalNavigation, type PortalMainSection } from '@/components/portal/Po
 import { redirectTopLevel } from '@/lib/redirect';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { Icon } from '@/components/ui/icon';
 
 interface RescheduleTarget {
   sessionId: string;
@@ -260,7 +250,7 @@ export default function PatientPortalDashboard() {
     return (
       <div className="flex min-h-dvh items-center justify-center bg-background">
         <div className="space-y-4 text-center" role="status" aria-live="polite">
-          <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" aria-hidden="true" />
+          <Icon name="progress_activity" className="mx-auto h-8 w-8 animate-spin text-primary" aria-hidden="true" />
           <p className="text-muted-foreground">{verifying ? 'Verificando acceso...' : 'Cargando tu portal...'}</p>
         </div>
       </div>
@@ -287,7 +277,7 @@ export default function PatientPortalDashboard() {
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
           <div className="flex min-w-0 items-center gap-3">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-              <User className="h-5 w-5" aria-hidden="true" />
+              <Icon name="person" className="h-5 w-5" aria-hidden="true" />
             </div>
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold">{patient?.firstName} {patient?.lastName}</p>
@@ -295,7 +285,7 @@ export default function PatientPortalDashboard() {
             </div>
           </div>
           <Button variant="outline" size="sm" className="hidden min-h-11 sm:inline-flex" onClick={() => changeSection('account')}>
-            <CircleUserRound className="mr-2 h-4 w-4" aria-hidden="true" />
+            <Icon name="account_circle" className="mr-2 h-4 w-4" aria-hidden="true" />
             Mi cuenta
           </Button>
         </div>
@@ -313,7 +303,7 @@ export default function PatientPortalDashboard() {
 
             {(pendingCardCount > 0 || pendingInvoiceCount > 0 || pendingDocumentCount > 0) && (
               <Alert>
-                <WalletCards className="h-4 w-4" aria-hidden="true" />
+                <Icon name="account_balance_wallet" className="h-4 w-4" aria-hidden="true" />
                 <AlertTitle>Tienes acciones pendientes</AlertTitle>
                 <AlertDescription className="mt-2 flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <span>
@@ -332,7 +322,7 @@ export default function PatientPortalDashboard() {
               <CardHeader className="flex flex-row items-start justify-between gap-4 bg-muted/30">
                 <div className="space-y-1">
                   <CardTitle className="flex items-center gap-2 text-lg">
-                    <CalendarDays className="h-5 w-5 text-primary" aria-hidden="true" />
+                    <Icon name="calendar_month" className="h-5 w-5 text-primary" aria-hidden="true" />
                     Tu próxima cita
                   </CardTitle>
                   <CardDescription>Los datos y acciones de tu siguiente sesión</CardDescription>
@@ -352,7 +342,7 @@ export default function PatientPortalDashboard() {
                 />
                 {!sessionsLoading && !nextAppointment && (
                   <Button className="mt-4 min-h-11 w-full sm:w-auto" onClick={() => changeSection('booking')}>
-                    <CalendarPlus className="mr-2 h-4 w-4" aria-hidden="true" />
+                    <Icon name="event_available" className="mr-2 h-4 w-4" aria-hidden="true" />
                     Solicitar una cita
                   </Button>
                 )}
@@ -363,16 +353,16 @@ export default function PatientPortalDashboard() {
               <h2 id="quick-actions" className="text-lg font-semibold">Acciones rápidas</h2>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <Button className="min-h-14 justify-start" onClick={() => changeSection('booking')}>
-                  <CalendarPlus className="mr-3 h-5 w-5" aria-hidden="true" />Solicitar nueva cita
+                  <Icon name="event_available" className="mr-3 h-5 w-5" aria-hidden="true" />Solicitar nueva cita
                 </Button>
                 <Button variant="outline" className="min-h-14 justify-start" onClick={() => changeSection('appointments')}>
-                  <CalendarDays className="mr-3 h-5 w-5" aria-hidden="true" />Ver todas mis citas
+                  <Icon name="calendar_month" className="mr-3 h-5 w-5" aria-hidden="true" />Ver todas mis citas
                 </Button>
                 <Button variant="outline" className="min-h-14 justify-start" onClick={() => changeSection('payments')}>
-                  <ReceiptText className="mr-3 h-5 w-5" aria-hidden="true" />Consultar facturas
+                  <Icon name="receipt_long" className="mr-3 h-5 w-5" aria-hidden="true" />Consultar facturas
                 </Button>
                 <Button variant="outline" className="min-h-14 justify-start" onClick={() => changeSection('documents')}>
-                  <Files className="mr-3 h-5 w-5" aria-hidden="true" />Ver documentos
+                  <Icon name="file_copy" className="mr-3 h-5 w-5" aria-hidden="true" />Ver documentos
                 </Button>
               </div>
             </section>
@@ -387,7 +377,7 @@ export default function PatientPortalDashboard() {
                 <p className="mt-1 text-sm text-muted-foreground">Consulta y gestiona tus sesiones.</p>
               </div>
               <Button className="min-h-11" onClick={() => changeSection('booking')}>
-                <CalendarPlus className="mr-2 h-4 w-4" aria-hidden="true" />Solicitar cita
+                <Icon name="event_available" className="mr-2 h-4 w-4" aria-hidden="true" />Solicitar cita
               </Button>
             </div>
 
@@ -427,7 +417,7 @@ export default function PatientPortalDashboard() {
             <PortalFinanceOverview data={finance} loading={invoicesLoading} />
             <PortalPaymentMethod getPaymentMethod={getPaymentMethod} removePaymentMethod={removePaymentMethod} />
             <Card>
-              <CardHeader><CardTitle className="flex items-center gap-2 text-lg"><FileText className="h-5 w-5 text-primary" aria-hidden="true" />Facturas</CardTitle><CardDescription>Tus facturas emitidas</CardDescription></CardHeader>
+              <CardHeader><CardTitle className="flex items-center gap-2 text-lg"><Icon name="description" className="h-5 w-5 text-primary" aria-hidden="true" />Facturas</CardTitle><CardDescription>Tus facturas emitidas</CardDescription></CardHeader>
               <CardContent>
                 {invoicesError ? (
                   <Alert variant="destructive">
@@ -466,7 +456,7 @@ export default function PatientPortalDashboard() {
 
         {activeSection === 'booking' && (
           <section aria-labelledby="booking-title" className="space-y-4">
-            <Button variant="ghost" className="min-h-11 px-2" onClick={() => changeSection(rescheduleTarget ? 'appointments' : 'home')}><ArrowLeft className="mr-2 h-4 w-4" aria-hidden="true" />Volver</Button>
+            <Button variant="ghost" className="min-h-11 px-2" onClick={() => changeSection(rescheduleTarget ? 'appointments' : 'home')}><Icon name="arrow_back" className="mr-2 h-4 w-4" aria-hidden="true" />Volver</Button>
             <h1 id="booking-title" className="sr-only">{rescheduleTarget ? 'Reprogramar cita' : 'Solicitar nueva cita'}</h1>
             <PortalBooking centerSlug={slug!} onComplete={handleBookingComplete} createSession={createSession} getBookingRequirements={getBookingRequirements} createSetupIntent={createSetupIntent} getAvailability={getAvailability} getMonthAvailability={getMonthAvailability} rescheduleSession={rescheduleSession} rescheduleTarget={rescheduleTarget} getCancellationPreview={getCancellationPreview} />
           </section>

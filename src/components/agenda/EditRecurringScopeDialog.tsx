@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { RefreshCw } from 'lucide-react';
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -13,6 +13,7 @@ import {
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { EditScope } from '@/types/recurring';
+import { Icon } from '@/components/ui/icon';
 
 interface EditRecurringScopeDialogProps {
   open: boolean;
@@ -46,7 +47,7 @@ export function EditRecurringScopeDialog({
       <AlertDialogContent>
         <AlertDialogHeader>
           <div className="flex items-center gap-2">
-            <RefreshCw className="h-5 w-5 text-primary" />
+            <Icon name="refresh" className="h-5 w-5 text-primary" />
             <AlertDialogTitle>{title}</AlertDialogTitle>
           </div>
           <AlertDialogDescription>{description}</AlertDialogDescription>

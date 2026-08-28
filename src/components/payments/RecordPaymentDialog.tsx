@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format } from 'date-fns';
-import { CalendarIcon, CreditCard, Check, ChevronsUpDown, AlertTriangle } from 'lucide-react';
+
 import {
   ResponsiveDialog as Dialog,
   ResponsiveDialogContent as DialogContent,
@@ -49,6 +49,7 @@ import { useCreateSignedInvoice } from '@/hooks/useCreateSignedInvoice';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { FileText } from 'lucide-react';
 import { toast } from 'sonner';
+import { Icon } from '@/components/ui/icon';
 
 const formSchema = z.object({
   patient_id: z.string().min(1, 'Selecciona un paciente'),
@@ -315,7 +316,7 @@ export function RecordPaymentDialog({
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <CreditCard className="h-5 w-5" />
+            <Icon name="credit_card" className="h-5 w-5" />
             Registrar pago
           </DialogTitle>
         </DialogHeader>
@@ -355,7 +356,7 @@ export function RecordPaymentDialog({
                             : isDebtPayment
                             ? "Cargando paciente..."
                             : "Buscar paciente..."}
-                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          <Icon name="unfold_more" className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                         </Button>
                       </FormControl>
                     </PopoverTrigger>
@@ -379,7 +380,7 @@ export function RecordPaymentDialog({
                                   setPatientSearch('');
                                 }}
                               >
-                                <Check
+                                <Icon name="check"
                                   className={cn(
                                     "mr-2 h-4 w-4",
                                     field.value === patient.id ? "opacity-100" : "opacity-0"
@@ -434,7 +435,7 @@ export function RecordPaymentDialog({
             {/* Show invoice generation option for debts without invoice */}
             {showInvoiceOption && (
               <Alert variant="default" className="bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800">
-                <AlertTriangle className="h-4 w-4 text-amber-600" />
+                <Icon name="warning" className="h-4 w-4 text-amber-600" />
                 <AlertDescription className="text-amber-800 dark:text-amber-200">
                   <div className="space-y-2">
                     <p className="text-sm">
@@ -520,7 +521,7 @@ export function RecordPaymentDialog({
                           )}
                         >
                           {field.value ? format(field.value, "d 'de' MMMM yyyy") : <span>Seleccionar fecha</span>}
-                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                          <Icon name="calendar_month" className="ml-auto h-4 w-4 opacity-50" />
                         </Button>
                       </FormControl>
                     </PopoverTrigger>

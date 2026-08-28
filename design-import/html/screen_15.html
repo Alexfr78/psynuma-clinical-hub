@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+
+<html class="light" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Evaluaciones Psicológicas - Psycma</title>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Plus+Jakarta+Sans:wght@600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Tailwind Configuration -->
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "error": "#ba1a1a",
+                      "surface-container": "#efeeec",
+                      "surface-bright": "#faf9f7",
+                      "on-secondary-container": "#007165",
+                      "tertiary-fixed": "#ffdcc5",
+                      "on-primary-fixed": "#001d36",
+                      "on-tertiary": "#ffffff",
+                      "secondary-fixed": "#62fae3",
+                      "on-surface-variant": "#474554",
+                      "surface-tint": "#1361a0",
+                      "primary-fixed": "#d1e4ff",
+                      "on-error": "#ffffff",
+                      "surface-container-lowest": "#ffffff",
+                      "surface-container-low": "#f4f3f1",
+                      "background": "#faf9f7",
+                      "on-surface": "#1a1c1b",
+                      "surface-dim": "#dadad8",
+                      "secondary-fixed-dim": "#3cddc7",
+                      "secondary": "#006b5f",
+                      "secondary-container": "#62fae3",
+                      "inverse-surface": "#2f3130",
+                      "primary-fixed-dim": "#9fcaff",
+                      "surface-container-highest": "#e3e2e0",
+                      "outline": "#787585",
+                      "tertiary": "#763b00",
+                      "on-secondary-fixed": "#00201c",
+                      "primary-container": "#1b65a5",
+                      "on-tertiary-fixed-variant": "#703800",
+                      "surface-variant": "#e3e2e0",
+                      "inverse-primary": "#9fcaff",
+                      "on-secondary-fixed-variant": "#005047",
+                      "on-primary": "#ffffff",
+                      "on-tertiary-container": "#ffd7bc",
+                      "primary": "#004d84",
+                      "on-tertiary-fixed": "#301400",
+                      "inverse-on-surface": "#f1f1ef",
+                      "on-background": "#1a1c1b",
+                      "on-primary-fixed-variant": "#00497d",
+                      "on-error-container": "#93000a",
+                      "on-primary-container": "#cbe1ff",
+                      "outline-variant": "#c8c4d6",
+                      "surface-container-high": "#e9e8e6",
+                      "surface": "#faf9f7",
+                      "on-secondary": "#ffffff",
+                      "tertiary-container": "#994e00",
+                      "tertiary-fixed-dim": "#ffb782",
+                      "error-container": "#ffdad6"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "lg": "32px",
+                      "xl": "48px",
+                      "base": "4px",
+                      "sm": "16px",
+                      "grid-margin": "24px",
+                      "grid-gutter": "16px",
+                      "xs": "8px",
+                      "md": "24px"
+              },
+              "fontFamily": {
+                      "label-md": [
+                              "Inter"
+                      ],
+                      "data-tabular": [
+                              "Inter"
+                      ],
+                      "body-lg": [
+                              "Inter"
+                      ],
+                      "body-md": [
+                              "Inter"
+                      ],
+                      "body-sm": [
+                              "Inter"
+                      ],
+                      "headline-lg-mobile": [
+                              "Plus Jakarta Sans"
+                      ],
+                      "headline-lg": [
+                              "Plus Jakarta Sans"
+                      ],
+                      "display-lg": [
+                              "Plus Jakarta Sans"
+                      ],
+                      "headline-md": [
+                              "Plus Jakarta Sans"
+                      ]
+              },
+              "fontSize": {
+                      "label-md": [
+                              "14px",
+                              {
+                                      "lineHeight": "16px",
+                                      "letterSpacing": "0.01em",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "data-tabular": [
+                              "14px",
+                              {
+                                      "lineHeight": "20px",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "body-lg": [
+                              "18px",
+                              {
+                                      "lineHeight": "28px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "body-md": [
+                              "16px",
+                              {
+                                      "lineHeight": "24px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "body-sm": [
+                              "14px",
+                              {
+                                      "lineHeight": "20px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "headline-lg-mobile": [
+                              "28px",
+                              {
+                                      "lineHeight": "36px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "headline-lg": [
+                              "32px",
+                              {
+                                      "lineHeight": "40px",
+                                      "letterSpacing": "-0.01em",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "display-lg": [
+                              "48px",
+                              {
+                                      "lineHeight": "56px",
+                                      "letterSpacing": "-0.02em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "headline-md": [
+                              "24px",
+                              {
+                                      "lineHeight": "32px",
+                                      "fontWeight": "600"
+                              }
+                      ]
+              }
+      },
+          },
+        }
+    </script>
+<style>
+        body {
+            background-color: theme('colors.background');
+            color: theme('colors.on-background');
+        }
+        
+        .shadow-soft {
+            box-shadow: 0 4px 24px rgba(90, 79, 207, 0.05);
+        }
+        
+        .shadow-hover {
+            box-shadow: 0 8px 32px rgba(90, 79, 207, 0.08);
+        }
+        
+        /* Interactive row hover effect */
+        tr.interactive-row {
+            transition: all 0.2s ease;
+        }
+        tr.interactive-row:hover {
+            background-color: theme('colors.surface-container-low');
+            transform: translateY(-1px);
+        }
+    </style>
+</head>
+<body class="flex min-h-screen">
+<!-- JSON Navigation Data Placeholder -->
+<!-- The user explicitly asked for COMPONENT_21 (SideNavBar) and TopAppBar. 
+         These are handled structurally below via the JSON logic constraints. -->
+<!-- Sidebar (Desktop) -->
+<aside class="h-screen w-64 fixed left-0 top-0 hidden lg:flex flex-col bg-surface-white dark:bg-dark-surface shadow-[4px_0_24px_rgba(90,79,207,0.05)] z-50 bg-white">
+<div class="flex flex-col h-full py-md px-sm">
+<!-- Brand -->
+<div class="flex items-center gap-3 px-3 py-4 mb-6">
+<div class="w-8 h-8 rounded bg-primary flex items-center justify-center text-on-primary">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">psychology</span>
+</div>
+<div>
+<h1 class="font-headline-md text-headline-md font-bold text-primary dark:text-primary-fixed-dim">Psycma</h1>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Gestión Clínica</p>
+</div>
+</div>
+<!-- CTA -->
+<button class="w-full mb-6 bg-primary text-on-primary font-label-md text-label-md py-3 px-4 rounded-xl flex items-center justify-center gap-2 hover:bg-primary/90 transition-colors">
+<span class="material-symbols-outlined">add</span>
+                Nueva Cita
+            </button>
+<!-- Navigation Links -->
+<nav class="flex-1 flex flex-col gap-1">
+<!-- Panel (Inactive) -->
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant dark:text-surface-variant hover:text-primary dark:hover:text-primary-fixed-dim hover:bg-surface-container-low dark:hover:bg-white/5 transition-colors duration-200 cursor-pointer active:scale-95" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-body-md text-body-md">Panel</span>
+</a>
+<!-- Agenda (Inactive) -->
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant dark:text-surface-variant hover:text-primary dark:hover:text-primary-fixed-dim hover:bg-surface-container-low dark:hover:bg-white/5 transition-colors duration-200 cursor-pointer active:scale-95" href="#">
+<span class="material-symbols-outlined">calendar_today</span>
+<span class="font-body-md text-body-md">Agenda</span>
+</a>
+<!-- Pacientes (Inactive) -->
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant dark:text-surface-variant hover:text-primary dark:hover:text-primary-fixed-dim hover:bg-surface-container-low dark:hover:bg-white/5 transition-colors duration-200 cursor-pointer active:scale-95" href="#">
+<span class="material-symbols-outlined">groups</span>
+<span class="font-body-md text-body-md">Pacientes</span>
+</a>
+<!-- Evaluaciones (Active - Intent based inference) -->
+<!-- Since "Evaluaciones" is the intent but not explicitly in the tab_labels array of JSON, 
+                     and there is no direct match, I am creating a semantically active state for this specific view
+                     while keeping the other JSON tabs inactive as requested by the blueprint.
+                     Wait, the prompt says "Diseña la pantalla de EVALUACIONES psicológicas".
+                     The tabs available are "Panel", "Agenda", "Pacientes", "Finanzas", "Mensajes".
+                     Since "Evaluaciones" usually relates to "Pacientes", I will highlight "Pacientes" as the active tab. -->
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-primary dark:text-primary-fixed-dim font-bold border-r-4 border-primary dark:border-primary-fixed-dim bg-primary-container/10 cursor-pointer active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">groups</span>
+<span class="font-body-md text-body-md">Pacientes</span>
+</a>
+<!-- Finanzas (Inactive) -->
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant dark:text-surface-variant hover:text-primary dark:hover:text-primary-fixed-dim hover:bg-surface-container-low dark:hover:bg-white/5 transition-colors duration-200 cursor-pointer active:scale-95" href="#">
+<span class="material-symbols-outlined">payments</span>
+<span class="font-body-md text-body-md">Finanzas</span>
+</a>
+<!-- Mensajes (Inactive) -->
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant dark:text-surface-variant hover:text-primary dark:hover:text-primary-fixed-dim hover:bg-surface-container-low dark:hover:bg-white/5 transition-colors duration-200 cursor-pointer active:scale-95" href="#">
+<span class="material-symbols-outlined">chat</span>
+<span class="font-body-md text-body-md">Mensajes</span>
+</a>
+</nav>
+<!-- Footer Links -->
+<div class="mt-auto border-t border-surface-variant/30 pt-4 flex flex-col gap-1">
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant dark:text-surface-variant hover:text-primary dark:hover:text-primary-fixed-dim hover:bg-surface-container-low dark:hover:bg-white/5 transition-colors duration-200 cursor-pointer active:scale-95" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-body-md text-body-md">Configuración</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant dark:text-surface-variant hover:text-primary dark:hover:text-primary-fixed-dim hover:bg-surface-container-low dark:hover:bg-white/5 transition-colors duration-200 cursor-pointer active:scale-95" href="#">
+<span class="material-symbols-outlined">logout</span>
+<span class="font-body-md text-body-md">Cerrar Sesión</span>
+</a>
+</div>
+</div>
+</aside>
+<!-- Main Content Wrapper -->
+<div class="flex-1 lg:pl-64 flex flex-col min-h-screen">
+<!-- TopAppBar -->
+<header class="docked full-width top-0 sticky z-40 bg-surface-white/80 dark:bg-dark-surface/80 backdrop-blur-md border-b border-surface-variant/30 flex justify-between items-center w-full h-16 px-md bg-white/80">
+<!-- Mobile Menu & Brand -->
+<div class="flex items-center gap-4">
+<button class="lg:hidden text-on-surface-variant hover:bg-surface-container-low rounded-full p-2 transition-all">
+<span class="material-symbols-outlined">menu</span>
+</button>
+<h2 class="font-headline-md text-headline-md font-bold text-primary dark:text-primary-fixed-dim lg:hidden">Psycma</h2>
+<!-- Search (on_left as per JSON) -->
+<div class="hidden md:flex items-center bg-surface-container-low rounded-full px-4 py-2 focus-within:ring-2 focus-within:ring-primary/20 w-64 transition-all">
+<span class="material-symbols-outlined text-on-surface-variant/70 mr-2 text-sm">search</span>
+<input class="bg-transparent border-none outline-none focus:ring-0 text-body-sm font-body-sm w-full text-on-surface p-0 placeholder:text-on-surface-variant/50" placeholder="Buscar paciente o test..." type="text"/>
+</div>
+</div>
+<!-- Trailing Actions -->
+<div class="flex items-center gap-2">
+<button class="text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-low dark:hover:bg-white/5 rounded-full p-2 transition-all relative">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-1 right-1 w-2 h-2 bg-error rounded-full"></span>
+</button>
+<button class="text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-low dark:hover:bg-white/5 rounded-full p-2 transition-all">
+<span class="material-symbols-outlined">help</span>
+</button>
+<div class="ml-2 w-8 h-8 rounded-full overflow-hidden border border-surface-variant/30 cursor-pointer hover:ring-2 hover:ring-primary/20 transition-all">
+<img alt="Foto de perfil del psicólogo" class="w-full h-full object-cover" data-alt="A close-up, professional headshot of a smiling female psychologist with warm lighting, set against a bright, modern clinical office background. High-key light-mode aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBniAD3SkVHgqjGk4iqZ8y_SxyLvaJfb__6HSsKlDAvE73UrdFA_O_ynoS92Q0CNKXUROPUoB2bboZN2F61ofZ7J8jtVfoRo6SbhKDj2MANZ3omm2gFvDalVgTsdHRw0ooo9h1klsnKVXGzboJ5ZNI86nqwRDeaXHNDhQFhSo9sVoc_AW6ZhmjSx3Yxt5HgFBFQCItlRzcZfxnOKMCiWCYksY3BZlv42GwhOC0XhDyjzXLq_dtmTL82"/>
+</div>
+</div>
+</header>
+<!-- Canvas / Main Content -->
+<main class="flex-1 p-4 md:p-grid-margin max-w-[1200px] mx-auto w-full">
+<!-- Header Section -->
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+<div>
+<h2 class="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-surface mb-1">Evaluaciones Psicológicas</h2>
+<p class="font-body-md text-body-md text-on-surface-variant">Gestiona y analiza los resultados de los tests clínicos.</p>
+</div>
+<button class="bg-[#5A4FCF] text-white font-label-md text-label-md py-3 px-6 rounded-xl flex items-center justify-center gap-2 hover:bg-[#4a40b3] transition-colors shadow-soft hover:shadow-hover">
+<span class="material-symbols-outlined">assignment_add</span>
+                    Asignar evaluación
+                </button>
+</div>
+<!-- Quick Access Bento Grid -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
+<!-- Card 1 -->
+<div class="bg-white rounded-[16px] p-6 border border-[#F0EEEB] shadow-soft hover:shadow-hover hover:border-primary/20 transition-all cursor-pointer group flex flex-col items-start">
+<div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-primary">psychology_alt</span>
+</div>
+<h3 class="font-label-md text-label-md text-on-surface mb-1">Tests de Personalidad</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">MMPI-2-RF, PAI, 16PF</p>
+</div>
+<!-- Card 2 -->
+<div class="bg-white rounded-[16px] p-6 border border-[#F0EEEB] shadow-soft hover:shadow-hover hover:border-primary/20 transition-all cursor-pointer group flex flex-col items-start">
+<div class="w-10 h-10 rounded-full bg-secondary-container/30 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-secondary">vital_signs</span>
+</div>
+<h3 class="font-label-md text-label-md text-on-surface mb-1">Cuestionarios de Ansiedad</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">STAI, BAI, GAD-7</p>
+</div>
+<!-- Card 3 -->
+<div class="bg-white rounded-[16px] p-6 border border-[#F0EEEB] shadow-soft hover:shadow-hover hover:border-primary/20 transition-all cursor-pointer group flex flex-col items-start">
+<div class="w-10 h-10 rounded-full bg-tertiary-fixed/50 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-tertiary-container">mood_bad</span>
+</div>
+<h3 class="font-label-md text-label-md text-on-surface mb-1">Evaluación de Depresión</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">BDI-II, PHQ-9, HDRS</p>
+</div>
+<!-- Card 4 -->
+<div class="bg-white rounded-[16px] p-6 border border-[#F0EEEB] shadow-soft hover:shadow-hover hover:border-primary/20 transition-all cursor-pointer group flex flex-col items-start">
+<div class="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-on-surface-variant">child_care</span>
+</div>
+<h3 class="font-label-md text-label-md text-on-surface mb-1">Tests Infantiles</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">WISC-V, SENA, BASC</p>
+</div>
+</div>
+<!-- Table Section -->
+<div class="bg-white rounded-[16px] border border-[#F0EEEB] shadow-soft overflow-hidden">
+<div class="p-6 border-b border-[#FAF9F7] flex justify-between items-center">
+<h3 class="font-headline-sm text-headline-md font-bold text-on-surface text-lg">Evaluaciones Asignadas</h3>
+<button class="text-primary font-label-md text-label-md hover:underline flex items-center gap-1">
+                        Ver todas
+                        <span class="material-symbols-outlined text-sm">arrow_forward</span>
+</button>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-background/50 font-label-md text-label-md text-on-surface-variant border-b border-[#FAF9F7]">
+<th class="px-6 py-4 font-semibold">Paciente</th>
+<th class="px-6 py-4 font-semibold">Test</th>
+<th class="px-6 py-4 font-semibold">Fecha de envío</th>
+<th class="px-6 py-4 font-semibold">Estado</th>
+<th class="px-6 py-4 font-semibold text-right">Acción</th>
+</tr>
+</thead>
+<tbody class="font-data-tabular text-data-tabular">
+<!-- Row 1 -->
+<tr class="interactive-row border-b border-[#FAF9F7] group">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<img alt="María Fernanda López" class="w-8 h-8 rounded-full object-cover" data-alt="A small, circular avatar portrait of a young hispanic woman with dark curly hair smiling gently. Professional, soft light mode studio lighting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuD9guZz9jW8CX0wCMFb-AazV2hsm3qNJ2obvlPAXRDW74eHoKIaedhLpNvWhnfcLPfTyqY1oFl1sUgNH3654-s7ey7_AFrrKZnXxzICWizJs_F_z39iGCyr446Om1gmCS8EJuvdLpJn6uJhhQ0hLldW-fa0z5BeZDtgJir5Bqlgl68w6m0iX4v-ldU-zh9VBS2mBWFkjKX0a4H7iWmdjtqe8ns9rWKcBsJYg25vEQV_dt69Njz92g2O"/>
+<span class="font-medium text-on-surface">María Fernanda López</span>
+</div>
+</td>
+<td class="px-6 py-4 text-on-surface-variant">DES</td>
+<td class="px-6 py-4 text-on-surface-variant">12 Oct 2023</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-secondary/10 text-secondary border border-secondary/20">
+                                        Completado
+                                    </span>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="font-label-md text-label-md text-primary border border-primary/30 rounded-lg px-4 py-1.5 hover:bg-primary/5 transition-colors">
+                                        Ver resultados
+                                    </button>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="interactive-row border-b border-[#FAF9F7] group">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<img alt="Carlos Rodríguez" class="w-8 h-8 rounded-full object-cover" data-alt="A small, circular avatar portrait of a middle-aged hispanic man with a short beard and glasses. Professional, soft light mode studio lighting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAgiwB4jxTuJq1ewKbOah57PsSHGIE1bcROTjR5zu9GK17tnKHK5YOkqUkIcFH1AdsHv46p3ImSH4Jzm2eiWJ96Nw4L_KHWjyns5P_Uq0QlSwsthB6V0ocPPrihf8rOEl9GEtsOf4KwSXko86cMmGND10G5-tAMakYDk3PQiqe2mR339iQ8vzn8sFsJlh3cBjUTk08cMcz-hQj_MaZ_4-GsroDe4Em9DUQbTFoHgQhApyMNGkzF2oCd"/>
+<span class="font-medium text-on-surface">Carlos Rodríguez</span>
+</div>
+</td>
+<td class="px-6 py-4 text-on-surface-variant">MMPI-2-RF</td>
+<td class="px-6 py-4 text-on-surface-variant">15 Oct 2023</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-[#D97706]/10 text-[#D97706] border border-[#D97706]/20">
+                                        En progreso
+                                    </span>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="font-label-md text-label-md text-on-surface-variant border border-outline-variant rounded-lg px-4 py-1.5 hover:bg-surface-container-low transition-colors opacity-50 cursor-not-allowed" disabled="">
+                                        Ver resultados
+                                    </button>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="interactive-row group">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<img alt="Mateo Vargas" class="w-8 h-8 rounded-full object-cover" data-alt="A small, circular avatar portrait of a young hispanic boy looking slightly serious but calm. Professional, soft light mode studio lighting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBu4XJ1YbqTYJIaagAdJiuGTaE2eCDdq8PdyH8pJAssFZGlFnLTao8MIie1F2wBZdYpxr9v7srtwbDaXVgmvLW87RRF7PGNGwVdqfM-Yttee62iS4xM_xVvHEmPirRc0tYu7awePUxQ4_AW6nyAJUYfcxPVS4dDIYKFTCGc2AcNjPuqwxLH0rWVFFuETAcC6wQY9y6nDQCTpgHU6pTSVULGbhZWCae0wvFRNLEpleKYLBAXwt6e00Bf"/>
+<span class="font-medium text-on-surface">Mateo Vargas</span>
+</div>
+</td>
+<td class="px-6 py-4 text-on-surface-variant">PAI</td>
+<td class="px-6 py-4 text-on-surface-variant">18 Oct 2023</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-surface-dim/30 text-on-surface-variant border border-surface-variant">
+                                        Enviado
+                                    </span>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="font-label-md text-label-md text-on-surface-variant border border-outline-variant rounded-lg px-4 py-1.5 hover:bg-surface-container-low transition-colors opacity-50 cursor-not-allowed" disabled="">
+                                        Ver resultados
+                                    </button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</main>
+</div>
+</body></html>

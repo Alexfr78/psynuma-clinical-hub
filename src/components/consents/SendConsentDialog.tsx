@@ -7,13 +7,14 @@ import {
 } from "@/components/ui/responsive-dialog";
 import { Button } from "@/components/ui/button";
 import { Consent } from "@/hooks/useConsents";
-import { Copy, MessageCircle, Check, Send, Loader2 } from "lucide-react";
+
 import { toast } from "sonner";
 import { useWhatsAppDelivery } from "@/hooks/useWhatsAppDelivery";
 import { useCenter } from "@/hooks/useCenter";
 import { WhatsAppLinkDialog } from "@/components/agenda/WhatsAppLinkDialog";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
+import { Icon } from '@/components/ui/icon';
 
 interface SendConsentDialogProps {
   consent: Consent;
@@ -135,7 +136,7 @@ Si tienes cualquier consulta, no dudes en avisarme.`
                   {consentUrl}
                 </code>
                 <Button size="icon" variant="outline" className="shrink-0" onClick={handleCopyLink}>
-                  {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                  {copied ? <Icon name="check" className="h-4 w-4 text-green-500" /> : <Icon name="content_copy" className="h-4 w-4" />}
                 </Button>
               </div>
             </div>
@@ -157,12 +158,12 @@ Si tienes cualquier consulta, no dudes en avisarme.`
                   disabled={isSending}
                 >
                   {isSending ? (
-                    <Loader2 className="h-4 w-4 animate-spin text-green-500" />
+                    <Icon name="progress_activity" className="h-4 w-4 animate-spin text-green-500" />
                   ) : (
-                    <MessageCircle className="h-4 w-4 text-green-500" />
+                    <Icon name="chat" className="h-4 w-4 text-green-500" />
                   )}
                   {isSending ? "Enviando..." : isAutomatic ? "Enviar WhatsApp automático" : "Abrir WhatsApp"}
-                  {isAutomatic && !isSending && <Send className="h-3 w-3 ml-auto opacity-50" />}
+                  {isAutomatic && !isSending && <Icon name="send" className="h-3 w-3 ml-auto opacity-50" />}
                 </Button>
               ) : (
                 <p className="text-sm text-muted-foreground p-3 bg-muted rounded-lg">
@@ -174,7 +175,7 @@ Si tienes cualquier consulta, no dudes en avisarme.`
             {/* Copy Message */}
             <div className="space-y-2">
               <Button variant="outline" className="w-full justify-start gap-3" onClick={handleCopyMessage}>
-                <Copy className="h-4 w-4" />
+                <Icon name="content_copy" className="h-4 w-4" />
                 Copiar mensaje completo
               </Button>
             </div>
