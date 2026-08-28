@@ -53,7 +53,9 @@ export default defineConfig(({ mode }) => ({
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
         // Public invoice and payment links must never be served by a stale SPA
         // navigation fallback, especially on installed PWAs and iOS Safari.
-        navigateFallbackDenylist: [/^\/factura\//, /^\/pagar\//],
+        // /cita/ now also drives a Stripe checkout (session + bono purchase),
+        // so it needs the same treatment as /factura/ and /pagar/.
+        navigateFallbackDenylist: [/^\/factura\//, /^\/pagar\//, /^\/cita\//],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
