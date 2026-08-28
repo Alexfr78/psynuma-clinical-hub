@@ -10,7 +10,6 @@ import { SessionDetailDrawer } from '@/components/agenda/SessionDetailDrawer';
 import { useDebtStats, useDebts } from '@/hooks/useDebts';
 import type { SessionWithRelations } from '@/hooks/useSessions';
 import { Icon } from '@/components/ui/icon';
-import { PatientStatusBadge } from '@/components/patients/PatientStatusBadge';
 import { cn } from '@/lib/utils';
 
 function useDashboardStats() {
@@ -137,55 +136,6 @@ function useTodaySessions() {
   });
 }
 
-function useRecentPatients() {
-  const { profile } = useAuth();
-
-  return useQuery({
-    queryKey: ['dashboard-recent-patients'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('sessions')
-        .select(`
-          session_date, session_type,
-          patient:patients!sessions_patient_id_fkey(id, first_name, last_name, status, status_source)
-        `)
-        .neq('status', 'cancelled')
-        .neq('status', 'no_show')
-        .neq('status', 'blocked')
-        .neq('session_type', 'Bloqueado')
-        .not('patient_id', 'is', null)
-        .order('session_date', { ascending: false })
-        .limit(25);
-
-      if (error) throw error;
-
-      const seen = new Set<string>();
-      const recent: { patientId: string; firstName: string; lastName: string; status: string; statusSource: string | null; lastSessionDate: string; sessionType: string | null }[] = [];
-      for (const row of data ?? []) {
-        const patient = row.patient as { id: string; first_name: string; last_name: string; status: string; status_source: string | null } | null;
-        if (!patient || seen.has(patient.id) || patient.first_name?.startsWith('[Bloqueado]')) continue;
-        seen.add(patient.id);
-        recent.push({
-          patientId: patient.id,
-          firstName: patient.first_name,
-          lastName: patient.last_name,
-          status: patient.status,
-          statusSource: patient.status_source,
-          lastSessionDate: row.session_date,
-          sessionType: row.session_type,
-        });
-        if (recent.length >= 5) break;
-      }
-      return recent;
-    },
-    enabled: !!profile?.center_id,
-  });
-}
-
-function initials(firstName?: string | null, lastName?: string | null) {
-  return `${(firstName?.[0] || '').toUpperCase()}${(lastName?.[0] || '').toUpperCase()}` || '?';
-}
-
 function TrendBadge({ trend }: { trend: { delta: number; percent: number | null } }) {
   if (trend.delta === 0 && trend.percent === null) return null;
   const positive = trend.delta >= 0;
@@ -208,7 +158,6 @@ export default function Dashboard() {
   const pendingDebts = debtStats?.totalPending ?? stats?.pendingDebts ?? 0;
   const { data: todaySessions, isLoading: sessionsLoading } = useTodaySessions();
   const { data: pendingDebtsList, isLoading: debtsListLoading } = useDebts();
-  const { data: recentPatients, isLoading: recentPatientsLoading } = useRecentPatients();
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
 
   // Always read the selected session fresh from the DB so edits (date, price,
@@ -437,73 +386,6 @@ export default function Dashboard() {
               Ver todas ({pendingDebts.toFixed(2)}€)
             </Link>
           )}
-        </div>
-      </div>
-
-      {/* Pacientes Recientes */}
-      <div className="overflow-hidden rounded-2xl border bg-card shadow-card">
-        <div className="flex items-center justify-between border-b p-4">
-          <h3 className="text-lg font-semibold">Contactos Recientes</h3>
-          <Link to="/pacientes" className="text-sm font-medium text-primary hover:underline">
-            Ver todos
-          </Link>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[560px] text-left text-sm">
-            <thead>
-              <tr className="border-b bg-muted/50">
-                <th className="px-4 py-3 text-sm font-medium text-muted-foreground">Contacto</th>
-                <th className="px-4 py-3 text-sm font-medium text-muted-foreground">Última Sesión</th>
-                <th className="px-4 py-3 text-sm font-medium text-muted-foreground">Estado</th>
-                <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">Acción</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {recentPatientsLoading ? (
-                [1, 2, 3].map(i => (
-                  <tr key={i}>
-                    <td className="px-4 py-4" colSpan={4}><Skeleton className="h-8" /></td>
-                  </tr>
-                ))
-              ) : !recentPatients || recentPatients.length === 0 ? (
-                <tr>
-                  <td className="px-4 py-8 text-center text-muted-foreground" colSpan={4}>
-                    Sin sesiones recientes
-                  </td>
-                </tr>
-              ) : (
-                recentPatients.map((p) => (
-                  <tr key={p.patientId} className="group transition-colors hover:bg-muted/50">
-                    <td className="px-4 py-3">
-                      <Link to={`/pacientes/${p.patientId}`} className="flex items-center gap-3">
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
-                          {initials(p.firstName, p.lastName)}
-                        </div>
-                        <span className="font-medium group-hover:text-primary transition-colors">
-                          {p.firstName} {p.lastName}
-                        </span>
-                      </Link>
-                    </td>
-                    <td className="px-4 py-3">
-                      <p className="text-sm">{format(new Date(p.lastSessionDate + 'T00:00:00'), "d MMM yyyy", { locale: es })}</p>
-                      {p.sessionType && <p className="text-xs text-muted-foreground">{p.sessionType}</p>}
-                    </td>
-                    <td className="px-4 py-3">
-                      <PatientStatusBadge status={p.status} statusSource={p.statusSource} />
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <Link
-                        to={`/pacientes/${p.patientId}`}
-                        className="inline-flex rounded-lg p-2 text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
-                      >
-                        <Icon name="arrow_forward" className="h-4 w-4" />
-                      </Link>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
         </div>
       </div>
 
