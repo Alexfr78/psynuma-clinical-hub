@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils';
 import { useState, type MouseEvent } from 'react';
 import { toast } from 'sonner';
 import { CreateSimpleInvoiceDialog } from '@/components/invoices/CreateSimpleInvoiceDialog';
+import { downloadPdfFromUrl } from '@/lib/download-pdf';
 
 interface PatientInvoicesProps {
   patientId: string;
@@ -54,9 +55,9 @@ export function PatientInvoices({ patientId, onInvoiceClick }: PatientInvoicesPr
       if (error) throw error;
       if (!data?.url) throw new Error('PDF sin contenido');
 
-      const newWindow = window.open(data.url, '_blank');
-      if (!newWindow) {
-        toast.error('El navegador ha bloqueado la ventana. Permite ventanas emergentes e inténtalo de nuevo.');
+      const ok = await downloadPdfFromUrl(data.url, `factura-${invoiceId}`);
+      if (!ok) {
+        toast.error('El navegador ha bloqueado la descarga. Desactiva el bloqueador e inténtalo de nuevo.');
       }
     } catch (err) {
       console.error('Error generating PDF:', err);

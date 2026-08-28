@@ -43,6 +43,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { hasInvoiceAeatRegistration } from '@/lib/invoice-immutability';
 import { usePayments } from '@/hooks/usePayments';
+import { downloadPdfFromUrl } from '@/lib/download-pdf';
 
 const getCurrentMonthRange = (): InvoiceDateRange => {
   const today = new Date();
@@ -250,7 +251,7 @@ export default function Invoices() {
     setInvoiceToDelete(null);
   };
 
-  const handleGeneratePDF = async (invoiceId: string) => {
+  const handleGeneratePDF = async (invoiceId: string, invoiceNumber?: string) => {
     try {
       toast.info('Generando PDF...');
       
@@ -261,7 +262,11 @@ export default function Invoices() {
       if (error) throw error;
       if (!data?.url) throw new Error('PDF sin contenido');
 
-      window.open(data.url, '_blank');
+      const ok = await downloadPdfFromUrl(data.url, `factura-${invoiceNumber || invoiceId}`);
+      if (!ok) {
+        toast.error('El navegador ha bloqueado la descarga. Desactiva el bloqueador e inténtalo de nuevo.');
+        return;
+      }
       toast.success('PDF generado correctamente');
     } catch (error) {
       console.error('Error generating PDF:', error);
@@ -599,7 +604,7 @@ export default function Invoices() {
                   invoice={invoice}
                   onViewDetails={() => handleViewDetails(invoice.id)}
                   onStatusChange={(status) => handleStatusChange(invoice.id, status)}
-                  onGeneratePDF={() => handleGeneratePDF(invoice.id)}
+                  onGeneratePDF={() => handleGeneratePDF(invoice.id, invoice.invoice_number)}
                   onSealVerifactu={() => handleSealVerifactu(invoice.id)}
                   onQueryVerifactu={() => handleQueryVerifactu(invoice.id)}
                   onCancelVerifactu={() => handleCancelVerifactuClick(invoice.id, invoice.invoice_number)}

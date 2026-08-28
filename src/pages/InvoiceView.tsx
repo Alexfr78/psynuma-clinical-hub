@@ -12,6 +12,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { QRCodeSVG } from 'qrcode.react';
+import { downloadPdfFromUrl } from '@/lib/download-pdf';
 
 export default function InvoiceView() {
   const { token } = useParams<{ token: string }>();
@@ -34,7 +35,10 @@ export default function InvoiceView() {
       if (error) throw error;
       if (!data?.url) throw new Error('PDF sin contenido');
 
-      window.open(data.url, '_blank');
+      const ok = await downloadPdfFromUrl(data.url, `factura-${invoice.invoice_number || invoice.id}`);
+      if (!ok) {
+        toast.error('El navegador ha bloqueado la descarga. Desactiva el bloqueador e inténtalo de nuevo.');
+      }
     } catch (err) {
       console.error('Error generating PDF:', err);
       toast.error('Error al generar el PDF');
