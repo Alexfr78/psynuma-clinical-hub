@@ -1,104 +1,18 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { decryptSecret, encryptSecret } from "../_shared/crypto.ts";
+import {
+  DriveReconnectError,
+  refreshDriveAccessToken,
+  findOrCreateDriveFolder,
+  uploadFileToDrive,
+  sanitizeDriveFileName,
+} from "../_shared/googleDrive.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
-
-class DriveReconnectError extends Error {}
-
-async function refreshAccessToken(
-  refreshToken: string,
-  clientId: string,
-  clientSecret: string
-): Promise<{ access_token: string; expires_in: number }> {
-  const response = await fetch('https://oauth2.googleapis.com/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      client_id: clientId,
-      client_secret: clientSecret,
-      refresh_token: refreshToken,
-      grant_type: 'refresh_token',
-    }),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    if (errorText.includes('invalid_grant')) {
-      throw new DriveReconnectError('Refresh token revoked or expired');
-    }
-    throw new Error(`Failed to refresh Drive token: ${errorText}`);
-  }
-
-  return await response.json();
-}
-
-async function findOrCreateFolder(accessToken: string, name: string, parentId: string): Promise<string> {
-  const escapedName = name.replace(/'/g, "\\'");
-  const query = encodeURIComponent(
-    `name='${escapedName}' and '${parentId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`
-  );
-  const searchResponse = await fetch(
-    `https://www.googleapis.com/drive/v3/files?q=${query}&fields=files(id,name)`,
-    { headers: { Authorization: `Bearer ${accessToken}` } }
-  );
-  const searchData = await searchResponse.json();
-  if (searchData.files?.length > 0) return searchData.files[0].id;
-
-  const createResponse = await fetch('https://www.googleapis.com/drive/v3/files', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, mimeType: 'application/vnd.google-apps.folder', parents: [parentId] }),
-  });
-  if (!createResponse.ok) {
-    throw new Error(`Failed to create Drive folder "${name}": ${await createResponse.text()}`);
-  }
-  const created = await createResponse.json();
-  return created.id;
-}
-
-function sanitizeFileName(name: string): string {
-  return name.replace(/[<>:"/\\|?*]/g, '_').replace(/\s+/g, '_').substring(0, 200);
-}
-
-async function uploadFileToDrive(accessToken: string, folderId: string, fileName: string, bytes: Uint8Array): Promise<{ id: string }> {
-  const boundary = '-------314159265358979323846';
-  const delimiter = `\r\n--${boundary}\r\n`;
-  const closeDelim = `\r\n--${boundary}--`;
-
-  const metadata = { name: fileName, parents: [folderId] };
-  const metadataPart = new TextEncoder().encode(
-    delimiter + 'Content-Type: application/json; charset=UTF-8\r\n\r\n' + JSON.stringify(metadata) +
-    delimiter + 'Content-Type: application/pdf\r\n\r\n'
-  );
-  const closePart = new TextEncoder().encode(closeDelim);
-
-  const body = new Uint8Array(metadataPart.length + bytes.byteLength + closePart.length);
-  body.set(metadataPart, 0);
-  body.set(bytes, metadataPart.length);
-  body.set(closePart, metadataPart.length + bytes.byteLength);
-
-  const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': `multipart/related; boundary=${boundary}` },
-    body,
-  });
-
-  if (!response.ok) {
-    throw new Error(`Failed to upload to Drive: ${await response.text()}`);
-  }
-  return await response.json();
-}
-
-async function markUploadResult(supabase: SupabaseClient, centerId: string, error: string | null): Promise<void> {
-  await supabase
-    .from('center_drive_connections')
-    .update({ last_upload_at: new Date().toISOString(), last_upload_error: error })
-    .eq('center_id', centerId);
-}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -165,7 +79,7 @@ serve(async (req) => {
     if (tokenExpiry <= new Date()) {
       const clientSecret = await decryptSecret(center.oauth_google_drive_credentials);
       const refreshToken = await decryptSecret(connection.refresh_token_encrypted);
-      const newTokenData = await refreshAccessToken(refreshToken, center.oauth_google_drive_client_id, clientSecret);
+      const newTokenData = await refreshDriveAccessToken(refreshToken, center.oauth_google_drive_client_id, clientSecret);
       accessToken = newTokenData.access_token;
 
       await supabase
@@ -192,13 +106,13 @@ serve(async (req) => {
     const month = String(issueDate.getMonth() + 1).padStart(2, '0');
     const subfolder = invoice.rectified_invoice_id ? 'Rectificativas' : 'Emitidas';
 
-    const facturasFolderId = await findOrCreateFolder(accessToken, 'Facturas', connection.drive_root_folder_id);
-    const typeFolderId = await findOrCreateFolder(accessToken, subfolder, facturasFolderId);
-    const yearFolderId = await findOrCreateFolder(accessToken, year, typeFolderId);
-    const monthFolderId = await findOrCreateFolder(accessToken, month, yearFolderId);
+    const facturasFolderId = await findOrCreateDriveFolder(accessToken, 'Facturas', connection.drive_root_folder_id);
+    const typeFolderId = await findOrCreateDriveFolder(accessToken, subfolder, facturasFolderId);
+    const yearFolderId = await findOrCreateDriveFolder(accessToken, year, typeFolderId);
+    const monthFolderId = await findOrCreateDriveFolder(accessToken, month, yearFolderId);
 
     const dateStr = issueDate.toISOString().split('T')[0];
-    const fileName = `${dateStr}_${sanitizeFileName(invoice.invoice_number)}.pdf`;
+    const fileName = `${dateStr}_${sanitizeDriveFileName(invoice.invoice_number)}.pdf`;
     const bytes = new Uint8Array(await fileData.arrayBuffer());
 
     const uploaded = await uploadFileToDrive(accessToken, monthFolderId, fileName, bytes);
@@ -209,7 +123,10 @@ serve(async (req) => {
       .update({ drive_file_id: uploaded.id, drive_url: driveUrl })
       .eq('id', invoice_id);
 
-    await markUploadResult(supabase, invoice.center_id, null);
+    await supabase
+      .from('center_drive_connections')
+      .update({ last_upload_at: new Date().toISOString(), last_upload_error: null })
+      .eq('center_id', invoice.center_id);
 
     return new Response(
       JSON.stringify({ success: true, drive_file_id: uploaded.id, drive_url: driveUrl }),

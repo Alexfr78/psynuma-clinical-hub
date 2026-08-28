@@ -11,7 +11,8 @@ import {
   Receipt,
   RefreshCw,
   AlertTriangle,
-  Wrench
+  Wrench,
+  HardDrive
 } from 'lucide-react';
 import {
   ResponsiveDialog as Dialog,
@@ -174,6 +175,17 @@ export function InvoiceDetailDialog({ open, onOpenChange, invoiceId }: InvoiceDe
                   </Badge>
                 )}
               </div>
+              {invoice.drive_url && (
+                <a
+                  href={invoice.drive_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground hover:underline"
+                >
+                  <HardDrive className="h-3.5 w-3.5" />
+                  Ver en Google Drive
+                </a>
+              )}
             </div>
 
             <Separator />

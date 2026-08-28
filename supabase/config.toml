@@ -57,6 +57,8 @@ project_id = "zprkdxmluvirxfhswrzq"
     verify_jwt = true
   [functions.upload-invoice-to-drive]
     verify_jwt = true
+  [functions.refresh-google-drive-tokens]
+    verify_jwt = false
   [functions.interpret-emo-results]
     verify_jwt = true
   [functions.interpret-mmpi2rf-results]

@@ -46,6 +46,9 @@ export interface Invoice {
   operation_date: string | null;
   recipient_snapshot: Record<string, unknown> | null;
   correction_operation_id: string | null;
+  pdf_generated_at: string | null;
+  drive_file_id: string | null;
+  drive_url: string | null;
   created_at: string;
   updated_at: string;
 }

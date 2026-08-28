@@ -16,13 +16,73 @@ interface RequestBody {
   channel: 'email' | 'whatsapp' | 'both';
 }
 
+function uint8ToBase64(bytes: Uint8Array): string {
+  let binary = '';
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  }
+  return btoa(binary);
+}
+
+// Makes sure the invoice PDF exists in invoice-documents (generating it if
+// this is the first time it's sent), then returns its bytes (for email
+// attachments) and a signed URL (for WhatsApp document messages, which need
+// a fetchable link rather than raw bytes). Returns null on any failure -
+// callers fall back to the short link only.
+async function ensureInvoicePdf(
+  supabase: SupabaseClient,
+  supabaseUrl: string,
+  supabaseKey: string,
+  invoiceId: string,
+  centerId: string,
+  pdfAlreadyGenerated: boolean
+): Promise<{ bytes: Uint8Array; signedUrl: string } | null> {
+  try {
+    if (!pdfAlreadyGenerated) {
+      const genResponse = await fetch(`${supabaseUrl}/functions/v1/generate-invoice-pdf`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${supabaseKey}` },
+        body: JSON.stringify({ invoice_id: invoiceId }),
+      });
+      if (!genResponse.ok) {
+        console.error('[send-invoice-notification] PDF generation failed:', await genResponse.text());
+        return null;
+      }
+    }
+
+    const filePath = `${centerId}/${invoiceId}.pdf`;
+    const { data: fileData, error: downloadError } = await supabase.storage
+      .from('invoice-documents')
+      .download(filePath);
+    if (downloadError || !fileData) {
+      console.error('[send-invoice-notification] Error downloading invoice PDF:', downloadError);
+      return null;
+    }
+
+    const { data: signedUrlData, error: signedUrlError } = await supabase.storage
+      .from('invoice-documents')
+      .createSignedUrl(filePath, 60 * 60 * 24);
+    if (signedUrlError || !signedUrlData?.signedUrl) {
+      console.error('[send-invoice-notification] Error creating signed URL for PDF:', signedUrlError);
+      return null;
+    }
+
+    return { bytes: new Uint8Array(await fileData.arrayBuffer()), signedUrl: signedUrlData.signedUrl };
+  } catch (error) {
+    console.error('[send-invoice-notification] Error ensuring invoice PDF:', error);
+    return null;
+  }
+}
+
 // Send WhatsApp via WasenderAPI (direct HTTP fetch to bypass JWT restrictions)
 async function sendWhatsAppViaWasender(
   supabase: SupabaseClient,
   centerId: string,
   phone: string,
   message: string,
-  patientId?: string
+  patientId?: string,
+  document?: { url: string; fileName: string }
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const wasenderApiKey = Deno.env.get('WASENDER_API_KEY');
@@ -96,6 +156,7 @@ async function sendWhatsAppViaWasender(
       body: JSON.stringify({
         to: normalized,
         text: message,
+        ...(document ? { documentUrl: document.url, fileName: document.fileName } : {}),
       }),
     });
 
@@ -146,7 +207,8 @@ async function sendWhatsAppViaMetaAPI(
   phone: string,
   message: string,
   accessToken: string,
-  phoneNumberId: string
+  phoneNumberId: string,
+  document?: { url: string; fileName: string }
 ): Promise<{ success: boolean; error?: string }> {
   try {
     let cleanPhone = phone.replace(/\D/g, '');
@@ -156,6 +218,22 @@ async function sendWhatsAppViaMetaAPI(
 
     console.log(`Sending WhatsApp via Meta API to ${cleanPhone}`);
 
+    const payload = document
+      ? {
+          messaging_product: 'whatsapp',
+          recipient_type: 'individual',
+          to: cleanPhone,
+          type: 'document',
+          document: { link: document.url, filename: document.fileName, caption: message },
+        }
+      : {
+          messaging_product: 'whatsapp',
+          recipient_type: 'individual',
+          to: cleanPhone,
+          type: 'text',
+          text: { preview_url: true, body: message },
+        };
+
     const response = await fetch(
       `https://graph.facebook.com/v18.0/${phoneNumberId}/messages`,
       {
@@ -164,13 +242,7 @@ async function sendWhatsAppViaMetaAPI(
           'Authorization': `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          messaging_product: 'whatsapp',
-          recipient_type: 'individual',
-          to: cleanPhone,
-          type: 'text',
-          text: { preview_url: true, body: message }
-        })
+        body: JSON.stringify(payload)
       }
     );
 
@@ -218,10 +290,9 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const body: RequestBody = await req.json();
     const { invoiceId, patientId, patientEmail, patientPhone, channel } = body;
@@ -273,6 +344,13 @@ Deno.serve(async (req) => {
     }
 
     console.log('Invoice public URL:', invoiceUrl);
+
+    // Get the real PDF (generating it on first send) so it can be attached
+    // to the email / sent as a WhatsApp document, not just linked.
+    const pdf = await ensureInvoicePdf(
+      supabase, supabaseUrl, supabaseServiceKey, invoiceId, invoice.center_id, !!invoice.pdf_generated_at
+    );
+    const pdfFileName = `Factura-${invoice.invoice_number}.pdf`;
 
     let emailSent = false;
     let whatsappSent = false;
@@ -361,6 +439,7 @@ Deno.serve(async (req) => {
             to: [email],
             subject: `Factura ${invoiceNumber} - ${center?.name || 'Psycma'}`,
             html: emailHtml,
+            ...(pdf ? { attachments: [{ filename: pdfFileName, content: uint8ToBase64(pdf.bytes) }] } : {}),
           });
 
           console.log('Email sent successfully:', emailResponse);
@@ -436,7 +515,8 @@ Deno.serve(async (req) => {
           invoice.center_id,
           phone,
           message,
-          patientId
+          patientId,
+          pdf ? { url: pdf.signedUrl, fileName: pdfFileName } : undefined
         );
 
         if (wasenderResult.success) {
@@ -468,7 +548,8 @@ Deno.serve(async (req) => {
           phone,
           message,
           decryptedToken,
-          center.whatsapp_phone_number_id
+          center.whatsapp_phone_number_id,
+          pdf ? { url: pdf.signedUrl, fileName: pdfFileName } : undefined
         );
 
         whatsappSent = apiResult.success;
