@@ -7287,6 +7287,10 @@ export type Database = {
         Args: { p_token: string }
         Returns: Json
       }
+      get_public_bono_templates_for_session: {
+        Args: { p_token: string }
+        Returns: Json
+      }
       get_public_center_by_slug: {
         Args: { p_slug: string }
         Returns: {
