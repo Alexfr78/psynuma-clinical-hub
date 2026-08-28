@@ -52,17 +52,12 @@ export function PatientInvoices({ patientId, onInvoiceClick }: PatientInvoicesPr
       });
 
       if (error) throw error;
-      if (!data?.html) throw new Error('PDF sin contenido');
+      if (!data?.url) throw new Error('PDF sin contenido');
 
-      const blob = new Blob([data.html], { type: 'text/html' });
-      const url = URL.createObjectURL(blob);
-      const newWindow = window.open(url, '_blank');
-
+      const newWindow = window.open(data.url, '_blank');
       if (!newWindow) {
         toast.error('El navegador ha bloqueado la ventana. Permite ventanas emergentes e inténtalo de nuevo.');
       }
-
-      setTimeout(() => URL.revokeObjectURL(url), 60000);
     } catch (err) {
       console.error('Error generating PDF:', err);
       toast.error((err as Error)?.message || 'Error al generar el PDF');

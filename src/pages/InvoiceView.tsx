@@ -32,18 +32,9 @@ export default function InvoiceView() {
       });
 
       if (error) throw error;
+      if (!data?.url) throw new Error('PDF sin contenido');
 
-      // Open HTML in new window and print
-      const printWindow = window.open('', '_blank');
-      if (printWindow) {
-        printWindow.document.write(data.html);
-        printWindow.document.close();
-        
-        // Wait for images to load before printing
-        setTimeout(() => {
-          printWindow.print();
-        }, 500);
-      }
+      window.open(data.url, '_blank');
     } catch (err) {
       console.error('Error generating PDF:', err);
       toast.error('Error al generar el PDF');

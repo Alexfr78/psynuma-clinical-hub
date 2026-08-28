@@ -50,17 +50,12 @@ export function PortalInvoices({ invoices, loading, sessionToken }: PortalInvoic
         body: { action: 'download', sessionToken, invoiceId: invoice.id },
       });
 
-      if (error || !data?.success || !data?.pdf?.html) {
+      if (error || !data?.success || !data?.pdf?.url) {
         toast.error('Error al descargar la factura');
         return;
       }
 
-      // Open PDF HTML in new window for printing
-      const win = window.open('', '_blank');
-      if (win) {
-        win.document.write(data.pdf.html);
-        win.document.close();
-      }
+      window.open(data.pdf.url, '_blank');
     } catch {
       toast.error('Error de conexión');
     } finally {

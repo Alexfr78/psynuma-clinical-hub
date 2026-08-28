@@ -259,18 +259,9 @@ export default function Invoices() {
       });
 
       if (error) throw error;
+      if (!data?.url) throw new Error('PDF sin contenido');
 
-      const printWindow = window.open('', '_blank');
-      if (printWindow) {
-        printWindow.document.write(data.html);
-        printWindow.document.close();
-        
-        // Wait for base64 images to render before printing
-        setTimeout(() => {
-          printWindow.print();
-        }, 500);
-      }
-      
+      window.open(data.url, '_blank');
       toast.success('PDF generado correctamente');
     } catch (error) {
       console.error('Error generating PDF:', error);

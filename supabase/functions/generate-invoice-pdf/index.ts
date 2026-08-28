@@ -1,9 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { encode as base64Encode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
+import { PDFDocument, PDFPage, StandardFonts, rgb } from "https://esm.sh/pdf-lib@1.17.1";
 import * as QRCode from "https://esm.sh/qrcode@1.5.4";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { logAuditEvent } from "../_shared/auditLogger.ts";
+import { sanitizeForPdf, wrapText, drawTextRightAligned, embedImageFromUrl } from "../_shared/pdfHelpers.ts";
 
 interface InvoiceSeries {
   id: string;
@@ -14,6 +15,7 @@ interface InvoiceSeries {
 
 interface InvoiceData {
   id: string;
+  center_id: string;
   invoice_number: string;
   invoice_type: 'simplified' | 'complete' | null;
   issue_date: string;
@@ -33,6 +35,7 @@ interface InvoiceData {
   rectified_invoice_id: string | null;
   rectification_type: string | null;
   verifactu_invoice_type: string | null;
+  pdf_generated_at: string | null;
   recipient_snapshot: {
     name?: string | null;
     tax_id?: string | null;
@@ -94,7 +97,7 @@ function getInvoiceDocumentTypeLabel(
   series: InvoiceSeries | null
 ): string {
   if (invoice.verifactu_invoice_type === 'F3') {
-    return 'FACTURA COMPLETA EN SUSTITUCIÓN DE FACTURA SIMPLIFICADA';
+    return 'FACTURA COMPLETA EN SUSTITUCION DE FACTURA SIMPLIFICADA';
   }
   const isSimplified = (invoice.invoice_type ?? series?.invoice_type) === 'simplified';
   const isRectifying = !!invoice.rectified_invoice_id || series?.series_type === 'rectifying';
@@ -108,65 +111,375 @@ function getInvoiceDocumentTypeLabel(
     }
     return `FACTURA RECTIFICATIVA ${rectTypeLabel}`;
   }
-  
+
   if (isRecapitulativa) {
     if (isSimplified) {
       return 'FACTURA RECAPITULATIVA SIMPLIFICADA';
     }
     return 'FACTURA RECAPITULATIVA';
   }
-  
+
   if (isSimplified) {
     return 'FACTURA SIMPLIFICADA';
   }
-  
+
   return 'FACTURA';
 }
 
-// Fetch any image URL and convert to base64 data URL
-async function fetchImageAsBase64(url: string): Promise<string | null> {
-  try {
-    console.log('Fetching image from:', url);
-    const response = await fetch(url);
-    
-    if (!response.ok) {
-      console.error('Failed to fetch image:', response.status);
-      return null;
-    }
-    
-    const arrayBuffer = await response.arrayBuffer();
-    const contentType = response.headers.get('content-type') || 'image/png';
-    const base64 = base64Encode(arrayBuffer);
-    
-    console.log('Image converted to base64, length:', base64.length);
-    return `data:${contentType};base64,${base64}`;
-  } catch (error) {
-    console.error('Error fetching image:', error);
-    return null;
-  }
+function formatDate(dateStr: string): string {
+  const date = new Date(dateStr);
+  const months = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+  return `${date.getDate()} de ${months[date.getMonth()]} de ${date.getFullYear()}`;
 }
 
-// Generate QR code as base64 data URL
-async function generateQRCodeBase64(url: string, size: number = 120): Promise<string> {
-  try {
-    const qrGenerator = QRCode as {
-      toDataURL: (input: string, options: Record<string, unknown>) => Promise<string>;
-    };
+function formatCurrency(amount: number): string {
+  return `${amount.toFixed(2)} EUR`;
+}
 
-    return await qrGenerator.toDataURL(url, {
-      type: 'image/png',
-      width: size,
-      margin: 1,
-      errorCorrectionLevel: 'M',
-      color: {
-        dark: '#000000',
-        light: '#ffffff',
-      },
-    });
-  } catch (error) {
-    console.error('Error generating internal QR base64:', error);
-    return '';
+// A4 in points at 72dpi (210mm x 297mm). Every page created below must use this.
+const PAGE_SIZE: [number, number] = [595.28, 841.89];
+const MARGIN = 40;
+
+const ACCENT = rgb(0.145, 0.388, 0.921); // #2563eb
+const ACCENT_DARK = rgb(0.114, 0.286, 0.635); // #1d4ed8
+const TEXT_DARK = rgb(0.06, 0.09, 0.16); // #0f172a
+const TEXT_MUTED = rgb(0.392, 0.455, 0.545); // #64748b
+const BORDER = rgb(0.886, 0.910, 0.941); // #e2e8f0
+const BOX_BG = rgb(0.973, 0.980, 0.988); // #f8fafc
+
+async function generateInvoicePdfBytes(
+  invoice: InvoiceData,
+  items: InvoiceItem[],
+  rectifiedInvoice: RectifiedInvoice | null,
+  substitutedInvoices: RectifiedInvoice[],
+  series: InvoiceSeries | null
+): Promise<Uint8Array> {
+  const [pageWidth, pageHeight] = PAGE_SIZE;
+  const contentRight = pageWidth - MARGIN;
+
+  const pdfDoc = await PDFDocument.create();
+  const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+
+  const pages: PDFPage[] = [pdfDoc.addPage(PAGE_SIZE)];
+  let page = pages[0];
+
+  const newPage = (): PDFPage => {
+    page = pdfDoc.addPage(PAGE_SIZE);
+    pages.push(page);
+    return page;
+  };
+
+  const invoiceTypeLabel = sanitizeForPdf(getInvoiceDocumentTypeLabel(invoice, series));
+  const isF3 = invoice.verifactu_invoice_type === 'F3';
+  const isSimplified = (invoice.invoice_type ?? series?.invoice_type) === 'simplified' && !isF3;
+  const isRectifying = !!invoice.rectified_invoice_id || series?.series_type === 'rectifying';
+  const isSubstitution = invoice.rectification_type === 'substitution';
+  const isRecapitulativa = !!invoice.is_recapitulative;
+
+  const badges: string[] = [];
+  if (isSimplified) badges.push('Simplificada');
+  if (isRectifying) badges.push(isSubstitution ? 'Sustitutiva' : 'Por diferencias');
+  if (isRecapitulativa) badges.push('Recapitulativa');
+  if (isF3) badges.push('F3 - Sustituye simplificada');
+
+  // ---- Header: logo/center name (left) + invoice type/number/dates (right) ----
+  let currentY = pageHeight - MARGIN;
+  const headerTop = currentY;
+
+  let logoImage: Awaited<ReturnType<typeof pdfDoc.embedPng>> | null = null;
+  if (invoice.centers?.invoice_logo_url) {
+    logoImage = await embedImageFromUrl(pdfDoc, invoice.centers.invoice_logo_url);
   }
+
+  let leftY = headerTop;
+  if (logoImage) {
+    const logoMaxHeight = 48;
+    const logoMaxWidth = 160;
+    const logoScale = Math.min(logoMaxWidth / logoImage.width, logoMaxHeight / logoImage.height, 1);
+    const logoWidth = logoImage.width * logoScale;
+    const logoHeight = logoImage.height * logoScale;
+    page.drawImage(logoImage, { x: MARGIN, y: leftY - logoHeight, width: logoWidth, height: logoHeight });
+    leftY -= logoHeight + 12;
+  }
+
+  page.drawText(sanitizeForPdf(invoice.centers?.name || 'Centro'), {
+    x: MARGIN, y: leftY, size: 14, font: helveticaBold, color: ACCENT_DARK,
+  });
+  leftY -= 16;
+
+  const centerMetaLines = [
+    invoice.centers?.tax_id ? `NIF: ${invoice.centers.tax_id}` : null,
+    invoice.centers?.address || null,
+    [invoice.centers?.postal_code, invoice.centers?.city].filter(Boolean).join(' ') || null,
+    invoice.centers?.phone ? `Tel: ${invoice.centers.phone}` : null,
+    invoice.centers?.email || null,
+  ].filter(Boolean) as string[];
+
+  for (const line of centerMetaLines) {
+    page.drawText(sanitizeForPdf(line), { x: MARGIN, y: leftY, size: 9, font: helvetica, color: TEXT_MUTED });
+    leftY -= 12;
+  }
+
+  // Right column
+  let rightY = headerTop - 2;
+  drawTextRightAligned(page, invoiceTypeLabel, contentRight, rightY, 15, helveticaBold, TEXT_DARK);
+  rightY -= 20;
+  drawTextRightAligned(page, sanitizeForPdf(invoice.invoice_number), contentRight, rightY, 14, helveticaBold, ACCENT);
+  rightY -= 18;
+  drawTextRightAligned(page, `Fecha emision: ${formatDate(invoice.issue_date)}`, contentRight, rightY, 9, helvetica, TEXT_MUTED);
+  rightY -= 12;
+  if (invoice.due_date) {
+    drawTextRightAligned(page, `Fecha vencimiento: ${formatDate(invoice.due_date)}`, contentRight, rightY, 9, helvetica, TEXT_MUTED);
+    rightY -= 12;
+  }
+  if (badges.length > 0) {
+    rightY -= 4;
+    drawTextRightAligned(page, badges.join(' | '), contentRight, rightY, 8, helvetica, TEXT_MUTED);
+    rightY -= 12;
+  }
+
+  currentY = Math.min(leftY, rightY) - 15;
+
+  page.drawLine({ start: { x: MARGIN, y: currentY }, end: { x: contentRight, y: currentY }, thickness: 1.5, color: ACCENT });
+  currentY -= 20;
+
+  // ---- Rectified / substituted invoice notice ----
+  if (rectifiedInvoice) {
+    const text = sanitizeForPdf(`Factura rectificada: ${rectifiedInvoice.invoice_number} del ${formatDate(rectifiedInvoice.issue_date)}`);
+    page.drawRectangle({ x: MARGIN, y: currentY - 22, width: contentRight - MARGIN, height: 22, color: rgb(0.996, 0.953, 0.780), borderColor: rgb(0.961, 0.620, 0.043), borderWidth: 1 });
+    page.drawText(text, { x: MARGIN + 8, y: currentY - 15, size: 9, font: helvetica, color: rgb(0.573, 0.251, 0.055) });
+    currentY -= 32;
+  }
+  if (substitutedInvoices.length > 0) {
+    const label = substitutedInvoices.length > 1 ? 'Facturas simplificadas sustituidas' : 'Factura simplificada sustituida';
+    const text = sanitizeForPdf(`${label}: ${substitutedInvoices.map((s) => `${s.invoice_number} del ${formatDate(s.issue_date)}`).join(', ')}`);
+    const lines = wrapText(text, helvetica, 9, contentRight - MARGIN - 16);
+    const boxHeight = 12 + lines.length * 12;
+    page.drawRectangle({ x: MARGIN, y: currentY - boxHeight, width: contentRight - MARGIN, height: boxHeight, color: rgb(0.996, 0.953, 0.780), borderColor: rgb(0.961, 0.620, 0.043), borderWidth: 1 });
+    let ly = currentY - 15;
+    for (const line of lines) {
+      page.drawText(line, { x: MARGIN + 8, y: ly, size: 9, font: helvetica, color: rgb(0.573, 0.251, 0.055) });
+      ly -= 12;
+    }
+    currentY -= boxHeight + 10;
+  }
+
+  // ---- Client info box ----
+  const recipient = invoice.recipient_snapshot || {
+    name: `${invoice.patients.first_name} ${invoice.patients.last_name}`.trim(),
+    tax_id: invoice.patients.tax_id,
+    address: invoice.patients.address,
+    city: invoice.patients.city,
+    postal_code: invoice.patients.postal_code,
+    email: invoice.patients.email,
+  };
+  const clientLines = [
+    recipient.name || 'Cliente',
+    recipient.tax_id ? `NIF/CIF: ${recipient.tax_id}` : null,
+    recipient.address || null,
+    [recipient.postal_code, recipient.city].filter(Boolean).join(' ') || null,
+    recipient.email || null,
+  ].filter(Boolean) as string[];
+
+  const clientBoxHeight = 22 + clientLines.length * 13;
+  page.drawRectangle({ x: MARGIN, y: currentY - clientBoxHeight, width: contentRight - MARGIN, height: clientBoxHeight, color: BOX_BG, borderColor: BORDER, borderWidth: 1 });
+  page.drawText('Datos del cliente', { x: MARGIN + 10, y: currentY - 15, size: 10, font: helveticaBold, color: TEXT_DARK });
+  let clientY = currentY - 30;
+  clientLines.forEach((line, i) => {
+    page.drawText(sanitizeForPdf(line), {
+      x: MARGIN + 10, y: clientY, size: i === 0 ? 10 : 9, font: i === 0 ? helveticaBold : helvetica, color: i === 0 ? TEXT_DARK : TEXT_MUTED,
+    });
+    clientY -= 13;
+  });
+  currentY -= clientBoxHeight + 20;
+
+  // ---- Items table ----
+  const col = {
+    concepto: MARGIN,
+    conceptoMaxWidth: 220,
+    cantRight: MARGIN + 300,
+    precioRight: MARGIN + 380,
+    ivaRight: MARGIN + 440,
+    irpfRight: MARGIN + 500,
+    totalRight: contentRight,
+  };
+
+  const drawTableHeader = () => {
+    page.drawText('Concepto', { x: col.concepto, y: currentY, size: 9, font: helveticaBold, color: TEXT_DARK });
+    drawTextRightAligned(page, 'Cant.', col.cantRight, currentY, 9, helveticaBold, TEXT_DARK);
+    drawTextRightAligned(page, 'Precio', col.precioRight, currentY, 9, helveticaBold, TEXT_DARK);
+    drawTextRightAligned(page, 'IVA', col.ivaRight, currentY, 9, helveticaBold, TEXT_DARK);
+    drawTextRightAligned(page, 'IRPF', col.irpfRight, currentY, 9, helveticaBold, TEXT_DARK);
+    drawTextRightAligned(page, 'Total', col.totalRight, currentY, 9, helveticaBold, TEXT_DARK);
+    currentY -= 6;
+    page.drawLine({ start: { x: MARGIN, y: currentY }, end: { x: contentRight, y: currentY }, thickness: 1, color: BORDER });
+    currentY -= 14;
+  };
+
+  drawTableHeader();
+
+  for (const item of items) {
+    const descLines = wrapText(sanitizeForPdf(item.description || ''), helvetica, 9, col.conceptoMaxWidth);
+    const rowHeight = Math.max(descLines.length, 1) * 12;
+
+    if (currentY - rowHeight < 140) {
+      newPage();
+      currentY = pageHeight - MARGIN;
+      drawTableHeader();
+    }
+
+    const rowTopY = currentY;
+    descLines.forEach((line, i) => {
+      page.drawText(line, { x: col.concepto, y: rowTopY - i * 12, size: 9, font: helvetica, color: TEXT_DARK });
+    });
+    drawTextRightAligned(page, String(item.quantity), col.cantRight, rowTopY, 9, helvetica, TEXT_DARK);
+    drawTextRightAligned(page, formatCurrency(item.unit_price), col.precioRight, rowTopY, 9, helvetica, TEXT_DARK);
+    drawTextRightAligned(page, item.tax_rate ? `${item.tax_rate}%` : '-', col.ivaRight, rowTopY, 9, helvetica, TEXT_DARK);
+    drawTextRightAligned(page, item.retention_rate ? `-${item.retention_rate}%` : '-', col.irpfRight, rowTopY, 9, helvetica, TEXT_DARK);
+    drawTextRightAligned(page, formatCurrency(item.total), col.totalRight, rowTopY, 9, helveticaBold, TEXT_DARK);
+
+    currentY -= rowHeight + 8;
+    page.drawLine({ start: { x: MARGIN, y: currentY + 4 }, end: { x: contentRight, y: currentY + 4 }, thickness: 0.5, color: BORDER });
+  }
+
+  currentY -= 10;
+
+  // ---- Totals ----
+  if (currentY < 150) {
+    newPage();
+    currentY = pageHeight - MARGIN;
+  }
+
+  const totalTax = items.reduce((sum, item) => sum + (Number(item.tax_amount) || 0), 0);
+  const totalRetention = items.reduce((sum, item) => sum + (Number(item.retention_amount) || 0), 0);
+  const avgTaxRate = items.find((i) => (i.tax_rate || 0) > 0)?.tax_rate || 0;
+  const avgRetentionRate = items.find((i) => (i.retention_rate || 0) > 0)?.retention_rate || 0;
+
+  const totalsLabelX = col.ivaRight - 60;
+  page.drawText('Base imponible:', { x: totalsLabelX, y: currentY, size: 9, font: helvetica, color: TEXT_MUTED });
+  drawTextRightAligned(page, formatCurrency(invoice.subtotal), col.totalRight, currentY, 9, helvetica, TEXT_DARK);
+  currentY -= 14;
+
+  if (totalTax > 0) {
+    page.drawText(`IVA${avgTaxRate ? ` (${avgTaxRate}%)` : ''}:`, { x: totalsLabelX, y: currentY, size: 9, font: helvetica, color: TEXT_MUTED });
+    drawTextRightAligned(page, formatCurrency(totalTax), col.totalRight, currentY, 9, helvetica, TEXT_DARK);
+    currentY -= 14;
+  }
+  if (totalRetention > 0) {
+    page.drawText(`Retencion IRPF${avgRetentionRate ? ` (${avgRetentionRate}%)` : ''}:`, { x: totalsLabelX, y: currentY, size: 9, font: helvetica, color: TEXT_MUTED });
+    drawTextRightAligned(page, `-${formatCurrency(totalRetention)}`, col.totalRight, currentY, 9, helvetica, TEXT_MUTED);
+    currentY -= 14;
+  }
+
+  page.drawLine({ start: { x: totalsLabelX, y: currentY + 4 }, end: { x: contentRight, y: currentY + 4 }, thickness: 1, color: BORDER });
+  currentY -= 12;
+  page.drawText('Total:', { x: totalsLabelX, y: currentY, size: 13, font: helveticaBold, color: TEXT_DARK });
+  drawTextRightAligned(page, formatCurrency(invoice.total), col.totalRight, currentY, 13, helveticaBold, ACCENT);
+  currentY -= 30;
+
+  // ---- Notes ----
+  if (invoice.notes) {
+    if (currentY < 120) {
+      newPage();
+      currentY = pageHeight - MARGIN;
+    }
+    page.drawLine({ start: { x: MARGIN, y: currentY }, end: { x: contentRight, y: currentY }, thickness: 1, color: BORDER });
+    currentY -= 16;
+    page.drawText('Observaciones', { x: MARGIN, y: currentY, size: 10, font: helveticaBold, color: TEXT_DARK });
+    currentY -= 14;
+    const noteLines = wrapText(sanitizeForPdf(invoice.notes), helvetica, 9, contentRight - MARGIN);
+    for (const line of noteLines) {
+      if (currentY < 60) {
+        newPage();
+        currentY = pageHeight - MARGIN;
+      }
+      page.drawText(line, { x: MARGIN, y: currentY, size: 9, font: helvetica, color: TEXT_MUTED });
+      currentY -= 12;
+    }
+    currentY -= 10;
+  }
+
+  // ---- Verifactu QR ----
+  if (invoice.verifactu_qr) {
+    if (currentY < 120) {
+      newPage();
+      currentY = pageHeight - MARGIN;
+    }
+    page.drawLine({ start: { x: MARGIN, y: currentY }, end: { x: contentRight, y: currentY }, thickness: 1, color: BORDER });
+    currentY -= 16;
+
+    try {
+      const qrDataUrl: string = await (QRCode as { toDataURL: (input: string, opts: Record<string, unknown>) => Promise<string> })
+        .toDataURL(invoice.verifactu_qr, { type: 'image/png', width: 100, margin: 1, errorCorrectionLevel: 'M' });
+      const qrBase64 = qrDataUrl.split(',')[1];
+      const qrBytes = Uint8Array.from(atob(qrBase64), (c) => c.charCodeAt(0));
+      const qrImage = await pdfDoc.embedPng(qrBytes);
+      page.drawImage(qrImage, { x: MARGIN, y: currentY - 90, width: 90, height: 90 });
+
+      page.drawText('Factura registrada en Verifactu', { x: MARGIN + 100, y: currentY - 15, size: 10, font: helveticaBold, color: TEXT_DARK });
+      const qrLines = wrapText('Puede verificar la autenticidad de esta factura escaneando el codigo QR', helvetica, 8, contentRight - MARGIN - 110);
+      let qrY = currentY - 30;
+      for (const line of qrLines) {
+        page.drawText(line, { x: MARGIN + 100, y: qrY, size: 8, font: helvetica, color: TEXT_MUTED });
+        qrY -= 11;
+      }
+      currentY -= 100;
+    } catch (qrError) {
+      console.error('[generate-invoice-pdf] Error generating QR:', qrError);
+      currentY -= 10;
+    }
+  }
+
+  // ---- Footer / data protection ----
+  if (invoice.centers?.invoice_footer) {
+    if (currentY < 80) {
+      newPage();
+      currentY = pageHeight - MARGIN;
+    }
+    currentY -= 6;
+    page.drawLine({ start: { x: MARGIN, y: currentY }, end: { x: contentRight, y: currentY }, thickness: 1, color: BORDER });
+    currentY -= 14;
+    const footerLines = wrapText(sanitizeForPdf(invoice.centers.invoice_footer), helvetica, 8, contentRight - MARGIN);
+    for (const line of footerLines) {
+      if (currentY < 40) {
+        newPage();
+        currentY = pageHeight - MARGIN;
+      }
+      const width = helvetica.widthOfTextAtSize(line, 8);
+      page.drawText(line, { x: (pageWidth - width) / 2, y: currentY, size: 8, font: helvetica, color: TEXT_MUTED });
+      currentY -= 11;
+    }
+  }
+
+  if (invoice.centers?.invoice_data_protection_text) {
+    if (currentY < 60) {
+      newPage();
+      currentY = pageHeight - MARGIN;
+    }
+    currentY -= 8;
+    const protectionLines = wrapText(sanitizeForPdf(invoice.centers.invoice_data_protection_text), helvetica, 6, contentRight - MARGIN);
+    for (const line of protectionLines) {
+      if (currentY < 35) {
+        newPage();
+        currentY = pageHeight - MARGIN;
+      }
+      page.drawText(line, { x: MARGIN, y: currentY, size: 6, font: helvetica, color: TEXT_MUTED });
+      currentY -= 9;
+    }
+  }
+
+  // Stamp every page with a generation footer
+  const timestamp = new Date().toLocaleString('es-ES', { timeZone: 'Europe/Madrid' });
+  for (const p of pages) {
+    p.drawText(`Documento generado por Psycma | Factura: ${sanitizeForPdf(invoice.invoice_number)}`, {
+      x: MARGIN, y: 20, size: 7, font: helvetica, color: TEXT_MUTED,
+    });
+    const tsWidth = helvetica.widthOfTextAtSize(timestamp, 7);
+    p.drawText(timestamp, { x: pageWidth - MARGIN - tsWidth, y: 20, size: 7, font: helvetica, color: TEXT_MUTED });
+  }
+
+  return await pdfDoc.save();
 }
 
 serve(async (req) => {
@@ -193,7 +506,6 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Fetch invoice data with series join
     const { data: invoice, error: invoiceError } = await supabase
       .from("invoices")
       .select(`
@@ -217,6 +529,43 @@ serve(async (req) => {
       return unauthorizedResponse(corsHeaders);
     }
 
+    const invoiceData = invoice as InvoiceData;
+    const filePath = `${invoiceData.center_id}/${invoice_id}.pdf`;
+
+    // Invoices are legally immutable once issued: if the PDF was already
+    // generated, reuse it instead of re-rendering. Only issue a fresh
+    // signed URL (private bucket, so URLs expire).
+    if (invoiceData.pdf_generated_at) {
+      const { data: signedUrlData, error: signedUrlError } = await supabase.storage
+        .from("invoice-documents")
+        .createSignedUrl(filePath, 60 * 60 * 24 * 365);
+
+      if (!signedUrlError && signedUrlData?.signedUrl) {
+        logAuditEvent({
+          supabase, req, userId: null, organizationId: invoiceData.center_id,
+          patientId: invoice.patient_id, resourceType: "invoices", resourceId: invoice_id,
+          action: "DOWNLOAD", routeOrEndpoint: "generate-invoice-pdf",
+        });
+        return new Response(
+          JSON.stringify({
+            success: true,
+            url: signedUrlData.signedUrl,
+            invoice: {
+              number: invoiceData.invoice_number,
+              date: invoiceData.issue_date,
+              total: invoiceData.total,
+              patient: `${invoiceData.patients.first_name} ${invoiceData.patients.last_name}`,
+              has_verifactu: !!invoiceData.verifactu_hash,
+            },
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      // File missing despite pdf_generated_at being set (shouldn't normally
+      // happen) - fall through and regenerate it.
+      console.warn("[generate-invoice-pdf] Cached PDF missing, regenerating:", signedUrlError);
+    }
+
     // Fetch series data if series_id exists
     let series: InvoiceSeries | null = null;
     if (invoice.series_id) {
@@ -225,13 +574,10 @@ serve(async (req) => {
         .select("id, name, invoice_type, series_type")
         .eq("id", invoice.series_id)
         .single();
-      
-      if (seriesData) {
-        series = seriesData as InvoiceSeries;
-      }
+      if (seriesData) series = seriesData as InvoiceSeries;
     }
 
-    // Fetch invoice items with tax/retention details
+    // Fetch invoice items
     const { data: items, error: itemsError } = await supabase
       .from("invoice_items")
       .select("description, quantity, unit_price, tax_rate, tax_amount, retention_rate, retention_amount, total")
@@ -263,418 +609,65 @@ serve(async (req) => {
         .filter((row): row is RectifiedInvoice => Boolean(row?.invoice_number && row?.issue_date));
     }
 
-    const invoiceData = invoice as InvoiceData;
     const invoiceItems = (items || []) as InvoiceItem[];
 
-    // Generate QR as base64 if verifactu is configured
-    let qrBase64 = '';
-    if (invoiceData.verifactu_qr) {
-      console.log('Generating QR base64 for verifactu_qr:', invoiceData.verifactu_qr);
-      qrBase64 = await generateQRCodeBase64(invoiceData.verifactu_qr, 100);
+    const pdfBytes = await generateInvoicePdfBytes(invoiceData, invoiceItems, rectifiedInvoice, substitutedInvoices, series);
+
+    const { error: uploadError } = await supabase.storage
+      .from("invoice-documents")
+      .upload(filePath, pdfBytes, { contentType: "application/pdf", upsert: true });
+
+    if (uploadError) {
+      console.error("Error uploading invoice PDF:", uploadError);
+      return new Response(
+        JSON.stringify({ error: "Failed to upload document" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
-    // Generate logo as base64 if configured
-    let logoBase64 = '';
-    if (invoiceData.centers?.invoice_logo_url) {
-      console.log('Fetching logo from:', invoiceData.centers.invoice_logo_url);
-      logoBase64 = await fetchImageAsBase64(invoiceData.centers.invoice_logo_url) || '';
+    const { data: signedUrlData, error: signedUrlError } = await supabase.storage
+      .from("invoice-documents")
+      .createSignedUrl(filePath, 60 * 60 * 24 * 365);
+
+    if (signedUrlError || !signedUrlData) {
+      console.error("Error creating signed URL:", signedUrlError);
+      return new Response(
+        JSON.stringify({ error: "Failed to create download URL" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
-    // Generate HTML for PDF with unified label logic
-    const html = generateInvoiceHTML(invoiceData, invoiceItems, rectifiedInvoice, substitutedInvoices, qrBase64, logoBase64, series);
+    await supabase
+      .from("invoices")
+      .update({ pdf_generated_at: new Date().toISOString() })
+      .eq("id", invoice_id);
 
-    // Audit: invoice PDF downloaded
     logAuditEvent({
-      supabase, req,
-      userId: null,
-      organizationId: invoice.center_id,
-      patientId: invoice.patient_id,
-      resourceType: 'invoices', resourceId: invoice_id,
-      action: 'DOWNLOAD',
-      routeOrEndpoint: 'generate-invoice-pdf',
+      supabase, req, userId: null, organizationId: invoice.center_id,
+      patientId: invoice.patient_id, resourceType: 'invoices', resourceId: invoice_id,
+      action: 'DOWNLOAD', routeOrEndpoint: 'generate-invoice-pdf',
     });
 
     return new Response(
       JSON.stringify({
-        html,
+        success: true,
+        url: signedUrlData.signedUrl,
         invoice: {
           number: invoiceData.invoice_number,
           date: invoiceData.issue_date,
           total: invoiceData.total,
           patient: `${invoiceData.patients.first_name} ${invoiceData.patients.last_name}`,
-          has_verifactu: !!invoiceData.verifactu_hash
-        }
+          has_verifactu: !!invoiceData.verifactu_hash,
+        },
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
 
   } catch (error) {
-    console.error("Error generating PDF:", error);
-    console.error("[generate-invoice-pdf] Unhandled error:", error);
+    console.error("Error generating invoice PDF:", error);
     return new Response(
       JSON.stringify({ error: "Error interno del servidor" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });
-
-function generateInvoiceHTML(
-  invoice: InvoiceData, 
-  items: InvoiceItem[], 
-  rectifiedInvoice: RectifiedInvoice | null,
-  substitutedInvoices: RectifiedInvoice[],
-  qrBase64: string, 
-  logoBase64: string,
-  series: InvoiceSeries | null
-): string {
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    const months = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
-    return `${date.getDate()} de ${months[date.getMonth()]} de ${date.getFullYear()}`;
-  };
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(amount);
-  };
-
-  const invoiceTypeLabel = getInvoiceDocumentTypeLabel(invoice, series);
-
-  // Build badge HTML for document type flags
-  const isF3 = invoice.verifactu_invoice_type === 'F3';
-  const isSimplified = (invoice.invoice_type ?? series?.invoice_type) === 'simplified' && !isF3;
-  const isRectifying = !!invoice.rectified_invoice_id || series?.series_type === 'rectifying';
-  const isSubstitution = invoice.rectification_type === 'substitution';
-  const isRecapitulativa = !!invoice.is_recapitulative;
-
-  let flagBadges = '';
-  if (isSimplified) flagBadges += '<span class="badge">Simplificada</span>';
-  if (isRectifying) flagBadges += `<span class="badge">${isSubstitution ? 'Sustitutiva' : 'Por diferencias'}</span>`;
-  if (isRecapitulativa) flagBadges += '<span class="badge">Recapitulativa</span>';
-  if (isF3) flagBadges += '<span class="badge">F3 · Sustituye simplificada</span>';
-
-  const rectifiedSection = rectifiedInvoice ? `
-    <div class="rectified-info">
-      <p><strong>Factura rectificada:</strong> ${rectifiedInvoice.invoice_number} del ${formatDate(rectifiedInvoice.issue_date)}</p>
-    </div>
-  ` : '';
-
-  const substitutedSection = substitutedInvoices.length > 0 ? `
-    <div class="rectified-info">
-      <p><strong>Factura${substitutedInvoices.length > 1 ? 's' : ''} simplificada${substitutedInvoices.length > 1 ? 's' : ''} sustituida${substitutedInvoices.length > 1 ? 's' : ''}:</strong>
-        ${substitutedInvoices.map((item) => `${item.invoice_number} del ${formatDate(item.issue_date)}`).join(', ')}</p>
-    </div>
-  ` : '';
-
-  const recipient = invoice.recipient_snapshot || {
-    name: `${invoice.patients.first_name} ${invoice.patients.last_name}`.trim(),
-    tax_id: invoice.patients.tax_id,
-    address: invoice.patients.address,
-    city: invoice.patients.city,
-    postal_code: invoice.patients.postal_code,
-    email: invoice.patients.email,
-  };
-
-  const totalTax = items.reduce((sum, item) => sum + (Number(item.tax_amount) || 0), 0);
-  const totalRetention = items.reduce((sum, item) => sum + (Number(item.retention_amount) || 0), 0);
-  const avgTaxRate = items.length > 0 ? items.find(i => (i.tax_rate || 0) > 0)?.tax_rate || 0 : 0;
-  const avgRetentionRate = items.length > 0 ? items.find(i => (i.retention_rate || 0) > 0)?.retention_rate || 0 : 0;
-
-  return `
-<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8">
-  <title>Factura ${invoice.invoice_number}</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-      font-size: 14px;
-      line-height: 1.5;
-      color: #0f172a;
-      background: #f8fafc;
-      padding: 32px;
-    }
-    .container { max-width: 800px; margin: 0 auto; }
-    .card {
-      background: #fff;
-      border-radius: 12px;
-      box-shadow: 0 1px 3px 0 rgba(0,0,0,0.1), 0 1px 2px -1px rgba(0,0,0,0.1);
-      border: 1px solid #e2e8f0;
-      padding: 40px;
-    }
-    .space-y-8 > * + * { margin-top: 32px; }
-
-    /* Header */
-    .header {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
-      align-items: start;
-      gap: 24px;
-    }
-    .header-left { min-width: 0; }
-    .header-left img { max-height: 64px; object-fit: contain; margin-bottom: 16px; }
-    .header-left h2 { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
-    .header-left .meta { font-size: 13px; color: #64748b; }
-    .header-left .meta p { margin-bottom: 2px; }
-    .header-right { min-width: 0; width: 100%; text-align: right; }
-    .header-right h1 {
-      max-width: 100%;
-      font-size: 22px;
-      line-height: 1.2;
-      font-weight: 700;
-      margin-bottom: 8px;
-      overflow-wrap: anywhere;
-    }
-    .header-right .inv-number { font-size: 20px; font-weight: 600; color: #2563eb; margin-bottom: 8px; }
-    .header-right .dates { font-size: 13px; color: #64748b; }
-    .header-right .dates p { margin-bottom: 4px; }
-    .header-right .dates span.label { font-weight: 500; }
-
-    /* Badges */
-    .badges { display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-end; margin-top: 8px; }
-    .badge {
-      display: inline-block;
-      font-size: 11px;
-      padding: 2px 8px;
-      border: 1px solid #e2e8f0;
-      border-radius: 9999px;
-      color: #475569;
-      background: #fff;
-    }
-
-    /* Client info */
-    .client-box {
-      border: 1px solid #e2e8f0;
-      border-radius: 8px;
-      padding: 16px;
-      background: rgba(248,250,252,0.5);
-    }
-    .client-box h3 { font-size: 14px; font-weight: 600; margin-bottom: 8px; }
-    .client-box .info { font-size: 13px; }
-    .client-box .info p { margin-bottom: 2px; }
-    .client-box .info .name { font-weight: 500; }
-
-    /* Rectified info */
-    .rectified-info {
-      background: #fef3c7;
-      border: 1px solid #f59e0b;
-      padding: 10px 14px;
-      border-radius: 8px;
-      font-size: 13px;
-      color: #92400e;
-    }
-
-    /* Items table */
-    .items-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    .items-table th {
-      text-align: left;
-      padding: 12px 8px;
-      border-bottom: 1px solid #e2e8f0;
-      font-weight: 500;
-      color: #0f172a;
-    }
-    .items-table th.right, .items-table td.right { text-align: right; }
-    .items-table td {
-      padding: 12px 8px;
-      border-bottom: 1px solid #e2e8f0;
-    }
-    .items-table td.right.bold { font-weight: 500; }
-
-    /* Totals */
-    .totals-wrapper { display: flex; justify-content: flex-end; }
-    .totals { width: 256px; }
-    .totals .row { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 8px; }
-    .totals .row.muted { color: #64748b; }
-    .totals .total-row {
-      display: flex;
-      justify-content: space-between;
-      font-size: 18px;
-      font-weight: 700;
-      border-top: 1px solid #e2e8f0;
-      padding-top: 8px;
-      margin-top: 4px;
-    }
-    .totals .total-row .amount { color: #2563eb; }
-
-    /* Notes */
-    .notes { border-top: 1px solid #e2e8f0; padding-top: 16px; }
-    .notes h4 { font-size: 14px; font-weight: 500; margin-bottom: 8px; }
-    .notes p { font-size: 13px; color: #64748b; white-space: pre-wrap; }
-
-    /* QR section */
-    .qr-section { border-top: 1px solid #e2e8f0; padding-top: 16px; display: flex; align-items: center; gap: 16px; }
-    .qr-section img { width: 96px; height: 96px; }
-    .qr-section .qr-text { font-size: 12px; color: #64748b; }
-    .qr-section .qr-text p.title { font-weight: 500; color: #475569; margin-bottom: 2px; }
-
-    /* Footer */
-    .footer {
-      border-top: 1px solid #e2e8f0;
-      padding-top: 16px;
-      text-align: center;
-      font-size: 12px;
-      color: #64748b;
-      white-space: pre-wrap;
-    }
-
-    /* Data Protection */
-    .data-protection {
-      border-top: 1px solid #e2e8f0;
-      padding-top: 12px;
-      font-size: 9px;
-      line-height: 1.5;
-      color: #94a3b8;
-      white-space: pre-wrap;
-    }
-
-    @media print {
-      @page { size: A4 portrait; margin: 12mm; }
-      html, body { width: 100%; }
-      body { background: #fff; padding: 0; }
-      .container { width: 100%; max-width: none; }
-      .card { box-shadow: none; border: none; padding: 0; }
-      .header { grid-template-columns: minmax(0, 1fr) minmax(72mm, 92mm); }
-      .header-right h1 { font-size: 18px; }
-      .client-box, .rectified-info, .items-table, .totals-wrapper,
-      .notes, .qr-section, .footer, .data-protection {
-        break-inside: avoid;
-        page-break-inside: avoid;
-      }
-    }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="card">
-      <div class="space-y-8">
-
-        <!-- Header -->
-        <div class="header">
-          <div class="header-left">
-            ${logoBase64 ? `<img src="${logoBase64}" alt="Logo" />` : ''}
-            <h2>${invoice.centers?.name || 'Centro'}</h2>
-            <div class="meta">
-              ${invoice.centers?.tax_id ? `<p>NIF: ${invoice.centers.tax_id}</p>` : ''}
-              ${invoice.centers?.address ? `<p>${invoice.centers.address}</p>` : ''}
-              ${invoice.centers?.city || invoice.centers?.postal_code ? `<p>${[invoice.centers.postal_code, invoice.centers.city].filter(Boolean).join(' ')}</p>` : ''}
-              ${invoice.centers?.phone ? `<p>Tel: ${invoice.centers.phone}</p>` : ''}
-              ${invoice.centers?.email ? `<p>${invoice.centers.email}</p>` : ''}
-            </div>
-          </div>
-          <div class="header-right">
-            <h1>${invoiceTypeLabel}</h1>
-            <p class="inv-number">${invoice.invoice_number}</p>
-            <div class="dates">
-              <p><span class="label">Fecha emisión:</span> ${formatDate(invoice.issue_date)}</p>
-              ${invoice.due_date ? `<p><span class="label">Fecha vencimiento:</span> ${formatDate(invoice.due_date)}</p>` : ''}
-            </div>
-            ${flagBadges ? `<div class="badges">${flagBadges}</div>` : ''}
-          </div>
-        </div>
-
-        ${rectifiedSection}
-        ${substitutedSection}
-
-        <!-- Client info -->
-        <div class="client-box">
-          <h3>Datos del cliente</h3>
-          <div class="info">
-            <p class="name">${recipient.name || 'Cliente'}</p>
-            ${recipient.tax_id ? `<p>NIF/CIF: ${recipient.tax_id}</p>` : ''}
-            ${recipient.address ? `<p>${recipient.address}</p>` : ''}
-            ${recipient.city || recipient.postal_code ? `<p>${[recipient.postal_code, recipient.city].filter(Boolean).join(' ')}</p>` : ''}
-            ${recipient.email ? `<p>${recipient.email}</p>` : ''}
-          </div>
-        </div>
-
-        <!-- Items table -->
-        <div>
-          <table class="items-table">
-            <thead>
-              <tr>
-                <th>Concepto</th>
-                <th class="right" style="width:64px">Cant.</th>
-                <th class="right" style="width:96px">Precio</th>
-                <th class="right" style="width:64px">IVA</th>
-                <th class="right" style="width:64px">IRPF</th>
-                <th class="right" style="width:96px">Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${items.map(item => `
-              <tr>
-                <td>${item.description}</td>
-                <td class="right">${item.quantity}</td>
-                <td class="right">${formatCurrency(item.unit_price)}</td>
-                <td class="right">${item.tax_rate ? `${item.tax_rate}%` : '-'}</td>
-                <td class="right">${item.retention_rate ? `-${item.retention_rate}%` : '-'}</td>
-                <td class="right bold">${formatCurrency(item.total)}</td>
-              </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        </div>
-
-        <!-- Totals -->
-        <div class="totals-wrapper">
-          <div class="totals">
-            <div class="row">
-              <span>Base imponible:</span>
-              <span>${formatCurrency(invoice.subtotal)}</span>
-            </div>
-            ${totalTax > 0 ? `
-            <div class="row">
-              <span>IVA${avgTaxRate ? ` (${avgTaxRate}%)` : ''}:</span>
-              <span>${formatCurrency(totalTax)}</span>
-            </div>
-            ` : ''}
-            ${totalRetention > 0 ? `
-            <div class="row muted">
-              <span>Retención IRPF${avgRetentionRate ? ` (${avgRetentionRate}%)` : ''}:</span>
-              <span>-${formatCurrency(totalRetention)}</span>
-            </div>
-            ` : ''}
-            <div class="total-row">
-              <span>Total:</span>
-              <span class="amount">${formatCurrency(invoice.total)}</span>
-            </div>
-          </div>
-        </div>
-
-        ${invoice.notes ? `
-        <!-- Notes -->
-        <div class="notes">
-          <h4>Observaciones</h4>
-          <p>${invoice.notes}</p>
-        </div>
-        ` : ''}
-
-        ${invoice.verifactu_qr && qrBase64 ? `
-        <!-- QR Verifactu -->
-        <div class="qr-section">
-          <img src="${qrBase64}" alt="Código QR Verifactu" />
-          <div class="qr-text">
-            <p class="title">Factura registrada en Verifactu</p>
-            <p>Puede verificar la autenticidad de esta factura escaneando el código QR</p>
-          </div>
-        </div>
-        ` : ''}
-
-        ${invoice.centers?.invoice_footer ? `
-        <!-- Footer -->
-        <div class="footer">${invoice.centers.invoice_footer}</div>
-        ` : ''}
-
-        ${invoice.centers?.invoice_data_protection_text ? `
-        <!-- Data Protection -->
-        <div class="data-protection">${invoice.centers.invoice_data_protection_text}</div>
-        ` : ''}
-
-      </div>
-    </div>
-  </div>
-</body>
-</html>
-  `;
-}
