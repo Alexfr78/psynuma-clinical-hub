@@ -15,7 +15,8 @@ const corsHeaders = {
 const stripeSecretKey = Deno.env.get('STRIPE_SECRET_KEY');
 
 interface CheckoutRequest {
-  debt_id: string;
+  debt_id?: string;
+  session_access_token?: string;
   bono_template_id: string;
 }
 
@@ -25,11 +26,11 @@ serve(async (req) => {
   }
 
   try {
-    const { debt_id, bono_template_id } = await req.json() as CheckoutRequest;
+    const { debt_id, session_access_token, bono_template_id } = await req.json() as CheckoutRequest;
 
-    if (!debt_id || !bono_template_id) {
+    if ((!debt_id && !session_access_token) || !bono_template_id) {
       return new Response(
-        JSON.stringify({ error: 'debt_id y bono_template_id son requeridos' }),
+        JSON.stringify({ error: 'bono_template_id y (debt_id o session_access_token) son requeridos' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -46,23 +47,81 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
-    // Get debt with patient info
-    const { data: debt, error: debtError } = await supabase
-      .from('debts')
-      .select(`
-        *,
-        patients (id, first_name, last_name, email, assigned_professional_id),
-        sessions (id, session_date, session_type, professional_id)
-      `)
-      .eq('id', debt_id)
-      .single();
+    // Resolve a common context (patient/center/session/professional) from
+    // either an existing debt link or a public session link, so a bono can
+    // be bought directly from the appointment reminder without a debt.
+    let debtId: string | null = null;
+    let centerId: string;
+    let patientId: string;
+    let patientEmail: string | null | undefined;
+    let sessionId: string | null;
+    let sessionProfessionalId: string | null;
+    let assignedProfessionalId: string | null;
+    let debtAccessToken: string | null = null;
 
-    if (debtError || !debt) {
-      console.error('Error fetching debt:', debtError);
-      return new Response(
-        JSON.stringify({ error: 'Deuda no encontrada' }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    if (debt_id) {
+      // Get debt with patient info
+      const { data: debt, error: debtError } = await supabase
+        .from('debts')
+        .select(`
+          *,
+          patients (id, first_name, last_name, email, assigned_professional_id),
+          sessions (id, session_date, session_type, professional_id)
+        `)
+        .eq('id', debt_id)
+        .single();
+
+      if (debtError || !debt) {
+        console.error('Error fetching debt:', debtError);
+        return new Response(
+          JSON.stringify({ error: 'Deuda no encontrada' }),
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      debtId = debt.id;
+      centerId = debt.center_id;
+      patientId = debt.patient_id;
+      patientEmail = debt.patients?.email;
+      sessionId = debt.session_id || null;
+      sessionProfessionalId = debt.sessions?.professional_id || null;
+      assignedProfessionalId = debt.patients?.assigned_professional_id || null;
+      debtAccessToken = debt.access_token;
+    } else {
+      const { data: session, error: sessionError } = await supabase
+        .from('sessions')
+        .select(`
+          id, center_id, patient_id, professional_id, status, payment_status, stripe_payment_status,
+          patients (id, email, assigned_professional_id)
+        `)
+        .eq('access_token', session_access_token!)
+        .single();
+
+      if (sessionError || !session) {
+        console.error('Error fetching session:', sessionError);
+        return new Response(
+          JSON.stringify({ error: 'Cita no encontrada' }),
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      if (
+        session.status === 'cancelled'
+        || ['paid', 'bono'].includes((session.payment_status || '').toLowerCase())
+        || session.stripe_payment_status === 'paid'
+      ) {
+        return new Response(
+          JSON.stringify({ error: 'Esta cita ya no admite compra de bono' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      centerId = session.center_id;
+      patientId = session.patient_id;
+      patientEmail = session.patients?.email;
+      sessionId = session.id;
+      sessionProfessionalId = session.professional_id;
+      assignedProfessionalId = session.patients?.assigned_professional_id || null;
     }
 
     // Get bono template
@@ -70,7 +129,7 @@ serve(async (req) => {
       .from('bono_templates')
       .select('*')
       .eq('id', bono_template_id)
-      .eq('center_id', debt.center_id)
+      .eq('center_id', centerId)
       .eq('is_active', true)
       .eq('is_public', true)
       .single();
@@ -87,7 +146,7 @@ serve(async (req) => {
     const { data: center, error: centerError } = await supabase
       .from('centers')
       .select('id, name, public_domain, portal_default_professional_id')
-      .eq('id', debt.center_id)
+      .eq('id', centerId)
       .single();
 
     if (centerError || !center) {
@@ -107,8 +166,8 @@ serve(async (req) => {
     assertStripeEnvironment(stripeSecretKey);
 
     const professionalId = selectPaymentProfessionalId(
-      debt.sessions?.professional_id,
-      debt.patients?.assigned_professional_id,
+      sessionProfessionalId,
+      assignedProfessionalId,
       center.portal_default_professional_id,
     );
     if (!professionalId) {
@@ -139,15 +198,19 @@ serve(async (req) => {
       if (!v) throw new Error('APP_BASE_URL not configured');
       return v;
     })();
-    const defaultSuccessUrl = `${baseUrl}/pago-exitoso?bono=1&debt_id=${debt_id}`;
-    const defaultCancelUrl = `${baseUrl}/pagar/${debt.access_token}?bono=1`;
+    const defaultSuccessUrl = debtId
+      ? `${baseUrl}/pago-exitoso?bono=1&debt_id=${debtId}`
+      : `${baseUrl}/cita/${session_access_token}?pago=ok`;
+    const defaultCancelUrl = debtId
+      ? `${baseUrl}/pagar/${debtAccessToken}?bono=1`
+      : `${baseUrl}/cita/${session_access_token}?pago=cancelado`;
 
     // Create Stripe Checkout Session
     const feeBpsRaw = Deno.env.get('STRIPE_APPLICATION_FEE_BPS');
     const checkoutSession = await createConnectedCheckoutSession({
       stripeSecretKey,
       connectedAccountId: connection.stripe_account_id,
-      customerEmail: debt.patients?.email,
+      customerEmail: patientEmail,
       lineItem: {
         name: bonoTemplate.name,
         description: `${bonoTemplate.total_sessions} sesiones en ${center.name}`,
@@ -155,10 +218,10 @@ serve(async (req) => {
       },
       metadata: {
         payment_type: 'bono_purchase',
-        debt_id: debt.id,
-        patient_id: debt.patient_id,
-        center_id: debt.center_id,
-        session_id: debt.session_id || '',
+        debt_id: debtId || '',
+        patient_id: patientId,
+        center_id: centerId,
+        session_id: sessionId || '',
         professional_id: professionalId,
         bono_template_id: bono_template_id,
         bono_name: bonoTemplate.name,
@@ -171,19 +234,21 @@ serve(async (req) => {
       cancelUrl: defaultCancelUrl,
       applicationFeeBpsRaw: feeBpsRaw,
       idempotencyKey: buildConnectedCheckoutIdempotencyKey(
-        'bono', `${debt.id}-${bonoTemplate.id}`, amountInCents, feeBpsRaw,
+        'bono', `${debtId || sessionId}-${bonoTemplate.id}`, amountInCents, feeBpsRaw,
       ),
     });
 
     console.log('Bono checkout session created:', checkoutSession.id);
 
-    await supabase
-      .from('debts')
-      .update({
-        stripe_checkout_session_id: checkoutSession.id,
-        stripe_payment_status: 'pending',
-      })
-      .eq('id', debt.id);
+    if (debtId) {
+      await supabase
+        .from('debts')
+        .update({
+          stripe_checkout_session_id: checkoutSession.id,
+          stripe_payment_status: 'pending',
+        })
+        .eq('id', debtId);
+    }
 
     return new Response(
       JSON.stringify({

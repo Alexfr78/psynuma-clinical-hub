@@ -114,6 +114,34 @@ export function usePublicSession(token: string | undefined) {
   });
 }
 
+export interface PublicBonoTemplate {
+  id: string;
+  name: string;
+  total_sessions: number;
+  total_price: number;
+  price_per_session: number;
+}
+
+export function usePublicBonoTemplatesForSession(token: string | undefined) {
+  return useQuery({
+    queryKey: ['public-bono-templates-session', token],
+    queryFn: async (): Promise<PublicBonoTemplate[]> => {
+      if (!token) return [];
+
+      const { data, error } = await supabase
+        .rpc('get_public_bono_templates_for_session', { p_token: token });
+
+      if (error) {
+        console.error('Error fetching bono templates:', error);
+        return [];
+      }
+
+      return (data || []) as unknown as PublicBonoTemplate[];
+    },
+    enabled: !!token,
+  });
+}
+
 export function useUpdatePublicSession() {
   const queryClient = useQueryClient();
 

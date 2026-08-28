@@ -16,14 +16,16 @@ import {
   Ban,
   ArrowLeft,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  CreditCard,
+  Package
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { 
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -34,9 +36,16 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { usePublicSession, useUpdatePublicSession, usePublicSessionReschedule } from '@/hooks/usePublicSession';
+import { usePublicSession, useUpdatePublicSession, usePublicSessionReschedule, usePublicBonoTemplatesForSession } from '@/hooks/usePublicSession';
 import { supabase } from '@/integrations/supabase/client';
 import { useState, useEffect, useRef } from 'react';
 import { Textarea } from '@/components/ui/textarea';
@@ -81,8 +90,12 @@ export default function SessionManagement() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [paying, setPaying] = useState(false);
+  const [payDialogOpen, setPayDialogOpen] = useState(false);
+  const [payingBonoId, setPayingBonoId] = useState<string | null>(null);
   const timeSlotsRef = useRef<HTMLDivElement>(null);
   const confirmActionsRef = useRef<HTMLDivElement>(null);
+
+  const { data: bonoTemplates = [] } = usePublicBonoTemplatesForSession(token);
 
   const {
     slots,
@@ -222,6 +235,29 @@ export default function SessionManagement() {
       setPaying(false);
       toast({
         title: 'No se pudo iniciar el pago',
+        description: error instanceof Error
+          ? error.message
+          : 'Inténtalo de nuevo o contacta con el centro.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handlePayBono = async (bonoTemplateId: string) => {
+    if (!token || payingBonoId) return;
+    setPayingBonoId(bonoTemplateId);
+    try {
+      const { data, error } = await supabase.functions.invoke('create-bono-checkout', {
+        body: { session_access_token: token, bono_template_id: bonoTemplateId },
+      });
+      if (error) throw error;
+      if (!data?.url) throw new Error(data?.error || 'No se pudo iniciar el pago');
+      window.location.href = data.url;
+    } catch (error) {
+      console.error('Error creating bono checkout:', error);
+      setPayingBonoId(null);
+      toast({
+        title: 'No se pudo iniciar la compra del bono',
         description: error instanceof Error
           ? error.message
           : 'Inténtalo de nuevo o contacta con el centro.',
@@ -684,12 +720,87 @@ export default function SessionManagement() {
               <Button
                 className="w-full"
                 size="lg"
-                onClick={handlePay}
-                disabled={paying}
+                onClick={() => setPayDialogOpen(true)}
+                disabled={paying || payingBonoId !== null}
               >
-                {paying ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
-                {paying ? 'Preparando pago...' : 'Pagar con tarjeta'}
+                Pagar con tarjeta
               </Button>
+
+              <Dialog open={payDialogOpen} onOpenChange={setPayDialogOpen}>
+                <DialogContent className="sm:max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>Elige cómo quieres pagar</DialogTitle>
+                    <DialogDescription>
+                      Puedes pagar solo esta sesión o comprar un bono de sesiones.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-3">
+                    <Button
+                      onClick={handlePay}
+                      disabled={paying || payingBonoId !== null}
+                      className="w-full justify-start h-auto py-4"
+                      size="lg"
+                    >
+                      {paying ? (
+                        <Loader2 className="h-5 w-5 mr-3 animate-spin" />
+                      ) : (
+                        <CreditCard className="h-5 w-5 mr-3" />
+                      )}
+                      <div className="text-left">
+                        <div className="font-semibold">
+                          Pagar {Number(session.price || 0).toFixed(2)}€ esta sesión
+                        </div>
+                        <div className="text-sm opacity-70">Pago único con tarjeta</div>
+                      </div>
+                    </Button>
+
+                    {bonoTemplates.length > 0 && (
+                      <>
+                        <Separator />
+                        <p className="text-sm text-muted-foreground">
+                          O ahorra comprando un bono de sesiones. Esta cita se incluirá automáticamente.
+                        </p>
+                        {bonoTemplates.map((templateItem) => {
+                          const savings = (templateItem.price_per_session * templateItem.total_sessions) - templateItem.total_price;
+                          const isProcessing = payingBonoId === templateItem.id;
+                          return (
+                            <Button
+                              key={templateItem.id}
+                              onClick={() => handlePayBono(templateItem.id)}
+                              disabled={paying || payingBonoId !== null}
+                              variant="outline"
+                              className="w-full justify-between h-auto py-4"
+                              size="lg"
+                            >
+                              <div className="flex items-center">
+                                {isProcessing ? (
+                                  <Loader2 className="h-5 w-5 mr-3 animate-spin" />
+                                ) : (
+                                  <Package className="h-5 w-5 mr-3" />
+                                )}
+                                <div className="text-left">
+                                  <div className="font-semibold">{templateItem.name}</div>
+                                  <div className="text-sm opacity-70">
+                                    {templateItem.total_sessions} sesiones a {templateItem.price_per_session.toFixed(0)}€/sesión
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <div className="font-bold">{templateItem.total_price.toFixed(0)}€</div>
+                                {savings > 0 && (
+                                  <Badge variant="secondary" className="text-xs">
+                                    Ahorras {savings.toFixed(0)}€
+                                  </Badge>
+                                )}
+                              </div>
+                            </Button>
+                          );
+                        })}
+                      </>
+                    )}
+                  </div>
+                </DialogContent>
+              </Dialog>
             </div>
           )}
 

@@ -479,17 +479,21 @@ async function handleBonoPurchase(
     paymentRecord = insertedPayment;
   }
 
-  await supabase
-    .from('debts')
-    .update({
-      bono_id: bonoData.id,
-      status: 'paid',
-      paid_amount: 0,
-      stripe_payment_status: 'paid',
-      stripe_checkout_session_id: stripeSessionId,
-      notes: `Liquidada con bono ${bonoName}`,
-    })
-    .eq('id', debtId);
+  // A bono bought directly from the appointment reminder (no prior debt)
+  // has no debtId to settle here.
+  if (debtId) {
+    await supabase
+      .from('debts')
+      .update({
+        bono_id: bonoData.id,
+        status: 'paid',
+        paid_amount: 0,
+        stripe_payment_status: 'paid',
+        stripe_checkout_session_id: stripeSessionId,
+        notes: `Liquidada con bono ${bonoName}`,
+      })
+      .eq('id', debtId);
+  }
 
   // If there's a session associated, apply bono to it
   if (sessionId) {
