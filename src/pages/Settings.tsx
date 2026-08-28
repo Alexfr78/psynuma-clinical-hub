@@ -131,18 +131,18 @@ const navItems: NavItem[] = [
   // Mi Centro
   { id: 'centro-info', label: 'Datos del centro', icon: 'apartment', parent: 'Mi Centro' },
   { id: 'centro-ubicaciones', label: 'Ubicaciones', icon: 'location_on', parent: 'Mi Centro' },
-  { id: 'centro-agenda', label: 'Configuración de agenda', icon: 'calendar_month', parent: 'Mi Centro' },
-  { id: 'centro-excepciones', label: 'Días no laborables', icon: 'block', parent: 'Mi Centro' },
-  { id: 'centro-dias-especiales', label: 'Días especiales', icon: 'date_range', parent: 'Mi Centro' },
-  { id: 'sesiones-tipos', label: 'Tipos de cita', icon: 'calendar_month', parent: 'Mi Centro' },
+  { id: 'centro-agenda', label: 'Configuración de agenda', icon: 'calendar_month', parent: 'Mi Centro', subgroup: 'Agenda' },
+  { id: 'centro-excepciones', label: 'Días no laborables', icon: 'block', parent: 'Mi Centro', subgroup: 'Agenda' },
+  { id: 'centro-dias-especiales', label: 'Días especiales', icon: 'date_range', parent: 'Mi Centro', subgroup: 'Agenda' },
+  { id: 'sesiones-tipos', label: 'Tipos de cita', icon: 'calendar_month', parent: 'Mi Centro', subgroup: 'Agenda' },
 
   // Portal de Contactos
   { id: 'centro-portal', label: 'Configuración del portal', icon: 'tune', parent: 'Portal de Contactos' },
-
   { id: 'consentimientos-config', label: 'Consentimientos informados', icon: 'description', parent: 'Portal de Contactos' },
-  { id: 'consentimientos-plantillas', label: 'Plantillas de consentimiento', icon: 'edit_document', parent: 'Portal de Contactos' },
-  { id: 'evaluaciones-plantillas', label: 'Plantillas de evaluación', icon: 'assignment_turned_in', parent: 'Portal de Contactos' },
-  { id: 'autorregistros-plantillas', label: 'Plantillas de autorregistro', icon: 'edit_note', parent: 'Portal de Contactos' },
+
+  { id: 'consentimientos-plantillas', label: 'Plantillas de consentimiento', icon: 'edit_document', parent: 'Portal de Contactos', subgroup: 'Plantillas' },
+  { id: 'evaluaciones-plantillas', label: 'Plantillas de evaluación', icon: 'assignment_turned_in', parent: 'Portal de Contactos', subgroup: 'Plantillas' },
+  { id: 'autorregistros-plantillas', label: 'Plantillas de autorregistro', icon: 'edit_note', parent: 'Portal de Contactos', subgroup: 'Plantillas' },
 
   // Pagos y Facturación
   { id: 'tarifas', label: 'Planes tarifarios', icon: 'layers', parent: 'Pagos y Facturación' },
@@ -174,14 +174,18 @@ const navItems: NavItem[] = [
 
   // Conexiones Externas
   { id: 'integraciones-resumen', label: 'Estado de conexiones', icon: 'power', parent: 'Conexiones Externas' },
-  { id: 'integraciones-email', label: 'Email (Resend)', icon: 'mail', parent: 'Conexiones Externas' },
-  { id: 'integraciones-whatsapp', label: 'WhatsApp', icon: 'chat', parent: 'Conexiones Externas' },
-  { id: 'integraciones-google', label: 'Google Calendar y Meet', icon: 'calendar_month', parent: 'Conexiones Externas' },
-  { id: 'integraciones-google-drive', label: 'Google Drive (documentos)', icon: 'hard_drive', parent: 'Conexiones Externas' },
-  { id: 'integraciones-zoom', label: 'Zoom', icon: 'videocam', parent: 'Conexiones Externas' },
-  { id: 'integraciones-stripe', label: 'Stripe - Cobros online', icon: 'credit_card', parent: 'Conexiones Externas' },
-  { id: 'integraciones-credenciales', label: 'Configuración avanzada', icon: 'tune', parent: 'Conexiones Externas' },
-  { id: 'integraciones-ia', label: 'Inteligencia Artificial', icon: 'psychology', parent: 'Conexiones Externas' },
+
+  { id: 'integraciones-email', label: 'Email (Resend)', icon: 'mail', parent: 'Conexiones Externas', subgroup: 'Comunicación' },
+  { id: 'integraciones-whatsapp', label: 'WhatsApp', icon: 'chat', parent: 'Conexiones Externas', subgroup: 'Comunicación' },
+
+  { id: 'integraciones-google', label: 'Google Calendar y Meet', icon: 'calendar_month', parent: 'Conexiones Externas', subgroup: 'Calendario, Vídeo y Documentos' },
+  { id: 'integraciones-zoom', label: 'Zoom', icon: 'videocam', parent: 'Conexiones Externas', subgroup: 'Calendario, Vídeo y Documentos' },
+  { id: 'integraciones-google-drive', label: 'Google Drive (documentos)', icon: 'hard_drive', parent: 'Conexiones Externas', subgroup: 'Calendario, Vídeo y Documentos' },
+
+  { id: 'integraciones-stripe', label: 'Stripe - Cobros online', icon: 'credit_card', parent: 'Conexiones Externas', subgroup: 'Pagos' },
+
+  { id: 'integraciones-credenciales', label: 'Configuración avanzada', icon: 'tune', parent: 'Conexiones Externas', subgroup: 'Avanzado' },
+  { id: 'integraciones-ia', label: 'Inteligencia Artificial', icon: 'psychology', parent: 'Conexiones Externas', subgroup: 'Avanzado' },
 
   // Seguridad
   { id: 'seguridad', label: 'Doble factor (2FA)', icon: 'shield', parent: 'Seguridad' },
