@@ -44,15 +44,15 @@
 
     --radius: 0.75rem;
     
-    /* Sidebar - Dark sidebar for contrast */
-    --sidebar-background: 215 30% 12%;
-    --sidebar-foreground: 210 20% 90%;
-    --sidebar-primary: 210 100% 55%;
+    /* Sidebar - mismo panel claro que el resto de la app (rediseño Stitch) */
+    --sidebar-background: 40 23% 97%;
+    --sidebar-foreground: 246 16% 12%;
+    --sidebar-primary: 205 100% 26%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 215 30% 18%;
-    --sidebar-accent-foreground: 210 20% 90%;
-    --sidebar-border: 215 25% 20%;
-    --sidebar-ring: 210 100% 55%;
+    --sidebar-accent: 40 9% 93%;
+    --sidebar-accent-foreground: 246 16% 12%;
+    --sidebar-border: 40 5% 88%;
+    --sidebar-ring: 205 100% 26%;
   }
 
   .dark {
@@ -94,15 +94,15 @@
     --input: 244 15% 22%;
     --ring: 213 100% 81%;
     
-    /* Sidebar - Dark */
-    --sidebar-background: 215 35% 6%;
-    --sidebar-foreground: 210 20% 90%;
-    --sidebar-primary: 210 100% 55%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 215 30% 12%;
-    --sidebar-accent-foreground: 210 20% 90%;
-    --sidebar-border: 215 25% 15%;
-    --sidebar-ring: 210 100% 55%;
+    /* Sidebar - mismo panel oscuro que el resto de la app en modo oscuro */
+    --sidebar-background: 245 25% 10%;
+    --sidebar-foreground: 246 33% 94%;
+    --sidebar-primary: 213 100% 81%;
+    --sidebar-primary-foreground: 208 100% 11%;
+    --sidebar-accent: 244 17% 20%;
+    --sidebar-accent-foreground: 246 33% 94%;
+    --sidebar-border: 244 15% 22%;
+    --sidebar-ring: 213 100% 81%;
   }
 }
 
