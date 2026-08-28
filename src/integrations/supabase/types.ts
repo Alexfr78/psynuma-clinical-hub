@@ -1621,6 +1621,90 @@ export type Database = {
           },
         ]
       }
+      center_drive_connections: {
+        Row: {
+          access_token_encrypted: string | null
+          center_id: string
+          connected_by: string | null
+          created_at: string
+          drive_root_folder_id: string | null
+          enabled: boolean
+          google_account_email: string | null
+          last_upload_at: string | null
+          last_upload_error: string | null
+          needs_reconnect: boolean
+          refresh_token_encrypted: string | null
+          token_expires_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          access_token_encrypted?: string | null
+          center_id: string
+          connected_by?: string | null
+          created_at?: string
+          drive_root_folder_id?: string | null
+          enabled?: boolean
+          google_account_email?: string | null
+          last_upload_at?: string | null
+          last_upload_error?: string | null
+          needs_reconnect?: boolean
+          refresh_token_encrypted?: string | null
+          token_expires_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          access_token_encrypted?: string | null
+          center_id?: string
+          connected_by?: string | null
+          created_at?: string
+          drive_root_folder_id?: string | null
+          enabled?: boolean
+          google_account_email?: string | null
+          last_upload_at?: string | null
+          last_upload_error?: string | null
+          needs_reconnect?: boolean
+          refresh_token_encrypted?: string | null
+          token_expires_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "center_drive_connections_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: true
+            referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "center_drive_connections_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: true
+            referencedRelation: "centers_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "center_drive_connections_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: true
+            referencedRelation: "portal_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "center_drive_connections_connected_by_fkey"
+            columns: ["connected_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "center_drive_connections_connected_by_fkey"
+            columns: ["connected_by"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       center_locations: {
         Row: {
           center_id: string
@@ -1745,6 +1829,8 @@ export type Database = {
           name: string
           oauth_google_client_id: string | null
           oauth_google_credentials: string | null
+          oauth_google_drive_client_id: string | null
+          oauth_google_drive_credentials: string | null
           oauth_stripe_credentials: string | null
           oauth_stripe_publishable_key: string | null
           oauth_zoom_client_id: string | null
@@ -1849,6 +1935,8 @@ export type Database = {
           name: string
           oauth_google_client_id?: string | null
           oauth_google_credentials?: string | null
+          oauth_google_drive_client_id?: string | null
+          oauth_google_drive_credentials?: string | null
           oauth_stripe_credentials?: string | null
           oauth_stripe_publishable_key?: string | null
           oauth_zoom_client_id?: string | null
@@ -1953,6 +2041,8 @@ export type Database = {
           name?: string
           oauth_google_client_id?: string | null
           oauth_google_credentials?: string | null
+          oauth_google_drive_client_id?: string | null
+          oauth_google_drive_credentials?: string | null
           oauth_stripe_credentials?: string | null
           oauth_stripe_publishable_key?: string | null
           oauth_zoom_client_id?: string | null
@@ -3138,6 +3228,8 @@ export type Database = {
           created_at: string
           cuota_recargo_rectificado: number | null
           cuota_rectificada: number | null
+          drive_file_id: string | null
+          drive_url: string | null
           due_date: string | null
           id: string
           invoice_hash: string | null
@@ -3149,6 +3241,7 @@ export type Database = {
           notes: string | null
           operation_date: string | null
           patient_id: string
+          pdf_generated_at: string | null
           previous_invoice_hash: string | null
           recipient_snapshot: Json | null
           rectification_reason_code: string | null
@@ -3183,6 +3276,8 @@ export type Database = {
           created_at?: string
           cuota_recargo_rectificado?: number | null
           cuota_rectificada?: number | null
+          drive_file_id?: string | null
+          drive_url?: string | null
           due_date?: string | null
           id?: string
           invoice_hash?: string | null
@@ -3194,6 +3289,7 @@ export type Database = {
           notes?: string | null
           operation_date?: string | null
           patient_id: string
+          pdf_generated_at?: string | null
           previous_invoice_hash?: string | null
           recipient_snapshot?: Json | null
           rectification_reason_code?: string | null
@@ -3228,6 +3324,8 @@ export type Database = {
           created_at?: string
           cuota_recargo_rectificado?: number | null
           cuota_rectificada?: number | null
+          drive_file_id?: string | null
+          drive_url?: string | null
           due_date?: string | null
           id?: string
           invoice_hash?: string | null
@@ -3239,6 +3337,7 @@ export type Database = {
           notes?: string | null
           operation_date?: string | null
           patient_id?: string
+          pdf_generated_at?: string | null
           previous_invoice_hash?: string | null
           recipient_snapshot?: Json | null
           rectification_reason_code?: string | null
