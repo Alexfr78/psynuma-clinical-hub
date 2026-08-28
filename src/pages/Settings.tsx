@@ -196,6 +196,13 @@ export default function Settings() {
   const { center, isLoading, updateCenter } = useCenter();
   const { isAdmin } = useAuth();
   const [activeSection, setActiveSection] = useState<SettingsSection>('centro-info');
+  const [expandedCategory, setExpandedCategory] = useState<string>('Mi Centro');
+
+  const selectSection = (id: SettingsSection) => {
+    setActiveSection(id);
+    const parent = navItems.find((item) => item.id === id)?.parent;
+    if (parent) setExpandedCategory(parent);
+  };
 
   const centerForm = useForm<CenterFormValues>({
     resolver: zodResolver(centerSchema),
@@ -445,7 +452,7 @@ export default function Settings() {
 
       {/* Mobile Section Selector */}
       <div className="lg:hidden">
-        <Select value={activeSection} onValueChange={(val) => setActiveSection(val as SettingsSection)}>
+        <Select value={activeSection} onValueChange={(val) => selectSection(val as SettingsSection)}>
           <SelectTrigger className="w-full">
             <SelectValue>
               {currentItem && (
@@ -501,62 +508,73 @@ export default function Settings() {
         <aside className="hidden lg:block w-64 shrink-0">
           <Card className="sticky top-6 overflow-hidden">
             <ScrollArea className="h-[calc(100vh-10rem)]">
-              <nav className="p-4 space-y-6">
+              <nav className="p-4 space-y-1">
                 {categoryOrder.map((category) => {
                   const group = groupedNavItems[category];
                   if (!group) return null;
                   const categoryIcon = categoryIcons[category] || 'description';
-                  
+                  const isExpanded = expandedCategory === category;
+
                   return (
                     <div key={category} className="space-y-1">
-                      <div className="flex items-center gap-2 px-3 py-2">
+                      <button
+                        onClick={() => setExpandedCategory(isExpanded ? '' : category)}
+                        className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium hover:bg-muted transition-colors"
+                      >
                         <Icon name={categoryIcon} className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm font-medium">{category}</span>
-                      </div>
-                      <div className="ml-4 space-y-1 border-l pl-4">
-                        {group.items.map((item) => (
-                          <button
-                            key={item.id}
-                            onClick={() => setActiveSection(item.id)}
-                            className={cn(
-                              "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
-                              activeSection === item.id
-                                ? "bg-primary text-primary-foreground"
-                                : "hover:bg-muted text-muted-foreground hover:text-foreground"
-                            )}
-                          >
-                            <Icon name={item.icon} className="h-4 w-4" />
-                            {item.label}
-                          </button>
-                        ))}
-                        
-                        {/* Render subgroups */}
-                        {Object.entries(group.subgroups).map(([subgroupName, subItems]) => (
-                          <div key={subgroupName} className="mt-3 space-y-1">
-                            <div className="flex items-center gap-2 px-3 py-1">
-                              <Icon name="shield" className="h-3 w-3 text-muted-foreground" />
-                              <span className="text-xs font-medium text-muted-foreground">{subgroupName}</span>
+                        <span className="flex-1 text-left">{category}</span>
+                        <Icon
+                          name="expand_more"
+                          className={cn("h-4 w-4 text-muted-foreground transition-transform", isExpanded && "rotate-180")}
+                        />
+                      </button>
+
+                      {isExpanded && (
+                        <div className="ml-4 space-y-1 border-l pl-4 pb-2">
+                          {group.items.map((item) => (
+                            <button
+                              key={item.id}
+                              onClick={() => selectSection(item.id)}
+                              className={cn(
+                                "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
+                                activeSection === item.id
+                                  ? "bg-primary text-primary-foreground"
+                                  : "hover:bg-muted text-muted-foreground hover:text-foreground"
+                              )}
+                            >
+                              <Icon name={item.icon} className="h-4 w-4" />
+                              {item.label}
+                            </button>
+                          ))}
+
+                          {/* Render subgroups */}
+                          {Object.entries(group.subgroups).map(([subgroupName, subItems]) => (
+                            <div key={subgroupName} className="mt-3 space-y-1">
+                              <div className="flex items-center gap-2 px-3 py-1">
+                                <Icon name="shield" className="h-3 w-3 text-muted-foreground" />
+                                <span className="text-xs font-medium text-muted-foreground">{subgroupName}</span>
+                              </div>
+                              <div className="ml-2 space-y-1 border-l border-dashed pl-3">
+                                {subItems.map((item) => (
+                                  <button
+                                    key={item.id}
+                                    onClick={() => selectSection(item.id)}
+                                    className={cn(
+                                      "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
+                                      activeSection === item.id
+                                        ? "bg-primary text-primary-foreground"
+                                        : "hover:bg-muted text-muted-foreground hover:text-foreground"
+                                    )}
+                                  >
+                                    <Icon name={item.icon} className="h-4 w-4" />
+                                    {item.label}
+                                  </button>
+                                ))}
+                              </div>
                             </div>
-                            <div className="ml-2 space-y-1 border-l border-dashed pl-3">
-                              {subItems.map((item) => (
-                                <button
-                                  key={item.id}
-                                  onClick={() => setActiveSection(item.id)}
-                                  className={cn(
-                                    "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
-                                    activeSection === item.id
-                                      ? "bg-primary text-primary-foreground"
-                                      : "hover:bg-muted text-muted-foreground hover:text-foreground"
-                                  )}
-                                >
-                                  <Icon name={item.icon} className="h-4 w-4" />
-                                  {item.label}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
