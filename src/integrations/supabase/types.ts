@@ -2785,6 +2785,73 @@ export type Database = {
           },
         ]
       }
+      google_session_sync_state: {
+        Row: {
+          baseline_date: string
+          baseline_end: string
+          baseline_start: string
+          conflict_payload: Json | null
+          google_etag: string | null
+          google_event_id: string
+          google_updated_at: string | null
+          last_synced_at: string
+          professional_id: string
+          session_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          baseline_date: string
+          baseline_end: string
+          baseline_start: string
+          conflict_payload?: Json | null
+          google_etag?: string | null
+          google_event_id: string
+          google_updated_at?: string | null
+          last_synced_at?: string
+          professional_id: string
+          session_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          baseline_date?: string
+          baseline_end?: string
+          baseline_start?: string
+          conflict_payload?: Json | null
+          google_etag?: string | null
+          google_event_id?: string
+          google_updated_at?: string | null
+          last_synced_at?: string
+          professional_id?: string
+          session_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "google_session_sync_state_professional_id_fkey"
+            columns: ["professional_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "google_session_sync_state_professional_id_fkey"
+            columns: ["professional_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "google_session_sync_state_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       google_sync_debounce: {
         Row: {
           calendar_id: string | null
