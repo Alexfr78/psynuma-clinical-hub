@@ -262,7 +262,7 @@ export default function Invoices() {
       if (error) throw error;
       if (!data?.url) throw new Error('PDF sin contenido');
 
-      const ok = await downloadPdfFromUrl(data.url, `factura-${invoiceNumber || invoiceId}`);
+      const ok = await downloadPdfFromUrl(data.url, `Factura-${invoiceNumber || invoiceId}`);
       if (!ok) {
         toast.error('El navegador ha bloqueado la descarga. Desactiva el bloqueador e inténtalo de nuevo.');
         return;

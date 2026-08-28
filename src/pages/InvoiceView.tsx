@@ -35,7 +35,7 @@ export default function InvoiceView() {
       if (error) throw error;
       if (!data?.url) throw new Error('PDF sin contenido');
 
-      const ok = await downloadPdfFromUrl(data.url, `factura-${invoice.invoice_number || invoice.id}`);
+      const ok = await downloadPdfFromUrl(data.url, `Factura-${invoice.invoice_number || invoice.id}`);
       if (!ok) {
         toast.error('El navegador ha bloqueado la descarga. Desactiva el bloqueador e inténtalo de nuevo.');
       }
