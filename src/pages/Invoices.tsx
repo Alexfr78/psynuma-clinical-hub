@@ -43,6 +43,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { hasInvoiceAeatRegistration } from '@/lib/invoice-immutability';
 import { usePayments } from '@/hooks/usePayments';
+import { downloadPdfFromUrl } from '@/lib/download-pdf';
 
 const getCurrentMonthRange = (): InvoiceDateRange => {
   const today = new Date();
@@ -603,7 +604,7 @@ export default function Invoices() {
                   invoice={invoice}
                   onViewDetails={() => handleViewDetails(invoice.id)}
                   onStatusChange={(status) => handleStatusChange(invoice.id, status)}
-                  onGeneratePDF={() => handleGeneratePDF(invoice.id)}
+                  onGeneratePDF={() => handleGeneratePDF(invoice.id, invoice.invoice_number)}
                   onSealVerifactu={() => handleSealVerifactu(invoice.id)}
                   onQueryVerifactu={() => handleQueryVerifactu(invoice.id)}
                   onCancelVerifactu={() => handleCancelVerifactuClick(invoice.id, invoice.invoice_number)}
