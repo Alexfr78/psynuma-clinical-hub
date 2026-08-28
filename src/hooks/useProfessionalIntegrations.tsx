@@ -246,6 +246,8 @@ export function useProfessionalIntegrations(overrideProfessionalId?: string) {
               access_token: null,
               refresh_token: null,
               expires_at: null,
+              scope: null,
+              provider_account_id: null,
               sync_token: null,
               watch_channel_id: null,
               watch_resource_id: null,
@@ -255,6 +257,7 @@ export function useProfessionalIntegrations(overrideProfessionalId?: string) {
               needs_reconnect: false,
               // CRITICAL: Keep google_calendar_id so user doesn't have to re-select
               // google_calendar_id: connection.google_calendar_id,
+
             })
             .eq('professional_id', professionalId)
             .eq('provider', 'google');

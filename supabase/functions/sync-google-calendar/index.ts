@@ -1270,6 +1270,21 @@ async function syncProfessional(
     if (event.id) googleEventMap.set(event.id, event);
   }
 
+  // Build a map psycma_session_id -> Google event, used to re-adopt events
+  // created by Psycma before a disconnect/reconnect cycle. Without this, a
+  // reconnect would create duplicated events in Google Calendar.
+  const psycmaEventBySessionId = new Map<string, any>();
+  for (const event of googleEvents) {
+    if (!event?.id || event.status === 'cancelled') continue;
+    const sid = event.extendedProperties?.private?.psycma_session_id
+      || (typeof event.description === 'string'
+        ? (event.description.match(/\[PSYCMA_SESSION_ID:([^\]]+)\]/)?.[1]
+          || event.description.match(/\[PSYCMA:([^\]]+)\]/)?.[1])
+        : null);
+    if (sid && !psycmaEventBySessionId.has(sid)) psycmaEventBySessionId.set(sid, event);
+  }
+
+
   // Get sessions to sync
   const { data: sessions, error: sessionsError } = await supabase
     .from('sessions')
@@ -1314,8 +1329,19 @@ async function syncProfessional(
 
   // Sync Psycma sessions to Google Calendar
   for (const session of sessions || []) {
+    // Re-adopt an existing Psycma event in Google (post reconnect) instead of duplicating it
+    if (!session.google_calendar_event_id && fullSync) {
+      const existing = psycmaEventBySessionId.get(session.id);
+      if (existing?.id) {
+        console.log(`[SYNC:${correlationId}] Re-adopting Google event ${existing.id} for session ${session.id}`);
+        await supabase.from('sessions').update({ google_calendar_event_id: existing.id }).eq('id', session.id);
+        session.google_calendar_event_id = existing.id;
+      }
+    }
+
     if (!session.google_calendar_event_id) {
       // Create new event
+
       const eventId = await createGoogleCalendarEvent(
         accessToken, calendarId, session, session.patient, professional, correlationId,
         titleFormat, descriptionFormat, session.location, session.bono
