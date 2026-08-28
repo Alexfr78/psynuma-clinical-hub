@@ -4,17 +4,35 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
 import { useConsents, Consent } from '@/hooks/useConsents';
+import { CreateConsentDialog } from '@/components/consents/CreateConsentDialog';
 import { WhatsAppLinkDialog } from '@/components/agenda/WhatsAppLinkDialog';
 import { useWhatsAppDelivery } from '@/hooks/useWhatsAppDelivery';
 import { useCenter } from '@/hooks/useCenter';
-import { usePatients } from '@/hooks/usePatients';
+import { usePatients, Patient } from '@/hooks/usePatients';
 import { toast } from 'sonner';
 import { Icon } from '@/components/ui/icon';
 import { Link } from 'react-router-dom';
 
 export default function Consents() {
   const { consents, isLoading: consentsLoading } = useConsents();
+  const [patientSearchOpen, setPatientSearchOpen] = useState(false);
+  const [patientSearchValue, setPatientSearchValue] = useState('');
+  const [sendPatient, setSendPatient] = useState<Patient | null>(null);
+  const { data: searchPatients, isLoading: patientsLoading } = usePatients({ search: patientSearchValue });
 
   // Filter pending consents (not expired)
   const pendingConsents = consents.filter((c) => {
@@ -22,24 +40,69 @@ export default function Consents() {
     return c.status === 'pending' && !isExpired;
   });
 
+  const handleSelectPatient = (patient: Patient) => {
+    setSendPatient(patient);
+    setPatientSearchOpen(false);
+    setPatientSearchValue('');
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="font-display text-2xl sm:text-3xl font-bold">
-            Consentimientos pendientes de firma
+            Consentimientos Informados
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Las plantillas se gestionan desde Configuración → Portal de Contactos
+            Gestiona la documentación legal y firmas de tus pacientes
           </p>
         </div>
-        <Button variant="outline" size="sm" asChild>
-          <Link to="/configuracion">
-            <Icon name="description" className="mr-2 h-4 w-4" />
-            Gestionar plantillas
-          </Link>
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" asChild>
+            <Link to="/configuracion">
+              <Icon name="description" className="mr-2 h-4 w-4" />
+              Gestionar plantillas
+            </Link>
+          </Button>
+          <Popover open={patientSearchOpen} onOpenChange={setPatientSearchOpen}>
+            <PopoverTrigger asChild>
+              <Button size="sm">
+                <Icon name="send" className="mr-2 h-4 w-4" />
+                Enviar consentimiento
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[300px] p-0" align="end">
+              <Command shouldFilter={false}>
+                <CommandInput
+                  placeholder="Buscar contacto..."
+                  value={patientSearchValue}
+                  onValueChange={setPatientSearchValue}
+                />
+                <CommandList>
+                  <CommandEmpty>
+                    {patientsLoading ? 'Buscando...' : 'No se encontraron contactos.'}
+                  </CommandEmpty>
+                  <CommandGroup>
+                    {searchPatients?.map((patient) => (
+                      <CommandItem
+                        key={patient.id}
+                        value={patient.id}
+                        onSelect={() => handleSelectPatient(patient)}
+                        className="flex items-center gap-2 py-2"
+                      >
+                        <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                          <Icon name="person" className="h-3.5 w-3.5 text-primary" />
+                        </div>
+                        <span className="truncate">{patient.first_name} {patient.last_name}</span>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
+        </div>
       </div>
 
       {consentsLoading ? (
@@ -62,6 +125,15 @@ export default function Consents() {
             <PendingConsentCard key={consent.id} consent={consent} />
           ))}
         </div>
+      )}
+
+      {sendPatient && (
+        <CreateConsentDialog
+          open={!!sendPatient}
+          onOpenChange={(v) => !v && setSendPatient(null)}
+          patient={sendPatient}
+          onSuccess={() => setSendPatient(null)}
+        />
       )}
     </div>
   );
