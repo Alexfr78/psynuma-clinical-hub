@@ -88,6 +88,16 @@ serve(async (req) => {
           updateData['oauth_google_credentials'] = await encryptSecret(credentials.clientSecret);
         }
         break;
+      case 'google_drive':
+        // Separate OAuth client from Calendar/Meet's 'google' — narrower
+        // drive.file scope, connected per-center rather than per-professional.
+        if (credentials.clientId) {
+          updateData['oauth_google_drive_client_id'] = credentials.clientId;
+        }
+        if (credentials.clientSecret) {
+          updateData['oauth_google_drive_credentials'] = await encryptSecret(credentials.clientSecret);
+        }
+        break;
       case 'zoom':
         // Store client_id in plaintext, encrypt client_secret
         if (credentials.clientId) {

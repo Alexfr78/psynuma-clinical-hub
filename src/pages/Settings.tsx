@@ -13,6 +13,7 @@ import {
   Zap,
   MapPin,
   Calendar,
+  HardDrive,
   Mail,
   MessageCircle,
   Smartphone,
@@ -66,6 +67,7 @@ import { WhatsAppIntegrationSection } from '@/components/settings/integrations/W
 // WasenderIntegrationSection is now integrated into WhatsAppIntegrationSection
 import { ZoomIntegrationSection } from '@/components/settings/integrations/ZoomIntegrationSection';
 import { GoogleIntegrationSection } from '@/components/settings/integrations/GoogleIntegrationSection';
+import { GoogleDriveIntegrationSection } from '@/components/settings/integrations/GoogleDriveIntegrationSection';
 import { StripeIntegrationSection } from '@/components/settings/integrations/StripeIntegrationSection';
 import { EmailIntegrationSection } from '@/components/settings/integrations/EmailIntegrationSection';
 import { OAuthCredentialsSection } from '@/components/settings/integrations/OAuthCredentialsSection';
@@ -125,6 +127,7 @@ type SettingsSection =
   
   | 'integraciones-zoom'
   | 'integraciones-google'
+  | 'integraciones-google-drive'
   | 'integraciones-stripe'
   | 'integraciones-ia'
   | 'seguridad'
@@ -196,6 +199,7 @@ const navItems: NavItem[] = [
   { id: 'integraciones-email', label: 'Email (Resend)', icon: Mail, parent: 'Conexiones Externas' },
   { id: 'integraciones-whatsapp', label: 'WhatsApp', icon: MessageCircle, parent: 'Conexiones Externas' },
   { id: 'integraciones-google', label: 'Google Calendar y Meet', icon: Calendar, parent: 'Conexiones Externas' },
+  { id: 'integraciones-google-drive', label: 'Google Drive (documentos)', icon: HardDrive, parent: 'Conexiones Externas' },
   { id: 'integraciones-zoom', label: 'Zoom', icon: Video, parent: 'Conexiones Externas' },
   { id: 'integraciones-stripe', label: 'Stripe - Cobros online', icon: CreditCard, parent: 'Conexiones Externas' },
   { id: 'integraciones-credenciales', label: 'Configuración avanzada', icon: Settings2, parent: 'Conexiones Externas' },
@@ -428,6 +432,8 @@ export default function Settings() {
         return <ZoomIntegrationSection />;
       case 'integraciones-google':
         return <GoogleIntegrationSection />;
+      case 'integraciones-google-drive':
+        return <GoogleDriveIntegrationSection />;
       case 'integraciones-stripe':
         return <StripeIntegrationSection onOpenPaymentSettings={() => setActiveSection('pagos-config')} />;
       case 'integraciones-ia':

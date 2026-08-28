@@ -58,6 +58,7 @@ interface ProviderCredentials {
 export function OAuthCredentialsSection() {
   const { center } = useCenter();
   const [google, setGoogle] = useState<ProviderCredentials>({ clientId: "", clientSecret: "" });
+  const [googleDrive, setGoogleDrive] = useState<ProviderCredentials>({ clientId: "", clientSecret: "" });
   const [zoom, setZoom] = useState<ProviderCredentials>({ clientId: "", clientSecret: "" });
   const [stripe, setStripe] = useState<{ publishableKey: string; secretKey: string }>({ publishableKey: "", secretKey: "" });
   const [savedProviders, setSavedProviders] = useState<string[]>([]);
@@ -73,7 +74,13 @@ export function OAuthCredentialsSection() {
       if (center.oauth_google_client_id) {
         setGoogle(prev => ({ ...prev, clientId: center.oauth_google_client_id || "" }));
       }
-      
+
+      // Google Drive: separate OAuth client, load Client ID and check if configured
+      if (center.oauth_google_drive_credentials) configured.push('google_drive');
+      if (center.oauth_google_drive_client_id) {
+        setGoogleDrive(prev => ({ ...prev, clientId: center.oauth_google_drive_client_id || "" }));
+      }
+
       // Zoom: load Client ID and check if configured
       if (center.oauth_zoom_credentials) configured.push('zoom');
       if (center.oauth_zoom_client_id) {
@@ -104,6 +111,7 @@ export function OAuthCredentialsSection() {
       
       // Clear fields after saving
       if (provider === 'google') setGoogle({ clientId: "", clientSecret: "" });
+      if (provider === 'google_drive') setGoogleDrive({ clientId: "", clientSecret: "" });
       if (provider === 'zoom') setZoom({ clientId: "", clientSecret: "" });
       if (provider === 'stripe') setStripe({ publishableKey: "", secretKey: "" });
       
@@ -117,6 +125,10 @@ export function OAuthCredentialsSection() {
 
   const handleSaveGoogle = () => {
     saveCredentials('google', { clientId: google.clientId, clientSecret: google.clientSecret });
+  };
+
+  const handleSaveGoogleDrive = () => {
+    saveCredentials('google_drive', { clientId: googleDrive.clientId, clientSecret: googleDrive.clientSecret });
   };
 
   const handleSaveZoom = () => {
@@ -201,6 +213,67 @@ export function OAuthCredentialsSection() {
                 >
                   Google Cloud Console
                 </a>
+              </p>
+            </AccordionContent>
+          </AccordionItem>
+
+          {/* Google Drive Credentials */}
+          <AccordionItem value="google_drive">
+            <AccordionTrigger className="hover:no-underline">
+              <div className="flex items-center gap-3">
+                <div className="p-1.5 rounded bg-yellow-500/10">
+                  <svg className="h-4 w-4 text-yellow-600" viewBox="0 0 24 24">
+                    <path fill="currentColor" d="M7.71 3.5L1.15 15l3.43 6L11.14 9.5 7.71 3.5zM9.14 22h9.72l3.43-6H5.71l3.43 6zM22.85 15L16.29 3.5h-6.86L16 15h6.85z"/>
+                  </svg>
+                </div>
+                <span className="font-medium">Google Drive (documentos)</span>
+                {savedProviders.includes('google_drive') && (
+                  <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50 text-xs">
+                    <Check className="h-3 w-3 mr-1" />
+                    Configurado
+                  </Badge>
+                )}
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="space-y-4 pt-4">
+              <p className="text-xs text-muted-foreground">
+                Cliente OAuth independiente del de Calendar/Meet, con permiso limitado a los archivos que la propia app cree en Drive.
+              </p>
+              <CredentialField
+                label="Client ID"
+                placeholder="123456789-abcdef.apps.googleusercontent.com"
+                value={googleDrive.clientId}
+                onChange={(v) => setGoogleDrive(prev => ({ ...prev, clientId: v }))}
+              />
+              <CredentialField
+                label="Client Secret"
+                placeholder="GOCSPX-..."
+                value={googleDrive.clientSecret}
+                onChange={(v) => setGoogleDrive(prev => ({ ...prev, clientSecret: v }))}
+                isSecret
+              />
+              <div className="pt-2">
+                <Button
+                  size="sm"
+                  onClick={handleSaveGoogleDrive}
+                  disabled={!googleDrive.clientId || !googleDrive.clientSecret || saving === 'google_drive'}
+                  className="gap-2"
+                >
+                  {saving === 'google_drive' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  Guardar credenciales Google Drive
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Obtén estas credenciales en{" "}
+                <a
+                  href="https://console.cloud.google.com/apis/credentials"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary hover:underline"
+                >
+                  Google Cloud Console
+                </a>
+                {" "}(scope <code className="text-[11px]">drive.file</code>)
               </p>
             </AccordionContent>
           </AccordionItem>
