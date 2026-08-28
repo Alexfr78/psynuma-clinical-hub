@@ -1360,10 +1360,12 @@ async function syncProfessional(
       // Incremental responses contain only changed events. If an event is
       // absent there, it is unchanged rather than deleted.
       let eventExists = shouldTreatGoogleEventAsExisting(googleEvent, fullSync);
-      
+      // Only treat the event as deleted in Google when we have positive
+      // evidence (explicit cancelled status or a failed direct lookup).
+      let deletionConfirmed = Boolean(googleEvent && googleEvent.status === 'cancelled');
+      let deletionUnverified = false;
+
       // OPTIMIZATION: Limit the number of checkGoogleEventExists calls
-      // If event is not in the fetched list, assume it doesn't exist and recreate
-      // This saves 1 API call per "missing" session
       if (!googleEvent && fullSync && eventChecksCount < MAX_EVENT_CHECKS_PER_SYNC) {
         // Only do explicit check for first N sessions, then assume missing = recreate
         eventChecksCount++;
@@ -1378,14 +1380,22 @@ async function syncProfessional(
         if (checkResponse.ok) {
           const eventData = await checkResponse.json();
           eventExists = eventData.status !== 'cancelled';
-        } else {
+          deletionConfirmed = !eventExists;
+        } else if (checkResponse.status === 404 || checkResponse.status === 410) {
           eventExists = false;
+          deletionConfirmed = true;
+        } else {
+          // Transient/unknown failure: do not assume anything.
+          eventExists = false;
+          deletionUnverified = true;
         }
       } else if (!googleEvent && fullSync) {
-        // Skip check, assume doesn't exist
-        console.log(`[SYNC:${correlationId}] Event ${session.google_calendar_event_id} not in list, recreating (check limit reached)`);
+        // Check limit reached: no evidence, leave the link untouched this run.
+        console.log(`[SYNC:${correlationId}] Event ${session.google_calendar_event_id} not in list, check limit reached — skipping`);
         eventExists = false;
+        deletionUnverified = true;
       }
+
 
       // Incremental responses omit unchanged Google events. If Psycma changed
       // since the common baseline, fetch that single event so the outgoing
