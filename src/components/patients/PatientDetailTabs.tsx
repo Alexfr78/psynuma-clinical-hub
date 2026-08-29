@@ -31,18 +31,32 @@ interface PatientDetailTabsProps {
   };
 }
 
-// Tabs visibles en el detalle de contacto (incluye Tarifas).
+// Tabs de primer nivel visibles en el detalle de contacto. Sesiones, Finanzas y
+// Documentos clínicos agrupan internamente varias sub-secciones (ver más abajo)
+// para reducir la navegación de 10 a 5 pestañas.
 const tabOptions = [
   { value: 'summary', label: 'Resumen' },
   { value: 'data', label: 'Datos' },
   { value: 'sessions', label: 'Sesiones' },
+  { value: 'finance', label: 'Finanzas' },
+  { value: 'documents', label: 'Documentos clínicos' },
+];
+
+const sessionsSubTabs = [
+  { value: 'all', label: 'Todas' },
+  { value: 'ai-reports', label: 'Resúmenes IA' },
+];
+
+const financeSubTabs = [
   { value: 'invoices', label: 'Facturas' },
   { value: 'bonos', label: 'Bonos' },
+  { value: 'pricing', label: 'Tarifas' },
+];
+
+const documentsSubTabs = [
   { value: 'consents', label: 'Consentimientos' },
   { value: 'assessments', label: 'Evaluaciones' },
   { value: 'autoregistros', label: 'Autorregistros' },
-  { value: 'ai-reports', label: 'Informes IA' },
-  { value: 'pricing', label: 'Tarifas' },
 ];
 
 interface PatientDetailTabsControlledProps extends PatientDetailTabsProps {
@@ -50,10 +64,30 @@ interface PatientDetailTabsControlledProps extends PatientDetailTabsProps {
   onActiveTabChange?: (tab: string) => void;
 }
 
+function SubTabsList({ options }: { options: { value: string; label: string }[] }) {
+  return (
+    <TabsList className="mb-4 h-auto flex-nowrap justify-start gap-1 overflow-x-auto p-1">
+      {options.map((tab) => (
+        <TabsTrigger
+          key={tab.value}
+          value={tab.value}
+          className="flex-shrink-0 min-h-[36px] px-3 py-1.5 text-xs sm:text-sm"
+        >
+          {tab.label}
+        </TabsTrigger>
+      ))}
+    </TabsList>
+  );
+}
+
 export function PatientDetailTabs({ patient, activeTab: controlledTab, onActiveTabChange }: PatientDetailTabsControlledProps) {
   const [internalTab, setInternalTab] = useState('summary');
   const activeTab = controlledTab ?? internalTab;
   const setActiveTab = onActiveTabChange ?? setInternalTab;
+
+  const [sessionsSubTab, setSessionsSubTab] = useState('all');
+  const [financeSubTab, setFinanceSubTab] = useState('invoices');
+  const [documentsSubTab, setDocumentsSubTab] = useState('consents');
 
   return (
     <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -79,9 +113,9 @@ export function PatientDetailTabs({ patient, activeTab: controlledTab, onActiveT
         <div className="absolute right-0 top-0 bottom-0 w-3 bg-gradient-to-l from-background to-transparent pointer-events-none z-10 md:hidden" />
         <TabsList className="w-full justify-start overflow-x-auto flex-nowrap h-auto gap-1 p-1">
           {tabOptions.map((tab) => (
-            <TabsTrigger 
-              key={tab.value} 
-              value={tab.value} 
+            <TabsTrigger
+              key={tab.value}
+              value={tab.value}
               className="flex-shrink-0 text-xs sm:text-sm px-3 py-2 min-h-[40px]"
             >
               {tab.label}
@@ -99,35 +133,45 @@ export function PatientDetailTabs({ patient, activeTab: controlledTab, onActiveT
       </TabsContent>
 
       <TabsContent value="sessions">
-        <PatientSessions patientId={patient.id} />
+        <Tabs value={sessionsSubTab} onValueChange={setSessionsSubTab}>
+          <SubTabsList options={sessionsSubTabs} />
+          <TabsContent value="all">
+            <PatientSessions patientId={patient.id} />
+          </TabsContent>
+          <TabsContent value="ai-reports">
+            <PatientAIReports patientId={patient.id} />
+          </TabsContent>
+        </Tabs>
       </TabsContent>
 
-      <TabsContent value="invoices">
-        <PatientInvoices patientId={patient.id} />
+      <TabsContent value="finance">
+        <Tabs value={financeSubTab} onValueChange={setFinanceSubTab}>
+          <SubTabsList options={financeSubTabs} />
+          <TabsContent value="invoices">
+            <PatientInvoices patientId={patient.id} />
+          </TabsContent>
+          <TabsContent value="bonos">
+            <PatientBonos patientId={patient.id} />
+          </TabsContent>
+          <TabsContent value="pricing">
+            <PatientCustomPrices patientId={patient.id} />
+          </TabsContent>
+        </Tabs>
       </TabsContent>
 
-      <TabsContent value="bonos">
-        <PatientBonos patientId={patient.id} />
-      </TabsContent>
-
-      <TabsContent value="consents">
-        <PatientConsents patientId={patient.id} patient={patient} />
-      </TabsContent>
-
-      <TabsContent value="assessments">
-        <PatientAssessments patientId={patient.id} />
-      </TabsContent>
-
-      <TabsContent value="autoregistros">
-        <PatientAutoregistros patientId={patient.id} />
-      </TabsContent>
-
-      <TabsContent value="ai-reports">
-        <PatientAIReports patientId={patient.id} />
-      </TabsContent>
-
-      <TabsContent value="pricing">
-        <PatientCustomPrices patientId={patient.id} />
+      <TabsContent value="documents">
+        <Tabs value={documentsSubTab} onValueChange={setDocumentsSubTab}>
+          <SubTabsList options={documentsSubTabs} />
+          <TabsContent value="consents">
+            <PatientConsents patientId={patient.id} patient={patient} />
+          </TabsContent>
+          <TabsContent value="assessments">
+            <PatientAssessments patientId={patient.id} />
+          </TabsContent>
+          <TabsContent value="autoregistros">
+            <PatientAutoregistros patientId={patient.id} />
+          </TabsContent>
+        </Tabs>
       </TabsContent>
     </Tabs>
   );
