@@ -710,78 +710,91 @@ export default function SessionManagement() {
               </Button>
 
               <Dialog open={payDialogOpen} onOpenChange={setPayDialogOpen}>
-                <DialogContent className="sm:max-w-md">
+                <DialogContent className="sm:max-w-2xl">
                   <DialogHeader>
                     <DialogTitle>Elige cómo quieres pagar</DialogTitle>
                     <DialogDescription>
                       Puedes pagar solo esta sesión o comprar un bono de sesiones.
                     </DialogDescription>
                   </DialogHeader>
-                  <div className="space-y-3">
-                    <Button
-                      onClick={handlePay}
-                      disabled={paying || payingBonoId !== null}
-                      className="w-full justify-start h-auto py-4"
-                      size="lg"
-                    >
-                      {paying ? (
-                        <Icon name="progress_activity" className="h-5 w-5 mr-3 animate-spin" />
-                      ) : (
-                        <Icon name="credit_card" className="h-5 w-5 mr-3" />
-                      )}
-                      <div className="text-left">
-                        <div className="font-semibold">
-                          Pagar {Number(session.price || 0).toFixed(2)}€ esta sesión
-                        </div>
-                        <div className="text-sm opacity-70">Pago único con tarjeta</div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    {/* Sesión única */}
+                    <div className="flex flex-col items-center rounded-2xl border p-6 text-center">
+                      <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-muted">
+                        <Icon name="credit_card" className="h-6 w-6 text-muted-foreground" />
                       </div>
-                    </Button>
+                      <h3 className="font-semibold">Sesión única</h3>
+                      <p className="mt-2 text-3xl font-bold">
+                        {Number(session.price || 0).toFixed(2)}€
+                      </p>
+                      <p className="mt-1 text-sm text-muted-foreground">Pago único con tarjeta</p>
+                      <Button
+                        onClick={handlePay}
+                        disabled={paying || payingBonoId !== null}
+                        className="mt-6 w-full"
+                        size="lg"
+                      >
+                        {paying ? (
+                          <Icon name="progress_activity" className="h-4 w-4 animate-spin" />
+                        ) : (
+                          'Seleccionar'
+                        )}
+                      </Button>
+                    </div>
 
-                    {bonoTemplates.length > 0 && (
-                      <>
-                        <Separator />
-                        <p className="text-sm text-muted-foreground">
-                          O ahorra comprando un bono de sesiones. Esta cita se incluirá automáticamente.
-                        </p>
-                        {bonoTemplates.map((templateItem) => {
-                          const savings = (templateItem.price_per_session * templateItem.total_sessions) - templateItem.total_price;
-                          const isProcessing = payingBonoId === templateItem.id;
-                          return (
+                    {/* Bonos de sesiones */}
+                    {(() => {
+                      const bestValueId = bonoTemplates.length > 0
+                        ? bonoTemplates.reduce((best, t) =>
+                            t.price_per_session < best.price_per_session ? t : best
+                          , bonoTemplates[0]).id
+                        : null;
+
+                      return bonoTemplates.map((templateItem) => {
+                        const isProcessing = payingBonoId === templateItem.id;
+                        const isBestValue = templateItem.id === bestValueId;
+                        return (
+                          <div
+                            key={templateItem.id}
+                            className="relative flex flex-col items-center rounded-2xl border p-6 text-center"
+                          >
+                            {isBestValue && (
+                              <Badge className="absolute -top-3 bg-green-600 hover:bg-green-600">
+                                Mejor valor
+                              </Badge>
+                            )}
+                            <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-muted">
+                              <Icon name="package_2" className="h-6 w-6 text-muted-foreground" />
+                            </div>
+                            <h3 className="font-semibold">{templateItem.name}</h3>
+                            <p className="mt-2 text-3xl font-bold">
+                              {templateItem.total_price.toFixed(0)}€
+                            </p>
+                            <p className="mt-1 text-sm text-muted-foreground">
+                              {templateItem.total_sessions} sesiones a {templateItem.price_per_session.toFixed(0)}€/sesión
+                            </p>
                             <Button
-                              key={templateItem.id}
                               onClick={() => handlePayBono(templateItem.id)}
                               disabled={paying || payingBonoId !== null}
-                              variant="outline"
-                              className="w-full justify-between h-auto py-4"
+                              className="mt-6 w-full"
                               size="lg"
                             >
-                              <div className="flex items-center">
-                                {isProcessing ? (
-                                  <Icon name="progress_activity" className="h-5 w-5 mr-3 animate-spin" />
-                                ) : (
-                                  <Icon name="package_2" className="h-5 w-5 mr-3" />
-                                )}
-                                <div className="text-left">
-                                  <div className="font-semibold">{templateItem.name}</div>
-                                  <div className="text-sm opacity-70">
-                                    {templateItem.total_sessions} sesiones a {templateItem.price_per_session.toFixed(0)}€/sesión
-                                  </div>
-                                </div>
-                              </div>
-                              <div className="text-right">
-                                <div className="font-bold">{templateItem.total_price.toFixed(0)}€</div>
-                                {savings > 0 && (
-                                  <Badge variant="secondary" className="text-xs">
-                                    Ahorras {savings.toFixed(0)}€
-                                  </Badge>
-                                )}
-                              </div>
+                              {isProcessing ? (
+                                <Icon name="progress_activity" className="h-4 w-4 animate-spin" />
+                              ) : (
+                                'Seleccionar'
+                              )}
                             </Button>
-                          );
-                        })}
-                      </>
-                    )}
+                          </div>
+                        );
+                      });
+                    })()}
                   </div>
+                  {bonoTemplates.length > 0 && (
+                    <p className="text-center text-sm text-muted-foreground">
+                      Esta cita se incluirá automáticamente en el bono que elijas.
+                    </p>
+                  )}
                 </DialogContent>
               </Dialog>
             </div>
