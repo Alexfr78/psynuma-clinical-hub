@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils';
 import { useState, type MouseEvent } from 'react';
 import { toast } from 'sonner';
 import { CreateSimpleInvoiceDialog } from '@/components/invoices/CreateSimpleInvoiceDialog';
+import { InvoiceDetailDialog } from '@/components/invoices/InvoiceDetailDialog';
 import { downloadPdfFromUrl } from '@/lib/download-pdf';
 import { Icon } from '@/components/ui/icon';
 
@@ -29,6 +30,15 @@ const statusConfig = {
 export function PatientInvoices({ patientId, onInvoiceClick }: PatientInvoicesProps) {
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [createInvoiceOpen, setCreateInvoiceOpen] = useState(false);
+  const [detailInvoiceId, setDetailInvoiceId] = useState<string | null>(null);
+
+  const handleInvoiceClick = (invoiceId: string) => {
+    if (onInvoiceClick) {
+      onInvoiceClick(invoiceId);
+      return;
+    }
+    setDetailInvoiceId(invoiceId);
+  };
 
   const { data: invoices, isLoading } = useQuery({
     queryKey: ['patient-invoices', patientId],
@@ -117,11 +127,10 @@ export function PatientInvoices({ patientId, onInvoiceClick }: PatientInvoicesPr
           <Card 
             key={invoice.id} 
             className={cn(
-              "transition-colors hover:bg-muted/50",
-              isInvalidated && "opacity-60",
-              onInvoiceClick && "cursor-pointer"
+              "cursor-pointer transition-colors hover:bg-muted/50",
+              isInvalidated && "opacity-60"
             )}
-            onClick={() => onInvoiceClick?.(invoice.id)}
+            onClick={() => handleInvoiceClick(invoice.id)}
           >
             <CardContent className="p-4">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -177,6 +186,11 @@ export function PatientInvoices({ patientId, onInvoiceClick }: PatientInvoicesPr
         open={createInvoiceOpen}
         onOpenChange={setCreateInvoiceOpen}
         preselectedPatientId={patientId}
+      />
+      <InvoiceDetailDialog
+        open={!!detailInvoiceId}
+        onOpenChange={(open) => !open && setDetailInvoiceId(null)}
+        invoiceId={detailInvoiceId}
       />
     </div>
   );
