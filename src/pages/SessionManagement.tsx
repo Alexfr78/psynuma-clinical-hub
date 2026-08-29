@@ -717,22 +717,22 @@ export default function SessionManagement() {
                       Puedes pagar solo esta sesión o comprar un bono de sesiones.
                     </DialogDescription>
                   </DialogHeader>
-                  <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="grid grid-cols-2 gap-2 sm:gap-4">
                     {/* Sesión única */}
-                    <div className="flex flex-col items-center rounded-2xl border p-6 text-center">
-                      <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-muted">
-                        <Icon name="credit_card" className="h-6 w-6 text-muted-foreground" />
+                    <div className="flex flex-col items-center rounded-xl border p-3 text-center sm:rounded-2xl sm:p-6">
+                      <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-muted sm:mb-4 sm:h-14 sm:w-14">
+                        <Icon name="credit_card" className="h-5 w-5 text-muted-foreground sm:h-6 sm:w-6" />
                       </div>
-                      <h3 className="font-semibold">Sesión única</h3>
-                      <p className="mt-2 text-3xl font-bold">
+                      <h3 className="text-sm font-semibold sm:text-base">Sesión única</h3>
+                      <p className="mt-1 text-xl font-bold sm:mt-2 sm:text-3xl">
                         {Number(session.price || 0).toFixed(2)}€
                       </p>
-                      <p className="mt-1 text-sm text-muted-foreground">Pago único con tarjeta</p>
+                      <p className="mt-1 text-xs text-muted-foreground sm:text-sm">Pago único con tarjeta</p>
                       <Button
                         onClick={handlePay}
                         disabled={paying || payingBonoId !== null}
-                        className="mt-6 w-full"
-                        size="lg"
+                        className="mt-3 w-full sm:mt-6"
+                        size="sm"
                       >
                         {paying ? (
                           <Icon name="progress_activity" className="h-4 w-4 animate-spin" />
@@ -756,28 +756,28 @@ export default function SessionManagement() {
                         return (
                           <div
                             key={templateItem.id}
-                            className="relative flex flex-col items-center rounded-2xl border p-6 text-center"
+                            className="relative flex flex-col items-center rounded-xl border p-3 text-center sm:rounded-2xl sm:p-6"
                           >
                             {isBestValue && (
-                              <Badge className="absolute -top-3 bg-green-600 hover:bg-green-600">
+                              <Badge className="absolute -top-2.5 bg-green-600 px-1.5 py-0 text-[10px] hover:bg-green-600 sm:-top-3 sm:px-2.5 sm:py-0.5 sm:text-xs">
                                 Mejor valor
                               </Badge>
                             )}
-                            <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-muted">
-                              <Icon name="package_2" className="h-6 w-6 text-muted-foreground" />
+                            <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-muted sm:mb-4 sm:h-14 sm:w-14">
+                              <Icon name="package_2" className="h-5 w-5 text-muted-foreground sm:h-6 sm:w-6" />
                             </div>
-                            <h3 className="font-semibold">{templateItem.name}</h3>
-                            <p className="mt-2 text-3xl font-bold">
+                            <h3 className="text-sm font-semibold sm:text-base">{templateItem.name}</h3>
+                            <p className="mt-1 text-xl font-bold sm:mt-2 sm:text-3xl">
                               {templateItem.total_price.toFixed(0)}€
                             </p>
-                            <p className="mt-1 text-sm text-muted-foreground">
+                            <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
                               {templateItem.total_sessions} sesiones a {templateItem.price_per_session.toFixed(0)}€/sesión
                             </p>
                             <Button
                               onClick={() => handlePayBono(templateItem.id)}
                               disabled={paying || payingBonoId !== null}
-                              className="mt-6 w-full"
-                              size="lg"
+                              className="mt-3 w-full sm:mt-6"
+                              size="sm"
                             >
                               {isProcessing ? (
                                 <Icon name="progress_activity" className="h-4 w-4 animate-spin" />
