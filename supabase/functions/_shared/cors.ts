@@ -4,10 +4,12 @@ const ALT_URL = Deno.env.get('APP_BASE_URL_ALT') || '';
 const ALLOWED_ORIGINS = [BASE_URL, ALT_URL].filter(Boolean);
 
 // Allow Lovable preview/sandbox origins (preview iframe, id-preview, lovable.app)
+// and localhost, for local development against the shared Supabase project.
 const ALLOWED_ORIGIN_PATTERNS: RegExp[] = [
   /^https:\/\/([a-z0-9-]+\.)*lovableproject\.com$/i,
   /^https:\/\/([a-z0-9-]+\.)*lovable\.app$/i,
   /^https:\/\/([a-z0-9-]+\.)*lovable\.dev$/i,
+  /^http:\/\/localhost(:\d+)?$/i,
 ];
 
 function isAllowedOrigin(origin: string): boolean {
