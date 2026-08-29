@@ -25,15 +25,23 @@ export function PatientTable({ patients, sessionSummaries }: PatientTableProps) 
 
   return (
     <div className="hidden overflow-x-auto sm:block">
-      <table className="w-full min-w-[720px] text-left text-sm">
+      <table className="w-full min-w-[820px] table-fixed text-left text-sm">
+        <colgroup>
+          <col className="w-[28%]" />
+          <col className="w-[16%]" />
+          <col className="w-[18%]" />
+          <col className="w-[20%]" />
+          <col className="w-[13%]" />
+          <col className="w-[5%]" />
+        </colgroup>
         <thead>
           <tr className="border-b bg-muted/50">
-            <th className="w-1/4 px-6 py-4 text-sm font-medium text-muted-foreground">Contacto</th>
-            <th className="px-6 py-4 text-sm font-medium text-muted-foreground">Teléfono</th>
-            <th className="px-6 py-4 text-sm font-medium text-muted-foreground">Última sesión</th>
-            <th className="px-6 py-4 text-sm font-medium text-muted-foreground">Próxima cita</th>
-            <th className="px-6 py-4 text-sm font-medium text-muted-foreground">Estado</th>
-            <th className="w-12 px-6 py-4" />
+            <th className="whitespace-nowrap px-6 py-4 text-sm font-medium text-muted-foreground">Contacto</th>
+            <th className="whitespace-nowrap px-6 py-4 text-sm font-medium text-muted-foreground">Teléfono</th>
+            <th className="whitespace-nowrap px-6 py-4 text-sm font-medium text-muted-foreground">Última sesión</th>
+            <th className="whitespace-nowrap px-6 py-4 text-sm font-medium text-muted-foreground">Próxima cita</th>
+            <th className="whitespace-nowrap px-6 py-4 text-sm font-medium text-muted-foreground">Estado</th>
+            <th className="px-6 py-4" />
           </tr>
         </thead>
         <tbody className="divide-y">
@@ -46,25 +54,25 @@ export function PatientTable({ patients, sessionSummaries }: PatientTableProps) 
                 className="group h-16 cursor-pointer transition-colors hover:bg-muted/50"
               >
                 <td className="px-6 py-2">
-                  <div className="flex items-center gap-3">
+                  <div className="flex min-w-0 items-center gap-3">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
                       {initials(patient.first_name, patient.last_name)}
                     </div>
-                    <p className="truncate font-medium transition-colors group-hover:text-primary">
+                    <p className="min-w-0 truncate font-medium transition-colors group-hover:text-primary">
                       {patient.first_name} {patient.last_name}
                     </p>
                   </div>
                 </td>
-                <td className="px-6 py-2 tabular-nums text-muted-foreground">{patient.phone || '-'}</td>
-                <td className="px-6 py-2 tabular-nums">
+                <td className="whitespace-nowrap px-6 py-2 tabular-nums text-muted-foreground">{patient.phone || '-'}</td>
+                <td className="whitespace-nowrap px-6 py-2 tabular-nums">
                   {summary?.lastSessionDate
                     ? format(new Date(summary.lastSessionDate + 'T00:00:00'), 'd MMM yyyy', { locale: es })
                     : <span className="text-muted-foreground">-</span>}
                 </td>
-                <td className="px-6 py-2">
+                <td className="whitespace-nowrap px-6 py-2">
                   {summary?.nextSessionDate ? (
                     <div className="flex items-center gap-1.5 font-medium tabular-nums text-primary">
-                      <Icon name="event" className="h-4 w-4" />
+                      <Icon name="event" className="h-4 w-4 shrink-0" />
                       {format(new Date(summary.nextSessionDate + 'T00:00:00'), 'd MMM', { locale: es })}
                       {summary.nextSessionTime && `, ${summary.nextSessionTime.slice(0, 5)}`}
                     </div>
@@ -72,10 +80,10 @@ export function PatientTable({ patients, sessionSummaries }: PatientTableProps) 
                     <span className="text-muted-foreground">Sin programar</span>
                   )}
                 </td>
-                <td className="px-6 py-2">
+                <td className="whitespace-nowrap px-6 py-2">
                   <PatientStatusBadge status={patient.status || 'active'} statusSource={patient.status_source} />
                 </td>
-                <td className="px-6 py-2 text-right">
+                <td className="whitespace-nowrap px-6 py-2 text-right">
                   <Icon name="chevron_right" className="ml-auto h-5 w-5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
                 </td>
               </tr>

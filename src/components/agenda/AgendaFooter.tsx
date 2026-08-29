@@ -44,9 +44,9 @@ export function AgendaFooter({
   onShowGoogleEventsChange,
 }: AgendaFooterProps) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border bg-card p-3 text-sm">
-      {/* Color Legend */}
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+    <div className="flex flex-wrap items-center justify-end gap-4 rounded-lg border bg-card p-3 text-sm sm:justify-between">
+      {/* Color Legend (desktop only) */}
+      <div className="hidden flex-wrap items-center gap-x-4 gap-y-2 sm:flex">
         {statusLegend.map((item) => (
           <div key={item.label} className="flex items-center gap-1.5">
             {item.icon ? (

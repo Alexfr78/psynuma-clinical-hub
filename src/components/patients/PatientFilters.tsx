@@ -26,8 +26,8 @@ export function PatientFilters({ filters, onFiltersChange }: PatientFiltersProps
   };
 
   return (
-    <div className="flex flex-col gap-3 sm:gap-4">
-      <div className="relative">
+    <div className="flex flex-col gap-3 sm:gap-4 lg:flex-row lg:items-center">
+      <div className="relative lg:min-w-0 lg:flex-1">
         <Icon name="search" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           placeholder="Buscar por nombre o email..."
@@ -37,7 +37,7 @@ export function PatientFilters({ filters, onFiltersChange }: PatientFiltersProps
         />
       </div>
 
-      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap lg:shrink-0 lg:flex-nowrap">
         <Select
           value={filters.status || 'all'}
           onValueChange={(value) => onFiltersChange({ ...filters, status: value })}

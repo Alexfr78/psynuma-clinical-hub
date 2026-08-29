@@ -21,14 +21,14 @@ interface SessionCardProps {
 }
 
 const statusColors = {
-  draft: 'bg-slate-500/20 border-slate-500 text-slate-700 dark:text-slate-300',
-  scheduled: 'bg-blue-500/20 border-blue-500 text-blue-700 dark:text-blue-300',
-  confirmed: 'bg-green-500/20 border-green-500 text-green-700 dark:text-green-300',
-  completed: 'bg-gray-500/20 border-gray-500 text-gray-700 dark:text-gray-300',
-  cancelled: 'bg-red-500/20 border-red-500 text-red-700 dark:text-red-300',
-  no_show: 'bg-orange-500/20 border-orange-500 text-orange-700 dark:text-orange-300',
-  blocked: 'bg-purple-500/20 border-purple-500 text-purple-700 dark:text-purple-300',
-  google_event: 'bg-purple-500/20 border-purple-500 text-purple-700 dark:text-purple-300',
+  draft: 'bg-slate-100 border-slate-300 text-slate-700 dark:bg-slate-500/10 dark:border-slate-500/40 dark:text-slate-300',
+  scheduled: 'bg-blue-50 border-blue-300 text-blue-800 dark:bg-blue-500/10 dark:border-blue-500/40 dark:text-blue-300',
+  confirmed: 'bg-green-50 border-green-300 text-green-800 dark:bg-green-500/10 dark:border-green-500/40 dark:text-green-300',
+  completed: 'bg-gray-100 border-gray-300 text-gray-700 dark:bg-gray-500/10 dark:border-gray-500/40 dark:text-gray-300',
+  cancelled: 'bg-red-50 border-red-300 text-red-800 dark:bg-red-500/10 dark:border-red-500/40 dark:text-red-300',
+  no_show: 'bg-orange-50 border-orange-300 text-orange-800 dark:bg-orange-500/10 dark:border-orange-500/40 dark:text-orange-300',
+  blocked: 'bg-purple-50 border-purple-300 text-purple-800 dark:bg-purple-500/10 dark:border-purple-500/40 dark:text-purple-300',
+  google_event: 'bg-purple-50 border-purple-300 text-purple-800 dark:bg-purple-500/10 dark:border-purple-500/40 dark:text-purple-300',
 };
 
 export function SessionCard({ 

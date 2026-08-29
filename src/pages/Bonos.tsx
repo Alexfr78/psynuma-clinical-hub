@@ -40,9 +40,13 @@ export default function Bonos() {
   const { data: searchPatients, isLoading: patientsLoading } = usePatients({ search: patientSearchValue });
 
   const { data: bonos, isLoading } = useBonos({
-    status: selectedPatientId ? (statusFilter === 'all' ? undefined : statusFilter) : (statusFilter === 'all' ? undefined : statusFilter),
+    status: statusFilter === 'all' ? undefined : statusFilter,
     patientId: selectedPatientId,
   });
+
+  // Unfiltered by status (but still scoped to the selected patient, if any) so the
+  // summary cards always reflect totals across all tabs, not just the active one.
+  const { data: allBonos } = useBonos({ patientId: selectedPatientId });
 
   const handleSelectPatient = (patientId: string, name: string) => {
     setSelectedPatientId(patientId);
@@ -58,15 +62,15 @@ export default function Bonos() {
     setStatusFilter('active');
   };
 
-  const activeBonos = bonos?.filter(b => b.status === 'active') || [];
+  const activeBonos = allBonos?.filter(b => b.status === 'active') || [];
   const now = new Date();
   const stats = {
     active: activeBonos.length,
-    exhausted: bonos?.filter(b => b.status === 'exhausted').length || 0,
-    expired: bonos?.filter(b => b.status === 'expired').length || 0,
-    cancelled: bonos?.filter(b => b.status === 'cancelled').length || 0,
+    exhausted: allBonos?.filter(b => b.status === 'exhausted').length || 0,
+    expired: allBonos?.filter(b => b.status === 'expired').length || 0,
+    cancelled: allBonos?.filter(b => b.status === 'cancelled').length || 0,
     pendingSessions: activeBonos.reduce((sum, b) => sum + (b.total_sessions - b.used_sessions), 0),
-    monthlyRevenue: (bonos || [])
+    monthlyRevenue: (allBonos || [])
       .filter(b => {
         const created = new Date(b.created_at);
         return created.getFullYear() === now.getFullYear() && created.getMonth() === now.getMonth();

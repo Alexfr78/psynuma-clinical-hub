@@ -18,6 +18,13 @@ import { Icon } from '@/components/ui/icon';
 
 export type CalendarView = 'day' | 'week' | 'month' | 'list';
 
+const VIEW_OPTIONS: { value: CalendarView; label: string }[] = [
+  { value: 'day', label: 'Día' },
+  { value: 'week', label: 'Semana' },
+  { value: 'month', label: 'Mes' },
+  { value: 'list', label: 'Lista' },
+];
+
 interface CalendarHeaderProps {
   currentDate: Date;
   view: CalendarView;
@@ -92,98 +99,96 @@ export function CalendarHeader({
     }
   };
 
-  return (
-    <div className="flex flex-col gap-3">
-      {/* Row 1: Navigation and Title */}
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-1 sm:gap-2">
-          <Button variant="outline" size="icon" className="h-8 w-8 sm:h-9 sm:w-9" onClick={navigatePrevious}>
-            <Icon name="chevron_left" className="h-4 w-4" />
-          </Button>
-          <Button variant="outline" size="icon" className="h-8 w-8 sm:h-9 sm:w-9" onClick={navigateNext}>
-            <Icon name="chevron_right" className="h-4 w-4" />
-          </Button>
-          <Button variant="outline" size="sm" className="h-8 px-2 sm:px-3" onClick={goToToday}>
-            {isMobile ? <Icon name="calendar_month" className="h-4 w-4" /> : 'Hoy'}
-          </Button>
-        </div>
-        <h2 className="font-display text-base sm:text-xl font-semibold capitalize truncate max-w-[150px] sm:max-w-none">
-          {getTitle()}
-        </h2>
-        <div className="flex items-center gap-2">
-          {/* Google Calendar Sync Button */}
-          {isAvailable && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="outline"
-                  size={isMobile ? "icon" : "sm"}
-                  onClick={sync}
-                  disabled={isSyncing}
-                  className="h-8 sm:h-9"
-                >
-                  <Icon name="refresh" className={cn("h-4 w-4", isSyncing && "animate-spin")} />
-                  {!isMobile && <span className="ml-2">Sincronizar</span>}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                {lastSyncAt 
-                  ? `Última sync: ${formatDistanceToNow(new Date(lastSyncAt), { addSuffix: true, locale: es })}`
-                  : 'Sincronizar con Google Calendar'
-                }
-              </TooltipContent>
-            </Tooltip>
+  const navPill = (
+    <div className="flex items-center gap-1 rounded-lg border bg-muted/50 p-1">
+      <Button variant="ghost" size="icon" className="h-7 w-7 sm:h-8 sm:w-8 shadow-none hover:bg-background hover:shadow-sm" onClick={navigatePrevious}>
+        <Icon name="chevron_left" className="h-4 w-4" />
+      </Button>
+      <Button variant="ghost" size="icon" className="h-7 w-7 sm:h-8 sm:w-8 shadow-none hover:bg-background hover:shadow-sm" onClick={navigateNext}>
+        <Icon name="chevron_right" className="h-4 w-4" />
+      </Button>
+      <div className="mx-0.5 h-4 w-px bg-border" />
+      <Button variant="ghost" size="sm" className="h-7 px-2 sm:h-8 sm:px-3 shadow-none hover:bg-background hover:shadow-sm" onClick={goToToday}>
+        {isMobile ? <Icon name="calendar_month" className="h-4 w-4" /> : 'Hoy'}
+      </Button>
+    </div>
+  );
+
+  const title = (
+    <h2 className="font-display text-base sm:text-xl font-semibold capitalize whitespace-nowrap shrink-0">
+      {getTitle()}
+    </h2>
+  );
+
+  const professionalSelect = (
+    <Select value={selectedProfessional} onValueChange={onProfessionalChange}>
+      <SelectTrigger className="w-[120px] sm:w-[180px] h-8 sm:h-9 text-sm shrink-0 rounded-lg">
+        <SelectValue placeholder="Profesional" />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="all">Todos</SelectItem>
+        {professionals?.map((prof) => (
+          <SelectItem key={prof.id} value={prof.id}>
+            {prof.first_name} {prof.last_name}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+
+  const viewSwitcher = (
+    <div className="flex items-center gap-1 rounded-lg border bg-muted/50 p-1 shrink-0">
+      {VIEW_OPTIONS.map((option) => (
+        <button
+          key={option.value}
+          type="button"
+          onClick={() => onViewChange(option.value)}
+          className={cn(
+            'rounded-md px-2 py-1 text-xs sm:px-2.5 sm:text-sm font-medium transition-colors whitespace-nowrap',
+            view === option.value
+              ? 'bg-background text-primary shadow-sm'
+              : 'text-muted-foreground hover:text-foreground'
           )}
-          
-          {/* Desktop New Session Button */}
-          {!isMobile && (
-            <Button onClick={onNewSession}>
-              Nueva Sesión
-            </Button>
-          )}
-        </div>
-      </div>
-
-      {/* Row 2: Filters */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-1">
-        <Select value={selectedProfessional} onValueChange={onProfessionalChange}>
-          <SelectTrigger className="w-[140px] sm:w-[180px] h-8 sm:h-9 text-sm shrink-0">
-            <SelectValue placeholder="Profesional" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos</SelectItem>
-            {professionals?.map((prof) => (
-              <SelectItem key={prof.id} value={prof.id}>
-                {prof.first_name} {prof.last_name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <Select value={view} onValueChange={(v) => onViewChange(v as CalendarView)}>
-          <SelectTrigger className="w-[100px] sm:w-[120px] h-8 sm:h-9 text-sm shrink-0">
-            <Icon name="calendar_month" className="mr-1 sm:mr-2 h-4 w-4" />
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="day">Día</SelectItem>
-            <SelectItem value="week">Semana</SelectItem>
-            <SelectItem value="month">Mes</SelectItem>
-            <SelectItem value="list">Lista</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* Mobile FAB for New Session */}
-      {isMobile && (
-        <Button
-          onClick={onNewSession}
-          className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg z-50"
-          size="icon"
         >
-          <Icon name="add" className="h-6 w-6" />
+          {option.label}
+        </button>
+      ))}
+    </div>
+  );
+
+  const syncButton = isAvailable && (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={sync}
+          disabled={isSyncing}
+          className="h-8 w-8 sm:h-9 sm:w-9 shrink-0"
+        >
+          <Icon name="refresh" className={cn("h-4 w-4", isSyncing && "animate-spin")} />
         </Button>
-      )}
+      </TooltipTrigger>
+      <TooltipContent>
+        {lastSyncAt
+          ? `Última sync: ${formatDistanceToNow(new Date(lastSyncAt), { addSuffix: true, locale: es })}`
+          : 'Sincronizar con Google Calendar'
+        }
+      </TooltipContent>
+    </Tooltip>
+  );
+
+  return (
+    <div className="flex items-center gap-2 overflow-x-auto pb-1">
+      {navPill}
+      {title}
+      {professionalSelect}
+      {viewSwitcher}
+      {syncButton}
+      <Button onClick={onNewSession} size={isMobile ? 'icon' : 'default'} className="shrink-0">
+        <Icon name="add" className="h-4 w-4" />
+        {!isMobile && 'Nueva Sesión'}
+      </Button>
     </div>
   );
 }

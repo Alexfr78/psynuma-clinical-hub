@@ -244,6 +244,20 @@ export function WeekView({ currentDate, sessions, onSessionClick, onSlotClick, o
   // On mobile: smaller hour column, equal day columns that fit the screen
   const hourColumnWidth = isMobile ? '28px' : '40px';
 
+  // Current-time indicator: a red line tracking the local time, refreshed every minute
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 60000);
+    return () => clearInterval(id);
+  }, []);
+
+  const showNowLine = weekDays.some((day) => isToday(day));
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  const gridStartMinutes = gridStartHour * 60;
+  const gridEndMinutes = gridStartMinutes + displayHours.length * 60;
+  const nowInRange = nowMinutes >= gridStartMinutes && nowMinutes <= gridEndMinutes;
+  const nowTopRem = ((nowMinutes - gridStartMinutes) / 60) * 4;
+
   return (
     <div 
       className="flex flex-col overflow-hidden rounded-lg border"
@@ -315,7 +329,7 @@ export function WeekView({ currentDate, sessions, onSessionClick, onSlotClick, o
 
       {/* Time Grid */}
       <div className="flex-1 overflow-y-auto">
-        <div className="min-h-[600px] relative">
+        <div className="relative">
           <div 
             className="grid"
             style={{ gridTemplateColumns: `${hourColumnWidth} repeat(${numDays}, 1fr)` }}
@@ -420,6 +434,24 @@ export function WeekView({ currentDate, sessions, onSessionClick, onSlotClick, o
               );
             })}
           </div>
+
+          {/* Current time indicator */}
+          {showNowLine && nowInRange && (
+            <div
+              className="pointer-events-none absolute inset-x-0 z-20 flex items-center"
+              style={{ top: `${nowTopRem}rem` }}
+            >
+              <div
+                className="shrink-0 pr-1 text-right font-mono text-[9px] sm:text-[10px] font-bold text-destructive"
+                style={{ width: hourColumnWidth }}
+              >
+                {format(now, 'HH:mm')}
+              </div>
+              <div className="relative h-px flex-1 bg-destructive">
+                <div className="absolute -left-1 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full bg-destructive" />
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

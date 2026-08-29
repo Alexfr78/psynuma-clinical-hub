@@ -229,6 +229,21 @@ export function DayView({ currentDate, sessions, onSessionClick, onSlotClick, on
 
   // Removed complex touch drag - now using dialog-based move on mobile
 
+  // Current-time indicator: a red line tracking the local time, refreshed every minute
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 60000);
+    return () => clearInterval(id);
+  }, []);
+
+  const showNowLine = isToday(currentDate);
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  const gridStartMinutes = gridStartHour * 60;
+  const gridEndMinutes = gridStartMinutes + displayHours.length * 60;
+  const nowInRange = nowMinutes >= gridStartMinutes && nowMinutes <= gridEndMinutes;
+  // h-20 = 5rem, matches the hour row height used elsewhere in this view
+  const nowTopRem = ((nowMinutes - gridStartMinutes) / 60) * 5;
+
   return (
     <div 
       className="flex flex-col overflow-hidden rounded-lg border"
@@ -300,7 +315,7 @@ export function DayView({ currentDate, sessions, onSessionClick, onSlotClick, on
 
       {/* Time Grid */}
       <div className="flex-1 overflow-auto" ref={gridRef}>
-        <div className="min-h-[600px] relative">
+        <div className="relative">
           <div className="flex">
             {/* Hour labels column */}
             <div className="w-20 shrink-0 border-r">
@@ -384,6 +399,21 @@ export function DayView({ currentDate, sessions, onSessionClick, onSlotClick, on
               </div>
             </div>
           </div>
+
+          {/* Current time indicator */}
+          {showNowLine && nowInRange && (
+            <div
+              className="pointer-events-none absolute inset-x-0 z-20 flex items-center"
+              style={{ top: `${nowTopRem}rem` }}
+            >
+              <div className="w-20 shrink-0 pr-2 text-right font-mono text-[11px] font-bold text-destructive">
+                {format(now, 'HH:mm')}
+              </div>
+              <div className="relative h-px flex-1 bg-destructive">
+                <div className="absolute -left-1 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full bg-destructive" />
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
