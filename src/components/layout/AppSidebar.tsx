@@ -37,8 +37,6 @@ const financeNavItems: NavItemDef[] = [
   { title: 'Cobros / Deudas', url: '/cobros', icon: 'credit_card' },
 ];
 
-const notificationsNavItem: NavItemDef = { title: 'Mensajes', url: '/notificaciones', icon: 'notifications' };
-
 // Secondary tools, tucked away in a collapsed "Más" group
 const moreNavItems: NavItemDef[] = [
   { title: 'Sesiones', url: '/sesiones', icon: 'description' },
@@ -50,6 +48,7 @@ const moreNavItems: NavItemDef[] = [
 // Admin-only
 const adminOnlyNavItems: NavItemDef[] = [
   { title: 'Solicitudes', url: '/solicitudes', icon: 'checklist' },
+  { title: 'Mensajes', url: '/notificaciones', icon: 'notifications' },
   { title: 'Profesionales', url: '/profesionales', icon: 'manage_accounts' },
   { title: 'Derivaciones', url: '/derivaciones', icon: 'group' },
   { title: 'Auditoría', url: '/auditoria', icon: 'verified_user' },
@@ -201,7 +200,6 @@ export function AppSidebar() {
                 <NavItem key={item.url} item={item} />
               ))}
               <CollapsibleNavGroup label="Finanzas" icon="account_balance_wallet" items={financeNavItems} />
-              <NavItem item={notificationsNavItem} />
               <CollapsibleNavGroup label="Más" icon="apps" items={moreNavItems} />
               {isAdmin && (
                 <CollapsibleNavGroup label="Administración" icon="admin_panel_settings" items={adminOnlyNavItems} />
