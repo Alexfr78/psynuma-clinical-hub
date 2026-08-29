@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 
 import { endOfMonth, format as formatDate, startOfMonth } from 'date-fns';
 import { Input } from '@/components/ui/input';
@@ -407,6 +408,19 @@ export default function Invoices() {
     setSelectedInvoiceId(invoiceId);
     setDetailDialogOpen(true);
   };
+
+  // Support deep-linking to a specific invoice (e.g. from /cobros clicking an invoice number)
+  const [searchParams, setSearchParams] = useSearchParams();
+  useEffect(() => {
+    const invoiceId = searchParams.get('invoiceId');
+    if (invoiceId) {
+      handleViewDetails(invoiceId);
+      const next = new URLSearchParams(searchParams);
+      next.delete('invoiceId');
+      setSearchParams(next, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   const handleSendInvoice = (invoice: InvoiceWithPatient) => {
     setSelectedInvoiceForSend(invoice);

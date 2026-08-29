@@ -4,6 +4,7 @@ import { Progress } from '@/components/ui/progress';
 
 import { format, differenceInDays, isPast } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { useNavigate } from 'react-router-dom';
 import { BonoWithPatient } from '@/hooks/useBonos';
 import { getBonoStatusDisplay } from '@/lib/payment-status';
 import { Icon } from '@/components/ui/icon';
@@ -14,6 +15,7 @@ interface BonoCardProps {
 }
 
 export function BonoCard({ bono, onClick }: BonoCardProps) {
+  const navigate = useNavigate();
   const usedSessions = bono.used_sessions || 0;
   const availableSessions = bono.total_sessions - usedSessions;
   const progress = (usedSessions / bono.total_sessions) * 100;
@@ -38,7 +40,13 @@ export function BonoCard({ bono, onClick }: BonoCardProps) {
             {bono.patients && (
               <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
                 <Icon name="person" className="h-3.5 w-3.5 flex-shrink-0" />
-                <span className="truncate">
+                <span
+                  className="truncate hover:text-primary hover:underline"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate(`/pacientes/${bono.patients!.id}`);
+                  }}
+                >
                   {bono.patients.first_name} {bono.patients.last_name}
                 </span>
               </div>

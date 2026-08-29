@@ -1,5 +1,6 @@
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { useNavigate } from 'react-router-dom';
 
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -22,6 +23,7 @@ interface DebtCardProps {
 }
 
 export function DebtCard({ debt, onRecordPayment, onDelete, onSendReminder, onAssignBono }: DebtCardProps) {
+  const navigate = useNavigate();
   const status = getDebtStatusDisplay(debt.status);
   const remaining = Number(debt.amount) - Number(debt.paid_amount);
   const isOverdue = debt.due_date && new Date(debt.due_date) < new Date();
@@ -44,16 +46,33 @@ export function DebtCard({ debt, onRecordPayment, onDelete, onSendReminder, onAs
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <Icon name="person" className="h-4 w-4 text-muted-foreground" />
-                  <span className="font-semibold">
+                  <span
+                    className="font-semibold hover:text-primary hover:underline"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/pacientes/${debt.patient_id}`);
+                    }}
+                  >
                     {debt.patients.first_name} {debt.patients.last_name}
                   </span>
                   <Badge variant={status.variant}>{status.label}</Badge>
                 </div>
-                
+
                 {debt.invoices && (
                   <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
                     <Icon name="description" className="h-3 w-3" />
-                    <span>Factura: {debt.invoices.invoice_number}</span>
+                    <span>
+                      Factura:{' '}
+                      <span
+                        className="hover:text-primary hover:underline"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/facturas?invoiceId=${debt.invoice_id}`);
+                        }}
+                      >
+                        {debt.invoices.invoice_number}
+                      </span>
+                    </span>
                   </div>
                 )}
 

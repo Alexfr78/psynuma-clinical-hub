@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { useNavigate } from 'react-router-dom';
 
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -65,6 +66,7 @@ export function InvoiceCard({
   // Orphan: issued/paid but never registered in AEAT
   const isOrphanVerifactu = (invoice.status === 'issued' || invoice.status === 'paid') && !hasAeatRegistration && !isPendingVerifactu;
   const [menuOpen, setMenuOpen] = useState(false);
+  const navigate = useNavigate();
 
   return (
     <Card className="transition-all hover:shadow-md overflow-hidden">
@@ -118,7 +120,15 @@ export function InvoiceCard({
 
                 <div className="flex items-center gap-1 text-xs sm:text-sm text-muted-foreground mt-1 min-w-0">
                   <Icon name="person" className="h-3 w-3 shrink-0" />
-                  <span className="truncate">{invoice.patients.first_name} {invoice.patients.last_name}</span>
+                  <span
+                    className="truncate hover:text-primary hover:underline"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/pacientes/${invoice.patients.id}`);
+                    }}
+                  >
+                    {invoice.patients.first_name} {invoice.patients.last_name}
+                  </span>
                 </div>
 
                 <p className="text-xs text-muted-foreground mt-0.5">

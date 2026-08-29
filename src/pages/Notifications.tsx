@@ -156,58 +156,48 @@ export default function Notifications() {
         </Card>
       </div>
 
-      {/* Filters */}
-      <Card>
-        <CardHeader className="px-3 sm:px-6 pt-3 sm:pt-6 pb-2 sm:pb-4">
-          <CardTitle className="text-sm sm:text-base">Filtros</CardTitle>
-        </CardHeader>
-        <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
-          <div className="grid grid-cols-2 sm:flex sm:flex-row gap-2 sm:gap-4">
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full sm:w-[160px]">
-                <SelectValue placeholder="Estado" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos</SelectItem>
-                <SelectItem value="pending">Pendientes</SelectItem>
-                <SelectItem value="sent">Enviadas</SelectItem>
-                <SelectItem value="failed">Fallidas</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select value={typeFilter} onValueChange={setTypeFilter}>
-              <SelectTrigger className="w-full sm:w-[160px]">
-                <SelectValue placeholder="Tipo" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos</SelectItem>
-                <SelectItem value="email">
-                  <span className="flex items-center gap-2">
-                    <Icon name="mail" className="h-4 w-4" /> Email
-                  </span>
-                </SelectItem>
-                <SelectItem value="sms">
-                  <span className="flex items-center gap-2">
-                    <Icon name="call" className="h-4 w-4" /> SMS
-                  </span>
-                </SelectItem>
-                <SelectItem value="whatsapp">
-                  <span className="flex items-center gap-2">
-                    <Icon name="forum" className="h-4 w-4" /> WhatsApp
-                  </span>
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
-
       {/* Notifications List */}
       <Tabs defaultValue="all" className="space-y-4">
-        <div className="relative">
-          <div className="absolute left-0 top-0 bottom-0 w-3 bg-gradient-to-r from-background to-transparent pointer-events-none z-10 sm:hidden" />
-          <div className="absolute right-0 top-0 bottom-0 w-3 bg-gradient-to-l from-background to-transparent pointer-events-none z-10 sm:hidden" />
-          <TabsList className="w-full sm:w-auto justify-start overflow-x-auto flex-nowrap gap-1 h-auto p-1">
+        <div className="flex items-center gap-2 overflow-x-auto pb-1">
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-[120px] sm:w-[160px] shrink-0">
+              <SelectValue placeholder="Estado" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos</SelectItem>
+              <SelectItem value="pending">Pendientes</SelectItem>
+              <SelectItem value="sent">Enviadas</SelectItem>
+              <SelectItem value="failed">Fallidas</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={typeFilter} onValueChange={setTypeFilter}>
+            <SelectTrigger className="w-[120px] sm:w-[160px] shrink-0">
+              <SelectValue placeholder="Tipo" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos</SelectItem>
+              <SelectItem value="email">
+                <span className="flex items-center gap-2">
+                  <Icon name="mail" className="h-4 w-4" /> Email
+                </span>
+              </SelectItem>
+              <SelectItem value="sms">
+                <span className="flex items-center gap-2">
+                  <Icon name="call" className="h-4 w-4" /> SMS
+                </span>
+              </SelectItem>
+              <SelectItem value="whatsapp">
+                <span className="flex items-center gap-2">
+                  <Icon name="forum" className="h-4 w-4" /> WhatsApp
+                </span>
+              </SelectItem>
+            </SelectContent>
+          </Select>
+
+          <div className="mx-1 h-6 w-px shrink-0 bg-border" />
+
+          <TabsList className="shrink-0 justify-start flex-nowrap gap-1 h-auto p-1">
             <TabsTrigger value="all" className="flex-shrink-0 text-xs sm:text-sm px-3 py-2 min-h-[40px]">Todas</TabsTrigger>
             <TabsTrigger value="pending" className="flex items-center gap-1 flex-shrink-0 text-xs sm:text-sm px-3 py-2 min-h-[40px]">
               <span className="hidden sm:inline">Pendientes</span>
