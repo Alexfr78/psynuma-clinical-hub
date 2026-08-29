@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { addDays, endOfMonth, endOfQuarter, endOfWeek, endOfYear, format, parseISO, startOfMonth, startOfQuarter, startOfWeek, startOfYear, subMonths } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Bar, CartesianGrid, ComposedChart, Line, XAxis, YAxis } from 'recharts';
@@ -129,6 +129,8 @@ function isBillableInvoice(invoice: InvoiceWithPatient) {
   return invoice.status === 'issued' || invoice.status === 'paid';
 }
 
+const COLLAPSED_STORAGE_KEY = 'psycma-invoice-analytics-collapsed';
+
 export function InvoiceAnalyticsCard({
   invoices = [],
   payments = [],
@@ -141,6 +143,23 @@ export function InvoiceAnalyticsCard({
   onSelectedBucketChange,
 }: InvoiceAnalyticsCardProps) {
   const normalizedRange = clampRange(range);
+
+  const [collapsed, setCollapsed] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    try {
+      return window.localStorage.getItem(COLLAPSED_STORAGE_KEY) === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(COLLAPSED_STORAGE_KEY, String(collapsed));
+    } catch {
+      // localStorage unavailable (private browsing, etc.) — ignore
+    }
+  }, [collapsed]);
 
   const [chartData, totals] = useMemo(() => {
     const start = parseISO(normalizedRange.startDate);
@@ -240,14 +259,26 @@ export function InvoiceAnalyticsCard({
   return (
     <Card>
       <CardHeader className="gap-4">
-        <div className="flex flex-col gap-1">
-          <CardTitle className="flex items-center gap-2">
-            <Icon name="calendar_month" className="h-5 w-5 text-primary" />
-            Evolución de facturación
-          </CardTitle>
-          <CardDescription>Consulta lo facturado y cobrado por rango de fechas</CardDescription>
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex flex-col gap-1">
+            <CardTitle className="flex items-center gap-2">
+              <Icon name="calendar_month" className="h-5 w-5 text-primary" />
+              Evolución de facturación
+            </CardTitle>
+            <CardDescription>Consulta lo facturado y cobrado por rango de fechas</CardDescription>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="shrink-0"
+            onClick={() => setCollapsed((prev) => !prev)}
+          >
+            <Icon name={collapsed ? 'visibility' : 'visibility_off'} className="h-4 w-4" />
+            {collapsed ? 'Mostrar' : 'Ocultar'}
+          </Button>
         </div>
 
+        {!collapsed && (
         <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" size="sm" onClick={() => applyRange(getPresetRange('current-month'))}>
@@ -304,8 +335,10 @@ export function InvoiceAnalyticsCard({
             </div>
           </div>
         </div>
+        )}
       </CardHeader>
 
+      {!collapsed && (
       <CardContent className="space-y-4">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <div className="rounded-lg border p-3">
@@ -393,6 +426,7 @@ export function InvoiceAnalyticsCard({
           </ChartContainer>
         )}
       </CardContent>
+      )}
     </Card>
   );
 }
