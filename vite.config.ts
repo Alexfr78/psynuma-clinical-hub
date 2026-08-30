@@ -22,7 +22,7 @@ export default defineConfig(({ mode }) => ({
         short_name: "Psycma",
         description: "Gestión clínica profesional para psicólogos y terapeutas",
         theme_color: "#0ea5e9",
-        background_color: "#ffffff",
+        background_color: "#3aa0c4",
         display: "standalone",
         orientation: "portrait",
         scope: "/",
