@@ -161,7 +161,21 @@ serve(async (req) => {
       );
     }
 
-    const amountInCents = Math.round(Number(bonoTemplate.total_price) * 100);
+    // Resolve the patient's actual price (custom price > tariff plan > base),
+    // matching what the payment page displays — never charge the generic
+    // template price for a patient with a special rate.
+    const { data: resolvedPrice, error: resolvedPriceError } = await supabase
+      .rpc('resolve_effective_price', {
+        p_patient_id: patientId,
+        p_target_type: 'bono_template',
+        p_target_id: bono_template_id,
+      });
+    if (resolvedPriceError) {
+      console.error('Error resolving bono price:', resolvedPriceError);
+    }
+    const effectivePrice = Number(resolvedPrice?.applied_price ?? bonoTemplate.total_price);
+
+    const amountInCents = Math.round(effectivePrice * 100);
     if (amountInCents <= 0) {
       return new Response(
         JSON.stringify({ error: 'El bono no tiene un importe válido' }),
@@ -231,8 +245,8 @@ serve(async (req) => {
         bono_template_id: bono_template_id,
         bono_name: bonoTemplate.name,
         bono_total_sessions: bonoTemplate.total_sessions.toString(),
-        bono_price_per_session: bonoTemplate.price_per_session.toString(),
-        bono_total_price: bonoTemplate.total_price.toString(),
+        bono_price_per_session: (effectivePrice / bonoTemplate.total_sessions).toString(),
+        bono_total_price: effectivePrice.toString(),
         bono_validity_days: (bonoTemplate.validity_days || 365).toString(),
       },
       successUrl: defaultSuccessUrl,
