@@ -549,7 +549,35 @@ export default function SessionManagement() {
                     )}
                   </AlertDescription>
                 </Alert>
+                {policyRequiresAcceptance && cancellationPolicyInfo?.policy && (
+                  <div className="rounded-md border bg-muted/40 p-3 text-sm space-y-2">
+                    <div className="font-medium">
+                      {cancellationPolicyInfo.policy.name} (v{cancellationPolicyInfo.policy.versionNumber})
+                    </div>
+                    <p className="text-muted-foreground">
+                      Cancelación sin coste hasta {cancellationPolicyInfo.policy.cancellationWindowHours} horas antes.
+                      Después podría aplicarse un cargo del {cancellationPolicyInfo.policy.lateCancellationPercentage}%.
+                      {cancellationPolicyInfo.policy.noShowPercentage > 0
+                        ? ` La no asistencia sin aviso podría suponer un cargo del ${cancellationPolicyInfo.policy.noShowPercentage}%.`
+                        : ''}
+                    </p>
+                    {cancellationPolicyInfo.policy.policyText && (
+                      <p className="max-h-40 overflow-y-auto whitespace-pre-line text-xs text-muted-foreground">
+                        {cancellationPolicyInfo.policy.policyText}
+                      </p>
+                    )}
+                    <label className="flex items-start gap-2 pt-1">
+                      <Checkbox
+                        checked={policyAccepted}
+                        onCheckedChange={(checked) => setPolicyAccepted(checked === true)}
+                        className="mt-0.5"
+                      />
+                      <span>He leído y acepto la política de cancelación</span>
+                    </label>
+                  </div>
+                )}
                 <AlertDialogFooter>
+
                   <AlertDialogCancel disabled={isRescheduling}>Volver</AlertDialogCancel>
                   <AlertDialogAction
                     onClick={(e) => {
