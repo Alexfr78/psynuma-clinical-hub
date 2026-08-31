@@ -449,6 +449,8 @@ export function usePublicSessionReschedule(token: string | undefined) {
     getAvailableDays,
     getAvailability,
     getCancellationPolicyPreview,
+    cancellationPolicyInfo,
+    getCancellationPolicyInfo,
     reschedule: rescheduleMutation.mutate,
     isRescheduling: rescheduleMutation.isPending,
     cancelSession: cancelMutation.mutate,
