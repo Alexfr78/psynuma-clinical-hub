@@ -27,6 +27,7 @@ import {
 } from '@/components/ui/dialog';
 import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import { usePublicSession, useUpdatePublicSession, usePublicSessionReschedule, usePublicBonoTemplatesForSession } from '@/hooks/usePublicSession';
 import { supabase } from '@/integrations/supabase/client';
 import { useState, useEffect, useRef } from 'react';
@@ -150,6 +151,8 @@ export default function SessionManagement() {
       confirmActionsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
     }
   }, [selectedSlot, mode]);
+
+  const policyRequiresAcceptance = !!cancellationPolicyInfo?.requiresAcceptance;
 
   if (isLoading) {
     return (
