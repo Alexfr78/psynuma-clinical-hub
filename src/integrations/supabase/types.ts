@@ -2740,6 +2740,350 @@ export type Database = {
           },
         ]
       }
+      expense_categories: {
+        Row: {
+          center_id: string
+          color: string
+          created_at: string
+          display_order: number
+          icon: string | null
+          id: string
+          is_active: boolean
+          is_professional_payment_category: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          center_id: string
+          color?: string
+          created_at?: string
+          display_order?: number
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          is_professional_payment_category?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          center_id?: string
+          color?: string
+          created_at?: string
+          display_order?: number
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          is_professional_payment_category?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expense_categories_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expense_categories_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expense_categories_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "portal_centers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      expense_recurring_templates: {
+        Row: {
+          anchor_month: number | null
+          category_id: string
+          center_id: string
+          created_at: string
+          created_by: string | null
+          day_of_period: number
+          default_amount: number
+          default_payment_method: string | null
+          description: string
+          ends_on: string | null
+          frequency: Database["public"]["Enums"]["expense_recurrence_frequency"]
+          id: string
+          irpf_rate: number | null
+          is_active: boolean
+          last_generated_period: string | null
+          starts_on: string
+          supplier_id: string | null
+          updated_at: string
+          vat_rate: number | null
+        }
+        Insert: {
+          anchor_month?: number | null
+          category_id: string
+          center_id: string
+          created_at?: string
+          created_by?: string | null
+          day_of_period?: number
+          default_amount: number
+          default_payment_method?: string | null
+          description: string
+          ends_on?: string | null
+          frequency?: Database["public"]["Enums"]["expense_recurrence_frequency"]
+          id?: string
+          irpf_rate?: number | null
+          is_active?: boolean
+          last_generated_period?: string | null
+          starts_on?: string
+          supplier_id?: string | null
+          updated_at?: string
+          vat_rate?: number | null
+        }
+        Update: {
+          anchor_month?: number | null
+          category_id?: string
+          center_id?: string
+          created_at?: string
+          created_by?: string | null
+          day_of_period?: number
+          default_amount?: number
+          default_payment_method?: string | null
+          description?: string
+          ends_on?: string | null
+          frequency?: Database["public"]["Enums"]["expense_recurrence_frequency"]
+          id?: string
+          irpf_rate?: number | null
+          is_active?: boolean
+          last_generated_period?: string | null
+          starts_on?: string
+          supplier_id?: string | null
+          updated_at?: string
+          vat_rate?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expense_recurring_templates_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "expense_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expense_recurring_templates_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expense_recurring_templates_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expense_recurring_templates_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "portal_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expense_recurring_templates_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      expenses: {
+        Row: {
+          ai_extraction_confidence: number | null
+          ai_extraction_raw: Json | null
+          ai_extraction_status: string | null
+          amount: number
+          attachment_mime_type: string | null
+          attachment_path: string | null
+          category_id: string
+          center_id: string
+          compensation_agreement_id: string | null
+          compensation_period_end: string | null
+          compensation_period_start: string | null
+          created_at: string
+          created_by: string | null
+          description: string
+          due_date: string | null
+          expense_date: string
+          generated_period_start: string | null
+          id: string
+          invoice_issue_date: string | null
+          irpf_amount: number | null
+          irpf_rate: number | null
+          kind: Database["public"]["Enums"]["expense_kind"]
+          notes: string | null
+          operation_date: string | null
+          paid_amount: number
+          paid_at: string | null
+          payment_method: string | null
+          professional_id: string | null
+          recurring_template_id: string | null
+          status: Database["public"]["Enums"]["expense_status"]
+          supplier_id: string | null
+          supplier_invoice_number: string | null
+          tax_base: number | null
+          updated_at: string
+          vat_amount: number | null
+          vat_rate: number | null
+        }
+        Insert: {
+          ai_extraction_confidence?: number | null
+          ai_extraction_raw?: Json | null
+          ai_extraction_status?: string | null
+          amount: number
+          attachment_mime_type?: string | null
+          attachment_path?: string | null
+          category_id: string
+          center_id: string
+          compensation_agreement_id?: string | null
+          compensation_period_end?: string | null
+          compensation_period_start?: string | null
+          created_at?: string
+          created_by?: string | null
+          description: string
+          due_date?: string | null
+          expense_date?: string
+          generated_period_start?: string | null
+          id?: string
+          invoice_issue_date?: string | null
+          irpf_amount?: number | null
+          irpf_rate?: number | null
+          kind?: Database["public"]["Enums"]["expense_kind"]
+          notes?: string | null
+          operation_date?: string | null
+          paid_amount?: number
+          paid_at?: string | null
+          payment_method?: string | null
+          professional_id?: string | null
+          recurring_template_id?: string | null
+          status?: Database["public"]["Enums"]["expense_status"]
+          supplier_id?: string | null
+          supplier_invoice_number?: string | null
+          tax_base?: number | null
+          updated_at?: string
+          vat_amount?: number | null
+          vat_rate?: number | null
+        }
+        Update: {
+          ai_extraction_confidence?: number | null
+          ai_extraction_raw?: Json | null
+          ai_extraction_status?: string | null
+          amount?: number
+          attachment_mime_type?: string | null
+          attachment_path?: string | null
+          category_id?: string
+          center_id?: string
+          compensation_agreement_id?: string | null
+          compensation_period_end?: string | null
+          compensation_period_start?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          due_date?: string | null
+          expense_date?: string
+          generated_period_start?: string | null
+          id?: string
+          invoice_issue_date?: string | null
+          irpf_amount?: number | null
+          irpf_rate?: number | null
+          kind?: Database["public"]["Enums"]["expense_kind"]
+          notes?: string | null
+          operation_date?: string | null
+          paid_amount?: number
+          paid_at?: string | null
+          payment_method?: string | null
+          professional_id?: string | null
+          recurring_template_id?: string | null
+          status?: Database["public"]["Enums"]["expense_status"]
+          supplier_id?: string | null
+          supplier_invoice_number?: string | null
+          tax_base?: number | null
+          updated_at?: string
+          vat_amount?: number | null
+          vat_rate?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expenses_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "expense_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expenses_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expenses_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expenses_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "portal_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expenses_compensation_agreement_id_fkey"
+            columns: ["compensation_agreement_id"]
+            isOneToOne: false
+            referencedRelation: "professional_compensation_agreements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expenses_professional_id_fkey"
+            columns: ["professional_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expenses_professional_id_fkey"
+            columns: ["professional_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expenses_recurring_template_id_fkey"
+            columns: ["recurring_template_id"]
+            isOneToOne: false
+            referencedRelation: "expense_recurring_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expenses_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       google_calendar_channels: {
         Row: {
           calendar_id: string
@@ -4675,6 +5019,103 @@ export type Database = {
           },
         ]
       }
+      professional_compensation_agreements: {
+        Row: {
+          category_id: string | null
+          center_id: string
+          compensation_basis: Database["public"]["Enums"]["compensation_basis"]
+          compensation_type: Database["public"]["Enums"]["compensation_type"]
+          created_at: string
+          default_irpf_rate: number | null
+          effective_from: string
+          effective_to: string | null
+          fixed_amount: number
+          id: string
+          is_active: boolean
+          notes: string | null
+          percentage_rate: number
+          professional_id: string
+          updated_at: string
+        }
+        Insert: {
+          category_id?: string | null
+          center_id: string
+          compensation_basis?: Database["public"]["Enums"]["compensation_basis"]
+          compensation_type?: Database["public"]["Enums"]["compensation_type"]
+          created_at?: string
+          default_irpf_rate?: number | null
+          effective_from?: string
+          effective_to?: string | null
+          fixed_amount?: number
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          percentage_rate?: number
+          professional_id: string
+          updated_at?: string
+        }
+        Update: {
+          category_id?: string | null
+          center_id?: string
+          compensation_basis?: Database["public"]["Enums"]["compensation_basis"]
+          compensation_type?: Database["public"]["Enums"]["compensation_type"]
+          created_at?: string
+          default_irpf_rate?: number | null
+          effective_from?: string
+          effective_to?: string | null
+          fixed_amount?: number
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          percentage_rate?: number
+          professional_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "professional_compensation_agreements_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "expense_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "professional_compensation_agreements_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "professional_compensation_agreements_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "professional_compensation_agreements_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "portal_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "professional_compensation_agreements_professional_id_fkey"
+            columns: ["professional_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "professional_compensation_agreements_professional_id_fkey"
+            columns: ["professional_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       professional_integrations: {
         Row: {
           created_at: string | null
@@ -5929,6 +6370,82 @@ export type Database = {
         }
         Relationships: []
       }
+      suppliers: {
+        Row: {
+          address: string | null
+          center_id: string
+          city: string | null
+          country: string | null
+          created_at: string
+          email: string | null
+          id: string
+          is_active: boolean
+          name: string
+          notes: string | null
+          phone: string | null
+          postal_code: string | null
+          province: string | null
+          tax_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          center_id: string
+          city?: string | null
+          country?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          notes?: string | null
+          phone?: string | null
+          postal_code?: string | null
+          province?: string | null
+          tax_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          center_id?: string
+          city?: string | null
+          country?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          notes?: string | null
+          phone?: string | null
+          postal_code?: string | null
+          province?: string | null
+          tax_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "suppliers_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "suppliers_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "suppliers_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "portal_centers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       suppressed_emails: {
         Row: {
           created_at: string
@@ -7000,6 +7517,20 @@ export type Database = {
       }
     }
     Functions: {
+      _calculate_professional_variable_amount_internal: {
+        Args: {
+          p_basis?: Database["public"]["Enums"]["compensation_basis"]
+          p_center_id: string
+          p_percentage_rate: number
+          p_period_end: string
+          p_period_start: string
+          p_professional_id: string
+        }
+        Returns: {
+          collected_total: number
+          variable_amount: number
+        }[]
+      }
       acquire_verifactu_chain_lock: {
         Args: { p_center_id: string }
         Returns: boolean
@@ -7032,6 +7563,18 @@ export type Database = {
           p_tax_id?: string
         }
         Returns: string
+      }
+      calculate_professional_variable_amount: {
+        Args: {
+          p_period_end: string
+          p_period_start: string
+          p_professional_id: string
+        }
+        Returns: {
+          collected_total: number
+          percentage_rate: number
+          variable_amount: number
+        }[]
       }
       claim_stripe_webhook_event: {
         Args: {
@@ -7701,7 +8244,16 @@ export type Database = {
       app_role: "admin" | "professional" | "patient"
       assessment_status: "pending" | "completed" | "expired" | "revoked"
       bono_status: "active" | "exhausted" | "expired" | "cancelled"
+      compensation_basis: "collected_payments" | "issued_invoices"
+      compensation_type: "fixed" | "percentage" | "mixed"
       consent_status: "pending" | "signed" | "revoked" | "expired"
+      expense_kind:
+        | "fixed_recurring"
+        | "variable"
+        | "supplier_invoice"
+        | "professional_payment"
+      expense_recurrence_frequency: "monthly" | "quarterly" | "yearly"
+      expense_status: "pending" | "paid" | "cancelled"
       invoice_status: "draft" | "issued" | "paid" | "cancelled"
       location_type_enum: "in_person" | "online"
       notification_status: "pending" | "sent" | "failed"
@@ -7858,7 +8410,17 @@ export const Constants = {
       app_role: ["admin", "professional", "patient"],
       assessment_status: ["pending", "completed", "expired", "revoked"],
       bono_status: ["active", "exhausted", "expired", "cancelled"],
+      compensation_basis: ["collected_payments", "issued_invoices"],
+      compensation_type: ["fixed", "percentage", "mixed"],
       consent_status: ["pending", "signed", "revoked", "expired"],
+      expense_kind: [
+        "fixed_recurring",
+        "variable",
+        "supplier_invoice",
+        "professional_payment",
+      ],
+      expense_recurrence_frequency: ["monthly", "quarterly", "yearly"],
+      expense_status: ["pending", "paid", "cancelled"],
       invoice_status: ["draft", "issued", "paid", "cancelled"],
       location_type_enum: ["in_person", "online"],
       notification_status: ["pending", "sent", "failed"],
