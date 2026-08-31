@@ -71,6 +71,7 @@ export default function SessionManagement() {
   const [selectedSlot, setSelectedSlot] = useState<{ startTime: string; endTime: string } | null>(null);
   const [selectedLocationId, setSelectedLocationId] = useState<string>('');
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [policyAccepted, setPolicyAccepted] = useState(false);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [paying, setPaying] = useState(false);
   const [payDialogOpen, setPayDialogOpen] = useState(false);
@@ -94,6 +95,8 @@ export default function SessionManagement() {
     getAvailableDays,
     getAvailability,
     getCancellationPolicyPreview,
+    cancellationPolicyInfo,
+    getCancellationPolicyInfo,
     reschedule,
     isRescheduling,
     cancelSession,
