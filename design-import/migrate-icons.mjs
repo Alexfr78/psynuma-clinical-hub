@@ -6,7 +6,6 @@ const DRY_RUN = process.argv.includes('--dry');
 
 const mapSrc = fs.readFileSync('src/lib/icon-map.ts', 'utf8');
 const mapBody = mapSrc.slice(mapSrc.indexOf('{'), mapSrc.lastIndexOf('}') + 1);
-// eslint-disable-next-line no-new-func
 const ICON_MAP = new Function(`return ${mapBody}`)();
 
 const files = execSync('git ls-files "src/**/*.tsx" "src/**/*.ts"', { encoding: 'utf8' })

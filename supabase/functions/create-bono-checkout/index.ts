@@ -116,12 +116,17 @@ serve(async (req) => {
         );
       }
 
+      // Supabase's untyped client infers this embed's cardinality as an array;
+      // it's actually a single row (sessions.patient_id -> patients.id is many-to-one).
+      // Normalize defensively, matching the pattern used in create-stripe-checkout.
+      const sessionPatient = Array.isArray(session.patients) ? session.patients[0] : session.patients;
+
       centerId = session.center_id;
       patientId = session.patient_id;
-      patientEmail = session.patients?.email;
+      patientEmail = sessionPatient?.email;
       sessionId = session.id;
       sessionProfessionalId = session.professional_id;
-      assignedProfessionalId = session.patients?.assigned_professional_id || null;
+      assignedProfessionalId = sessionPatient?.assigned_professional_id || null;
     }
 
     // Get bono template
