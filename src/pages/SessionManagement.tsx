@@ -485,7 +485,9 @@ export default function SessionManagement() {
                 onClick={() => {
                   setConfirmOpen(true);
                   getCancellationPolicyPreview();
+                  getCancellationPolicyInfo();
                 }}
+
               >
                 <Icon name="check_circle" className="h-4 w-4 mr-2" />
                 Confirmar cambio
@@ -594,7 +596,7 @@ export default function SessionManagement() {
                       e.preventDefault();
                       handleRescheduleConfirm();
                     }}
-                    disabled={isRescheduling}
+                    disabled={isRescheduling || (policyRequiresAcceptance && !policyAccepted)}
                   >
                     {isRescheduling ? (
                       <>
