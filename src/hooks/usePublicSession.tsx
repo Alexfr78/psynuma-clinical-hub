@@ -225,6 +225,21 @@ export interface CancellationPolicyPreview {
   message: string;
 }
 
+export interface PublicCancellationPolicyInfo {
+  enabled: boolean;
+  alreadyAccepted: boolean;
+  requiresAcceptance: boolean;
+  policy: {
+    id: string;
+    name: string;
+    versionNumber: number;
+    policyText: string | null;
+    cancellationWindowHours: number;
+    lateCancellationPercentage: number;
+    noShowPercentage: number;
+  } | null;
+}
+
 export function usePublicSessionReschedule(token: string | undefined) {
   const queryClient = useQueryClient();
   const [slots, setSlots] = useState<AvailabilitySlot[]>([]);
@@ -237,6 +252,26 @@ export function usePublicSessionReschedule(token: string | undefined) {
   const [originalLocationId, setOriginalLocationId] = useState<string | null>(null);
   const [cancellationPolicyPreview, setCancellationPolicyPreview] = useState<CancellationPolicyPreview | null>(null);
   const [cancellationPolicyPreviewLoading, setCancellationPolicyPreviewLoading] = useState(false);
+  const [cancellationPolicyInfo, setCancellationPolicyInfo] = useState<PublicCancellationPolicyInfo | null>(null);
+
+  const getCancellationPolicyInfo = useCallback(async () => {
+    if (!token) return null;
+    try {
+      const { data, error } = await supabase.functions.invoke('public-session-reschedule', {
+        body: { action: 'get-cancellation-policy', token },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      const info = data as PublicCancellationPolicyInfo;
+      setCancellationPolicyInfo(info);
+      return info;
+    } catch (error) {
+      console.error('Error fetching cancellation policy:', error);
+      setCancellationPolicyInfo(null);
+      return null;
+    }
+  }, [token]);
+
 
   const getLocations = useCallback(async () => {
     if (!token) return;
