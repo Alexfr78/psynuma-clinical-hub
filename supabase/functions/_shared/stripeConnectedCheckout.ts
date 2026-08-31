@@ -338,6 +338,18 @@ export interface ConnectedPaymentIntentResult {
   errorMessage?: string | null;
 }
 
+interface StripePaymentIntentResponsePayload {
+  id: string;
+  status: string;
+  last_payment_error?: { code?: string | null; message?: string | null } | null;
+  error?: {
+    code?: string | null;
+    decline_code?: string | null;
+    message?: string | null;
+    payment_intent?: { id: string; status: string };
+  };
+}
+
 export function buildConnectedPaymentIntentRequest(
   input: ConnectedPaymentIntentInput,
 ): { body: URLSearchParams; headers: Record<string, string>; applicationFeeAmount: number } {
@@ -396,8 +408,7 @@ export async function createConnectedPaymentIntent(
     headers: request.headers,
     body: request.body,
   });
-  // deno-lint-ignore no-explicit-any
-  const payload = await response.json() as any;
+  const payload = await response.json() as StripePaymentIntentResponsePayload;
 
   // Un cobro off-session que requiere autenticación (3DS) o se declina devuelve
   // 402 con error.payment_intent; extraemos el estado en vez de lanzar.

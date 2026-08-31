@@ -18,6 +18,17 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Minimal structural shapes for the node-forge (untyped, dynamically imported)
+// objects this file actually touches — not full node-forge type coverage.
+interface ForgePrivateKey {
+  n: unknown;
+  e: unknown;
+  sign(md: unknown): string;
+}
+interface ForgeCertificate {
+  publicKey: unknown;
+}
+
 // AEAT Verifactu endpoints for consultation - Using same pattern as VerifactuSOAP
 // Note: AEAT consultation service may be temporarily unavailable
 const AEAT_ENDPOINTS = {
@@ -106,9 +117,18 @@ function escapeXML(str: string): string {
     .replace(/'/g, '&apos;');
 }
 
+interface ConsultaInvoice {
+  issue_date: string;
+  invoice_number: string;
+}
+interface ConsultaCenter {
+  tax_id?: string | null;
+  name?: string | null;
+}
+
 // Build ConsultaFactu XML for invoice query
 // sum: for container elements, sum1: for internal types
-function buildConsultaXML(invoice: any, center: any): string {
+function buildConsultaXML(invoice: ConsultaInvoice, center: ConsultaCenter): string {
   const nifEmisor = center.tax_id?.replace(/[^A-Z0-9]/gi, '') || '';
   const nombreEmisor = center.name || '';
   const fechaExpedicion = formatDateVerifactu(invoice.issue_date);
@@ -133,8 +153,8 @@ function buildConsultaXML(invoice: any, center: any): string {
 
 // Extract certificates from PKCS12 for XML signing
 function extractCertificatesFromPKCS12(certificateBase64: string, certificatePassword: string): {
-  privateKey: any;
-  certificate: any;
+  privateKey: ForgePrivateKey;
+  certificate: ForgeCertificate;
 } {
   console.log('Extracting certificates from PKCS12...');
   
@@ -142,9 +162,9 @@ function extractCertificatesFromPKCS12(certificateBase64: string, certificatePas
   const p12Asn1 = forge.asn1.fromDer(p12Der);
   const p12 = forge.pkcs12.pkcs12FromAsn1(p12Asn1, certificatePassword);
 
-  let privateKey: any = null;
-  let endEntityCert: any = null;
-  const allCertificates: any[] = [];
+  let privateKey: ForgePrivateKey | null = null;
+  let endEntityCert: ForgeCertificate | null = null;
+  const allCertificates: ForgeCertificate[] = [];
 
   for (const safeContents of p12.safeContents) {
     for (const safeBag of safeContents.safeBags) {
@@ -189,7 +209,7 @@ function extractCertificatesFromPKCS12(certificateBase64: string, certificatePas
 }
 
 // Build complete signed SOAP envelope with namespaces on Envelope
-function buildSignedSOAPEnvelope(body: string, privateKey: any, certificate: any): string {
+function buildSignedSOAPEnvelope(body: string, privateKey: ForgePrivateKey, certificate: ForgeCertificate): string {
   const NS_SUM = 'https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/SuministroLR.xsd';
   const NS_SUM1 = 'https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/SuministroInformacion.xsd';
 
@@ -212,7 +232,7 @@ function buildSignedSOAPEnvelope(body: string, privateKey: any, certificate: any
 }
 
 // Sign XML body and return signature element
-function signXMLBody(body: string, privateKey: any, certificate: any): string {
+function signXMLBody(body: string, privateKey: ForgePrivateKey, certificate: ForgeCertificate): string {
   try {
     const certDer = forge.asn1.toDer(forge.pki.certificateToAsn1(certificate)).getBytes();
     const certBase64 = forge.util.encode64(certDer);
@@ -267,10 +287,10 @@ ${signedInfo}
 
 // Send XML to AEAT with mTLS authentication
 async function sendToAEAT(
-  signedXml: string, 
+  signedXml: string,
   environment: string,
-  privateKey: any,
-  certificate: any
+  privateKey: ForgePrivateKey,
+  certificate: ForgeCertificate
 ): Promise<{ success: boolean; response?: string; error?: string; httpStatus?: number }> {
   const endpoint = environment === 'production' ? AEAT_ENDPOINTS.production : AEAT_ENDPOINTS.test;
   
@@ -297,7 +317,6 @@ async function sendToAEAT(
         'SOAPAction': SOAP_ACTION_CONSULTA
       },
       body: signedXml,
-      // @ts-ignore - Deno specific option for mTLS
       client: client
     });
 

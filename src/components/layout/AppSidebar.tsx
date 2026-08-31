@@ -13,8 +13,8 @@ import {
   SidebarHeader,
   SidebarFooter,
   SidebarSeparator,
-  useSidebar,
 } from '@/components/ui/sidebar';
+import { useSidebar } from '@/components/ui/sidebar-context';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';

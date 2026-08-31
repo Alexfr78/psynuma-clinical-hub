@@ -112,9 +112,9 @@ function ScaleChart({
               tick={{ fontSize: 12 }}
             />
             <Tooltip 
-              formatter={(value: number, name: string, props: any) => [
+              formatter={(value: number, name: string, props: { payload?: { label: string } }) => [
                 `T = ${value}`,
-                props.payload.label
+                props.payload?.label
               ]}
             />
             <ReferenceLine x={50} stroke="hsl(var(--muted-foreground))" strokeDasharray="3 3" />

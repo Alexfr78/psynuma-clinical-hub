@@ -13,17 +13,17 @@ const corsHeaders = {
 // REUSABLE RENDER HELPERS
 // =====================================================
 
-function escapeHtml(str: string): string {
+function escapeHtml(str: string | null | undefined): string {
   if (!str) return '';
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-function renderString(value: any, fallback = 'Sin respuesta'): string {
+function renderString(value: unknown, fallback = 'Sin respuesta'): string {
   if (value === null || value === undefined || value === '') return `<em>${fallback}</em>`;
   return escapeHtml(String(value)).replace(/\n/g, '<br>');
 }
 
-function renderBoolean(value: any, trueLabel = 'Sí', falseLabel = 'No'): string {
+function renderBoolean(value: unknown, trueLabel = 'Sí', falseLabel = 'No'): string {
   if (value === 'si' || value === true) return trueLabel;
   if (value === 'no' || value === false) return falseLabel;
   return '<em>Sin respuesta</em>';
@@ -34,7 +34,7 @@ function renderBadgeList(items: string[], colorClass = 'badge-neutral'): string 
   return `<div class="badge-list">${items.map(i => `<span class="badge ${colorClass}">${escapeHtml(i)}</span>`).join('')}</div>`;
 }
 
-function renderNarrative(label: string, value: any): string {
+function renderNarrative(label: string, value: unknown): string {
   if (!value && value !== 0) return '';
   return `
     <div class="narrative-block">
@@ -44,7 +44,7 @@ function renderNarrative(label: string, value: any): string {
   `;
 }
 
-function renderConditionalNarrative(label: string, value: any): string {
+function renderConditionalNarrative(label: string, value: unknown): string {
   if (!value && value !== 0) return '';
   return renderNarrative(label, value);
 }
@@ -69,7 +69,7 @@ function renderSubsection(title: string, content: string): string {
   `;
 }
 
-function renderKeyValue(label: string, value: any): string {
+function renderKeyValue(label: string, value: unknown): string {
   if (value === null || value === undefined || value === '') return '';
   return `<p><strong>${escapeHtml(label)}:</strong> ${renderString(value)}</p>`;
 }
@@ -200,7 +200,161 @@ const FIGURE_FEELINGS_NEGATIVE = ['Rechazado', 'Atemorizado', 'Inseguro', 'Invis
 const EMOTION_MATRIX_EMOTIONS = ['Alegría', 'Tristeza', 'Rabia', 'Miedo', 'Vergüenza', 'Asco', 'Preocupación'];
 const EMOTION_MATRIX_COLUMNS = ['Era frecuente verla así', 'Era raro verla así', 'Aceptaba que yo estuviera así', 'No le gustaba verme así'];
 
-function calculateEMOIndicators(answers: any) {
+interface EMOFigure {
+  id?: string;
+  figure_name?: string | null;
+  figure_relation?: string | null;
+  figure_feelings_words?: string[];
+  figure_feelings_words_otro?: string | null;
+  figure_reactions_to_your_emotion?: string[];
+  figure_reactions_otro?: string | null;
+  figure_adjectives?: { adjective?: string | null; example?: string | null }[];
+  figure_emotion_matrix?: Record<string, string[]>;
+  figure_first_memory?: string | null;
+  figure_face_expression?: string | null;
+  figure_still_in_life?: string | null;
+  figure_current_relationship?: string | null;
+  figure_loss_reaction?: string | null;
+  figure_when_bad?: string | null;
+  figure_success_failure?: string | null;
+  figure_help_important?: string | null;
+  figure_most_important_word?: string | null;
+  figure_worst_emotion_self?: string | null;
+  figure_worst_emotion_you?: string | null;
+  figure_help_physical?: string | null;
+  figure_help_physical_how?: string | null;
+  figure_help_emotional?: string | null;
+  figure_more_comments?: string | null;
+  [key: string]: unknown;
+}
+interface EMOCoregulationMoment {
+  who?: string;
+  emotion?: string;
+  whatHelped?: string;
+}
+interface EMORelationalIndicator {
+  id: string;
+  label: string;
+  detected: boolean;
+}
+interface EMORelational {
+  figureId?: string;
+  figureName: string;
+  indicators: EMORelationalIndicator[];
+  positiveCount: number;
+  negativeCount: number;
+}
+
+// Shared shape for the AI-generated PAI / MMPI-2-RF clinical interpretations
+// (both assessments' interpretation JSON follow the same structure).
+interface ClinicalRiskLevel {
+  nivel?: string;
+  observaciones?: string;
+}
+interface ClinicalInterpretation {
+  resumenEjecutivo?: string;
+  validez?: {
+    estado?: string;
+    observaciones?: string;
+    escalasProblematicas?: string[];
+  };
+  riesgos?: {
+    nivelGlobal?: string;
+    suicidio?: ClinicalRiskLevel;
+    violencia?: ClinicalRiskLevel;
+    descompensacion?: ClinicalRiskLevel;
+  };
+  perfilClinico?: {
+    escalasElevadas?: { escala?: string; puntuacionT?: number | string; interpretacion?: string }[];
+    formulacionIntegrada?: string;
+  };
+  hipotesisDiagnosticas?: string[];
+  intervenciones?: {
+    prioridades?: string[];
+    enfoqueSugerido?: string;
+    precauciones?: string[];
+  };
+}
+
+// Unified shape for the `metadata` jsonb column across all assessment types —
+// each field is only populated for its corresponding template.
+interface AssessmentMetadata {
+  emoInterpretation?: EMOInterpretation;
+  aiInterpretation?: EMOInterpretation;
+  paiInterpretation?: ClinicalInterpretation;
+  mmpi2rfInterpretation?: ClinicalInterpretation;
+  examples?: Record<string, string>;
+  aiAnalysis?: unknown;
+  [key: string]: unknown;
+}
+
+type AssessmentFlags = Record<string, boolean>;
+
+interface TemplateItem {
+  index?: number;
+  text?: string;
+}
+
+// DES AI-analysis JSON shape (see also src/components/assessments/DESResultsView.tsx
+// on the frontend, which reads the same structure).
+interface DESItemAnalysis {
+  example: string;
+  frequency: number;
+  category: string;
+  categoryLabel?: string;
+  interpretation: string;
+  clinicalRelevance: 'high' | 'moderate' | 'low';
+  patterns?: string[];
+  suggestedExploration?: string[];
+}
+interface DESAIAnalysis {
+  clinicalSummary?: string;
+  overallPatterns?: string[];
+  itemAnalysis?: Record<string, DESItemAnalysis>;
+  analyzedAt?: string;
+}
+
+interface EMONormalizedAnswers {
+  emo_reg_general?: unknown;
+  emo_dificultad_sentir?: unknown;
+  emo_dificultad_sentir_explicacion?: unknown;
+  emo_emociones_problematicas?: string[];
+  emo_emociones_problematicas_otro?: unknown;
+  emo_emociones_problematicas_por_que?: unknown;
+  emo_patrones_1?: string[];
+  emo_patrones_2?: string[];
+  emo_patrones_otro_texto?: unknown;
+  emo_desde_cuando?: unknown;
+  emo_empeoro?: unknown;
+  emo_empeoro_cuando?: unknown;
+  emo_quienes_crianza?: unknown;
+  emo_cambio_convivencia?: unknown;
+  emo_cambio_convivencia_detalle?: unknown;
+  emo_figuras_fuera_familia?: unknown;
+  emo_figuras_fuera_familia_detalle?: unknown;
+  emo_cuidadores_contratados?: unknown;
+  emo_cuidadores_tiempo?: unknown;
+  emo_internado?: unknown;
+  emo_internado_detalle?: unknown;
+  emo_adopcion?: unknown;
+  emo_adopcion_detalle?: unknown;
+  emo_figuras_positivas?: unknown;
+  emo_figuras_negativas?: unknown;
+  emo_figuras_ausentes?: unknown;
+  emo_momentos_coregulacion?: unknown[];
+  figures?: EMOFigure[];
+}
+
+interface EMOInterpretation {
+  perfil_regulacion?: string;
+  patron_predominante?: string;
+  calidad_apego?: string;
+  recursos_regulacion?: string[];
+  areas_intervencion?: string[];
+  hipotesis_origen?: string;
+  resumen_clinico?: string;
+}
+function calculateEMOIndicators(answers: EMONormalizedAnswers) {
   const allPatterns = [...(answers.emo_patrones_1 || []), ...(answers.emo_patrones_2 || [])];
 
   const regulation = Object.entries(REGULATION_INDICATORS).map(([id, config]) => {
@@ -208,7 +362,7 @@ function calculateEMOIndicators(answers: any) {
     return { id, label: config.label, detected: matchedPatterns.length > 0, matchedPatterns };
   });
 
-  const relational = (answers.figures || []).map((figure: any) => {
+  const relational = (answers.figures || []).map((figure: EMOFigure) => {
     const feelings = figure.figure_feelings_words || [];
     const reactions = figure.figure_reactions_to_your_emotion || [];
 
@@ -232,20 +386,20 @@ function calculateEMOIndicators(answers: any) {
 // EMO SPECIFIC RENDERER
 // =====================================================
 
-function generateEMOHTML(answers: Record<string, any>, factorScores: Record<string, number>, metadata: any): string {
+function generateEMOHTML(answers: Record<string, unknown>, factorScores: Record<string, number>, metadata: AssessmentMetadata | null | undefined): string {
   const sections: string[] = [];
   let sectionCount = 0;
 
   // Normalize answers (support legacy keys)
-  const emo: any = {
+  const emo: EMONormalizedAnswers = {
     emo_reg_general: answers['emo_reg_general'] || answers['s1_description'] || answers['1'],
     emo_dificultad_sentir: answers['emo_dificultad_sentir'],
     emo_dificultad_sentir_explicacion: answers['emo_dificultad_sentir_explicacion'],
-    emo_emociones_problematicas: answers['emo_emociones_problematicas'] || answers['s1_difficult_emotions'] || answers['3'] || [],
+    emo_emociones_problematicas: (answers['emo_emociones_problematicas'] as string[] | undefined) || (answers['s1_difficult_emotions'] as string[] | undefined) || (answers['3'] as string[] | undefined) || [],
     emo_emociones_problematicas_otro: answers['emo_emociones_problematicas_otro'],
     emo_emociones_problematicas_por_que: answers['emo_emociones_problematicas_por_que'],
-    emo_patrones_1: answers['emo_patrones_1'] || [],
-    emo_patrones_2: answers['emo_patrones_2'] || [],
+    emo_patrones_1: (answers['emo_patrones_1'] as string[] | undefined) || [],
+    emo_patrones_2: (answers['emo_patrones_2'] as string[] | undefined) || [],
     emo_patrones_otro_texto: answers['emo_patrones_otro_texto'],
     emo_desde_cuando: answers['emo_desde_cuando'] || answers['s1_since_when'] || answers['6'],
     emo_empeoro: answers['emo_empeoro'],
@@ -264,8 +418,8 @@ function generateEMOHTML(answers: Record<string, any>, factorScores: Record<stri
     emo_figuras_positivas: answers['emo_figuras_positivas'],
     emo_figuras_negativas: answers['emo_figuras_negativas'],
     emo_figuras_ausentes: answers['emo_figuras_ausentes'],
-    emo_momentos_coregulacion: answers['emo_momentos_coregulacion'] || [],
-    figures: answers['figures'] || [],
+    emo_momentos_coregulacion: (answers['emo_momentos_coregulacion'] as unknown[] | undefined) || [],
+    figures: (answers['figures'] as EMOFigure[] | undefined) || [],
   };
 
   const indicators = calculateEMOIndicators(emo);
@@ -352,7 +506,7 @@ function generateEMOHTML(answers: Record<string, any>, factorScores: Record<stri
 
     if (emo.emo_dificultad_sentir) {
       let respuesta = renderBoolean(emo.emo_dificultad_sentir);
-      if (emo.emo_dificultad_sentir_explicacion) respuesta += ` — ${escapeHtml(emo.emo_dificultad_sentir_explicacion)}`;
+      if (emo.emo_dificultad_sentir_explicacion) respuesta += ` — ${escapeHtml(String(emo.emo_dificultad_sentir_explicacion))}`;
       content += renderNarrative('¿Te cuesta sentir emociones como otras personas?', respuesta);
     }
 
@@ -407,7 +561,7 @@ function generateEMOHTML(answers: Record<string, any>, factorScores: Record<stri
     const moments = emo.emo_momentos_coregulacion || [];
     if (moments.length > 0) {
       let momentsHtml = '<table><thead><tr><th>¿Quién?</th><th>Emoción</th><th>¿Qué ayudó?</th></tr></thead><tbody>';
-      moments.forEach((m: any) => {
+      (moments as EMOCoregulationMoment[]).forEach((m) => {
         if (m.who || m.emotion || m.whatHelped) {
           momentsHtml += `<tr><td>${renderString(m.who)}</td><td>${renderString(m.emotion)}</td><td>${renderString(m.whatHelped)}</td></tr>`;
         }
@@ -421,19 +575,19 @@ function generateEMOHTML(answers: Record<string, any>, factorScores: Record<stri
   }
 
   // ===== SECTION 4: PER-FIGURE ANALYSIS =====
-  figuresData.forEach((figure: any, index: number) => {
+  figuresData.forEach((figure: EMOFigure, index: number) => {
     let content = '';
     const figureName = figure.figure_name || `Figura ${index + 1}`;
     const figureRelation = figure.figure_relation || '';
 
     // Relational indicators for this figure
-    const figInd = indicators.relational.find((r: any) => r.figureId === figure.id);
-    const detectedRelational = figInd?.indicators.filter((i: any) => i.detected) || [];
+    const figInd = (indicators.relational as EMORelational[]).find((r) => r.figureId === figure.id);
+    const detectedRelational = figInd?.indicators.filter((i) => i.detected) || [];
 
     if (detectedRelational.length > 0) {
       content += `<div style="background: #fffbeb; border: 1px solid #f59e0b; border-radius: 6px; padding: 8px 12px; margin-bottom: 12px;">
         <p style="font-weight: 600; color: #92400e; margin-bottom: 4px;">⚠️ Indicadores relacionales detectados</p>
-        ${renderBadgeList(detectedRelational.map((d: any) => d.label), 'badge-amber')}
+        ${renderBadgeList(detectedRelational.map((d) => d.label), 'badge-amber')}
       </div>`;
     }
 
@@ -453,20 +607,20 @@ function generateEMOHTML(answers: Record<string, any>, factorScores: Record<stri
     }
 
     // Reactions
-    if (figure.figure_reactions_to_your_emotion?.length > 0) {
-      content += renderSubsection('Reacciones típicas de la figura', renderBadgeList(figure.figure_reactions_to_your_emotion));
+    if ((figure.figure_reactions_to_your_emotion?.length ?? 0) > 0) {
+      content += renderSubsection('Reacciones típicas de la figura', renderBadgeList(figure.figure_reactions_to_your_emotion || []));
       if (figure.figure_reactions_otro) {
         content += renderKeyValue('Otra reacción', figure.figure_reactions_otro);
       }
     }
 
     // Adjectives
-    if (figure.figure_adjectives?.length > 0) {
-      const validAdj = figure.figure_adjectives.filter((a: any) => a.adjective);
+    if ((figure.figure_adjectives?.length ?? 0) > 0) {
+      const validAdj = figure.figure_adjectives!.filter((a) => a.adjective);
       if (validAdj.length > 0) {
         let adjHtml = '<div style="margin-bottom: 8px;">';
-        validAdj.forEach((adj: any) => {
-          adjHtml += `<div style="margin-bottom: 4px;"><strong>${escapeHtml(adj.adjective)}</strong>`;
+        validAdj.forEach((adj) => {
+          adjHtml += `<div style="margin-bottom: 4px;"><strong>${escapeHtml(adj.adjective || '')}</strong>`;
           if (adj.example) adjHtml += `: <em>"${escapeHtml(adj.example)}"</em>`;
           adjHtml += '</div>';
         });
@@ -481,7 +635,7 @@ function generateEMOHTML(answers: Record<string, any>, factorScores: Record<stri
       EMOTION_MATRIX_COLUMNS.forEach(col => { matrixHtml += `<th style="text-align: center; font-size: 8px;">${escapeHtml(col)}</th>`; });
       matrixHtml += '</tr></thead><tbody>';
       EMOTION_MATRIX_EMOTIONS.forEach(emotion => {
-        const selected = figure.figure_emotion_matrix[emotion] || [];
+        const selected = figure.figure_emotion_matrix![emotion] || [];
         matrixHtml += `<tr><td style="font-weight: 600;">${escapeHtml(emotion)}</td>`;
         EMOTION_MATRIX_COLUMNS.forEach(col => {
           const isChecked = selected.includes(col);
@@ -556,11 +710,11 @@ function generateEMOHTML(answers: Record<string, any>, factorScores: Record<stri
     if (emoInterpretation.calidad_apego) {
       interpContent += renderNarrative('Calidad de apego', emoInterpretation.calidad_apego);
     }
-    if (emoInterpretation.recursos_regulacion?.length > 0) {
-      interpContent += renderSubsection('Recursos de regulación', renderBadgeList(emoInterpretation.recursos_regulacion, 'badge-green'));
+    if ((emoInterpretation.recursos_regulacion?.length ?? 0) > 0) {
+      interpContent += renderSubsection('Recursos de regulación', renderBadgeList(emoInterpretation.recursos_regulacion || [], 'badge-green'));
     }
-    if (emoInterpretation.areas_intervencion?.length > 0) {
-      interpContent += renderSubsection('Áreas de intervención', renderBadgeList(emoInterpretation.areas_intervencion, 'badge-amber'));
+    if ((emoInterpretation.areas_intervencion?.length ?? 0) > 0) {
+      interpContent += renderSubsection('Áreas de intervención', renderBadgeList(emoInterpretation.areas_intervencion || [], 'badge-amber'));
     }
     if (emoInterpretation.hipotesis_origen) {
       interpContent += renderNarrative('Hipótesis de origen', emoInterpretation.hipotesis_origen);
@@ -589,7 +743,7 @@ function generateEMOHTML(answers: Record<string, any>, factorScores: Record<stri
 // YBOCS2 SPECIFIC RENDERER
 // =====================================================
 
-function generateYBOCS2HTML(answers: Record<string, any>, factorScores: Record<string, number>): string {
+function generateYBOCS2HTML(answers: Record<string, unknown>, factorScores: Record<string, number>): string {
   // YBOCS2 uses standard items – will be handled by generic renderer
   // Add factor scores display if present
   if (Object.keys(factorScores).length === 0) return '';
@@ -708,7 +862,7 @@ serve(async (req) => {
     if (!rawResponse) console.warn('[PDF] No assessment_responses found for this assessment');
 
     // Parse JSON fields that may come as strings from the REST API
-    const parseJsonField = (val: any): any => {
+    const parseJsonField = (val: unknown): unknown => {
       if (val === null || val === undefined) return null;
       if (typeof val === 'string') {
         try { return JSON.parse(val); } catch { return val; }
@@ -724,9 +878,9 @@ serve(async (req) => {
     } : { answers: {}, factor_scores: {}, metadata: null, flags: null };
 
     const factorScores = response.factor_scores as Record<string, number>;
-    const answers = response.answers as Record<string, any>;
-    const metadata = response.metadata as any;
-    const flags = response.flags as any;
+    const answers = response.answers as Record<string, unknown>;
+    const metadata = response.metadata as AssessmentMetadata | null;
+    const flags = response.flags as AssessmentFlags | null;
     const templateCode = template.code;
 
     console.log(`[PDF] Template: ${templateCode}, answer keys: ${Object.keys(answers).length}, factor keys: ${Object.keys(factorScores).length}, has metadata: ${!!metadata && Object.keys(metadata || {}).length > 0}`);
@@ -833,22 +987,22 @@ serve(async (req) => {
       }
 
       // Generic answers detail
-      const templateItems = template.items || [];
+      const templateItems: TemplateItem[] = template.items || [];
       if (templateItems.length > 0 && Object.keys(answers).length > 0) {
         if (isMMPI2RF) {
           const answersList = templateItems
-            .sort((a: any, b: any) => (a.index ?? 0) - (b.index ?? 0))
-            .map((item: any) => {
-              const answer = answers[item.index?.toString()];
+            .sort((a, b) => (a.index ?? 0) - (b.index ?? 0))
+            .map((item) => {
+              const answer = answers[item.index?.toString() ?? ''];
               return `<span class="answer-chip">${item.index}: ${answer === 1 ? 'V' : answer === 0 ? 'F' : '—'}</span>`;
             }).join('');
           parts.push(renderSection('Detalle de Respuestas', `<div class="answers-compact">${answersList}</div>`));
         } else {
           const answerRows = templateItems
-            .filter((item: any) => item.index !== undefined)
-            .sort((a: any, b: any) => a.index - b.index)
-            .map((item: any) => {
-              const answer = answers[item.index?.toString()];
+            .filter((item) => item.index !== undefined)
+            .sort((a, b) => (a.index ?? 0) - (b.index ?? 0))
+            .map((item) => {
+              const answer = answers[item.index?.toString() ?? ''];
               return `<div class="answer-row"><span class="answer-index">${item.index}.</span><span class="answer-text">${escapeHtml(item.text || '')}</span><span class="answer-value">${answer !== undefined ? answer : '—'}</span></div>`;
             }).join('');
           if (answerRows) {
@@ -1069,7 +1223,7 @@ serve(async (req) => {
 // SPECIFIC TEST RENDERERS (BDI2, DCI, DES, STAI, PAI, MMPI2RF)
 // =====================================================
 
-function generateBDI2HTML(factorScores: Record<string, number>, flags: any): string {
+function generateBDI2HTML(factorScores: Record<string, number>, flags: AssessmentFlags | null | undefined): string {
   const totalScore = factorScores['TOTAL'];
   const cogAffect = factorScores['COG_AFECT'] ?? 0;
   const somVeg = factorScores['SOM_VEG'] ?? 0;
@@ -1118,7 +1272,7 @@ function generateDCIHTML(factorScores: Record<string, number>): string {
   `;
 }
 
-function generateDESHTML(factorScores: Record<string, number>, metadata: any, template: any, answers: Record<string, any>): string {
+function generateDESHTML(factorScores: Record<string, number>, metadata: AssessmentMetadata | null | undefined, template: unknown, answers: Record<string, unknown>): string {
   const totalScore = factorScores['TOTAL'] ?? 0;
   const amnesiaScore = factorScores['DES_A'] ?? 0;
   const depersonScore = factorScores['DES_D'] ?? 0;
@@ -1176,8 +1330,8 @@ function generateDESHTML(factorScores: Record<string, number>, metadata: any, te
   `;
 
   // Patient Examples & AI Analysis
-  const patientExamples = metadata?.examples as Record<string, string> | undefined;
-  const aiAnalysis = metadata?.aiAnalysis as any;
+  const patientExamples = metadata?.examples;
+  const aiAnalysis = metadata?.aiAnalysis as DESAIAnalysis | undefined;
   const hasAIAnalysis = aiAnalysis && Object.keys(aiAnalysis.itemAnalysis || {}).length > 0;
 
   if (hasAIAnalysis) {
@@ -1199,10 +1353,10 @@ function generateDESHTML(factorScores: Record<string, number>, metadata: any, te
     }
 
     // Detailed Analysis by Category
-    const analysisByCategory: Record<string, any[]> = {};
+    const analysisByCategory: Record<string, DESItemAnalysis[]> = {};
     if (aiAnalysis.itemAnalysis) {
       for (const [index, analysis] of Object.entries(aiAnalysis.itemAnalysis)) {
-        const cat = (analysis as { category?: string }).category || 'other';
+        const cat = analysis.category || 'other';
         if (!analysisByCategory[cat]) analysisByCategory[cat] = [];
         analysisByCategory[cat].push(analysis);
       }
@@ -1323,7 +1477,7 @@ function generateSTAIHTML(factorScores: Record<string, number>): string {
   `;
 }
 
-function generateMMPI2RFSummaryHTML(answers: Record<string, any>): string {
+function generateMMPI2RFSummaryHTML(answers: Record<string, unknown>): string {
   const totalItems = Object.keys(answers).length;
   const trueCount = Object.values(answers).filter(v => v === 1).length;
   const falseCount = Object.values(answers).filter(v => v === 0).length;
@@ -1342,10 +1496,10 @@ function generateMMPI2RFSummaryHTML(answers: Record<string, any>): string {
   `;
 }
 
-function generatePAIInterpretationHTML(interpretation: any): string {
+function generatePAIInterpretationHTML(interpretation: ClinicalInterpretation | null | undefined): string {
   if (!interpretation) return '';
   const validityClass = interpretation.validez?.estado === 'válido' ? 'validity-valid' : interpretation.validez?.estado === 'cuestionable' ? 'validity-questionable' : 'validity-invalid';
-  const getRiskClass = (nivel: string) => { const n = nivel?.toLowerCase(); return n === 'alto' ? 'risk-alto' : n === 'moderado' ? 'risk-moderado' : 'risk-bajo'; };
+  const getRiskClass = (nivel: string | undefined) => { const n = nivel?.toLowerCase(); return n === 'alto' ? 'risk-alto' : n === 'moderado' ? 'risk-moderado' : 'risk-bajo'; };
 
   return `
     <div class="section">
@@ -1354,31 +1508,31 @@ function generatePAIInterpretationHTML(interpretation: any): string {
         ${interpretation.resumenEjecutivo ? `<div class="ai-section"><h5>Resumen Ejecutivo</h5><p>${escapeHtml(interpretation.resumenEjecutivo)}</p></div>` : ''}
         ${interpretation.validez ? `<div class="ai-section"><h5>Validez del Protocolo</h5><p><strong class="${validityClass}">Estado: ${interpretation.validez.estado?.toUpperCase()}</strong></p><p>${escapeHtml(interpretation.validez.observaciones || '')}</p></div>` : ''}
         ${interpretation.riesgos ? `<div class="ai-section"><h5>Evaluación de Riesgos</h5><p><span class="risk-badge ${getRiskClass(interpretation.riesgos.nivelGlobal)}">Nivel Global: ${interpretation.riesgos.nivelGlobal?.toUpperCase()}</span></p>${interpretation.riesgos.suicidio ? `<p><strong>Suicidio (${interpretation.riesgos.suicidio.nivel}):</strong> ${escapeHtml(interpretation.riesgos.suicidio.observaciones)}</p>` : ''}${interpretation.riesgos.violencia ? `<p><strong>Violencia (${interpretation.riesgos.violencia.nivel}):</strong> ${escapeHtml(interpretation.riesgos.violencia.observaciones)}</p>` : ''}${interpretation.riesgos.descompensacion ? `<p><strong>Descompensación (${interpretation.riesgos.descompensacion.nivel}):</strong> ${escapeHtml(interpretation.riesgos.descompensacion.observaciones)}</p>` : ''}</div>` : ''}
-        ${interpretation.perfilClinico?.escalasElevadas?.length > 0 ? `<div class="ai-section"><h5>Escalas Elevadas</h5><ul>${interpretation.perfilClinico.escalasElevadas.map((e: any) => `<li><strong>${escapeHtml(e.escala)} (T=${e.puntuacionT}):</strong> ${escapeHtml(e.interpretacion)}</li>`).join('')}</ul></div>` : ''}
+        ${(interpretation.perfilClinico?.escalasElevadas?.length ?? 0) > 0 ? `<div class="ai-section"><h5>Escalas Elevadas</h5><ul>${interpretation.perfilClinico!.escalasElevadas!.map((e) => `<li><strong>${escapeHtml(e.escala)} (T=${e.puntuacionT}):</strong> ${escapeHtml(e.interpretacion)}</li>`).join('')}</ul></div>` : ''}
         ${interpretation.perfilClinico?.formulacionIntegrada ? `<div class="ai-section"><h5>Formulación Integrada</h5><p>${escapeHtml(interpretation.perfilClinico.formulacionIntegrada)}</p></div>` : ''}
-        ${interpretation.hipotesisDiagnosticas?.length > 0 ? `<div class="ai-section"><h5>Hipótesis Diagnósticas</h5><ul>${interpretation.hipotesisDiagnosticas.map((h: string) => `<li>${escapeHtml(h)}</li>`).join('')}</ul></div>` : ''}
-        ${interpretation.intervenciones ? `<div class="ai-section"><h5>Recomendaciones de Intervención</h5>${interpretation.intervenciones.prioridades?.length > 0 ? `<p><strong>Prioridades:</strong></p><ul>${interpretation.intervenciones.prioridades.map((p: string) => `<li>${escapeHtml(p)}</li>`).join('')}</ul>` : ''}${interpretation.intervenciones.enfoqueSugerido ? `<p><strong>Enfoque sugerido:</strong> ${escapeHtml(interpretation.intervenciones.enfoqueSugerido)}</p>` : ''}${interpretation.intervenciones.precauciones?.length > 0 ? `<p><strong>Precauciones:</strong></p><ul>${interpretation.intervenciones.precauciones.map((p: string) => `<li>${escapeHtml(p)}</li>`).join('')}</ul>` : ''}</div>` : ''}
+        ${(interpretation.hipotesisDiagnosticas?.length ?? 0) > 0 ? `<div class="ai-section"><h5>Hipótesis Diagnósticas</h5><ul>${interpretation.hipotesisDiagnosticas!.map((h) => `<li>${escapeHtml(h)}</li>`).join('')}</ul></div>` : ''}
+        ${interpretation.intervenciones ? `<div class="ai-section"><h5>Recomendaciones de Intervención</h5>${(interpretation.intervenciones.prioridades?.length ?? 0) > 0 ? `<p><strong>Prioridades:</strong></p><ul>${interpretation.intervenciones.prioridades!.map((p) => `<li>${escapeHtml(p)}</li>`).join('')}</ul>` : ''}${interpretation.intervenciones.enfoqueSugerido ? `<p><strong>Enfoque sugerido:</strong> ${escapeHtml(interpretation.intervenciones.enfoqueSugerido)}</p>` : ''}${(interpretation.intervenciones.precauciones?.length ?? 0) > 0 ? `<p><strong>Precauciones:</strong></p><ul>${interpretation.intervenciones.precauciones!.map((p) => `<li>${escapeHtml(p)}</li>`).join('')}</ul>` : ''}</div>` : ''}
       </div>
     </div>
   `;
 }
 
-function generateMMPI2RFInterpretationHTML(interpretation: any): string {
+function generateMMPI2RFInterpretationHTML(interpretation: ClinicalInterpretation | null | undefined): string {
   if (!interpretation) return '';
   const validityClass = interpretation.validez?.estado === 'válido' ? 'validity-valid' : interpretation.validez?.estado === 'cuestionable' ? 'validity-questionable' : 'validity-invalid';
-  const getRiskClass = (nivel: string) => { const n = nivel?.toLowerCase(); return n === 'alto' ? 'risk-alto' : n === 'moderado' ? 'risk-moderado' : 'risk-bajo'; };
+  const getRiskClass = (nivel: string | undefined) => { const n = nivel?.toLowerCase(); return n === 'alto' ? 'risk-alto' : n === 'moderado' ? 'risk-moderado' : 'risk-bajo'; };
 
   return `
     <div class="section">
       <h3>🤖 Interpretación Clínica IA - MMPI-2-RF</h3>
       <div class="ai-interpretation">
         ${interpretation.resumenEjecutivo ? `<div class="ai-section"><h5>Resumen Ejecutivo</h5><p>${escapeHtml(interpretation.resumenEjecutivo)}</p></div>` : ''}
-        ${interpretation.validez ? `<div class="ai-section"><h5>Validez del Protocolo</h5><p><strong class="${validityClass}">Estado: ${interpretation.validez.estado?.toUpperCase()}</strong></p><p>${escapeHtml(interpretation.validez.observaciones || '')}</p>${interpretation.validez.escalasProblematicas?.length > 0 ? `<p><strong>Escalas problemáticas:</strong> ${interpretation.validez.escalasProblematicas.join(', ')}</p>` : ''}</div>` : ''}
+        ${interpretation.validez ? `<div class="ai-section"><h5>Validez del Protocolo</h5><p><strong class="${validityClass}">Estado: ${interpretation.validez.estado?.toUpperCase()}</strong></p><p>${escapeHtml(interpretation.validez.observaciones || '')}</p>${(interpretation.validez.escalasProblematicas?.length ?? 0) > 0 ? `<p><strong>Escalas problemáticas:</strong> ${interpretation.validez!.escalasProblematicas!.join(', ')}</p>` : ''}</div>` : ''}
         ${interpretation.riesgos ? `<div class="ai-section"><h5>Evaluación de Riesgos</h5><p><span class="risk-badge ${getRiskClass(interpretation.riesgos.nivelGlobal)}">Nivel Global: ${interpretation.riesgos.nivelGlobal?.toUpperCase()}</span></p>${interpretation.riesgos.suicidio ? `<p><strong>Suicidio (${interpretation.riesgos.suicidio.nivel}):</strong> ${escapeHtml(interpretation.riesgos.suicidio.observaciones)}</p>` : ''}${interpretation.riesgos.violencia ? `<p><strong>Violencia (${interpretation.riesgos.violencia.nivel}):</strong> ${escapeHtml(interpretation.riesgos.violencia.observaciones)}</p>` : ''}${interpretation.riesgos.descompensacion ? `<p><strong>Descompensación (${interpretation.riesgos.descompensacion.nivel}):</strong> ${escapeHtml(interpretation.riesgos.descompensacion.observaciones)}</p>` : ''}</div>` : ''}
-        ${interpretation.perfilClinico?.escalasElevadas?.length > 0 ? `<div class="ai-section"><h5>Escalas Elevadas</h5><ul>${interpretation.perfilClinico.escalasElevadas.map((e: any) => `<li><strong>${escapeHtml(e.escala)} (T=${e.puntuacionT}):</strong> ${escapeHtml(e.interpretacion)}</li>`).join('')}</ul></div>` : ''}
+        ${(interpretation.perfilClinico?.escalasElevadas?.length ?? 0) > 0 ? `<div class="ai-section"><h5>Escalas Elevadas</h5><ul>${interpretation.perfilClinico!.escalasElevadas!.map((e) => `<li><strong>${escapeHtml(e.escala)} (T=${e.puntuacionT}):</strong> ${escapeHtml(e.interpretacion)}</li>`).join('')}</ul></div>` : ''}
         ${interpretation.perfilClinico?.formulacionIntegrada ? `<div class="ai-section"><h5>Formulación Integrada</h5><p>${escapeHtml(interpretation.perfilClinico.formulacionIntegrada)}</p></div>` : ''}
-        ${interpretation.hipotesisDiagnosticas?.length > 0 ? `<div class="ai-section"><h5>Hipótesis Diagnósticas</h5><ul>${interpretation.hipotesisDiagnosticas.map((h: string) => `<li>${escapeHtml(h)}</li>`).join('')}</ul></div>` : ''}
-        ${interpretation.intervenciones ? `<div class="ai-section"><h5>Recomendaciones de Intervención</h5>${interpretation.intervenciones.prioridades?.length > 0 ? `<p><strong>Prioridades:</strong></p><ul>${interpretation.intervenciones.prioridades.map((p: string) => `<li>${escapeHtml(p)}</li>`).join('')}</ul>` : ''}${interpretation.intervenciones.enfoqueSugerido ? `<p><strong>Enfoque sugerido:</strong> ${escapeHtml(interpretation.intervenciones.enfoqueSugerido)}</p>` : ''}${interpretation.intervenciones.precauciones?.length > 0 ? `<p><strong>Precauciones:</strong></p><ul>${interpretation.intervenciones.precauciones.map((p: string) => `<li>${escapeHtml(p)}</li>`).join('')}</ul>` : ''}</div>` : ''}
+        ${(interpretation.hipotesisDiagnosticas?.length ?? 0) > 0 ? `<div class="ai-section"><h5>Hipótesis Diagnósticas</h5><ul>${interpretation.hipotesisDiagnosticas!.map((h) => `<li>${escapeHtml(h)}</li>`).join('')}</ul></div>` : ''}
+        ${interpretation.intervenciones ? `<div class="ai-section"><h5>Recomendaciones de Intervención</h5>${(interpretation.intervenciones.prioridades?.length ?? 0) > 0 ? `<p><strong>Prioridades:</strong></p><ul>${interpretation.intervenciones.prioridades!.map((p) => `<li>${escapeHtml(p)}</li>`).join('')}</ul>` : ''}${interpretation.intervenciones.enfoqueSugerido ? `<p><strong>Enfoque sugerido:</strong> ${escapeHtml(interpretation.intervenciones.enfoqueSugerido)}</p>` : ''}${(interpretation.intervenciones.precauciones?.length ?? 0) > 0 ? `<p><strong>Precauciones:</strong></p><ul>${interpretation.intervenciones.precauciones!.map((p) => `<li>${escapeHtml(p)}</li>`).join('')}</ul>` : ''}</div>` : ''}
       </div>
     </div>
   `;

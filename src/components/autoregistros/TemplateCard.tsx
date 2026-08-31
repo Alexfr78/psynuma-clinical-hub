@@ -3,7 +3,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 
 import type { AutoregistroTemplate } from '@/hooks/useAutoregistroTemplates';
-import { sanitizeDescription } from './RichDescriptionEditor';
+import { sanitizeDescription } from './sanitizeDescription';
 import { Icon } from '@/components/ui/icon';
 
 interface TemplateCardProps {

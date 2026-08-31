@@ -24,6 +24,17 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Minimal structural shapes for the node-forge (untyped, dynamically imported)
+// objects this file actually touches — not full node-forge type coverage.
+interface ForgePrivateKey {
+  n: unknown;
+  e: unknown;
+  sign(md: unknown): string;
+}
+interface ForgeCertificate {
+  publicKey: unknown;
+}
+
 // AEAT Verifactu endpoints - Updated URLs (Jan 2025)
 const AEAT_ENDPOINTS = {
   test: "https://prewww1.aeat.es/wlpl/TIKE-CONT/ws/SistemaFacturacion/VerifactuSOAP",
@@ -129,8 +140,22 @@ async function generateSHA256(data: string): Promise<string> {
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
 }
 
+interface VerifactuCancellationInvoice {
+  invoice_number: string;
+  issue_date: string;
+}
+interface VerifactuCancellationCenter {
+  tax_id?: string | null;
+  name?: string | null;
+  verifactu_software_name?: string | null;
+  verifactu_sistema_informatico?: string | null;
+  verifactu_software_version?: string | null;
+  verifactu_software_nif?: string | null;
+  verifactu_numero_instalacion?: string | number | null;
+}
+
 // Calculate cancellation hash for chaining (Art. 11.2.c RRSIF)
-async function calculateCancellationHash(invoice: any, center: any, previousHash: string | null, timestamp: string): Promise<string> {
+async function calculateCancellationHash(invoice: VerifactuCancellationInvoice, center: VerifactuCancellationCenter, previousHash: string | null, timestamp: string): Promise<string> {
   const nifEmisor = normalizeNifForAEAT(center.tax_id);
   const numSerie = invoice.invoice_number || '';
   const fechaExpedicion = formatDateVerifactu(invoice.issue_date);
@@ -150,8 +175,8 @@ async function calculateCancellationHash(invoice: any, center: any, previousHash
 // sum: for container elements (RegFactuSistemaFacturacion, Cabecera, RegistroFactura)
 // sum1: for internal types
 function buildRegistroBajaXML(
-  invoice: any,
-  center: any,
+  invoice: VerifactuCancellationInvoice,
+  center: VerifactuCancellationCenter,
   generationTimestamp: string,
   cancellationHash: string,
   previousHash: string | null,
@@ -227,8 +252,8 @@ function buildRegistroBajaXML(
 
 // Extract certificates from PKCS12 for XML signing
 function extractCertificatesFromPKCS12(certificateBase64: string, certificatePassword: string): {
-  privateKey: any;
-  certificate: any;
+  privateKey: ForgePrivateKey;
+  certificate: ForgeCertificate;
 } {
   console.log('Extracting certificates from PKCS12...');
   
@@ -236,9 +261,9 @@ function extractCertificatesFromPKCS12(certificateBase64: string, certificatePas
   const p12Asn1 = forge.asn1.fromDer(p12Der);
   const p12 = forge.pkcs12.pkcs12FromAsn1(p12Asn1, certificatePassword);
 
-  let privateKey: any = null;
-  let endEntityCert: any = null;
-  const allCertificates: any[] = [];
+  let privateKey: ForgePrivateKey | null = null;
+  let endEntityCert: ForgeCertificate | null = null;
+  const allCertificates: ForgeCertificate[] = [];
 
   for (const safeContents of p12.safeContents) {
     for (const safeBag of safeContents.safeBags) {
@@ -283,7 +308,7 @@ function extractCertificatesFromPKCS12(certificateBase64: string, certificatePas
 }
 
 // Build complete signed SOAP envelope with namespaces on Envelope
-function buildSignedSOAPEnvelope(body: string, privateKey: any, certificate: any): string {
+function buildSignedSOAPEnvelope(body: string, privateKey: ForgePrivateKey, certificate: ForgeCertificate): string {
   const NS_SUM = 'https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/SuministroLR.xsd';
   const NS_SUM1 = 'https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/SuministroInformacion.xsd';
 
@@ -306,7 +331,7 @@ function buildSignedSOAPEnvelope(body: string, privateKey: any, certificate: any
 }
 
 // Sign XML body and return signature element
-function signXMLBody(body: string, privateKey: any, certificate: any): string {
+function signXMLBody(body: string, privateKey: ForgePrivateKey, certificate: ForgeCertificate): string {
   try {
     const certDer = forge.asn1.toDer(forge.pki.certificateToAsn1(certificate)).getBytes();
     const certBase64 = forge.util.encode64(certDer);
@@ -383,10 +408,10 @@ function isExplicitAEATSuccess(responseXml: string): boolean {
 
 // Send XML to AEAT with mTLS authentication
 async function sendToAEAT(
-  signedXml: string, 
+  signedXml: string,
   environment: string,
-  privateKey: any,
-  certificate: any
+  privateKey: ForgePrivateKey,
+  certificate: ForgeCertificate
 ): Promise<{ success: boolean; response?: string; error?: string; httpStatus?: number }> {
   const endpoint = environment === 'production' ? AEAT_ENDPOINTS.production : AEAT_ENDPOINTS.test;
   
@@ -641,7 +666,7 @@ serve(async (req) => {
     );
 
     // Extract certificates for signing
-    let certData: { privateKey: any; certificate: any };
+    let certData: { privateKey: ForgePrivateKey; certificate: ForgeCertificate };
     try {
       certData = extractCertificatesFromPKCS12(decryptedCert, decryptedPassword);
     } catch (certError) {

@@ -89,7 +89,7 @@ export default function EMOPublic() {
   }, [answers, figures, coregulationMoments, saveDraft]);
 
   // Update answer
-  const updateAnswer = (questionId: string, value: any) => {
+  const updateAnswer = (questionId: string, value: EMOAnswers[keyof EMOAnswers]) => {
     setAnswers(prev => ({ ...prev, [questionId]: value }));
   };
 
@@ -120,7 +120,7 @@ export default function EMOPublic() {
     });
   };
 
-  const updateFigure = (id: string, field: keyof EMOFigureData, value: any) => {
+  const updateFigure = (id: string, field: keyof EMOFigureData, value: EMOFigureData[keyof EMOFigureData]) => {
     setFigures(prev => prev.map(f => f.id === id ? { ...f, [field]: value } : f));
   };
 
@@ -239,8 +239,8 @@ export default function EMOPublic() {
         emo_momentos_coregulacion: coregulationMoments.filter(m => m.who || m.emotion || m.whatHelped),
       };
 
-      await submitResponses.mutateAsync({ 
-        answers: finalAnswers as any,
+      await submitResponses.mutateAsync({
+        answers: finalAnswers,
       });
 
       localStorage.removeItem(STORAGE_KEY_PREFIX + token);

@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { buildPublicUrl, getPublicBaseUrl } from '@/lib/public-base-url';
 import { useAuth } from './useAuth';
-import { useCenter } from './useCenter';
+import { useCenter, type Center } from './useCenter';
 import { generateWhatsAppUniversalLink, generateWhatsAppWebLink } from '@/lib/whatsapp';
 import { DEFAULT_TEMPLATES } from './useCommunicationTemplates';
 import { toast } from 'sonner';
@@ -109,7 +109,7 @@ export interface NotificationMutationResult {
 export async function sendSessionNotificationDirect(
   params: SendNotificationParams & { sessionAccessToken?: string },
   centerId: string,
-  center: any
+  center: Center
 ): Promise<NotificationMutationResult> {
   const results: { channel: string; success: boolean }[] = [];
   let whatsappData: WhatsAppDialogData | undefined;

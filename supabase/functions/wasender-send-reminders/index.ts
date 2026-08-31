@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -106,7 +106,7 @@ serve(async (req) => {
   }
 });
 
-async function getSessions(supabase: any, targetTime: Date, reminderType: string): Promise<SessionWithPatient[]> {
+async function getSessions(supabase: SupabaseClient, targetTime: Date, reminderType: string): Promise<SessionWithPatient[]> {
   const targetDateStr = targetTime.toISOString().split('T')[0];
   const targetHour = targetTime.getHours();
   const targetMinute = targetTime.getMinutes();
@@ -155,9 +155,12 @@ async function getSessions(supabase: any, targetTime: Date, reminderType: string
     return [];
   }
 
-  // Filter out sessions that already received this reminder
-  const sessionsWithReminders = [];
-  for (const session of data || []) {
+  // Filter out sessions that already received this reminder.
+  // The untyped Supabase client can't infer that patient/professional/center
+  // are to-one relations here, so it types them as arrays; cast to the real
+  // (single-object) runtime shape returned by PostgREST for these FK joins.
+  const sessionsWithReminders: SessionWithPatient[] = [];
+  for (const session of (data || []) as unknown as SessionWithPatient[]) {
     if (!session.patient?.phone) continue;
 
     // Check if reminder was already sent
@@ -177,8 +180,8 @@ async function getSessions(supabase: any, targetTime: Date, reminderType: string
 }
 
 async function sendReminder(
-  supabase: any, 
-  wasenderToken: string, 
+  supabase: SupabaseClient,
+  wasenderToken: string,
   session: SessionWithPatient, 
   reminderType: string
 ): Promise<boolean> {

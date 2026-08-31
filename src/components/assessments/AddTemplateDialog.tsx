@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 
-import { useAssessmentTemplates } from '@/hooks/useAssessmentTemplates';
+import { useAssessmentTemplates, type AssessmentTemplate } from '@/hooks/useAssessmentTemplates';
 import { getPAITemplateData } from '@/data/pai-template';
 import { getBDI2TemplateData } from '@/data/bdi2-template';
 import { getDCITemplateData } from '@/data/dci-template';
@@ -89,7 +89,9 @@ export function AddTemplateDialog({ open, onOpenChange }: AddTemplateDialogProps
     setAdding(template.id);
     try {
       const data = template.getData();
-      await createTemplate.mutateAsync(data as any);
+      await createTemplate.mutateAsync(
+        data as unknown as Omit<AssessmentTemplate, 'id' | 'center_id' | 'created_at' | 'updated_at'>
+      );
       toast.success(`Plantilla "${template.name}" añadida correctamente`);
     } catch (error) {
       console.error('Error adding template:', error);

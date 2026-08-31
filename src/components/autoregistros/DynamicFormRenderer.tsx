@@ -19,18 +19,20 @@ import { EmotionCardsField } from './EmotionCardsField';
 
 const CUSTOM_VALUE_KEY = '__custom__';
 
+type FormFieldValue = string | number | boolean | undefined;
+
 interface DynamicFormRendererProps {
   fields: AutoregistroField[];
-  onSubmit: (values: Record<string, any>) => void;
+  onSubmit: (values: Record<string, FormFieldValue>) => void;
   isSubmitting?: boolean;
-  initialValues?: Record<string, any>;
+  initialValues?: Record<string, FormFieldValue>;
 }
 
 export function DynamicFormRenderer({ fields, onSubmit, isSubmitting, initialValues }: DynamicFormRendererProps) {
   const normalizedFields = normalizeAutoregistroFields(fields);
 
-  const [values, setValues] = useState<Record<string, any>>(() => {
-    const defaults: Record<string, any> = {};
+  const [values, setValues] = useState<Record<string, FormFieldValue>>(() => {
+    const defaults: Record<string, FormFieldValue> = {};
     for (const field of normalizedFields) {
       if (field.type === 'date') defaults[field.label] = new Date().toISOString().slice(0, 10);
       if (field.type === 'time') defaults[field.label] = new Date().toTimeString().slice(0, 5);
@@ -43,7 +45,7 @@ export function DynamicFormRenderer({ fields, onSubmit, isSubmitting, initialVal
           // For custom-value selects: if the saved value isn't in options, mark as custom
           if (field.type === 'select' && field.allowCustomValue) {
             const opts = (field.options ?? []).filter(Boolean);
-            if (!opts.includes(initialValues[field.label])) {
+            if (!opts.includes(initialValues[field.label] as string)) {
               defaults[field.label] = CUSTOM_VALUE_KEY;
               continue; // customTexts handled below
             }
@@ -61,7 +63,7 @@ export function DynamicFormRenderer({ fields, onSubmit, isSubmitting, initialVal
     for (const field of normalizeAutoregistroFields(fields)) {
       if (field.type === 'select' && field.allowCustomValue && initialValues[field.label] !== undefined) {
         const opts = (field.options ?? []).filter(Boolean);
-        if (!opts.includes(initialValues[field.label])) {
+        if (!opts.includes(initialValues[field.label] as string)) {
           ct[field.label] = String(initialValues[field.label]);
         }
       }
@@ -73,7 +75,7 @@ export function DynamicFormRenderer({ fields, onSubmit, isSubmitting, initialVal
 
   const sorted = [...normalizedFields].sort((a, b) => a.order - b.order);
 
-  const setValue = (label: string, value: any) => {
+  const setValue = (label: string, value: FormFieldValue) => {
     setValues((prev) => ({ ...prev, [label]: value }));
     setErrors((prev) => ({ ...prev, [label]: '' }));
   };
@@ -81,7 +83,7 @@ export function DynamicFormRenderer({ fields, onSubmit, isSubmitting, initialVal
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const newErrors: Record<string, string> = {};
-    const finalValues: Record<string, any> = { ...values };
+    const finalValues: Record<string, FormFieldValue> = { ...values };
 
     for (const field of sorted) {
       // Resolve custom select values
@@ -117,7 +119,7 @@ export function DynamicFormRenderer({ fields, onSubmit, isSubmitting, initialVal
         const scaleMax = getScaleMax(field);
         const scaleStep = getScaleStep(field);
         const scaleValue = field.type === 'scale'
-          ? values[field.label] ?? getScaleDefault(field)
+          ? (values[field.label] as number) ?? getScaleDefault(field)
           : undefined;
         const isCustomSelected = field.allowCustomValue && values[field.label] === CUSTOM_VALUE_KEY;
 
@@ -130,14 +132,14 @@ export function DynamicFormRenderer({ fields, onSubmit, isSubmitting, initialVal
 
             {field.type === 'text' && (
               <Input
-                value={values[field.label] ?? ''}
+                value={(values[field.label] as string) ?? ''}
                 onChange={(e) => setValue(field.label, e.target.value)}
               />
             )}
 
             {field.type === 'textarea' && (
               <Textarea
-                value={values[field.label] ?? ''}
+                value={(values[field.label] as string) ?? ''}
                 onChange={(e) => setValue(field.label, e.target.value)}
                 rows={3}
               />
@@ -146,7 +148,7 @@ export function DynamicFormRenderer({ fields, onSubmit, isSubmitting, initialVal
             {field.type === 'number' && (
               <Input
                 type="number"
-                value={values[field.label] ?? ''}
+                value={(values[field.label] as number | string) ?? ''}
                 onChange={(e) => setValue(field.label, e.target.value ? Number(e.target.value) : '')}
               />
             )}
@@ -154,7 +156,7 @@ export function DynamicFormRenderer({ fields, onSubmit, isSubmitting, initialVal
             {field.type === 'date' && (
               <Input
                 type="date"
-                value={values[field.label] ?? ''}
+                value={(values[field.label] as string) ?? ''}
                 onChange={(e) => setValue(field.label, e.target.value)}
               />
             )}
@@ -162,7 +164,7 @@ export function DynamicFormRenderer({ fields, onSubmit, isSubmitting, initialVal
             {field.type === 'time' && (
               <Input
                 type="time"
-                value={values[field.label] ?? ''}
+                value={(values[field.label] as string) ?? ''}
                 onChange={(e) => setValue(field.label, e.target.value)}
               />
             )}
@@ -171,7 +173,7 @@ export function DynamicFormRenderer({ fields, onSubmit, isSubmitting, initialVal
               selectOptions.length > 0 || field.allowCustomValue ? (
                 <div className="space-y-2">
                   <Select
-                    value={values[field.label] ?? ''}
+                    value={(values[field.label] as string) ?? ''}
                     onValueChange={(v) => {
                       setValue(field.label, v);
                       if (v !== CUSTOM_VALUE_KEY) {
@@ -272,7 +274,7 @@ export function DynamicFormRenderer({ fields, onSubmit, isSubmitting, initialVal
             {field.type === 'emotion_cards' && (
               <EmotionCardsField
                 options={field.emotionOptions ?? []}
-                value={values[field.label]}
+                value={values[field.label] as string | undefined}
                 onChange={(v) => setValue(field.label, v)}
                 allowDeselect={field.allowDeselect}
               />

@@ -45,7 +45,7 @@ export function generateWhatsAppNativeLink(phone: string, message: string): stri
  */
 export function isMobileDevice(): boolean {
   if (typeof window === 'undefined' || typeof navigator === 'undefined') return false;
-  const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera || '';
+  const userAgent = navigator.userAgent || navigator.vendor || (window as Window & { opera?: string }).opera || '';
   return /android|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent.toLowerCase());
 }
 

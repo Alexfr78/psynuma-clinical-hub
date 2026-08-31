@@ -30,12 +30,14 @@ export function PatientAIReports({ patientId }: PatientAIReportsProps) {
         .order('session_date', { ascending: false });
 
       if (error) throw error;
-      return data as any[];
+      return data;
     },
     enabled: !!patientId,
   });
 
-  const handleSend = async (session: any, channel: 'whatsapp' | 'email') => {
+  type AIReportSession = NonNullable<typeof sessions>[number];
+
+  const handleSend = async (session: AIReportSession, channel: 'whatsapp' | 'email') => {
     if (!session.ai_summary_patient || !centerId) return;
     const recipient = channel === 'whatsapp' ? session.patient?.phone : session.patient?.email;
     if (!recipient) return;

@@ -8,7 +8,7 @@ export function ResponsibleDeclarationSection() {
   const { center } = useCenter();
 
   const softwareInfo = {
-    name: (center as any)?.verifactu_sistema_informatico || 'Psycma',
+    name: center?.verifactu_sistema_informatico || 'Psycma',
     version: center?.verifactu_software_version || 'No configurada',
     nif: center?.verifactu_software_nif || center?.tax_id || '—',
     modalidad: 'VeriFactu',

@@ -7,7 +7,8 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { RichDescriptionEditor, sanitizeDescription } from './RichDescriptionEditor';
+import { RichDescriptionEditor } from './RichDescriptionEditor';
+import { sanitizeDescription } from './sanitizeDescription';
 import AlertRulesBuilder from './AlertRulesBuilder';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
@@ -35,7 +36,7 @@ export function EditTemplateDialog({ open, onOpenChange, template }: EditTemplat
       setDescription(template.description || '');
       setFields([...template.fields]);
       setFeedbackEnabled(template.patient_feedback_enabled ?? false);
-      setFeedbackShowDate((template as any).patient_feedback_show_date ?? true);
+      setFeedbackShowDate(template.patient_feedback_show_date ?? true);
     }
   }, [template]);
 

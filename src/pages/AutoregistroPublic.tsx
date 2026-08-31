@@ -6,7 +6,7 @@ import { PatientFeedbackPanel } from '@/components/autoregistros/PatientFeedback
 import { InstallBanner } from '@/components/autoregistros/InstallBanner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
-import { sanitizeDescription } from '@/components/autoregistros/RichDescriptionEditor';
+import { sanitizeDescription } from '@/components/autoregistros/sanitizeDescription';
 import { Icon } from '@/components/ui/icon';
 
 export default function AutoregistroPublic() {
@@ -93,7 +93,7 @@ export default function AutoregistroPublic() {
           <PatientFeedbackPanel
             entries={entries}
             fields={data.template.fields}
-            showDate={(data.template as any).patient_feedback_show_date ?? true}
+            showDate={data.template.patient_feedback_show_date ?? true}
           />
         )}
       </div>

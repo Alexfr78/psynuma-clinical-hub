@@ -73,11 +73,12 @@ export function CenterSetupWizard() {
       });
 
       await refreshProfile();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Setup error:', error);
+      const message = error instanceof Error ? error.message : '';
       toast({
         title: 'Error',
-        description: error.message || 'No se pudo configurar el centro. Por favor, inténtalo de nuevo.',
+        description: message || 'No se pudo configurar el centro. Por favor, inténtalo de nuevo.',
         variant: 'destructive',
       });
     }

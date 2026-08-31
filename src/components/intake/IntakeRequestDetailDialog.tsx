@@ -74,7 +74,7 @@ export function IntakeRequestDetailDialog({
     ? <Badge variant="secondary"><Icon name="schedule" className="h-3 w-3 mr-1" />Lista de espera</Badge>
     : <Badge variant="secondary"><Icon name="group" className="h-3 w-3 mr-1" />Derivación</Badge>;
 
-  const referralContext = request.referral_context as Record<string, any> | null;
+  const referralContext = request.referral_context as { province?: string; city?: string } | null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

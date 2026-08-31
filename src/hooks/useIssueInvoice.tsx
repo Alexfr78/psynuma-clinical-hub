@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useCenter } from './useCenter';
 import { toast } from 'sonner';
-import { assertInvoiceSeriesMatches, type SelectableInvoiceSeries } from '@/lib/invoice-series';
+import { assertInvoiceSeriesMatches, type SelectableInvoiceSeries, type InvoiceDocumentType } from '@/lib/invoice-series';
 
 interface IssueInvoiceResult {
   success: boolean;
@@ -37,7 +37,7 @@ export function useIssueInvoice() {
         .from('invoices')
         .select('*, series:invoice_series(*)')
         .eq('id', invoiceId)
-        .single() as { data: any; error: any };
+        .single();
 
       if (invoiceError || !invoice) {
         throw new Error('Factura no encontrada');
@@ -73,7 +73,7 @@ export function useIssueInvoice() {
       }
       assertInvoiceSeriesMatches(
         seriesData as unknown as SelectableInvoiceSeries,
-        invoice.invoice_type,
+        invoice.invoice_type as InvoiceDocumentType,
         'ordinary',
       );
       if (seriesData.center_id !== center.id) {
@@ -126,7 +126,10 @@ export function useIssueInvoice() {
       if (!existingDebt) {
         const patientId = invoice.patient_id;
         const invoiceTotal = Number(invoice.total);
-        let sessionId: string | null = invoice.session_id || null;
+        // Invoice header has no session_id column (see comment below); this cast
+        // just documents that we defensively check for one before falling back
+        // to resolving the session via invoice_items.
+        let sessionId: string | null = (invoice as { session_id?: string | null }).session_id || null;
 
         // Invoice header has no session_id column; resolve session via invoice_items
         if (!sessionId) {

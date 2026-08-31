@@ -38,6 +38,7 @@ import { SessionNotificationSettings } from './SessionNotificationSettings';
 import { RecurrenceSettings } from './RecurrenceSettings';
 import { MobilePatientSearch } from './MobilePatientSearch';
 import { RecurrenceConfig } from '@/types/recurring';
+import type { QuickSessionFormValues } from './QuickCreateSessionDialog';
 import { Icon } from '@/components/ui/icon';
 
 /* ────────── shared constants (same as in QuickCreateSessionDialog) ────────── */
@@ -72,7 +73,7 @@ const PAYMENT_MODE_OPTIONS = [
 interface MobileSessionFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  form: UseFormReturn<any>;
+  form: UseFormReturn<QuickSessionFormValues>;
   // Data
   patients: Patient[] | undefined;
   professionals: Pick<Professional, 'id' | 'first_name' | 'last_name' | 'email' | 'specialty'>[] | undefined;
@@ -90,7 +91,7 @@ interface MobileSessionFormProps {
   userOverrodeLocation: boolean;
   onUserOverrodeLocation: () => void;
   // Submit
-  onSubmit: (values: any, asDraft: boolean) => Promise<void>;
+  onSubmit: (values: QuickSessionFormValues, asDraft: boolean) => Promise<void>;
   isSubmitting: boolean;
   isCheckingConflicts: boolean;
   // Dialogs
@@ -617,7 +618,7 @@ export function MobileSessionForm({
                 type="button"
                 variant="outline"
                 className="flex-1 h-12 text-base"
-                onClick={() => form.handleSubmit((v: any) => onSubmit(v, true))()}
+                onClick={() => form.handleSubmit((v: QuickSessionFormValues) => onSubmit(v, true))()}
                 disabled={isSubmitting || isCheckingConflicts}
               >
                 Borrador
@@ -626,7 +627,7 @@ export function MobileSessionForm({
             <Button
               type="button"
               className={cn("h-12 text-base", recurrenceEnabled ? "flex-1" : "flex-1")}
-              onClick={() => form.handleSubmit((v: any) => onSubmit(v, false))()}
+              onClick={() => form.handleSubmit((v: QuickSessionFormValues) => onSubmit(v, false))()}
               disabled={isSubmitting || isCheckingConflicts}
             >
               {isCheckingConflicts

@@ -1,19 +1,8 @@
 import { useRef, useCallback, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import DOMPurify from 'dompurify';
 import { Icon } from '@/components/ui/icon';
-
-const SANITIZE_CONFIG = {
-  ALLOWED_TAGS: ['p', 'br', 'strong', 'b', 'em', 'i', 'ul', 'ol', 'li', 'div', 'span'],
-  ALLOWED_ATTR: [] as string[],
-  FORBID_TAGS: ['script', 'iframe', 'object', 'embed', 'form', 'input', 'style'],
-  FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'style'],
-};
-
-export function sanitizeDescription(html: string): string {
-  return DOMPurify.sanitize(html, SANITIZE_CONFIG);
-}
+import { sanitizeDescription } from './sanitizeDescription';
 
 interface RichDescriptionEditorProps {
   value: string;

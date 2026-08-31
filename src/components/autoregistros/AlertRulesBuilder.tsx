@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import type { TablesInsert, TablesUpdate } from '@/integrations/supabase/types';
+import type { TablesInsert, TablesUpdate, Json } from '@/integrations/supabase/types';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import type { AutoregistroField } from '@/hooks/useAutoregistroTemplates';
@@ -149,7 +149,7 @@ export default function AlertRulesBuilder({ templateId, fields }: Props) {
             ...basePayload,
             logic_operator: 'OR',
             consecutive_count: 1,
-            conditions: [] as any,
+            conditions: [] as unknown as Json,
             frequency_threshold: freqThreshold,
             frequency_window_hours: freqWindowHours,
             frequency_condition_field: freqCondField || null,
@@ -163,7 +163,7 @@ export default function AlertRulesBuilder({ templateId, fields }: Props) {
             conditions: conditions.map(c => ({
               ...c,
               field_type: eligibleFields.find(f => f.label === c.field)?.type || 'text',
-            })) as any,
+            })) as unknown as Json,
             frequency_threshold: null,
             frequency_window_hours: null,
             frequency_condition_field: null,
@@ -261,8 +261,8 @@ export default function AlertRulesBuilder({ templateId, fields }: Props) {
 
   function renderValueInput(condition: AlertCondition, idx: number) {
     const f = getFieldByLabel(condition.field);
-    if (f?.type === 'emotion_cards' && (f as any).emotionOptions && (f as any).emotionOptions.length > 0) {
-      const emotionOptions = (f as any).emotionOptions as { label: string; value?: string; imageUrl?: string }[];
+    if (f?.type === 'emotion_cards' && f.emotionOptions && f.emotionOptions.length > 0) {
+      const emotionOptions = f.emotionOptions;
       return (
         <Select value={String(condition.value)} onValueChange={v => updateCondition(idx, { value: v })}>
           <SelectTrigger className="w-[200px]">
@@ -308,8 +308,8 @@ export default function AlertRulesBuilder({ templateId, fields }: Props) {
 
   function renderFreqValueInput() {
     const f = getFieldByLabel(freqCondField);
-    if (f?.type === 'emotion_cards' && (f as any).emotionOptions && (f as any).emotionOptions.length > 0) {
-      const emotionOptions = (f as any).emotionOptions as { label: string; value?: string }[];
+    if (f?.type === 'emotion_cards' && f.emotionOptions && f.emotionOptions.length > 0) {
+      const emotionOptions = f.emotionOptions;
       return (
         <Select value={freqCondValue} onValueChange={v => setFreqCondValue(v)}>
           <SelectTrigger className="w-[200px]">

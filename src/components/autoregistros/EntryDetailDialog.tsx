@@ -91,7 +91,7 @@ export function EntryDetailDialog({ open, onOpenChange, entry, allEntries }: Ent
               <span className="text-xs text-muted-foreground">{field.label}</span>
               <span className="text-sm font-medium">
                 {field.type === 'scale' ? (
-                  <Badge variant="outline">{entry.values[field.label] ?? '—'} / {getScaleMax(field)}</Badge>
+                  <Badge variant="outline">{(entry.values[field.label] as number | string | undefined) ?? '—'} / {getScaleMax(field)}</Badge>
                 ) : (
                   formatFieldValue(field, entry.values[field.label])
                 )}

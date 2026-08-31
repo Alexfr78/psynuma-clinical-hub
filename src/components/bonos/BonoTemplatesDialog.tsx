@@ -26,6 +26,7 @@ import {
   useCreateBonoTemplate,
   useUpdateBonoTemplate,
   useDeleteBonoTemplate,
+  type BonoTemplate,
 } from '@/hooks/useBonos';
 import { Icon } from '@/components/ui/icon';
 
@@ -84,7 +85,7 @@ export function BonoTemplatesDialog({ open, onOpenChange }: BonoTemplatesDialogP
     setShowForm(false);
   };
 
-  const handleEdit = (template: any) => {
+  const handleEdit = (template: BonoTemplate) => {
     form.reset({
       name: template.name,
       total_sessions: template.total_sessions,

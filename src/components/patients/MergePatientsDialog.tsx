@@ -3,6 +3,14 @@ import { useProfessionals } from '@/hooks/useProfessionals';
 import { useNavigate } from 'react-router-dom';
 
 import { supabase } from '@/integrations/supabase/client';
+import type { Database, Json } from '@/integrations/supabase/types';
+
+type PatientLinkedTable = keyof Database['public']['Tables'] & (
+  | 'sessions' | 'invoices' | 'payments' | 'debts' | 'bonos'
+  | 'assessments' | 'autoregistro_entries' | 'autoregistro_links'
+  | 'emotional_records' | 'consents' | 'notifications' | 'recurring_series'
+  | 'billable_events' | 'whatsapp_messages'
+);
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -131,7 +139,7 @@ export function MergePatientsDialog({ primaryPatientId, primaryPatientName, trig
     // Fetch counts
     if (!secondaryId) return;
     try {
-      const tables = [
+      const tables: PatientLinkedTable[] = [
         'sessions', 'invoices', 'payments', 'debts', 'bonos',
         'assessments', 'autoregistro_entries', 'autoregistro_links',
         'emotional_records', 'consents', 'notifications', 'recurring_series',
@@ -142,7 +150,7 @@ export function MergePatientsDialog({ primaryPatientId, primaryPatientName, trig
       const results = await Promise.all(
         tables.map(async (table) => {
           const { count } = await supabase
-            .from(table as any)
+            .from(table)
             .select('*', { count: 'exact', head: true })
             .eq('patient_id', secondaryId);
           return { table, count: count || 0 };
@@ -170,7 +178,7 @@ export function MergePatientsDialog({ primaryPatientId, primaryPatientName, trig
 
   const buildResolvedFieldsPayload = () => {
     if (!primaryPatient || !secondaryPatient) return {};
-    const payload: Record<string, any> = {};
+    const payload: Record<string, unknown> = {};
     
     [...conflicts, ...autoResolved].forEach(({ key }) => {
       const choice = resolvedFields[key];
@@ -190,7 +198,7 @@ export function MergePatientsDialog({ primaryPatientId, primaryPatientName, trig
       const { data, error } = await supabase.rpc('merge_patients', {
         p_primary_id: primaryPatientId,
         p_secondary_id: secondaryId,
-        p_field_overrides: buildResolvedFieldsPayload(),
+        p_field_overrides: buildResolvedFieldsPayload() as Json,
       });
 
       if (error) throw error;

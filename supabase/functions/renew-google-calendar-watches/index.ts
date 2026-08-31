@@ -206,11 +206,17 @@ async function stopExistingChannel(
   }
 }
 
+interface GoogleWatchChannelData {
+  id: string;
+  resourceId: string;
+  expiration: string;
+}
+
 async function createWatchChannel(
   accessToken: string,
   calendarId: string,
   channelToken: string
-): Promise<{ success: boolean; data?: any; error?: string; errorMessage?: string }> {
+): Promise<{ success: boolean; data?: GoogleWatchChannelData; error?: string; errorMessage?: string }> {
   const webhookUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/google-calendar-webhook`;
   const newChannelId = crypto.randomUUID();
 
@@ -461,7 +467,8 @@ serve(async (req) => {
         }
 
         // Step 5: Update database with new channel info
-        const watchData = watchResult.data;
+        // watchResult.success === true always implies `data` is set (see createWatchChannel).
+        const watchData = watchResult.data!;
         const newExpiration = new Date(parseInt(watchData.expiration)).toISOString();
 
         // Update oauth_connections with success state

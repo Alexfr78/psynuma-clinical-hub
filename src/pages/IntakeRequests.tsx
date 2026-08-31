@@ -204,7 +204,7 @@ export default function IntakeRequests() {
                 </TableHeader>
                 <TableBody>
                   {requests.map((request) => {
-                    const referralContext = request.referral_context as Record<string, any> | null;
+                    const referralContext = request.referral_context;
                     const location = [referralContext?.city, referralContext?.province]
                       .filter(Boolean)
                       .join(', ');

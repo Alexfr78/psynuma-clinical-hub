@@ -118,14 +118,47 @@ async function refreshGoogleToken(
   return tokenData.access_token;
 }
 
+interface EventTextSession {
+  session_modality?: string | null;
+  video_provider?: string | null;
+  video_call_link?: string | null;
+  session_type?: string | null;
+  start_time?: string | null;
+  session_date?: string | null;
+  notes?: string | null;
+  cancellation_policy?: string | null;
+  price?: number | null;
+  [key: string]: unknown;
+}
+interface EventTextPatient {
+  first_name?: string | null;
+  last_name?: string | null;
+  phone?: string | null;
+  email?: string | null;
+}
+interface EventTextProfessional {
+  first_name?: string | null;
+  last_name?: string | null;
+}
+interface EventTextLocation {
+  name?: string | null;
+  street?: string | null;
+  number_details?: string | null;
+  city?: string | null;
+  postal_code?: string | null;
+}
+interface EventTextBono {
+  name?: string | null;
+}
+
 // Format event text using template variables (same logic as sync-google-calendar)
 function formatEventText(
   template: string,
-  session: any,
-  patient: any,
-  professional: any,
-  location?: any,
-  bono?: any
+  session: EventTextSession,
+  patient: EventTextPatient | null,
+  professional: EventTextProfessional | null,
+  location?: EventTextLocation | null,
+  bono?: EventTextBono | null
 ): string {
   const patientName = patient 
     ? `${patient.first_name || ''} ${patient.last_name || ''}`.trim() 
@@ -157,7 +190,7 @@ function formatEventText(
     '2_hours': 'Hasta 2 horas antes',
     '72_hours': 'Hasta 72 horas antes',
   };
-  const cancellationPolicy = cancellationPolicies[session.cancellation_policy] || session.cancellation_policy || '';
+  const cancellationPolicy = (session.cancellation_policy ? cancellationPolicies[session.cancellation_policy] : undefined) || session.cancellation_policy || '';
   
   return template
     .replace(/{paciente}/g, patientName)
@@ -285,7 +318,7 @@ serve(async (req) => {
     }
 
     // Get session data if session_id is provided (for more complete information)
-    let sessionData: any = {
+    let sessionData: EventTextSession = {
       session_date,
       start_time,
       end_time,

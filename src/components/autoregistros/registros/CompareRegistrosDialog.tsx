@@ -175,8 +175,8 @@ export function CompareRegistrosDialog({
 interface CompareCellValueProps {
   meta: FieldDisplayMeta;
   formatted: ReturnType<typeof formatFieldForDisplay>;
-  prevValue: any;
-  currentValue: any;
+  prevValue: unknown;
+  currentValue: unknown;
 }
 
 function CompareCellValue({

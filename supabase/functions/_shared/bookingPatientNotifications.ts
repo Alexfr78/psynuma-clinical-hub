@@ -11,6 +11,10 @@ import {
 import { getOrCreatePublicShortLink } from "./publicShortLinks.ts";
 
 export interface BookingNotificationArgs {
+  // Called from edge functions on different @supabase/supabase-js versions
+  // (see _shared/createInvoice.ts for the same constraint) — a precise
+  // SupabaseClient type here rejects otherwise-valid callers like stripe-webhook.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any;
   centerId: string;
   patientId: string;

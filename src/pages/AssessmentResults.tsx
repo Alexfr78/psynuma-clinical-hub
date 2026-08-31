@@ -16,9 +16,9 @@ import { PAIInterpretationPanel } from '@/components/assessments/PAIInterpretati
 import { MMPI2RFResultsView } from '@/components/assessments/MMPI2RFResultsView';
 import { BDI2ResultsView } from '@/components/assessments/BDI2ResultsView';
 import { DCIResultsView } from '@/components/assessments/DCIResultsView';
-import { DESResultsView } from '@/components/assessments/DESResultsView';
+import { DESResultsView, type AIAnalysis } from '@/components/assessments/DESResultsView';
 import { STAIResultsView } from '@/components/assessments/STAIResultsView';
-import { EMOResultsView } from '@/components/assessments/EMOResultsView';
+import { EMOResultsView, type EMOInterpretation } from '@/components/assessments/EMOResultsView';
 import { YBOCS2ResultsView } from '@/components/assessments/YBOCS2ResultsView';
 import { MMPI2RFInterpretation } from '@/hooks/useMMPI2RFInterpretation';
 import { usePAIInterpretation, PAIInterpretation } from '@/hooks/usePAIInterpretation';
@@ -344,7 +344,7 @@ export default function AssessmentResults() {
             absorptionScore={factorScores['DES_I'] ?? 0}
             taxonScore={factorScores['DES_T'] ?? 0}
             flags={response?.flags}
-            aiAnalysis={response?.metadata?.aiAnalysis as any}
+            aiAnalysis={response?.metadata?.aiAnalysis as AIAnalysis | undefined}
             patientExamples={response?.metadata?.examples as Record<string, string> | undefined}
           />
           {/* Detailed answers accordion */}
@@ -359,7 +359,7 @@ export default function AssessmentResults() {
                     .sort((a, b) => a.index - b.index)
                     .map(item => {
                       const answer = answers[item.index.toString()];
-                      const aiAnalysis = response?.metadata?.aiAnalysis as any;
+                      const aiAnalysis = response?.metadata?.aiAnalysis as AIAnalysis | undefined;
                       const itemAnalysis = aiAnalysis?.itemAnalysis?.[item.index.toString()];
                       const example = itemAnalysis?.example;
                       const hasExample = answer !== undefined && answer > 0 && example;
@@ -522,7 +522,7 @@ export default function AssessmentResults() {
           assessmentId={assessmentId!}
           factorScores={factorScores}
           answers={answers}
-          aiInterpretation={response?.metadata?.emoInterpretation as any}
+          aiInterpretation={response?.metadata?.emoInterpretation as EMOInterpretation | undefined}
         />
       ) : !hasResults ? (
         <Card>

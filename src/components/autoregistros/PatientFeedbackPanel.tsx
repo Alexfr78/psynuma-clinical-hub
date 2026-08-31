@@ -27,13 +27,6 @@ export function PatientFeedbackPanel({ entries, fields, showDate = true }: Patie
       .slice(0, 5);
   }, [patientFields]);
 
-  const chartEntries = useMemo(() => {
-    return entries.map((e) => ({
-      ...e,
-      values: e.values as Record<string, any>,
-    }));
-  }, [entries]);
-
   if (entries.length === 0) return null;
 
   const recentEntries = entries.slice(0, 10);
@@ -45,7 +38,7 @@ export function PatientFeedbackPanel({ entries, fields, showDate = true }: Patie
         <span>Mis registros anteriores</span>
       </div>
 
-      <EntryChart entries={chartEntries as any} fields={patientFields} />
+      <EntryChart entries={entries} fields={patientFields} />
 
       <Card>
         <CardHeader className="pb-2">

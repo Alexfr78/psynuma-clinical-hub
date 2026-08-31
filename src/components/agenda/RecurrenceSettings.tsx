@@ -314,15 +314,3 @@ export function RecurrenceSettings({
     </div>
   );
 }
-
-export function getDefaultRecurrenceConfig(): RecurrenceConfig {
-  return {
-    freq: 'WEEKLY',
-    interval: 1,
-    byweekday: [],
-    end_type: 'count',
-    count: 10,
-  };
-}
-
-export const defaultRecurrenceConfig = getDefaultRecurrenceConfig();

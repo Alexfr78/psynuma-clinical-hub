@@ -25,7 +25,12 @@ const EMAIL_SUBJECTS: Record<string, string> = {
   reauthentication: 'Your verification code',
 }
 
-// Template mapping
+// Template mapping. This is a heterogeneous registry of React email components,
+// each with mutually incompatible required props (SignupEmailProps,
+// InviteEmailProps, etc.), dispatched dynamically by a runtime string key from
+// the auth webhook payload. There is no sound common prop type to give this
+// map without erasing type safety anyway.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const EMAIL_TEMPLATES: Record<string, React.ComponentType<any>> = {
   signup: SignupEmail,
   invite: InviteEmail,
@@ -141,7 +146,14 @@ async function handleWebhook(req: Request): Promise<Response> {
     )
   }
 
-  // Verify signature + timestamp, then parse payload.
+  // Verify signature + timestamp, then parse payload. The parsed webhook
+  // payload's generated type marks `data` as possibly undefined, but every
+  // code path below (guarded by the run_id/version checks) assumes it is
+  // present per the Supabase auth webhook contract; typing this precisely
+  // would require non-null assertions or new early-return branches at every
+  // access site, which risks changing behavior in this security-sensitive
+  // handler.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let payload: any
   let run_id = ''
   try {

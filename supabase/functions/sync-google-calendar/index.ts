@@ -23,8 +23,8 @@ async function alertProfessionalSyncChange(
   supabase: SupabaseClient,
   params: {
     professionalId: string;
-    centerId: string;
-    patientId: string;
+    centerId: string | null | undefined;
+    patientId: string | null | undefined;
     sessionId: string;
     outcome: 'applied' | 'blocked_large_move' | 'blocked_overlap' | 'conflict';
     oldDate: string;
@@ -71,9 +71,9 @@ async function alertProfessionalSyncChange(
   try {
     await notifyProfessionalBooking({
       supabase,
-      centerId,
+      centerId: centerId!,
       professionalId,
-      patientId,
+      patientId: patientId!,
       sessionId,
       eventType: 'rescheduled',
       sessionDate: newDate,
@@ -162,6 +162,83 @@ interface SyncResult {
   calendarEventsImported?: number;
   skipped?: boolean;
   requestCount?: number;
+}
+
+// Shape of a Google Calendar API event, limited to the fields this file reads.
+interface GoogleCalendarEvent {
+  id: string;
+  status?: string | null;
+  summary?: string | null;
+  description?: string | null;
+  location?: string | null;
+  updated?: string | null;
+  etag?: string | null;
+  htmlLink?: string | null;
+  start?: { date?: string | null; dateTime?: string | null } | null;
+  end?: { date?: string | null; dateTime?: string | null } | null;
+  extendedProperties?: { private?: { psycma_session_id?: string | null } };
+  [key: string]: unknown;
+}
+
+// Session row (with joined patient/location/bono), limited to fields this file reads.
+interface SyncSessionPatient {
+  first_name?: string | null;
+  last_name?: string | null;
+  phone?: string | null;
+  email?: string | null;
+}
+interface SyncSessionProfessional {
+  first_name?: string | null;
+  last_name?: string | null;
+  center_id?: string | null;
+}
+interface SyncSessionLocation {
+  name?: string | null;
+  street?: string | null;
+  number_details?: string | null;
+  city?: string | null;
+  postal_code?: string | null;
+}
+interface SyncSessionBono {
+  name?: string | null;
+}
+interface SyncSession {
+  id: string;
+  professional_id: string;
+  patient_id?: string | null;
+  session_date: string;
+  start_time: string;
+  end_time: string;
+  session_type?: string | null;
+  session_modality?: string | null;
+  video_provider?: string | null;
+  video_call_link?: string | null;
+  notes?: string | null;
+  price?: number | null;
+  cancellation_policy?: string | null;
+  status?: string | null;
+  updated_at?: string | null;
+  google_calendar_event_id?: string | null;
+  patient?: SyncSessionPatient | null;
+  location?: SyncSessionLocation | null;
+  bono?: SyncSessionBono | null;
+  [key: string]: unknown;
+}
+
+interface SyncIntegrations {
+  google_calendar_enabled?: boolean | null;
+  google_calendar_sync_mode?: string | null;
+  google_calendar_conflict_mode?: 'psycma_wins' | 'safe_two_way' | 'google_wins_legacy' | null;
+  google_event_title_format?: string | null;
+  google_event_description_format?: string | null;
+  [key: string]: unknown;
+}
+
+interface SyncState {
+  baseline_date: string;
+  baseline_start: string;
+  baseline_end: string;
+  [key: string]: unknown;
 }
 
 // ============================================================
@@ -305,19 +382,20 @@ async function logIntegrationError(
   httpStatus: number | null,
   errorCode: string | null,
   message: string | null,
-  raw: any | null,
+  raw: unknown,
   correlationId?: string
 ): Promise<void> {
   try {
-    let sanitizedRaw = raw;
+    let sanitizedRaw: unknown = raw;
     if (raw && typeof raw === 'object') {
       const sensitiveKeys = ['access_token', 'refresh_token', 'client_secret', 'authorization_code', 'id_token', 'code', 'token', 'secret', 'password', 'key', 'apikey', 'api_key', 'bearer', 'credential', 'credentials'];
-      sanitizedRaw = { ...raw };
+      const cleaned: Record<string, unknown> = { ...(raw as Record<string, unknown>) };
       for (const key of sensitiveKeys) {
-        if (key in sanitizedRaw) {
-          sanitizedRaw[key] = '[REDACTED]';
+        if (key in cleaned) {
+          cleaned[key] = '[REDACTED]';
         }
       }
+      sanitizedRaw = cleaned;
     }
 
     await supabase.rpc('log_integration_error', {
@@ -518,14 +596,14 @@ async function getValidAccessToken(
   return null;
 }
 
-function parseGoogleEventTimes(ev: any): { start_at: string | null; end_at: string | null; all_day: boolean } {
+function parseGoogleEventTimes(ev: GoogleCalendarEvent): { start_at: string | null; end_at: string | null; all_day: boolean } {
   const isAllDay = !!ev.start?.date && !ev.start?.dateTime;
 
   if (isAllDay) {
     return {
       all_day: true,
-      start_at: ev.start.date ? new Date(ev.start.date + 'T00:00:00').toISOString() : null,
-      end_at: ev.end.date ? new Date(ev.end.date + 'T00:00:00').toISOString() : null,
+      start_at: ev.start!.date ? new Date(ev.start!.date + 'T00:00:00').toISOString() : null,
+      end_at: ev.end!.date ? new Date(ev.end!.date + 'T00:00:00').toISOString() : null,
     };
   }
 
@@ -543,8 +621,8 @@ async function fetchGoogleCalendarEventsIncremental(
   syncToken?: string | null,
   timeMin?: string,
   timeMax?: string
-): Promise<{ events: any[]; nextSyncToken: string | null; fullSync: boolean }> {
-  let allEvents: any[] = [];
+): Promise<{ events: GoogleCalendarEvent[]; nextSyncToken: string | null; fullSync: boolean }> {
+  let allEvents: GoogleCalendarEvent[] = [];
   let pageToken: string | undefined;
   let nextSyncToken: string | null = null;
   let fullSync = false;
@@ -593,11 +671,11 @@ async function fetchGoogleCalendarEventsIncremental(
 
 function formatEventText(
   template: string,
-  session: any,
-  patient: any,
-  professional: any,
-  location?: any,
-  bono?: any
+  session: SyncSession,
+  patient: SyncSessionPatient | null,
+  professional: SyncSessionProfessional | null,
+  location?: SyncSessionLocation | null,
+  bono?: SyncSessionBono | null
 ): string {
   const patientName = patient 
     ? `${patient.first_name || ''} ${patient.last_name || ''}`.trim() 
@@ -624,7 +702,7 @@ function formatEventText(
     'flexible': 'Flexible',
     'strict': 'No reembolsable',
   };
-  const cancellationPolicy = cancellationPolicies[session.cancellation_policy] || session.cancellation_policy || '';
+  const cancellationPolicy = (session.cancellation_policy ? cancellationPolicies[session.cancellation_policy] : undefined) || session.cancellation_policy || '';
   
   return template
     .replace(/{paciente}/g, patientName)
@@ -647,14 +725,14 @@ function formatEventText(
 async function createGoogleCalendarEvent(
   accessToken: string,
   calendarId: string,
-  session: any,
-  patient: any,
-  professional: any,
+  session: SyncSession,
+  patient: SyncSessionPatient | null,
+  professional: SyncSessionProfessional | null,
   correlationId: string,
   titleFormat?: string,
   descriptionFormat?: string,
-  location?: any,
-  bono?: any
+  location?: SyncSessionLocation | null,
+  bono?: SyncSessionBono | null
 ): Promise<string | null> {
   const startDateTime = `${session.session_date}T${session.start_time}`;
   const endDateTime = `${session.session_date}T${session.end_time}`;
@@ -705,16 +783,16 @@ async function updateGoogleCalendarEvent(
   accessToken: string,
   calendarId: string,
   eventId: string,
-  session: any,
-  patient: any,
-  professional: any,
+  session: SyncSession,
+  patient: SyncSessionPatient | null,
+  professional: SyncSessionProfessional | null,
   correlationId: string,
   titleFormat?: string,
   descriptionFormat?: string,
-  location?: any,
-  bono?: any,
+  location?: SyncSessionLocation | null,
+  bono?: SyncSessionBono | null,
   expectedEtag?: string | null,
-): Promise<any | null> {
+): Promise<GoogleCalendarEvent | null> {
   const startDateTime = `${session.session_date}T${session.start_time}`;
   const endDateTime = `${session.session_date}T${session.end_time}`;
 
@@ -756,7 +834,7 @@ async function updateGoogleCalendarEvent(
   if (!response.ok) {
     const error = await response.text();
     console.error(`[SYNC:${correlationId}] Error updating event ${eventId}:`, error);
-    return false;
+    return null;
   }
 
   return await response.json();
@@ -808,9 +886,9 @@ function sessionSchedule(session: { session_date: string; start_time: string; en
   };
 }
 
-function googleSchedule(event: any): CalendarSchedule {
-  const start = parseGoogleDateTimeToMadrid(event.start.dateTime);
-  const end = parseGoogleDateTimeToMadrid(event.end.dateTime);
+function googleSchedule(event: GoogleCalendarEvent): CalendarSchedule {
+  const start = parseGoogleDateTimeToMadrid(event.start!.dateTime!);
+  const end = parseGoogleDateTimeToMadrid(event.end!.dateTime!);
   return { date: start.date, start: start.time, end: end.time };
 }
 
@@ -824,8 +902,8 @@ function stateSchedule(state: { baseline_date: string; baseline_start: string; b
 
 async function saveGoogleSyncState(
   supabase: SupabaseClient,
-  session: any,
-  event: any,
+  session: SyncSession,
+  event: GoogleCalendarEvent | null,
   schedule: CalendarSchedule,
   status: 'synced' | 'conflict' | 'error' = 'synced',
   conflictPayload: Record<string, unknown> | null = null,
@@ -958,14 +1036,14 @@ async function upsertCalendarEvents(
   supabase: SupabaseClient,
   professionalId: string,
   calendarId: string,
-  events: any[],
+  events: GoogleCalendarEvent[],
   correlationId: string
 ): Promise<{ imported: number; deleted: number; skipped: number; errors: string[] }> {
   const result = { imported: 0, deleted: 0, skipped: 0, errors: [] as string[] };
 
   if (events.length === 0) return result;
 
-  const eventsToImport: any[] = [];
+  const eventsToImport: GoogleCalendarEvent[] = [];
   
   for (const ev of events) {
     if (isPsycmaGoogleEvent(ev)) {
@@ -981,7 +1059,7 @@ async function upsertCalendarEvents(
 
   if (eventsToImport.length === 0) return result;
 
-  const googleEventIds = eventsToImport.map((ev: any) => ev.id);
+  const googleEventIds = eventsToImport.map((ev) => ev.id);
   
   const { data: linkedSessions } = await supabase
     .from('sessions')
@@ -992,7 +1070,7 @@ async function upsertCalendarEvents(
 
   const linkedEventIds = new Set((linkedSessions || []).map((s: { google_calendar_event_id: string | null }) => s.google_calendar_event_id));
 
-  const mappedEvents = eventsToImport.map((ev: any) => {
+  const mappedEvents = eventsToImport.map((ev) => {
     const times = parseGoogleEventTimes(ev);
     return {
       provider: 'google' as const,
@@ -1036,8 +1114,8 @@ async function upsertCalendarEvents(
 }
 
 async function syncLinkedSessionSchedule(params: {
-  supabase: SupabaseClient; session: any; googleEvent: any; syncState: any;
-  integrations: any; accessToken: string; calendarId: string; professional: any;
+  supabase: SupabaseClient; session: SyncSession; googleEvent: GoogleCalendarEvent; syncState: SyncState | null;
+  integrations: SyncIntegrations | null; accessToken: string; calendarId: string; professional: SyncSessionProfessional | null;
   professionalId: string; correlationId: string; titleFormat: string;
   descriptionFormat: string; result: SyncResult;
 }): Promise<void> {
@@ -1071,8 +1149,8 @@ async function syncLinkedSessionSchedule(params: {
 
   if (integrations?.google_calendar_sync_mode !== 'two_way' || decision === 'push_psycma') {
     const updatedEvent = await updateGoogleCalendarEvent(
-      accessToken, calendarId, session.google_calendar_event_id, session,
-      session.patient, professional, correlationId, titleFormat, descriptionFormat,
+      accessToken, calendarId, session.google_calendar_event_id!, session,
+      session.patient ?? null, professional, correlationId, titleFormat, descriptionFormat,
       session.location, session.bono, googleEvent.etag,
     );
     if (updatedEvent) {
@@ -1265,7 +1343,7 @@ async function syncProfessional(
   result.errors.push(...upsertResult.errors);
 
   // Build a map of Google event IDs
-  const googleEventMap = new Map<string, any>();
+  const googleEventMap = new Map<string, GoogleCalendarEvent>();
   for (const event of googleEvents) {
     if (event.id) googleEventMap.set(event.id, event);
   }
@@ -1273,7 +1351,7 @@ async function syncProfessional(
   // Build a map psycma_session_id -> Google event, used to re-adopt events
   // created by Psycma before a disconnect/reconnect cycle. Without this, a
   // reconnect would create duplicated events in Google Calendar.
-  const psycmaEventBySessionId = new Map<string, any>();
+  const psycmaEventBySessionId = new Map<string, GoogleCalendarEvent>();
   for (const event of googleEvents) {
     if (!event?.id || event.status === 'cancelled') continue;
     const sid = event.extendedProperties?.private?.psycma_session_id
@@ -1307,7 +1385,7 @@ async function syncProfessional(
   const titleFormat = integrations?.google_event_title_format || '{tipo} - {paciente}';
   const descriptionFormat = integrations?.google_event_description_format || 'Profesional: {profesional}\nTipo: {tipo}\nNotas: {notas}';
 
-  const sessionIds = (sessions || []).map((session: any) => session.id);
+  const sessionIds = (sessions || []).map((session) => session.id);
   const { data: syncStates, error: syncStatesError } = sessionIds.length > 0
     ? await supabase
         .from('google_session_sync_state')
@@ -1321,7 +1399,7 @@ async function syncProfessional(
   }
 
   const syncStateBySessionId = new Map(
-    (syncStates || []).map((state: any) => [state.session_id, state]),
+    (syncStates || []).map((state) => [state.session_id, state as unknown as SyncState]),
   );
 
   // Track event checks to limit API calls
@@ -1472,7 +1550,7 @@ async function syncProfessional(
           supabase,
           session,
           googleEvent,
-          syncState: currentSyncState,
+          syncState: currentSyncState ?? null,
           integrations,
           accessToken,
           calendarId,
@@ -1497,15 +1575,15 @@ async function syncProfessional(
         // clínicos respetando la política configurada por el profesional.
         // ============================================================
         const conflictMode: 'psycma_wins' | 'safe_two_way' | 'google_wins_legacy' =
-          (integrations?.google_calendar_conflict_mode as any) || 'psycma_wins';
+          integrations?.google_calendar_conflict_mode || 'psycma_wins';
 
         if (
           integrations?.google_calendar_sync_mode === 'two_way' &&
-          googleEvent.start?.dateTime &&
+          googleEvent!.start?.dateTime &&
           conflictMode !== 'psycma_wins'
         ) {
-          const parsedStart = parseGoogleDateTimeToMadrid(googleEvent.start.dateTime);
-          const parsedEnd = parseGoogleDateTimeToMadrid(googleEvent.end.dateTime);
+          const parsedStart = parseGoogleDateTimeToMadrid(googleEvent!.start!.dateTime!);
+          const parsedEnd = parseGoogleDateTimeToMadrid(googleEvent!.end!.dateTime!);
 
           const hasDifferences = session.session_date !== parsedStart.date ||
               session.start_time !== parsedStart.time ||
@@ -1513,7 +1591,7 @@ async function syncProfessional(
 
           if (hasDifferences) {
             const psycmaUpdatedAt = session.updated_at ? new Date(session.updated_at).getTime() : 0;
-            const googleUpdatedAt = googleEvent.updated ? new Date(googleEvent.updated).getTime() : 0;
+            const googleUpdatedAt = googleEvent!.updated ? new Date(googleEvent!.updated!).getTime() : 0;
             const bufferMs = 5000;
 
             console.log(`[SYNC:${correlationId}] Comparing session ${session.id}: Psycma=${psycmaUpdatedAt}, Google=${googleUpdatedAt}, diff=${Math.abs(psycmaUpdatedAt - googleUpdatedAt)}ms, mode=${conflictMode}`);
@@ -1656,13 +1734,13 @@ async function syncProfessional(
           }
         } else if (
           integrations?.google_calendar_sync_mode === 'two_way' &&
-          googleEvent.start?.dateTime &&
+          googleEvent!.start?.dateTime &&
           conflictMode === 'psycma_wins'
         ) {
           // Modo seguro por defecto: Psycma siempre gana en fecha/hora.
           // Si Google difiere, lo restauramos a los valores de Psycma.
-          const parsedStart = parseGoogleDateTimeToMadrid(googleEvent.start.dateTime);
-          const parsedEnd = parseGoogleDateTimeToMadrid(googleEvent.end.dateTime);
+          const parsedStart = parseGoogleDateTimeToMadrid(googleEvent!.start!.dateTime!);
+          const parsedEnd = parseGoogleDateTimeToMadrid(googleEvent!.end!.dateTime!);
           const hasDifferences = session.session_date !== parsedStart.date ||
               session.start_time !== parsedStart.time ||
               session.end_time !== parsedEnd.time;

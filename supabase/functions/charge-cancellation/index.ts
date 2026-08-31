@@ -16,8 +16,7 @@ const stripeSecretKey = Deno.env.get("STRIPE_SECRET_KEY");
 // la deuda pagada, registra el pago (idempotente por reference=PI) y genera la
 // factura. El webhook payment_intent.succeeded queda de respaldo (idempotente).
 async function reconcileDebtPaid(
-  // deno-lint-ignore no-explicit-any
-  supabase: any,
+  supabase: SupabaseClient,
   args: {
     debtId: string;
     patientId: string;

@@ -41,7 +41,7 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
-import { useCreateSession } from '@/hooks/useSessions';
+import { useCreateSession, type SessionInsert } from '@/hooks/useSessions';
 import { useQueryClient } from '@tanstack/react-query';
 import { usePatients, useProfessionals } from '@/hooks/usePatients';
 import { useAuth } from '@/hooks/useAuth';
@@ -284,7 +284,7 @@ export function CreateSessionDialog({
         send_reminder_whatsapp: values.send_reminder_whatsapp,
       };
 
-      const newSession = await createSession.mutateAsync(sessionData as any);
+      const newSession = await createSession.mutateAsync(sessionData as Omit<SessionInsert, 'center_id'>);
       const professional = professionals?.find(p => p.id === values.professional_id);
 
       // If bono was used, deduct a session

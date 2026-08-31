@@ -7,6 +7,20 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+interface EMOFigureRaw {
+  figure_feelings_words?: string[] | null;
+  figure_reactions_to_your_emotion?: string[] | null;
+  figure_adjectives?: { adjective?: string }[] | null;
+  figure_name?: string | null;
+  figure_relation?: string | null;
+  figure_first_memory?: string | null;
+  figure_face_expression?: string | null;
+  figure_still_in_life?: string | null;
+  figure_current_relationship?: string | null;
+  figure_worst_emotion_self?: string | null;
+  figure_worst_emotion_you?: string | null;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -89,7 +103,7 @@ serve(async (req) => {
       momentos_coregulacion: a.emo_momentos_coregulacion || [],
     };
 
-    const figuresData: any[] = resolvedFigures.length > 0 ? resolvedFigures : (a.figures || []);
+    const figuresData: EMOFigureRaw[] = resolvedFigures.length > 0 ? resolvedFigures : (a.figures || []);
     const allPatterns = [...(emo.patrones_1 || []), ...(emo.patrones_2 || [])];
     const uniquePatterns = [...new Set(allPatterns)];
 
@@ -149,19 +163,7 @@ serve(async (req) => {
     const FEELINGS_POSITIVE = ['Entendido', 'Aceptado', 'Valorado', 'Especial', 'Importante', 'Protegido', 'Apoyado', 'Seguro'];
     const FEELINGS_NEGATIVE = ['Rechazado', 'Atemorizado', 'Inseguro', 'Invisible', 'Avergonzado', 'Humillado', 'Traicionado', 'Inútil', 'Ridículo', 'Culpable'];
 
-    const figuresSummary = figuresData.map((f: {
-      figure_feelings_words?: string[] | null;
-      figure_reactions_to_your_emotion?: string[] | null;
-      figure_adjectives?: { adjective?: string }[] | null;
-      figure_name?: string | null;
-      figure_relation?: string | null;
-      figure_first_memory?: string | null;
-      figure_face_expression?: string | null;
-      figure_still_in_life?: string | null;
-      figure_current_relationship?: string | null;
-      figure_worst_emotion_self?: string | null;
-      figure_worst_emotion_you?: string | null;
-    }) => {
+    const figuresSummary = figuresData.map((f: EMOFigureRaw) => {
       const feelings = f.figure_feelings_words || [];
       const reactions = f.figure_reactions_to_your_emotion || [];
       const adjectives = (f.figure_adjectives || []).filter((a) => a.adjective).map((a) => a.adjective);

@@ -1156,7 +1156,7 @@ serve(async (req) => {
       const oldLocationId = existingSession.location_id;
 
       // Update session (incl. location + modality)
-      const updatePayload: Record<string, any> = {
+      const updatePayload: Record<string, unknown> = {
         session_date: newDate,
         start_time: newStartTime,
         end_time: newEndTime,

@@ -13,6 +13,10 @@ import {
   buildDayScheduleInput,
   minutesToTime as coreMinutesToTime,
   APP_TZ,
+  type RawSpecialDay,
+  type RawScheduleException,
+  type RawSession,
+  type RawCalendarEvent,
 } from "../_shared/special-days-adapter.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { createZoomMeetingForSession } from "../_shared/zoomMeeting.ts";
@@ -926,10 +930,10 @@ serve(async (req) => {
         isPublicContext: true,
         weeklyAvailability: profAvailability ?? [],
         locationSchedules: locationSchedules ?? [],
-        specialDays: (specialDays as any) ?? [],
-        scheduleExceptions: (scheduleExceptions as any) ?? [],
-        sessions: (existingSessions as any) ?? [],
-        calendarEvents: (calendarEvents as any) ?? [],
+        specialDays: (specialDays as unknown as RawSpecialDay[]) ?? [],
+        scheduleExceptions: (scheduleExceptions as RawScheduleException[]) ?? [],
+        sessions: (existingSessions as RawSession[]) ?? [],
+        calendarEvents: (calendarEvents as RawCalendarEvent[]) ?? [],
         timezone: centerTimezone,
       });
 
@@ -1082,14 +1086,14 @@ serve(async (req) => {
         .lt("start_at", `${endStr}T00:00:00`);
 
       // Pre-index sessions by date.
-      const sessionsByDate: Record<string, any[]> = {};
+      const sessionsByDate: Record<string, NonNullable<typeof monthSessions>> = {};
       for (const s of monthSessions || []) {
         if (!sessionsByDate[s.session_date]) sessionsByDate[s.session_date] = [];
         sessionsByDate[s.session_date]!.push(s);
       }
 
       // Pre-index events by date (expand multi-day events).
-      const eventsByDate: Record<string, any[]> = {};
+      const eventsByDate: Record<string, NonNullable<typeof monthEvents>> = {};
       for (const e of monthEvents || []) {
         if (e.status === 'cancelled') continue;
         const affectedDates = expandEventToDates(e, startStr, endStr, centerTimezone);
@@ -1166,10 +1170,12 @@ serve(async (req) => {
           isPublicContext: true,
           weeklyAvailability: availabilityByDow[dayOfWeek] || [],
           locationSchedules: locationSchedulesByDow[dayOfWeek] || [],
-          specialDays: (monthSpecialDays as any) ?? [],
-          scheduleExceptions: (monthExceptions as any) ?? [],
-          sessions: sessionsByDate[dateStr] || [],
-          calendarEvents: eventsByDate[dateStr] || [],
+          specialDays: (monthSpecialDays as unknown as RawSpecialDay[]) ?? [],
+          scheduleExceptions: (monthExceptions as RawScheduleException[]) ?? [],
+          sessions: (sessionsByDate[dateStr] || []) as RawSession[],
+          // monthEvents doesn't select `is_converted` — matches the previous
+          // (any-typed) behavior where that field was always undefined/falsy here.
+          calendarEvents: (eventsByDate[dateStr] || []) as RawCalendarEvent[],
           timezone: centerTimezone,
         });
 

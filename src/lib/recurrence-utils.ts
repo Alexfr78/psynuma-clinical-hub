@@ -38,6 +38,16 @@ const WEEKDAY_LABELS: Record<string, string> = {
 
 export const WEEKDAYS = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'] as const;
 
+export function getDefaultRecurrenceConfig(): RecurrenceConfig {
+  return {
+    freq: 'WEEKLY',
+    interval: 1,
+    byweekday: [],
+    end_type: 'count',
+    count: 10,
+  };
+}
+
 export function getWeekdayLabel(code: string): string {
   return WEEKDAY_LABELS[code] || code;
 }

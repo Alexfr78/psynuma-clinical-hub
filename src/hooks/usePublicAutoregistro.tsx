@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { normalizeAutoregistroFields } from '@/lib/autoregistro-fields';
 import type { AutoregistroField } from './useAutoregistroTemplates';
+import type { Json } from '@/integrations/supabase/types';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -37,7 +38,7 @@ export interface PublicAutoregistroData {
 export interface PublicAutoregistroEntry {
   id: string;
   submitted_at: string;
-  values: Record<string, any>;
+  values: Record<string, unknown>;
 }
 
 export function usePublicAutoregistro(token: string) {
@@ -119,7 +120,7 @@ export function usePublicAutoregistro(token: string) {
   });
 
   const submitEntry = useMutation({
-    mutationFn: async (values: Record<string, any>) => {
+    mutationFn: async (values: Record<string, unknown>) => {
       if (!query.data) throw new Error('No data loaded');
       const link = query.data.link;
 
@@ -137,7 +138,7 @@ export function usePublicAutoregistro(token: string) {
           center_id: fullLink.center_id,
           patient_id: fullLink.patient_id,
           template_id: fullLink.template_id,
-          values: values as any,
+          values: values as Json,
         })
         .select('id')
         .single();

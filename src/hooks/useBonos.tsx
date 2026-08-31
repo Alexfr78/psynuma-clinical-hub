@@ -213,7 +213,7 @@ export function useCreateBono() {
     mutateAsync: async (bono: BonoInsert) => {
       const result = await createBonoWithDebt.mutateAsync(bono);
       // Return bono-like object for backward compat
-      return { id: result.bono_id } as any;
+      return { id: result.bono_id };
     },
   };
 }

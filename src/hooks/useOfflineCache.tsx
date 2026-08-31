@@ -114,7 +114,6 @@ export function useOfflineCache(options: UseOfflineCacheOptions = {}) {
       setCacheError('Error al cargar caché local');
       setIsInitialized(true);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [validateCacheData]);
 
   // Save to cache with debouncing

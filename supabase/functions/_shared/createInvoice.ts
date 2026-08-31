@@ -17,6 +17,7 @@ export async function createInvoice(
   // The webhook and cancellation functions currently use different Supabase
   // client package versions. Keep this shared boundary structural until the
   // edge-function runtimes are aligned.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
   centerId: string,
   patientId: string,

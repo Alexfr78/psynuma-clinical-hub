@@ -49,8 +49,9 @@ export function MyProfileDialog({ open, onOpenChange }: MyProfileDialogProps) {
       toast.success('Contraseña actualizada correctamente');
       setNewPassword('');
       setConfirmPassword('');
-    } catch (err: any) {
-      toast.error(err.message || 'Error al actualizar la contraseña');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : '';
+      toast.error(message || 'Error al actualizar la contraseña');
     } finally {
       setIsUpdating(false);
     }

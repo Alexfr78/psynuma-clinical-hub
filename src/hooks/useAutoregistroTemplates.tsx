@@ -3,6 +3,21 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { toast } from 'sonner';
 import { normalizeAutoregistroFields } from '@/lib/autoregistro-fields';
+import type { Tables, TablesInsert, TablesUpdate, Json } from '@/integrations/supabase/types';
+
+interface PostgrestErrorLike {
+  code?: string;
+  message?: string;
+  details?: string;
+  hint?: string;
+}
+
+// `patient_feedback_show_date` was added to `autoregistro_templates` in a
+// migration newer than the last regeneration of types.ts, so the generated
+// Insert/Update types don't know about it yet (hence the "missing column"
+// backwards-compat fallback below, kept for centers on an older schema).
+type AutoregistroTemplateInsert = TablesInsert<'autoregistro_templates'> & { patient_feedback_show_date?: boolean };
+type AutoregistroTemplateUpdate = TablesUpdate<'autoregistro_templates'> & { patient_feedback_show_date?: boolean };
 
 export interface EmotionOption {
   label: string;
@@ -54,7 +69,7 @@ export function useAutoregistroTemplates() {
   const queryClient = useQueryClient();
   const centerId = profile?.center_id;
 
-  const isMissingColumnError = (err: any, columnName: string) => {
+  const isMissingColumnError = (err: PostgrestErrorLike, columnName: string) => {
     const msg = String(err?.message || '').toLowerCase();
     const details = String(err?.details || '').toLowerCase();
     const hint = String(err?.hint || '').toLowerCase();
@@ -73,7 +88,7 @@ export function useAutoregistroTemplates() {
         .eq('center_id', centerId!)
         .order('created_at', { ascending: false });
       if (error) throw error;
-      return (data ?? []).map((t: any) => ({
+      return (data ?? []).map((t: Tables<'autoregistro_templates'>) => ({
         ...t,
         fields: normalizeAutoregistroFields(
           (typeof t.fields === 'string' ? JSON.parse(t.fields) : t.fields) as AutoregistroField[]
@@ -85,19 +100,19 @@ export function useAutoregistroTemplates() {
 
   const createTemplate = useMutation({
     mutationFn: async (input: { name: string; description?: string; fields: AutoregistroField[]; patient_feedback_enabled?: boolean; patient_feedback_show_date?: boolean }) => {
-      const insertBase: any = {
+      const insertBase: AutoregistroTemplateInsert = {
         center_id: centerId!,
         professional_id: profile!.id,
         name: input.name,
         description: input.description || null,
-        fields: normalizeAutoregistroFields(input.fields) as any,
+        fields: normalizeAutoregistroFields(input.fields) as unknown as Json,
         patient_feedback_enabled: input.patient_feedback_enabled ?? false,
         patient_feedback_show_date: input.patient_feedback_show_date ?? true,
       };
 
       const { data, error } = await supabase
         .from('autoregistro_templates')
-        .insert(insertBase)
+        .insert(insertBase as TablesInsert<'autoregistro_templates'>)
         .select()
         .single();
 
@@ -105,9 +120,10 @@ export function useAutoregistroTemplates() {
 
       // Backwards-compat: DB may not have the new column yet
       if (isMissingColumnError(error, 'patient_feedback_show_date')) {
+        const { patient_feedback_show_date: _omit, ...insertWithoutDate } = insertBase;
         const { data: data2, error: error2 } = await supabase
           .from('autoregistro_templates')
-          .insert({ ...insertBase, patient_feedback_show_date: undefined })
+          .insert(insertWithoutDate as TablesInsert<'autoregistro_templates'>)
           .select()
           .single();
         if (error2) throw error2;
@@ -125,15 +141,18 @@ export function useAutoregistroTemplates() {
 
   const updateTemplate = useMutation({
     mutationFn: async (input: { id: string; name?: string; description?: string; fields?: AutoregistroField[]; is_active?: boolean; patient_feedback_enabled?: boolean; patient_feedback_show_date?: boolean }) => {
-      const updates: any = { updated_at: new Date().toISOString() };
+      const updates: AutoregistroTemplateUpdate = { updated_at: new Date().toISOString() };
       if (input.name !== undefined) updates.name = input.name;
       if (input.description !== undefined) updates.description = input.description;
-      if (input.fields !== undefined) updates.fields = normalizeAutoregistroFields(input.fields);
+      if (input.fields !== undefined) updates.fields = normalizeAutoregistroFields(input.fields) as unknown as Json;
       if (input.is_active !== undefined) updates.is_active = input.is_active;
       if (input.patient_feedback_enabled !== undefined) updates.patient_feedback_enabled = input.patient_feedback_enabled;
       if (input.patient_feedback_show_date !== undefined) updates.patient_feedback_show_date = input.patient_feedback_show_date;
 
-      const { error } = await supabase.from('autoregistro_templates').update(updates).eq('id', input.id);
+      const { error } = await supabase
+        .from('autoregistro_templates')
+        .update(updates as TablesUpdate<'autoregistro_templates'>)
+        .eq('id', input.id);
       if (!error) return;
 
       // Backwards-compat: DB may not have the new column yet

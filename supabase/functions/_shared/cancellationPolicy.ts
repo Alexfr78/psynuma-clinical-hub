@@ -1,6 +1,10 @@
 // Helpers for storing the signed cancellation policy that applies to a session.
 
-// deno-lint-ignore no-explicit-any
+// The real SupabaseClient type's `.select()` overloads parse the select string
+// at the type level, which fails (ParserError) once the string interpolates a
+// runtime variable, as this file's dynamic `versionSelect` does below — so a
+// loosely-typed alias is the only way to keep these queries untyped-but-working.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SupabaseClient = any;
 
 // Master switch (center) + per-patient override. When the master is OFF the

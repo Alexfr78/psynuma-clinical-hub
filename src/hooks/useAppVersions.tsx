@@ -4,6 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useCenter } from '@/hooks/useCenter';
 import { useAuditLog } from '@/hooks/useAuditLog';
 import { toast } from 'sonner';
+import type { TablesUpdate } from '@/integrations/supabase/types';
 
 export interface AppVersion {
   id: string;
@@ -124,10 +125,10 @@ export function useAppVersions() {
   });
 
   const updateChange = useMutation({
-    mutationFn: async ({ id, ...updates }: { id: string; [key: string]: any }) => {
+    mutationFn: async ({ id, ...updates }: { id: string } & TablesUpdate<'app_change_log'>) => {
       const { error } = await supabase
         .from('app_change_log')
-        .update(updates as any)
+        .update(updates)
         .eq('id', id);
       if (error) throw error;
     },

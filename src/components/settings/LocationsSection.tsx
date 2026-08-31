@@ -49,6 +49,7 @@ function LocationCard({ location, schedules, onDelete, onScheduleChange, onVisib
       start_time: '09:00',
       end_time: '21:00',
       is_open: day >= 1 && day <= 5,
+      is_default: false,
     };
   };
 
@@ -174,7 +175,7 @@ function LocationCard({ location, schedules, onDelete, onScheduleChange, onVisib
                         <div className="flex items-center gap-2 ml-auto">
                           <div className="flex items-center gap-1.5 mr-2">
                             <Switch
-                              checked={(schedule as any).is_default ?? false}
+                              checked={schedule.is_default ?? false}
                               onCheckedChange={(checked) => onScheduleChange(day, 'is_default', checked)}
                             />
                             <span className="text-xs text-muted-foreground whitespace-nowrap">Por defecto</span>

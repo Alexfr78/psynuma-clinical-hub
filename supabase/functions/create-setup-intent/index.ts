@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { createConnectedSetupSession } from "../_shared/stripeConnectedCheckout.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { checkIpRateLimit, getClientIp } from "../_shared/rateLimiter.ts";
@@ -102,8 +102,7 @@ async function resolveAccessContext(
 }
 
 async function getOrCreateConnectedCustomer(
-  // deno-lint-ignore no-explicit-any
-  supabase: any,
+  supabase: SupabaseClient,
   args: {
     connectedAccountId: string;
     patientId: string;

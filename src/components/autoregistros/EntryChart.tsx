@@ -7,7 +7,7 @@ import type { AutoregistroEntry } from '@/hooks/useAutoregistroEntries';
 import type { AutoregistroField } from '@/hooks/useAutoregistroTemplates';
 
 interface EntryChartProps {
-  entries: AutoregistroEntry[];
+  entries: Pick<AutoregistroEntry, 'submitted_at' | 'values'>[];
   fields: AutoregistroField[];
   /** When true, render one chart per numeric field instead of combining them. */
   splitByField?: boolean;

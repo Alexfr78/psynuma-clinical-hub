@@ -7,7 +7,8 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { RichDescriptionEditor, sanitizeDescription } from './RichDescriptionEditor';
+import { RichDescriptionEditor } from './RichDescriptionEditor';
+import { sanitizeDescription } from './sanitizeDescription';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { FieldBuilder } from './FieldBuilder';

@@ -11,10 +11,10 @@ export function useInstallPrompt(token: string) {
   const [dismissed, setDismissed] = useState(() => localStorage.getItem(storageKey) === '1');
   const [isStandalone, setIsStandalone] = useState(false);
 
-  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as Window & { MSStream?: unknown }).MSStream;
 
   useEffect(() => {
-    if (window.matchMedia('(display-mode: standalone)').matches || (navigator as any).standalone) {
+    if (window.matchMedia('(display-mode: standalone)').matches || (navigator as Navigator & { standalone?: boolean }).standalone) {
       setIsStandalone(true);
       return;
     }

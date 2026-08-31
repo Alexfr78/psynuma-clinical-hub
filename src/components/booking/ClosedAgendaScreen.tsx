@@ -36,7 +36,7 @@ interface IntakeRequestData {
   privacyAccepted: boolean;
   privacyPolicyUrl: string;
   specialty?: string;
-  referralContext?: Record<string, any>;
+  referralContext?: Record<string, unknown>;
   selectedPartnerId?: string;
   recommendedPartnerIds?: string[];
 }

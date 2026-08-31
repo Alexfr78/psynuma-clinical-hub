@@ -275,7 +275,7 @@ export function useCanInvoiceSession(sessionId: string | undefined) {
       if (iiError) throw iiError;
 
       const invoices = (invoiceItems || [])
-        .map((it: any) => it.invoices)
+        .map((it) => it.invoices)
         .filter(Boolean) as Array<{ id: string; total: number; is_valid: boolean; status: string; rectified_invoice_id: string | null }>;
 
       // Find any "live" invoice: an original whose net (original + rectificativas) is not zero

@@ -265,7 +265,7 @@ export function BatchExceptionDialog({
               <AlertDescription>
                 <p className="font-medium mb-1 text-xs">Hay {conflictingSessions.length} cita(s) en este rango:</p>
                 <ul className="text-xs space-y-0.5 max-h-20 overflow-y-auto">
-                  {conflictingSessions.slice(0, 5).map((s: any) => (
+                  {conflictingSessions.slice(0, 5).map((s) => (
                     <li key={s.id}>
                       {s.session_date} {s.start_time?.slice(0, 5)} — {s.patient?.first_name} {s.patient?.last_name}
                     </li>

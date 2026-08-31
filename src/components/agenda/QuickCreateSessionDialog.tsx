@@ -54,7 +54,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
-import { useCreateSession, useUpdateSession } from '@/hooks/useSessions';
+import { useCreateSession, useUpdateSession, type SessionInsert } from '@/hooks/useSessions';
 import { useQueryClient } from '@tanstack/react-query';
 import { usePatients, useProfessionals } from '@/hooks/usePatients';
 import { useAuth } from '@/hooks/useAuth';
@@ -72,10 +72,10 @@ import { EditLocationsDialog } from '@/components/settings/EditLocationsDialog';
 import { CreateBonoDialog } from '@/components/bonos/CreateBonoDialog';
 import { SessionNotificationSettings } from './SessionNotificationSettings';
 import { WhatsAppLinkDialog } from './WhatsAppLinkDialog';
-import { RecurrenceSettings, getDefaultRecurrenceConfig } from './RecurrenceSettings';
+import { RecurrenceSettings } from './RecurrenceSettings';
 import { useCreateRecurringSeries } from '@/hooks/useRecurringSeries';
 import { MobileSessionForm } from './MobileSessionForm';
-import { generateRecurrenceOccurrences } from '@/lib/recurrence-utils';
+import { generateRecurrenceOccurrences, getDefaultRecurrenceConfig } from '@/lib/recurrence-utils';
 import { RecurrenceConfig } from '@/types/recurring';
 import { checkSessionConflicts, ConflictResult, SessionToCheck } from '@/lib/conflicts';
 import { ConflictsDialog } from './ConflictsDialog';
@@ -108,7 +108,7 @@ const quickSessionSchema = z.object({
   send_reminder_sms: z.boolean().default(false),
 });
 
-type QuickSessionFormValues = z.infer<typeof quickSessionSchema>;
+export type QuickSessionFormValues = z.infer<typeof quickSessionSchema>;
 
 interface QuickCreateSessionDialogProps {
   open: boolean;
@@ -600,7 +600,7 @@ export function QuickCreateSessionDialog({
         send_reminder_email: values.send_reminder_email,
         send_reminder_sms: values.send_reminder_sms,
         ...pricingSnapshots,
-      } as any);
+      } as Omit<SessionInsert, 'center_id'>);
 
       // Handle video/calendar integrations for non-draft sessions (non-critical)
       if (!asDraft && newSession?.id && selectedPatient) {

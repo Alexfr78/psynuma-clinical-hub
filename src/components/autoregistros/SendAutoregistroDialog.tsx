@@ -58,7 +58,7 @@ export function SendAutoregistroDialog({ open, onOpenChange, preselectedPatientI
         expires_at: expiresAt || undefined,
       },
       {
-        onSuccess: (data: any) => {
+        onSuccess: (data) => {
           const url = `${window.location.origin}/registro/${data.access_token}`;
           setGeneratedLink(url);
         },

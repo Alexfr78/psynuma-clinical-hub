@@ -488,7 +488,7 @@ export function VersionManagementSection() {
         onOpenChange={setVersionDialogOpen}
         selectedChanges={pendingChanges.filter((c) => selectedChangeIds.includes(c.id))}
         onSave={(data: VersionFormValues) => {
-          createVersion.mutate({ ...data, changeIds: selectedChangeIds } as any);
+          createVersion.mutate({ ...data, changeIds: selectedChangeIds });
           setVersionDialogOpen(false);
           setSelectedChangeIds([]);
         }}

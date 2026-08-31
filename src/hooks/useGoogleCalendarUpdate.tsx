@@ -74,8 +74,7 @@ export function useGoogleCalendarUpdate(overrideProfessionalId?: string) {
     session: SessionWithRelations,
     updates: SyncOptions
   ): Promise<SyncResult> => {
-    const sessionData = session as any;
-    const googleEventId = sessionData.google_calendar_event_id;
+    const googleEventId = session.google_calendar_event_id;
 
     // Only gate on the caller's own integration when we'd need to CREATE a new
     // event (no existing event_id). For updates/deletes of an already-linked

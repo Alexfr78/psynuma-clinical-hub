@@ -1,6 +1,12 @@
 export type PublicShortLinkTarget = "session" | "session_payment" | "debt" | "debt_bono" | "invoice";
 
+// This helper is called from many edge functions that don't all share the same
+// @supabase/supabase-js version/instantiation, and the real client's query
+// builder result (PostgrestBuilder) is a thenable, not a strict Promise — so a
+// precisely typed structural interface here rejects perfectly valid callers.
+// Kept intentionally loose for the same reason as _shared/createInvoice.ts.
 type PublicShortLinkClient = {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   from: (table: string) => any;
 };
 

@@ -8,6 +8,10 @@ import {
   buildDayScheduleInput,
   minutesToTime as coreMinutesToTime,
   APP_TZ,
+  type RawSpecialDay,
+  type RawScheduleException,
+  type RawSession,
+  type RawCalendarEvent,
 } from "../_shared/special-days-adapter.ts";
 import { isCancellationPolicyEnabled, resolveSignedCancellationPolicyVersionForSession } from "../_shared/cancellationPolicy.ts";
 import {
@@ -240,7 +244,7 @@ Deno.serve(async (req) => {
     // Helper: resolve & validate a requested location id (must belong to the same
     // center and be active+public). Returns the validated row or null on error.
     async function resolveRequestedLocation(locId: string | null | undefined) {
-      if (!locId) return { row: null as any, error: null as string | null };
+      if (!locId) return { row: null, error: null as string | null };
       const { data: loc, error } = await supabase
         .from("center_locations")
         .select("id, name, location_type, street, number_details, city, postal_code, is_active, is_public, center_id")
@@ -400,7 +404,8 @@ Deno.serve(async (req) => {
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      resolvedLocationId = row.id;
+      // error === null here always implies row !== null (see resolveRequestedLocation).
+      resolvedLocationId = row!.id;
     }
 
     if (action === "get-available-days") {
@@ -493,7 +498,8 @@ Deno.serve(async (req) => {
           );
         }
         targetLocation = row;
-        targetLocationId = row.id;
+        // error === null here always implies row !== null (see resolveRequestedLocation).
+        targetLocationId = row!.id;
       } else if (effectiveLocationId) {
         const { data: loc } = await supabase
           .from("center_locations")
@@ -597,7 +603,7 @@ Deno.serve(async (req) => {
       // Update the session (date, time, status, location, modality)
       console.log(`[RESCHEDULE] Attempting to update session ${session.id} from ${session.session_date} ${session.start_time} to ${newDate} ${newStartTime} (location ${session.location_id} -> ${targetLocationId})`);
 
-      const updatePayload: Record<string, any> = {
+      const updatePayload: Record<string, unknown> = {
         session_date: newDate,
         start_time: newStartTime,
         end_time: newEndTime,
@@ -1180,10 +1186,10 @@ async function loadDayData(
   return {
     weeklyAvailability: availability ?? [],
     locationSchedules,
-    sessions: sessions ?? [],
-    calendarEvents: calendarEvents ?? [],
-    scheduleExceptions: scheduleExceptions ?? [],
-    specialDays: specialDays ?? [],
+    sessions: (sessions ?? []) as RawSession[],
+    calendarEvents: (calendarEvents ?? []) as RawCalendarEvent[],
+    scheduleExceptions: (scheduleExceptions ?? []) as RawScheduleException[],
+    specialDays: (specialDays ?? []) as unknown as RawSpecialDay[],
   };
 }
 
@@ -1204,10 +1210,10 @@ async function getAvailability(
     isPublicContext: true,
     weeklyAvailability: data.weeklyAvailability,
     locationSchedules: data.locationSchedules,
-    specialDays: data.specialDays as any,
-    scheduleExceptions: data.scheduleExceptions as any,
-    sessions: data.sessions as any,
-    calendarEvents: data.calendarEvents as any,
+    specialDays: data.specialDays,
+    scheduleExceptions: data.scheduleExceptions,
+    sessions: data.sessions,
+    calendarEvents: data.calendarEvents,
     timezone: APP_TZ,
   });
 

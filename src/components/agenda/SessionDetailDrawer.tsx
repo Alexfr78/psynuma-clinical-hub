@@ -52,7 +52,7 @@ import {
 import { cn } from '@/lib/utils';
 import { syncZoomMeetingDateTime } from '@/lib/zoom-sync';
 import { useToast } from '@/hooks/use-toast';
-import { SessionWithRelations, useUpdateSession, useDeleteSession } from '@/hooks/useSessions';
+import { SessionWithRelations, SessionUpdate, useUpdateSession, useDeleteSession } from '@/hooks/useSessions';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -303,7 +303,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
   if (!session) return null;
 
   const sessionRaw = session as SessionWithExtras;
-  const sessionData: any = {
+  const sessionData: SessionWithExtras = {
     ...sessionRaw,
     session_modality: localModality ?? sessionRaw.session_modality,
     video_call_link: localVideoLink ?? sessionRaw.video_call_link,
@@ -358,7 +358,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
   const handlePatientChange = async (newPatientId: string) => {
     setIsConvertingSession(true);
     try {
-      const updates: any = { patient_id: newPatientId };
+      const updates: SessionUpdate = { patient_id: newPatientId };
       
       // If blocked session, convert to scheduled and update the Google Calendar event
       if (isBlockedSession) {
@@ -405,7 +405,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
     try {
       await updateSession.mutateAsync({
         id: session.id,
-        status: newStatus as any,
+        status: newStatus as SessionUpdate['status'],
       });
       
       // Sync status change to Google Calendar immediately
@@ -718,12 +718,12 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
   };
 
 
-  const handleFieldSave = async (field: string, value: any) => {
+  const handleFieldSave = async (field: string, value: string | boolean | null) => {
     try {
       await updateSession.mutateAsync({
         id: session.id,
         [field]: value,
-      });
+      } as SessionUpdate & { id: string });
       queryClient.invalidateQueries({ queryKey: ['sessions'] });
       toast({ title: 'Guardado' });
     } catch {

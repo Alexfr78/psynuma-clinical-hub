@@ -164,7 +164,7 @@ serve(async (req) => {
     const expiresAt = new Date(Date.now() + (tokenData.expires_in * 1000)).toISOString();
 
     // Build upsert data - preserve existing values if not provided by Google
-    const upsertData: Record<string, any> = {
+    const upsertData: Record<string, unknown> = {
       professional_id,
       provider: 'google',
       access_token: tokenData.access_token,

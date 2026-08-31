@@ -11,7 +11,7 @@ import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { useCenter } from '@/hooks/useCenter';
+import { useCenter, type Center } from '@/hooks/useCenter';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -79,7 +79,7 @@ export function VerifactuConfigSection() {
 
     setIsUploading(true);
     try {
-      const updateData: Record<string, any> = {
+      const updateData: Partial<Center> = {
         verifactu_environment: data.verifactu_environment,
         verifactu_software_name: data.verifactu_software_name,
         verifactu_sistema_informatico: data.verifactu_sistema_informatico,

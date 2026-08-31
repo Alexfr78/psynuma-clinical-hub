@@ -137,7 +137,7 @@ export function AISettingsSection() {
         ai_prompt_layer1: promptLayer1 || null,
         ai_prompt_layer2: promptLayer2 || null,
         ai_prompt_layer3: promptLayer3 || null,
-      } as any);
+      });
 
       if (openaiApiKey.trim()) {
         const { error: openaiError } = await supabase.functions.invoke('save-oauth-credentials', {

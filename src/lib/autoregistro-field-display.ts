@@ -158,12 +158,12 @@ export interface FormattedFieldValue {
   /** Whether the text is truncated */
   truncated: boolean;
   /** Raw value for comparisons */
-  raw: any;
+  raw: unknown;
 }
 
 export function formatFieldForDisplay(
   meta: FieldDisplayMeta,
-  value: any,
+  value: unknown,
   maxTextLength = 60,
 ): FormattedFieldValue {
   const { field, displayType } = meta;
@@ -248,7 +248,7 @@ export interface ClinicalAlert {
 }
 
 export function detectClinicalAlerts(
-  entries: Array<{ values: Record<string, any>; submitted_at: string; alertSeverity?: string | null }>,
+  entries: Array<{ values: Record<string, unknown>; submitted_at: string; alertSeverity?: string | null }>,
   metas: FieldDisplayMeta[],
 ): ClinicalAlert[] {
   const alerts: ClinicalAlert[] = [];

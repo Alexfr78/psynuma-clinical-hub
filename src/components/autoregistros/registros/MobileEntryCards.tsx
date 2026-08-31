@@ -17,7 +17,7 @@ interface MobileEntryCardsProps {
   onViewDetail: (entry: AutoregistroEntry) => void;
 }
 
-function MobileFieldValue({ meta, value }: { meta: FieldDisplayMeta; value: any }) {
+function MobileFieldValue({ meta, value }: { meta: FieldDisplayMeta; value: unknown }) {
   const formatted = formatFieldForDisplay(meta, value, 80);
 
   if (formatted.type === 'boolean') {

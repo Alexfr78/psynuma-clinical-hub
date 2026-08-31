@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
-import { usePublicBooking } from '@/hooks/usePublicBooking';
+import { usePublicBooking, type BookingResult } from '@/hooks/usePublicBooking';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -51,7 +51,7 @@ export default function PublicBooking() {
   const [acceptCancellationPolicy, setAcceptCancellationPolicy] = useState(false);
   const [notes, setNotes] = useState('');
   
-  const [bookingResult, setBookingResult] = useState<any>(null);
+  const [bookingResult, setBookingResult] = useState<BookingResult | null>(null);
   const [bootstrapAttempted, setBootstrapAttempted] = useState(false);
 
   const loadInitial = useCallback(() => {

@@ -51,6 +51,11 @@ serve(async (req) => {
       );
     }
 
+    // Dynamic answers payload: numeric-indexed for most assessments, string-keyed
+    // (e.g. 'emo_...') for EMO. Typed loosely here since its shape genuinely
+    // varies per assessment template.
+    const answersRecord = answers as Record<string, unknown>;
+
     // Create Supabase client with service role
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -126,9 +131,9 @@ serve(async (req) => {
     // scoring can be null or malformed depending on how template JSON was saved.
     // Normalize it to a plain object of factors.
     const scoringRaw: unknown = (template as { scoring?: unknown }).scoring;
-    const scoring: Record<string, any> =
+    const scoring: Scoring =
       scoringRaw && typeof scoringRaw === 'object' && !Array.isArray(scoringRaw)
-        ? (scoringRaw as Record<string, any>)
+        ? (scoringRaw as Scoring)
         : {};
 
     const responseMin = template.response_min ?? 1;
@@ -220,8 +225,8 @@ serve(async (req) => {
       let somVegSum = 0; // Items 15-21
 
       for (const item of items) {
-        const raw = (answers as any)[item.index];
-        const value = typeof raw === 'number' ? raw : parseInt(raw, 10);
+        const raw = answersRecord[item.index];
+        const value = typeof raw === 'number' ? raw : parseInt(raw as string, 10);
 
         if (!isNaN(value)) {
           totalSum += value;
@@ -251,8 +256,8 @@ serve(async (req) => {
       }
 
       // Special flag for item 9 (suicide ideation)
-      const item9Value = (answers as any)[9];
-      const item9Score = typeof item9Value === 'number' ? item9Value : parseInt(item9Value, 10);
+      const item9Value = answersRecord[9];
+      const item9Score = typeof item9Value === 'number' ? item9Value : parseInt(item9Value as string, 10);
       if (!isNaN(item9Score) && item9Score >= 2) {
         flags['SUICIDIO_alerta'] = true;
         flags['ITEM9_score'] = true; // Store as flag for reference
@@ -284,8 +289,8 @@ serve(async (req) => {
       let valSum = 0;
 
       for (const item of items) {
-        const raw = (answers as any)[item.index];
-        const value = typeof raw === 'number' ? raw : parseInt(raw, 10);
+        const raw = answersRecord[item.index];
+        const value = typeof raw === 'number' ? raw : parseInt(raw as string, 10);
 
         if (!isNaN(value)) {
           if (detItems.includes(item.index)) detSum += value;
@@ -335,8 +340,8 @@ serve(async (req) => {
       let taxonSum = 0;
 
       for (const item of items) {
-        const raw = (answers as any)[item.index];
-        const value = typeof raw === 'number' ? raw : parseInt(raw, 10);
+        const raw = answersRecord[item.index];
+        const value = typeof raw === 'number' ? raw : parseInt(raw as string, 10);
 
         if (!isNaN(value)) {
           totalSum += value;
@@ -386,8 +391,8 @@ serve(async (req) => {
       let arSum = 0;
 
       for (const item of items) {
-        const raw = (answers as any)[item.index];
-        const value = typeof raw === 'number' ? raw : parseInt(raw, 10);
+        const raw = answersRecord[item.index];
+        const value = typeof raw === 'number' ? raw : parseInt(raw as string, 10);
 
         if (!isNaN(value)) {
           // A_E: Items 1-20
@@ -455,8 +460,8 @@ serve(async (req) => {
       };
 
       // Get tendencies from answers (items 4 and 5 are checkbox lists)
-      const tendencies1 = (answers as any)['4'] || [];
-      const tendencies2 = (answers as any)['5'] || [];
+      const tendencies1 = answersRecord['4'] || [];
+      const tendencies2 = answersRecord['5'] || [];
       const allTendencies = [...(Array.isArray(tendencies1) ? tendencies1 : []), ...(Array.isArray(tendencies2) ? tendencies2 : [])];
 
       for (const tendency of allTendencies) {
@@ -472,14 +477,14 @@ serve(async (req) => {
       }
 
       // Count problematic emotions (item 3)
-      const problematicEmotions = (answers as any)['3'] || [];
+      const problematicEmotions = answersRecord['3'] || [];
       factorScores['problematic_emotions_count'] = Array.isArray(problematicEmotions) ? problematicEmotions.length : 0;
 
       // Count total tendencies
       factorScores['tendencies_count'] = allTendencies.length;
 
       // Count positive moments (item 18)
-      const positiveMoments = (answers as any)['18'] || [];
+      const positiveMoments = answersRecord['18'] || [];
       const validMoments = Array.isArray(positiveMoments) 
         ? positiveMoments.filter((m: string) => m && m.trim()).length 
         : 0;
@@ -518,7 +523,7 @@ serve(async (req) => {
       if (isBDI2 || isDCI || isDES || isSTAI || isEMO) {
         continue;
       }
-      const factorItems = (factorValue as any)?.items;
+      const factorItems = factorValue?.items;
       if (!Array.isArray(factorItems) || factorItems.length === 0) {
         // Skip scales without a proper item list (common in templates like MMPI2RF)
         continue;
@@ -526,8 +531,8 @@ serve(async (req) => {
 
       let sum = 0;
       for (const itemIndex of factorItems) {
-        const raw = (answers as any)[itemIndex];
-        const value = typeof raw === 'number' ? raw : parseInt(raw, 10);
+        const raw = answersRecord[itemIndex];
+        const value = typeof raw === 'number' ? raw : parseInt(raw as string, 10);
         sum += value;
       }
 

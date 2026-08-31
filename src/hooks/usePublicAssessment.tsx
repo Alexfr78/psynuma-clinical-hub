@@ -23,7 +23,10 @@ export interface PublicAssessment {
 }
 
 interface SubmitParams {
-  answers: Record<number, number>;
+  // Most assessments send { [questionIndex]: numericScore }; EMO sends a rich
+  // structured object (EMOAnswers). Both are just forwarded as opaque JSON,
+  // so the type here is intentionally permissive.
+  answers: Record<number, number> | object;
   examples?: Record<number, string>;
 }
 
@@ -53,7 +56,9 @@ export function usePublicAssessment(token: string | undefined) {
 
       // PostgREST may return embedded relations as an array depending on relationship metadata.
       // Normalize to an object so the public page can reliably read template.response_min/max.
-      const raw = data as any;
+      const raw = data as Omit<PublicAssessment, 'template'> & {
+        template: PublicAssessment['template'] | PublicAssessment['template'][];
+      };
       const template = Array.isArray(raw?.template) ? raw.template[0] : raw?.template;
 
       return { ...raw, template } as PublicAssessment;

@@ -23,7 +23,7 @@ export interface IntakeRequest {
   privacy_accepted_at: string | null;
   privacy_policy_url: string | null;
   specialty: string | null;
-  referral_context: Record<string, any> | null;
+  referral_context: Record<string, unknown> | null;
   selected_partner_id: string | null;
   recommended_partner_ids: string[] | null;
   created_at: string;

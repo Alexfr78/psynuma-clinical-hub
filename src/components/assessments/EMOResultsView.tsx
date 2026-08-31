@@ -21,7 +21,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Icon } from '@/components/ui/icon';
 
-interface EMOInterpretation {
+export interface EMOInterpretation {
   perfil_regulacion: string;
   patron_predominante: 'hipoactivacion' | 'hiperactivacion' | 'mixto' | 'adaptativo';
   calidad_apego: string;
@@ -34,7 +34,7 @@ interface EMOInterpretation {
 interface EMOResultsViewProps {
   assessmentId: string;
   factorScores: Record<string, number>;
-  answers: Record<string, any>;
+  answers: Record<string, unknown>;
   aiInterpretation?: EMOInterpretation;
   figures?: EMOFigureData[];
 }
@@ -50,7 +50,7 @@ export function EMOResultsView({
   const [interpretation, setInterpretation] = useState<EMOInterpretation | undefined>(aiInterpretation);
 
   // Prepare answers in the new format
-  const emoAnswers: EMOAnswers = {
+  const emoAnswers = {
     emo_reg_general: answers['emo_reg_general'] || answers['s1_description'] || answers['1'],
     emo_dificultad_sentir: answers['emo_dificultad_sentir'],
     emo_dificultad_sentir_explicacion: answers['emo_dificultad_sentir_explicacion'],
@@ -69,7 +69,7 @@ export function EMOResultsView({
     emo_figuras_ausentes: answers['emo_figuras_ausentes'],
     emo_momentos_coregulacion: answers['emo_momentos_coregulacion'] || [],
     figures: figures.length > 0 ? figures : (answers['figures'] || []),
-  };
+  } as unknown as EMOAnswers;
 
   // Calculate indicators
   const indicators = calculateEMOIndicators(emoAnswers);

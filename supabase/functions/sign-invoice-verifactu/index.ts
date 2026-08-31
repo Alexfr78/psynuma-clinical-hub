@@ -18,6 +18,78 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Minimal structural shapes for the node-forge (untyped, dynamically imported)
+// objects this file actually touches — not full node-forge type coverage.
+interface ForgePrivateKey {
+  n: unknown;
+  e: unknown;
+  sign(md: unknown): string;
+}
+interface ForgeCertificate {
+  publicKey: unknown;
+}
+
+// Minimal structural shapes for the invoice/center/patient/item rows this file
+// reads, limited to the fields it actually touches (not full DB row coverage).
+interface VerifactuInvoiceItem {
+  description?: string | null;
+  quantity?: number | null;
+  unit_price?: number | null;
+  tax_rate?: number | null;
+  tax_amount?: number | null;
+  tax_treatment?: string | null;
+  exemption_code?: string | null;
+  non_subject_code?: string | null;
+}
+interface VerifactuCenter {
+  name?: string | null;
+  tax_id?: string | null;
+  verifactu_certificate_base64?: string | null;
+  verifactu_certificate_password?: string | null;
+  verifactu_numero_instalacion?: string | number | null;
+  verifactu_sistema_informatico?: string | null;
+  verifactu_software_name?: string | null;
+  verifactu_software_nif?: string | null;
+  verifactu_software_version?: string | null;
+}
+interface VerifactuPatient {
+  first_name?: string | null;
+  last_name?: string | null;
+  tax_id?: string | null;
+}
+interface VerifactuInvoice {
+  invoice_number: string;
+  issue_date: string;
+  invoice_type?: string | null;
+  verifactu_invoice_type?: string | null;
+  rectified_invoice_id?: string | null;
+  rectified_invoice?: {
+    invoice_type?: string | null;
+    invoice_number?: string | null;
+    series?: { invoice_type?: string | null } | null;
+  } | null;
+  rectification_reason_code?: string | null;
+  rectification_type?: string | null;
+  series?: { invoice_type?: string | null } | null;
+  is_recapitulative?: boolean | null;
+  subtotal?: number | null;
+  tax_amount?: number | null;
+  tax_rate?: number | null;
+  notes?: string | null;
+  operation_date?: string | null;
+  base_rectificada?: number | null;
+  cuota_rectificada?: number | null;
+  cuota_recargo_rectificado?: number | null;
+  correction_operation_id?: string | null;
+  recipient_snapshot?: { tax_id?: string | null; name?: string | null } | null;
+  center_id?: string | null;
+  centers?: VerifactuCenter | null;
+  patients?: VerifactuPatient | null;
+  invoice_items?: VerifactuInvoiceItem[] | null;
+  verifactu_retry_count?: number | null;
+  [key: string]: unknown;
+}
+
 // AEAT Verifactu endpoints - Updated URLs (Jan 2025)
 const AEAT_ENDPOINTS = {
   test: "https://prewww1.aeat.es/wlpl/TIKE-CONT/ws/SistemaFacturacion/VerifactuSOAP",
@@ -255,7 +327,7 @@ function sanitizeNombreSistemaInformatico(input: unknown): string {
 }
 
 // Determine invoice type based on series invoice_type and other factors
-function determineInvoiceType(invoice: any): string {
+function determineInvoiceType(invoice: VerifactuInvoice): string {
   const explicitType = String(invoice.verifactu_invoice_type || '').trim().toUpperCase();
 
   // Rectifying invoices
@@ -319,7 +391,7 @@ function requiresDestinatarios(tipoFactura: string): boolean {
 
 // Build Desglose XML from invoice items
 // Groups items by fiscal treatment (S1/EXENTA/NO_SUJETA/S2) and tax rate
-function buildDesgloseFromItems(invoiceItems: any[], invoice: any): string {
+function buildDesgloseFromItems(invoiceItems: VerifactuInvoiceItem[], invoice: VerifactuInvoice): string {
   // If no items, fallback to invoice-level data
   if (!invoiceItems || invoiceItems.length === 0) {
     const totalBase = Number(invoice.subtotal) || 0;
@@ -427,7 +499,7 @@ function buildDesgloseFromItems(invoiceItems: any[], invoice: any): string {
 }
 
 // Calculate hash for chaining (Huella) - AEAT format: campo=valor&campo=valor...
-async function calculateInvoiceHash(invoice: any, center: any, previousHash: string | null, timestamp: string): Promise<string> {
+async function calculateInvoiceHash(invoice: VerifactuInvoice, center: VerifactuCenter, previousHash: string | null, timestamp: string): Promise<string> {
   const nifEmisor = normalizeNifForAEAT(center.tax_id);
   // Sanitize NumSerieFactura to prevent error 1100
   const numSerie = sanitizeNumSerieFactura(invoice.invoice_number);
@@ -467,10 +539,10 @@ async function calculateInvoiceHash(invoice: any, center: any, previousHash: str
 // sum: for container elements (RegFactuSistemaFacturacion, Cabecera, RegistroFactura)
 // sum1: for internal types (IDVersion, ObligadoEmision, RegistroAlta, etc.)
 function buildRegistroAltaXML(
-  invoice: any, 
-  center: any, 
-  patient: any, 
-  invoiceItems: any[], 
+  invoice: VerifactuInvoice,
+  center: VerifactuCenter,
+  patient: VerifactuPatient | null,
+  invoiceItems: VerifactuInvoiceItem[],
   previousHash: string | null, 
   generationTimestamp: string, 
   invoiceHash: string,
@@ -719,8 +791,8 @@ ${desgloseXML}
 
 // Extract certificates from PKCS12 for XML signing
 function extractCertificatesFromPKCS12(certificateBase64: string, certificatePassword: string): {
-  privateKey: any;
-  certificate: any;
+  privateKey: ForgePrivateKey;
+  certificate: ForgeCertificate;
 } {
   console.log('Attempting to decode certificate, base64 length:', certificateBase64.length);
   console.log('Certificate password length:', certificatePassword.length);
@@ -733,9 +805,9 @@ function extractCertificatesFromPKCS12(certificateBase64: string, certificatePas
   
   const p12 = forge.pkcs12.pkcs12FromAsn1(p12Asn1, certificatePassword);
 
-  let privateKey: any = null;
-  let endEntityCert: any = null;
-  const allCertificates: any[] = [];
+  let privateKey: ForgePrivateKey | null = null;
+  let endEntityCert: ForgeCertificate | null = null;
+  const allCertificates: ForgeCertificate[] = [];
 
   // Extract all certificates and private key
   for (const safeContents of p12.safeContents) {
@@ -784,7 +856,7 @@ function extractCertificatesFromPKCS12(certificateBase64: string, certificatePas
 }
 
 // Build complete signed SOAP envelope with namespaces declared on Envelope
-function buildSignedSOAPEnvelope(body: string, privateKey: any, certificate: any): string {
+function buildSignedSOAPEnvelope(body: string, privateKey: ForgePrivateKey, certificate: ForgeCertificate): string {
   // Namespace URLs per AEAT XSD
   const NS_SUM = 'https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/SuministroLR.xsd';
   const NS_SUM1 = 'https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/SuministroInformacion.xsd';
@@ -808,7 +880,7 @@ function buildSignedSOAPEnvelope(body: string, privateKey: any, certificate: any
 }
 
 // Sign XML body and return signature element
-function signXMLBody(body: string, privateKey: any, certificate: any): string {
+function signXMLBody(body: string, privateKey: ForgePrivateKey, certificate: ForgeCertificate): string {
   try {
     const certDer = forge.asn1.toDer(forge.pki.certificateToAsn1(certificate)).getBytes();
     const certBase64 = forge.util.encode64(certDer);
@@ -888,8 +960,8 @@ function isExplicitAEATSuccess(responseXml: string): boolean {
 async function sendToAEAT(
   signedXml: string, 
   environment: string,
-  privateKey: any,
-  certificate: any
+  privateKey: ForgePrivateKey,
+  certificate: ForgeCertificate
 ): Promise<{ success: boolean; response?: string; error?: string; httpStatus?: number }> {
   const endpoint = environment === 'production' ? AEAT_ENDPOINTS.production : AEAT_ENDPOINTS.test;
   
@@ -1295,7 +1367,7 @@ serve(async (req) => {
     );
 
     // Extract certificate and private key for signing
-    let certData: { privateKey: any; certificate: any };
+    let certData: { privateKey: ForgePrivateKey; certificate: ForgeCertificate };
     try {
       certData = extractCertificatesFromPKCS12(decryptedCert, decryptedPassword);
     } catch (certError) {

@@ -1112,11 +1112,19 @@ async function reconcilePendingSessionCheckouts(
   return result;
 }
 
+interface StripeSetupIntentResponse {
+  payment_method?: string | {
+    id: string;
+    card?: { brand?: string; last4?: string; exp_month?: number; exp_year?: number };
+  };
+  customer?: string;
+  error?: unknown;
+}
+
 // Fase 2 · Incremento 1 — guarda la tarjeta capturada en un Checkout mode=setup
 // (mandato de cargos por cancelación) en patient_payment_methods. Idempotente.
 async function handleCancellationMandateSetup(
-  // deno-lint-ignore no-explicit-any
-  supabase: any,
+  supabase: SupabaseClient,
   session: Stripe.Checkout.Session,
   connectedAccountId: string | null,
 ): Promise<void> {
@@ -1146,8 +1154,7 @@ async function handleCancellationMandateSetup(
       },
     },
   );
-  // deno-lint-ignore no-explicit-any
-  const si = await resp.json() as any;
+  const si = await resp.json() as StripeSetupIntentResponse;
   if (!resp.ok || !si?.payment_method) {
     console.error('[setup] no se pudo recuperar el setup_intent', si?.error);
     return;

@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { usePublicAssessment } from '@/hooks/usePublicAssessment';
+import { usePublicAssessment, type PublicAssessment } from '@/hooks/usePublicAssessment';
 import { LikertScale } from '@/components/assessments/LikertScale';
 import { TrueFalseButtons } from '@/components/assessments/TrueFalseButtons';
 import { BDI2ItemRenderer } from '@/components/assessments/BDI2ItemRenderer';
@@ -89,16 +89,20 @@ export default function AssessmentPublic() {
     );
   }
 
-  const template = Array.isArray(assessment.template)
-    ? (assessment.template as any)[0]
-    : (assessment.template as any);
+  const templateRaw = assessment.template as PublicAssessment['template'] | PublicAssessment['template'][];
+  const template = Array.isArray(templateRaw) ? templateRaw[0] : templateRaw;
 
   // If this is an EMO assessment, render the specialized EMO interface
   if (template?.code === 'EMO') {
     return <EMOPublic />;
   }
 
-  const items = template?.items || [];
+  const items = (template?.items || []) as Array<{
+    index: number;
+    text: string;
+    label?: string;
+    options?: { value: number; text: string }[];
+  }>;
   const answeredCount = Object.keys(answers).length;
   const isComplete = answeredCount === items.length;
   // Dynamic scale settings from template

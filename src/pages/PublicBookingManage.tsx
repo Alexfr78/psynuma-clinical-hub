@@ -21,7 +21,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import type { CancellationPolicyPreview } from '@/hooks/usePublicBooking';
+import type { CancellationPolicyPreview, PublicBookingDetail } from '@/hooks/usePublicBooking';
 import { Icon } from '@/components/ui/icon';
 
 export default function PublicBookingManage() {
@@ -31,7 +31,7 @@ export default function PublicBookingManage() {
 
   const { getBooking, cancelBooking, rescheduleBooking, getAvailability, getMonthAvailability, getCancellationPreview, loading, error } = usePublicBooking(centerSlug || '');
 
-  const [booking, setBooking] = useState<any>(null);
+  const [booking, setBooking] = useState<PublicBookingDetail | null>(null);
   const [centerName, setCenterName] = useState('');
   const [mode, setMode] = useState<'view' | 'reschedule'>('view');
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);

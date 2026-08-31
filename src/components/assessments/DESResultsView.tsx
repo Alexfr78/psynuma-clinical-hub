@@ -16,7 +16,9 @@ interface ItemAnalysis {
   suggestedExploration?: string[];
 }
 
-interface AIAnalysis {
+type ItemAnalysisWithIndex = ItemAnalysis & { index: string };
+
+export interface AIAnalysis {
   itemAnalysis: Record<string, ItemAnalysis>;
   overallPatterns: string[];
   clinicalSummary: string;
@@ -116,14 +118,14 @@ export function DESResultsView({
   ];
 
   // Group AI analysis by category
-  const analysisByCategory: Record<string, ItemAnalysis[]> = {};
+  const analysisByCategory: Record<string, ItemAnalysisWithIndex[]> = {};
   if (aiAnalysis?.itemAnalysis) {
     Object.entries(aiAnalysis.itemAnalysis).forEach(([index, analysis]) => {
       const category = analysis.category || 'other';
       if (!analysisByCategory[category]) {
         analysisByCategory[category] = [];
       }
-      analysisByCategory[category].push({ ...analysis, index } as any);
+      analysisByCategory[category].push({ ...analysis, index });
     });
   }
 

@@ -61,9 +61,9 @@ interface DayAvailability {
   availableCount: number;
 }
 
-interface BookingResult {
+export interface BookingResult {
   success: boolean;
-  session: any;
+  session: { id: string } | null;
   bookingToken: string;
   manageUrl: string;
   paymentRequired?: boolean;
@@ -74,8 +74,21 @@ interface BookingResult {
   message: string;
 }
 
+export interface PublicBookingDetail {
+  session_type_id: string;
+  location_id: string | null;
+  professional_id: string | null;
+  status: string;
+  session_date: string;
+  start_time: string;
+  end_time: string;
+  session_type: string;
+  location?: { id: string; location_type: string; name: string; street?: string | null; city?: string | null } | null;
+  professional?: { id: string; first_name: string; last_name: string | null } | null;
+}
+
 interface BookingDetails {
-  booking: any;
+  booking: PublicBookingDetail;
   centerName: string;
   centerSlug: string;
 }
@@ -104,7 +117,7 @@ interface IntakeRequestData {
   privacyPolicyUrl: string;
   // Referral wizard fields (optional)
   specialty?: string;
-  referralContext?: Record<string, any>;
+  referralContext?: Record<string, unknown>;
   selectedPartnerId?: string;
   recommendedPartnerIds?: string[];
 }

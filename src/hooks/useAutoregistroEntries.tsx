@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { toast } from 'sonner';
+import type { AutoregistroField } from './useAutoregistroTemplates';
 
 export interface AutoregistroEntry {
   id: string;
@@ -9,9 +10,9 @@ export interface AutoregistroEntry {
   center_id: string;
   patient_id: string;
   template_id: string;
-  values: Record<string, any>;
+  values: Record<string, unknown>;
   submitted_at: string;
-  template?: { name: string; fields: any[] };
+  template?: { name: string; fields: AutoregistroField[] };
   patient?: { first_name: string; last_name: string | null };
   alertSeverity?: 'critical' | 'warning' | null;
 }
