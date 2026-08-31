@@ -363,11 +363,13 @@ export function usePublicSessionReschedule(token: string | undefined) {
       newStartTime, 
       newEndTime,
       newLocationId,
+      acceptCancellationPolicy,
     }: { 
       newDate: string; 
       newStartTime: string; 
       newEndTime: string;
       newLocationId?: string;
+      acceptCancellationPolicy?: boolean;
     }) => {
       const { data, error } = await supabase.functions.invoke('public-session-reschedule', {
         body: { 
@@ -377,6 +379,7 @@ export function usePublicSessionReschedule(token: string | undefined) {
           newStartTime, 
           newEndTime,
           newLocationId,
+          acceptCancellationPolicy,
         }
       });
 
