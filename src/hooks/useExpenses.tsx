@@ -3,10 +3,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { toast } from 'sonner';
 
-// TODO: eliminar cast cuando types.ts incluya las tablas del módulo de gastos
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const db = supabase as any;
-
 export type ExpenseKind = 'fixed_recurring' | 'variable' | 'supplier_invoice' | 'professional_payment';
 export type ExpenseStatus = 'pending' | 'paid' | 'cancelled';
 
@@ -106,7 +102,7 @@ export function useExpenses(filters?: ExpenseFilters) {
   return useQuery({
     queryKey: ['expenses', profile?.center_id, filters],
     queryFn: async () => {
-      let query = db.from('expenses').select(EXPENSE_SELECT).order('expense_date', { ascending: false });
+      let query = supabase.from('expenses').select(EXPENSE_SELECT).order('expense_date', { ascending: false });
 
       if (filters?.month) {
         const { start, end } = monthRange(filters.month);
@@ -130,7 +126,7 @@ export function useExpense(id: string | undefined) {
   return useQuery({
     queryKey: ['expense', id],
     queryFn: async () => {
-      const { data, error } = await db.from('expenses').select(EXPENSE_SELECT).eq('id', id!).maybeSingle();
+      const { data, error } = await supabase.from('expenses').select(EXPENSE_SELECT).eq('id', id!).maybeSingle();
       if (error) throw error;
       return data as ExpenseWithRelations | null;
     },
@@ -144,7 +140,7 @@ export function useCreateExpense() {
 
   return useMutation({
     mutationFn: async (expense: ExpenseInsert) => {
-      const { data, error } = await db
+      const { data, error } = await supabase
         .from('expenses')
         .insert({
           ...expense,
@@ -173,7 +169,7 @@ export function useUpdateExpense() {
 
   return useMutation({
     mutationFn: async ({ id, ...updates }: Partial<ExpenseInsert> & { id: string }) => {
-      const { data, error } = await db.from('expenses').update(updates).eq('id', id).select().single();
+      const { data, error } = await supabase.from('expenses').update(updates).eq('id', id).select().single();
       if (error) throw error;
       return data as Expense;
     },
@@ -194,14 +190,14 @@ export function useMarkExpensePaid() {
 
   return useMutation({
     mutationFn: async ({ id, paidAt, paymentMethod }: { id: string; paidAt: string; paymentMethod: string }) => {
-      const { data: current, error: fetchError } = await db
+      const { data: current, error: fetchError } = await supabase
         .from('expenses')
         .select('amount')
         .eq('id', id)
         .single();
       if (fetchError) throw fetchError;
 
-      const { data, error } = await db
+      const { data, error } = await supabase
         .from('expenses')
         .update({
           status: 'paid',
@@ -232,7 +228,7 @@ export function useDeleteExpense() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await db.from('expenses').delete().eq('id', id);
+      const { error } = await supabase.from('expenses').delete().eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -270,7 +266,7 @@ export function useUploadExpenseReceipt() {
         .upload(filePath, file, { contentType: file.type });
       if (uploadError) throw uploadError;
 
-      const { error: updateError } = await db
+      const { error: updateError } = await supabase
         .from('expenses')
         .update({
           attachment_path: filePath,
@@ -348,7 +344,7 @@ export function useExpenseStats(month?: string) {
       const { start, end } = monthRange(effectiveMonth);
       const todayISO = new Date().toISOString().split('T')[0];
 
-      const { data, error } = await db
+      const { data, error } = await supabase
         .from('expenses')
         .select('amount, paid_amount, status, due_date, expense_date')
         .neq('status', 'cancelled');
@@ -401,14 +397,14 @@ export function useExpenseIncomeStatementData(range: QuarterRange) {
     queryKey: ['expense-income-statement', profile?.center_id, start, end],
     queryFn: async () => {
       const [invoicesRes, expensesRes] = await Promise.all([
-        db
+        supabase
           .from('invoices')
           .select('total, tax_amount, retention_amount, status, is_valid')
           .in('status', ['issued', 'paid'])
           .eq('is_valid', true)
           .gte('issue_date', start)
           .lte('issue_date', end),
-        db
+        supabase
           .from('expenses')
           .select('amount, vat_amount, irpf_amount, kind, status')
           .neq('status', 'cancelled')
@@ -457,7 +453,7 @@ export function useExpensesForVatBook(range: QuarterRange) {
   return useQuery({
     queryKey: ['expenses-vat-book', profile?.center_id, start, end],
     queryFn: async () => {
-      const { data, error } = await db
+      const { data, error } = await supabase
         .from('expenses')
         .select(EXPENSE_SELECT)
         .eq('kind', 'supplier_invoice')
@@ -482,7 +478,7 @@ export function usePendingExpensesThisMonth() {
       const endOfMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0));
       const endISO = endOfMonth.toISOString().split('T')[0];
 
-      const { data, error } = await db
+      const { data, error } = await supabase
         .from('expenses')
         .select(EXPENSE_SELECT)
         .eq('status', 'pending')

@@ -3,10 +3,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { toast } from 'sonner';
 
-// TODO: eliminar cast cuando types.ts incluya las tablas del módulo de gastos
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const db = supabase as any;
-
 export type ExpenseRecurrenceFrequency = 'monthly' | 'quarterly' | 'yearly';
 
 export interface ExpenseRecurringTemplate {
@@ -56,7 +52,7 @@ export function useExpenseRecurringTemplates() {
   return useQuery({
     queryKey: ['expense-recurring-templates', profile?.center_id],
     queryFn: async () => {
-      const { data, error } = await db
+      const { data, error } = await supabase
         .from('expense_recurring_templates')
         .select('*, category:expense_categories(id, name, color), supplier:suppliers(id, name)')
         .order('description', { ascending: true });
@@ -74,7 +70,7 @@ export function useCreateExpenseRecurringTemplate() {
 
   return useMutation({
     mutationFn: async (template: ExpenseRecurringTemplateInsert) => {
-      const { data, error } = await db
+      const { data, error } = await supabase
         .from('expense_recurring_templates')
         .insert({ ...template, center_id: profile!.center_id!, created_by: profile!.id })
         .select()
@@ -98,7 +94,7 @@ export function useUpdateExpenseRecurringTemplate() {
 
   return useMutation({
     mutationFn: async ({ id, ...updates }: Partial<ExpenseRecurringTemplateInsert> & { id: string }) => {
-      const { data, error } = await db
+      const { data, error } = await supabase
         .from('expense_recurring_templates')
         .update(updates)
         .eq('id', id)
@@ -123,7 +119,7 @@ export function useToggleExpenseRecurringTemplate() {
 
   return useMutation({
     mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
-      const { error } = await db
+      const { error } = await supabase
         .from('expense_recurring_templates')
         .update({ is_active: isActive })
         .eq('id', id);
@@ -145,7 +141,7 @@ export function useDeleteExpenseRecurringTemplate() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await db.from('expense_recurring_templates').delete().eq('id', id);
+      const { error } = await supabase.from('expense_recurring_templates').delete().eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {

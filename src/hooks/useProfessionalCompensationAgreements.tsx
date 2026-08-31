@@ -3,10 +3,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { toast } from 'sonner';
 
-// TODO: eliminar cast cuando types.ts incluya las tablas del módulo de gastos
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const db = supabase as any;
-
 export type CompensationType = 'fixed' | 'percentage' | 'mixed';
 export type CompensationBasis = 'collected_payments' | 'issued_invoices';
 
@@ -51,7 +47,7 @@ export function useCompensationAgreement(professionalId: string | undefined) {
   return useQuery({
     queryKey: ['compensation-agreement', professionalId],
     queryFn: async () => {
-      const { data, error } = await db
+      const { data, error } = await supabase
         .from('professional_compensation_agreements')
         .select('*')
         .eq('professional_id', professionalId!)
@@ -70,7 +66,7 @@ export function useCompensationAgreementHistory(professionalId: string | undefin
   return useQuery({
     queryKey: ['compensation-agreement-history', professionalId],
     queryFn: async () => {
-      const { data, error } = await db
+      const { data, error } = await supabase
         .from('professional_compensation_agreements')
         .select('*')
         .eq('professional_id', professionalId!)
@@ -94,7 +90,7 @@ export function useCreateCompensationAgreement() {
       // Close the professional's currently active agreement (one day before
       // the new one starts) so the "only one active agreement" unique index
       // is respected, then insert the new one.
-      const { data: current, error: currentError } = await db
+      const { data: current, error: currentError } = await supabase
         .from('professional_compensation_agreements')
         .select('id, effective_from')
         .eq('professional_id', input.professional_id)
@@ -109,7 +105,7 @@ export function useCreateCompensationAgreement() {
         closeDate.setDate(closeDate.getDate() - 1);
         const effectiveTo = closeDate.toISOString().split('T')[0];
 
-        const { error: closeError } = await db
+        const { error: closeError } = await supabase
           .from('professional_compensation_agreements')
           .update({ effective_to: effectiveTo })
           .eq('id', current.id);
@@ -117,7 +113,7 @@ export function useCreateCompensationAgreement() {
         if (closeError) throw closeError;
       }
 
-      const { data, error } = await db
+      const { data, error } = await supabase
         .from('professional_compensation_agreements')
         .insert({
           ...input,
@@ -149,7 +145,7 @@ export function usePreviewVariableCompensation(
   return useQuery({
     queryKey: ['compensation-preview', professionalId, periodStart, periodEnd],
     queryFn: async () => {
-      const { data, error } = await db.rpc('calculate_professional_variable_amount', {
+      const { data, error } = await supabase.rpc('calculate_professional_variable_amount', {
         p_professional_id: professionalId,
         p_period_start: periodStart,
         p_period_end: periodEnd,

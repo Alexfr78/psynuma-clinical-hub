@@ -3,10 +3,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { toast } from 'sonner';
 
-// TODO: eliminar cast cuando types.ts incluya las tablas del módulo de gastos
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const db = supabase as any;
-
 export interface ExpenseCategory {
   id: string;
   center_id: string;
@@ -34,7 +30,7 @@ export function useExpenseCategories(includeInactive = false) {
   return useQuery({
     queryKey: ['expense-categories', profile?.center_id, includeInactive],
     queryFn: async () => {
-      let query = db
+      let query = supabase
         .from('expense_categories')
         .select('*')
         .order('display_order', { ascending: true })
@@ -58,7 +54,7 @@ export function useCreateExpenseCategory() {
 
   return useMutation({
     mutationFn: async (category: ExpenseCategoryInsert) => {
-      const { data, error } = await db
+      const { data, error } = await supabase
         .from('expense_categories')
         .insert({ ...category, center_id: profile!.center_id! })
         .select()
@@ -82,7 +78,7 @@ export function useUpdateExpenseCategory() {
 
   return useMutation({
     mutationFn: async ({ id, ...updates }: Partial<ExpenseCategory> & { id: string }) => {
-      const { data, error } = await db
+      const { data, error } = await supabase
         .from('expense_categories')
         .update(updates)
         .eq('id', id)
@@ -108,7 +104,7 @@ export function useDeleteExpenseCategory() {
   return useMutation({
     mutationFn: async (id: string) => {
       // Soft delete — categories may be referenced by historical expenses.
-      const { error } = await db
+      const { error } = await supabase
         .from('expense_categories')
         .update({ is_active: false })
         .eq('id', id);

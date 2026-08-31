@@ -3,10 +3,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { toast } from 'sonner';
 
-// TODO: eliminar cast cuando types.ts incluya las tablas del módulo de gastos
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const db = supabase as any;
-
 export interface Supplier {
   id: string;
   center_id: string;
@@ -44,7 +40,7 @@ export function useSuppliers(filters?: { search?: string; activeOnly?: boolean }
   return useQuery({
     queryKey: ['suppliers', profile?.center_id, filters],
     queryFn: async () => {
-      let query = db.from('suppliers').select('*').order('name', { ascending: true });
+      let query = supabase.from('suppliers').select('*').order('name', { ascending: true });
 
       if (filters?.activeOnly !== false) {
         query = query.eq('is_active', true);
@@ -65,7 +61,7 @@ export function useSupplier(id: string | undefined) {
   return useQuery({
     queryKey: ['supplier', id],
     queryFn: async () => {
-      const { data, error } = await db.from('suppliers').select('*').eq('id', id!).maybeSingle();
+      const { data, error } = await supabase.from('suppliers').select('*').eq('id', id!).maybeSingle();
       if (error) throw error;
       return data as Supplier | null;
     },
@@ -79,7 +75,7 @@ export function useCreateSupplier() {
 
   return useMutation({
     mutationFn: async (supplier: SupplierInsert) => {
-      const { data, error } = await db
+      const { data, error } = await supabase
         .from('suppliers')
         .insert({ ...supplier, center_id: profile!.center_id! })
         .select()
@@ -103,7 +99,7 @@ export function useUpdateSupplier() {
 
   return useMutation({
     mutationFn: async ({ id, ...updates }: Partial<Supplier> & { id: string }) => {
-      const { data, error } = await db
+      const { data, error } = await supabase
         .from('suppliers')
         .update(updates)
         .eq('id', id)
