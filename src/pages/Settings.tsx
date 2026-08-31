@@ -51,6 +51,9 @@ import { SpecialDaysSection } from '@/components/settings/SpecialDaysSection';
 import { AISettingsSection } from '@/components/settings/integrations/AISettingsSection';
 import { VersionManagementSection } from '@/components/settings/VersionManagementSection';
 import { TariffPlansSection } from '@/components/settings/TariffPlansSection';
+import { ExpenseCategoriesSection } from '@/components/settings/ExpenseCategoriesSection';
+import { RecurringExpensesSection } from '@/components/settings/RecurringExpensesSection';
+import { ProfessionalCompensationSection } from '@/components/settings/ProfessionalCompensationSection';
 import { Icon } from '@/components/ui/icon';
 
 const centerSchema = z.object({
@@ -88,6 +91,9 @@ type SettingsSection =
   | 'facturacion-verifactu'
   | 'facturacion-verifactu-declaracion'
   | 'facturacion-verifactu-exportar'
+  | 'gastos-categorias'
+  | 'gastos-recurrentes'
+  | 'gastos-compensacion-profesionales'
   | 'comunicaciones-email'
   | 'comunicaciones-whatsapp'
   | 'comunicaciones-sms'
@@ -156,6 +162,10 @@ const navItems: NavItem[] = [
   { id: 'facturacion-verifactu', label: 'Certificado digital', icon: 'shield', parent: 'Pagos y Facturación', subgroup: 'Verifactu (AEAT)' },
   { id: 'facturacion-verifactu-declaracion', label: 'Declaración responsable', icon: 'description', parent: 'Pagos y Facturación', subgroup: 'Verifactu (AEAT)' },
   { id: 'facturacion-verifactu-exportar', label: 'Exportar registros', icon: 'file_download', parent: 'Pagos y Facturación', subgroup: 'Verifactu (AEAT)' },
+  // Gastos subgroup
+  { id: 'gastos-categorias', label: 'Categorías de gasto', icon: 'category', parent: 'Pagos y Facturación', subgroup: 'Gastos' },
+  { id: 'gastos-recurrentes', label: 'Gastos recurrentes', icon: 'autorenew', parent: 'Pagos y Facturación', subgroup: 'Gastos' },
+  { id: 'gastos-compensacion-profesionales', label: 'Compensación de profesionales', icon: 'diversity_3', parent: 'Pagos y Facturación', subgroup: 'Gastos' },
 
   // Comunicaciones — Eventos de cita (creación/reprogramación/cancelación + recordatorios)
   { id: 'comunicaciones-confirmaciones-cita', label: 'Confirmaciones de cita', icon: 'event_available', parent: 'Comunicaciones', subgroup: 'Eventos de cita' },
@@ -401,6 +411,12 @@ export default function Settings() {
         return <ResponsibleDeclarationSection />;
       case 'facturacion-verifactu-exportar':
         return <VerifactuExportSection />;
+      case 'gastos-categorias':
+        return <ExpenseCategoriesSection />;
+      case 'gastos-recurrentes':
+        return <RecurringExpensesSection />;
+      case 'gastos-compensacion-profesionales':
+        return <ProfessionalCompensationSection />;
       case 'comunicaciones-email':
         return <EmailTemplateEditor />;
       case 'comunicaciones-whatsapp':

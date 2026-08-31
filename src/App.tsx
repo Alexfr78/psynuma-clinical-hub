@@ -16,6 +16,7 @@ import Sessions from "./pages/Sessions";
 import Bonos from "./pages/Bonos";
 import Invoices from "./pages/Invoices";
 import Payments from "./pages/Payments";
+import Expenses from "./pages/Expenses";
 import Notifications from "./pages/Notifications";
 import Professionals from "./pages/Professionals";
 import Settings from "./pages/Settings";
@@ -126,6 +127,11 @@ const App = () => (
             <Route path="/cobros" element={
               <ProtectedRoute>
                 <AppLayout><Payments /></AppLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/gastos" element={
+              <ProtectedRoute>
+                <AppLayout><Expenses /></AppLayout>
               </ProtectedRoute>
             } />
             <Route path="/notificaciones" element={

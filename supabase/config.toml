@@ -47,6 +47,12 @@ project_id = "zprkdxmluvirxfhswrzq"
     verify_jwt = true
   [functions.generate-pending-debts]
     verify_jwt = false
+  [functions.generate-recurring-expenses]
+    verify_jwt = false
+  [functions.generate-professional-payments]
+    verify_jwt = false
+  [functions.extract-expense-receipt-data]
+    verify_jwt = true
   [functions.get-google-sync-diagnostics]
     verify_jwt = true
   [functions.google-calendar-webhook]

@@ -35,6 +35,7 @@ const financeNavItems: NavItemDef[] = [
   { title: 'Bonos', url: '/bonos', icon: 'package_2' },
   { title: 'Facturas', url: '/facturas', icon: 'receipt_long' },
   { title: 'Cobros / Deudas', url: '/cobros', icon: 'credit_card' },
+  { title: 'Gastos', url: '/gastos', icon: 'payments' },
 ];
 
 // Secondary tools, tucked away in a collapsed "Más" group
