@@ -663,6 +663,38 @@ Deno.serve(async (req) => {
         console.error("[RESCHEDULE] no se pudo crear el cargo por reprogramación tardía", chargeError);
       }
 
+      // Registrar la aceptación de la política de cancelación (clickwrap) y
+      // vincular la sesión a la versión aceptada. Se hace después del cálculo
+      // del cargo para no aplicar retroactivamente la política a esta misma
+      // reprogramación.
+      if (clickwrap.enabled && clickwrap.policy) {
+        try {
+          if (!clickwrap.alreadyAccepted && acceptCancellationPolicy === true) {
+            const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
+              || req.headers.get("cf-connecting-ip")
+              || "";
+            await recordPortalCancellationPolicyClickwrap(supabase, {
+              centerId: session.center_id,
+              patientId: session.patient_id,
+              professionalId: session.professional_id,
+              policy: clickwrap.policy,
+              patientName,
+              clientIp,
+              userAgent: req.headers.get("user-agent"),
+            });
+            console.log(`[RESCHEDULE] Política de cancelación v${clickwrap.policy.versionNumber} aceptada por el contacto`);
+          }
+          await supabase
+            .from("sessions")
+            .update({ cancellation_policy_version_id: clickwrap.policy.id })
+            .eq("id", session.id);
+        } catch (policyError) {
+          console.error("[RESCHEDULE] no se pudo registrar la política de cancelación", policyError);
+        }
+      }
+
+
+
       // Handle video meeting transitions
       const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
       const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
