@@ -264,6 +264,7 @@ export default function SessionManagement() {
 
   const handleRescheduleConfirm = async () => {
     if (!selectedDate || !selectedSlot) return;
+    if (policyRequiresAcceptance && !policyAccepted) return;
 
     const locationChanged = !!selectedLocationId && selectedLocationId !== originalLocationId;
     reschedule({
@@ -271,6 +272,7 @@ export default function SessionManagement() {
       newStartTime: selectedSlot.startTime,
       newEndTime: selectedSlot.endTime,
       newLocationId: locationChanged ? selectedLocationId : undefined,
+      acceptCancellationPolicy: policyRequiresAcceptance ? policyAccepted : undefined,
     }, {
       onSuccess: () => {
         setConfirmOpen(false);
@@ -278,9 +280,11 @@ export default function SessionManagement() {
         setSelectedDate(undefined);
         setSelectedSlot(null);
         setSelectedLocationId('');
+        setPolicyAccepted(false);
       }
     });
   };
+
 
   const buildLocationString = () => {
     if (!session.location) return null;
