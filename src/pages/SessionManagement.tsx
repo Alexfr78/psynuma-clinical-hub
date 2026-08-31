@@ -27,6 +27,7 @@ import {
 } from '@/components/ui/dialog';
 import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import { usePublicSession, useUpdatePublicSession, usePublicSessionReschedule, usePublicBonoTemplatesForSession } from '@/hooks/usePublicSession';
 import { supabase } from '@/integrations/supabase/client';
 import { useState, useEffect, useRef } from 'react';
@@ -71,6 +72,7 @@ export default function SessionManagement() {
   const [selectedSlot, setSelectedSlot] = useState<{ startTime: string; endTime: string } | null>(null);
   const [selectedLocationId, setSelectedLocationId] = useState<string>('');
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [policyAccepted, setPolicyAccepted] = useState(false);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [paying, setPaying] = useState(false);
   const [payDialogOpen, setPayDialogOpen] = useState(false);
@@ -94,6 +96,8 @@ export default function SessionManagement() {
     getAvailableDays,
     getAvailability,
     getCancellationPolicyPreview,
+    cancellationPolicyInfo,
+    getCancellationPolicyInfo,
     reschedule,
     isRescheduling,
     cancelSession,
@@ -147,6 +151,8 @@ export default function SessionManagement() {
       confirmActionsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
     }
   }, [selectedSlot, mode]);
+
+  const policyRequiresAcceptance = !!cancellationPolicyInfo?.requiresAcceptance;
 
   if (isLoading) {
     return (
@@ -258,6 +264,7 @@ export default function SessionManagement() {
 
   const handleRescheduleConfirm = async () => {
     if (!selectedDate || !selectedSlot) return;
+    if (policyRequiresAcceptance && !policyAccepted) return;
 
     const locationChanged = !!selectedLocationId && selectedLocationId !== originalLocationId;
     reschedule({
@@ -265,6 +272,7 @@ export default function SessionManagement() {
       newStartTime: selectedSlot.startTime,
       newEndTime: selectedSlot.endTime,
       newLocationId: locationChanged ? selectedLocationId : undefined,
+      acceptCancellationPolicy: policyRequiresAcceptance ? policyAccepted : undefined,
     }, {
       onSuccess: () => {
         setConfirmOpen(false);
@@ -272,9 +280,11 @@ export default function SessionManagement() {
         setSelectedDate(undefined);
         setSelectedSlot(null);
         setSelectedLocationId('');
+        setPolicyAccepted(false);
       }
     });
   };
+
 
   const buildLocationString = () => {
     if (!session.location) return null;
@@ -475,7 +485,9 @@ export default function SessionManagement() {
                 onClick={() => {
                   setConfirmOpen(true);
                   getCancellationPolicyPreview();
+                  getCancellationPolicyInfo();
                 }}
+
               >
                 <Icon name="check_circle" className="h-4 w-4 mr-2" />
                 Confirmar cambio
@@ -549,14 +561,42 @@ export default function SessionManagement() {
                     )}
                   </AlertDescription>
                 </Alert>
+                {policyRequiresAcceptance && cancellationPolicyInfo?.policy && (
+                  <div className="rounded-md border bg-muted/40 p-3 text-sm space-y-2">
+                    <div className="font-medium">
+                      {cancellationPolicyInfo.policy.name} (v{cancellationPolicyInfo.policy.versionNumber})
+                    </div>
+                    <p className="text-muted-foreground">
+                      Cancelación sin coste hasta {cancellationPolicyInfo.policy.cancellationWindowHours} horas antes.
+                      Después podría aplicarse un cargo del {cancellationPolicyInfo.policy.lateCancellationPercentage}%.
+                      {cancellationPolicyInfo.policy.noShowPercentage > 0
+                        ? ` La no asistencia sin aviso podría suponer un cargo del ${cancellationPolicyInfo.policy.noShowPercentage}%.`
+                        : ''}
+                    </p>
+                    {cancellationPolicyInfo.policy.policyText && (
+                      <p className="max-h-40 overflow-y-auto whitespace-pre-line text-xs text-muted-foreground">
+                        {cancellationPolicyInfo.policy.policyText}
+                      </p>
+                    )}
+                    <label className="flex items-start gap-2 pt-1">
+                      <Checkbox
+                        checked={policyAccepted}
+                        onCheckedChange={(checked) => setPolicyAccepted(checked === true)}
+                        className="mt-0.5"
+                      />
+                      <span>He leído y acepto la política de cancelación</span>
+                    </label>
+                  </div>
+                )}
                 <AlertDialogFooter>
+
                   <AlertDialogCancel disabled={isRescheduling}>Volver</AlertDialogCancel>
                   <AlertDialogAction
                     onClick={(e) => {
                       e.preventDefault();
                       handleRescheduleConfirm();
                     }}
-                    disabled={isRescheduling}
+                    disabled={isRescheduling || (policyRequiresAcceptance && !policyAccepted)}
                   >
                     {isRescheduling ? (
                       <>

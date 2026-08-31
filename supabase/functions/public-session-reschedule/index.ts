@@ -10,6 +10,11 @@ import {
   APP_TZ,
 } from "../_shared/special-days-adapter.ts";
 import { isCancellationPolicyEnabled, resolveSignedCancellationPolicyVersionForSession } from "../_shared/cancellationPolicy.ts";
+import {
+  getPublicCancellationPolicy,
+  hasAcceptedCancellationPolicy,
+  recordPortalCancellationPolicyClickwrap,
+} from "../_shared/cancellationPolicyClickwrap.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -47,6 +52,7 @@ Deno.serve(async (req) => {
       newEndTime,
       newLocationId,
       cancellation_reason,
+      acceptCancellationPolicy,
     } = await req.json();
 
     if (!token) {
@@ -246,6 +252,49 @@ Deno.serve(async (req) => {
       return { row: loc, error: null };
     }
 
+    // Clickwrap de la política de cancelación vigente para este contacto.
+    // Devuelve la política activa del centro y si el contacto ya la aceptó.
+    async function resolveClickwrapState() {
+      const enabled = await isCancellationPolicyEnabled(supabase, {
+        centerId: sessionRow.center_id,
+        patientId: sessionRow.patient_id,
+      });
+      if (!enabled) return { enabled: false, policy: null, alreadyAccepted: true };
+
+      const policy = await getPublicCancellationPolicy(supabase, sessionRow.center_id);
+      if (!policy) return { enabled: true, policy: null, alreadyAccepted: true };
+
+      const alreadyAccepted = await hasAcceptedCancellationPolicy(supabase, {
+        centerId: sessionRow.center_id,
+        patientId: sessionRow.patient_id,
+        policyVersionId: policy.id,
+      });
+      return { enabled: true, policy, alreadyAccepted };
+    }
+
+    if (action === "get-cancellation-policy") {
+      const state = await resolveClickwrapState();
+      return new Response(
+        JSON.stringify({
+          enabled: state.enabled,
+          alreadyAccepted: state.alreadyAccepted,
+          requiresAcceptance: state.enabled && !!state.policy && !state.alreadyAccepted,
+          policy: state.policy
+            ? {
+              id: state.policy.id,
+              name: state.policy.name,
+              versionNumber: state.policy.versionNumber,
+              policyText: state.policy.policyText,
+              cancellationWindowHours: state.policy.cancellationWindowHours,
+              lateCancellationPercentage: state.policy.lateCancellationPercentage,
+              noShowPercentage: state.policy.noShowPercentage,
+            }
+            : null,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     if (action === "get-cancellation-preview") {
       const { response } = await buildCancellationPolicyPreview();
       return new Response(
@@ -253,6 +302,7 @@ Deno.serve(async (req) => {
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
 
     if (action === "confirm") {
       if (session.status === "cancelled") {
@@ -415,6 +465,21 @@ Deno.serve(async (req) => {
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
+
+      // Política de cancelación: si el centro la tiene activa y el contacto no ha
+      // aceptado la versión vigente, exigimos la aceptación (clickwrap) aquí.
+      const clickwrap = await resolveClickwrapState();
+      if (clickwrap.enabled && clickwrap.policy && !clickwrap.alreadyAccepted && acceptCancellationPolicy !== true) {
+        return new Response(
+          JSON.stringify({
+            error: "Debes aceptar la política de cancelación para reprogramar la cita",
+            code: "cancellation_policy_acceptance_required",
+          }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+
 
       // Resolve target location (defaults to current). Validates same center + active + public.
       let targetLocation: { id?: string; name?: string | null; location_type?: string | null; street?: string | null; number_details?: string | null; postal_code?: string | null; city?: string | null } | null = null;
@@ -597,6 +662,38 @@ Deno.serve(async (req) => {
       } catch (chargeError) {
         console.error("[RESCHEDULE] no se pudo crear el cargo por reprogramación tardía", chargeError);
       }
+
+      // Registrar la aceptación de la política de cancelación (clickwrap) y
+      // vincular la sesión a la versión aceptada. Se hace después del cálculo
+      // del cargo para no aplicar retroactivamente la política a esta misma
+      // reprogramación.
+      if (clickwrap.enabled && clickwrap.policy) {
+        try {
+          if (!clickwrap.alreadyAccepted && acceptCancellationPolicy === true) {
+            const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
+              || req.headers.get("cf-connecting-ip")
+              || "";
+            await recordPortalCancellationPolicyClickwrap(supabase, {
+              centerId: session.center_id,
+              patientId: session.patient_id,
+              professionalId: session.professional_id,
+              policy: clickwrap.policy,
+              patientName,
+              clientIp,
+              userAgent: req.headers.get("user-agent"),
+            });
+            console.log(`[RESCHEDULE] Política de cancelación v${clickwrap.policy.versionNumber} aceptada por el contacto`);
+          }
+          await supabase
+            .from("sessions")
+            .update({ cancellation_policy_version_id: clickwrap.policy.id })
+            .eq("id", session.id);
+        } catch (policyError) {
+          console.error("[RESCHEDULE] no se pudo registrar la política de cancelación", policyError);
+        }
+      }
+
+
 
       // Handle video meeting transitions
       const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
