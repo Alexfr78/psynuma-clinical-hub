@@ -10,6 +10,11 @@ import {
   APP_TZ,
 } from "../_shared/special-days-adapter.ts";
 import { isCancellationPolicyEnabled, resolveSignedCancellationPolicyVersionForSession } from "../_shared/cancellationPolicy.ts";
+import {
+  getPublicCancellationPolicy,
+  hasAcceptedCancellationPolicy,
+  recordPortalCancellationPolicyClickwrap,
+} from "../_shared/cancellationPolicyClickwrap.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -47,6 +52,7 @@ Deno.serve(async (req) => {
       newEndTime,
       newLocationId,
       cancellation_reason,
+      acceptCancellationPolicy,
     } = await req.json();
 
     if (!token) {
@@ -246,6 +252,49 @@ Deno.serve(async (req) => {
       return { row: loc, error: null };
     }
 
+    // Clickwrap de la política de cancelación vigente para este contacto.
+    // Devuelve la política activa del centro y si el contacto ya la aceptó.
+    async function resolveClickwrapState() {
+      const enabled = await isCancellationPolicyEnabled(supabase, {
+        centerId: sessionRow.center_id,
+        patientId: sessionRow.patient_id,
+      });
+      if (!enabled) return { enabled: false, policy: null, alreadyAccepted: true };
+
+      const policy = await getPublicCancellationPolicy(supabase, sessionRow.center_id);
+      if (!policy) return { enabled: true, policy: null, alreadyAccepted: true };
+
+      const alreadyAccepted = await hasAcceptedCancellationPolicy(supabase, {
+        centerId: sessionRow.center_id,
+        patientId: sessionRow.patient_id,
+        policyVersionId: policy.id,
+      });
+      return { enabled: true, policy, alreadyAccepted };
+    }
+
+    if (action === "get-cancellation-policy") {
+      const state = await resolveClickwrapState();
+      return new Response(
+        JSON.stringify({
+          enabled: state.enabled,
+          alreadyAccepted: state.alreadyAccepted,
+          requiresAcceptance: state.enabled && !!state.policy && !state.alreadyAccepted,
+          policy: state.policy
+            ? {
+              id: state.policy.id,
+              name: state.policy.name,
+              versionNumber: state.policy.versionNumber,
+              policyText: state.policy.policyText,
+              cancellationWindowHours: state.policy.cancellationWindowHours,
+              lateCancellationPercentage: state.policy.lateCancellationPercentage,
+              noShowPercentage: state.policy.noShowPercentage,
+            }
+            : null,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     if (action === "get-cancellation-preview") {
       const { response } = await buildCancellationPolicyPreview();
       return new Response(
@@ -253,6 +302,7 @@ Deno.serve(async (req) => {
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
 
     if (action === "confirm") {
       if (session.status === "cancelled") {
