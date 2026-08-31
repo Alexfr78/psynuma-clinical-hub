@@ -466,6 +466,21 @@ Deno.serve(async (req) => {
         );
       }
 
+      // Política de cancelación: si el centro la tiene activa y el contacto no ha
+      // aceptado la versión vigente, exigimos la aceptación (clickwrap) aquí.
+      const clickwrap = await resolveClickwrapState();
+      if (clickwrap.enabled && clickwrap.policy && !clickwrap.alreadyAccepted && acceptCancellationPolicy !== true) {
+        return new Response(
+          JSON.stringify({
+            error: "Debes aceptar la política de cancelación para reprogramar la cita",
+            code: "cancellation_policy_acceptance_required",
+          }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+
+
       // Resolve target location (defaults to current). Validates same center + active + public.
       let targetLocation: { id?: string; name?: string | null; location_type?: string | null; street?: string | null; number_details?: string | null; postal_code?: string | null; city?: string | null } | null = null;
       let targetLocationId = effectiveLocationId;
