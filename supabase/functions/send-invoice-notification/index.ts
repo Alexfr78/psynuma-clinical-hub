@@ -25,6 +25,8 @@ function uint8ToBase64(bytes: Uint8Array): string {
   return btoa(binary);
 }
 
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 // Makes sure the invoice PDF exists in invoice-documents (generating it if
 // this is the first time it's sent), then returns its bytes (for email
 // attachments) and a signed URL (for WhatsApp document messages, which need
@@ -38,28 +40,51 @@ async function ensureInvoicePdf(
   centerId: string,
   pdfAlreadyGenerated: boolean
 ): Promise<{ bytes: Uint8Array; signedUrl: string } | null> {
-  try {
-    if (!pdfAlreadyGenerated) {
+  if (!pdfAlreadyGenerated) {
+    // Generating a fresh PDF also embeds the center's logo (an HTTP fetch)
+    // and best-effort uploads to Google Drive before responding, so it can
+    // take noticeably longer than a typical request. If this call itself
+    // fails or the connection is dropped, the underlying invocation can
+    // still finish moments later on the server side - so a failure here
+    // isn't final, it just means we fall through to the retrying download
+    // below instead of bailing out immediately.
+    try {
       const genResponse = await fetch(`${supabaseUrl}/functions/v1/generate-invoice-pdf`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${supabaseKey}` },
         body: JSON.stringify({ invoice_id: invoiceId }),
       });
       if (!genResponse.ok) {
-        console.error('[send-invoice-notification] PDF generation failed:', await genResponse.text());
-        return null;
+        console.error('[send-invoice-notification] PDF generation call failed, will retry download:', await genResponse.text());
       }
+    } catch (genError) {
+      console.error('[send-invoice-notification] PDF generation call errored, will retry download:', genError);
     }
+  }
 
-    const filePath = `${centerId}/${invoiceId}.pdf`;
-    const { data: fileData, error: downloadError } = await supabase.storage
+  const filePath = `${centerId}/${invoiceId}.pdf`;
+  let fileData: Blob | null = null;
+  const maxAttempts = 4;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const { data, error: downloadError } = await supabase.storage
       .from('invoice-documents')
       .download(filePath);
-    if (downloadError || !fileData) {
-      console.error('[send-invoice-notification] Error downloading invoice PDF:', downloadError);
-      return null;
+    if (!downloadError && data) {
+      fileData = data;
+      break;
     }
+    if (attempt < maxAttempts) {
+      console.warn(`[send-invoice-notification] PDF not ready yet (attempt ${attempt}/${maxAttempts}), retrying:`, downloadError);
+      await sleep(2000);
+    } else {
+      console.error('[send-invoice-notification] Error downloading invoice PDF after retries:', downloadError);
+    }
+  }
+  if (!fileData) {
+    return null;
+  }
 
+  try {
     const { data: signedUrlData, error: signedUrlError } = await supabase.storage
       .from('invoice-documents')
       .createSignedUrl(filePath, 60 * 60 * 24);
@@ -181,10 +206,12 @@ async function sendWhatsAppViaWasender(
         center_id: centerId,
         patient_id: patientId || null,
         phone: normalized,
-        message_body: message,
-        direction: 'outgoing',
+        content: message,
+        type: document ? 'document' : 'text',
         status: 'sent',
         message_type: 'invoice',
+        media_url: document?.url || null,
+        caption: document ? message : null,
         sent_at: new Date().toISOString(),
       });
     } catch (logError) {
