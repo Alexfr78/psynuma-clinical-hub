@@ -2919,6 +2919,8 @@ export type Database = {
           created_at: string
           created_by: string | null
           description: string
+          drive_file_id: string | null
+          drive_url: string | null
           due_date: string | null
           expense_date: string
           generated_period_start: string | null
@@ -2957,6 +2959,8 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           description: string
+          drive_file_id?: string | null
+          drive_url?: string | null
           due_date?: string | null
           expense_date?: string
           generated_period_start?: string | null
@@ -2995,6 +2999,8 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           description?: string
+          drive_file_id?: string | null
+          drive_url?: string | null
           due_date?: string | null
           expense_date?: string
           generated_period_start?: string | null
