@@ -1010,7 +1010,10 @@ serve(async (req) => {
       );
     }
 
+    await cancelDebtsForCancelledInvoice(supabase, invoice_id);
+
     console.log("Invoice cancellation registered successfully");
+
 
     return new Response(
       JSON.stringify({
