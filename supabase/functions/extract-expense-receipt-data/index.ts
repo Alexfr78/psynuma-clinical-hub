@@ -53,15 +53,19 @@ Deno.serve(async (req) => {
     const body = await req.json();
     expenseId = body.expenseId;
     const requestedAttachmentPath: string | undefined = body.attachmentPath;
+    const rawFileBase64: string | undefined = body.fileBase64;
+    const rawMimeType: string | undefined = body.mimeType;
 
-    if (!expenseId) {
+    if (!expenseId && !rawFileBase64) {
       return new Response(
-        JSON.stringify({ error: 'Falta expenseId' }),
+        JSON.stringify({ error: 'Falta expenseId o fileBase64' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
 
-    // Resolve the calling user's center and confirm the expense belongs to it.
+    // Every caller must be an authenticated user of a center — required both
+    // for the persisted flow (to check expense ownership below) and the
+    // preview flow (to gate the AI call to logged-in users only).
     const authHeader = req.headers.get('Authorization') || '';
     const jwt = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
     const callerClient = createClient(supabaseUrl, supabaseAnonKey, {
@@ -77,74 +81,104 @@ Deno.serve(async (req) => {
       .maybeSingle();
     if (profileError || !callerProfile?.center_id) return unauthorizedResponse(corsHeaders);
 
-    const { data: expense, error: expenseError } = await supabase
-      .from('expenses')
-      .select('id, center_id, created_by, professional_id, attachment_path')
-      .eq('id', expenseId)
-      .maybeSingle();
-    if (expenseError || !expense) {
-      return new Response(
-        JSON.stringify({ error: 'Gasto no encontrado' }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-      );
-    }
-    if (expense.center_id !== callerProfile.center_id) {
-      return new Response(
-        JSON.stringify({ error: 'No autorizado' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-      );
-    }
+    let mimeType: string;
+    let dataUri: string;
+    let fileName = 'documento';
 
-    // Row-level authorization mirroring the RLS policies on `expenses`: this
-    // function runs with service_role (which bypasses RLS), so the same rule
-    // must be enforced here — admins of the center, the creator of the
-    // expense, or the professional it settles can trigger extraction; other
-    // professionals of the same center cannot.
-    const { data: callerIsAdmin } = await supabase.rpc('is_admin', { _user_id: userData.user.id });
-    const isOwner =
-      expense.created_by === userData.user.id || expense.professional_id === userData.user.id;
-    if (!callerIsAdmin && !isOwner) {
-      return new Response(
-        JSON.stringify({ error: 'No autorizado' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-      );
-    }
+    if (!expenseId) {
+      // Preview mode: extract straight from an in-memory upload before any
+      // expense row exists yet, so the "Nuevo gasto" form can be pre-filled.
+      // Nothing is downloaded from Storage and nothing is persisted here.
+      const ALLOWED_MIME_TYPES = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
+      if (!rawMimeType || !ALLOWED_MIME_TYPES.includes(rawMimeType)) {
+        return new Response(
+          JSON.stringify({ error: 'Formato no soportado. Usa PDF, JPG, PNG o WEBP.' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
+      // ~10MB of binary data becomes ~13.4M base64 chars; cap generously above that.
+      if (rawFileBase64!.length > 14_000_000) {
+        return new Response(
+          JSON.stringify({ error: 'El archivo no puede superar 10 MB.' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
+      mimeType = rawMimeType;
+      dataUri = `data:${mimeType};base64,${rawFileBase64}`;
+      if (typeof body.fileName === 'string' && body.fileName) fileName = body.fileName;
+    } else {
+      // Persisted mode: extract from an attachment already uploaded to an
+      // existing expense (e.g. re-processing on edit).
+      const { data: expense, error: expenseError } = await supabase
+        .from('expenses')
+        .select('id, center_id, created_by, professional_id, attachment_path')
+        .eq('id', expenseId)
+        .maybeSingle();
+      if (expenseError || !expense) {
+        return new Response(
+          JSON.stringify({ error: 'Gasto no encontrado' }),
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
+      if (expense.center_id !== callerProfile.center_id) {
+        return new Response(
+          JSON.stringify({ error: 'No autorizado' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
 
-    // Never download a caller-supplied path: only the attachment already
-    // persisted on this expense row can be processed.
-    const attachmentPath = expense.attachment_path;
-    if (!attachmentPath) {
-      return new Response(
-        JSON.stringify({ error: 'El gasto no tiene justificante adjunto' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-      );
-    }
-    if (requestedAttachmentPath && requestedAttachmentPath !== attachmentPath) {
-      return new Response(
-        JSON.stringify({ error: 'El justificante indicado no corresponde a este gasto' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-      );
-    }
+      // Row-level authorization mirroring the RLS policies on `expenses`: this
+      // function runs with service_role (which bypasses RLS), so the same rule
+      // must be enforced here — admins of the center, the creator of the
+      // expense, or the professional it settles can trigger extraction; other
+      // professionals of the same center cannot.
+      const { data: callerIsAdmin } = await supabase.rpc('is_admin', { _user_id: userData.user.id });
+      const isOwner =
+        expense.created_by === userData.user.id || expense.professional_id === userData.user.id;
+      if (!callerIsAdmin && !isOwner) {
+        return new Response(
+          JSON.stringify({ error: 'No autorizado' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
 
-    await supabase.from('expenses').update({ ai_extraction_status: 'processing' }).eq('id', expenseId);
+      // Never download a caller-supplied path: only the attachment already
+      // persisted on this expense row can be processed.
+      const attachmentPath = expense.attachment_path;
+      if (!attachmentPath) {
+        return new Response(
+          JSON.stringify({ error: 'El gasto no tiene justificante adjunto' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
+      if (requestedAttachmentPath && requestedAttachmentPath !== attachmentPath) {
+        return new Response(
+          JSON.stringify({ error: 'El justificante indicado no corresponde a este gasto' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
+
+      await supabase.from('expenses').update({ ai_extraction_status: 'processing' }).eq('id', expenseId);
+
+      // Download the attachment from Storage with full (service_role) access.
+      const { data: fileBlob, error: downloadError } = await supabase.storage
+        .from('expense-receipts')
+        .download(attachmentPath);
+      if (downloadError || !fileBlob) {
+        throw new Error('No se pudo descargar el justificante: ' + (downloadError?.message ?? 'desconocido'));
+      }
+
+      mimeType = fileBlob.type || 'application/octet-stream';
+      const arrayBuffer = await fileBlob.arrayBuffer();
+      const base64 = arrayBufferToBase64(arrayBuffer);
+      dataUri = `data:${mimeType};base64,${base64}`;
+      fileName = attachmentPath.split('/').pop() || 'documento.pdf';
+    }
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
       throw new Error('LOVABLE_API_KEY no está configurada');
     }
-
-    // Download the attachment from Storage with full (service_role) access.
-    const { data: fileBlob, error: downloadError } = await supabase.storage
-      .from('expense-receipts')
-      .download(attachmentPath);
-    if (downloadError || !fileBlob) {
-      throw new Error('No se pudo descargar el justificante: ' + (downloadError?.message ?? 'desconocido'));
-    }
-
-    const mimeType = fileBlob.type || 'application/octet-stream';
-    const arrayBuffer = await fileBlob.arrayBuffer();
-    const base64 = arrayBufferToBase64(arrayBuffer);
-    const dataUri = `data:${mimeType};base64,${base64}`;
 
     // The Lovable AI gateway is OpenAI-chat-completions-compatible. Every
     // existing use of LOVABLE_API_KEY in this repo (interpret-emo-results,
@@ -159,7 +193,7 @@ Deno.serve(async (req) => {
     const userContent: unknown[] = [
       { type: 'text', text: 'Extrae los datos fiscales de este justificante de gasto.' },
       isPdf
-        ? { type: 'file', file: { filename: attachmentPath.split('/').pop() || 'documento.pdf', file_data: dataUri } }
+        ? { type: 'file', file: { filename: fileName, file_data: dataUri } }
         : { type: 'image_url', image_url: { url: dataUri } },
     ];
 
@@ -200,6 +234,15 @@ Deno.serve(async (req) => {
     } catch (parseError) {
       console.error('[extract-expense-receipt-data] Parse error:', parseError);
       throw new Error('Error al procesar la respuesta de IA');
+    }
+
+    // Preview mode has no expense row yet — just hand the extracted data
+    // back to the client so it can pre-fill the "Nuevo gasto" form.
+    if (!expenseId) {
+      return new Response(
+        JSON.stringify({ success: true, extracted }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
     }
 
     // Only fill fields that are currently NULL — never overwrite what the

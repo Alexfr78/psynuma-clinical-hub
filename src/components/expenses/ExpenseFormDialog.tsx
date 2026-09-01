@@ -24,8 +24,10 @@ import {
   useUpdateExpense,
   useUploadExpenseReceipt,
   useExtractExpenseReceiptData,
+  useExtractExpenseReceiptPreview,
   type ExpenseKind,
   type ExpenseWithRelations,
+  type ExtractedReceiptData,
 } from '@/hooks/useExpenses';
 import { validateSpanishTaxId } from '@/lib/nif-validation';
 
@@ -47,6 +49,7 @@ export function ExpenseFormDialog({ open, onOpenChange, expense }: ExpenseFormDi
   const updateExpense = useUpdateExpense();
   const uploadReceipt = useUploadExpenseReceipt();
   const extractReceiptData = useExtractExpenseReceiptData();
+  const extractReceiptPreview = useExtractExpenseReceiptPreview();
 
   const isEditing = !!expense;
 
@@ -83,6 +86,10 @@ export function ExpenseFormDialog({ open, onOpenChange, expense }: ExpenseFormDi
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
+
+  // Set when the "upload first" AI flow already extracted data for
+  // pendingFile — lets handleSubmit skip a second, redundant AI call.
+  const [aiPreviewData, setAiPreviewData] = useState<ExtractedReceiptData | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -127,6 +134,7 @@ export function ExpenseFormDialog({ open, onOpenChange, expense }: ExpenseFormDi
     setNewSupplierName('');
     setNewSupplierTaxId('');
     setPendingFile(null);
+    setAiPreviewData(null);
   }, [open, expense]);
 
   // Recalcular cuotas solo cuando el usuario edita base o tipo — nunca en la
@@ -160,6 +168,83 @@ export function ExpenseFormDialog({ open, onOpenChange, expense }: ExpenseFormDi
       return;
     }
     setPendingFile(file);
+  };
+
+  // Resolves extracted.supplier_name/supplier_tax_id against existing
+  // suppliers; auto-creates one if there's no match, so the user never has
+  // to manually create a supplier just because the AI recognized a new one.
+  const resolveSupplierFromExtraction = async (extracted: ExtractedReceiptData) => {
+    const name = extracted.supplier_name?.trim();
+    const taxId = extracted.supplier_tax_id?.trim();
+    if (!name && !taxId) return;
+
+    const existing = (suppliers ?? []).find((s) => {
+      if (taxId && s.tax_id) return s.tax_id.trim().toUpperCase() === taxId.toUpperCase();
+      if (name) return s.name.trim().toLowerCase() === name.toLowerCase();
+      return false;
+    });
+
+    if (existing) {
+      setSupplierId(existing.id);
+      return;
+    }
+    if (name) {
+      try {
+        const created = await createSupplier.mutateAsync({ name, tax_id: taxId || null });
+        setSupplierId(created.id);
+      } catch {
+        // useCreateSupplier already surfaces a toast on failure.
+      }
+    }
+  };
+
+  const applyExtractedData = (extracted: ExtractedReceiptData) => {
+    if (extracted.total_amount != null) setAmount(String(extracted.total_amount));
+    if (extracted.issue_date) {
+      setInvoiceIssueDate(extracted.issue_date);
+      setExpenseDate(extracted.issue_date);
+    }
+    if (extracted.invoice_number) setSupplierInvoiceNumber(extracted.invoice_number);
+    if (extracted.tax_base != null) setTaxBase(String(extracted.tax_base));
+    if (extracted.vat_rate != null) setVatRate(String(extracted.vat_rate));
+    if (extracted.vat_amount != null) setVatAmount(String(extracted.vat_amount));
+    if (extracted.irpf_rate != null) setIrpfRate(String(extracted.irpf_rate));
+    if (extracted.irpf_amount != null) setIrpfAmount(String(extracted.irpf_amount));
+    if (extracted.supplier_name) {
+      setDescription((prev) => prev.trim() ? prev : `Factura ${extracted.supplier_name}`);
+    }
+  };
+
+  const handleAiFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    const allowed = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
+    if (!allowed.includes(file.type)) {
+      toast.error('Formato no soportado. Usa PDF, JPG, PNG o WEBP.');
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('El archivo no puede superar 10 MB.');
+      return;
+    }
+
+    setPendingFile(file);
+    setKind('supplier_invoice');
+    setAiPreviewData(null);
+
+    try {
+      const extracted = await extractReceiptPreview.mutateAsync(file);
+      if (extracted) {
+        setAiPreviewData(extracted);
+        applyExtractedData(extracted);
+        await resolveSupplierFromExtraction(extracted);
+        toast.success('Datos extraídos de la factura. Revísalos antes de guardar.');
+      }
+    } catch {
+      // useExtractExpenseReceiptPreview already surfaces a toast on failure;
+      // the file stays attached so the user can still fill the form manually.
+    }
   };
 
   const professionalOptions = (professionals ?? []).filter((p) => p.roles.includes('professional'));
@@ -209,6 +294,11 @@ export function ExpenseFormDialog({ open, onOpenChange, expense }: ExpenseFormDi
       vat_amount: kind === 'supplier_invoice' && vatAmount ? parseFloat(vatAmount) : null,
       irpf_rate: kind === 'supplier_invoice' && irpfRate ? parseFloat(irpfRate) : null,
       irpf_amount: kind === 'supplier_invoice' && irpfAmount ? parseFloat(irpfAmount) : null,
+      // The "upload first" AI flow already extracted this data before the
+      // expense was created — record that so the receipt upload below
+      // doesn't reset the status back to 'pending' and trigger a second,
+      // redundant AI call.
+      ...(aiPreviewData ? { ai_extraction_status: 'done' as const, ai_extraction_raw: aiPreviewData } : {}),
     };
 
     let expenseId: string;
@@ -223,13 +313,15 @@ export function ExpenseFormDialog({ open, onOpenChange, expense }: ExpenseFormDi
     if (pendingFile) {
       setIsUploading(true);
       try {
-        const { path } = await uploadReceipt.mutateAsync({ expenseId, file: pendingFile });
+        const { path } = await uploadReceipt.mutateAsync({ expenseId, file: pendingFile, skipStatusReset: !!aiPreviewData });
         setIsUploading(false);
-        setIsExtracting(true);
-        try {
-          await extractReceiptData.mutateAsync({ expenseId, attachmentPath: path });
-        } finally {
-          setIsExtracting(false);
+        if (!aiPreviewData) {
+          setIsExtracting(true);
+          try {
+            await extractReceiptData.mutateAsync({ expenseId, attachmentPath: path });
+          } finally {
+            setIsExtracting(false);
+          }
         }
       } finally {
         setIsUploading(false);
@@ -240,10 +332,11 @@ export function ExpenseFormDialog({ open, onOpenChange, expense }: ExpenseFormDi
   };
 
   const isSaving = createExpense.isPending || updateExpense.isPending || isUploading || isExtracting;
+  const isPreviewExtracting = extractReceiptPreview.isPending;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-xl md:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEditing ? 'Editar gasto' : 'Nuevo gasto'}</DialogTitle>
           <DialogDescription>Registra un gasto del centro</DialogDescription>
@@ -251,9 +344,28 @@ export function ExpenseFormDialog({ open, onOpenChange, expense }: ExpenseFormDi
 
         <div className="space-y-4">
           {!isEditing && (
+            <div className="space-y-2 rounded-lg border-2 border-dashed border-primary/30 bg-primary/5 p-3">
+              <Label className="text-sm font-medium">Sube una factura y la IA rellena el formulario</Label>
+              <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-muted-foreground/25 bg-background px-4 py-3 text-sm text-muted-foreground transition hover:border-primary/50 hover:text-foreground">
+                {isPreviewExtracting ? (
+                  <span className="flex items-center gap-2"><Icon name="progress_activity" className="h-4 w-4 animate-spin" />Extrayendo datos con IA...</span>
+                ) : pendingFile && aiPreviewData ? (
+                  <span className="flex items-center gap-2 text-foreground"><Icon name="task_alt" className="h-4 w-4 text-green-600" />{pendingFile.name} — datos rellenados</span>
+                ) : pendingFile ? (
+                  <span className="flex items-center gap-2"><Icon name="description" className="h-4 w-4" />{pendingFile.name}</span>
+                ) : (
+                  <span className="flex items-center gap-2"><Icon name="upload" className="h-4 w-4" />Arrastra o selecciona una factura de proveedor (máx. 10 MB)</span>
+                )}
+                <input type="file" className="sr-only" accept=".pdf,.jpg,.jpeg,.png,.webp" onChange={handleAiFileSelect} disabled={isPreviewExtracting} />
+              </label>
+              <p className="text-xs text-muted-foreground">O completa los campos manualmente más abajo.</p>
+            </div>
+          )}
+
+          {!isEditing && (
             <div className="space-y-2">
               <Label>Tipo de gasto</Label>
-              <RadioGroup value={kind} onValueChange={(v) => setKind(v as typeof kind)} className="space-y-2">
+              <RadioGroup value={kind} onValueChange={(v) => setKind(v as typeof kind)} className="flex flex-wrap gap-x-6 gap-y-2">
                 <div className="flex items-center gap-2">
                   <RadioGroupItem value="variable" id="kind-variable" />
                   <Label htmlFor="kind-variable" className="font-normal cursor-pointer">Variable / puntual</Label>
@@ -286,21 +398,23 @@ export function ExpenseFormDialog({ open, onOpenChange, expense }: ExpenseFormDi
             </div>
           )}
 
-          <div className="space-y-2">
-            <Label>Categoría</Label>
-            <Select value={categoryId} onValueChange={setCategoryId}>
-              <SelectTrigger><SelectValue placeholder="Seleccionar categoría" /></SelectTrigger>
-              <SelectContent>
-                {categories?.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Categoría</Label>
+              <Select value={categoryId} onValueChange={setCategoryId}>
+                <SelectTrigger><SelectValue placeholder="Seleccionar categoría" /></SelectTrigger>
+                <SelectContent>
+                  {categories?.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-          <div className="space-y-2">
-            <Label>Descripción</Label>
-            <Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Ej. Alquiler consulta agosto" />
+            <div className="space-y-2">
+              <Label>Descripción</Label>
+              <Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Ej. Alquiler consulta agosto" />
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -327,34 +441,36 @@ export function ExpenseFormDialog({ open, onOpenChange, expense }: ExpenseFormDi
 
           {kind === 'supplier_invoice' && (
             <div className="space-y-4 rounded-lg border p-3">
-              <div className="space-y-2">
-                <Label>Proveedor</Label>
-                {!showNewSupplier ? (
-                  <div className="flex gap-2">
-                    <Select value={supplierId} onValueChange={setSupplierId}>
-                      <SelectTrigger className="flex-1"><SelectValue placeholder="Seleccionar proveedor" /></SelectTrigger>
-                      <SelectContent>
-                        {suppliers?.map((s) => (
-                          <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Button type="button" variant="outline" size="icon" onClick={() => setShowNewSupplier(true)} title="Nuevo proveedor">
-                      <Icon name="add" className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="space-y-2 rounded-md bg-muted/40 p-2">
-                    <Input placeholder="Nombre del proveedor" value={newSupplierName} onChange={(e) => setNewSupplierName(e.target.value)} />
-                    <Input placeholder="NIF/CIF (opcional)" value={newSupplierTaxId} onChange={(e) => setNewSupplierTaxId(e.target.value)} />
-                    <Button type="button" variant="ghost" size="sm" onClick={() => setShowNewSupplier(false)}>Cancelar</Button>
-                  </div>
-                )}
-              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Proveedor</Label>
+                  {!showNewSupplier ? (
+                    <div className="flex gap-2">
+                      <Select value={supplierId} onValueChange={setSupplierId}>
+                        <SelectTrigger className="flex-1"><SelectValue placeholder="Seleccionar proveedor" /></SelectTrigger>
+                        <SelectContent>
+                          {suppliers?.map((s) => (
+                            <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button type="button" variant="outline" size="icon" onClick={() => setShowNewSupplier(true)} title="Nuevo proveedor">
+                        <Icon name="add" className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-2 rounded-md bg-muted/40 p-2">
+                      <Input placeholder="Nombre del proveedor" value={newSupplierName} onChange={(e) => setNewSupplierName(e.target.value)} />
+                      <Input placeholder="NIF/CIF (opcional)" value={newSupplierTaxId} onChange={(e) => setNewSupplierTaxId(e.target.value)} />
+                      <Button type="button" variant="ghost" size="sm" onClick={() => setShowNewSupplier(false)}>Cancelar</Button>
+                    </div>
+                  )}
+                </div>
 
-              <div className="space-y-2">
-                <Label>Nº factura proveedor</Label>
-                <Input value={supplierInvoiceNumber} onChange={(e) => setSupplierInvoiceNumber(e.target.value)} />
+                <div className="space-y-2">
+                  <Label>Nº factura proveedor</Label>
+                  <Input value={supplierInvoiceNumber} onChange={(e) => setSupplierInvoiceNumber(e.target.value)} />
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -423,20 +539,22 @@ export function ExpenseFormDialog({ open, onOpenChange, expense }: ExpenseFormDi
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label>Justificante (PDF/foto)</Label>
-                <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-muted-foreground/25 px-4 py-4 text-sm text-muted-foreground transition hover:border-primary/50 hover:text-foreground">
-                  {pendingFile ? (
-                    <span className="flex items-center gap-2"><Icon name="description" className="h-4 w-4" />{pendingFile.name}</span>
-                  ) : (
-                    <span className="flex items-center gap-2"><Icon name="upload" className="h-4 w-4" />Arrastra o selecciona un archivo (máx. 10 MB)</span>
-                  )}
-                  <input type="file" className="sr-only" accept=".pdf,.jpg,.jpeg,.png,.webp" onChange={handleFileSelect} />
-                </label>
-                <p className="text-xs text-muted-foreground">
-                  Se extraerán automáticamente los datos fiscales con IA al guardar (puedes corregirlos después).
-                </p>
-              </div>
+              {isEditing && (
+                <div className="space-y-2">
+                  <Label>Justificante (PDF/foto)</Label>
+                  <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-muted-foreground/25 px-4 py-4 text-sm text-muted-foreground transition hover:border-primary/50 hover:text-foreground">
+                    {pendingFile ? (
+                      <span className="flex items-center gap-2"><Icon name="description" className="h-4 w-4" />{pendingFile.name}</span>
+                    ) : (
+                      <span className="flex items-center gap-2"><Icon name="upload" className="h-4 w-4" />Arrastra o selecciona un archivo (máx. 10 MB)</span>
+                    )}
+                    <input type="file" className="sr-only" accept=".pdf,.jpg,.jpeg,.png,.webp" onChange={handleFileSelect} />
+                  </label>
+                  <p className="text-xs text-muted-foreground">
+                    Se extraerán automáticamente los datos fiscales con IA al guardar (puedes corregirlos después).
+                  </p>
+                </div>
+              )}
             </div>
           )}
 

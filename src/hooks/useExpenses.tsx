@@ -70,6 +70,8 @@ export interface ExpenseInsert {
   due_date?: string | null;
   payment_method?: string | null;
   notes?: string | null;
+  ai_extraction_status?: 'pending' | 'processing' | 'done' | 'failed' | null;
+  ai_extraction_raw?: unknown;
 }
 
 export interface ExpenseFilters {
@@ -250,7 +252,7 @@ export function useUploadExpenseReceipt() {
   const { profile } = useAuth();
 
   return useMutation({
-    mutationFn: async ({ expenseId, file }: { expenseId: string; file: File }) => {
+    mutationFn: async ({ expenseId, file, skipStatusReset }: { expenseId: string; file: File; skipStatusReset?: boolean }) => {
       if (!ALLOWED_RECEIPT_TYPES.includes(file.type)) {
         throw new Error('Formato no soportado. Usa PDF, JPG, PNG o WEBP.');
       }
@@ -266,12 +268,16 @@ export function useUploadExpenseReceipt() {
         .upload(filePath, file, { contentType: file.type });
       if (uploadError) throw uploadError;
 
+      // When the caller already ran AI extraction on this file before the
+      // expense existed (upload-first flow), the row was created with
+      // ai_extraction_status already set to 'done' — don't reset it back to
+      // 'pending' here, or the already-extracted data looks unprocessed.
       const { error: updateError } = await supabase
         .from('expenses')
         .update({
           attachment_path: filePath,
           attachment_mime_type: file.type,
-          ai_extraction_status: 'pending',
+          ...(skipStatusReset ? {} : { ai_extraction_status: 'pending' }),
         })
         .eq('id', expenseId);
       if (updateError) throw updateError;
@@ -327,6 +333,45 @@ export function useExtractExpenseReceiptData() {
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['expense', variables.expenseId] });
       queryClient.invalidateQueries({ queryKey: ['expenses'] });
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+}
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      resolve(result.slice(result.indexOf(',') + 1));
+    };
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
+/** Extracts fiscal data from a receipt before any expense row exists, so the "Nuevo gasto" form can be pre-filled from the upload. */
+export function useExtractExpenseReceiptPreview() {
+  return useMutation({
+    mutationFn: async (file: File) => {
+      const fileBase64 = await fileToBase64(file);
+      const { data, error } = await supabase.functions.invoke('extract-expense-receipt-data', {
+        body: { fileBase64, mimeType: file.type, fileName: file.name },
+      });
+
+      if (error) {
+        let message: string | undefined;
+        const response = 'context' in error ? (error as { context?: unknown }).context : null;
+        if (response instanceof Response) {
+          const errorBody = await response.clone().json().catch(() => null);
+          message = errorBody?.error;
+        }
+        throw new Error(message || 'No se pudo extraer la información del justificante');
+      }
+
+      return data?.extracted as ExtractedReceiptData;
     },
     onError: (error: Error) => {
       toast.error(error.message);

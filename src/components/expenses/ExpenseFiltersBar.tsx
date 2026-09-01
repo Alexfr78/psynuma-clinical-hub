@@ -1,5 +1,6 @@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Icon } from '@/components/ui/icon';
 import { useAuth } from '@/hooks/useAuth';
 import { useExpenseCategories } from '@/hooks/useExpenseCategories';
 import { useSuppliers } from '@/hooks/useSuppliers';
@@ -13,6 +14,20 @@ interface ExpenseFiltersBarProps {
 
 const ALL = '__all__';
 
+const MONTH_LABEL_FORMATTER = new Intl.DateTimeFormat('es-ES', { month: 'long', year: 'numeric' });
+
+function shiftMonth(month: string, delta: number): string {
+  const [y, m] = month.split('-').map((v) => parseInt(v, 10));
+  const date = new Date(Date.UTC(y, m - 1 + delta, 1));
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
+}
+
+function formatMonthLabel(month: string): string {
+  const [y, m] = month.split('-').map((v) => parseInt(v, 10));
+  const label = MONTH_LABEL_FORMATTER.format(new Date(Date.UTC(y, m - 1, 1)));
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
 export function ExpenseFiltersBar({ filters, onChange }: ExpenseFiltersBarProps) {
   const { isAdmin } = useAuth();
   const { data: categories } = useExpenseCategories();
@@ -20,15 +35,35 @@ export function ExpenseFiltersBar({ filters, onChange }: ExpenseFiltersBarProps)
   const { data: professionals } = useProfessionalsWithRoles();
 
   const professionalOptions = (professionals ?? []).filter((p) => p.roles.includes('professional'));
+  const currentMonth = filters.month ?? new Date().toISOString().slice(0, 7);
 
   return (
     <div className="flex flex-wrap gap-2">
-      <Input
-        type="month"
-        value={filters.month ?? ''}
-        onChange={(e) => onChange({ ...filters, month: e.target.value || undefined })}
-        className="w-[160px]"
-      />
+      <div className="flex items-center gap-1 rounded-md border">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="h-9 w-9 shrink-0"
+          onClick={() => onChange({ ...filters, month: shiftMonth(currentMonth, -1) })}
+          title="Mes anterior"
+        >
+          <Icon name="chevron_left" className="h-4 w-4" />
+        </Button>
+        <span className="min-w-[120px] text-center text-sm font-medium capitalize">
+          {formatMonthLabel(currentMonth)}
+        </span>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="h-9 w-9 shrink-0"
+          onClick={() => onChange({ ...filters, month: shiftMonth(currentMonth, 1) })}
+          title="Mes siguiente"
+        >
+          <Icon name="chevron_right" className="h-4 w-4" />
+        </Button>
+      </div>
 
       <Select
         value={filters.categoryId ?? ALL}
