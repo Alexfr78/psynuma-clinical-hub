@@ -3,6 +3,13 @@ import { es } from 'date-fns/locale';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Icon } from '@/components/ui/icon';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
@@ -73,13 +80,15 @@ export function ExpenseList({ expenses, isLoading, onEdit, onDelete, onMarkPaid 
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Fecha</TableHead>
+            <TableHead className="w-[90px]">Fecha</TableHead>
             <TableHead>Descripción</TableHead>
-            <TableHead className="hidden md:table-cell">Categoría</TableHead>
-            <TableHead className="hidden lg:table-cell">Proveedor / Profesional</TableHead>
-            <TableHead className="text-right">Importe</TableHead>
-            <TableHead>Estado</TableHead>
-            <TableHead className="text-right">Acciones</TableHead>
+            <TableHead className="hidden md:table-cell w-[130px]">Categoría</TableHead>
+            <TableHead className="hidden lg:table-cell w-[170px]">Proveedor</TableHead>
+            <TableHead className="text-right w-[110px]">Importe</TableHead>
+            <TableHead className="w-[110px]">Estado</TableHead>
+            <TableHead className="w-10 text-right">
+              <span className="sr-only">Acciones</span>
+            </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -88,19 +97,19 @@ export function ExpenseList({ expenses, isLoading, onEdit, onDelete, onMarkPaid 
               <TableCell className="whitespace-nowrap">
                 {format(new Date(expense.expense_date), 'dd MMM yyyy', { locale: es })}
               </TableCell>
-              <TableCell className="max-w-[220px] truncate" title={expense.description}>
+              <TableCell className="max-w-[180px] truncate" title={expense.description}>
                 {expense.description}
                 <div className="text-xs text-muted-foreground md:hidden">{KIND_LABELS[expense.kind]}</div>
               </TableCell>
               <TableCell className="hidden md:table-cell">
                 {expense.category && (
-                  <span className="inline-flex items-center gap-1.5">
-                    <span className="h-2 w-2 rounded-full" style={{ backgroundColor: expense.category.color }} />
-                    {expense.category.name}
+                  <span className="inline-flex items-center gap-1.5 max-w-[130px] truncate" title={expense.category.name}>
+                    <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: expense.category.color }} />
+                    <span className="truncate">{expense.category.name}</span>
                   </span>
                 )}
               </TableCell>
-              <TableCell className="hidden lg:table-cell text-muted-foreground">
+              <TableCell className="hidden lg:table-cell max-w-[170px] truncate text-muted-foreground" title={expense.professional ? [expense.professional.first_name, expense.professional.last_name].filter(Boolean).join(' ') : expense.supplier?.name || undefined}>
                 {expense.professional
                   ? [expense.professional.first_name, expense.professional.last_name].filter(Boolean).join(' ')
                   : expense.supplier?.name || '—'}
@@ -123,35 +132,46 @@ export function ExpenseList({ expenses, isLoading, onEdit, onDelete, onMarkPaid 
                   // La RLS solo permite a un profesional no-admin editar sus
                   // gastos mientras siguen pendientes; el admin puede siempre.
                   const canEdit = isAdmin || (canManage && expense.status === 'pending');
+                  const canDelete = canManage && expense.status === 'pending' && expense.kind !== 'professional_payment';
+                  const hasActions = !!expense.attachment_path || (canManage && expense.status === 'pending') || canEdit || canDelete;
+                  if (!hasActions) return null;
                   return (
-                    <div className="flex justify-end gap-1">
-                      {expense.attachment_path && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          title={expense.drive_url ? 'Ver justificante en Google Drive' : 'Ver justificante'}
-                          onClick={() => handleViewReceipt(expense)}
-                        >
-                          <Icon name={expense.drive_url ? 'cloud_done' : 'attach_file'} className="h-4 w-4" />
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <Icon name="more_vert" className="h-4 w-4" />
                         </Button>
-                      )}
-                      {canManage && expense.status === 'pending' && (
-                        <Button variant="ghost" size="icon" className="h-8 w-8" title="Marcar como pagado" onClick={() => onMarkPaid(expense)}>
-                          <Icon name="check_circle" className="h-4 w-4 text-green-600" />
-                        </Button>
-                      )}
-                      {canEdit && (
-                        <Button variant="ghost" size="icon" className="h-8 w-8" title="Editar" onClick={() => onEdit(expense)}>
-                          <Icon name="edit" className="h-4 w-4" />
-                        </Button>
-                      )}
-                      {canManage && expense.status === 'pending' && expense.kind !== 'professional_payment' && (
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" title="Eliminar" onClick={() => onDelete(expense)}>
-                          <Icon name="delete" className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        {expense.attachment_path && (
+                          <DropdownMenuItem onClick={() => handleViewReceipt(expense)}>
+                            <Icon name={expense.drive_url ? 'cloud_done' : 'attach_file'} className="h-4 w-4 mr-2" />
+                            Ver justificante
+                          </DropdownMenuItem>
+                        )}
+                        {canManage && expense.status === 'pending' && (
+                          <DropdownMenuItem onClick={() => onMarkPaid(expense)}>
+                            <Icon name="check_circle" className="h-4 w-4 mr-2 text-green-600" />
+                            Marcar como pagado
+                          </DropdownMenuItem>
+                        )}
+                        {canEdit && (
+                          <DropdownMenuItem onClick={() => onEdit(expense)}>
+                            <Icon name="edit" className="h-4 w-4 mr-2" />
+                            Editar
+                          </DropdownMenuItem>
+                        )}
+                        {canDelete && (
+                          <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => onDelete(expense)} className="text-destructive focus:text-destructive">
+                              <Icon name="delete" className="h-4 w-4 mr-2" />
+                              Eliminar
+                            </DropdownMenuItem>
+                          </>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   );
                 })()}
               </TableCell>
