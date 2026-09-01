@@ -135,6 +135,44 @@ export async function createInvoice(
 
     console.log('Invoice created:', invoiceData.id);
 
+    // Cierra el evento facturable de la sesión para que la sesión no vuelva a
+    // aparecer como pendiente de facturar (y no se genere una segunda factura
+    // con su deuda pendiente).
+    let billableEventId: string | null = null;
+    if (linkedSessionId) {
+      try {
+        const { data: existingEvent } = await supabase
+          .from('billable_events')
+          .select('id')
+          .eq('session_id', linkedSessionId)
+          .maybeSingle();
+
+        if (existingEvent) {
+          billableEventId = existingEvent.id;
+          await supabase
+            .from('billable_events')
+            .update({ billing_status: 'invoiced', updated_at: new Date().toISOString() })
+            .eq('id', existingEvent.id);
+        } else {
+          const { data: newEvent } = await supabase
+            .from('billable_events')
+            .insert({
+              center_id: centerId,
+              patient_id: patientId,
+              session_id: linkedSessionId,
+              concept: description,
+              amount: subtotal,
+              billing_status: 'invoiced',
+            })
+            .select('id')
+            .single();
+          billableEventId = newEvent?.id ?? null;
+        }
+      } catch (billableError) {
+        console.error('Error linking billable event:', billableError);
+      }
+    }
+
     await supabase
       .from('invoice_items')
       .insert({
@@ -147,7 +185,9 @@ export async function createInvoice(
         total,
         session_id: linkedSessionId,
         bono_id: linkedBonoId,
+        billable_event_id: billableEventId,
       });
+
 
     await supabase
       .from('invoice_series')
