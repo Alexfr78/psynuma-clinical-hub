@@ -31,6 +31,8 @@ export interface DebtWithRelations extends Debt {
     id: string;
     invoice_number: string;
     is_valid?: boolean;
+    status?: string;
+
   } | null;
   sessions: {
     id: string;
