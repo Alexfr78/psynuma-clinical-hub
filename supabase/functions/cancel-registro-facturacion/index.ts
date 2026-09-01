@@ -532,11 +532,21 @@ async function logVerifactuEvent(supabase: SupabaseClient, eventData: {
 
 /**
  * Al anular una factura en AEAT, sus deudas asociadas dejan de ser exigibles.
- * Cancelamos las que no tengan cobros aplicados para que no queden como
- * "pendiente de cobro" en Psycma.
+ * Se marca la factura como no válida (is_valid=false, misma convención que las
+ * rectificativas) y sus deudas sin cobros se pasan a 'refunded' para que no
+ * sigan apareciendo como pendientes de cobro en Psycma.
  */
 async function cancelDebtsForCancelledInvoice(supabase: SupabaseClient, invoiceId: string) {
   try {
+    const { error: invalidateError } = await supabase
+      .from('invoices')
+      .update({ is_valid: false })
+      .eq('id', invoiceId);
+
+    if (invalidateError) {
+      console.error('[VERIFACTU:INVOICE] No se pudo invalidar la factura anulada:', invalidateError.message);
+    }
+
     const { data: debts, error } = await supabase
       .from('debts')
       .select('id, paid_amount')
@@ -555,7 +565,7 @@ async function cancelDebtsForCancelledInvoice(supabase: SupabaseClient, invoiceI
 
     const { error: updateError } = await supabase
       .from('debts')
-      .update({ status: 'cancelled' })
+      .update({ status: 'refunded' })
       .in('id', cancellableIds);
 
     if (updateError) {
@@ -565,6 +575,7 @@ async function cancelDebtsForCancelledInvoice(supabase: SupabaseClient, invoiceI
     console.error('[VERIFACTU:INVOICE] Excepción cancelando deudas de factura anulada:', err);
   }
 }
+
 
 
 
