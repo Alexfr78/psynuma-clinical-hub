@@ -62,7 +62,7 @@ export function useDebts(filters?: { patientId?: string; status?: string }) {
         .select(`
           *,
           patients (id, first_name, last_name, phone, email),
-          invoices (id, invoice_number, is_valid),
+          invoices (id, invoice_number, is_valid, status),
           sessions (id, session_date, session_type, bono_id, price, payment_status)
         `)
         .order('created_at', { ascending: false });
