@@ -80,17 +80,21 @@ export function useDebts(filters?: { patientId?: string; status?: string }) {
       const { data, error } = await query;
       if (error) throw error;
 
-      // Exclude debts whose invoice has been invalidated by a rectificativa.
-      // These debts should have status='refunded' from the RPC, but as a safety
-      // net we also filter client-side to prevent stale data from showing up
-      // as operational pending debts.
+      // Exclude debts whose invoice has been invalidated by a rectificativa or
+      // annulled in AEAT. These debts should already be marked as refunded, but
+      // as a safety net we also filter client-side to prevent stale data from
+      // showing up as operational pending debts.
       const debts = (data ?? []) as unknown as DebtWithRelations[];
       const filtered = debts.filter((debt) => {
         if (debt.invoices && debt.invoices.is_valid === false) {
           return false;
         }
+        if (debt.invoices && debt.invoices.status === 'cancelled') {
+          return false;
+        }
         return true;
       });
+
 
       return filtered;
     },
