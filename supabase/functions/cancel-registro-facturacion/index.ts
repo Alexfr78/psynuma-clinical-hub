@@ -678,6 +678,9 @@ serve(async (req) => {
         }
       }
 
+      await cancelDebtsForCancelledInvoice(supabase, invoice_id);
+
+
       return new Response(
         JSON.stringify({
           success: true,
