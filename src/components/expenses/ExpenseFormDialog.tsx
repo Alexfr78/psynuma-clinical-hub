@@ -298,7 +298,12 @@ export function ExpenseFormDialog({ open, onOpenChange, expense }: ExpenseFormDi
       // expense was created — record that so the receipt upload below
       // doesn't reset the status back to 'pending' and trigger a second,
       // redundant AI call.
-      ...(aiPreviewData ? { ai_extraction_status: 'done' as const, ai_extraction_raw: aiPreviewData } : {}),
+      ...(aiPreviewData
+        ? {
+            ai_extraction_status: 'done' as const,
+            ai_extraction_raw: aiPreviewData as unknown as Json,
+          }
+        : {}),
     };
 
     let expenseId: string;
