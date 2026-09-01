@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { toast } from 'sonner';
+import type { Json } from '@/integrations/supabase/types';
 
 export type ExpenseKind = 'fixed_recurring' | 'variable' | 'supplier_invoice' | 'professional_payment';
 export type ExpenseStatus = 'pending' | 'paid' | 'cancelled';
@@ -39,7 +40,7 @@ export interface Expense {
   drive_file_id: string | null;
   drive_url: string | null;
   ai_extraction_status: 'pending' | 'processing' | 'done' | 'failed' | null;
-  ai_extraction_raw: unknown;
+  ai_extraction_raw: Json;
   ai_extraction_confidence: number | null;
   notes: string | null;
   created_by: string | null;
@@ -73,7 +74,7 @@ export interface ExpenseInsert {
   payment_method?: string | null;
   notes?: string | null;
   ai_extraction_status?: 'pending' | 'processing' | 'done' | 'failed' | null;
-  ai_extraction_raw?: unknown;
+  ai_extraction_raw?: Json;
 }
 
 export interface ExpenseFilters {
