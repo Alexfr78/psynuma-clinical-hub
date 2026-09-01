@@ -5,7 +5,9 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Skeleton } from '@/components/ui/skeleton';
+import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
 import type { ExpenseKind, ExpenseStatus, ExpenseWithRelations } from '@/hooks/useExpenses';
 
 interface ExpenseListProps {
@@ -28,6 +30,22 @@ function StatusBadge({ status }: { status: ExpenseStatus }) {
   if (status === 'cancelled') return <Badge variant="secondary">Cancelado</Badge>;
   return <Badge variant="outline" className="border-amber-500 text-amber-600">Pendiente</Badge>;
 }
+
+const handleViewReceipt = async (expense: ExpenseWithRelations) => {
+  if (expense.drive_url) {
+    window.open(expense.drive_url, '_blank', 'noopener,noreferrer');
+    return;
+  }
+  if (!expense.attachment_path) return;
+  const { data, error } = await supabase.storage
+    .from('expense-receipts')
+    .createSignedUrl(expense.attachment_path, 60 * 5);
+  if (error || !data?.signedUrl) {
+    toast.error('No se pudo abrir el justificante');
+    return;
+  }
+  window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
+};
 
 export function ExpenseList({ expenses, isLoading, onEdit, onDelete, onMarkPaid }: ExpenseListProps) {
   const { isAdmin } = useAuth();
@@ -107,6 +125,17 @@ export function ExpenseList({ expenses, isLoading, onEdit, onDelete, onMarkPaid 
                   const canEdit = isAdmin || (canManage && expense.status === 'pending');
                   return (
                     <div className="flex justify-end gap-1">
+                      {expense.attachment_path && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          title={expense.drive_url ? 'Ver justificante en Google Drive' : 'Ver justificante'}
+                          onClick={() => handleViewReceipt(expense)}
+                        >
+                          <Icon name={expense.drive_url ? 'cloud_done' : 'attach_file'} className="h-4 w-4" />
+                        </Button>
+                      )}
                       {canManage && expense.status === 'pending' && (
                         <Button variant="ghost" size="icon" className="h-8 w-8" title="Marcar como pagado" onClick={() => onMarkPaid(expense)}>
                           <Icon name="check_circle" className="h-4 w-4 text-green-600" />

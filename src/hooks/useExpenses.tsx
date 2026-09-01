@@ -36,6 +36,8 @@ export interface Expense {
   paid_amount: number;
   attachment_path: string | null;
   attachment_mime_type: string | null;
+  drive_file_id: string | null;
+  drive_url: string | null;
   ai_extraction_status: 'pending' | 'processing' | 'done' | 'failed' | null;
   ai_extraction_raw: unknown;
   ai_extraction_confidence: number | null;
@@ -288,6 +290,19 @@ export function useUploadExpenseReceipt() {
       queryClient.invalidateQueries({ queryKey: ['expense', variables.expenseId] });
       queryClient.invalidateQueries({ queryKey: ['expenses'] });
       toast.success('Justificante subido');
+
+      // Best-effort backup to the center's Google Drive (if connected) — a
+      // no-op when Drive isn't set up, so failures here never block the
+      // expense from being saved.
+      supabase.functions
+        .invoke('upload-expense-receipt-to-drive', { body: { expense_id: variables.expenseId } })
+        .then(() => {
+          queryClient.invalidateQueries({ queryKey: ['expense', variables.expenseId] });
+          queryClient.invalidateQueries({ queryKey: ['expenses'] });
+        })
+        .catch((driveError) => {
+          console.error('[useUploadExpenseReceipt] Drive backup failed:', driveError);
+        });
     },
     onError: (error: Error) => {
       toast.error('Error al subir el justificante: ' + error.message);
