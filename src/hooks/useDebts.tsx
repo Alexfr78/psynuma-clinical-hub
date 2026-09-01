@@ -31,6 +31,8 @@ export interface DebtWithRelations extends Debt {
     id: string;
     invoice_number: string;
     is_valid?: boolean;
+    status?: string;
+
   } | null;
   sessions: {
     id: string;
@@ -62,7 +64,7 @@ export function useDebts(filters?: { patientId?: string; status?: string }) {
         .select(`
           *,
           patients (id, first_name, last_name, phone, email),
-          invoices (id, invoice_number, is_valid),
+          invoices (id, invoice_number, is_valid, status),
           sessions (id, session_date, session_type, bono_id, price, payment_status)
         `)
         .order('created_at', { ascending: false });
@@ -80,17 +82,21 @@ export function useDebts(filters?: { patientId?: string; status?: string }) {
       const { data, error } = await query;
       if (error) throw error;
 
-      // Exclude debts whose invoice has been invalidated by a rectificativa.
-      // These debts should have status='refunded' from the RPC, but as a safety
-      // net we also filter client-side to prevent stale data from showing up
-      // as operational pending debts.
+      // Exclude debts whose invoice has been invalidated by a rectificativa or
+      // annulled in AEAT. These debts should already be marked as refunded, but
+      // as a safety net we also filter client-side to prevent stale data from
+      // showing up as operational pending debts.
       const debts = (data ?? []) as unknown as DebtWithRelations[];
       const filtered = debts.filter((debt) => {
         if (debt.invoices && debt.invoices.is_valid === false) {
           return false;
         }
+        if (debt.invoices && debt.invoices.status === 'cancelled') {
+          return false;
+        }
         return true;
       });
+
 
       return filtered;
     },

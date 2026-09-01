@@ -151,7 +151,7 @@ export async function createInvoice(
           billableEventId = existingEvent.id;
           await supabase
             .from('billable_events')
-            .update({ billing_status: 'invoiced', updated_at: new Date().toISOString() })
+            .update({ billing_status: 'settled', updated_at: new Date().toISOString() })
             .eq('id', existingEvent.id);
         } else {
           const { data: newEvent } = await supabase
@@ -162,7 +162,7 @@ export async function createInvoice(
               session_id: linkedSessionId,
               concept: description,
               amount: subtotal,
-              billing_status: 'invoiced',
+              billing_status: 'settled',
             })
             .select('id')
             .single();
