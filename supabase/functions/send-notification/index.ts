@@ -13,6 +13,16 @@ const corsHeaders = {
 interface NotificationRequest {
   notificationId?: string;
   processScheduled?: boolean;
+  // Optional structured data for the pre-approved "recordatorio_cita_psycma" WhatsApp
+  // template. When present, business-initiated WhatsApp messages sent via Meta API use
+  // the template instead of free-form text, since free text outside the 24h customer
+  // service window is silently dropped by WhatsApp.
+  templateParams?: {
+    patientFirstName: string;
+    centerName: string;
+    formattedDate: string;
+    formattedTime: string;
+  };
 }
 
 interface CenterWhatsAppConfig {
@@ -328,6 +338,73 @@ async function sendWhatsAppViaWasender(
   }
 }
 
+// Send WhatsApp via Meta API using the pre-approved "recordatorio_cita_psycma" template.
+// Use this instead of free-form text whenever the message is business-initiated (the
+// clinic starting the conversation) rather than a reply inside an open 24h window.
+async function sendWhatsAppTemplateViaMetaAPI(
+  phone: string,
+  templateParams: { patientFirstName: string; centerName: string; formattedDate: string; formattedTime: string },
+  accessToken: string,
+  phoneNumberId: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const cleanPhone = normalizePhoneES(phone);
+
+    console.log(`[send-notification] Sending WhatsApp template via Meta API to ${cleanPhone}`);
+
+    const response = await fetch(
+      `https://graph.facebook.com/v18.0/${phoneNumberId}/messages`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messaging_product: 'whatsapp',
+          recipient_type: 'individual',
+          to: cleanPhone,
+          type: 'template',
+          template: {
+            name: 'recordatorio_cita_psycma',
+            language: { code: 'es' },
+            components: [
+              {
+                type: 'body',
+                parameters: [
+                  { type: 'text', text: templateParams.patientFirstName },
+                  { type: 'text', text: templateParams.centerName },
+                  { type: 'text', text: templateParams.formattedDate },
+                  { type: 'text', text: templateParams.formattedTime },
+                ],
+              },
+            ],
+          },
+        })
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error('[send-notification] Meta API template error:', data);
+      return {
+        success: false,
+        error: data.error?.message || `API Error: ${response.status}`
+      };
+    }
+
+    console.log('[send-notification] WhatsApp template sent successfully via Meta API:', data);
+    return { success: true };
+  } catch (error) {
+    console.error('[send-notification] Error sending WhatsApp template via Meta API:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
+  }
+}
+
 // Send WhatsApp via Meta API
 async function sendWhatsAppViaMetaAPI(
   phone: string,
@@ -394,7 +471,7 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
-    const { notificationId, processScheduled } = await req.json() as NotificationRequest;
+    const { notificationId, processScheduled, templateParams } = await req.json() as NotificationRequest;
 
     console.log(`[send-notification] Request received:`, { notificationId, processScheduled });
 
@@ -549,12 +626,23 @@ serve(async (req) => {
               // Decrypt the access token
               const accessToken = await decryptSecret(encryptedToken);
 
-              const apiResult = await sendWhatsAppViaMetaAPI(
-                notification.recipient,
-                notification.message,
-                accessToken,
-                phoneNumberId
-              );
+              // Business-initiated messages (this is not a reply inside an open 24h
+              // window) must go through an approved template, or WhatsApp silently
+              // drops them. Use the template whenever the caller supplied the
+              // structured params for it; otherwise fall back to free-form text.
+              const apiResult = templateParams
+                ? await sendWhatsAppTemplateViaMetaAPI(
+                    notification.recipient,
+                    templateParams,
+                    accessToken,
+                    phoneNumberId
+                  )
+                : await sendWhatsAppViaMetaAPI(
+                    notification.recipient,
+                    notification.message,
+                    accessToken,
+                    phoneNumberId
+                  );
 
               success = apiResult.success;
               errorMessage = apiResult.error || null;

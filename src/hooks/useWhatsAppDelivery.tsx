@@ -109,6 +109,10 @@ export function useWhatsAppDelivery() {
     patientId: string;
     sessionId?: string;
     centerId: string;
+    // Structured data for the approved "recordatorio_cita_psycma" template. Required
+    // for business-initiated messages (this clinic starting the conversation) since
+    // WhatsApp silently drops free-form text sent outside an open 24h window.
+    templateParams?: { patientFirstName: string; centerName: string; formattedDate: string; formattedTime: string };
   }): Promise<WhatsAppDeliveryResult> => {
     try {
       // Create notification record
@@ -132,7 +136,7 @@ export function useWhatsAppDelivery() {
 
       // Invoke send-notification edge function
       const { error: sendError } = await supabase.functions.invoke('send-notification', {
-        body: { notificationId: notification.id },
+        body: { notificationId: notification.id, templateParams: params.templateParams },
       });
 
       if (sendError) {
@@ -160,6 +164,7 @@ export function useWhatsAppDelivery() {
     sessionId?: string;
     centerId: string;
     messageType?: string;
+    templateParams?: { patientFirstName: string; centerName: string; formattedDate: string; formattedTime: string };
   }): Promise<{
     result: WhatsAppDeliveryResult;
     manualLink?: string;
@@ -219,6 +224,7 @@ export function useWhatsAppDelivery() {
         patientId: params.patientId,
         sessionId: params.sessionId,
         centerId: params.centerId,
+        templateParams: params.templateParams,
       });
 
       if (result.autoSent) {

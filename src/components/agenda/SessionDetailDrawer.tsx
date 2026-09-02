@@ -1994,6 +1994,12 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                           sessionId: session.id,
                           centerId: center.id,
                           messageType: 'notification',
+                          templateParams: {
+                            patientFirstName,
+                            centerName: center.name || '',
+                            formattedDate: sessionDate,
+                            formattedTime: sessionTime,
+                          },
                         });
 
                         // Manual fallback: open WhatsApp using configured-friendly behavior
