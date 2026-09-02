@@ -16,6 +16,10 @@ export type DayScheduleInput = {
   weeklyWindows: Interval[];
   specialWindows: Interval[];
   locationWindows: Interval[] | null;
+  // Restricción opcional por servicio (tipo de sesión). null = sin restricción
+  // (comportamiento por defecto, ningún tipo de sesión tiene horario propio).
+  // [] = ese día está cerrado para este servicio. [intervals] = solo esas franjas.
+  serviceWindows?: Interval[] | null;
   busy: BusyBlock[];
 };
 
@@ -114,9 +118,11 @@ export function resolveBase(
   }
 }
 
-// null = sin restricción de ubicación (salta intersección).
-// [] = ubicación cerrada → día sin disponibilidad.
+// null = sin restricción (ubicación o servicio) → salta intersección.
+// [] = cerrado → día sin disponibilidad.
 // [intervals] = intersección normal.
+// Misma función que la restricción por ubicación se reutiliza para la
+// restricción opcional por servicio (tipo de sesión).
 export function applyLocation(
   base: Interval[],
   loc: Interval[] | null,
@@ -187,7 +193,9 @@ export function resolveDayAvailability(
   if (base.length === 0) return [];
   const withLoc = applyLocation(base, input.locationWindows);
   if (withLoc.length === 0) return [];
-  const free = subtract(withLoc, input.busy);
+  const withService = applyLocation(withLoc, input.serviceWindows ?? null);
+  if (withService.length === 0) return [];
+  const free = subtract(withService, input.busy);
   if (free.length === 0) return [];
   return generateSlots(free, cfg);
 }

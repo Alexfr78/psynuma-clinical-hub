@@ -860,12 +860,39 @@ serve(async (req) => {
 
       // Weekly availability (puede estar vacío: un special_day custom/extended
       // puede generar slots aunque no haya horario semanal para ese day_of_week).
+      // session_type_id is null → franjas generales del profesional (no restringidas a un servicio).
       const { data: profAvailability } = await supabase
         .from("availability")
         .select("start_time, end_time")
         .eq("professional_id", finalProfessionalId)
         .eq("day_of_week", dayOfWeek)
-        .eq("is_available", true);
+        .eq("is_available", true)
+        .is("session_type_id", null);
+
+      // Restricción opcional por tipo de sesión: si el profesional tiene ALGUNA
+      // franja específica para este servicio (en cualquier día), solo esos días
+      // quedan abiertos para él. Si no tiene ninguna, no hay restricción.
+      const { data: serviceAvailabilityAnyDay } = await supabase
+        .from("availability")
+        .select("id")
+        .eq("professional_id", finalProfessionalId)
+        .eq("session_type_id", sessionTypeId)
+        .eq("is_available", true)
+        .limit(1);
+
+      const hasServiceOverride = (serviceAvailabilityAnyDay?.length ?? 0) > 0;
+
+      const serviceAvailability = hasServiceOverride
+        ? (
+            await supabase
+              .from("availability")
+              .select("start_time, end_time")
+              .eq("professional_id", finalProfessionalId)
+              .eq("session_type_id", sessionTypeId)
+              .eq("day_of_week", dayOfWeek)
+              .eq("is_available", true)
+          ).data
+        : null;
 
       // Location schedule (límite duro: si no hay registro abierto, sin slots).
       const { data: locationSchedules } = await supabase
@@ -930,6 +957,7 @@ serve(async (req) => {
         isPublicContext: true,
         weeklyAvailability: profAvailability ?? [],
         locationSchedules: locationSchedules ?? [],
+        serviceAvailability,
         specialDays: (specialDays as unknown as RawSpecialDay[]) ?? [],
         scheduleExceptions: (scheduleExceptions as RawScheduleException[]) ?? [],
         sessions: (existingSessions as RawSession[]) ?? [],
@@ -1105,17 +1133,33 @@ serve(async (req) => {
 
       // Cache de availability/location_schedules por day_of_week.
       const availabilityByDow: Record<number, { start_time: string; end_time: string }[]> = {};
+      const serviceAvailabilityByDow: Record<number, { start_time: string; end_time: string }[]> = {};
       const locationSchedulesByDow: Record<number, { start_time: string; end_time: string; is_open: boolean | null }[]> = {};
 
       const { data: allAvailability } = await supabase
         .from("availability")
         .select("day_of_week, start_time, end_time")
         .eq("professional_id", finalProfessionalId)
-        .eq("is_available", true);
+        .eq("is_available", true)
+        .is("session_type_id", null);
 
       for (const a of allAvailability || []) {
         if (!availabilityByDow[a.day_of_week]) availabilityByDow[a.day_of_week] = [];
         availabilityByDow[a.day_of_week].push({ start_time: a.start_time, end_time: a.end_time });
+      }
+
+      // Restricción opcional por tipo de sesión (ver comentario en get-availability).
+      const { data: allServiceAvailability } = await supabase
+        .from("availability")
+        .select("day_of_week, start_time, end_time")
+        .eq("professional_id", finalProfessionalId)
+        .eq("session_type_id", sessionTypeId)
+        .eq("is_available", true);
+
+      const hasServiceOverride = (allServiceAvailability?.length ?? 0) > 0;
+      for (const a of allServiceAvailability || []) {
+        if (!serviceAvailabilityByDow[a.day_of_week]) serviceAvailabilityByDow[a.day_of_week] = [];
+        serviceAvailabilityByDow[a.day_of_week].push({ start_time: a.start_time, end_time: a.end_time });
       }
 
       const { data: allLocationSchedules } = await supabase
@@ -1170,6 +1214,7 @@ serve(async (req) => {
           isPublicContext: true,
           weeklyAvailability: availabilityByDow[dayOfWeek] || [],
           locationSchedules: locationSchedulesByDow[dayOfWeek] || [],
+          serviceAvailability: hasServiceOverride ? (serviceAvailabilityByDow[dayOfWeek] || []) : null,
           specialDays: (monthSpecialDays as unknown as RawSpecialDay[]) ?? [],
           scheduleExceptions: (monthExceptions as RawScheduleException[]) ?? [],
           sessions: (sessionsByDate[dateStr] || []) as RawSession[],
@@ -1365,7 +1410,8 @@ serve(async (req) => {
         .select("start_time, end_time")
         .eq("professional_id", finalProfessionalId)
         .eq("day_of_week", dayOfWeek)
-        .eq("is_available", true);
+        .eq("is_available", true)
+        .is("session_type_id", null);
 
       const profAvailable = profAvailability?.some(slot => {
         const profStart = timeToMinutes(slot.start_time);
@@ -1378,6 +1424,38 @@ serve(async (req) => {
           JSON.stringify({ error: "Ese horario ya no está disponible. Por favor, elige otro." }),
           { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
+      }
+
+      // Check service-specific availability override (ej. "Supervisión" solo L/V).
+      const { data: serviceAvailabilityAnyDayForBooking } = await supabase
+        .from("availability")
+        .select("id")
+        .eq("professional_id", finalProfessionalId)
+        .eq("session_type_id", sessionTypeId)
+        .eq("is_available", true)
+        .limit(1);
+
+      if ((serviceAvailabilityAnyDayForBooking?.length ?? 0) > 0) {
+        const { data: serviceAvailabilityForBooking } = await supabase
+          .from("availability")
+          .select("start_time, end_time")
+          .eq("professional_id", finalProfessionalId)
+          .eq("session_type_id", sessionTypeId)
+          .eq("day_of_week", dayOfWeek)
+          .eq("is_available", true);
+
+        const serviceAvailable = serviceAvailabilityForBooking?.some(slot => {
+          const svcStart = timeToMinutes(slot.start_time);
+          const svcEnd = timeToMinutes(slot.end_time);
+          return slotStartMinutes >= svcStart && slotEndMinutes <= svcEnd;
+        });
+
+        if (!serviceAvailable) {
+          return new Response(
+            JSON.stringify({ error: "Ese horario ya no está disponible para este tipo de sesión. Por favor, elige otro." }),
+            { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
       }
 
       // Check location schedule
@@ -2339,7 +2417,8 @@ serve(async (req) => {
         .select("start_time, end_time")
         .eq("professional_id", session.professional_id)
         .eq("day_of_week", dayOfWeek)
-        .eq("is_available", true);
+        .eq("is_available", true)
+        .is("session_type_id", null);
 
       const profAvailable = profAvailability?.some(slot => {
         const profStart = timeToMinutes(slot.start_time);
@@ -2352,6 +2431,40 @@ serve(async (req) => {
           JSON.stringify({ error: "Ese horario ya no está disponible" }),
           { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
+      }
+
+      // Check service-specific availability override (ej. "Supervisión" solo L/V).
+      if (session.session_type_id) {
+        const { data: serviceAvailabilityAnyDayForReschedule } = await supabase
+          .from("availability")
+          .select("id")
+          .eq("professional_id", session.professional_id)
+          .eq("session_type_id", session.session_type_id)
+          .eq("is_available", true)
+          .limit(1);
+
+        if ((serviceAvailabilityAnyDayForReschedule?.length ?? 0) > 0) {
+          const { data: serviceAvailabilityForReschedule } = await supabase
+            .from("availability")
+            .select("start_time, end_time")
+            .eq("professional_id", session.professional_id)
+            .eq("session_type_id", session.session_type_id)
+            .eq("day_of_week", dayOfWeek)
+            .eq("is_available", true);
+
+          const serviceAvailable = serviceAvailabilityForReschedule?.some(slot => {
+            const svcStart = timeToMinutes(slot.start_time);
+            const svcEnd = timeToMinutes(slot.end_time);
+            return slotStartMinutes >= svcStart && slotEndMinutes <= svcEnd;
+          });
+
+          if (!serviceAvailable) {
+            return new Response(
+              JSON.stringify({ error: "Ese horario ya no está disponible para este tipo de sesión" }),
+              { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+        }
       }
 
       // Check location schedule

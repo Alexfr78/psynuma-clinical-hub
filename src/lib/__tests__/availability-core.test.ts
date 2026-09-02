@@ -129,6 +129,42 @@ describe("resolveDayAvailability", () => {
     expect(starts(input)).toEqual([min(16), min(17), min(18)]);
   });
 
+  it("caso 8: serviceWindows null → ignora restricción de servicio", () => {
+    const input: DayScheduleInput = {
+      mode: "weekly",
+      weeklyWindows: [{ startMin: min(10), endMin: min(14) }],
+      specialWindows: [],
+      locationWindows: null,
+      serviceWindows: null,
+      busy: [],
+    };
+    expect(starts(input)).toEqual([min(10), min(11), min(12), min(13)]);
+  });
+
+  it("caso 9: serviceWindows = [] → día cerrado para este servicio", () => {
+    const input: DayScheduleInput = {
+      mode: "weekly",
+      weeklyWindows: [{ startMin: min(10), endMin: min(14) }],
+      specialWindows: [],
+      locationWindows: null,
+      serviceWindows: [],
+      busy: [],
+    };
+    expect(starts(input)).toEqual([]);
+  });
+
+  it("caso 10: serviceWindows acota dentro de weekly y location", () => {
+    const input: DayScheduleInput = {
+      mode: "weekly",
+      weeklyWindows: [{ startMin: min(9), endMin: min(18) }],
+      specialWindows: [],
+      locationWindows: [{ startMin: min(9), endMin: min(21) }],
+      serviceWindows: [{ startMin: min(10), endMin: min(12) }],
+      busy: [],
+    };
+    expect(starts(input)).toEqual([min(10), min(11)]);
+  });
+
   it("marca slots ancla (leftGap=0, rightGap=0) como isOptimal", () => {
     const input: DayScheduleInput = {
       mode: "weekly",

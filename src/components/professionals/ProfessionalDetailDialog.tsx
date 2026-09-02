@@ -30,6 +30,7 @@ import {
   useDeleteAvailability,
   type Profile,
 } from '@/hooks/useProfessionals';
+import { useSessionTypes } from '@/hooks/useSessionTypes';
 import {
   Select,
   SelectContent,
@@ -76,14 +77,18 @@ export function ProfessionalDetailDialog({
 }: ProfessionalDetailDialogProps) {
   const { data: professional, isLoading } = useProfessional(professionalId);
   const { data: availability = [] } = useProfessionalAvailability(professionalId);
+  const { data: sessionTypes = [] } = useSessionTypes();
   const updateProfessional = useUpdateProfessional();
   const createAvailability = useCreateAvailability();
   const deleteAvailability = useDeleteAvailability();
+
+  const ALL_SESSION_TYPES = 'all';
 
   const [newSlot, setNewSlot] = useState({
     day_of_week: 1,
     start_time: '09:00',
     end_time: '18:00',
+    session_type_id: ALL_SESSION_TYPES,
   });
 
   const form = useForm<ProfileFormValues>({
@@ -139,6 +144,8 @@ export function ProfessionalDetailDialog({
         start_time: newSlot.start_time,
         end_time: newSlot.end_time,
         is_available: true,
+        session_type_id:
+          newSlot.session_type_id === ALL_SESSION_TYPES ? null : newSlot.session_type_id,
       });
       toast.success('Horario añadido');
     } catch (error) {
@@ -366,6 +373,26 @@ export function ProfessionalDetailDialog({
                       }
                       className="w-[120px]"
                     />
+                    <Select
+                      value={newSlot.session_type_id}
+                      onValueChange={(value) =>
+                        setNewSlot({ ...newSlot, session_type_id: value })
+                      }
+                    >
+                      <SelectTrigger className="w-[200px]">
+                        <SelectValue placeholder="Tipo de sesión" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={ALL_SESSION_TYPES}>
+                          Todos los tipos de sesión
+                        </SelectItem>
+                        {sessionTypes.map((st) => (
+                          <SelectItem key={st.id} value={st.id}>
+                            {st.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <Button
                       onClick={handleAddSlot}
                       disabled={createAvailability.isPending}
@@ -378,6 +405,10 @@ export function ProfessionalDetailDialog({
                       )}
                     </Button>
                   </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Si eliges un tipo de sesión concreto, ese servicio solo estará disponible en los días
+                    y horas que configures aquí — el resto de tipos de sesión no se ven afectados.
+                  </p>
                 </CardContent>
               </Card>
 
@@ -401,8 +432,14 @@ export function ProfessionalDetailDialog({
                               key={slot.id}
                               className="flex items-center justify-between rounded-md bg-muted px-3 py-2"
                             >
-                              <span className="text-sm">
+                              <span className="text-sm flex items-center gap-2">
                                 {slot.start_time.slice(0, 5)} - {slot.end_time.slice(0, 5)}
+                                {slot.session_type_id && (
+                                  <span className="text-xs rounded-full bg-primary/10 text-primary px-2 py-0.5">
+                                    {sessionTypes.find((st) => st.id === slot.session_type_id)?.name ??
+                                      'Tipo eliminado'}
+                                  </span>
+                                )}
                               </span>
                               <Button
                                 variant="ghost"

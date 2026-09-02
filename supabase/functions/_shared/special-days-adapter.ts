@@ -13,6 +13,9 @@ export const APP_TZ = "Europe/Madrid";
 // ── Tipos crudos esperados (mínimos) ──────────────────────────────
 
 export type RawAvailability = { start_time: string; end_time: string };
+// Franjas de disponibilidad restringidas a un tipo de sesión concreto para el
+// día ya resuelto (professional_id + session_type_id + day_of_week, is_available=true).
+export type RawServiceAvailability = { start_time: string; end_time: string };
 export type RawLocationSchedule = {
   start_time: string;
   end_time: string;
@@ -239,6 +242,25 @@ export function buildLocationWindows(
   }));
 }
 
+// ── Construcción de service windows (restricción por tipo de sesión) ─────
+
+// rows = null → el profesional no tiene ninguna franja específica para este
+//        tipo de sesión (en ningún día) → sin restricción, hereda el horario
+//        general (comportamiento actual).
+// rows = []   → tiene franjas específicas para este tipo de sesión en OTROS
+//        días, pero ninguna para el día resuelto → cerrado ese día.
+// rows = [..] → franjas abiertas para ese día (ya filtradas por
+//        professional_id + session_type_id + day_of_week + is_available=true).
+export function buildServiceWindows(
+  rows: RawServiceAvailability[] | null,
+): Interval[] | null {
+  if (rows === null) return null;
+  return rows.map((r) => ({
+    startMin: timeToMinutes(r.start_time),
+    endMin: timeToMinutes(r.end_time),
+  }));
+}
+
 // ── Builder principal ─────────────────────────────────────────────
 
 export type BuildDayInputArgs = {
@@ -247,6 +269,9 @@ export type BuildDayInputArgs = {
   isPublicContext: boolean; // true para portales anon (aplica affects_public_booking)
   weeklyAvailability: RawAvailability[]; // ya filtrado por day_of_week + is_available
   locationSchedules: RawLocationSchedule[] | null; // ya filtrado por day_of_week
+  // ya filtrado por professional_id + session_type_id + day_of_week + is_available.
+  // null = el profesional no tiene ninguna franja para ese tipo de sesión (sin restricción).
+  serviceAvailability?: RawServiceAvailability[] | null;
   specialDays: RawSpecialDay[]; // ya filtrado por rango de fecha
   scheduleExceptions: RawScheduleException[];
   sessions: RawSession[];
@@ -280,6 +305,7 @@ export function buildDayScheduleInput(args: BuildDayInputArgs): DayScheduleInput
   }
 
   const locationWindows = buildLocationWindows(args.locationSchedules);
+  const serviceWindows = buildServiceWindows(args.serviceAvailability ?? null);
 
   const busy: BusyBlock[] = [
     ...sessionsToBusy(args.sessions),
@@ -291,5 +317,5 @@ export function buildDayScheduleInput(args: BuildDayInputArgs): DayScheduleInput
     ),
   ];
 
-  return { mode, weeklyWindows, specialWindows, locationWindows, busy };
+  return { mode, weeklyWindows, specialWindows, locationWindows, serviceWindows, busy };
 }
