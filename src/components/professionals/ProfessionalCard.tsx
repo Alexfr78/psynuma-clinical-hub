@@ -33,7 +33,7 @@ export function ProfessionalCard({ professional, onClick }: ProfessionalCardProp
       aria-label={`Ver ficha de ${fullName || 'profesional'}`}
     >
       <CardHeader className="pb-3">
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
             <Avatar className="h-12 w-12">
               <AvatarImage src={professional.avatar_url || undefined} alt="" />
