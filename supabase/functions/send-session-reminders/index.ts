@@ -233,10 +233,15 @@ async function sendEmailViaResend(
   }
 }
 
-// Send WhatsApp via Meta API
-async function sendWhatsAppViaMetaAPI(
+// Send WhatsApp appointment reminder via Meta's pre-approved "recordatorio_cita_psycma"
+// template. Required because business-initiated messages outside the 24h customer
+// service window are silently dropped by WhatsApp when sent as free-form text.
+async function sendWhatsAppReminderTemplateViaMetaAPI(
   phone: string,
-  message: string,
+  patientFirstName: string,
+  centerName: string,
+  formattedDate: string,
+  formattedTime: string,
   accessToken: string,
   phoneNumberId: string
 ): Promise<{ success: boolean; error?: string }> {
@@ -258,9 +263,23 @@ async function sendWhatsAppViaMetaAPI(
           messaging_product: 'whatsapp',
           recipient_type: 'individual',
           to: cleanPhone,
-          type: 'text',
-          text: { preview_url: false, body: message }
-        })
+          type: 'template',
+          template: {
+            name: 'recordatorio_cita_psycma',
+            language: { code: 'es' },
+            components: [
+              {
+                type: 'body',
+                parameters: [
+                  { type: 'text', text: patientFirstName },
+                  { type: 'text', text: centerName },
+                  { type: 'text', text: formattedDate },
+                  { type: 'text', text: formattedTime },
+                ],
+              },
+            ],
+          },
+        }),
       }
     );
 
@@ -766,11 +785,17 @@ serve(async (req) => {
             const sendMethod = center.whatsapp_send_method || 'web';
             
             if (sendMethod === 'api' && center.whatsapp_access_token && center.whatsapp_phone_number_id) {
-              console.log(`Sending WhatsApp reminder via Meta API to patient ${patient.id} for session ${session.id}`);
+              console.log(`Sending WhatsApp reminder via Meta API (template) to patient ${patient.id} for session ${session.id}`);
               const decryptedToken = await decryptSecret(center.whatsapp_access_token);
-              const metaResult = await sendWhatsAppViaMetaAPI(
+              // Reminders are business-initiated and usually happen outside any open
+              // 24h conversation window, so they must go through an approved template
+              // rather than free-form text (see sendWhatsAppReminderTemplateViaMetaAPI).
+              const metaResult = await sendWhatsAppReminderTemplateViaMetaAPI(
                 patient.phone,
-                whatsappMessage,
+                patient.first_name,
+                center.name,
+                formatDate(session.session_date),
+                formatTime(session.start_time),
                 decryptedToken,
                 center.whatsapp_phone_number_id
               );
