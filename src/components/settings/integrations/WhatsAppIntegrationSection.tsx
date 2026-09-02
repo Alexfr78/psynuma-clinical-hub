@@ -219,7 +219,7 @@ export function WhatsAppIntegrationSection() {
     }
     
     if (sendMethod === 'api') {
-      if (accessToken || integrations?.whatsapp_access_token) {
+      if (accessToken || center?.whatsapp_access_token) {
         return (
           <Badge variant="outline" className="gap-1 text-green-600 border-green-200 bg-green-50">
             <Icon name="check_circle" className="h-3 w-3" />
@@ -636,7 +636,7 @@ export function WhatsAppIntegrationSection() {
                     type={showToken ? "text" : "password"}
                     value={accessToken}
                     onChange={(e) => setAccessToken(e.target.value)}
-                    placeholder={integrations?.whatsapp_access_token ? "••••••••• (token guardado)" : "EAAxxxxxxx..."}
+                    placeholder={center?.whatsapp_access_token ? "••••••••• (token guardado)" : "EAAxxxxxxx..."}
                     className="pr-10"
                   />
                   <Button
