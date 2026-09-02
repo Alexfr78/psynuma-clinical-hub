@@ -955,7 +955,6 @@ export type Database = {
           id: string
           is_available: boolean | null
           professional_id: string
-          session_type_id: string | null
           start_time: string
           updated_at: string
         }
@@ -966,7 +965,6 @@ export type Database = {
           id?: string
           is_available?: boolean | null
           professional_id: string
-          session_type_id?: string | null
           start_time: string
           updated_at?: string
         }
@@ -977,7 +975,6 @@ export type Database = {
           id?: string
           is_available?: boolean | null
           professional_id?: string
-          session_type_id?: string | null
           start_time?: string
           updated_at?: string
         }
@@ -994,13 +991,6 @@ export type Database = {
             columns: ["professional_id"]
             isOneToOne: false
             referencedRelation: "profiles_public"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "availability_session_type_id_fkey"
-            columns: ["session_type_id"]
-            isOneToOne: false
-            referencedRelation: "session_types"
             referencedColumns: ["id"]
           },
         ]
