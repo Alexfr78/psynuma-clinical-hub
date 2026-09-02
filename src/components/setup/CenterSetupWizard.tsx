@@ -75,7 +75,10 @@ export function CenterSetupWizard() {
       await refreshProfile();
     } catch (error: unknown) {
       console.error('Setup error:', error);
-      const message = error instanceof Error ? error.message : '';
+      const message =
+        typeof error === 'object' && error !== null && 'message' in error
+          ? String((error as { message?: string }).message ?? '')
+          : '';
       toast({
         title: 'Error',
         description: message || 'No se pudo configurar el centro. Por favor, inténtalo de nuevo.',
