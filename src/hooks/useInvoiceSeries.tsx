@@ -52,9 +52,8 @@ export function useInvoiceSeries(showArchived: boolean = false) {
         .order('series_type')
         .order('name');
 
-      if (!showArchived) {
-        query = query.eq('is_archived', false);
-      }
+      query = query.eq('is_archived', showArchived);
+
 
       const { data, error } = await query;
 
