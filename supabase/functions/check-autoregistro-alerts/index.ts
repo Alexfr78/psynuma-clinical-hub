@@ -292,7 +292,7 @@ serve(async (req) => {
     // STEP 6c - Check wasender settings
     const { data: center } = await supabase
       .from("centers")
-      .select("wasender_enabled, wasender_emergency_stop")
+      .select("wasender_enabled, wasender_emergency_stop, whatsapp_send_method, whatsapp_access_token, whatsapp_phone_number_id")
       .eq("id", entry.center_id)
       .single();
 
@@ -371,6 +371,49 @@ serve(async (req) => {
         }
       } catch (e) {
         console.error("WhatsApp send exception:", e);
+        errorMessage = String(e);
+      }
+    }
+
+    // Fall back to Meta API (if configured and Wasender wasn't used) before giving up
+    // and going to email. Business-initiated messages via Meta API must go through an
+    // approved template (free-form text outside an open 24h window is silently
+    // dropped), so we use the generic single-param "aviso_psycma" template.
+    if (!whatsappSent && profPhone && center?.whatsapp_send_method === "api" &&
+      center?.whatsapp_access_token && center?.whatsapp_phone_number_id) {
+      try {
+        const { data: notif, error: notifErr } = await supabase
+          .from("notifications")
+          .insert({
+            center_id: entry.center_id,
+            patient_id: entry.patient_id,
+            type: "whatsapp",
+            recipient: profPhone,
+            message,
+            status: "pending",
+          })
+          .select("id")
+          .single();
+
+        if (notifErr) {
+          console.error("Notification insert error:", notifErr.message);
+          errorMessage = notifErr.message;
+        } else if (notif) {
+          const { error: sendErr } = await supabase.functions.invoke("send-notification", {
+            body: {
+              notificationId: notif.id,
+              templateParams: { templateName: "aviso_psycma", bodyParams: [message] },
+            },
+          });
+          if (sendErr) {
+            console.error("WhatsApp (Meta API) send error:", sendErr.message);
+            errorMessage = sendErr.message;
+          } else {
+            whatsappSent = true;
+          }
+        }
+      } catch (e) {
+        console.error("WhatsApp (Meta API) send exception:", e);
         errorMessage = String(e);
       }
     }
