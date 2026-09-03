@@ -237,10 +237,17 @@ export async function notifyProfessionalBooking(args: ProfessionalNotificationAr
 
     console.log(`[professional-notification] Notification created id=${notification.id}`);
 
-    // 8. Invoke send-notification
+    // 8. Invoke send-notification. Business-initiated WhatsApp messages must go through
+    // an approved template (free-form text outside an open 24h window is silently
+    // dropped). There's no professional-facing library template for this, so we use the
+    // generic single-param "aviso_psycma" template with the full message as its body.
+    const templateParams = channel === 'whatsapp'
+      ? { templateName: 'aviso_psycma', bodyParams: [message] }
+      : undefined;
+
     try {
       const { error: invokeError } = await supabase.functions.invoke('send-notification', {
-        body: { notificationId: notification.id },
+        body: { notificationId: notification.id, templateParams },
       });
 
       if (invokeError) {
