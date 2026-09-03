@@ -1835,6 +1835,7 @@ export type Database = {
           invoice_on_payment_mode: string | null
           invoice_prefix: string | null
           invoice_send_channel: string | null
+          is_software_provider: boolean
           logo_url: string | null
           name: string
           oauth_google_client_id: string | null
@@ -1941,6 +1942,7 @@ export type Database = {
           invoice_on_payment_mode?: string | null
           invoice_prefix?: string | null
           invoice_send_channel?: string | null
+          is_software_provider?: boolean
           logo_url?: string | null
           name: string
           oauth_google_client_id?: string | null
@@ -2047,6 +2049,7 @@ export type Database = {
           invoice_on_payment_mode?: string | null
           invoice_prefix?: string | null
           invoice_send_channel?: string | null
+          is_software_provider?: boolean
           logo_url?: string | null
           name?: string
           oauth_google_client_id?: string | null
@@ -7824,6 +7827,15 @@ export type Database = {
       get_patient_for_session_token: {
         Args: { p_session_id: string }
         Returns: Json
+      }
+      get_platform_verifactu_software_info: {
+        Args: never
+        Returns: {
+          verifactu_sistema_informatico: string
+          verifactu_software_name: string
+          verifactu_software_nif: string
+          verifactu_software_version: string
+        }[]
       }
       get_portal_center: {
         Args: { p_slug: string }
