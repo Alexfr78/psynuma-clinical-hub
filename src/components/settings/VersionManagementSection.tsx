@@ -10,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useAppVersions, type AppVersion, type AppChangeLog } from '@/hooks/useAppVersions';
+import { useCenter } from '@/hooks/useCenter';
 import { CreateChangeDialog } from './versions/CreateChangeDialog';
 import { type ChangeFormValues } from './versions/CreateChangeDialog';
 import { CreateVersionDialog } from './versions/CreateVersionDialog';
@@ -41,6 +42,7 @@ export function VersionManagementSection() {
     publishVersion, setAsCurrent, syncWithVerifactu, archiveVersion,
     getVersionChanges,
   } = useAppVersions();
+  const { center } = useCenter();
 
   const [selectedChangeIds, setSelectedChangeIds] = useState<string[]>([]);
   const [changeDialogOpen, setChangeDialogOpen] = useState(false);
@@ -431,7 +433,7 @@ export function VersionManagementSection() {
                                     <Icon name="package_2" className="mr-2 h-4 w-4" /> Marcar como actual
                                   </DropdownMenuItem>
                                 )}
-                                {(v.status === 'published' || v.is_current) && v.applies_to_verifactu && !v.verifactu_synced_at && (
+                                {(v.status === 'published' || v.is_current) && v.applies_to_verifactu && !v.verifactu_synced_at && center?.is_software_provider && (
                                   <DropdownMenuItem onClick={() => setSyncVersion(v)}>
                                     <Icon name="shield" className="mr-2 h-4 w-4" /> Sincronizar con VeriFactu
                                   </DropdownMenuItem>

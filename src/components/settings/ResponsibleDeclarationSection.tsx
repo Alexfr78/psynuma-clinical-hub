@@ -1,16 +1,28 @@
+import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 
-import { useCenter } from '@/hooks/useCenter';
+import { supabase } from '@/integrations/supabase/client';
 import { Icon } from '@/components/ui/icon';
 
 export function ResponsibleDeclarationSection() {
-  const { center } = useCenter();
+  // La identificación del software (nombre/NIF del desarrollador, sistema
+  // informático, versión) es única para toda la plataforma y se gestiona
+  // solo desde el centro proveedor del software — cada centro la lee aquí
+  // vía RPC en lugar de su propia fila de `centers`.
+  const { data: softwareData } = useQuery({
+    queryKey: ['platform-verifactu-software-info'],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_platform_verifactu_software_info');
+      if (error) throw error;
+      return data?.[0] ?? null;
+    },
+  });
 
   const softwareInfo = {
-    name: center?.verifactu_sistema_informatico || 'Psycma',
-    version: center?.verifactu_software_version || 'No configurada',
-    nif: center?.verifactu_software_nif || center?.tax_id || '—',
+    name: softwareData?.verifactu_sistema_informatico || 'Psycma',
+    version: softwareData?.verifactu_software_version || 'No configurada',
+    nif: softwareData?.verifactu_software_nif || '—',
     modalidad: 'VeriFactu',
     fechaDeclaracion: new Date().toLocaleDateString('es-ES')
   };

@@ -76,17 +76,17 @@ export function ExpenseList({ expenses, isLoading, onEdit, onDelete, onMarkPaid 
   }
 
   return (
-    <div className="rounded-lg border">
-      <Table>
+    <div className="rounded-lg border overflow-hidden">
+      <Table className="table-fixed">
         <TableHeader>
           <TableRow>
-            <TableHead className="w-[90px]">Fecha</TableHead>
-            <TableHead>Descripción</TableHead>
-            <TableHead className="hidden md:table-cell w-[130px]">Categoría</TableHead>
-            <TableHead className="hidden lg:table-cell w-[170px]">Proveedor</TableHead>
-            <TableHead className="text-right w-[110px]">Importe</TableHead>
-            <TableHead className="w-[110px]">Estado</TableHead>
-            <TableHead className="w-10 text-right">
+            <TableHead className="w-20 px-2 sm:px-3">Fecha</TableHead>
+            <TableHead className="px-2 sm:px-3">Descripción</TableHead>
+            <TableHead className="hidden md:table-cell w-24 px-2 sm:px-3">Categoría</TableHead>
+            <TableHead className="hidden lg:table-cell w-32 px-2 sm:px-3">Proveedor</TableHead>
+            <TableHead className="text-right w-20 px-2 sm:px-3">Importe</TableHead>
+            <TableHead className="w-[92px] px-2 sm:px-3">Estado</TableHead>
+            <TableHead className="w-8 px-1 text-right">
               <span className="sr-only">Acciones</span>
             </TableHead>
           </TableRow>
@@ -94,36 +94,36 @@ export function ExpenseList({ expenses, isLoading, onEdit, onDelete, onMarkPaid 
         <TableBody>
           {expenses.map((expense) => (
             <TableRow key={expense.id}>
-              <TableCell className="whitespace-nowrap">
-                {format(new Date(expense.expense_date), 'dd MMM yyyy', { locale: es })}
+              <TableCell className="px-2 sm:px-3 truncate whitespace-nowrap">
+                {format(new Date(expense.expense_date), 'dd MMM', { locale: es })}
               </TableCell>
-              <TableCell className="max-w-[180px] truncate" title={expense.description}>
+              <TableCell className="px-2 sm:px-3 truncate" title={expense.description}>
                 {expense.description}
-                <div className="text-xs text-muted-foreground md:hidden">{KIND_LABELS[expense.kind]}</div>
+                <div className="text-xs text-muted-foreground md:hidden truncate">{KIND_LABELS[expense.kind]}</div>
               </TableCell>
-              <TableCell className="hidden md:table-cell">
+              <TableCell className="hidden md:table-cell px-2 sm:px-3">
                 {expense.category && (
-                  <span className="inline-flex items-center gap-1.5 max-w-[130px] truncate" title={expense.category.name}>
+                  <span className="inline-flex items-center gap-1.5 max-w-full truncate" title={expense.category.name}>
                     <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: expense.category.color }} />
                     <span className="truncate">{expense.category.name}</span>
                   </span>
                 )}
               </TableCell>
-              <TableCell className="hidden lg:table-cell max-w-[170px] truncate text-muted-foreground" title={expense.professional ? [expense.professional.first_name, expense.professional.last_name].filter(Boolean).join(' ') : expense.supplier?.name || undefined}>
+              <TableCell className="hidden lg:table-cell px-2 sm:px-3 truncate text-muted-foreground" title={expense.professional ? [expense.professional.first_name, expense.professional.last_name].filter(Boolean).join(' ') : expense.supplier?.name || undefined}>
                 {expense.professional
                   ? [expense.professional.first_name, expense.professional.last_name].filter(Boolean).join(' ')
                   : expense.supplier?.name || '—'}
               </TableCell>
-              <TableCell className="text-right font-medium tabular-nums">
+              <TableCell className="px-2 sm:px-3 text-right font-medium tabular-nums truncate">
                 {Number(expense.amount).toFixed(2)} €
                 {expense.kind === 'professional_payment' && Number(expense.irpf_amount) > 0 && (
-                  <div className="text-xs font-normal text-muted-foreground">
+                  <div className="text-xs font-normal text-muted-foreground truncate">
                     Neto: {(Number(expense.amount) - Number(expense.irpf_amount)).toFixed(2)} €
                   </div>
                 )}
               </TableCell>
-              <TableCell><StatusBadge status={expense.status} /></TableCell>
-              <TableCell className="text-right">
+              <TableCell className="px-2 sm:px-3 overflow-hidden"><StatusBadge status={expense.status} /></TableCell>
+              <TableCell className="px-1 text-right">
                 {(() => {
                   // Professionals cannot edit/mark-paid/delete a professional_payment
                   // settlement even when they are its beneficiary (RLS reserves that

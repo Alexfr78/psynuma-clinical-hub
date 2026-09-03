@@ -41,6 +41,11 @@ export interface Center {
   verifactu_software_version: string | null;
   verifactu_software_nif: string | null;
   verifactu_sistema_informatico: string | null;
+  // Marca el único centro cuya identificación de software Verifactu
+  // (nombre/NIF del desarrollador, sistema informático, versión) aplica a
+  // TODAS las facturas de TODOS los centros — ver migración
+  // verifactu_software_provider.
+  is_software_provider: boolean;
   // Portal/Reschedule configuration
   reschedule_max_days: number | null;
   reschedule_slot_duration: number | null;

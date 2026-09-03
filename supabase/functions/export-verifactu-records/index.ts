@@ -315,6 +315,22 @@ serve(async (req) => {
       );
     }
 
+    // The software-identification fields (NombreRazon/NIF/Sistema/Version del
+    // desarrollador) identify Psycma as a product, not each tenant center —
+    // they're maintained once on the software-provider center and apply
+    // regardless of which center is exporting its records.
+    const { data: softwareProviderCenter } = await supabase
+      .from('centers')
+      .select('verifactu_software_name, verifactu_software_nif, verifactu_sistema_informatico, verifactu_software_version')
+      .eq('is_software_provider', true)
+      .maybeSingle();
+    if (softwareProviderCenter) {
+      center.verifactu_software_name = softwareProviderCenter.verifactu_software_name;
+      center.verifactu_software_nif = softwareProviderCenter.verifactu_software_nif;
+      center.verifactu_sistema_informatico = softwareProviderCenter.verifactu_sistema_informatico;
+      center.verifactu_software_version = softwareProviderCenter.verifactu_software_version;
+    }
+
     let recordsQuery = supabase
       .from('verifactu_records')
       .select('*')

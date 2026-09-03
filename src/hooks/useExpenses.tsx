@@ -173,7 +173,7 @@ export function useUpdateExpense() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, ...updates }: Partial<ExpenseInsert> & { id: string }) => {
+    mutationFn: async ({ id, ...updates }: Partial<ExpenseInsert> & { id: string; paid_at?: string | null }) => {
       const { data, error } = await supabase.from('expenses').update(updates).eq('id', id).select().single();
       if (error) throw error;
       return data as Expense;

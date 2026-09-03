@@ -64,6 +64,7 @@ export function ExpenseFormDialog({ open, onOpenChange, expense }: ExpenseFormDi
   const [amount, setAmount] = useState('');
   const [expenseDate, setExpenseDate] = useState(new Date().toISOString().split('T')[0]);
   const [dueDate, setDueDate] = useState('');
+  const [paidAt, setPaidAt] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('');
   const [notes, setNotes] = useState('');
 
@@ -101,6 +102,7 @@ export function ExpenseFormDialog({ open, onOpenChange, expense }: ExpenseFormDi
       setAmount(String(expense.amount));
       setExpenseDate(expense.expense_date);
       setDueDate(expense.due_date || '');
+      setPaidAt(expense.paid_at || '');
       setPaymentMethod(expense.payment_method || '');
       setNotes(expense.notes || '');
       setSupplierId(expense.supplier_id || '');
@@ -119,6 +121,7 @@ export function ExpenseFormDialog({ open, onOpenChange, expense }: ExpenseFormDi
       setAmount('');
       setExpenseDate(new Date().toISOString().split('T')[0]);
       setDueDate('');
+      setPaidAt('');
       setPaymentMethod('');
       setNotes('');
       setSupplierId('');
@@ -295,6 +298,7 @@ export function ExpenseFormDialog({ open, onOpenChange, expense }: ExpenseFormDi
       vat_amount: kind === 'supplier_invoice' && vatAmount ? parseFloat(vatAmount) : null,
       irpf_rate: kind === 'supplier_invoice' && irpfRate ? parseFloat(irpfRate) : null,
       irpf_amount: kind === 'supplier_invoice' && irpfAmount ? parseFloat(irpfAmount) : null,
+      ...(isEditing && expense?.status === 'paid' ? { paid_at: paidAt || null } : {}),
       // The "upload first" AI flow already extracted this data before the
       // expense was created — record that so the receipt upload below
       // doesn't reset the status back to 'pending' and trigger a second,
@@ -342,7 +346,7 @@ export function ExpenseFormDialog({ open, onOpenChange, expense }: ExpenseFormDi
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-xl md:max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-xl md:max-w-2xl lg:max-w-3xl xl:max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEditing ? 'Editar gasto' : 'Nuevo gasto'}</DialogTitle>
           <DialogDescription>Registra un gasto del centro</DialogDescription>
@@ -423,7 +427,7 @@ export function ExpenseFormDialog({ open, onOpenChange, expense }: ExpenseFormDi
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="space-y-2">
               <Label>Importe (€)</Label>
               <Input type="number" min={0} step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} />
@@ -432,9 +436,6 @@ export function ExpenseFormDialog({ open, onOpenChange, expense }: ExpenseFormDi
               <Label>Fecha</Label>
               <Input type="date" value={expenseDate} onChange={(e) => setExpenseDate(e.target.value)} />
             </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Vencimiento</Label>
               <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
@@ -443,6 +444,12 @@ export function ExpenseFormDialog({ open, onOpenChange, expense }: ExpenseFormDi
               <Label>Método de pago</Label>
               <Input value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} placeholder="Transferencia, tarjeta..." />
             </div>
+            {isEditing && expense?.status === 'paid' && (
+              <div className="space-y-2">
+                <Label>Fecha de pago</Label>
+                <Input type="date" value={paidAt} onChange={(e) => setPaidAt(e.target.value)} />
+              </div>
+            )}
           </div>
 
           {kind === 'supplier_invoice' && (
@@ -479,7 +486,7 @@ export function ExpenseFormDialog({ open, onOpenChange, expense }: ExpenseFormDi
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="space-y-2">
                   <Label>Fecha expedición</Label>
                   <Input type="date" value={invoiceIssueDate} onChange={(e) => setInvoiceIssueDate(e.target.value)} />
@@ -498,9 +505,6 @@ export function ExpenseFormDialog({ open, onOpenChange, expense }: ExpenseFormDi
                     }}
                   />
                 </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>IVA (%)</Label>
                   <Select
@@ -522,9 +526,6 @@ export function ExpenseFormDialog({ open, onOpenChange, expense }: ExpenseFormDi
                   <Label>Cuota IVA (€)</Label>
                   <Input type="number" min={0} step="0.01" value={vatAmount} onChange={(e) => setVatAmount(e.target.value)} />
                 </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>IRPF (%)</Label>
                   <Input

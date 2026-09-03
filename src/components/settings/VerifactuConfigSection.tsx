@@ -19,9 +19,13 @@ import { Icon } from '@/components/ui/icon';
 
 const verifactuSchema = z.object({
   verifactu_environment: z.enum(['test', 'production']),
-  verifactu_software_name: z.string().min(1, 'Nombre fiscal del desarrollador requerido').max(200),
-  verifactu_sistema_informatico: z.string().min(1, 'Nombre del sistema requerido').max(30, 'Máximo 30 caracteres'),
-  verifactu_software_version: z.string().min(1, 'Versión requerida').max(50),
+  // La identificación del software (nombre/NIF del desarrollador, sistema
+  // informático, versión) solo se edita desde el centro proveedor del
+  // software — no son campos obligatorios aquí porque el resto de centros
+  // ni siquiera ven estos inputs (ver is_software_provider más abajo).
+  verifactu_software_name: z.string().max(200).optional(),
+  verifactu_sistema_informatico: z.string().max(30, 'Máximo 30 caracteres').optional(),
+  verifactu_software_version: z.string().max(50).optional(),
   verifactu_software_nif: z.string().max(50).optional(),
   verifactu_certificate_password: z.string().max(200).optional(),
 });
@@ -81,10 +85,17 @@ export function VerifactuConfigSection() {
     try {
       const updateData: Partial<Center> = {
         verifactu_environment: data.verifactu_environment,
-        verifactu_software_name: data.verifactu_software_name,
-        verifactu_sistema_informatico: data.verifactu_sistema_informatico,
-        verifactu_software_version: data.verifactu_software_version,
-        verifactu_software_nif: data.verifactu_software_nif || null,
+        // Solo el centro proveedor del software gestiona estos 4 campos —
+        // el resto de centros no ven esos inputs, así que no deben
+        // sobrescribirlos con los valores (vacíos) del formulario.
+        ...(center?.is_software_provider
+          ? {
+              verifactu_software_name: data.verifactu_software_name || null,
+              verifactu_sistema_informatico: data.verifactu_sistema_informatico || null,
+              verifactu_software_version: data.verifactu_software_version || null,
+              verifactu_software_nif: data.verifactu_software_nif || null,
+            }
+          : {}),
       };
 
       // If new certificate file uploaded
@@ -296,81 +307,93 @@ export function VerifactuConfigSection() {
 
             <Separator />
 
-            {/* Software Info */}
-            <div className="space-y-4">
-              <h4 className="font-medium">Información del Software de Facturación</h4>
-              <p className="text-sm text-muted-foreground">
-                Datos requeridos por la AEAT para identificar el sistema de facturación
-              </p>
+            {/* Software Info — única para toda la plataforma, solo editable
+                desde el centro proveedor del software (is_software_provider) */}
+            {center?.is_software_provider ? (
+              <div className="space-y-4">
+                <h4 className="font-medium">Información del Software de Facturación</h4>
+                <p className="text-sm text-muted-foreground">
+                  Datos requeridos por la AEAT para identificar el sistema de facturación. Estos datos son
+                  únicos para toda la plataforma y se aplican a las facturas de todos los centros.
+                </p>
 
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="verifactu_software_name">Nombre fiscal del desarrollador</Label>
-                  <Input
-                    id="verifactu_software_name"
-                    {...form.register('verifactu_software_name')}
-                    placeholder="Ej: Jose García López"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    NombreRazon: debe coincidir exactamente con el censo de la AEAT
-                  </p>
-                  {form.formState.errors.verifactu_software_name && (
-                    <p className="text-sm text-destructive">
-                      {form.formState.errors.verifactu_software_name.message}
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="verifactu_software_name">Nombre fiscal del desarrollador</Label>
+                    <Input
+                      id="verifactu_software_name"
+                      {...form.register('verifactu_software_name')}
+                      placeholder="Ej: Jose García López"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      NombreRazon: debe coincidir exactamente con el censo de la AEAT
                     </p>
-                  )}
+                    {form.formState.errors.verifactu_software_name && (
+                      <p className="text-sm text-destructive">
+                        {form.formState.errors.verifactu_software_name.message}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="verifactu_software_nif">NIF del desarrollador</Label>
+                    <Input
+                      id="verifactu_software_nif"
+                      {...form.register('verifactu_software_nif')}
+                      placeholder="Ej: 12345678A"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Si se deja vacío, se usará el NIF del centro
+                    </p>
+                  </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="verifactu_software_nif">NIF del desarrollador</Label>
-                  <Input
-                    id="verifactu_software_nif"
-                    {...form.register('verifactu_software_nif')}
-                    placeholder="Ej: 12345678A"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Si se deja vacío, se usará el NIF del centro
-                  </p>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="verifactu_sistema_informatico">
+                      Nombre del sistema informático
+                      <span className="ml-1 text-xs text-muted-foreground">(máx. 30 caracteres)</span>
+                    </Label>
+                    <Input
+                      id="verifactu_sistema_informatico"
+                      {...form.register('verifactu_sistema_informatico')}
+                      placeholder="Ej: PSYCMA"
+                      maxLength={30}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      NombreSistemaInformatico: nombre comercial del software
+                    </p>
+                    {form.formState.errors.verifactu_sistema_informatico && (
+                      <p className="text-sm text-destructive">
+                        {form.formState.errors.verifactu_sistema_informatico.message}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="verifactu_software_version">Versión</Label>
+                    <Input
+                      id="verifactu_software_version"
+                      {...form.register('verifactu_software_version')}
+                      placeholder="1.0.0"
+                    />
+                    {form.formState.errors.verifactu_software_version && (
+                      <p className="text-sm text-destructive">
+                        {form.formState.errors.verifactu_software_version.message}
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="verifactu_sistema_informatico">
-                    Nombre del sistema informático
-                    <span className="ml-1 text-xs text-muted-foreground">(máx. 30 caracteres)</span>
-                  </Label>
-                  <Input
-                    id="verifactu_sistema_informatico"
-                    {...form.register('verifactu_sistema_informatico')}
-                    placeholder="Ej: PSYCMA"
-                    maxLength={30}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    NombreSistemaInformatico: nombre comercial del software
-                  </p>
-                  {form.formState.errors.verifactu_sistema_informatico && (
-                    <p className="text-sm text-destructive">
-                      {form.formState.errors.verifactu_sistema_informatico.message}
-                    </p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="verifactu_software_version">Versión</Label>
-                  <Input
-                    id="verifactu_software_version"
-                    {...form.register('verifactu_software_version')}
-                    placeholder="1.0.0"
-                  />
-                  {form.formState.errors.verifactu_software_version && (
-                    <p className="text-sm text-destructive">
-                      {form.formState.errors.verifactu_software_version.message}
-                    </p>
-                  )}
-                </div>
+            ) : (
+              <div className="space-y-2">
+                <h4 className="font-medium">Información del Software de Facturación</h4>
+                <p className="text-sm text-muted-foreground">
+                  Estos datos identifican el software ante la AEAT y son únicos para toda la plataforma.
+                  Se gestionan de forma centralizada y no se configuran por centro.
+                </p>
               </div>
-            </div>
+            )}
 
             {isAdmin && (
               <div className="flex justify-end">

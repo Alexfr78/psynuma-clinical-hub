@@ -12,6 +12,8 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Icon } from '@/components/ui/icon';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { useAuth } from '@/hooks/useAuth';
 import { useExpenses, useDeleteExpense, useMarkExpensePaid, type ExpenseFilters, type ExpenseWithRelations } from '@/hooks/useExpenses';
 import { ExpenseStatsCards } from '@/components/expenses/ExpenseStatsCards';
@@ -31,6 +33,7 @@ export default function Expenses() {
   const [editingExpense, setEditingExpense] = useState<ExpenseWithRelations | null>(null);
   const [expenseToDelete, setExpenseToDelete] = useState<ExpenseWithRelations | null>(null);
   const [expenseToMarkPaid, setExpenseToMarkPaid] = useState<ExpenseWithRelations | null>(null);
+  const [markPaidDate, setMarkPaidDate] = useState(new Date().toISOString().split('T')[0]);
 
   return (
     <div className="space-y-6">
@@ -65,7 +68,7 @@ export default function Expenses() {
             isLoading={isLoading}
             onEdit={(expense) => { setEditingExpense(expense); setFormOpen(true); }}
             onDelete={(expense) => setExpenseToDelete(expense)}
-            onMarkPaid={(expense) => setExpenseToMarkPaid(expense)}
+            onMarkPaid={(expense) => { setExpenseToMarkPaid(expense); setMarkPaidDate(new Date().toISOString().split('T')[0]); }}
           />
         </TabsContent>
 
@@ -109,17 +112,28 @@ export default function Expenses() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>¿Marcar como pagado?</AlertDialogTitle>
-            <AlertDialogDescription>
-              {expenseToMarkPaid && (
-                <>
-                  Se marcará <strong>{expenseToMarkPaid.description}</strong> ({Number(expenseToMarkPaid.amount).toFixed(2)} €) como pagado hoy.
-                  {expenseToMarkPaid.kind === 'professional_payment' && Number(expenseToMarkPaid.irpf_amount) > 0 && (
-                    <>
-                      {' '}Importe bruto {Number(expenseToMarkPaid.amount).toFixed(2)} € − retención IRPF {Number(expenseToMarkPaid.irpf_amount).toFixed(2)} € = <strong>neto a pagar {(Number(expenseToMarkPaid.amount) - Number(expenseToMarkPaid.irpf_amount)).toFixed(2)} €</strong>.
-                    </>
-                  )}
-                </>
-              )}
+            <AlertDialogDescription asChild>
+              <div>
+                {expenseToMarkPaid && (
+                  <>
+                    Se marcará <strong>{expenseToMarkPaid.description}</strong> ({Number(expenseToMarkPaid.amount).toFixed(2)} €) como pagado.
+                    {expenseToMarkPaid.kind === 'professional_payment' && Number(expenseToMarkPaid.irpf_amount) > 0 && (
+                      <>
+                        {' '}Importe bruto {Number(expenseToMarkPaid.amount).toFixed(2)} € − retención IRPF {Number(expenseToMarkPaid.irpf_amount).toFixed(2)} € = <strong>neto a pagar {(Number(expenseToMarkPaid.amount) - Number(expenseToMarkPaid.irpf_amount)).toFixed(2)} €</strong>.
+                      </>
+                    )}
+                    <div className="mt-4 space-y-2">
+                      <Label htmlFor="mark-paid-date">Fecha de pago</Label>
+                      <Input
+                        id="mark-paid-date"
+                        type="date"
+                        value={markPaidDate}
+                        onChange={(e) => setMarkPaidDate(e.target.value)}
+                      />
+                    </div>
+                  </>
+                )}
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -129,7 +143,7 @@ export default function Expenses() {
                 if (expenseToMarkPaid) {
                   await markPaid.mutateAsync({
                     id: expenseToMarkPaid.id,
-                    paidAt: new Date().toISOString().split('T')[0],
+                    paidAt: markPaidDate,
                     paymentMethod: expenseToMarkPaid.payment_method || 'Transferencia',
                   });
                   setExpenseToMarkPaid(null);
