@@ -229,13 +229,19 @@ async function sendWhatsAppViaWasender(
   }
 }
 
-// Send WhatsApp via Meta API
-async function sendWhatsAppViaMetaAPI(
+// Send WhatsApp via Meta API using the approved "factura_psycma" template. Business-
+// initiated messages (this clinic starting the conversation) outside an open 24h
+// customer service window are silently dropped by WhatsApp when sent as free-form
+// text, so this is required instead of sendWhatsAppViaMetaAPI's free-text path.
+// The template is text + link only (no media header), so unlike the free-text path
+// it can't attach the PDF directly - the patient views/downloads it from invoiceUrl.
+async function sendWhatsAppFacturaTemplateViaMetaAPI(
   phone: string,
-  message: string,
+  patientFirstName: string,
+  invoiceNumber: string,
+  total: string,
   accessToken: string,
-  phoneNumberId: string,
-  document?: { url: string; fileName: string }
+  phoneNumberId: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
     let cleanPhone = phone.replace(/\D/g, '');
@@ -243,23 +249,7 @@ async function sendWhatsAppViaMetaAPI(
       cleanPhone = '34' + cleanPhone;
     }
 
-    console.log(`Sending WhatsApp via Meta API to ${cleanPhone}`);
-
-    const payload = document
-      ? {
-          messaging_product: 'whatsapp',
-          recipient_type: 'individual',
-          to: cleanPhone,
-          type: 'document',
-          document: { link: document.url, filename: document.fileName, caption: message },
-        }
-      : {
-          messaging_product: 'whatsapp',
-          recipient_type: 'individual',
-          to: cleanPhone,
-          type: 'text',
-          text: { preview_url: true, body: message },
-        };
+    console.log(`Sending WhatsApp template "factura_psycma" via Meta API to ${cleanPhone}`);
 
     const response = await fetch(
       `https://graph.facebook.com/v18.0/${phoneNumberId}/messages`,
@@ -269,21 +259,40 @@ async function sendWhatsAppViaMetaAPI(
           'Authorization': `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(payload)
+        body: JSON.stringify({
+          messaging_product: 'whatsapp',
+          recipient_type: 'individual',
+          to: cleanPhone,
+          type: 'template',
+          template: {
+            name: 'factura_psycma',
+            language: { code: 'es' },
+            components: [
+              {
+                type: 'body',
+                parameters: [
+                  { type: 'text', text: patientFirstName },
+                  { type: 'text', text: invoiceNumber },
+                  { type: 'text', text: `${total} EUR` },
+                ],
+              },
+            ],
+          },
+        }),
       }
     );
 
     const data = await response.json();
 
     if (!response.ok) {
-      console.error('Meta API error:', data);
+      console.error('Meta API template error:', data);
       return { success: false, error: data.error?.message || `API Error: ${response.status}` };
     }
 
-    console.log('WhatsApp sent successfully via Meta API:', data);
+    console.log('WhatsApp template sent successfully via Meta API:', data);
     return { success: true };
   } catch (error) {
-    console.error('Error sending WhatsApp via Meta API:', error);
+    console.error('Error sending WhatsApp template via Meta API:', error);
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 }
@@ -571,12 +580,15 @@ Deno.serve(async (req) => {
         
         // Decrypt the access token
         const decryptedToken = await decryptSecret(center.whatsapp_access_token);
-        const apiResult = await sendWhatsAppViaMetaAPI(
+        // Business-initiated messages must go through an approved template rather than
+        // free-form text (see sendWhatsAppFacturaTemplateViaMetaAPI).
+        const apiResult = await sendWhatsAppFacturaTemplateViaMetaAPI(
           phone,
-          message,
+          patientName,
+          invoiceNumber,
+          total,
           decryptedToken,
-          center.whatsapp_phone_number_id,
-          pdf ? { url: pdf.signedUrl, fileName: pdfFileName } : undefined
+          center.whatsapp_phone_number_id
         );
 
         whatsappSent = apiResult.success;
