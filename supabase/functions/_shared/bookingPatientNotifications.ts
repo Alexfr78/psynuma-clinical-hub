@@ -324,10 +324,25 @@ export async function queueAndSendPatientBookingNotification(args: BookingNotifi
       await markAdvancePaymentNotificationSent(supabase, sessionId);
     }
 
-    // 7. Invoke send-notification
+    // 7. Invoke send-notification. Business-initiated WhatsApp messages must go
+    // through an approved template (free-form text outside an open 24h window is
+    // silently dropped), so pick the template matching this event type.
+    const whatsappTemplateNameByEvent: Record<typeof eventType, string> = {
+      created: 'confirmacion_cita_psycma',
+      rescheduled: 'reprogramacion_cita_psycma',
+      cancelled: 'cancelacion_cita_psycma',
+    };
+
+    const templateParams = channel === 'whatsapp'
+      ? {
+          templateName: whatsappTemplateNameByEvent[eventType],
+          bodyParams: [patient.first_name || 'Paciente', center.name || '', dateFormatted, timeFormatted],
+        }
+      : undefined;
+
     try {
       const { error: invokeError } = await supabase.functions.invoke('send-notification', {
-        body: { notificationId: notification.id },
+        body: { notificationId: notification.id, templateParams },
       });
 
       if (invokeError) {
