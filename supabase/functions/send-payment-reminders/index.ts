@@ -164,16 +164,23 @@ serve(async (req) => {
           continue;
         }
 
-        // Send notification via edge function (for email)
-        if (notifData && notificationType === 'email') {
+        // Send notification via edge function. Business-initiated WhatsApp messages
+        // must go through an approved template (free-form text outside an open 24h
+        // window is silently dropped). There's no payment-specific approved template
+        // yet, so we use the generic single-param "aviso_psycma" template with the
+        // full message as its body.
+        if (notifData) {
           try {
+            const templateParams = notificationType === 'whatsapp'
+              ? { templateName: 'aviso_psycma', bodyParams: [message] }
+              : undefined;
             const { error: sendError } = await supabase.functions.invoke('send-notification', {
-              body: { notificationId: notifData.id },
+              body: { notificationId: notifData.id, templateParams },
             });
             if (sendError) {
               console.error(`[send-payment-reminders] Error sending notification ${notifData.id}:`, sendError);
             } else {
-              console.log(`[send-payment-reminders] Email sent for notification ${notifData.id}`);
+              console.log(`[send-payment-reminders] ${notificationType} sent for notification ${notifData.id}`);
             }
           } catch (invokeError) {
             console.error(`[send-payment-reminders] Error invoking send-notification:`, invokeError);
