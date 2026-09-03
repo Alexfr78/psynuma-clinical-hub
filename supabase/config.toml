@@ -153,3 +153,5 @@ project_id = "zprkdxmluvirxfhswrzq"
     verify_jwt = false
   [functions.wasender-webhook]
     verify_jwt = false
+  [functions.whatsapp-meta-webhook]
+    verify_jwt = false

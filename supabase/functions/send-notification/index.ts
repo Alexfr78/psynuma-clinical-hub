@@ -351,7 +351,7 @@ async function sendWhatsAppTemplateViaMetaAPI(
   templateParams: { templateName: string; bodyParams: string[]; buttonParam?: string },
   accessToken: string,
   phoneNumberId: string
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; error?: string; messageId?: string }> {
   try {
     const cleanPhone = normalizePhoneES(phone);
 
@@ -410,7 +410,7 @@ async function sendWhatsAppTemplateViaMetaAPI(
     }
 
     console.log('[send-notification] WhatsApp template sent successfully via Meta API:', data);
-    return { success: true };
+    return { success: true, messageId: data.messages?.[0]?.id };
   } catch (error) {
     console.error('[send-notification] Error sending WhatsApp template via Meta API:', error);
     return {
@@ -426,7 +426,7 @@ async function sendWhatsAppViaMetaAPI(
   message: string,
   accessToken: string,
   phoneNumberId: string
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; error?: string; messageId?: string }> {
   try {
     const cleanPhone = normalizePhoneES(phone);
 
@@ -464,12 +464,12 @@ async function sendWhatsAppViaMetaAPI(
     }
 
     console.log('[send-notification] WhatsApp sent successfully via Meta API:', data);
-    return { success: true };
+    return { success: true, messageId: data.messages?.[0]?.id };
   } catch (error) {
     console.error('[send-notification] Error sending WhatsApp via Meta API:', error);
-    return { 
-      success: false, 
-      error: error instanceof Error ? error.message : 'Unknown error' 
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
     };
   }
 }
@@ -532,6 +532,7 @@ serve(async (req) => {
         let errorMessage: string | null = null;
         let whatsappWebLink: string | null = null;
         let providerMessageId: string | undefined;
+        let metaMessageId: string | undefined;
 
         // Get center info for email branding
         let centerName: string | undefined;
@@ -661,6 +662,7 @@ serve(async (req) => {
 
               success = apiResult.success;
               errorMessage = apiResult.error || null;
+              metaMessageId = apiResult.messageId;
             } else if (wasenderAttempted) {
               // Wasender was the configured active method and it failed.
               // Do NOT silently fall back to the manual web link — surface the error
@@ -700,6 +702,10 @@ serve(async (req) => {
 
         if (success && finalStatus === 'sent') {
           updateData.sent_at = new Date().toISOString();
+        }
+
+        if (metaMessageId) {
+          updateData.meta_message_id = metaMessageId;
         }
 
         const { error: updateError } = await supabase

@@ -245,7 +245,7 @@ async function sendWhatsAppReminderTemplateViaMetaAPI(
   accessToken: string,
   phoneNumberId: string,
   shortLinkCode?: string
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; error?: string; messageId?: string }> {
   try {
     let cleanPhone = phone.replace(/\D/g, '');
     if (cleanPhone.length === 9 && /^[67]/.test(cleanPhone)) {
@@ -308,7 +308,7 @@ async function sendWhatsAppReminderTemplateViaMetaAPI(
       return { success: false, error: data.error?.message || `API Error: ${response.status}` };
     }
 
-    return { success: true };
+    return { success: true, messageId: data.messages?.[0]?.id };
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
@@ -738,6 +738,7 @@ serve(async (req) => {
         if (channels.whatsapp && patient.phone) {
           let whatsappSentVia: string | null = null;
           let whatsappError: string | null = null;
+          let metaMessageId: string | undefined;
 
           // Priority 1: WasenderAPI (automatic via personal number)
           if (!whatsappSentVia && center.wasender_enabled && center.wasender_auto_reminders && !center.wasender_emergency_stop) {
@@ -823,6 +824,7 @@ serve(async (req) => {
               if (metaResult.success) {
                 whatsappSentVia = 'meta_api';
                 reminderSent = true;
+                metaMessageId = metaResult.messageId;
                 console.log(`WhatsApp sent via Meta API for patient ${patient.id}`);
               } else {
                 console.error(`Meta API failed for patient ${patient.id}: ${metaResult.error}, falling back to web`);
@@ -857,6 +859,7 @@ serve(async (req) => {
             sent_at: finalStatus === 'sent' ? new Date().toISOString() : null,
             scheduled_for: finalStatus === 'pending' ? new Date().toISOString() : null,
             error_message: whatsappError || null,
+            meta_message_id: metaMessageId || null,
           });
 
           // Also record in whatsapp_messages for tracking (only if actually sent via API)
@@ -871,6 +874,7 @@ serve(async (req) => {
               session_id: session.id,
               status: 'sent',
               sent_at: new Date().toISOString(),
+              meta_message_id: metaMessageId || null,
             });
           }
         }

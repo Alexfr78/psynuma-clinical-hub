@@ -242,7 +242,7 @@ async function sendWhatsAppFacturaTemplateViaMetaAPI(
   total: string,
   accessToken: string,
   phoneNumberId: string
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; error?: string; messageId?: string }> {
   try {
     let cleanPhone = phone.replace(/\D/g, '');
     if (cleanPhone.length === 9 && /^[67]/.test(cleanPhone)) {
@@ -290,7 +290,7 @@ async function sendWhatsAppFacturaTemplateViaMetaAPI(
     }
 
     console.log('WhatsApp template sent successfully via Meta API:', data);
-    return { success: true };
+    return { success: true, messageId: data.messages?.[0]?.id };
   } catch (error) {
     console.error('Error sending WhatsApp template via Meta API:', error);
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
@@ -603,6 +603,7 @@ Deno.serve(async (req) => {
           status: apiResult.success ? 'sent' : 'failed',
           sent_at: apiResult.success ? new Date().toISOString() : null,
           error_message: apiResult.error || null,
+          meta_message_id: apiResult.messageId || null,
         });
 
         if (!apiResult.success) {
