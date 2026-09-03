@@ -7828,6 +7828,15 @@ export type Database = {
         Args: { p_session_id: string }
         Returns: Json
       }
+      get_platform_verifactu_software_info: {
+        Args: never
+        Returns: {
+          verifactu_sistema_informatico: string
+          verifactu_software_name: string
+          verifactu_software_nif: string
+          verifactu_software_version: string
+        }[]
+      }
       get_portal_center: {
         Args: { p_slug: string }
         Returns: {
@@ -7905,15 +7914,6 @@ export type Database = {
         Args: { center_slug: string }
         Returns: {
           name: string
-        }[]
-      }
-      get_platform_verifactu_software_info: {
-        Args: never
-        Returns: {
-          verifactu_sistema_informatico: string | null
-          verifactu_software_version: string | null
-          verifactu_software_nif: string | null
-          verifactu_software_name: string | null
         }[]
       }
       get_safe_center: { Args: { p_center_id: string }; Returns: Json }
