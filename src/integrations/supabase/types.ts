@@ -3902,6 +3902,7 @@ export type Database = {
           error_message: string | null
           id: string
           message: string
+          meta_message_id: string | null
           patient_id: string | null
           recipient: string
           scheduled_for: string | null
@@ -3917,6 +3918,7 @@ export type Database = {
           error_message?: string | null
           id?: string
           message: string
+          meta_message_id?: string | null
           patient_id?: string | null
           recipient: string
           scheduled_for?: string | null
@@ -3932,6 +3934,7 @@ export type Database = {
           error_message?: string | null
           id?: string
           message?: string
+          meta_message_id?: string | null
           patient_id?: string | null
           recipient?: string
           scheduled_for?: string | null
@@ -6929,6 +6932,7 @@ export type Database = {
           id: string
           media_url: string | null
           message_type: string | null
+          meta_message_id: string | null
           metadata: Json | null
           patient_id: string | null
           phone: string
@@ -6954,6 +6958,7 @@ export type Database = {
           id?: string
           media_url?: string | null
           message_type?: string | null
+          meta_message_id?: string | null
           metadata?: Json | null
           patient_id?: string | null
           phone: string
@@ -6979,6 +6984,7 @@ export type Database = {
           id?: string
           media_url?: string | null
           message_type?: string | null
+          meta_message_id?: string | null
           metadata?: Json | null
           patient_id?: string | null
           phone?: string
