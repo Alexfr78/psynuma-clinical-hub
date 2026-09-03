@@ -197,8 +197,14 @@ export async function queueAndSendPatientBookingNotification(args: BookingNotifi
     const timeFormatted = startTime ? formatTime(startTime) : '';
     const modalityText = translateModality(sessionModality);
 
+    // Computed for all event types (including 'cancelled'): the confirmation/
+    // reschedule/cancellation WhatsApp templates all carry a dynamic-URL button
+    // pointing at this same session short link (see whatsappTemplateNameByEvent
+    // below), even though only the created/rescheduled body text also renders
+    // {link_sesion} inline (bookingTemplates.ts has no {link_sesion} in the
+    // 'cancelled' body).
     let managePath = args.manageUrl;
-    if (!managePath && args.eventType !== 'cancelled') {
+    if (!managePath) {
       const { data: publicSession } = await supabase
         .from("sessions")
         .select("access_token")
@@ -333,10 +339,15 @@ export async function queueAndSendPatientBookingNotification(args: BookingNotifi
       cancelled: 'cancelacion_cita_psycma',
     };
 
+    // The 3 templates above all have a dynamic-URL button configured in Meta with
+    // base "https://psycma.psicologosexual.com/enlace/" and a {{1}} suffix — Meta
+    // appends buttonParam to that base, so it must be the short-link code alone
+    // (managePath is "/enlace/<code>"), same pattern as send-session-reminders.
     const templateParams = channel === 'whatsapp'
       ? {
           templateName: whatsappTemplateNameByEvent[eventType],
           bodyParams: [patient.first_name || 'Paciente', center.name || '', dateFormatted, timeFormatted],
+          buttonParam: managePath ? managePath.replace(/^\/enlace\//, '') : undefined,
         }
       : undefined;
 

@@ -129,6 +129,10 @@ export async function sendSessionNotificationDirect(
   // Resolve the public link through the short-link service so manually sent
   // notifications use the same patient-facing URL as automated messages.
   let appointmentLink = getPublicBaseUrl();
+  // Short-link path (e.g. "/enlace/abc123"), kept alongside appointmentLink so the
+  // Meta WhatsApp template button (dynamic URL, code-only suffix) can reuse it —
+  // same pattern as supabase/functions/send-session-reminders/index.ts.
+  let appointmentShortLinkPath: string | undefined;
   if (accessToken) {
     const { data: shortLinkData, error: shortLinkError } = await supabase.functions.invoke(
       'create-public-session-short-link',
@@ -138,6 +142,7 @@ export async function sendSessionNotificationDirect(
       throw new Error(shortLinkError?.message || shortLinkData?.error || 'No se pudo crear el enlace corto de la cita');
     }
     appointmentLink = buildPublicUrl(shortLinkData.path);
+    appointmentShortLinkPath = shortLinkData.path;
   }
 
   // Get professional details for template variables
@@ -266,6 +271,8 @@ export async function sendSessionNotificationDirect(
           // Business-initiated confirmation of a newly created session: must go
           // through the approved "confirmacion_cita_psycma" template, since free-form
           // text outside an open 24h window is silently dropped by WhatsApp.
+          // The template's button is a dynamic URL (base ".../enlace/", suffix
+          // {{1}}), so pass the short-link code alone as buttonParam.
           const { error } = await supabase.functions.invoke('send-notification', {
             body: {
               notificationId: notification.data.id,
@@ -277,6 +284,9 @@ export async function sendSessionNotificationDirect(
                   params.sessionDate,
                   params.sessionTime,
                 ],
+                buttonParam: appointmentShortLinkPath
+                  ? appointmentShortLinkPath.replace(/^\/enlace\//, '')
+                  : undefined,
               },
             },
           });
