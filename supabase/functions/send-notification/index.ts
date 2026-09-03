@@ -13,15 +13,20 @@ const corsHeaders = {
 interface NotificationRequest {
   notificationId?: string;
   processScheduled?: boolean;
-  // Optional structured data for the pre-approved "recordatorio_cita_psycma" WhatsApp
-  // template. When present, business-initiated WhatsApp messages sent via Meta API use
-  // the template instead of free-form text, since free text outside the 24h customer
-  // service window is silently dropped by WhatsApp.
+  // Optional structured data for sending an approved WhatsApp template instead of
+  // free-form text. Business-initiated WhatsApp messages (this clinic starting the
+  // conversation, not a reply inside an open 24h window) must go through an approved
+  // template or WhatsApp silently drops them.
+  //
+  // `templateName` must match an approved Meta template exactly. `bodyParams` are
+  // substituted positionally into the template's body ({{1}}, {{2}}, ...). `buttonParam`
+  // is only needed for templates with a dynamic URL button (currently only
+  // "recordatorio_cita_psycma") and is the suffix appended to the button's static base
+  // URL (e.g. the public short-link code).
   templateParams?: {
-    patientFirstName: string;
-    centerName: string;
-    formattedDate: string;
-    formattedTime: string;
+    templateName: string;
+    bodyParams: string[];
+    buttonParam?: string;
   };
 }
 
@@ -338,19 +343,39 @@ async function sendWhatsAppViaWasender(
   }
 }
 
-// Send WhatsApp via Meta API using the pre-approved "recordatorio_cita_psycma" template.
-// Use this instead of free-form text whenever the message is business-initiated (the
-// clinic starting the conversation) rather than a reply inside an open 24h window.
+// Send WhatsApp via Meta API using an approved template. Use this instead of free-form
+// text whenever the message is business-initiated (the clinic starting the conversation)
+// rather than a reply inside an open 24h window.
 async function sendWhatsAppTemplateViaMetaAPI(
   phone: string,
-  templateParams: { patientFirstName: string; centerName: string; formattedDate: string; formattedTime: string },
+  templateParams: { templateName: string; bodyParams: string[]; buttonParam?: string },
   accessToken: string,
   phoneNumberId: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const cleanPhone = normalizePhoneES(phone);
 
-    console.log(`[send-notification] Sending WhatsApp template via Meta API to ${cleanPhone}`);
+    console.log(`[send-notification] Sending WhatsApp template "${templateParams.templateName}" via Meta API to ${cleanPhone}`);
+
+    type TemplateComponent =
+      | { type: 'body'; parameters: { type: 'text'; text: string }[] }
+      | { type: 'button'; sub_type: 'url'; index: string; parameters: { type: 'text'; text: string }[] };
+
+    const components: TemplateComponent[] = [
+      {
+        type: 'body',
+        parameters: templateParams.bodyParams.map((text) => ({ type: 'text', text })),
+      },
+    ];
+
+    if (templateParams.buttonParam) {
+      components.push({
+        type: 'button',
+        sub_type: 'url',
+        index: '0',
+        parameters: [{ type: 'text', text: templateParams.buttonParam }],
+      });
+    }
 
     const response = await fetch(
       `https://graph.facebook.com/v18.0/${phoneNumberId}/messages`,
@@ -366,19 +391,9 @@ async function sendWhatsAppTemplateViaMetaAPI(
           to: cleanPhone,
           type: 'template',
           template: {
-            name: 'recordatorio_cita_psycma',
+            name: templateParams.templateName,
             language: { code: 'es' },
-            components: [
-              {
-                type: 'body',
-                parameters: [
-                  { type: 'text', text: templateParams.patientFirstName },
-                  { type: 'text', text: templateParams.centerName },
-                  { type: 'text', text: templateParams.formattedDate },
-                  { type: 'text', text: templateParams.formattedTime },
-                ],
-              },
-            ],
+            components,
           },
         })
       }

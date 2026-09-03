@@ -243,12 +243,41 @@ async function sendWhatsAppReminderTemplateViaMetaAPI(
   formattedDate: string,
   formattedTime: string,
   accessToken: string,
-  phoneNumberId: string
+  phoneNumberId: string,
+  shortLinkCode?: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
     let cleanPhone = phone.replace(/\D/g, '');
     if (cleanPhone.length === 9 && /^[67]/.test(cleanPhone)) {
       cleanPhone = '34' + cleanPhone;
+    }
+
+    type TemplateComponent =
+      | { type: 'body'; parameters: { type: 'text'; text: string }[] }
+      | { type: 'button'; sub_type: 'url'; index: string; parameters: { type: 'text'; text: string }[] };
+
+    const components: TemplateComponent[] = [
+      {
+        type: 'body',
+        parameters: [
+          { type: 'text', text: patientFirstName },
+          { type: 'text', text: centerName },
+          { type: 'text', text: formattedDate },
+          { type: 'text', text: formattedTime },
+        ],
+      },
+    ];
+
+    // The template's "Ver detalles" button uses a dynamic URL (fixed base +
+    // this suffix) so the link opens the patient's actual session management page
+    // instead of the generic marketing site.
+    if (shortLinkCode) {
+      components.push({
+        type: 'button',
+        sub_type: 'url',
+        index: '0',
+        parameters: [{ type: 'text', text: shortLinkCode }],
+      });
     }
 
     const response = await fetch(
@@ -267,17 +296,7 @@ async function sendWhatsAppReminderTemplateViaMetaAPI(
           template: {
             name: 'recordatorio_cita_psycma',
             language: { code: 'es' },
-            components: [
-              {
-                type: 'body',
-                parameters: [
-                  { type: 'text', text: patientFirstName },
-                  { type: 'text', text: centerName },
-                  { type: 'text', text: formattedDate },
-                  { type: 'text', text: formattedTime },
-                ],
-              },
-            ],
+            components,
           },
         }),
       }
@@ -797,7 +816,8 @@ serve(async (req) => {
                 formatDate(session.session_date),
                 formatTime(session.start_time),
                 decryptedToken,
-                center.whatsapp_phone_number_id
+                center.whatsapp_phone_number_id,
+                shortSessionPath ? shortSessionPath.replace(/^\/enlace\//, '') : undefined
               );
               
               if (metaResult.success) {

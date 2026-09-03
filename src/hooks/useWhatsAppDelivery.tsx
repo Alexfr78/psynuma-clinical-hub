@@ -109,10 +109,10 @@ export function useWhatsAppDelivery() {
     patientId: string;
     sessionId?: string;
     centerId: string;
-    // Structured data for the approved "recordatorio_cita_psycma" template. Required
-    // for business-initiated messages (this clinic starting the conversation) since
-    // WhatsApp silently drops free-form text sent outside an open 24h window.
-    templateParams?: { patientFirstName: string; centerName: string; formattedDate: string; formattedTime: string };
+    // Structured data for an approved WhatsApp template. Required for business-initiated
+    // messages (this clinic starting the conversation) since WhatsApp silently drops
+    // free-form text sent outside an open 24h window.
+    templateParams?: { templateName: string; bodyParams: string[]; buttonParam?: string };
   }): Promise<WhatsAppDeliveryResult> => {
     try {
       // Create notification record
@@ -164,7 +164,7 @@ export function useWhatsAppDelivery() {
     sessionId?: string;
     centerId: string;
     messageType?: string;
-    templateParams?: { patientFirstName: string; centerName: string; formattedDate: string; formattedTime: string };
+    templateParams?: { templateName: string; bodyParams: string[]; buttonParam?: string };
   }): Promise<{
     result: WhatsAppDeliveryResult;
     manualLink?: string;
