@@ -263,8 +263,22 @@ export async function sendSessionNotificationDirect(
           .single();
 
         if (notification.data && !rateLimit.shouldQueue) {
+          // Business-initiated confirmation of a newly created session: must go
+          // through the approved "confirmacion_cita_psycma" template, since free-form
+          // text outside an open 24h window is silently dropped by WhatsApp.
           const { error } = await supabase.functions.invoke('send-notification', {
-            body: { notificationId: notification.data.id },
+            body: {
+              notificationId: notification.data.id,
+              templateParams: {
+                templateName: 'confirmacion_cita_psycma',
+                bodyParams: [
+                  params.patientName.split(' ')[0],
+                  center.name || '',
+                  params.sessionDate,
+                  params.sessionTime,
+                ],
+              },
+            },
           });
           whatsappAutoSent = !error;
           results.push({ channel: 'whatsapp', success: !error });
