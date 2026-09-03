@@ -1957,7 +1957,6 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                       const sessionTime = session.start_time?.slice(0, 5) || '';
 
                       let appointmentLink = getPublicBaseUrl();
-                      let shortLinkCode = '';
                       if (session.access_token) {
                         const { data: shortLinkData, error: shortLinkError } = await supabase.functions.invoke(
                           'create-public-session-short-link',
@@ -1972,10 +1971,6 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                           return;
                         }
                         appointmentLink = buildPublicUrl(shortLinkData.path);
-                        // The "recordatorio_cita_psycma" template's button uses a dynamic
-                        // URL made of a fixed base (".../enlace/") plus this suffix, so we
-                        // need just the short-link code, not the full path.
-                        shortLinkCode = shortLinkData.path.replace(/^\/enlace\//, '');
                       }
 
                       // Build message from template
@@ -2002,7 +1997,9 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                           templateParams: {
                             templateName: 'recordatorio_cita_psycma',
                             bodyParams: [patientFirstName, center.name || '', sessionDate, sessionTime],
-                            buttonParam: shortLinkCode || undefined,
+                            // The template's button URL is "https://psycma.psicologosexual.com/cita/{{1}}",
+                            // the session's own access_token route — not the /enlace/ short-link.
+                            buttonParam: session.access_token || undefined,
                           },
                         });
 

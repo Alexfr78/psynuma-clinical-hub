@@ -320,6 +320,15 @@ function formatDate(dateStr: string): string {
   return date.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 }
 
+// Meta validates the date parameter of "recordatorio_cita_psycma" (derived from its
+// appointment_reminder_2 library template) as a date field with a strict 30-character
+// limit. The weekday-included format from formatDate() can exceed that (e.g. "jueves, 3
+// de septiembre de 2026" = 31 chars), silently rejecting the whole template send.
+function formatDateForMetaTemplate(dateStr: string): string {
+  const date = new Date(dateStr);
+  return date.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
 // Format time for display
 function formatTime(timeStr: string): string {
   return timeStr.substring(0, 5);
@@ -814,11 +823,13 @@ serve(async (req) => {
                 patient.phone,
                 patient.first_name,
                 center.name,
-                formatDate(session.session_date),
+                formatDateForMetaTemplate(session.session_date),
                 formatTime(session.start_time),
                 decryptedToken,
                 center.whatsapp_phone_number_id,
-                shortSessionPath ? shortSessionPath.replace(/^\/enlace\//, '') : undefined
+                // The template's button URL is "https://psycma.psicologosexual.com/cita/{{1}}",
+                // which is the session's own access_token route — not the /enlace/ short-link.
+                session.access_token || undefined
               );
               
               if (metaResult.success) {
