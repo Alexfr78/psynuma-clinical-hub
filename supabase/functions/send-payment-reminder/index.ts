@@ -274,10 +274,17 @@ serve(async (req) => {
       );
     }
 
-    // Send the notification
+    // Send the notification. Business-initiated WhatsApp messages must go through an
+    // approved template (free-form text outside an open 24h window is silently
+    // dropped). There's no payment-specific approved template yet, so we use the
+    // generic single-param "aviso_psycma" template with the full message as its body.
+    const templateParams = channel === 'whatsapp'
+      ? { templateName: 'aviso_psycma', bodyParams: [message] }
+      : undefined;
+
     const { data: sendResult, error: sendError } = await supabase.functions.invoke(
       'send-notification',
-      { body: { notificationId: notification.id } }
+      { body: { notificationId: notification.id, templateParams } }
     );
 
     if (sendError) {
