@@ -55,7 +55,24 @@ export default defineConfig(({ mode }) => ({
         // navigation fallback, especially on installed PWAs and iOS Safari.
         // /cita/ now also drives a Stripe checkout (session + bono purchase),
         // so it needs the same treatment as /factura/ and /pagar/.
-        navigateFallbackDenylist: [/^\/factura\//, /^\/pagar\//, /^\/cita\//],
+        // Rutas públicas que abre el paciente desde un enlace: las sirve el
+        // servidor, no el service worker. Si se cachean, un despliegue nuevo
+        // puede dejarlas en blanco mientras el SW toma el control.
+        // Toda ruta pública nueva debe añadirse aquí.
+        navigateFallbackDenylist: [
+          /^\/factura\//,
+          /^\/pagar\//,
+          /^\/cita\//,
+          /^\/consentimiento\//,
+          /^\/evaluacion\//,
+          /^\/emo\//,
+          /^\/registro\//,
+          /^\/enlace\//,
+          /^\/portal\//,
+          /^\/book\//,
+          /^\/reservas\//,
+          /^\/derivaciones\//,
+        ],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
