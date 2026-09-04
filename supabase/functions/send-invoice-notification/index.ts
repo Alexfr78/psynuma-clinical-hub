@@ -241,7 +241,8 @@ async function sendWhatsAppFacturaTemplateViaMetaAPI(
   invoiceNumber: string,
   total: string,
   accessToken: string,
-  phoneNumberId: string
+  phoneNumberId: string,
+  invoiceAccessToken?: string
 ): Promise<{ success: boolean; error?: string; messageId?: string }> {
   try {
     let cleanPhone = phone.replace(/\D/g, '');
@@ -250,6 +251,32 @@ async function sendWhatsAppFacturaTemplateViaMetaAPI(
     }
 
     console.log(`Sending WhatsApp template "factura_psycma" via Meta API to ${cleanPhone}`);
+
+    type TemplateComponent =
+      | { type: 'body'; parameters: { type: 'text'; text: string }[] }
+      | { type: 'button'; sub_type: 'url'; index: string; parameters: { type: 'text'; text: string }[] };
+
+    const components: TemplateComponent[] = [
+      {
+        type: 'body',
+        parameters: [
+          { type: 'text', text: patientFirstName },
+          { type: 'text', text: invoiceNumber },
+          { type: 'text', text: `${total} EUR` },
+        ],
+      },
+    ];
+
+    // The "Ver factura" button uses a dynamic URL (".../factura/{{1}}") so it opens
+    // this specific invoice instead of the generic marketing site.
+    if (invoiceAccessToken) {
+      components.push({
+        type: 'button',
+        sub_type: 'url',
+        index: '0',
+        parameters: [{ type: 'text', text: invoiceAccessToken }],
+      });
+    }
 
     const response = await fetch(
       `https://graph.facebook.com/v18.0/${phoneNumberId}/messages`,
@@ -267,16 +294,7 @@ async function sendWhatsAppFacturaTemplateViaMetaAPI(
           template: {
             name: 'factura_psycma',
             language: { code: 'es' },
-            components: [
-              {
-                type: 'body',
-                parameters: [
-                  { type: 'text', text: patientFirstName },
-                  { type: 'text', text: invoiceNumber },
-                  { type: 'text', text: `${total} EUR` },
-                ],
-              },
-            ],
+            components,
           },
         }),
       }
@@ -588,7 +606,8 @@ Deno.serve(async (req) => {
           invoiceNumber,
           total,
           decryptedToken,
-          center.whatsapp_phone_number_id
+          center.whatsapp_phone_number_id,
+          invoice.access_token || undefined
         );
 
         whatsappSent = apiResult.success;
