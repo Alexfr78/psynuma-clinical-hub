@@ -3904,7 +3904,6 @@ export type Database = {
           message: string
           meta_message_id: string | null
           patient_id: string | null
-          purpose: string | null
           recipient: string
           scheduled_for: string | null
           sent_at: string | null
@@ -3921,7 +3920,6 @@ export type Database = {
           message: string
           meta_message_id?: string | null
           patient_id?: string | null
-          purpose?: string | null
           recipient: string
           scheduled_for?: string | null
           sent_at?: string | null
@@ -3938,7 +3936,6 @@ export type Database = {
           message?: string
           meta_message_id?: string | null
           patient_id?: string | null
-          purpose?: string | null
           recipient?: string
           scheduled_for?: string | null
           sent_at?: string | null
