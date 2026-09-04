@@ -348,10 +348,37 @@ async function handleDebtPayment(
       supabase.from('debts').update({ invoice_id: invoiceId }).eq('id', debtId),
       supabase.from('payments').update({ invoice_id: invoiceId }).eq('id', paymentRecord.id),
     ]);
+
+    // Sync invoice status (issued -> paid) once the payment is fully applied.
+    const { error: recomputeError } = await supabase.rpc('recompute_debt_by_invoice', {
+      p_debt_id: debtId,
+    });
+    if (recomputeError) {
+      console.error('Error recomputing debt/invoice status after Stripe payment', {
+        debt_id: debtId,
+        message: recomputeError.message,
+      });
+    }
+  }
+
+  // Close the billable event so the session is not offered for invoicing again
+  // (prevents duplicate invoices for an already paid session).
+  if (sessionId) {
+    const { error: billableError } = await supabase
+      .from('billable_events')
+      .update({ billing_status: 'settled', updated_at: new Date().toISOString() })
+      .eq('session_id', sessionId);
+    if (billableError) {
+      console.error('Error settling billable event after Stripe payment', {
+        session_id: sessionId,
+        message: billableError.message,
+      });
+    }
   }
 
   console.log('Debt payment processed successfully');
 }
+
 
 // Handle bono purchase
 async function handleBonoPurchase(
