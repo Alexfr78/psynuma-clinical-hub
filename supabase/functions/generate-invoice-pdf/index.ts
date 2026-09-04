@@ -227,7 +227,7 @@ async function generateInvoicePdfBytes(
   rightY -= 20;
   drawTextRightAligned(page, sanitizeForPdf(invoice.invoice_number), contentRight, rightY, 14, helveticaBold, ACCENT);
   rightY -= 18;
-  drawTextRightAligned(page, `Fecha emision: ${formatDate(invoice.issue_date)}`, contentRight, rightY, 9, helvetica, TEXT_MUTED);
+  drawTextRightAligned(page, `Fecha emisión: ${formatDate(invoice.issue_date)}`, contentRight, rightY, 9, helvetica, TEXT_MUTED);
   rightY -= 12;
   if (invoice.due_date) {
     drawTextRightAligned(page, `Fecha vencimiento: ${formatDate(invoice.due_date)}`, contentRight, rightY, 9, helvetica, TEXT_MUTED);
@@ -418,7 +418,7 @@ async function generateInvoicePdfBytes(
       page.drawImage(qrImage, { x: MARGIN, y: currentY - 90, width: 90, height: 90 });
 
       page.drawText('Factura registrada en Verifactu', { x: MARGIN + 100, y: currentY - 15, size: 10, font: helveticaBold, color: TEXT_DARK });
-      const qrLines = wrapText('Puede verificar la autenticidad de esta factura escaneando el codigo QR', helvetica, 8, contentRight - MARGIN - 110);
+      const qrLines = wrapText('Puede verificar la autenticidad de esta factura escaneando el código QR', helvetica, 8, contentRight - MARGIN - 110);
       let qrY = currentY - 30;
       for (const line of qrLines) {
         page.drawText(line, { x: MARGIN + 100, y: qrY, size: 8, font: helvetica, color: TEXT_MUTED });

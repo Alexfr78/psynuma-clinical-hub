@@ -22,21 +22,8 @@ export function sanitizeForPdf(text: string): string {
     .replace(/©/g, '(c)')
     .replace(/®/g, '(R)')
     .replace(/™/g, '(TM)')
-    // Spanish characters are supported in WinAnsi, but let's be safe
-    .replace(/á/g, 'a')
-    .replace(/é/g, 'e')
-    .replace(/í/g, 'i')
-    .replace(/ó/g, 'o')
-    .replace(/ú/g, 'u')
-    .replace(/Á/g, 'A')
-    .replace(/É/g, 'E')
-    .replace(/Í/g, 'I')
-    .replace(/Ó/g, 'O')
-    .replace(/Ú/g, 'U')
-    .replace(/ñ/g, 'n')
-    .replace(/Ñ/g, 'N')
-    .replace(/ü/g, 'u')
-    .replace(/Ü/g, 'U')
+    // Spanish characters (á é í ó ú ñ ü and their uppercase forms) are supported in
+    // WinAnsi/Latin-1, so they are kept as-is and only filtered by the final regex below
     // Strip any remaining non-WinAnsi characters (keep basic Latin + Latin-1 Supplement)
     .replace(/[^\x20-\x7E\xA0-\xFF\n\r\t]/g, '');
 }

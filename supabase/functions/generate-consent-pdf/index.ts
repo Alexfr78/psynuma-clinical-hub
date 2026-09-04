@@ -272,21 +272,8 @@ function sanitizeForPdf(text: string): string {
     .replace(/©/g, '(c)')
     .replace(/®/g, '(R)')
     .replace(/™/g, '(TM)')
-    // Spanish characters are supported in WinAnsi, but let's be safe with some
-    .replace(/á/g, 'a')
-    .replace(/é/g, 'e')
-    .replace(/í/g, 'i')
-    .replace(/ó/g, 'o')
-    .replace(/ú/g, 'u')
-    .replace(/Á/g, 'A')
-    .replace(/É/g, 'E')
-    .replace(/Í/g, 'I')
-    .replace(/Ó/g, 'O')
-    .replace(/Ú/g, 'U')
-    .replace(/ñ/g, 'n')
-    .replace(/Ñ/g, 'N')
-    .replace(/ü/g, 'u')
-    .replace(/Ü/g, 'U')
+    // Spanish characters (á é í ó ú ñ ü and their uppercase forms) are supported in
+    // WinAnsi/Latin-1, so they are kept as-is and only filtered by the final regex below
     // Strip any remaining non-WinAnsi characters (keep basic Latin + Latin-1 Supplement)
     .replace(/[^\x20-\x7E\xA0-\xFF\n\r\t]/g, '');
 }
@@ -671,18 +658,24 @@ serve(async (req) => {
     });
     currentY -= 30;
 
-    // Document title
+    // Document title (wrapped across multiple lines when it doesn't fit the page width)
     const templateName = sanitizeForPdf(typedConsent.template?.name || 'Consentimiento Informado');
-    currentPage.drawText(templateName, {
-      x: margin,
-      y: currentY,
-      size: 18,
-      font: helveticaBold,
-      color: rgb(0.12, 0.15, 0.21),
-    });
-    currentY -= 25;
+    const titleFontSize = 18;
+    const titleLineHeight = 22;
+    const titleLines = wrapText(templateName, helveticaBold, titleFontSize, contentWidth);
+    for (const titleLine of titleLines) {
+      currentPage.drawText(titleLine, {
+        x: margin,
+        y: currentY,
+        size: titleFontSize,
+        font: helveticaBold,
+        color: rgb(0.12, 0.15, 0.21),
+      });
+      currentY -= titleLineHeight;
+    }
+    currentY -= 3;
 
-    currentPage.drawText('Documento firmado electronicamente', {
+    currentPage.drawText('Documento firmado electrónicamente', {
       x: margin,
       y: currentY,
       size: 10,
@@ -772,8 +765,8 @@ serve(async (req) => {
     }
     currentY -= 25;
 
-    currentPage.drawText('FIRMAS ELECTRONICAS', {
-      x: (pageWidth - helveticaBold.widthOfTextAtSize('FIRMAS ELECTRONICAS', 14)) / 2,
+    currentPage.drawText('FIRMAS ELECTRÓNICAS', {
+      x: (pageWidth - helveticaBold.widthOfTextAtSize('FIRMAS ELECTRÓNICAS', 14)) / 2,
       y: currentY,
       size: 14,
       font: helveticaBold,
@@ -904,7 +897,7 @@ serve(async (req) => {
     }
 
     // Verification text
-    currentPage.drawText('[X] DOCUMENTO FIRMADO ELECTRONICAMENTE', {
+    currentPage.drawText('[X] DOCUMENTO FIRMADO ELECTRÓNICAMENTE', {
       x: margin + 95,
       y: currentY - 20,
       size: 12,
@@ -912,7 +905,7 @@ serve(async (req) => {
       color: rgb(0.09, 0.4, 0.2),
     });
 
-    currentPage.drawText('Este documento ha sido firmado electronicamente y tiene validez legal.', {
+    currentPage.drawText('Este documento ha sido firmado electrónicamente y tiene validez legal.', {
       x: margin + 95,
       y: currentY - 38,
       size: 9,
