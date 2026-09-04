@@ -10,6 +10,8 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { toast } from 'sonner';
 import { useCenter } from '@/hooks/useCenter';
 import { Icon } from '@/components/ui/icon';
+import { checkPatientConsent, type ConsentCheckResult } from '@/lib/consent-verification';
+import { consentSendBlockReason } from '@/lib/consent-block-messages';
 
 interface PatientAIReportsProps {
   patientId: string;
@@ -18,6 +20,26 @@ interface PatientAIReportsProps {
 export function PatientAIReports({ patientId }: PatientAIReportsProps) {
   const { centerId } = useCenter();
   const [sendingId, setSendingId] = useState<string | null>(null);
+
+  // Consent is per-patient (not per-session), so a single check up front
+  // covers every report listed below. This is client-side UX only — the
+  // real, fail-closed enforcement happens server-side in send-notification
+  // (see isClinicalReportNotification there), which never trusts the client.
+  const { data: consentResults, isLoading: isConsentLoading } = useQuery({
+    queryKey: ['patient-consent-status', patientId, 'channel_whatsapp', 'channel_email'],
+    queryFn: async () => {
+      const [whatsapp, email] = await Promise.all([
+        checkPatientConsent(supabase, patientId, 'channel_whatsapp'),
+        checkPatientConsent(supabase, patientId, 'channel_email'),
+      ]);
+      return { channel_whatsapp: whatsapp, channel_email: email } as Record<'channel_whatsapp' | 'channel_email', ConsentCheckResult>;
+    },
+    enabled: !!patientId,
+    staleTime: 30_000,
+  });
+
+  const whatsappBlockReason = consentSendBlockReason('whatsapp', consentResults?.channel_whatsapp);
+  const emailBlockReason = consentSendBlockReason('email', consentResults?.channel_email);
 
   const { data: sessions, isLoading } = useQuery({
     queryKey: ['patient-ai-reports', patientId],
@@ -42,6 +64,14 @@ export function PatientAIReports({ patientId }: PatientAIReportsProps) {
     const recipient = channel === 'whatsapp' ? session.patient?.phone : session.patient?.email;
     if (!recipient) return;
 
+    // Client-side defense in depth — send-notification enforces this for
+    // real and fails closed regardless of what happens here.
+    const blockReason = channel === 'whatsapp' ? whatsappBlockReason : emailBlockReason;
+    if (blockReason) {
+      toast.error(blockReason);
+      return;
+    }
+
     setSendingId(session.id);
     try {
       const { data: notification } = await supabase
@@ -52,7 +82,13 @@ export function PatientAIReports({ patientId }: PatientAIReportsProps) {
           patient_id: patientId,
           type: channel,
           recipient,
-          subject: channel === 'email' ? 'Resumen de tu sesión' : undefined,
+          subject: 'Resumen de tu sesión',
+          // Explicit purpose marker on every channel — this is the primary
+          // signal send-notification's consent gate relies on to recognize
+          // a clinical AI report delivery. Set here regardless of channel so
+          // sending via WhatsApp cannot bypass the gate the way it used to
+          // when only the email path set `subject`.
+          purpose: 'clinical_report',
           message: session.ai_summary_patient,
           status: 'pending',
         })
@@ -60,9 +96,16 @@ export function PatientAIReports({ patientId }: PatientAIReportsProps) {
         .single();
 
       if (notification) {
-        await supabase.functions.invoke('send-notification', {
+        const { data: sendResult, error: sendError } = await supabase.functions.invoke('send-notification', {
           body: { notificationId: notification.id },
         });
+
+        const resultItem = sendResult?.results?.[0];
+        if (sendError || sendResult?.ok === false || resultItem?.ok === false) {
+          toast.error(resultItem?.error || 'No se pudo enviar el informe. Revisa el consentimiento del contacto.');
+          return;
+        }
+
         toast.success(`Informe enviado por ${channel === 'whatsapp' ? 'WhatsApp' : 'email'}`);
       }
     } catch {
@@ -141,12 +184,13 @@ export function PatientAIReports({ patientId }: PatientAIReportsProps) {
                 <div className="rounded-md bg-muted p-3 text-sm whitespace-pre-wrap max-h-64 overflow-y-auto">
                   {session.ai_summary_patient}
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   {session.patient?.phone && (
                     <Button
                       size="sm"
                       variant="outline"
-                      disabled={sendingId === session.id}
+                      disabled={sendingId === session.id || isConsentLoading || !!whatsappBlockReason}
+                      title={whatsappBlockReason || undefined}
                       onClick={() => handleSend(session, 'whatsapp')}
                     >
                       {sendingId === session.id ? <Icon name="progress_activity" className="h-3 w-3 mr-1 animate-spin" /> : <Icon name="call" className="h-3 w-3 mr-1" />}
@@ -157,7 +201,8 @@ export function PatientAIReports({ patientId }: PatientAIReportsProps) {
                     <Button
                       size="sm"
                       variant="outline"
-                      disabled={sendingId === session.id}
+                      disabled={sendingId === session.id || isConsentLoading || !!emailBlockReason}
+                      title={emailBlockReason || undefined}
                       onClick={() => handleSend(session, 'email')}
                     >
                       {sendingId === session.id ? <Icon name="progress_activity" className="h-3 w-3 mr-1 animate-spin" /> : <Icon name="mail" className="h-3 w-3 mr-1" />}
@@ -165,6 +210,22 @@ export function PatientAIReports({ patientId }: PatientAIReportsProps) {
                     </Button>
                   )}
                 </div>
+                {(whatsappBlockReason || emailBlockReason) && (
+                  <div className="space-y-1">
+                    {whatsappBlockReason && (
+                      <p className="text-xs text-muted-foreground">
+                        <Icon name="lock" className="h-3 w-3 mr-1 inline align-text-bottom" />
+                        {whatsappBlockReason}
+                      </p>
+                    )}
+                    {emailBlockReason && (
+                      <p className="text-xs text-muted-foreground">
+                        <Icon name="lock" className="h-3 w-3 mr-1 inline align-text-bottom" />
+                        {emailBlockReason}
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </CollapsibleContent>

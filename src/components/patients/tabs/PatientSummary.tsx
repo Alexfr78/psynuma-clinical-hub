@@ -6,6 +6,8 @@ import { Patient } from '@/hooks/usePatients';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Icon } from '@/components/ui/icon';
+import { usePatientConsentPurposes } from '@/hooks/usePatientConsentPurposes';
+import { countGrantedConsentPurposes } from '@/lib/consent-block-messages';
 
 interface PatientSummaryProps {
   patient: Patient & {
@@ -19,9 +21,14 @@ interface PatientSummaryProps {
     status_source?: string | null;
     status_reason?: string | null;
   };
+  /** Switches the parent detail view to the "Documentos clínicos > Consentimientos" tab. */
+  onNavigateToConsents?: () => void;
 }
 
-export function PatientSummary({ patient }: PatientSummaryProps) {
+export function PatientSummary({ patient, onNavigateToConsents }: PatientSummaryProps) {
+  const { results: consentResults, isLoading: isConsentLoading, isError: isConsentError } =
+    usePatientConsentPurposes(patient.id);
+  const { granted: grantedPurposes, total: totalPurposes } = countGrantedConsentPurposes(consentResults);
   // Fetch patient stats
   const { data: stats } = useQuery({
     queryKey: ['patient-stats', patient.id],
@@ -62,7 +69,7 @@ export function PatientSummary({ patient }: PatientSummaryProps) {
   return (
     <div className="space-y-6">
       {/* Stats Cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -123,6 +130,48 @@ export function PatientSummary({ patient }: PatientSummaryProps) {
             </div>
             <p className="text-xs text-muted-foreground">
               {format(new Date(patient.created_at), "yyyy", { locale: es })}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card
+          role={onNavigateToConsents ? 'button' : undefined}
+          tabIndex={onNavigateToConsents ? 0 : undefined}
+          onClick={onNavigateToConsents}
+          onKeyDown={(e) => {
+            if (onNavigateToConsents && (e.key === 'Enter' || e.key === ' ')) {
+              e.preventDefault();
+              onNavigateToConsents();
+            }
+          }}
+          className={
+            onNavigateToConsents
+              ? 'cursor-pointer transition-colors hover:bg-muted/50 focus:outline-none focus:ring-2 focus:ring-ring'
+              : undefined
+          }
+        >
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Permisos
+            </CardTitle>
+            <Icon name="verified_user" className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            {isConsentLoading ? (
+              <div className="text-2xl font-bold text-muted-foreground">…</div>
+            ) : isConsentError ? (
+              <div className="text-sm font-medium text-destructive">No se pudo comprobar</div>
+            ) : (
+              <div className="text-2xl font-bold">
+                {grantedPurposes} de {totalPurposes}
+              </div>
+            )}
+            <p className="text-xs text-muted-foreground">
+              {isConsentLoading
+                ? 'Comprobando…'
+                : isConsentError
+                  ? 'Inténtalo de nuevo'
+                  : 'Ver consentimientos'}
             </p>
           </CardContent>
         </Card>

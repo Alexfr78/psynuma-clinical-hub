@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { PDFDocument, StandardFonts, rgb, PDFPage, PDFFont } from "https://esm.sh/pdf-lib@1.17.1";
+import { getVerificationResponseValue, normalizeVerificationCheckboxes } from "../_shared/consent.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -218,7 +219,7 @@ interface ConsentData {
   };
   template: {
     name: string;
-    verification_checkboxes: string[] | null;
+    verification_checkboxes: unknown;
     requires_emergency_contact: boolean | null;
   };
   center: {
@@ -293,20 +294,20 @@ function sanitizeForPdf(text: string): string {
 // Replace verification placeholder with actual responses
 function replaceVerificationPlaceholder(
   html: string,
-  verificationCheckboxes: string[] | null,
+  rawVerificationCheckboxes: unknown,
   verificationResponses: Record<string, boolean> | null
 ): string {
-  if (!verificationCheckboxes || verificationCheckboxes.length === 0) {
+  const verificationCheckboxes = normalizeVerificationCheckboxes(rawVerificationCheckboxes);
+  if (verificationCheckboxes.length === 0) {
     // Just remove the placeholder
     return html.replace(/\{campos_verificacion\}/gi, '');
   }
 
   // Build text representation for verification responses
-  const responsesText = verificationCheckboxes.map((checkbox, index) => {
-    const response = verificationResponses?.[index.toString()];
-    const isAuthorized = response === true;
+  const responsesText = verificationCheckboxes.map((checkbox) => {
+    const isAuthorized = getVerificationResponseValue(verificationResponses, checkbox.key) === true;
     const icon = isAuthorized ? '[X] AUTORIZO' : '[ ] NO AUTORIZO';
-    return `${checkbox}\n   ${icon}`;
+    return `${checkbox.label}\n   ${icon}`;
   }).join('\n\n');
 
   // Replace placeholder patterns

@@ -16,6 +16,11 @@ import {
   isCancellationPolicyAccepted,
   VerificationResponse,
 } from '@/lib/consent-acceptance';
+import {
+  buildVerificationResponsesPayload,
+  normalizeVerificationCheckboxes,
+  VerificationCheckboxItem,
+} from '@/lib/consent-checkboxes';
 import { Icon } from '@/components/ui/icon';
 
 interface MultiSignatureFlowProps {
@@ -54,9 +59,9 @@ function insertMarker(html: string, placeholder: string, marker: string): { html
 // content, or appended at the end if no placeholder was used.
 interface DocumentWithFieldsProps {
   content: string;
-  verificationCheckboxes: string[];
-  verificationResponses: Record<number, VerificationResponse>;
-  setVerificationResponses: React.Dispatch<React.SetStateAction<Record<number, VerificationResponse>>>;
+  verificationCheckboxes: VerificationCheckboxItem[];
+  verificationResponses: Record<string, VerificationResponse>;
+  setVerificationResponses: React.Dispatch<React.SetStateAction<Record<string, VerificationResponse>>>;
   requiresEmergencyContact: boolean;
   emergencyContactName: string;
   emergencyContactPhone: string;
@@ -102,29 +107,29 @@ function DocumentWithFields({
         if (segment === CHECKBOX_MARKER) {
           return (
             <div key={index} className="my-4 space-y-4 rounded-lg border-2 border-primary/30 bg-muted/30 p-4 not-prose">
-              {verificationCheckboxes.map((checkbox, cIndex) => (
-                <div key={cIndex} className="space-y-2">
-                  <p className="text-sm font-medium">{checkbox}</p>
+              {verificationCheckboxes.map((checkbox) => (
+                <div key={checkbox.key} className="space-y-2">
+                  <p className="text-sm font-medium">{checkbox.label}</p>
                   <RadioGroup
-                    value={verificationResponses[cIndex] || ''}
+                    value={verificationResponses[checkbox.key] || ''}
                     onValueChange={(value) =>
-                      setVerificationResponses((prev) => ({ ...prev, [cIndex]: value as VerificationResponse }))
+                      setVerificationResponses((prev) => ({ ...prev, [checkbox.key]: value as VerificationResponse }))
                     }
                     className="flex gap-6"
                   >
                     <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="authorized" id={`verif-auth-${cIndex}`} />
+                      <RadioGroupItem value="authorized" id={`verif-auth-${checkbox.key}`} />
                       <Label
-                        htmlFor={`verif-auth-${cIndex}`}
+                        htmlFor={`verif-auth-${checkbox.key}`}
                         className="text-sm font-medium text-green-700 dark:text-green-400 cursor-pointer"
                       >
                         ✓ Autorizo
                       </Label>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="not_authorized" id={`verif-notauth-${cIndex}`} />
+                      <RadioGroupItem value="not_authorized" id={`verif-notauth-${checkbox.key}`} />
                       <Label
-                        htmlFor={`verif-notauth-${cIndex}`}
+                        htmlFor={`verif-notauth-${checkbox.key}`}
                         className="text-sm font-medium text-red-700 dark:text-red-400 cursor-pointer"
                       >
                         ✗ No autorizo
@@ -183,23 +188,23 @@ export function MultiSignatureFlow({ consent, token }: MultiSignatureFlowProps) 
   const [currentStep, setCurrentStep] = useState<'document' | 'guardian' | 'patient' | 'complete'>('document');
   const [hasSignature, setHasSignature] = useState(false);
   const [acceptedGdpr, setAcceptedGdpr] = useState(false);
-  const [verificationResponses, setVerificationResponses] = useState<Record<number, VerificationResponse>>({});
+  const [verificationResponses, setVerificationResponses] = useState<Record<string, VerificationResponse>>({});
   const [emergencyContactName, setEmergencyContactName] = useState(consent.emergency_contact_name || '');
   const [emergencyContactPhone, setEmergencyContactPhone] = useState(consent.emergency_contact_phone || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
-  const verificationCheckboxes = consent.template?.verification_checkboxes || [];
+  const verificationCheckboxes = normalizeVerificationCheckboxes(consent.template?.verification_checkboxes);
   const requiresEmergencyContact = consent.template?.requires_emergency_contact ?? false;
 
   const allVerificationsAnswered = areVerificationResponsesComplete(
-    verificationCheckboxes.length,
+    verificationCheckboxes,
     verificationResponses,
   );
   const isCancellationPolicy = Boolean(consent.cancellation_policy_version_id);
   const cancellationPolicyAccepted = !isCancellationPolicy || isCancellationPolicyAccepted(
-    verificationCheckboxes.length,
+    verificationCheckboxes,
     verificationResponses,
   );
 
@@ -228,11 +233,9 @@ export function MultiSignatureFlow({ consent, token }: MultiSignatureFlowProps) 
     // Save the verification responses, if any
     if (verificationCheckboxes.length > 0) {
       try {
-        // Convert to boolean format for storage
-        const responsesToSave: Record<string, boolean> = {};
-        Object.entries(verificationResponses).forEach(([key, value]) => {
-          responsesToSave[key] = value === 'authorized';
-        });
+        // Convert to boolean format for storage, keyed by the checkbox's
+        // stable key (not its position) so it stays correct across reorders.
+        const responsesToSave = buildVerificationResponsesPayload(verificationCheckboxes, verificationResponses);
 
         await saveVerificationResponses.mutateAsync({
           consentId: consent.id,

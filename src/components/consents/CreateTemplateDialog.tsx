@@ -24,6 +24,17 @@ import { Switch } from '@/components/ui/switch';
 import { ConsentTemplate, useConsentTemplates } from '@/hooks/useConsentTemplates';
 import { TemplateEditor } from './TemplateEditor';
 import { Icon } from '@/components/ui/icon';
+import {
+  generateUniqueCheckboxKey,
+  normalizeVerificationCheckboxes,
+  VerificationCheckboxItem,
+} from '@/lib/consent-checkboxes';
+
+const checkboxSchema = z.object({
+  key: z.string().min(1),
+  label: z.string().min(1),
+  required: z.boolean(),
+});
 
 const schema = z.object({
   name: z.string().min(1, 'El nombre es obligatorio'),
@@ -31,7 +42,7 @@ const schema = z.object({
   requires_guardian_signature: z.boolean(),
   requires_emergency_contact: z.boolean(),
   is_active: z.boolean(),
-  verification_checkboxes: z.array(z.string()),
+  verification_checkboxes: z.array(checkboxSchema),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -87,7 +98,7 @@ export function CreateTemplateDialog({
         requires_guardian_signature: template.requires_guardian_signature,
         requires_emergency_contact: template.requires_emergency_contact,
         is_active: template.is_active,
-        verification_checkboxes: template.verification_checkboxes || [],
+        verification_checkboxes: normalizeVerificationCheckboxes(template.verification_checkboxes),
       });
     } else {
       form.reset({
@@ -102,9 +113,12 @@ export function CreateTemplateDialog({
   }, [template, form]);
 
   const addCheckbox = () => {
-    if (newCheckbox.trim()) {
+    const label = newCheckbox.trim();
+    if (label) {
       const current = form.getValues('verification_checkboxes');
-      form.setValue('verification_checkboxes', [...current, newCheckbox.trim()]);
+      const key = generateUniqueCheckboxKey(label, current.map((c) => c.key));
+      const item: VerificationCheckboxItem = { key, label, required: true };
+      form.setValue('verification_checkboxes', [...current, item]);
       setNewCheckbox('');
     }
   };
@@ -115,8 +129,12 @@ export function CreateTemplateDialog({
   };
 
   const onSubmit = async (values: FormValues) => {
+    // The zod schema already guarantees every checkbox has a non-empty
+    // key/label and a boolean `required` — this cast just tells the mutation
+    // hooks that (react-hook-form/zodResolver widen the nested object type).
+    const verificationCheckboxes = values.verification_checkboxes as VerificationCheckboxItem[];
     if (isEditing) {
-      await updateTemplate.mutateAsync({ id: template.id, ...values });
+      await updateTemplate.mutateAsync({ id: template.id, ...values, verification_checkboxes: verificationCheckboxes });
     } else {
       await createTemplate.mutateAsync({
         name: values.name,
@@ -124,7 +142,7 @@ export function CreateTemplateDialog({
         requires_guardian_signature: values.requires_guardian_signature,
         requires_emergency_contact: values.requires_emergency_contact,
         is_active: values.is_active,
-        verification_checkboxes: values.verification_checkboxes,
+        verification_checkboxes: verificationCheckboxes,
       });
     }
     onOpenChange(false);
@@ -183,8 +201,8 @@ export function CreateTemplateDialog({
               
               <div className="space-y-2">
                 {form.watch('verification_checkboxes').map((checkbox, index) => (
-                  <div key={index} className="flex items-center gap-2 rounded-md border bg-muted/50 p-2">
-                    <span className="flex-1 text-sm">{checkbox}</span>
+                  <div key={checkbox.key} className="flex items-center gap-2 rounded-md border bg-muted/50 p-2">
+                    <span className="flex-1 text-sm">{checkbox.label}</span>
                     <Button
                       type="button"
                       variant="ghost"

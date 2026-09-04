@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { decryptSecret } from "../_shared/crypto.ts";
 import { logAuditEvent } from "../_shared/auditLogger.ts";
 import { hasAuthenticatedJWT, unauthorizedResponse } from "../_shared/authGuard.ts";
+import { checkPatientConsent, type ConsentCheckResult, type ConsentPurpose } from "../_shared/consent.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -201,7 +202,7 @@ serve(async (req) => {
   }
 
   try {
-    const { transcription, layer, baseAnalysis, centerId } = await req.json();
+    const { transcription, layer, baseAnalysis, centerId, sessionId } = await req.json();
 
     if (!transcription || !layer) {
       return new Response(
@@ -210,10 +211,16 @@ serve(async (req) => {
       );
     }
 
+    // Single service-role client reused for center validation, consent checks,
+    // AI configuration lookup and audit logging.
+    const supabaseService = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    );
+
     // Validate caller belongs to requested center (skip for service_role)
     if (role === 'authenticated' && centerId && userId) {
-      const svc = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
-      const { data: prof } = await svc.from('profiles').select('center_id').eq('id', userId).maybeSingle();
+      const { data: prof } = await supabaseService.from('profiles').select('center_id').eq('id', userId).maybeSingle();
       if (!prof || (prof as { center_id: string | null }).center_id !== centerId) {
         return new Response(
           JSON.stringify({ error: 'Forbidden' }),
@@ -222,6 +229,62 @@ serve(async (req) => {
       }
     }
 
+    // ─── Consent gate: never send session content to the AI provider without ──
+    // the patient's consent for 'ai_processing' AND 'report_generation'.
+    // The client always supplies sessionId (the dialog only opens against a
+    // real session — see TranscriptionAnalysisDialog.tsx). Without it we cannot
+    // identify the patient, so we fail closed rather than skip the check.
+    let patientId: string | null = null;
+    if (sessionId) {
+      const { data: sessionRow } = await supabaseService
+        .from('sessions')
+        .select('patient_id')
+        .eq('id', sessionId)
+        .maybeSingle();
+      patientId = (sessionRow as { patient_id: string | null } | null)?.patient_id ?? null;
+    }
+
+    if (!patientId) {
+      return new Response(
+        JSON.stringify({ error: 'No se pudo verificar el consentimiento del contacto: falta la sesión o el contacto asociado.' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const requiredPurposes: ConsentPurpose[] = ['ai_processing', 'report_generation'];
+    const consentResults = await Promise.all(
+      requiredPurposes.map((purpose) => checkPatientConsent(supabaseService, patientId!, purpose))
+    );
+    const deniedIndex = consentResults.findIndex((r) => !r.granted);
+
+    if (deniedIndex !== -1) {
+      const deniedPurpose = requiredPurposes[deniedIndex];
+      const deniedResult: ConsentCheckResult = consentResults[deniedIndex];
+
+      if (centerId) {
+        logAuditEvent({
+          supabase: supabaseService, req,
+          userId: null,
+          organizationId: centerId,
+          patientId,
+          resourceType: 'clinical_notes',
+          action: 'ACCESS_DENIED',
+          status: 'denied',
+          routeOrEndpoint: 'analyze-session-transcription',
+          metadata: { layer, purpose: deniedPurpose, reason: deniedResult.reason, sessionId },
+        });
+      }
+
+      return new Response(
+        JSON.stringify({
+          error: 'No se puede generar el informe: el contacto no ha otorgado el consentimiento necesario para el procesamiento por IA.',
+          consentDenied: true,
+          purpose: deniedPurpose,
+          reason: deniedResult.reason,
+        }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     // ─── Load center AI configuration ────────────────────────────────────────
     let provider = 'openai';
@@ -235,12 +298,7 @@ serve(async (req) => {
     let layer3Prompt = LAYER3_PROMPT;
 
     if (centerId) {
-      const supabase = createClient(
-        Deno.env.get('SUPABASE_URL')!,
-        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-      );
-
-      const { data: center } = await supabase
+      const { data: center } = await supabaseService
         .from('centers')
         .select(`
           ai_provider, openai_model, gemini_model,
@@ -342,19 +400,16 @@ ${transcription}`;
 
       console.log(`[analyze] Single mode completed — clinical: ${parsed.clinical?.split(/\s+/).length} words, patient: ${parsed.patient?.split(/\s+/).length} words`);
 
-      // Audit: transcription analysis (single mode)
+      // Audit: transcription analysis (single mode) — consent was verified above
       if (centerId) {
-        const supabaseAudit = createClient(
-          Deno.env.get('SUPABASE_URL')!,
-          Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-        );
         logAuditEvent({
-          supabase: supabaseAudit, req,
+          supabase: supabaseService, req,
           userId: null,
           organizationId: centerId,
+          patientId,
           resourceType: 'clinical_notes', action: 'VIEW',
           routeOrEndpoint: 'analyze-session-transcription',
-          metadata: { layer: 1, mode: 'single' },
+          metadata: { layer: 1, mode: 'single', consentVerified: true },
         });
       }
 
@@ -398,19 +453,16 @@ ${transcription}`;
 
     console.log(`[analyze] Layer ${layer} completed — ${content.split(/\s+/).length} words`);
 
-    // Audit: transcription analysis performed
+    // Audit: transcription analysis performed — consent was verified above
     if (centerId) {
-      const supabaseAudit = createClient(
-        Deno.env.get('SUPABASE_URL')!,
-        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-      );
       logAuditEvent({
-        supabase: supabaseAudit, req,
+        supabase: supabaseService, req,
         userId: null,
         organizationId: centerId,
+        patientId,
         resourceType: 'clinical_notes', action: 'VIEW',
         routeOrEndpoint: 'analyze-session-transcription',
-        metadata: { layer, mode: 'layered' },
+        metadata: { layer, mode: 'layered', consentVerified: true },
       });
     }
 

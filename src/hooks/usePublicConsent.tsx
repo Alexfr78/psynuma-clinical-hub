@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import type { VerificationCheckboxItem } from '@/lib/consent-checkboxes';
 
 export interface PublicConsent {
   id: string;
@@ -28,7 +29,9 @@ export interface PublicConsent {
   };
   template: {
     name: string;
-    verification_checkboxes: string[] | null;
+    // Raw jsonb: legacy `string[]` or the new `{ key, label, required }[]` —
+    // always normalize with `normalizeVerificationCheckboxes()` before use.
+    verification_checkboxes: (string | VerificationCheckboxItem)[] | null;
     requires_emergency_contact: boolean;
   };
   signatures: {

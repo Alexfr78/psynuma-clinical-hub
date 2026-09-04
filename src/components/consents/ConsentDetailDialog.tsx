@@ -18,6 +18,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuditLog } from '@/hooks/useAuditLog';
 import { Icon } from '@/components/ui/icon';
+import { getVerificationResponseValue, normalizeVerificationCheckboxes } from '@/lib/consent-checkboxes';
 
 interface ConsentDetailDialogProps {
   consent: Consent;
@@ -54,26 +55,26 @@ function useConsentDetail(consentId: string) {
 
 // Helper to replace placeholder with verification responses in content
 function renderContentWithVerifications(
-  content: string, 
-  verificationCheckboxes: string[] | null,
+  content: string,
+  rawVerificationCheckboxes: unknown,
   verificationResponses: Record<string, unknown> | null
 ): string {
-  if (!verificationCheckboxes || verificationCheckboxes.length === 0) {
+  const verificationCheckboxes = normalizeVerificationCheckboxes(rawVerificationCheckboxes);
+  if (verificationCheckboxes.length === 0) {
     // Just remove the placeholder
     return content.replace(/\{campos_verificacion\}/gi, '');
   }
-  
+
   // Build HTML for verification responses
-  const responsesHtml = verificationCheckboxes.map((checkbox, index) => {
-    const rawValue = verificationResponses?.[index.toString()];
-    // Handle both boolean and string values from database
-    const isAuthorized = rawValue === true || String(rawValue) === 'true';
+  const responsesHtml = verificationCheckboxes.map((checkbox) => {
+    // Handle both boolean and legacy string values from database
+    const isAuthorized = getVerificationResponseValue(verificationResponses, checkbox.key) === true;
     const icon = isAuthorized ? '✓' : '✗';
     const color = isAuthorized ? 'color: #16a34a' : 'color: #dc2626';
     const text = isAuthorized ? 'Autorizo' : 'No autorizo';
-    
+
     return `<div style="margin: 8px 0; padding: 8px; background: #f8fafc; border-radius: 4px; border-left: 3px solid ${isAuthorized ? '#16a34a' : '#dc2626'}">
-      <span style="font-weight: 500">${checkbox}</span><br/>
+      <span style="font-weight: 500">${checkbox.label}</span><br/>
       <span style="${color}; font-weight: 600">${icon} ${text}</span>
     </div>`;
   }).join('');
@@ -182,8 +183,8 @@ export function ConsentDetailDialog({
     }
   };
   
-  const templateData = fullConsent?.template as { verification_checkboxes: string[] | null; requires_emergency_contact: boolean | null } | undefined;
-  const verificationCheckboxes = templateData?.verification_checkboxes || [];
+  const templateData = fullConsent?.template as { verification_checkboxes: unknown; requires_emergency_contact: boolean | null } | undefined;
+  const verificationCheckboxes = normalizeVerificationCheckboxes(templateData?.verification_checkboxes);
   const verificationResponses = (fullConsent?.verification_responses as Record<string, unknown>) || null;
   const isBookingClickwrapAcceptance = fullConsent?.source === 'public_booking_checkbox'
     || fullConsent?.source === 'portal_booking_checkbox';
@@ -284,16 +285,15 @@ export function ConsentDetailDialog({
             <div className="space-y-3">
               <p className="font-medium">Autorizaciones</p>
               <div className="space-y-2">
-                {verificationCheckboxes.map((checkbox: string, index: number) => {
-                  // Handle both boolean and string values from database
-                  const rawValue = verificationResponses?.[index.toString()];
-                  const isAuthorized = rawValue === true || String(rawValue) === 'true';
+                {verificationCheckboxes.map((checkbox) => {
+                  // Handle both boolean and legacy string values from database
+                  const isAuthorized = getVerificationResponseValue(verificationResponses, checkbox.key) === true;
                   return (
-                    <div 
-                      key={index} 
+                    <div
+                      key={checkbox.key}
                       className={`flex items-start gap-3 rounded-md border p-3 ${
-                        isAuthorized 
-                          ? 'border-green-500/30 bg-green-500/5' 
+                        isAuthorized
+                          ? 'border-green-500/30 bg-green-500/5'
                           : 'border-red-500/30 bg-red-500/5'
                       }`}
                     >
@@ -303,7 +303,7 @@ export function ConsentDetailDialog({
                         <Icon name="cancel" className="h-5 w-5 shrink-0 text-red-600" />
                       )}
                       <div>
-                        <p className="text-sm">{checkbox}</p>
+                        <p className="text-sm">{checkbox.label}</p>
                         <p className={`text-xs font-medium ${
                           isAuthorized ? 'text-green-600' : 'text-red-600'
                         }`}>

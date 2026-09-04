@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { normalizeVerificationCheckboxes } from "../_shared/consent.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -91,14 +92,12 @@ Deno.serve(async (req) => {
     // the browser so a refusal can never be stored as a signed policy.
     if (signer_role === "patient" && consent.cancellation_policy_version_id) {
       const template = Array.isArray(consent.template) ? consent.template[0] : consent.template;
-      const checkboxes = Array.isArray(template?.verification_checkboxes)
-        ? template.verification_checkboxes
-        : [];
+      const checkboxes = normalizeVerificationCheckboxes(template?.verification_checkboxes);
       const responses = consent.verification_responses && typeof consent.verification_responses === "object"
         ? consent.verification_responses as Record<string, unknown>
         : {};
       const accepted = checkboxes.length > 0
-        && checkboxes.every((_: unknown, index: number) => responses[String(index)] === true);
+        && checkboxes.every((checkbox) => responses[checkbox.key] === true);
 
       if (!accepted) {
         return new Response(

@@ -1,6 +1,8 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { decryptSecret } from "../_shared/crypto.ts";
+import { checkPatientConsent, type ConsentDenialReason } from "../_shared/consent.ts";
+import { logAuditEvent } from "../_shared/auditLogger.ts";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 const RESEND_FROM_EMAIL = Deno.env.get("RESEND_FROM_EMAIL"); // e.g., "noreply@tudominio.com"
@@ -42,6 +44,97 @@ interface ResendEmailResult {
   success: boolean;
   error?: string;
   providerMessageId?: string;
+}
+
+// ─── Consent gate for clinical AI report deliveries ─────────────────────────
+//
+// This function sends MANY kinds of notifications (appointment confirmations,
+// reminders, invoices, payment reminders...), each with its own legal basis
+// (contract performance, legitimate interest, etc). Only the delivery of the
+// AI-generated clinical/patient session reports needs an explicit consent
+// check (purposes 'channel_whatsapp' / 'channel_email'), because that content
+// only exists thanks to the patient's 'ai_processing' + 'report_generation'
+// consent in the first place and must not be pushed out over WhatsApp/email
+// without their say-so on that specific channel.
+//
+// Primary signal: `notifications.purpose = 'clinical_report'`, an explicit
+// column (see migration `migracion-notifications-purpose.sql`) set at insert
+// time by every call site that sends one of these reports — regardless of
+// channel. This replaces the old "does the subject string match exactly"
+// trick, which silently stopped working the moment anyone sent a clinical
+// report over a channel that didn't set that subject (verified: it did,
+// via WhatsApp from PatientAIReports.tsx and SessionDetailDrawer.tsx before
+// this migration).
+//
+// FALLBACK ONLY (rows created before this column existed, or by any code
+// path that is not yet updated to set `purpose`) — kept as a legacy net, not
+// as the primary mechanism:
+//   1. `subject` equals the exact marker string used for these sends
+//      ("Resumen de tu sesión").
+//   2. The notification is tied to a session (`session_id`) whose stored
+//      `ai_summary_clinical` / `ai_summary_patient` text matches the
+//      notification's `message` verbatim.
+// Fail-closed rule: if the notification carries clinical-report-shaped
+// content (matches the session's stored AI summary) but we cannot positively
+// confirm consent was granted, IT DOES NOT SEND. This function never treats
+// "couldn't classify" as "safe to send" — see isClinicalReportNotification's
+// use of the session-content heuristic below, which err on the side of
+// flagging content as clinical rather than missing it.
+const CLINICAL_REPORT_SUBJECT_MARKER = 'Resumen de tu sesión';
+
+interface NotificationRow {
+  id: string;
+  type: string;
+  subject?: string | null;
+  purpose?: string | null;
+  session_id?: string | null;
+  patient_id?: string | null;
+  message: string;
+  center_id: string;
+}
+
+async function isClinicalReportNotification(
+  supabase: SupabaseClient,
+  notification: NotificationRow,
+): Promise<boolean> {
+  // Primary signal: explicit purpose column.
+  if (notification.purpose === 'clinical_report') return true;
+
+  // ── Legacy fallback (pre-`purpose` rows only) ──────────────────────────
+  if (notification.subject === CLINICAL_REPORT_SUBJECT_MARKER) return true;
+
+  if (!notification.session_id) return false;
+  const msg = (notification.message || '').trim();
+  if (!msg) return false;
+
+  const { data: session } = await supabase
+    .from('sessions')
+    .select('ai_summary_clinical, ai_summary_patient')
+    .eq('id', notification.session_id)
+    .maybeSingle();
+  if (!session) return false;
+
+  const clinical = (session.ai_summary_clinical || '').trim();
+  const patient = (session.ai_summary_patient || '').trim();
+  return (!!clinical && msg === clinical) || (!!patient && msg === patient);
+}
+
+function consentDenialMessage(reason: ConsentDenialReason | undefined, channel: 'whatsapp' | 'email'): string {
+  const channelLabel = channel === 'whatsapp' ? 'WhatsApp' : 'email';
+  switch (reason) {
+    case 'no_consent':
+      return `Este contacto no tiene un consentimiento registrado. No se puede enviar el informe por ${channelLabel}.`;
+    case 'not_signed':
+      return `El consentimiento de este contacto está pendiente de firma. No se puede enviar el informe por ${channelLabel}.`;
+    case 'revoked':
+      return `Este contacto ha revocado su consentimiento. No se puede enviar el informe por ${channelLabel}.`;
+    case 'expired':
+      return `El consentimiento de este contacto ha caducado. No se puede enviar el informe por ${channelLabel}. Solicita uno nuevo.`;
+    case 'purpose_not_granted':
+      return `Este contacto no ha autorizado el envío por ${channelLabel}. Prueba otro canal o solicita un nuevo consentimiento.`;
+    default:
+      return `No se puede enviar el informe por ${channelLabel}: consentimiento no concedido.`;
+  }
 }
 
 function escapeHtml(value: string): string {
@@ -547,6 +640,45 @@ serve(async (req) => {
           logoUrl = centerData?.invoice_logo_url || centerData?.logo_url || null;
         }
 
+        // ─── Consent gate: only applies to clinical AI report deliveries ──────
+        // (see comment above isClinicalReportNotification for how these are
+        // distinguished from appointment reminders, invoices, etc.)
+        let consentBlocked = false;
+        if (notification.type === 'whatsapp' || notification.type === 'email') {
+          const isClinicalReport = await isClinicalReportNotification(supabase, notification as NotificationRow);
+          if (isClinicalReport) {
+            if (!notification.patient_id) {
+              consentBlocked = true;
+              errorMessage = 'No se pudo verificar el consentimiento: la notificación no está asociada a ningún contacto.';
+            } else {
+              const purpose = notification.type === 'whatsapp' ? 'channel_whatsapp' : 'channel_email';
+              const consentResult = await checkPatientConsent(supabase, notification.patient_id, purpose);
+              if (!consentResult.granted) {
+                consentBlocked = true;
+                errorMessage = consentDenialMessage(consentResult.reason, notification.type as 'whatsapp' | 'email');
+              }
+              logAuditEvent({
+                supabase, req,
+                userId: null,
+                organizationId: notification.center_id,
+                patientId: notification.patient_id,
+                resourceType: 'reports',
+                action: consentResult.granted ? 'SHARE' : 'ACCESS_DENIED',
+                status: consentResult.granted ? 'success' : 'denied',
+                routeOrEndpoint: 'send-notification',
+                metadata: {
+                  notificationId: notification.id,
+                  channel: notification.type,
+                  purpose,
+                  reason: consentResult.reason,
+                  sessionId: notification.session_id ?? null,
+                },
+              });
+            }
+          }
+        }
+
+        if (!consentBlocked) {
         switch (notification.type) {
           case "email": {
             const emailResult = await sendEmailViaResend(
@@ -684,6 +816,11 @@ serve(async (req) => {
           default:
             errorMessage = `Unknown notification type: ${notification.type}`;
             console.error(`[send-notification] ${errorMessage}`);
+        }
+        } else {
+          console.warn(`[send-notification] Blocked clinical report send by consent gate:`, {
+            id: notification.id, type: notification.type, error: errorMessage,
+          });
         }
 
         // Determine final status

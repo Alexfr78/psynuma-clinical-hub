@@ -125,7 +125,13 @@ export function PatientDetailTabs({ patient, activeTab: controlledTab, onActiveT
       </div>
 
       <TabsContent value="summary">
-        <PatientSummary patient={patient} />
+        <PatientSummary
+          patient={patient}
+          onNavigateToConsents={() => {
+            setActiveTab('documents');
+            setDocumentsSubTab('consents');
+          }}
+        />
       </TabsContent>
 
       <TabsContent value="data">

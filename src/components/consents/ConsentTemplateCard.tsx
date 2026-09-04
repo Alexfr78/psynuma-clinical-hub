@@ -3,6 +3,8 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -31,9 +33,23 @@ interface ConsentTemplateCardProps {
 }
 
 export function ConsentTemplateCard({ template }: ConsentTemplateCardProps) {
-  const { deleteTemplate, createTemplate } = useConsentTemplates();
+  const { deleteTemplate, createTemplate, updateTemplate } = useConsentTemplates();
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deactivateDialogOpen, setDeactivateDialogOpen] = useState(false);
+
+  const handleToggleActive = (checked: boolean) => {
+    if (checked) {
+      updateTemplate.mutate({ id: template.id, is_active: true });
+    } else {
+      setDeactivateDialogOpen(true);
+    }
+  };
+
+  const handleConfirmDeactivate = () => {
+    updateTemplate.mutate({ id: template.id, is_active: false });
+    setDeactivateDialogOpen(false);
+  };
 
   const handleDuplicate = () => {
     createTemplate.mutate({
@@ -93,10 +109,22 @@ export function ConsentTemplateCard({ template }: ConsentTemplateCardProps) {
           </DropdownMenu>
         </CardHeader>
         <CardContent className="pt-0">
-          <div className="flex flex-wrap gap-2">
-            <Badge variant={template.is_active ? 'default' : 'secondary'}>
+          <div className="mb-3 flex items-center gap-2">
+            <Switch
+              id={`template-active-${template.id}`}
+              checked={template.is_active}
+              disabled={updateTemplate.isPending}
+              onCheckedChange={handleToggleActive}
+              aria-label={template.is_active ? 'Desactivar plantilla' : 'Activar plantilla'}
+            />
+            <Label
+              htmlFor={`template-active-${template.id}`}
+              className="cursor-pointer text-sm font-normal text-muted-foreground"
+            >
               {template.is_active ? 'Activa' : 'Inactiva'}
-            </Badge>
+            </Label>
+          </div>
+          <div className="flex flex-wrap gap-2">
             {template.requires_guardian_signature && (
               <Badge variant="outline" className="gap-1">
                 <Icon name="group" className="h-3 w-3" />
@@ -137,6 +165,28 @@ export function ConsentTemplateCard({ template }: ConsentTemplateCardProps) {
               className="bg-destructive hover:bg-destructive/90"
             >
               Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Deactivate Confirmation */}
+      <AlertDialog open={deactivateDialogOpen} onOpenChange={setDeactivateDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Desactivar esta plantilla?</AlertDialogTitle>
+            <AlertDialogDescription>
+              A partir de ahora no podrá elegirse al crear un nuevo consentimiento ni al
+              subir uno firmado en papel. Los consentimientos que ya se firmaron con ella
+              no cambian: cada firma guarda su propia copia del texto en el momento en que
+              se firmó, así que siguen siendo válidos igual que antes. Puedes volver a
+              activarla cuando quieras.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDeactivate}>
+              Desactivar
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -13,6 +13,7 @@ import { Patient } from '@/hooks/usePatients';
 import { useActiveCancellationPolicy, useCreateCancellationPolicyConsent } from '@/hooks/useCancellationPolicy';
 import { useCenter } from '@/hooks/useCenter';
 import { Icon } from '@/components/ui/icon';
+import { ConsentPurposesPanel } from '@/components/patients/ConsentPurposesPanel';
 
 interface PatientConsentsProps {
   patientId: string;
@@ -98,6 +99,8 @@ export function PatientConsents({ patientId, patient }: PatientConsentsProps) {
           </Button>
         </div>
       </div>
+
+      <ConsentPurposesPanel patientId={patientId} />
 
       {activeCancellationPolicy && (
         <Card>

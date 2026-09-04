@@ -2,6 +2,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { toast } from 'sonner';
+import type { VerificationCheckboxItem } from '@/lib/consent-checkboxes';
+import type { Json } from '@/integrations/supabase/types';
 
 export interface ConsentTemplate {
   id: string;
@@ -11,7 +13,11 @@ export interface ConsentTemplate {
   requires_guardian_signature: boolean;
   requires_emergency_contact: boolean;
   is_active: boolean;
-  verification_checkboxes: string[];
+  // Raw jsonb as stored in the DB: either the legacy `string[]` format or the
+  // new `{ key, label, required }[]` format. Always run it through
+  // `normalizeVerificationCheckboxes()` (src/lib/consent-checkboxes.ts)
+  // before using it — never assume the new shape directly.
+  verification_checkboxes: (string | VerificationCheckboxItem)[];
   created_at: string;
   updated_at: string;
 }
@@ -19,9 +25,10 @@ export interface ConsentTemplate {
 export function useConsentTemplates() {
   const { profile } = useAuth();
   const queryClient = useQueryClient();
+  const templatesQueryKey = ['consent-templates', profile?.center_id];
 
   const { data: templates = [], isLoading } = useQuery({
-    queryKey: ['consent-templates', profile?.center_id],
+    queryKey: templatesQueryKey,
     queryFn: async () => {
       if (!profile?.center_id) return [];
       
@@ -45,6 +52,7 @@ export function useConsentTemplates() {
         .from('consent_templates')
         .insert({
           ...template,
+          verification_checkboxes: template.verification_checkboxes as unknown as Json,
           center_id: profile.center_id,
         })
         .select()
@@ -64,22 +72,38 @@ export function useConsentTemplates() {
   });
 
   const updateTemplate = useMutation({
-    mutationFn: async ({ id, ...updates }: Partial<ConsentTemplate> & { id: string }) => {
+    mutationFn: async ({ id, verification_checkboxes, ...updates }: Partial<ConsentTemplate> & { id: string }) => {
       const { data, error } = await supabase
         .from('consent_templates')
-        .update(updates)
+        .update({
+          ...updates,
+          ...(verification_checkboxes !== undefined
+            ? { verification_checkboxes: verification_checkboxes as unknown as Json }
+            : {}),
+        })
         .eq('id', id)
         .select()
         .single();
-      
+
       if (error) throw error;
       return data;
+    },
+    onMutate: async (variables) => {
+      await queryClient.cancelQueries({ queryKey: templatesQueryKey });
+      const previousTemplates = queryClient.getQueryData<ConsentTemplate[]>(templatesQueryKey);
+      queryClient.setQueryData<ConsentTemplate[]>(templatesQueryKey, (old) =>
+        old?.map((t) => (t.id === variables.id ? { ...t, ...variables } : t))
+      );
+      return { previousTemplates };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['consent-templates'] });
       toast.success('Plantilla actualizada');
     },
-    onError: (error) => {
+    onError: (error, _variables, context) => {
+      if (context?.previousTemplates) {
+        queryClient.setQueryData(templatesQueryKey, context.previousTemplates);
+      }
       toast.error('Error al actualizar la plantilla');
       console.error(error);
     },

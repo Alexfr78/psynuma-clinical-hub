@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 
 import { Checkbox } from "@/components/ui/checkbox";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useTranscriptionAnalysis } from "@/hooks/useTranscriptionAnalysis";
 import { useCenter } from "@/hooks/useCenter";
 import { supabase } from "@/integrations/supabase/client";
@@ -57,6 +58,7 @@ export function TranscriptionAnalysisDialog({
     isSaving,
     isSending,
     currentLayer,
+    consent,
     analyze,
     saveClinicalReport,
     savePatientReport,
@@ -398,13 +400,22 @@ export function TranscriptionAnalysisDialog({
                 </div>
               )}
 
+              {consent.generateBlockReason && (
+                <Alert variant="destructive">
+                  <Icon name="lock" className="h-4 w-4" />
+                  <AlertDescription>{consent.generateBlockReason}</AlertDescription>
+                </Alert>
+              )}
+
               <Button
                 onClick={() => handleFullAnalysis(transcription)}
                 disabled={
                   isAnalyzing ||
                   isTranscribing ||
                   transcription.trim().length < 50 ||
-                  (!isSingleMode && !generateClinical && !generatePatient)
+                  (!isSingleMode && !generateClinical && !generatePatient) ||
+                  consent.isLoading ||
+                  !!consent.generateBlockReason
                 }
                 className="w-full"
               >
@@ -418,6 +429,11 @@ export function TranscriptionAnalysisDialog({
                         : currentLayer === 2
                           ? "Generando informe clínico..."
                           : "Generando informe paciente..."}
+                  </>
+                ) : consent.isLoading ? (
+                  <>
+                    <Icon name="progress_activity" className="h-4 w-4 mr-2 animate-spin" />
+                    Comprobando consentimiento...
                   </>
                 ) : (
                   <>
@@ -449,12 +465,19 @@ export function TranscriptionAnalysisDialog({
 
               <Separator />
 
+              {consent.generateBlockReason && (
+                <Alert variant="destructive">
+                  <Icon name="lock" className="h-4 w-4" />
+                  <AlertDescription>{consent.generateBlockReason}</AlertDescription>
+                </Alert>
+              )}
+
               <div className="flex gap-2">
-                <Button size="sm" variant="outline" onClick={() => analyze(transcription, 2)} disabled={isAnalyzing}>
+                <Button size="sm" variant="outline" onClick={() => analyze(transcription, 2)} disabled={isAnalyzing || !!consent.generateBlockReason}>
                   <Icon name="restart_alt" className="h-3 w-3 mr-1" />
                   Regenerar clínico
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => analyze(transcription, 3)} disabled={isAnalyzing}>
+                <Button size="sm" variant="outline" onClick={() => analyze(transcription, 3)} disabled={isAnalyzing || !!consent.generateBlockReason}>
                   <Icon name="restart_alt" className="h-3 w-3 mr-1" />
                   Regenerar paciente
                 </Button>
@@ -541,7 +564,8 @@ export function TranscriptionAnalysisDialog({
                     size="sm"
                     variant="outline"
                     onClick={() => sendPatientReport("whatsapp", editedPatient)}
-                    disabled={isSending}
+                    disabled={isSending || consent.isLoading || !!consent.whatsappBlockReason}
+                    title={consent.whatsappBlockReason || undefined}
                   >
                     {isSending ? (
                       <Icon name="progress_activity" className="h-4 w-4 mr-1 animate-spin" />
@@ -552,12 +576,34 @@ export function TranscriptionAnalysisDialog({
                   </Button>
                 )}
                 {patientEmail && (
-                  <Button size="sm" variant="outline" onClick={() => sendPatientReport("email", editedPatient)} disabled={isSending}>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => sendPatientReport("email", editedPatient)}
+                    disabled={isSending || consent.isLoading || !!consent.emailBlockReason}
+                    title={consent.emailBlockReason || undefined}
+                  >
                     {isSending ? <Icon name="progress_activity" className="h-4 w-4 mr-1 animate-spin" /> : <Icon name="mail" className="h-4 w-4 mr-1" />}
                     Enviar por email
                   </Button>
                 )}
               </div>
+              {(consent.whatsappBlockReason || consent.emailBlockReason) && (
+                <div className="space-y-1">
+                  {consent.whatsappBlockReason && (
+                    <p className="text-xs text-muted-foreground">
+                      <Icon name="lock" className="h-3 w-3 mr-1 inline align-text-bottom" />
+                      {consent.whatsappBlockReason}
+                    </p>
+                  )}
+                  {consent.emailBlockReason && (
+                    <p className="text-xs text-muted-foreground">
+                      <Icon name="lock" className="h-3 w-3 mr-1 inline align-text-bottom" />
+                      {consent.emailBlockReason}
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
