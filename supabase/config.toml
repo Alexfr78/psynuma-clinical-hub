@@ -81,6 +81,14 @@ project_id = "zprkdxmluvirxfhswrzq"
     verify_jwt = false
   [functions.oauth-zoom-callback]
     verify_jwt = false
+  [functions.plaud-oauth-start]
+    verify_jwt = true
+  [functions.plaud-oauth-callback]
+    verify_jwt = false
+  [functions.plaud-connection]
+    verify_jwt = true
+  [functions.refresh-plaud-tokens]
+    verify_jwt = false
   [functions.patient-portal-auth]
     verify_jwt = false
   [functions.patient-portal-account]

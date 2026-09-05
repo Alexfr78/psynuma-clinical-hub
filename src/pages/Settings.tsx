@@ -40,6 +40,7 @@ import { WhatsAppIntegrationSection } from '@/components/settings/integrations/W
 import { ZoomIntegrationSection } from '@/components/settings/integrations/ZoomIntegrationSection';
 import { GoogleIntegrationSection } from '@/components/settings/integrations/GoogleIntegrationSection';
 import { GoogleDriveIntegrationSection } from '@/components/settings/integrations/GoogleDriveIntegrationSection';
+import { PlaudIntegrationSection } from '@/components/settings/integrations/PlaudIntegrationSection';
 import { StripeIntegrationSection } from '@/components/settings/integrations/StripeIntegrationSection';
 import { EmailIntegrationSection } from '@/components/settings/integrations/EmailIntegrationSection';
 import { OAuthCredentialsSection } from '@/components/settings/integrations/OAuthCredentialsSection';
@@ -196,6 +197,7 @@ const navItems: NavItem[] = [
 
   { id: 'integraciones-credenciales', label: 'Configuración avanzada', icon: 'tune', parent: 'Conexiones Externas', subgroup: 'Avanzado' },
   { id: 'integraciones-ia', label: 'Inteligencia Artificial', icon: 'psychology', parent: 'Conexiones Externas', subgroup: 'Avanzado' },
+  { id: 'integraciones-plaud', label: 'Plaud (grabaciones)', icon: 'mic', parent: 'Conexiones Externas', subgroup: 'Avanzado' },
 
   // Seguridad
   { id: 'seguridad', label: 'Doble factor (2FA)', icon: 'shield', parent: 'Seguridad' },
@@ -449,6 +451,8 @@ export default function Settings() {
         return <StripeIntegrationSection onOpenPaymentSettings={() => setActiveSection('pagos-config')} />;
       case 'integraciones-ia':
         return <AISettingsSection />;
+      case 'integraciones-plaud':
+        return <PlaudIntegrationSection />;
       case 'seguridad':
         return <SecuritySection />;
       case 'versiones':
