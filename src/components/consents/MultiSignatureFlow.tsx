@@ -11,6 +11,7 @@ import { PublicConsent, usePublicConsent } from '@/hooks/usePublicConsent';
 
 import { supabase } from '@/integrations/supabase/client';
 import { sanitizeHtml } from '@/lib/sanitize';
+import { cn } from '@/lib/utils';
 import {
   areVerificationResponsesComplete,
   isCancellationPolicyAccepted,
@@ -21,6 +22,7 @@ import {
   normalizeVerificationCheckboxes,
   VerificationCheckboxItem,
 } from '@/lib/consent-checkboxes';
+import { applyConsentCascade, getCascadeParent, isCascadeUnlocked } from '@/lib/consent-cascade';
 import { Icon } from '@/components/ui/icon';
 
 interface MultiSignatureFlowProps {
@@ -107,37 +109,62 @@ function DocumentWithFields({
         if (segment === CHECKBOX_MARKER) {
           return (
             <div key={index} className="my-4 space-y-4 rounded-lg border-2 border-primary/30 bg-muted/30 p-4 not-prose">
-              {verificationCheckboxes.map((checkbox) => (
-                <div key={checkbox.key} className="space-y-2">
-                  <p className="text-sm font-medium">{checkbox.label}</p>
-                  <RadioGroup
-                    value={verificationResponses[checkbox.key] || ''}
-                    onValueChange={(value) =>
-                      setVerificationResponses((prev) => ({ ...prev, [checkbox.key]: value as VerificationResponse }))
-                    }
-                    className="flex gap-6"
-                  >
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="authorized" id={`verif-auth-${checkbox.key}`} />
-                      <Label
-                        htmlFor={`verif-auth-${checkbox.key}`}
-                        className="text-sm font-medium text-green-700 dark:text-green-400 cursor-pointer"
-                      >
-                        ✓ Autorizo
-                      </Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="not_authorized" id={`verif-notauth-${checkbox.key}`} />
-                      <Label
-                        htmlFor={`verif-notauth-${checkbox.key}`}
-                        className="text-sm font-medium text-red-700 dark:text-red-400 cursor-pointer"
-                      >
-                        ✗ No autorizo
-                      </Label>
-                    </div>
-                  </RadioGroup>
-                </div>
-              ))}
+              {verificationCheckboxes.map((checkbox) => {
+                const parentKey = getCascadeParent(checkbox.key);
+                const parentLabel = parentKey
+                  ? verificationCheckboxes.find((c) => c.key === parentKey)?.label
+                  : undefined;
+                const unlocked = isCascadeUnlocked(checkbox.key, verificationResponses);
+
+                return (
+                  <div key={checkbox.key} className="space-y-2">
+                    <p className="text-sm font-medium">{checkbox.label}</p>
+                    {parentKey && !unlocked && (
+                      <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                        <Icon name="link_off" className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                        <span>
+                          No puedes autorizar esto sin antes autorizar{parentLabel ? `: «${parentLabel}»` : ' la finalidad anterior'}.
+                        </span>
+                      </p>
+                    )}
+                    <RadioGroup
+                      value={verificationResponses[checkbox.key] || ''}
+                      onValueChange={(value) =>
+                        setVerificationResponses((prev) =>
+                          applyConsentCascade(checkbox.key, value as VerificationResponse, prev),
+                        )
+                      }
+                      className="flex gap-6"
+                    >
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem
+                          value="authorized"
+                          id={`verif-auth-${checkbox.key}`}
+                          disabled={!unlocked}
+                        />
+                        <Label
+                          htmlFor={`verif-auth-${checkbox.key}`}
+                          className={cn(
+                            'text-sm font-medium text-green-700 dark:text-green-400',
+                            unlocked ? 'cursor-pointer' : 'cursor-not-allowed opacity-50',
+                          )}
+                        >
+                          ✓ Autorizo
+                        </Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="not_authorized" id={`verif-notauth-${checkbox.key}`} />
+                        <Label
+                          htmlFor={`verif-notauth-${checkbox.key}`}
+                          className="text-sm font-medium text-red-700 dark:text-red-400 cursor-pointer"
+                        >
+                          ✗ No autorizo
+                        </Label>
+                      </div>
+                    </RadioGroup>
+                  </div>
+                );
+              })}
             </div>
           );
         }

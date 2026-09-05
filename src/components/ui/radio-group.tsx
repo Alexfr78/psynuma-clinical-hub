@@ -27,7 +27,12 @@ const RadioGroupItem = React.forwardRef<
       {...props}
     >
       <RadioGroupPrimitive.Indicator className="flex items-center justify-center">
-        <Icon name="circle" className="h-2.5 w-2.5 fill-current text-current" />
+        {/* h-2.5 (10px) inside the h-4 (16px) ring gives a clearly smaller
+            dot with margin. `filled` renders it as a solid disc instead of
+            the outlined "circle" glyph, which is a hollow ring that used to
+            render at the same 16px as the container (h-2.5 wasn't in
+            icon.tsx's size map) and could visually merge with the ring border. */}
+        <Icon name="circle" filled className="h-2.5 w-2.5 text-current" />
       </RadioGroupPrimitive.Indicator>
     </RadioGroupPrimitive.Item>
   );
