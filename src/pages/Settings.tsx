@@ -112,6 +112,7 @@ type SettingsSection =
   | 'integraciones-google-drive'
   | 'integraciones-stripe'
   | 'integraciones-ia'
+  | 'integraciones-plaud'
   | 'seguridad'
   | 'versiones';
 
