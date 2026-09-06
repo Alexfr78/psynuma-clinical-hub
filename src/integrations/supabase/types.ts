@@ -1791,6 +1791,99 @@ export type Database = {
           },
         ]
       }
+      center_plaud_connections: {
+        Row: {
+          access_token_encrypted: string | null
+          center_id: string
+          connected_by: string | null
+          created_at: string
+          enabled: boolean
+          last_error: string | null
+          last_refresh_at: string | null
+          last_refresh_result: string | null
+          needs_reconnect: boolean
+          plaud_account_label: string | null
+          plaud_client_id_encrypted: string | null
+          plaud_client_secret_encrypted: string | null
+          refresh_token_encrypted: string | null
+          scope: string | null
+          token_expires_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          access_token_encrypted?: string | null
+          center_id: string
+          connected_by?: string | null
+          created_at?: string
+          enabled?: boolean
+          last_error?: string | null
+          last_refresh_at?: string | null
+          last_refresh_result?: string | null
+          needs_reconnect?: boolean
+          plaud_account_label?: string | null
+          plaud_client_id_encrypted?: string | null
+          plaud_client_secret_encrypted?: string | null
+          refresh_token_encrypted?: string | null
+          scope?: string | null
+          token_expires_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          access_token_encrypted?: string | null
+          center_id?: string
+          connected_by?: string | null
+          created_at?: string
+          enabled?: boolean
+          last_error?: string | null
+          last_refresh_at?: string | null
+          last_refresh_result?: string | null
+          needs_reconnect?: boolean
+          plaud_account_label?: string | null
+          plaud_client_id_encrypted?: string | null
+          plaud_client_secret_encrypted?: string | null
+          refresh_token_encrypted?: string | null
+          scope?: string | null
+          token_expires_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "center_plaud_connections_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: true
+            referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "center_plaud_connections_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: true
+            referencedRelation: "centers_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "center_plaud_connections_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: true
+            referencedRelation: "portal_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "center_plaud_connections_connected_by_fkey"
+            columns: ["connected_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "center_plaud_connections_connected_by_fkey"
+            columns: ["connected_by"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       centers: {
         Row: {
           address: string | null
@@ -4926,6 +5019,75 @@ export type Database = {
             columns: ["session_id"]
             isOneToOne: false
             referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      plaud_oauth_states: {
+        Row: {
+          center_id: string
+          client_id: string
+          code_verifier_encrypted: string
+          created_at: string
+          expires_at: string
+          professional_id: string | null
+          redirect_uri: string
+          state: string
+        }
+        Insert: {
+          center_id: string
+          client_id: string
+          code_verifier_encrypted: string
+          created_at?: string
+          expires_at?: string
+          professional_id?: string | null
+          redirect_uri: string
+          state: string
+        }
+        Update: {
+          center_id?: string
+          client_id?: string
+          code_verifier_encrypted?: string
+          created_at?: string
+          expires_at?: string
+          professional_id?: string | null
+          redirect_uri?: string
+          state?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plaud_oauth_states_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "plaud_oauth_states_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "plaud_oauth_states_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "portal_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "plaud_oauth_states_professional_id_fkey"
+            columns: ["professional_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "plaud_oauth_states_professional_id_fkey"
+            columns: ["professional_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
             referencedColumns: ["id"]
           },
         ]
