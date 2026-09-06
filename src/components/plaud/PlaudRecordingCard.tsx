@@ -9,6 +9,7 @@ import { Icon } from '@/components/ui/icon';
 import { PlaudSessionPicker } from '@/components/plaud/PlaudSessionPicker';
 import { PlaudConfirmMatchDialog, type PlaudConfirmMatchTarget } from '@/components/plaud/PlaudConfirmMatchDialog';
 import { PlaudDiscardDialog } from '@/components/plaud/PlaudDiscardDialog';
+import { PlaudGenerateReportsButton } from '@/components/plaud/PlaudGenerateReportsButton';
 import {
   describePrimaryReviewReasons,
   describeSegmentBoundaries,
@@ -251,7 +252,12 @@ export function PlaudRecordingCard({ recording, readOnly }: PlaudRecordingCardPr
           </div>
         )}
 
-        {readOnly && <ResolvedDetails recording={recording} />}
+        {readOnly && (
+          <>
+            <ResolvedDetails recording={recording} />
+            <PlaudGenerateReportsButton recording={recording} />
+          </>
+        )}
       </CardContent>
 
       <PlaudConfirmMatchDialog

@@ -6,6 +6,8 @@
  * qué está pasando con una grabación.
  */
 import type { Json } from '@/integrations/supabase/types';
+import { CONSENT_PURPOSE_LABELS, consentPurposeStatusReason } from '@/lib/consent-block-messages';
+import type { ConsentCheckResult, ConsentPurpose } from '@/lib/consent-verification';
 
 function asStringArray(value: Json | null | undefined): string[] {
   if (!Array.isArray(value)) return [];
@@ -102,4 +104,44 @@ export function formatDurationMs(durationMs: number): string {
 export function formatConfidencePct(confidence: number | null): string {
   if (confidence === null || Number.isNaN(confidence)) return '—';
   return `${Math.round(confidence * 100)}%`;
+}
+
+// ---------------------------------------------------------------------------
+// Bloqueo por consentimiento al generar informes de IA sobre una grabación
+// ---------------------------------------------------------------------------
+//
+// La generación de informes exige los mismos dos consentimientos
+// ('ai_processing' y 'report_generation') que ya controla
+// `useTranscriptionAnalysis.tsx` para el flujo de audio subido a mano. En vez
+// de inventar un texto nuevo para este único punto de entrada, se reutiliza
+// el mismo vocabulario que el resto de la app ya usa para hablar de
+// consentimiento (`src/lib/consent-block-messages.ts`): las mismas etiquetas
+// de propósito y las mismas frases por motivo (revocado, caducado, pendiente
+// de firma...).
+
+const GENERATION_CONSENT_ORDER: ConsentPurpose[] = ['ai_processing', 'report_generation'];
+
+/** Mensaje de bloqueo para un propósito de consentimiento concreto, con el mismo vocabulario que el resto de la app. */
+function formatConsentBlockMessage(purpose: ConsentPurpose, result: ConsentCheckResult): string {
+  const label = CONSENT_PURPOSE_LABELS[purpose];
+  const reason = consentPurposeStatusReason(result) ?? 'Consentimiento no concedido.';
+  return `No se pueden generar informes con IA: falta autorización para "${label}". ${reason}`;
+}
+
+/**
+ * Motivo concreto (no un error genérico) por el que no se pueden generar los informes de
+ * IA de una grabación, a partir de los resultados de `usePlaudGenerationConsent` — o de un
+ * único resultado ya conocido, cuando lo que se traduce es la respuesta 403 de
+ * `analyze-session-transcription` en vez de la comprobación proactiva del cliente. Devuelve
+ * `null` cuando no hay bloqueo (ambos propósitos concedidos) o cuando todavía no hay datos.
+ */
+export function describePlaudGenerationBlock(
+  results: Partial<Record<ConsentPurpose, ConsentCheckResult>> | undefined,
+): string | null {
+  if (!results) return null;
+  for (const purpose of GENERATION_CONSENT_ORDER) {
+    const result = results[purpose];
+    if (result && !result.granted) return formatConsentBlockMessage(purpose, result);
+  }
+  return null;
 }
