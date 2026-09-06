@@ -13,9 +13,8 @@
  */
 import { useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
-import type { Database as GeneratedDatabase, Json } from '@/integrations/supabase/types';
+import type { Json } from '@/integrations/supabase/types';
 import { useAuth } from './useAuth';
 
 // ---------------------------------------------------------------------------
@@ -62,7 +61,6 @@ export interface PlaudRecordingRow {
   updated_at: string;
 }
 
-type PlaudRecordingInsert = Partial<PlaudRecordingRow> & Pick<PlaudRecordingRow, 'center_id' | 'plaud_file_id' | 'start_at' | 'duration_ms'>;
 type PlaudRecordingUpdate = Partial<PlaudRecordingRow>;
 
 /** Los tipos generados ya incluyen `plaud_recordings`: se usa el cliente normal. */
