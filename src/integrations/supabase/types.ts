@@ -5092,6 +5092,153 @@ export type Database = {
           },
         ]
       }
+      plaud_recordings: {
+        Row: {
+          center_id: string
+          confirmed_at: string | null
+          confirmed_by: string | null
+          contains_multiple_sessions: boolean
+          created_at: string
+          duration_ms: number
+          id: string
+          last_error: string | null
+          match_confidence: number | null
+          match_reasons: Json | null
+          matched_by: string | null
+          overlap_flag: boolean
+          overlap_with_file_id: string | null
+          patient_id: string | null
+          plaud_file_id: string
+          report_generated_at: string | null
+          segment_boundaries: Json | null
+          segmentation_score: number | null
+          segmentation_signals: Json | null
+          serial_number: string | null
+          session_id: string | null
+          start_at: string
+          status: string
+          transcript_expires_at: string | null
+          transcript_fetched_at: string | null
+          transcript_text: string | null
+          updated_at: string
+        }
+        Insert: {
+          center_id: string
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          contains_multiple_sessions?: boolean
+          created_at?: string
+          duration_ms: number
+          id?: string
+          last_error?: string | null
+          match_confidence?: number | null
+          match_reasons?: Json | null
+          matched_by?: string | null
+          overlap_flag?: boolean
+          overlap_with_file_id?: string | null
+          patient_id?: string | null
+          plaud_file_id: string
+          report_generated_at?: string | null
+          segment_boundaries?: Json | null
+          segmentation_score?: number | null
+          segmentation_signals?: Json | null
+          serial_number?: string | null
+          session_id?: string | null
+          start_at: string
+          status?: string
+          transcript_expires_at?: string | null
+          transcript_fetched_at?: string | null
+          transcript_text?: string | null
+          updated_at?: string
+        }
+        Update: {
+          center_id?: string
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          contains_multiple_sessions?: boolean
+          created_at?: string
+          duration_ms?: number
+          id?: string
+          last_error?: string | null
+          match_confidence?: number | null
+          match_reasons?: Json | null
+          matched_by?: string | null
+          overlap_flag?: boolean
+          overlap_with_file_id?: string | null
+          patient_id?: string | null
+          plaud_file_id?: string
+          report_generated_at?: string | null
+          segment_boundaries?: Json | null
+          segmentation_score?: number | null
+          segmentation_signals?: Json | null
+          serial_number?: string | null
+          session_id?: string | null
+          start_at?: string
+          status?: string
+          transcript_expires_at?: string | null
+          transcript_fetched_at?: string | null
+          transcript_text?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plaud_recordings_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "plaud_recordings_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "plaud_recordings_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "portal_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "plaud_recordings_confirmed_by_fkey"
+            columns: ["confirmed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "plaud_recordings_confirmed_by_fkey"
+            columns: ["confirmed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "plaud_recordings_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "plaud_recordings_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "plaud_recordings_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       portal_intake_requests: {
         Row: {
           center_id: string
@@ -7774,6 +7921,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      cleanup_expired_plaud_transcripts: { Args: never; Returns: Json }
       cleanup_old_rate_limit_entries: { Args: never; Returns: undefined }
       collect_session_payment_v2: {
         Args: {

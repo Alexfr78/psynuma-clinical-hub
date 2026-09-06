@@ -13,9 +13,8 @@
  */
 import { useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
-import type { Database as GeneratedDatabase, Json } from '@/integrations/supabase/types';
+import type { Json } from '@/integrations/supabase/types';
 import { useAuth } from './useAuth';
 
 // ---------------------------------------------------------------------------
@@ -62,24 +61,11 @@ export interface PlaudRecordingRow {
   updated_at: string;
 }
 
-type PlaudRecordingInsert = Partial<PlaudRecordingRow> & Pick<PlaudRecordingRow, 'center_id' | 'plaud_file_id' | 'start_at' | 'duration_ms'>;
 type PlaudRecordingUpdate = Partial<PlaudRecordingRow>;
 
-type AugmentedDatabase = GeneratedDatabase & {
-  public: GeneratedDatabase['public'] & {
-    Tables: GeneratedDatabase['public']['Tables'] & {
-      plaud_recordings: {
-        Row: PlaudRecordingRow;
-        Insert: PlaudRecordingInsert;
-        Update: PlaudRecordingUpdate;
-        Relationships: [];
-      };
-    };
-  };
-};
+/** Los tipos generados ya incluyen `plaud_recordings`: se usa el cliente normal. */
+const plaudClient = supabase;
 
-/** Cliente tipado contra el esquema ampliado — solo para tocar `plaud_recordings`. */
-const plaudClient = supabase as unknown as SupabaseClient<AugmentedDatabase>;
 
 // ---------------------------------------------------------------------------
 // Datos combinados para presentación
