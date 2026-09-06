@@ -44,6 +44,7 @@ const moreNavItems: NavItemDef[] = [
   { title: 'Consentimientos', url: '/consentimientos', icon: 'edit_document' },
   { title: 'Evaluaciones', url: '/evaluaciones', icon: 'assignment_turned_in' },
   { title: 'Autorregistros', url: '/autorregistros', icon: 'edit_note' },
+  { title: 'Grabaciones', url: '/grabaciones', icon: 'graphic_eq' },
 ];
 
 // Admin-only

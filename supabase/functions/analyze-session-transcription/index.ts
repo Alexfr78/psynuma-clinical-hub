@@ -4,6 +4,7 @@ import { decryptSecret } from "../_shared/crypto.ts";
 import { logAuditEvent } from "../_shared/auditLogger.ts";
 import { hasAuthenticatedJWT, unauthorizedResponse } from "../_shared/authGuard.ts";
 import { checkPatientConsent, type ConsentCheckResult, type ConsentPurpose } from "../_shared/consent.ts";
+import { buildTranscriptFromTurns, type DiarizedTurn } from "../_shared/transcriptDiarization.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -202,14 +203,79 @@ serve(async (req) => {
   }
 
   try {
-    const { transcription, layer, baseAnalysis, centerId, sessionId } = await req.json();
+    // ─── Entrada de la transcripción ──────────────────────────────────────────
+    // Dos formas de aportar el contenido de la sesión, pensadas para coexistir:
+    //
+    // 1) `transcription` (string) — el flujo de siempre: texto plano generado
+    //    por Whisper a partir de un audio subido a mano. Sigue funcionando
+    //    exactamente igual, sin ningún cambio de comportamiento.
+    //
+    // 2) `segments` (DiarizedTurn[]) — pensado para una transcripción ya
+    //    diarizada por un proveedor externo (Plaud: `plaud_recordings.
+    //    transcript_text`). Cada elemento es `{ speaker, content }` (acepta
+    //    también `startTime`/`endTime` sin usarlos, para poder pasar
+    //    directamente objetos con la forma de `TranscriptSegment` de
+    //    src/lib/plaud-segmentation.ts sin transformarlos). Se prefiere una
+    //    ruta separada por `segments` — en vez de forzar al llamador a
+    //    aplanar la diarización en un string con su propio formato de
+    //    "Speaker: texto" — porque así la anonimización de la etiqueta de
+    //    hablante (ver transcriptDiarization.ts) la controla siempre esta
+    //    función, nunca el llamador: ningún nombre real que Plaud pueda
+    //    meter en `speaker` tiene camino para llegar aquí como texto libre
+    //    ya mezclado con el contenido.
+    //
+    // `transcriptSource` ('manual' | 'plaud') y `plaudRecordingId` son solo
+    // metadatos para el registro de auditoría (punto 3 de la tarea): no
+    // cambian la lógica de generación ni el control de consentimiento, que
+    // se aplica exactamente igual sea cual sea el origen.
+    //
+    // Punto de enganche para cuando una grabación de Plaud quede emparejada
+    // y confirmada (fuera de este ámbito: la tabla `plaud_recordings` y su
+    // UI de confirmación las está construyendo otro agente en paralelo):
+    // quien dispare la generación de informes tras la confirmación debe
+    // leer `plaud_recordings.transcript_text`, convertirlo en `DiarizedTurn[]`
+    // y llamar a esta función una vez por capa (1, 2 y 3, igual que hace hoy
+    // useTranscriptionAnalysis.tsx) con
+    // `{ sessionId, centerId, layer, segments, transcriptSource: 'plaud', plaudRecordingId }`.
+    // Esta función no consulta `plaud_recordings` por sí misma ni dispara
+    // nada automáticamente: la generación sigue siendo una acción explícita.
+    const { transcription, segments, layer, baseAnalysis, centerId, sessionId, transcriptSource, plaudRecordingId } = await req.json();
 
-    if (!transcription || !layer) {
+    const rawSegments: DiarizedTurn[] = Array.isArray(segments) ? segments : [];
+    const hasSegments = rawSegments.some(
+      (s) => s && typeof s === 'object' && typeof (s as { content?: unknown }).content === 'string' && (s as { content: string }).content.trim().length > 0
+    );
+    const hasTranscriptionText = typeof transcription === 'string' && transcription.trim().length > 0;
+
+    if ((!hasTranscriptionText && !hasSegments) || !layer) {
       return new Response(
-        JSON.stringify({ error: 'Se requiere transcription y layer (1, 2 o 3)' }),
+        JSON.stringify({ error: 'Se requiere transcription o segments, y layer (1, 2 o 3)' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    // `effectiveTranscription` sustituye a `transcription` en todo el resto
+    // de la función: si llegan `segments`, se reconstruye un texto plano ya
+    // anonimizado (y con la nota de cautela sobre diarización antepuesta si
+    // corresponde); si no, se usa el `transcription` de siempre sin tocarlo.
+    let effectiveTranscription: string;
+    let diarizationApplied = false;
+    if (hasSegments) {
+      const built = buildTranscriptFromTurns(rawSegments);
+      diarizationApplied = built.hasDiarization;
+      effectiveTranscription = built.transcript.trim() || (hasTranscriptionText ? transcription : '');
+    } else {
+      effectiveTranscription = transcription;
+    }
+
+    if (!effectiveTranscription || !effectiveTranscription.trim()) {
+      return new Response(
+        JSON.stringify({ error: 'La transcripción o los segmentos recibidos están vacíos' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const originSource = transcriptSource === 'plaud' ? 'plaud' : 'manual';
 
     // Single service-role client reused for center validation, consent checks,
     // AI configuration lookup and audit logging.
@@ -271,7 +337,11 @@ serve(async (req) => {
           action: 'ACCESS_DENIED',
           status: 'denied',
           routeOrEndpoint: 'analyze-session-transcription',
-          metadata: { layer, purpose: deniedPurpose, reason: deniedResult.reason, sessionId },
+          metadata: {
+            layer, purpose: deniedPurpose, reason: deniedResult.reason, sessionId,
+            transcriptSource: originSource,
+            ...(plaudRecordingId ? { plaudRecordingId } : {}),
+          },
         });
       }
 
@@ -368,9 +438,9 @@ IMPORTANTE: Devuelve SOLO el JSON, sin markdown, sin bloques de código, sin tex
 
 TRANSCRIPCIÓN DE LA SESIÓN:
 
-${transcription}`;
+${effectiveTranscription}`;
 
-      console.log(`[analyze] Single mode | Provider: ${provider} | Model: ${model} | Temp: ${temperature}`);
+      console.log(`[analyze] Single mode | Provider: ${provider} | Model: ${model} | Temp: ${temperature} | Source: ${originSource} | Diarization: ${diarizationApplied}`);
 
       const content = await callAI(systemPrompt, singlePrompt, provider, model, apiKey, temperature);
 
@@ -409,7 +479,11 @@ ${transcription}`;
           patientId,
           resourceType: 'clinical_notes', action: 'VIEW',
           routeOrEndpoint: 'analyze-session-transcription',
-          metadata: { layer: 1, mode: 'single', consentVerified: true },
+          metadata: {
+            layer: 1, mode: 'single', consentVerified: true,
+            transcriptSource: originSource, diarizationApplied,
+            ...(plaudRecordingId ? { plaudRecordingId } : {}),
+          },
         });
       }
 
@@ -423,7 +497,7 @@ ${transcription}`;
     let userPrompt: string;
 
     if (layer === 1) {
-      userPrompt = `${layer1Prompt}\n\nTRANSCRIPCIÓN DE LA SESIÓN:\n\n${transcription}`;
+      userPrompt = `${layer1Prompt}\n\nTRANSCRIPCIÓN DE LA SESIÓN:\n\n${effectiveTranscription}`;
     } else if (layer === 2) {
       if (!baseAnalysis) {
         return new Response(
@@ -431,7 +505,7 @@ ${transcription}`;
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      userPrompt = `BASE CLÍNICA EXTRAÍDA (CAPA 1):\n\n${baseAnalysis}\n\nTRANSCRIPCIÓN ORIGINAL:\n\n${transcription}\n\n${layer2Prompt}`;
+      userPrompt = `BASE CLÍNICA EXTRAÍDA (CAPA 1):\n\n${baseAnalysis}\n\nTRANSCRIPCIÓN ORIGINAL:\n\n${effectiveTranscription}\n\n${layer2Prompt}`;
     } else if (layer === 3) {
       if (!baseAnalysis) {
         return new Response(
@@ -439,7 +513,7 @@ ${transcription}`;
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      userPrompt = `BASE CLÍNICA EXTRAÍDA (CAPA 1):\n\n${baseAnalysis}\n\nTRANSCRIPCIÓN ORIGINAL:\n\n${transcription}\n\n${layer3Prompt}`;
+      userPrompt = `BASE CLÍNICA EXTRAÍDA (CAPA 1):\n\n${baseAnalysis}\n\nTRANSCRIPCIÓN ORIGINAL:\n\n${effectiveTranscription}\n\n${layer3Prompt}`;
     } else {
       return new Response(
         JSON.stringify({ error: 'Layer debe ser 1, 2 o 3' }),
@@ -447,7 +521,7 @@ ${transcription}`;
       );
     }
 
-    console.log(`[analyze] Layer ${layer} | Provider: ${provider} | Model: ${model} | Temp: ${temperature}`);
+    console.log(`[analyze] Layer ${layer} | Provider: ${provider} | Model: ${model} | Temp: ${temperature} | Source: ${originSource} | Diarization: ${diarizationApplied}`);
 
     const content = await callAI(systemPrompt, userPrompt, provider, model, apiKey, temperature);
 
@@ -462,7 +536,11 @@ ${transcription}`;
         patientId,
         resourceType: 'clinical_notes', action: 'VIEW',
         routeOrEndpoint: 'analyze-session-transcription',
-        metadata: { layer, mode: 'layered', consentVerified: true },
+        metadata: {
+          layer, mode: 'layered', consentVerified: true,
+          transcriptSource: originSource, diarizationApplied,
+          ...(plaudRecordingId ? { plaudRecordingId } : {}),
+        },
       });
     }
 

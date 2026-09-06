@@ -89,6 +89,10 @@ project_id = "zprkdxmluvirxfhswrzq"
     verify_jwt = true
   [functions.refresh-plaud-tokens]
     verify_jwt = false
+  [functions.sync-plaud-recordings]
+    verify_jwt = false
+  [functions.cleanup-plaud-transcripts]
+    verify_jwt = false
   [functions.patient-portal-auth]
     verify_jwt = false
   [functions.patient-portal-account]

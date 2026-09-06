@@ -43,6 +43,7 @@ import PublicReferralRegister from "./pages/PublicReferralRegister";
 import Referrals from "./pages/Referrals";
 import Autoregistros from "./pages/Autoregistros";
 import AutoregistroPublic from "./pages/AutoregistroPublic";
+import PlaudReview from "./pages/PlaudReview";
 import PublicShortLinkRedirect from "./pages/PublicShortLinkRedirect";
 
 const queryClient = new QueryClient();
@@ -189,7 +190,12 @@ const App = () => (
                 <AppLayout><Autoregistros /></AppLayout>
               </ProtectedRoute>
             } />
-            
+            <Route path="/grabaciones" element={
+              <ProtectedRoute>
+                <AppLayout><PlaudReview /></AppLayout>
+              </ProtectedRoute>
+            } />
+
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
