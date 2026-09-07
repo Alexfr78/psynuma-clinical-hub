@@ -356,7 +356,7 @@ export function useSaveAiDocumentEdit() {
       if (mirrorColumn && sessionId) {
         const { error: mirrorError } = await supabase
           .from('sessions')
-          .update({ [mirrorColumn]: markdown })
+          .update({ [mirrorColumn]: markdown } as never)
           .eq('id', sessionId);
         // Si el espejo falla, la edición ya está guardada pero el envío al paciente
         // quedaría bloqueado: mejor avisar que dejarlo pasar en silencio.

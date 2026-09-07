@@ -14,6 +14,334 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_document_types: {
+        Row: {
+          audience: string
+          center_id: string | null
+          created_at: string
+          default_user_prompt: string | null
+          description: string | null
+          id: string
+          input_schema: Json
+          is_active: boolean
+          key: string
+          label: string
+          mirror_column: string | null
+          required_consent_purposes: string[]
+          requires: string[]
+          scope: string
+          sections: Json
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          audience: string
+          center_id?: string | null
+          created_at?: string
+          default_user_prompt?: string | null
+          description?: string | null
+          id?: string
+          input_schema?: Json
+          is_active?: boolean
+          key: string
+          label: string
+          mirror_column?: string | null
+          required_consent_purposes?: string[]
+          requires?: string[]
+          scope?: string
+          sections?: Json
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          audience?: string
+          center_id?: string | null
+          created_at?: string
+          default_user_prompt?: string | null
+          description?: string | null
+          id?: string
+          input_schema?: Json
+          is_active?: boolean
+          key?: string
+          label?: string
+          mirror_column?: string | null
+          required_consent_purposes?: string[]
+          requires?: string[]
+          scope?: string
+          sections?: Json
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_document_types_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_document_types_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_document_types_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "portal_centers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_generated_documents: {
+        Row: {
+          center_id: string
+          content_markdown: string
+          content_sections: Json
+          document_type_id: string
+          edited_markdown: string | null
+          edited_sections: Json | null
+          generated_at: string
+          generated_by: string | null
+          id: string
+          model_used: string | null
+          patient_id: string
+          plaud_recording_id: string | null
+          prompt_version_id: string | null
+          session_id: string | null
+          source_session_ids: string[]
+          tokens_in: number | null
+          tokens_out: number | null
+          transcript_source: string | null
+        }
+        Insert: {
+          center_id: string
+          content_markdown: string
+          content_sections: Json
+          document_type_id: string
+          edited_markdown?: string | null
+          edited_sections?: Json | null
+          generated_at?: string
+          generated_by?: string | null
+          id?: string
+          model_used?: string | null
+          patient_id: string
+          plaud_recording_id?: string | null
+          prompt_version_id?: string | null
+          session_id?: string | null
+          source_session_ids?: string[]
+          tokens_in?: number | null
+          tokens_out?: number | null
+          transcript_source?: string | null
+        }
+        Update: {
+          center_id?: string
+          content_markdown?: string
+          content_sections?: Json
+          document_type_id?: string
+          edited_markdown?: string | null
+          edited_sections?: Json | null
+          generated_at?: string
+          generated_by?: string | null
+          id?: string
+          model_used?: string | null
+          patient_id?: string
+          plaud_recording_id?: string | null
+          prompt_version_id?: string | null
+          session_id?: string | null
+          source_session_ids?: string[]
+          tokens_in?: number | null
+          tokens_out?: number | null
+          transcript_source?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_generated_documents_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_generated_documents_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_generated_documents_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "portal_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_generated_documents_document_type_id_fkey"
+            columns: ["document_type_id"]
+            isOneToOne: false
+            referencedRelation: "ai_document_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_generated_documents_generated_by_fkey"
+            columns: ["generated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_generated_documents_generated_by_fkey"
+            columns: ["generated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_generated_documents_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_generated_documents_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_generated_documents_prompt_version_id_fkey"
+            columns: ["prompt_version_id"]
+            isOneToOne: false
+            referencedRelation: "ai_prompt_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_generated_documents_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_prompt_versions: {
+        Row: {
+          center_id: string
+          created_at: string
+          created_by: string | null
+          document_type_id: string
+          id: string
+          is_published: boolean
+          model: string | null
+          professional_id: string | null
+          session_type_id: string | null
+          system_prompt: string | null
+          temperature: number | null
+          user_prompt: string
+          version: number
+        }
+        Insert: {
+          center_id: string
+          created_at?: string
+          created_by?: string | null
+          document_type_id: string
+          id?: string
+          is_published?: boolean
+          model?: string | null
+          professional_id?: string | null
+          session_type_id?: string | null
+          system_prompt?: string | null
+          temperature?: number | null
+          user_prompt: string
+          version: number
+        }
+        Update: {
+          center_id?: string
+          created_at?: string
+          created_by?: string | null
+          document_type_id?: string
+          id?: string
+          is_published?: boolean
+          model?: string | null
+          professional_id?: string | null
+          session_type_id?: string | null
+          system_prompt?: string | null
+          temperature?: number | null
+          user_prompt?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_prompt_versions_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_prompt_versions_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_prompt_versions_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "portal_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_prompt_versions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_prompt_versions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_prompt_versions_document_type_id_fkey"
+            columns: ["document_type_id"]
+            isOneToOne: false
+            referencedRelation: "ai_document_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_prompt_versions_professional_id_fkey"
+            columns: ["professional_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_prompt_versions_professional_id_fkey"
+            columns: ["professional_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_prompt_versions_session_type_id_fkey"
+            columns: ["session_type_id"]
+            isOneToOne: false
+            referencedRelation: "session_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       app_change_log: {
         Row: {
           affects_verifactu: boolean
@@ -8412,6 +8740,10 @@ export type Database = {
         Returns: Json
       }
       sanitize_error_payload: { Args: { payload: Json }; Returns: Json }
+      seed_ai_prompt_versions_for_center: {
+        Args: { p_center_id: string }
+        Returns: undefined
+      }
       set_default_invoice_series: {
         Args: { p_series_id: string }
         Returns: {
