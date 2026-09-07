@@ -30,6 +30,12 @@ export interface AiDocumentType {
   id: string;
   /** NULL en las plantillas de sistema, comunes a todos los centros. */
   center_id: string | null;
+  /**
+   * NULL = plantilla del centro (o de sistema, si `center_id` también es NULL).
+   * Si tiene valor, es una plantilla propia de ese profesional: solo él (y los admins,
+   * vía RLS) pueden verla, y solo él puede editarla o borrarla.
+   */
+  professional_id: string | null;
   key: string;
   label: string;
   description: string | null;
@@ -93,4 +99,27 @@ export interface AiGeneratedDocument {
 /** Documento con su plantilla resuelta, tal y como lo consumen las vistas. */
 export interface AiGeneratedDocumentWithType extends AiGeneratedDocument {
   document_type: Pick<AiDocumentType, 'key' | 'label' | 'audience' | 'sections' | 'mirror_column'>;
+}
+
+/**
+ * Destinatarios que tienen una plantilla predeterminada propia (CONTRACT-2 §1.2).
+ * Subconjunto de `AiDocumentAudience`: hoy solo `professional` y `patient` tienen una
+ * ranura de "predeterminada"; `internal` y `third_party` no.
+ */
+export type AiDocumentDefaultAudience = Extract<AiDocumentAudience, 'professional' | 'patient'>;
+
+/**
+ * Predeterminada de un destinatario (`ai_document_defaults`). No es una lista plana:
+ * es una plantilla por (centro, profesional | null, destinatario).
+ * `professional_id` NULL = predeterminada del centro; si tiene valor, es la override de
+ * ese profesional, que prevalece sobre la del centro solo para él.
+ */
+export interface AiDocumentDefault {
+  id: string;
+  center_id: string;
+  professional_id: string | null;
+  audience: AiDocumentDefaultAudience;
+  document_type_id: string;
+  updated_at: string;
+  updated_by: string | null;
 }

@@ -30,9 +30,11 @@ import {
 import { Icon } from '@/components/ui/icon';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
+import { useCenter } from '@/hooks/useCenter';
 import { useProfessionals } from '@/hooks/usePatients';
 import { useSessionTypes } from '@/hooks/useSessionTypes';
 import { parseSections } from '@/lib/ai-documents';
+import { modelOptionsForProvider } from '@/lib/ai-models';
 import {
   DEFAULT_SYSTEM_PROMPT,
   DEFAULT_LAYER1_PROMPT,
@@ -48,10 +50,19 @@ import {
   useUpdateDocumentType,
   useSetDocumentTypeActive,
   useDuplicateSystemDocumentType,
+  useAIDocumentDefaults,
+  useSetDocumentDefault,
+  useClearOwnDocumentDefault,
+  resolveDocumentDefault,
   type ResolvedPromptVersion,
   type PromptVersionScope,
 } from '@/hooks/useAIDocumentTemplates';
-import type { AiDocumentType, AiDocumentAudience, AiDocumentScope } from '@/types/ai-documents';
+import type {
+  AiDocumentType,
+  AiDocumentAudience,
+  AiDocumentScope,
+  AiDocumentDefaultAudience,
+} from '@/types/ai-documents';
 
 /**
  * Catálogo de plantillas de documentos clínicos generados con IA. Sustituye al bloque
@@ -74,6 +85,45 @@ const SCOPE_LABELS: Record<AiDocumentScope, string> = {
   multi_session: 'Multi-sesión',
   patient: 'Histórico del paciente',
 };
+
+const DEFAULT_AUDIENCE_LABELS: Record<AiDocumentDefaultAudience, string> = {
+  professional: 'Informe del profesional',
+  patient: 'Resumen del paciente',
+};
+
+/** Origen de una plantilla, para distinguir visualmente Psycma / centro / propia. */
+type DocumentTypeOrigin = 'system' | 'center' | 'own';
+
+function getDocumentTypeOrigin(dt: AiDocumentType): DocumentTypeOrigin {
+  if (dt.center_id === null) return 'system';
+  if (dt.professional_id) return 'own';
+  return 'center';
+}
+
+const ORIGIN_LABELS: Record<DocumentTypeOrigin, string> = {
+  system: 'Psycma',
+  center: 'Centro',
+  own: 'Propia',
+};
+
+/** Variante de `Badge` por origen: sistema en gris neutro, centro en secundario, propia
+ *  destacada (color primario) para que salte a la vista que nadie más la ve. */
+const ORIGIN_BADGE_VARIANT: Record<DocumentTypeOrigin, 'outline' | 'secondary' | 'default'> = {
+  system: 'outline',
+  center: 'secondary',
+  own: 'default',
+};
+
+function OriginBadge({ origin }: { origin: DocumentTypeOrigin }) {
+  return <Badge variant={ORIGIN_BADGE_VARIANT[origin]}>{ORIGIN_LABELS[origin]}</Badge>;
+}
+
+const MODEL_CHOICE_CENTER = '__center__';
+const MODEL_CHOICE_CUSTOM = '__custom__';
+
+/** Sentinela para "usar la predeterminada del centro" en el selector de un profesional
+ *  (ranuras de predeterminadas, no tiene relación con el selector de modelo de IA). */
+const DEFAULT_SLOT_USE_CENTER = '__use_center__';
 
 /**
  * Solo las tres plantillas heredadas del sistema de "3 capas" tienen un prompt por
@@ -114,87 +164,224 @@ export function AIDocumentTemplatesSection() {
   );
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-start justify-between gap-4">
-        <div>
-          <CardTitle className="flex items-center gap-2">
-            <Icon name="description" className="h-5 w-5" />
-            Plantillas de documentos
-          </CardTitle>
-          <CardDescription>
-            Catálogo de documentos clínicos generados con IA. Cada uno tiene su propio historial
-            de versiones de prompt, con ámbito de centro, de un profesional concreto o de un tipo
-            de sesión concreto.
-          </CardDescription>
-        </div>
-        {isAdmin && (
+    <div className="space-y-4">
+      <DefaultTemplatesCard documentTypes={documentTypes} />
+
+      <Card>
+        <CardHeader className="flex flex-row items-start justify-between gap-4">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <Icon name="description" className="h-5 w-5" />
+              Plantillas de documentos
+            </CardTitle>
+            <CardDescription>
+              Catálogo de documentos clínicos generados con IA. Cada uno tiene su propio historial
+              de versiones de prompt, con ámbito de centro, de un profesional concreto o de un
+              tipo de sesión concreto.
+            </CardDescription>
+          </div>
           <Button size="sm" onClick={() => setCreateOpen(true)}>
             <Icon name="add" className="mr-2 h-4 w-4" />
             Nueva plantilla
           </Button>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Icon name="progress_activity" className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : documentTypes.length === 0 ? (
+            <p className="py-8 text-center text-sm text-muted-foreground">
+              No hay plantillas disponibles todavía.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {documentTypes.map((dt) => {
+                const origin = getDocumentTypeOrigin(dt);
+                return (
+                  <button
+                    key={dt.id}
+                    type="button"
+                    onClick={() => setSelected(dt)}
+                    className={cn(
+                      'flex w-full items-start justify-between gap-3 rounded-lg border p-4 text-left transition-colors hover:border-primary/50',
+                      !dt.is_active && 'opacity-60'
+                    )}
+                  >
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-medium">{dt.label}</span>
+                        <OriginBadge origin={origin} />
+                        <Badge variant="outline">{AUDIENCE_LABELS[dt.audience]}</Badge>
+                        <Badge variant="outline">{SCOPE_LABELS[dt.scope]}</Badge>
+                        {!dt.is_active && (
+                          <Badge variant="outline" className="text-muted-foreground">
+                            Inactiva
+                          </Badge>
+                        )}
+                      </div>
+                      {dt.description && (
+                        <p className="line-clamp-2 text-xs text-muted-foreground">{dt.description}</p>
+                      )}
+                    </div>
+                    <Icon name="chevron_right" className="mt-1 h-5 w-5 shrink-0 text-muted-foreground" />
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+
+        {selectedFresh && (
+          <DocumentTypeDetailDialog
+            documentType={selectedFresh}
+            allDocumentTypes={documentTypes}
+            open={!!selected}
+            onOpenChange={(open) => !open && setSelected(null)}
+          />
         )}
+
+        <DocumentTypeFormDialog
+          open={createOpen}
+          onOpenChange={setCreateOpen}
+          mode="create"
+          nextSortOrder={nextSortOrder}
+          documentTypes={documentTypes}
+        />
+      </Card>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Predeterminadas por destinatario (informe del profesional / resumen del paciente)
+// ---------------------------------------------------------------------------
+
+function DefaultTemplatesCard({ documentTypes }: { documentTypes: AiDocumentType[] }) {
+  const { data: defaults = [], isLoading } = useAIDocumentDefaults();
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Icon name="star" className="h-5 w-5" />
+          Plantillas predeterminadas
+        </CardTitle>
+        <CardDescription>
+          Las que se usan al pulsar "Generar automáticamente" sobre una sesión: una para el
+          informe del profesional y otra para el resumen del paciente.
+        </CardDescription>
       </CardHeader>
       <CardContent>
         {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <Icon name="progress_activity" className="h-8 w-8 animate-spin text-primary" />
+          <div className="flex items-center justify-center py-6">
+            <Icon name="progress_activity" className="h-6 w-6 animate-spin text-primary" />
           </div>
-        ) : documentTypes.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">
-            No hay plantillas disponibles todavía.
-          </p>
         ) : (
-          <div className="space-y-2">
-            {documentTypes.map((dt) => (
-              <button
-                key={dt.id}
-                type="button"
-                onClick={() => setSelected(dt)}
-                className={cn(
-                  'flex w-full items-start justify-between gap-3 rounded-lg border p-4 text-left transition-colors hover:border-primary/50',
-                  !dt.is_active && 'opacity-60'
-                )}
-              >
-                <div className="min-w-0 flex-1 space-y-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-medium">{dt.label}</span>
-                    <Badge variant={dt.center_id ? 'secondary' : 'outline'}>
-                      {dt.center_id ? 'Centro' : 'Sistema'}
-                    </Badge>
-                    <Badge variant="outline">{AUDIENCE_LABELS[dt.audience]}</Badge>
-                    <Badge variant="outline">{SCOPE_LABELS[dt.scope]}</Badge>
-                    {!dt.is_active && (
-                      <Badge variant="outline" className="text-muted-foreground">
-                        Inactiva
-                      </Badge>
-                    )}
-                  </div>
-                  {dt.description && (
-                    <p className="line-clamp-2 text-xs text-muted-foreground">{dt.description}</p>
-                  )}
-                </div>
-                <Icon name="chevron_right" className="mt-1 h-5 w-5 shrink-0 text-muted-foreground" />
-              </button>
+          <div className="space-y-4">
+            {(Object.keys(DEFAULT_AUDIENCE_LABELS) as AiDocumentDefaultAudience[]).map((audience) => (
+              <DefaultTemplateSlot
+                key={audience}
+                audience={audience}
+                documentTypes={documentTypes}
+                defaults={defaults}
+              />
             ))}
           </div>
         )}
       </CardContent>
-
-      {selectedFresh && (
-        <DocumentTypeDetailDialog
-          documentType={selectedFresh}
-          open={!!selected}
-          onOpenChange={(open) => !open && setSelected(null)}
-        />
-      )}
-
-      <DocumentTypeFormDialog
-        open={createOpen}
-        onOpenChange={setCreateOpen}
-        mode="create"
-        nextSortOrder={nextSortOrder}
-      />
     </Card>
+  );
+}
+
+function DefaultTemplateSlot({
+  audience,
+  documentTypes,
+  defaults,
+}: {
+  audience: AiDocumentDefaultAudience;
+  documentTypes: AiDocumentType[];
+  defaults: ReturnType<typeof useAIDocumentDefaults>['data'];
+}) {
+  const { isAdmin, profile } = useAuth();
+  const setDefault = useSetDocumentDefault();
+  const clearOwn = useClearOwnDocumentDefault();
+
+  const eligible = useMemo(
+    () =>
+      documentTypes.filter(
+        (dt) => dt.is_active && dt.scope === 'session' && dt.audience === audience
+      ),
+    [documentTypes, audience]
+  );
+
+  const resolved = useMemo(
+    () => resolveDocumentDefault(audience, defaults ?? [], documentTypes, profile?.id),
+    [audience, defaults, documentTypes, profile?.id]
+  );
+
+  const ownRow = (defaults ?? []).find((d) => d.audience === audience && d.professional_id === profile?.id);
+
+  if (isAdmin) {
+    return (
+      <div className="space-y-1.5 rounded-lg border p-3">
+        <div className="flex items-center justify-between gap-2">
+          <Label className="text-sm">{DEFAULT_AUDIENCE_LABELS[audience]}</Label>
+          <Badge variant="outline" className="text-[10px]">Predeterminada del centro</Badge>
+        </div>
+        <Select
+          value={resolved.centerDocumentType?.id ?? ''}
+          onValueChange={(v) => setDefault.mutate({ audience, documentTypeId: v, scope: 'center' })}
+          disabled={setDefault.isPending}
+        >
+          <SelectTrigger><SelectValue placeholder="Elige una plantilla" /></SelectTrigger>
+          <SelectContent>
+            {eligible.map((dt) => (
+              <SelectItem key={dt.id} value={dt.id}>{dt.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground">
+          Cada profesional puede fijar la suya propia, que la sustituirá solo para él.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-1.5 rounded-lg border p-3">
+      <div className="flex items-center justify-between gap-2">
+        <Label className="text-sm">{DEFAULT_AUDIENCE_LABELS[audience]}</Label>
+        {resolved.source === 'professional' ? (
+          <Badge className="text-[10px]">Tu predeterminada</Badge>
+        ) : (
+          <Badge variant="outline" className="text-[10px]">Predeterminada del centro</Badge>
+        )}
+      </div>
+      {resolved.source === 'professional' && resolved.centerDocumentType && (
+        <p className="text-xs text-muted-foreground">
+          Sustituye a la del centro (<span className="font-medium">{resolved.centerDocumentType.label}</span>) solo para ti.
+        </p>
+      )}
+      <Select
+        value={ownRow?.document_type_id ?? DEFAULT_SLOT_USE_CENTER}
+        onValueChange={(v) => {
+          if (v === DEFAULT_SLOT_USE_CENTER) clearOwn.mutate(audience);
+          else setDefault.mutate({ audience, documentTypeId: v, scope: 'mine' });
+        }}
+        disabled={setDefault.isPending || clearOwn.isPending}
+      >
+        <SelectTrigger><SelectValue /></SelectTrigger>
+        <SelectContent>
+          <SelectItem value={DEFAULT_SLOT_USE_CENTER}>
+            Usar la del centro{resolved.centerDocumentType ? ` (${resolved.centerDocumentType.label})` : ''}
+          </SelectItem>
+          {eligible.map((dt) => (
+            <SelectItem key={dt.id} value={dt.id}>{dt.label}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
   );
 }
 
@@ -204,20 +391,28 @@ export function AIDocumentTemplatesSection() {
 
 interface DocumentTypeDetailDialogProps {
   documentType: AiDocumentType;
+  allDocumentTypes: AiDocumentType[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-function DocumentTypeDetailDialog({ documentType, open, onOpenChange }: DocumentTypeDetailDialogProps) {
-  const { isAdmin } = useAuth();
+function DocumentTypeDetailDialog({
+  documentType,
+  allDocumentTypes,
+  open,
+  onOpenChange,
+}: DocumentTypeDetailDialogProps) {
+  const { isAdmin, profile } = useAuth();
   const [mode, setMode] = useState<'view' | 'new-version' | 'edit-type'>('view');
   const { versions, isLoading: versionsLoading } = usePromptVersions(documentType.id);
   const setActive = useSetDocumentTypeActive();
   const duplicate = useDuplicateSystemDocumentType();
 
   const sections = parseSections(documentType.sections);
-  const isSystemTemplate = documentType.center_id === null;
-  const canManageMetadata = isAdmin && !isSystemTemplate;
+  const origin = getDocumentTypeOrigin(documentType);
+  const isSystemTemplate = origin === 'system';
+  const isOwnTemplate = origin === 'own' && documentType.professional_id === profile?.id;
+  const canManageMetadata = !isSystemTemplate && (isAdmin || isOwnTemplate);
 
   const handleClose = (nextOpen: boolean) => {
     if (!nextOpen) setMode('view');
@@ -230,9 +425,7 @@ function DocumentTypeDetailDialog({ documentType, open, onOpenChange }: Document
         <DialogHeader>
           <div className="flex flex-wrap items-center gap-2">
             <DialogTitle>{documentType.label}</DialogTitle>
-            <Badge variant={isSystemTemplate ? 'outline' : 'secondary'}>
-              {isSystemTemplate ? 'Sistema' : 'Centro'}
-            </Badge>
+            <OriginBadge origin={origin} />
             <Badge variant="outline">{AUDIENCE_LABELS[documentType.audience]}</Badge>
             <Badge variant="outline">{SCOPE_LABELS[documentType.scope]}</Badge>
           </div>
@@ -243,6 +436,8 @@ function DocumentTypeDetailDialog({ documentType, open, onOpenChange }: Document
 
         {mode === 'view' && (
           <div className="space-y-5">
+            <DefaultMarker documentType={documentType} allDocumentTypes={allDocumentTypes} />
+
             {isSystemTemplate ? (
               isAdmin && (
                 <Alert>
@@ -381,6 +576,68 @@ function DocumentTypeDetailDialog({ documentType, open, onOpenChange }: Document
   );
 }
 
+/**
+ * Acción para marcar ESTA plantilla como la predeterminada de su destinatario (solo si su
+ * `audience` es `professional` o `patient` y su `scope` es `session`: no tiene sentido
+ * ofrecer la marca en las demás, CONTRACT-2 §3.2 "no ofrezcas lo imposible").
+ */
+function DefaultMarker({
+  documentType,
+  allDocumentTypes,
+}: {
+  documentType: AiDocumentType;
+  allDocumentTypes: AiDocumentType[];
+}) {
+  const { isAdmin, profile } = useAuth();
+  const { data: defaults = [] } = useAIDocumentDefaults();
+  const setDefault = useSetDocumentDefault();
+
+  const eligibleAudience: AiDocumentDefaultAudience | null =
+    documentType.scope === 'session' &&
+    (documentType.audience === 'professional' || documentType.audience === 'patient')
+      ? documentType.audience
+      : null;
+
+  if (!eligibleAudience || !documentType.is_active) return null;
+
+  const resolved = resolveDocumentDefault(eligibleAudience, defaults, allDocumentTypes, profile?.id);
+  const isCenterDefault = resolved.centerDocumentType?.id === documentType.id;
+  const ownRow = defaults.find((d) => d.audience === eligibleAudience && d.professional_id === profile?.id);
+  const isOwnDefault = ownRow?.document_type_id === documentType.id;
+
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-dashed p-3">
+      <div className="text-sm text-muted-foreground">
+        Predeterminada para <span className="font-medium text-foreground">{DEFAULT_AUDIENCE_LABELS[eligibleAudience]}</span>
+        {isAdmin && isCenterDefault && ' — ya es la del centro.'}
+        {!isAdmin && isOwnDefault && ' — ya es la tuya.'}
+        {!isAdmin && !isOwnDefault && isCenterDefault && ' — ya es la del centro (y no tienes una propia).'}
+      </div>
+      {isAdmin ? (
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={isCenterDefault || setDefault.isPending}
+          onClick={() => setDefault.mutate({ audience: eligibleAudience, documentTypeId: documentType.id, scope: 'center' })}
+        >
+          <Icon name="star" className="mr-2 h-4 w-4" />
+          Fijar como predeterminada del centro
+        </Button>
+      ) : (
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={isOwnDefault || setDefault.isPending}
+          onClick={() => setDefault.mutate({ audience: eligibleAudience, documentTypeId: documentType.id, scope: 'mine' })}
+        >
+          <Icon name="star" className="mr-2 h-4 w-4" />
+          Fijar como mi predeterminada
+        </Button>
+      )}
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Fila de una versión, con su prompt colapsado y el botón de publicar
 // ---------------------------------------------------------------------------
@@ -425,7 +682,7 @@ function PromptVersionRow({
           <pre className="whitespace-pre-wrap rounded bg-muted p-2 text-xs">{version.user_prompt}</pre>
         </div>
         <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-          {version.model && <span>Modelo: {version.model}</span>}
+          <span>Modelo: {version.model ?? 'el del centro'}</span>
           {version.temperature != null && <span>Temperatura: {version.temperature}</span>}
         </div>
         {!version.is_published && (
@@ -459,13 +716,15 @@ function NewVersionForm({
   onCancel: () => void;
 }) {
   const { isAdmin, profile } = useAuth();
+  const { center } = useCenter();
   const { data: professionals = [] } = useProfessionals();
   const { data: sessionTypes = [] } = useSessionTypes();
   const createVersion = useCreatePromptVersion();
 
   const [systemPrompt, setSystemPrompt] = useState('');
   const [userPrompt, setUserPrompt] = useState('');
-  const [model, setModel] = useState('');
+  const [modelChoice, setModelChoice] = useState<string>(MODEL_CHOICE_CENTER);
+  const [customModel, setCustomModel] = useState('');
   const [temperature, setTemperature] = useState('');
   const [scopeKind, setScopeKind] = useState<'center' | 'professional' | 'session_type'>('center');
   const [scopeProfessionalId, setScopeProfessionalId] = useState('');
@@ -494,6 +753,11 @@ function NewVersionForm({
     return { kind: 'center' };
   };
 
+  const providerModels = modelOptionsForProvider(center?.ai_provider);
+  const isCustomModel = modelChoice === MODEL_CHOICE_CUSTOM;
+  const resolvedModel =
+    modelChoice === MODEL_CHOICE_CENTER ? null : isCustomModel ? customModel.trim() || null : modelChoice;
+
   const handleSubmit = async () => {
     if (!userPrompt.trim()) return;
     const scope = buildScope();
@@ -505,7 +769,7 @@ function NewVersionForm({
       documentTypeId: documentType.id,
       systemPrompt: systemPrompt.trim() || null,
       userPrompt: userPrompt.trim(),
-      model: model.trim() || null,
+      model: resolvedModel,
       temperature: parsedTemperature != null && !Number.isNaN(parsedTemperature) ? parsedTemperature : null,
       scope,
     });
@@ -606,7 +870,28 @@ function NewVersionForm({
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
           <Label>Modelo (opcional)</Label>
-          <Input value={model} onChange={(e) => setModel(e.target.value)} placeholder="Usar el del centro" />
+          <Select value={modelChoice} onValueChange={setModelChoice}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value={MODEL_CHOICE_CENTER}>Usar el del centro</SelectItem>
+              {providerModels.map((m) => (
+                <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+              ))}
+              <SelectItem value={MODEL_CHOICE_CUSTOM}>Modelo personalizado...</SelectItem>
+            </SelectContent>
+          </Select>
+          {isCustomModel && (
+            <Input
+              value={customModel}
+              onChange={(e) => setCustomModel(e.target.value)}
+              placeholder="Nombre del modelo"
+              className="mt-2"
+            />
+          )}
+          <p className="text-xs text-muted-foreground">
+            Se muestran los modelos de {center?.ai_provider === 'gemini' ? 'Google Gemini' : 'OpenAI'}, el
+            proveedor configurado en el centro.
+          </p>
         </div>
         <div className="space-y-2">
           <Label>Temperatura (opcional)</Label>
@@ -639,22 +924,36 @@ function NewVersionForm({
 // Crear / editar una plantilla del centro (metadatos; las secciones son de solo lectura)
 // ---------------------------------------------------------------------------
 
+const DUPLICATE_FROM_SCRATCH = '__scratch__';
+
 interface DocumentTypeFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   mode: 'create';
   nextSortOrder: number;
+  documentTypes: AiDocumentType[];
 }
 
-function DocumentTypeFormDialog({ open, onOpenChange, nextSortOrder }: DocumentTypeFormDialogProps) {
+function DocumentTypeFormDialog({
+  open,
+  onOpenChange,
+  nextSortOrder,
+  documentTypes,
+}: DocumentTypeFormDialogProps) {
+  const { isAdmin } = useAuth();
   const createType = useCreateDocumentType();
   const [key, setKey] = useState('');
   const [label, setLabel] = useState('');
   const [description, setDescription] = useState('');
   const [audience, setAudience] = useState<AiDocumentAudience>('professional');
   const [scope, setScope] = useState<AiDocumentScope>('session');
+  const [duplicateFromId, setDuplicateFromId] = useState(DUPLICATE_FROM_SCRATCH);
 
   const normalizedKey = key.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+  const duplicateSource =
+    duplicateFromId === DUPLICATE_FROM_SCRATCH
+      ? undefined
+      : documentTypes.find((dt) => dt.id === duplicateFromId);
 
   const reset = () => {
     setKey('');
@@ -662,6 +961,17 @@ function DocumentTypeFormDialog({ open, onOpenChange, nextSortOrder }: DocumentT
     setDescription('');
     setAudience('professional');
     setScope('session');
+    setDuplicateFromId(DUPLICATE_FROM_SCRATCH);
+  };
+
+  const handleDuplicateFromChange = (value: string) => {
+    setDuplicateFromId(value);
+    const source = documentTypes.find((dt) => dt.id === value);
+    if (source) {
+      setAudience(source.audience);
+      setScope(source.scope);
+      if (!label.trim()) setLabel(`${source.label} (copia)`);
+    }
   };
 
   const handleSubmit = async () => {
@@ -673,23 +983,47 @@ function DocumentTypeFormDialog({ open, onOpenChange, nextSortOrder }: DocumentT
       audience,
       scope,
       sortOrder: nextSortOrder,
+      duplicateFrom: duplicateSource
+        ? {
+            requires: duplicateSource.requires,
+            sections: duplicateSource.sections,
+            input_schema: duplicateSource.input_schema,
+            required_consent_purposes: duplicateSource.required_consent_purposes,
+            mirror_column: null, // el espejo a sessions.ai_summary_* es exclusivo de las plantillas de sistema
+          }
+        : undefined,
     });
     reset();
     onOpenChange(false);
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(next) => { if (!next) reset(); onOpenChange(next); }}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Nueva plantilla del centro</DialogTitle>
+          <DialogTitle>{isAdmin ? 'Nueva plantilla del centro' : 'Nueva plantilla propia'}</DialogTitle>
           <DialogDescription>
-            Define los datos básicos. Las secciones que genera se configuran aparte y de momento
-            se dejan vacías: para partir de un catálogo de secciones ya definido, duplica una
-            plantilla de sistema en vez de crear una desde cero.
+            {isAdmin
+              ? 'Visible y editable por todo el centro.'
+              : 'Solo tú la verás y podrás editarla; no la ven otros profesionales del centro.'}{' '}
+            Puedes partir de cero o duplicar una plantilla existente para heredar sus secciones.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
+          <div className="space-y-2">
+            <Label>Partir de</Label>
+            <Select value={duplicateFromId} onValueChange={handleDuplicateFromChange}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value={DUPLICATE_FROM_SCRATCH}>Desde cero (sin secciones)</SelectItem>
+                {documentTypes.map((dt) => (
+                  <SelectItem key={dt.id} value={dt.id}>
+                    {dt.label} ({ORIGIN_LABELS[getDocumentTypeOrigin(dt)]})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <div className="space-y-2">
             <Label>Nombre</Label>
             <Input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Ej: Informe de seguimiento" />

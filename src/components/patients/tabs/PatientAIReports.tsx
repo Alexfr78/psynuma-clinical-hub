@@ -26,6 +26,27 @@ interface SessionMeta {
   session_type: string | null;
 }
 
+/**
+ * Con reprocesado puede haber varias generaciones del mismo `document_type.key` dentro de un
+ * mismo grupo (misma sesión, o a nivel de contacto) — cada generación es una fila nueva en
+ * `ai_generated_documents`, ninguna se borra (CONTRACT-2 §3.1). `docs` llega ya ordenado desc
+ * por `generated_at` (ver las consultas en `useAIDocuments`), así que basta con marcar la
+ * primera aparición de cada `key` como la vigente. `showVersionBadge` solo se activa cuando de
+ * verdad hay más de una del mismo tipo, para no meter ruido visual en el caso normal.
+ */
+function withRecencyInfo(docs: AiGeneratedDocumentWithType[]) {
+  const countByKey = new Map<string, number>();
+  for (const doc of docs) {
+    countByKey.set(doc.document_type.key, (countByKey.get(doc.document_type.key) ?? 0) + 1);
+  }
+  const seenKeys = new Set<string>();
+  return docs.map((doc) => {
+    const isLatestOfType = !seenKeys.has(doc.document_type.key);
+    seenKeys.add(doc.document_type.key);
+    return { doc, isLatestOfType, showVersionBadge: (countByKey.get(doc.document_type.key) ?? 0) > 1 };
+  });
+}
+
 export function PatientAIReports({ patientId }: PatientAIReportsProps) {
   const { centerId } = useCenter();
   const [sendingId, setSendingId] = useState<string | null>(null);
@@ -238,10 +259,12 @@ export function PatientAIReports({ patientId }: PatientAIReportsProps) {
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                 Documentos del contacto
               </p>
-              {patientLevelDocs.map((doc) => (
+              {withRecencyInfo(patientLevelDocs).map(({ doc, isLatestOfType, showVersionBadge }) => (
                 <DocumentCard
                   key={doc.id}
                   doc={doc}
+                  isLatestOfType={isLatestOfType}
+                  showVersionBadge={showVersionBadge}
                   onSend={handleSend}
                   sending={sendingId === doc.id}
                   isConsentLoading={isConsentLoading}
@@ -280,10 +303,12 @@ export function PatientAIReports({ patientId }: PatientAIReportsProps) {
                 </div>
               </CollapsibleTrigger>
               <CollapsibleContent className="px-3 pb-3 space-y-3">
-                {docs.map((doc) => (
+                {withRecencyInfo(docs).map(({ doc, isLatestOfType, showVersionBadge }) => (
                   <DocumentCard
                     key={doc.id}
                     doc={doc}
+                    isLatestOfType={isLatestOfType}
+                    showVersionBadge={showVersionBadge}
                     onSend={handleSend}
                     sending={sendingId === doc.id}
                     isConsentLoading={isConsentLoading}
@@ -304,6 +329,8 @@ export function PatientAIReports({ patientId }: PatientAIReportsProps) {
 
 function DocumentCard({
   doc,
+  isLatestOfType,
+  showVersionBadge,
   onSend,
   sending,
   isConsentLoading,
@@ -313,6 +340,11 @@ function DocumentCard({
   hasEmail,
 }: {
   doc: AiGeneratedDocumentWithType;
+  /** Si es la generación más reciente de este `document_type.key` dentro del grupo. */
+  isLatestOfType: boolean;
+  /** Solo `true` cuando de verdad hay más de una generación del mismo tipo en el grupo —
+   *  evita mostrar "Más reciente" cuando no hace falta distinguir nada. */
+  showVersionBadge: boolean;
   onSend: (doc: AiGeneratedDocumentWithType, channel: 'whatsapp' | 'email') => void;
   sending: boolean;
   isConsentLoading: boolean;
@@ -330,6 +362,16 @@ function DocumentCard({
       <p className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
         <Icon name={doc.document_type.audience === 'patient' ? 'person' : 'description'} className="h-3 w-3" />
         {doc.document_type.label}
+        <span className="font-normal">
+          · {format(new Date(doc.generated_at), "d MMM yyyy, HH:mm", { locale: es })}
+        </span>
+        {showVersionBadge && (
+          isLatestOfType ? (
+            <Badge variant="outline" className="text-[10px]">Más reciente</Badge>
+          ) : (
+            <Badge variant="secondary" className="text-[10px]">Versión anterior</Badge>
+          )
+        )}
       </p>
       <div className="rounded-md bg-muted p-3 text-sm whitespace-pre-wrap max-h-64 overflow-y-auto">
         {effectiveMarkdown(doc) || 'Sin contenido.'}

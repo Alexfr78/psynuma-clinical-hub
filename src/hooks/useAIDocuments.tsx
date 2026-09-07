@@ -30,6 +30,7 @@ import { aiDb } from '@/lib/ai-documents-db';
 import { supabase } from '@/integrations/supabase/client';
 import { renderMarkdown, parseSections } from '@/lib/ai-documents';
 import { useCenter } from './useCenter';
+import { useAuth } from './useAuth';
 import type {
   AiDocumentType,
   AiDocumentScope,
@@ -85,6 +86,93 @@ export function useAiDocumentTypes(centerId: string | undefined, scope?: AiDocum
     },
     enabled: !!centerId,
   });
+}
+
+// ---------------------------------------------------------------------------
+// Plantillas predeterminadas por destinatario ("Generar automáticamente")
+// ---------------------------------------------------------------------------
+
+export type AiDocumentDefaultAudience = 'professional' | 'patient';
+
+/** Fila cruda de `ai_document_defaults` (ver CONTRACT-2 §1.2). */
+export interface AiDocumentDefaultRow {
+  id: string;
+  center_id: string;
+  /** `NULL` = predeterminada del centro. */
+  professional_id: string | null;
+  audience: AiDocumentDefaultAudience;
+  document_type_id: string;
+}
+
+/** Plantilla de sistema de referencia si no hay ninguna predeterminada configurada. */
+const SYSTEM_DEFAULT_KEY: Record<AiDocumentDefaultAudience, string> = {
+  professional: 'clinical_report',
+  patient: 'patient_report',
+};
+
+/**
+ * Predeterminadas configuradas para el centro (filas propias del profesional y/o del
+ * centro). No se filtra por `audience` aquí: se trae todo de una vez y se resuelve en el
+ * cliente con `resolveAiDocumentDefault`, que ya conoce la precedencia.
+ *
+ * La tabla `ai_document_defaults` es nueva (CONTRACT-2 §1.2) y puede no existir todavía si
+ * su migración no se ha desplegado en este entorno — se trata como "sin predeterminadas
+ * configuradas" en vez de un error, para que el modo automático siga funcionando cayendo en
+ * la plantilla de sistema de referencia.
+ */
+export function useAiDocumentDefaults(centerId: string | undefined) {
+  return useQuery({
+    queryKey: [AI_DOCUMENTS_KEY, 'defaults', centerId],
+    queryFn: async (): Promise<AiDocumentDefaultRow[]> => {
+      const { data, error } = await aiDb
+        .from('ai_document_defaults')
+        .select('id, center_id, professional_id, audience, document_type_id')
+        .eq('center_id', centerId);
+      if (error) {
+        if ((error as { code?: string }).code === '42P01') return [];
+        throw error;
+      }
+      return (data ?? []) as AiDocumentDefaultRow[];
+    },
+    enabled: !!centerId,
+  });
+}
+
+export interface ResolvedAiDocumentDefault {
+  audience: AiDocumentDefaultAudience;
+  /** `null` solo si ni la predeterminada ni la plantilla de sistema de referencia están
+   *  disponibles en el catálogo cargado (p.ej. desactivada). */
+  template: AiDocumentType | null;
+  /** De dónde sale la plantilla resuelta: propia del profesional, del centro, o la de
+   *  sistema de referencia porque no hay ninguna configurada. */
+  source: 'professional' | 'center' | 'system';
+}
+
+/**
+ * Resuelve la predeterminada de un destinatario con la precedencia de CONTRACT-2 §1.2:
+ * fila del profesional que genera → fila del centro → plantilla de sistema de referencia.
+ */
+export function resolveAiDocumentDefault(
+  audience: AiDocumentDefaultAudience,
+  defaults: AiDocumentDefaultRow[],
+  templates: AiDocumentType[],
+  professionalId: string | undefined,
+): ResolvedAiDocumentDefault {
+  const professionalRow = professionalId
+    ? defaults.find((d) => d.audience === audience && d.professional_id === professionalId)
+    : undefined;
+  const centerRow = defaults.find((d) => d.audience === audience && d.professional_id === null);
+  const row = professionalRow ?? centerRow;
+
+  const rowTemplate = row ? templates.find((t) => t.id === row.document_type_id) : undefined;
+  if (rowTemplate) {
+    return { audience, template: rowTemplate, source: professionalRow ? 'professional' : 'center' };
+  }
+
+  // Sin fila configurada, o la fila apunta a una plantilla que ya no está en el catálogo
+  // cargado (desactivada, o de un ámbito distinto): cae en la de sistema de referencia.
+  const systemTemplate = templates.find((t) => t.key === SYSTEM_DEFAULT_KEY[audience]) ?? null;
+  return { audience, template: systemTemplate, source: 'system' };
 }
 
 // ---------------------------------------------------------------------------
@@ -207,6 +295,12 @@ export interface GenerateAiDocumentInput {
    * se tenga en cuenta de verdad, en vez de reutilizar la extracción base antigua.
    */
   regenerate?: boolean;
+  /**
+   * Sobreescribe el modelo para ESTA generación (CONTRACT-2 §2.2). Se omite salvo que el
+   * profesional elija explícitamente uno distinto de "Automático" en el modo personalizado
+   * — si no, gana el modelo de la versión de prompt resuelta o, en su defecto, el del centro.
+   */
+  model?: string;
 }
 
 export interface GenerateAiDocumentDependency {
@@ -393,13 +487,26 @@ export interface UseAIDocumentsOptions {
 export function useAIDocuments(options: UseAIDocumentsOptions = {}) {
   const { sessionId, patientId, scope = 'session', enabled = true } = options;
   const { center } = useCenter();
+  const { profile } = useAuth();
   const centerId = options.centerId ?? center?.id;
 
   const templatesQuery = useAiDocumentTypes(centerId, scope);
   const sessionDocsQuery = useSessionAiDocuments(enabled && sessionId ? sessionId : undefined);
   const patientDocsQuery = usePatientAiDocuments(enabled && !sessionId && patientId ? patientId : undefined);
+  const defaultsQuery = useAiDocumentDefaults(enabled ? centerId : undefined);
   const generateMutation = useGenerateAiDocument();
   const saveEditMutation = useSaveAiDocumentEdit();
+
+  const templates = templatesQuery.data ?? [];
+  const defaults = defaultsQuery.data ?? [];
+  /**
+   * Predeterminadas de "Generar automáticamente" (CONTRACT-2 §3.1): una para el informe del
+   * profesional y otra para el resumen del paciente, ya resueltas con su precedencia. Solo
+   * tienen sentido dentro del catálogo `scope: 'session'`, que es el que consume este hook
+   * en el diálogo de generación.
+   */
+  const professionalDefault = resolveAiDocumentDefault('professional', defaults, templates, profile?.id);
+  const patientDefault = resolveAiDocumentDefault('patient', defaults, templates, profile?.id);
 
   const usingSessionDocs = !!sessionId;
   const documents = usingSessionDocs ? sessionDocsQuery.data : patientDocsQuery.data;
@@ -423,7 +530,7 @@ export function useAIDocuments(options: UseAIDocumentsOptions = {}) {
 
   return {
     centerId,
-    templates: templatesQuery.data ?? [],
+    templates,
     isLoadingTemplates: templatesQuery.isLoading,
     documents: documents ?? [],
     documentsByKey,
@@ -432,5 +539,9 @@ export function useAIDocuments(options: UseAIDocumentsOptions = {}) {
     isGenerating: generateMutation.isPending,
     saveEdit,
     isSavingEdit: saveEditMutation.isPending,
+    // "Generar automáticamente" (CONTRACT-2 §3.1).
+    professionalDefault,
+    patientDefault,
+    isLoadingDefaults: defaultsQuery.isLoading,
   };
 }

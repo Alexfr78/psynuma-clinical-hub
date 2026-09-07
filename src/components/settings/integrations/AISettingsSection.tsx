@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { OPENAI_MODEL_OPTIONS, GEMINI_MODEL_OPTIONS } from '@/lib/ai-models';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -16,6 +17,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Icon } from '@/components/ui/icon';
 
+// Catálogo compartido con el editor de plantillas y el diálogo de generación, para que
+// añadir un modelo nuevo no haya que recordarlo en tres pantallas. A nivel de módulo: si
+// se derivan dentro del componente, cambian de identidad en cada render y el useEffect que
+// las usa pasa a necesitarlas como dependencia.
+const OPENAI_MODELS = OPENAI_MODEL_OPTIONS.map((m) => m.value);
+const GEMINI_MODELS = GEMINI_MODEL_OPTIONS.map((m) => m.value);
+
 export function AISettingsSection() {
   const { center, updateCenter, centerId } = useCenter();
 
@@ -28,7 +36,6 @@ export function AISettingsSection() {
   const [customGeminiModel, setCustomGeminiModel] = useState('');
   const [retentionDays, setRetentionDays] = useState(7);
   const [aiTemperature, setAiTemperature] = useState(0.3);
-  const [aiAnalysisMode, setAiAnalysisMode] = useState('layered');
   const [isSaving, setIsSaving] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const [verifyResult, setVerifyResult] = useState<'ok' | 'error' | null>(null);
@@ -37,8 +44,6 @@ export function AISettingsSection() {
   const openaiConfigured = !!center?.openai_api_key_encrypted;
   const geminiConfigured = !!center?.gemini_api_key_encrypted;
 
-  const OPENAI_MODELS = ['gpt-4.1', 'gpt-4.1-mini', 'gpt-4.1-nano', 'gpt-4o', 'o1'];
-  const GEMINI_MODELS = ['gemini-2.5-pro', 'gemini-2.0-flash', 'gemini-1.5-pro'];
 
   const openaiModelIsCustom = openaiModel === 'custom' || (!OPENAI_MODELS.includes(openaiModel) && openaiModel !== '');
   const geminiModelIsCustom = geminiModel === 'custom' || (!GEMINI_MODELS.includes(geminiModel) && geminiModel !== '');
@@ -63,7 +68,6 @@ export function AISettingsSection() {
       }
       setRetentionDays(c.transcript_retention_days ?? 7);
       setAiTemperature(c.ai_temperature ?? 0.3);
-      setAiAnalysisMode(c.ai_analysis_mode || 'layered');
     }
   }, [center]);
 
@@ -119,7 +123,6 @@ export function AISettingsSection() {
         gemini_model: finalGeminiModel || 'gemini-2.5-pro',
         transcript_retention_days: retentionDays,
         ai_temperature: aiTemperature,
-        ai_analysis_mode: aiAnalysisMode,
         // Los prompts fijos (ai_prompt_system/layer1/2/3) ya no se editan desde aquí:
         // ahora viven en el catálogo de plantillas versionadas (ver
         // "Plantillas de documentos" en Conexiones Externas → Avanzado). No se
@@ -377,34 +380,6 @@ export function AISettingsSection() {
             />
             <span className="text-sm font-mono font-semibold w-10 text-right">{aiTemperature.toFixed(1)}</span>
           </div>
-        </CardContent>
-      </Card>
-
-      {/* Analysis mode */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Modo de análisis</CardTitle>
-          <CardDescription>
-            Elige cómo se generan los informes a partir de la transcripción.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <RadioGroup value={aiAnalysisMode} onValueChange={setAiAnalysisMode} className="space-y-3">
-            <label className="flex items-start gap-3 cursor-pointer">
-              <RadioGroupItem value="layered" className="mt-1" />
-              <div>
-                <p className="font-medium text-sm">Análisis en 3 capas</p>
-                <p className="text-xs text-muted-foreground">Extrae primero la base clínica y luego genera cada informe por separado. Mayor control, más lento.</p>
-              </div>
-            </label>
-            <label className="flex items-start gap-3 cursor-pointer">
-              <RadioGroupItem value="single" className="mt-1" />
-              <div>
-                <p className="font-medium text-sm">Análisis directo</p>
-                <p className="text-xs text-muted-foreground">Genera ambos informes en una sola llamada a partir de la transcripción completa. Más rápido, resultados más cohesionados.</p>
-              </div>
-            </label>
-          </RadioGroup>
         </CardContent>
       </Card>
 

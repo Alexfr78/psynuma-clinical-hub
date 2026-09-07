@@ -5,10 +5,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useTranscriptionAnalysis } from "@/hooks/useTranscriptionAnalysis";
+import { modelOptionsForProvider } from '@/lib/ai-models';
 import { useAIDocuments, useSessionPlaudTranscriptAvailability } from "@/hooks/useAIDocuments";
 import { useCenter } from "@/hooks/useCenter";
 import { supabase } from "@/integrations/supabase/client";
@@ -17,6 +19,15 @@ import { toast } from "sonner";
 import { Icon } from '@/components/ui/icon';
 import { parseSections, effectiveSections, effectiveMarkdown } from "@/lib/ai-documents";
 import type { AiDocumentType, AiGeneratedDocumentWithType } from "@/types/ai-documents";
+
+/**
+ * Modelos ofrecidos en el selector de "Generar personalizada" (CONTRACT-2 §2.1), calcado del
+ * catálogo de `AISettingsSection.tsx` para el proveedor activo del centro. No incluye la
+ * opción de modelo personalizado de Ajustes: aquí basta con "Automático" + el catálogo, ya
+ * que un modelo realmente exótico se configura como predeterminado de la plantilla, no aquí.
+ */
+/** Valor del `<Select>` de modelo cuando se deja en automático (no se manda `model` al servidor). */
+const AUTO_MODEL_VALUE = "auto";
 
 interface TranscriptionAnalysisDialogProps {
   open: boolean;
@@ -52,8 +63,12 @@ export function TranscriptionAnalysisDialog({
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [audioFileName, setAudioFileName] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
-  const [generateClinical, setGenerateClinical] = useState(true);
-  const [generatePatient, setGeneratePatient] = useState(true);
+  // "Seleccionar método de generación" (CONTRACT-2 §3.1, estilo Plaud): automático produce
+  // las predeterminadas de cada destinatario en un clic; personalizada deja elegir plantilla
+  // y modelo. Reprocesar una sesión que ya tiene documentos es el mismo modo personalizado.
+  const [generationMode, setGenerationMode] = useState<"auto" | "custom">("auto");
+  const [customTemplateKey, setCustomTemplateKey] = useState<string>("");
+  const [customModel, setCustomModel] = useState<string>(AUTO_MODEL_VALUE);
   const [generatingKey, setGeneratingKey] = useState<string | null>(null);
   const modalRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -94,6 +109,25 @@ export function TranscriptionAnalysisDialog({
   const clinicalDoc = aiDocs.documentsByKey.get("clinical_report");
   const patientDoc = aiDocs.documentsByKey.get("patient_report");
 
+  // Catálogo del modo "Generar personalizada": cualquier plantilla de sesión visible para
+  // este profesional salvo las de uso interno. Incluye deliberadamente `clinical_report` y
+  // `patient_report` — reprocesar una sesión con otra plantilla, o con la misma pero otro
+  // modelo, es este mismo modo (CONTRACT-2 §3.1), no uno aparte.
+  const customTemplates = aiDocs.templates.filter((t) => t.audience !== "internal");
+  const selectedCustomTemplate = customTemplates.find((t) => t.key === customTemplateKey);
+
+  // Modelos ofrecidos: los del proveedor configurado en el centro (CONTRACT-2 §2.1).
+  const modelOptions = modelOptionsForProvider(center?.ai_provider);
+
+  // Selecciona una plantilla por defecto en el desplegable de "Generar personalizada" en
+  // cuanto el catálogo está disponible, priorizando el informe clínico por ser el punto de
+  // partida más habitual.
+  useEffect(() => {
+    if (customTemplateKey || customTemplates.length === 0) return;
+    setCustomTemplateKey(clinicalTemplate?.key ?? customTemplates[0].key);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [customTemplates.length]);
+
   const hasTranscription = transcription.trim().length >= MIN_TRANSCRIPTION_LENGTH;
 
   /**
@@ -127,16 +161,20 @@ export function TranscriptionAnalysisDialog({
     };
   };
 
-  const genOpts = (): { transcription: string; regenerate: true } => ({ transcription, regenerate: true });
+  const genOpts = (model?: string): { transcription: string; regenerate: true; model?: string } => ({
+    transcription,
+    regenerate: true,
+    ...(model && model !== AUTO_MODEL_VALUE ? { model } : {}),
+  });
 
-  const handleGenerate = async (key: string, label: string) => {
+  const handleGenerate = async (key: string, label: string, model?: string) => {
     if (consent.generateBlockReason) {
       toast.error(consent.generateBlockReason);
       return;
     }
     setGeneratingKey(key);
     try {
-      await aiDocs.generate(key, genOpts());
+      await aiDocs.generate(key, genOpts(model));
       toast.success(`${label} generado`);
     } catch (err) {
       const message = err instanceof Error ? err.message : `Error al generar: ${label.toLowerCase()}`;
@@ -146,24 +184,31 @@ export function TranscriptionAnalysisDialog({
     }
   };
 
-  const handleFullAnalysis = async () => {
+  /** "Generar automáticamente": las predeterminadas de cada destinatario, en un clic. */
+  const handleAutoGenerate = async () => {
     if (consent.generateBlockReason) {
       toast.error(consent.generateBlockReason);
       return;
     }
-    if (generateClinical) {
-      await handleGenerate("clinical_report", "Informe clínico");
+    if (aiDocs.professionalDefault.template) {
+      await handleGenerate(aiDocs.professionalDefault.template.key, aiDocs.professionalDefault.template.label);
     }
-    if (generatePatient) {
-      await handleGenerate("patient_report", "Informe para el paciente");
+    if (aiDocs.patientDefault.template) {
+      await handleGenerate(aiDocs.patientDefault.template.key, aiDocs.patientDefault.template.label);
     }
+  };
+
+  /** "Generar personalizada": la plantilla y el modelo elegidos. También cubre reprocesar. */
+  const handleCustomGenerate = async () => {
+    if (!selectedCustomTemplate) return;
+    await handleGenerate(selectedCustomTemplate.key, selectedCustomTemplate.label, customModel);
   };
 
   const handleReset = () => {
     setTranscription("");
     setAudioFileName(null);
-    setGenerateClinical(true);
-    setGeneratePatient(true);
+    setGenerationMode("auto");
+    setCustomModel(AUTO_MODEL_VALUE);
     setGeneratingKey(null);
   };
 
@@ -420,36 +465,99 @@ export function TranscriptionAnalysisDialog({
             </p>
           </div>
 
-          {/* Selección de informes y botón de inicio */}
-          {!isAnalyzing && !clinicalDoc && !patientDoc && (
+          {/* Seleccionar método de generación (estilo Plaud, CONTRACT-2 §3.1). Sigue
+              disponible aunque la sesión ya tenga documentos: reprocesar con otra plantilla
+              (o la misma con otro modelo) es el modo "Generar personalizada" de aquí abajo,
+              y nunca borra los documentos anteriores — cada generación crea uno nuevo. */}
+          {!isAnalyzing && (
             <div className="space-y-3">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Informes a generar</label>
-                <div className="flex flex-col gap-2">
-                  <label className="flex items-center gap-2 cursor-pointer select-none">
-                    <Checkbox
-                      checked={generateClinical}
-                      onCheckedChange={(v) => setGenerateClinical(!!v)}
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                    <div>
-                      <span className="text-sm font-medium">Informe clínico</span>
-                      <span className="text-xs text-muted-foreground ml-2">Para el profesional</span>
+              {(clinicalDoc || patientDoc) && (
+                <p className="text-sm font-medium">Generar otro documento</p>
+              )}
+
+              <RadioGroup
+                value={generationMode}
+                onValueChange={(v) => setGenerationMode(v as "auto" | "custom")}
+                className="gap-2"
+              >
+                {/* Generar automáticamente */}
+                <label
+                  className={cn(
+                    "flex cursor-pointer flex-col gap-1 rounded-lg border p-3 transition-colors",
+                    generationMode === "auto" ? "border-primary bg-primary/5" : "border-border hover:border-primary/50",
+                  )}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="flex items-center gap-2">
+                    <RadioGroupItem value="auto" id="generation-mode-auto" />
+                    <span className="text-sm font-medium">Generar automáticamente</span>
+                  </div>
+                  <p className="pl-6 text-xs text-muted-foreground">
+                    {aiDocs.isLoadingDefaults ? (
+                      "Cargando las plantillas predeterminadas del centro..."
+                    ) : (
+                      <>
+                        Se generarán:{" "}
+                        <strong>{aiDocs.professionalDefault.template?.label ?? "Informe clínico"}</strong> (para el
+                        profesional) y{" "}
+                        <strong>{aiDocs.patientDefault.template?.label ?? "Resumen para el paciente"}</strong> (para
+                        el paciente).
+                      </>
+                    )}
+                  </p>
+                </label>
+
+                {/* Generar personalizada */}
+                <label
+                  className={cn(
+                    "flex cursor-pointer flex-col gap-2 rounded-lg border p-3 transition-colors",
+                    generationMode === "custom" ? "border-primary bg-primary/5" : "border-border hover:border-primary/50",
+                  )}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="flex items-center gap-2">
+                    <RadioGroupItem value="custom" id="generation-mode-custom" />
+                    <span className="text-sm font-medium">Generar personalizada</span>
+                  </div>
+
+                  {generationMode === "custom" && (
+                    <div className="grid gap-3 pl-6 sm:grid-cols-2">
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-muted-foreground">Plantilla</label>
+                        <Select value={customTemplateKey} onValueChange={setCustomTemplateKey}>
+                          <SelectTrigger onClick={(e) => e.stopPropagation()}>
+                            <SelectValue placeholder="Elige una plantilla" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {customTemplates.map((template) => (
+                              <SelectItem key={template.key} value={template.key}>
+                                {template.label}
+                                {aiDocs.documentsByKey.get(template.key) ? " (ya generado)" : ""}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-muted-foreground">Modelo de IA</label>
+                        <Select value={customModel} onValueChange={setCustomModel}>
+                          <SelectTrigger onClick={(e) => e.stopPropagation()}>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value={AUTO_MODEL_VALUE}>Automático</SelectItem>
+                            {modelOptions.map((option) => (
+                              <SelectItem key={option.value} value={option.value}>
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer select-none">
-                    <Checkbox
-                      checked={generatePatient}
-                      onCheckedChange={(v) => setGeneratePatient(!!v)}
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                    <div>
-                      <span className="text-sm font-medium">Informe para el paciente</span>
-                      <span className="text-xs text-muted-foreground ml-2">En lenguaje accesible</span>
-                    </div>
-                  </label>
-                </div>
-              </div>
+                  )}
+                </label>
+              </RadioGroup>
 
               {consent.generateBlockReason && (
                 <Alert variant="destructive">
@@ -458,35 +566,59 @@ export function TranscriptionAnalysisDialog({
                 </Alert>
               )}
 
-              <Button
-                onClick={handleFullAnalysis}
-                disabled={
-                  isAnalyzing ||
-                  isTranscribing ||
-                  !hasTranscription ||
-                  (!generateClinical && !generatePatient) ||
-                  consent.isLoading ||
-                  !!consent.generateBlockReason
-                }
-                className="w-full"
-              >
-                {isAnalyzing ? (
-                  <>
-                    <Icon name="progress_activity" className="h-4 w-4 mr-2 animate-spin" />
-                    {generatingKey === "clinical_report" ? "Generando informe clínico..." : "Generando informe paciente..."}
-                  </>
-                ) : consent.isLoading ? (
-                  <>
-                    <Icon name="progress_activity" className="h-4 w-4 mr-2 animate-spin" />
-                    Comprobando consentimiento...
-                  </>
-                ) : (
-                  <>
-                    <Icon name="psychology" className="h-4 w-4 mr-2" />
-                    Generar informes
-                  </>
-                )}
-              </Button>
+              {generationMode === "auto" ? (
+                <Button
+                  onClick={handleAutoGenerate}
+                  disabled={
+                    isTranscribing ||
+                    !(hasTranscription || hasPlaudFallback) ||
+                    !aiDocs.professionalDefault.template ||
+                    !aiDocs.patientDefault.template ||
+                    consent.isLoading ||
+                    !!consent.generateBlockReason
+                  }
+                  className="w-full"
+                >
+                  {consent.isLoading ? (
+                    <>
+                      <Icon name="progress_activity" className="h-4 w-4 mr-2 animate-spin" />
+                      Comprobando consentimiento...
+                    </>
+                  ) : (
+                    <>
+                      <Icon name="psychology" className="h-4 w-4 mr-2" />
+                      {clinicalDoc || patientDoc ? "Generar predeterminadas de nuevo" : "Generar informes"}
+                    </>
+                  )}
+                </Button>
+              ) : (
+                <Button
+                  onClick={handleCustomGenerate}
+                  disabled={
+                    isTranscribing ||
+                    !selectedCustomTemplate ||
+                    !canGenerateTemplate(selectedCustomTemplate).can ||
+                    consent.isLoading ||
+                    !!consent.generateBlockReason
+                  }
+                  title={selectedCustomTemplate ? canGenerateTemplate(selectedCustomTemplate).reason : undefined}
+                  className="w-full"
+                >
+                  {consent.isLoading ? (
+                    <>
+                      <Icon name="progress_activity" className="h-4 w-4 mr-2 animate-spin" />
+                      Comprobando consentimiento...
+                    </>
+                  ) : (
+                    <>
+                      <Icon name={aiDocs.documentsByKey.get(customTemplateKey) ? "restart_alt" : "auto_awesome"} className="h-4 w-4 mr-2" />
+                      {aiDocs.documentsByKey.get(customTemplateKey)
+                        ? `Reprocesar: ${selectedCustomTemplate?.label ?? ""}`
+                        : `Generar: ${selectedCustomTemplate?.label ?? ""}`}
+                    </>
+                  )}
+                </Button>
+              )}
             </div>
           )}
 

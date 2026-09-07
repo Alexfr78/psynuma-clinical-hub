@@ -9,7 +9,20 @@ import type {
   AiDocumentAudience,
   AiDocumentScope,
   AiPromptVersion,
+  AiDocumentDefault,
+  AiDocumentDefaultAudience,
 } from '@/types/ai-documents';
+
+/** Nombre de la tabla de predeterminadas. No está en `AI_DOCUMENT_TABLES` (ese objeto
+ *  vive en `@/lib/ai-documents-db.ts`, fuera de este lote) así que se usa el literal aquí. */
+const AI_DOCUMENT_DEFAULTS_TABLE = 'ai_document_defaults';
+
+/** Keys de las plantillas de sistema usadas como último fallback de cada destinatario
+ *  (CONTRACT-2 §1.2: "la plantilla de sistema de referencia"). */
+const SYSTEM_FALLBACK_KEY_BY_AUDIENCE: Record<AiDocumentDefaultAudience, string> = {
+  professional: 'clinical_report',
+  patient: 'patient_report',
+};
 
 /**
  * Hooks TanStack Query para el catálogo de plantillas de documentos clínicos con IA
@@ -250,30 +263,45 @@ interface DocumentTypeUpsertInput {
   audience: AiDocumentAudience;
   scope: AiDocumentScope;
   sortOrder?: number;
+  /** Para "duplicar una existente" (CONTRACT-2 §3.2): copia estos campos de la plantilla
+   *  de origen. Si se omiten, la plantilla se crea desde cero (sin secciones). */
+  duplicateFrom?: Pick<
+    AiDocumentType,
+    'requires' | 'sections' | 'input_schema' | 'required_consent_purposes' | 'mirror_column'
+  >;
 }
 
-/** Crea una plantilla nueva del centro, desde cero (sin secciones propias todavía). */
+/**
+ * Crea una plantilla nueva, propia del que la crea: del centro si es admin
+ * (`professional_id: null`), o suya si es profesional (`professional_id: <su id>`).
+ * Partiendo de cero o duplicando otra existente (`duplicateFrom`).
+ */
 export function useCreateDocumentType() {
   const queryClient = useQueryClient();
-  const { profile } = useAuth();
+  const { profile, isAdmin } = useAuth();
 
   return useMutation({
     mutationFn: async (input: DocumentTypeUpsertInput) => {
       if (!profile?.center_id) throw new Error('No hay centro asignado');
+      const source = input.duplicateFrom;
       const { data, error } = await aiDb
         .from(AI_DOCUMENT_TABLES.types)
         .insert({
           center_id: profile.center_id,
+          professional_id: isAdmin ? null : profile.id,
           key: input.key,
           label: input.label,
           description: input.description ?? null,
           audience: input.audience,
           scope: input.scope,
-          requires: [],
-          sections: [],
-          input_schema: {},
-          required_consent_purposes: ['ai_processing', 'report_generation'],
-          mirror_column: null,
+          requires: source?.requires ?? [],
+          sections: source?.sections ?? [],
+          input_schema: source?.input_schema ?? {},
+          required_consent_purposes: source?.required_consent_purposes ?? [
+            'ai_processing',
+            'report_generation',
+          ],
+          mirror_column: source?.mirror_column ?? null,
           is_active: true,
           sort_order: input.sortOrder ?? 0,
         })
@@ -362,6 +390,7 @@ export function useDuplicateSystemDocumentType() {
         .from(AI_DOCUMENT_TABLES.types)
         .insert({
           center_id: profile.center_id,
+          professional_id: null,
           key: source.key,
           label: source.label,
           description: source.description,
@@ -386,6 +415,166 @@ export function useDuplicateSystemDocumentType() {
     },
     onError: (error) => {
       toast.error('Error al duplicar. Es posible que el centro ya tenga una copia de esta plantilla.');
+      console.error(error);
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Predeterminadas por destinatario (`ai_document_defaults`, CONTRACT-2 §1.2)
+// ---------------------------------------------------------------------------
+
+/** Todas las filas de predeterminadas visibles del centro (de centro y de cada profesional). */
+export function useAIDocumentDefaults() {
+  const { profile } = useAuth();
+
+  return useQuery({
+    queryKey: ['ai-document-defaults', profile?.center_id],
+    queryFn: async () => {
+      const { data, error } = await aiDb
+        .from(AI_DOCUMENT_DEFAULTS_TABLE)
+        .select('*')
+        .eq('center_id', profile!.center_id);
+      if (error) throw error;
+      return (data ?? []) as AiDocumentDefault[];
+    },
+    enabled: !!profile?.center_id,
+  });
+}
+
+/** Resultado de resolver la predeterminada efectiva de un destinatario para el usuario actual. */
+export interface ResolvedDefault {
+  documentType: AiDocumentType | null;
+  /** De quién es la predeterminada que se está mostrando. */
+  source: 'professional' | 'center' | 'system' | 'none';
+  /** Predeterminada del centro, aunque el profesional tenga la suya propia (para poder
+   *  mostrar "sustituye a la del centro: X"). `null` si el centro tampoco tiene una. */
+  centerDocumentType: AiDocumentType | null;
+}
+
+/**
+ * Resuelve la predeterminada efectiva de un destinatario con la precedencia del contrato:
+ * fila del profesional → fila del centro → plantilla de sistema de referencia.
+ */
+export function resolveDocumentDefault(
+  audience: AiDocumentDefaultAudience,
+  defaults: AiDocumentDefault[],
+  documentTypes: AiDocumentType[],
+  professionalId: string | undefined
+): ResolvedDefault {
+  const byId = (id: string | undefined | null) =>
+    id ? documentTypes.find((dt) => dt.id === id) ?? null : null;
+
+  const ownRow = professionalId
+    ? defaults.find((d) => d.audience === audience && d.professional_id === professionalId)
+    : undefined;
+  const centerRow = defaults.find((d) => d.audience === audience && d.professional_id === null);
+  const centerDocumentType =
+    byId(centerRow?.document_type_id) ??
+    documentTypes.find(
+      (dt) => dt.center_id === null && dt.professional_id === null && dt.key === SYSTEM_FALLBACK_KEY_BY_AUDIENCE[audience]
+    ) ??
+    null;
+
+  if (ownRow) {
+    const dt = byId(ownRow.document_type_id);
+    if (dt) return { documentType: dt, source: 'professional', centerDocumentType };
+  }
+  if (centerRow) {
+    const dt = byId(centerRow.document_type_id);
+    if (dt) return { documentType: dt, source: 'center', centerDocumentType };
+  }
+  if (centerDocumentType) {
+    return { documentType: centerDocumentType, source: 'system', centerDocumentType };
+  }
+  return { documentType: null, source: 'none', centerDocumentType: null };
+}
+
+interface SetDocumentDefaultInput {
+  audience: AiDocumentDefaultAudience;
+  documentTypeId: string;
+  /** 'center': fija la predeterminada de todo el centro (solo admin). 'mine': fija la
+   *  override propia del profesional, que prevalece sobre la del centro solo para él. */
+  scope: 'center' | 'mine';
+}
+
+/** Fija (crea o reemplaza) la predeterminada de un destinatario, de centro o propia. */
+export function useSetDocumentDefault() {
+  const queryClient = useQueryClient();
+  const { profile } = useAuth();
+
+  return useMutation({
+    mutationFn: async (input: SetDocumentDefaultInput) => {
+      if (!profile?.center_id) throw new Error('No hay centro asignado');
+      const professionalId = input.scope === 'mine' ? profile.id : null;
+
+      let existingQuery = aiDb
+        .from(AI_DOCUMENT_DEFAULTS_TABLE)
+        .select('id')
+        .eq('center_id', profile.center_id)
+        .eq('audience', input.audience);
+      existingQuery =
+        professionalId === null
+          ? existingQuery.is('professional_id', null)
+          : existingQuery.eq('professional_id', professionalId);
+      const { data: existing, error: findError } = await existingQuery.maybeSingle();
+      if (findError) throw findError;
+
+      if (existing) {
+        const { error } = await aiDb
+          .from(AI_DOCUMENT_DEFAULTS_TABLE)
+          .update({
+            document_type_id: input.documentTypeId,
+            updated_at: new Date().toISOString(),
+            updated_by: profile.id,
+          })
+          .eq('id', existing.id);
+        if (error) throw error;
+        return;
+      }
+
+      const { error } = await aiDb.from(AI_DOCUMENT_DEFAULTS_TABLE).insert({
+        center_id: profile.center_id,
+        professional_id: professionalId,
+        audience: input.audience,
+        document_type_id: input.documentTypeId,
+        updated_by: profile.id,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ai-document-defaults'] });
+      toast.success('Predeterminada actualizada');
+    },
+    onError: (error) => {
+      toast.error('Error al fijar la predeterminada');
+      console.error(error);
+    },
+  });
+}
+
+/** Borra la override propia de un profesional para volver a usar la del centro. */
+export function useClearOwnDocumentDefault() {
+  const queryClient = useQueryClient();
+  const { profile } = useAuth();
+
+  return useMutation({
+    mutationFn: async (audience: AiDocumentDefaultAudience) => {
+      if (!profile?.id || !profile?.center_id) throw new Error('No hay perfil');
+      const { error } = await aiDb
+        .from(AI_DOCUMENT_DEFAULTS_TABLE)
+        .delete()
+        .eq('center_id', profile.center_id)
+        .eq('audience', audience)
+        .eq('professional_id', profile.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ai-document-defaults'] });
+      toast.success('Ahora se usará la predeterminada del centro');
+    },
+    onError: (error) => {
+      toast.error('Error al quitar tu predeterminada');
       console.error(error);
     },
   });

@@ -95,6 +95,27 @@ function jsonResponse(body: unknown, status: number): Response {
   });
 }
 
+// ─── Model name sanitization ────────────────────────────────────────────────
+// The model name ends up interpolated directly into the Gemini URL
+// (`/v1beta/models/${model}:generateContent`) in `callAIOnce`. A value containing `/`, `..`,
+// `?` or whitespace could redirect the request to a different API path. This guards EVERY
+// model name that originates outside this file's own code — the request's `model` override,
+// `ai_prompt_versions.model` (set by a professional/admin from a template's editor) and the
+// center's configured model (set from Ajustes → Inteligencia Artificial, which also offers a
+// free-text "Modelo personalizado..." field) — not just the request field.
+const MODEL_NAME_PATTERN = /^[A-Za-z0-9._:-]{1,64}$/;
+
+function sanitizeModelName(raw: string, source: string): string {
+  const trimmed = raw.trim();
+  if (!MODEL_NAME_PATTERN.test(trimmed)) {
+    throw new UserFacingError(
+      `El modelo de IA ${source} no es válido: "${raw}". Solo se permiten letras, números, puntos, guiones bajos, dos puntos y guiones (máximo 64 caracteres).`,
+      400
+    );
+  }
+  return trimmed;
+}
+
 // ─── AI Router ───────────────────────────────────────────────────────────────
 const PROVIDER_TIMEOUT_MS = 120_000;
 
@@ -257,6 +278,7 @@ async function generateSectionsFromModel(
 interface DocumentTypeRow {
   id: string;
   center_id: string | null;
+  professional_id: string | null;
   key: string;
   label: string;
   scope: 'session' | 'multi_session' | 'patient' | string;
@@ -270,15 +292,27 @@ interface DocumentTypeRow {
   default_user_prompt: string | null;
 }
 
-/** Plantilla del centro si existe; si no, la plantilla de sistema (`center_id IS NULL`). */
+/**
+ * Resuelve la plantilla por `key`, de más a menos específica (CONTRACT-2 §1.1):
+ * 1. La propia del profesional que genera (`center_id` del centro Y `professional_id` suyo).
+ * 2. La del centro (`center_id` del centro, `professional_id IS NULL`).
+ * 3. La de sistema (`center_id IS NULL`, `professional_id IS NULL`).
+ *
+ * `professionalId` puede ser null (llamada de service_role sin usuario, p. ej. el test de
+ * conexión) — en ese caso simplemente no hay nivel 1 y se salta a la del centro o sistema.
+ * No hace falta filtrar en la query las plantillas propias de OTROS profesionales del mismo
+ * centro: esta función corre siempre con el cliente de service role, y esas filas nunca se
+ * devuelven como resultado — solo se usan para elegir, en memoria, la fila correcta.
+ */
 async function loadDocumentType(
   supabase: SupabaseClient,
   key: string,
   centerId: string,
+  professionalId: string | null,
 ): Promise<DocumentTypeRow | null> {
   const { data, error } = await supabase
     .from('ai_document_types')
-    .select('id, center_id, key, label, scope, requires, sections, required_consent_purposes, mirror_column, is_active, default_user_prompt')
+    .select('id, center_id, professional_id, key, label, scope, requires, sections, required_consent_purposes, mirror_column, is_active, default_user_prompt')
     .eq('key', key)
     .eq('is_active', true)
     .or(`center_id.eq.${centerId},center_id.is.null`);
@@ -286,7 +320,14 @@ async function loadDocumentType(
   if (error || !data || data.length === 0) return null;
 
   const rows = data as unknown as DocumentTypeRow[];
-  return rows.find((row) => row.center_id === centerId) ?? rows.find((row) => row.center_id === null) ?? null;
+  return (
+    (professionalId
+      ? rows.find((row) => row.center_id === centerId && row.professional_id === professionalId)
+      : undefined) ??
+    rows.find((row) => row.center_id === centerId && row.professional_id === null) ??
+    rows.find((row) => row.center_id === null && row.professional_id === null) ??
+    null
+  );
 }
 
 interface PromptVersionRow {
@@ -460,13 +501,13 @@ async function loadCenterAiConfig(
     temperature = center.ai_temperature ?? 0.3;
 
     if (provider === 'gemini') {
-      model = center.gemini_model || 'gemini-2.5-pro';
+      model = sanitizeModelName(center.gemini_model || 'gemini-2.5-pro', 'configurado en el centro (Gemini)');
       if (!center.gemini_api_key_encrypted) {
         throw new UserFacingError('API key de Gemini no configurada. Ve a Ajustes → Inteligencia Artificial.', 400);
       }
       apiKey = (await decryptSecret(center.gemini_api_key_encrypted)).replace(/[^\x20-\x7E]/g, '').trim();
     } else {
-      model = center.openai_model || 'gpt-4.1';
+      model = sanitizeModelName(center.openai_model || 'gpt-4.1', 'configurado en el centro (OpenAI)');
       if (!center.openai_api_key_encrypted) {
         throw new UserFacingError('API key de OpenAI no configurada. Ve a Ajustes → Inteligencia Artificial.', 400);
       }
@@ -490,6 +531,11 @@ interface GenerationContext {
   professionalId: string | null;
   regenerate: boolean;
   aiConfig: CenterAiConfig;
+  /** `model` del request (§2.2 de CONTRACT-2), ya saneado. Se aplica a la generación pedida
+   *  explícitamente y, cuando se ha pedido `regenerate`, también a las dependencias en
+   *  cascada; sin regenerar, esas mantienen su propia resolución (versión de prompt → centro)
+   *  para no contaminar con un modelo puntual una extracción base que otros reutilizan. */
+  requestModel: string | null;
   // Session-scoped generation
   sessionId: string | null;
   sessionTypeId: string | null;
@@ -521,6 +567,7 @@ async function generateSingleDocument(
   dt: DocumentTypeRow,
   depResults: GeneratedResult[],
   ctx: GenerationContext,
+  depth: number,
 ): Promise<GeneratedResult> {
   const sections = parseSections(dt.sections);
   if (sections.length === 0) {
@@ -548,7 +595,27 @@ async function generateSingleDocument(
   }
 
   const systemPrompt = promptVersion?.system_prompt || ctx.aiConfig.systemPrompt;
-  const model = promptVersion?.model || ctx.aiConfig.model;
+
+  // ─── Precedencia del modelo (CONTRACT-2 §2.2) ───────────────────────────────
+  // 1. `model` del request.
+  // 2. `model` de la versión de prompt resuelta.
+  // 3. Modelo del centro (ya saneado en `loadCenterAiConfig`).
+  // `promptVersion.model` lo escribe un profesional/admin desde el editor de la plantilla, así
+  // que se sanea igual que el del centro y el del request antes de poder usarse.
+  //
+  // El override del request alcanza a las dependencias en cascada solo cuando se ha pedido
+  // `regenerate`. El motivo: sin regenerar, una dependencia como `base_extraction` se reutiliza
+  // entre documentos, y generarla con un modelo elegido para UN documento concreto se la
+  // colaría a todos los demás sin que nadie lo pidiera. Pero cuando el profesional fuerza la
+  // regeneración eligiendo un modelo, espera que todo el árbol se rehaga con ese modelo: si la
+  // extracción base que alimenta el informe se quedara con el modelo anterior, elegir un modelo
+  // mejor no cambiaría la mitad del resultado.
+  const promptVersionModel = promptVersion?.model
+    ? sanitizeModelName(promptVersion.model, `configurado en la versión de prompt de la plantilla "${dt.label}"`)
+    : null;
+  const requestModelOverride = depth === 0 || ctx.regenerate ? ctx.requestModel : null;
+  const model = requestModelOverride || promptVersionModel || ctx.aiConfig.model;
+
   const temperature = promptVersion?.temperature ?? ctx.aiConfig.temperature;
   const maxTokens = dt.key === 'base_extraction' ? 6000 : 4000;
 
@@ -675,7 +742,7 @@ async function resolveDocument(key: string, depth: number, ctx: GenerationContex
 
   ctx.visiting.add(key);
   try {
-    const dt = await loadDocumentType(ctx.supabaseService, key, ctx.centerId);
+    const dt = await loadDocumentType(ctx.supabaseService, key, ctx.centerId, ctx.professionalId);
     if (!dt) {
       throw new UserFacingError(`La plantilla de documento requerida "${key}" no existe o está desactivada.`, 400);
     }
@@ -702,7 +769,7 @@ async function resolveDocument(key: string, depth: number, ctx: GenerationContex
       depResults.push(await resolveDocument(depKey, depth + 1, ctx));
     }
 
-    const result = await generateSingleDocument(dt, depResults, ctx);
+    const result = await generateSingleDocument(dt, depResults, ctx, depth);
     ctx.cache.set(key, result);
     return result;
   } finally {
@@ -787,7 +854,20 @@ serve(async (req) => {
       inputs,
       regenerate,
       layer,
+      model: requestedModel,
     } = body;
+
+    // `model` del request (§2.2 de CONTRACT-2): texto libre que llega del cliente y que,
+    // como el de la plantilla y el del centro, termina interpolado en la URL de Gemini —
+    // se sanea aquí, en cuanto entra, antes de que nada más lo toque.
+    const requestModel: string | null =
+      typeof requestedModel === 'string' && requestedModel.trim().length > 0
+        ? sanitizeModelName(requestedModel, 'solicitado para esta generación')
+        : null;
+
+    // Usado tanto para resolver la plantilla propia del profesional (§1.1) como para la
+    // versión de prompt (§4) y la autoría del documento generado.
+    const professionalId = role === 'authenticated' ? (userId ?? null) : null;
 
     // ─── Connection test ─────────────────────────────────────────────────────
     // Settings → Inteligencia Artificial needs a way to check that the center's
@@ -935,7 +1015,7 @@ serve(async (req) => {
     }
 
     // ─── Load the requested document type ─────────────────────────────────────
-    const docType = await loadDocumentType(supabaseService, documentTypeKey, centerId);
+    const docType = await loadDocumentType(supabaseService, documentTypeKey, centerId, professionalId);
     if (!docType) {
       return jsonResponse({ error: `No existe la plantilla de documento "${documentTypeKey}" para este centro.` }, 400);
     }
@@ -1094,9 +1174,10 @@ serve(async (req) => {
       supabaseService,
       req,
       centerId,
-      professionalId: role === 'authenticated' ? (userId ?? null) : null,
+      professionalId,
       regenerate: regenerate === true,
       aiConfig: { provider, model, apiKey, temperature, systemPrompt },
+      requestModel,
       sessionId: docType.scope === 'session' ? sessionId : null,
       sessionTypeId,
       effectiveTranscription,
