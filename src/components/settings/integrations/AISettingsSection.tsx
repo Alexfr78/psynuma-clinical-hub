@@ -3,11 +3,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 import { Slider } from '@/components/ui/slider';
@@ -16,12 +14,6 @@ import { cn } from '@/lib/utils';
 import { useCenter } from '@/hooks/useCenter';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import {
-  DEFAULT_SYSTEM_PROMPT,
-  DEFAULT_LAYER1_PROMPT,
-  DEFAULT_LAYER2_PROMPT,
-  DEFAULT_LAYER3_PROMPT,
-} from '@/lib/defaultPrompts';
 import { Icon } from '@/components/ui/icon';
 
 export function AISettingsSection() {
@@ -37,12 +29,7 @@ export function AISettingsSection() {
   const [retentionDays, setRetentionDays] = useState(7);
   const [aiTemperature, setAiTemperature] = useState(0.3);
   const [aiAnalysisMode, setAiAnalysisMode] = useState('layered');
-  const [promptSystem, setPromptSystem] = useState('');
-  const [promptLayer1, setPromptLayer1] = useState('');
-  const [promptLayer2, setPromptLayer2] = useState('');
-  const [promptLayer3, setPromptLayer3] = useState('');
   const [isSaving, setIsSaving] = useState(false);
-  const [promptsOpen, setPromptsOpen] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const [verifyResult, setVerifyResult] = useState<'ok' | 'error' | null>(null);
   const [verifyError, setVerifyError] = useState<string | null>(null);
@@ -77,10 +64,6 @@ export function AISettingsSection() {
       setRetentionDays(c.transcript_retention_days ?? 7);
       setAiTemperature(c.ai_temperature ?? 0.3);
       setAiAnalysisMode(c.ai_analysis_mode || 'layered');
-      setPromptSystem(c.ai_prompt_system || '');
-      setPromptLayer1(c.ai_prompt_layer1 || '');
-      setPromptLayer2(c.ai_prompt_layer2 || '');
-      setPromptLayer3(c.ai_prompt_layer3 || '');
     }
   }, [center]);
 
@@ -103,7 +86,11 @@ export function AISettingsSection() {
     setVerifyError(null);
     try {
       const { data, error } = await supabase.functions.invoke('analyze-session-transcription', {
-        body: { transcription: 'Test de conexión.', layer: 1, centerId },
+        // `connectionTest` es una rama aparte de la edge function: no toca datos de
+        // ningún paciente, así que no pasa por el control de consentimiento. La
+        // llamada anterior mandaba una transcripción de prueba sin sessionId y ese
+        // control, que falla cerrado sin paciente, devolvía 400 siempre.
+        body: { connectionTest: true, centerId },
       });
       if (error) throw new Error(error.message);
       if (data?.success) {
@@ -133,10 +120,10 @@ export function AISettingsSection() {
         transcript_retention_days: retentionDays,
         ai_temperature: aiTemperature,
         ai_analysis_mode: aiAnalysisMode,
-        ai_prompt_system: promptSystem || null,
-        ai_prompt_layer1: promptLayer1 || null,
-        ai_prompt_layer2: promptLayer2 || null,
-        ai_prompt_layer3: promptLayer3 || null,
+        // Los prompts fijos (ai_prompt_system/layer1/2/3) ya no se editan desde aquí:
+        // ahora viven en el catálogo de plantillas versionadas (ver
+        // "Plantillas de documentos" en Conexiones Externas → Avanzado). No se
+        // borran las columnas del centro por si el backfill aún las necesita.
       });
 
       if (openaiApiKey.trim()) {
@@ -172,13 +159,6 @@ export function AISettingsSection() {
       setIsSaving(false);
     }
   };
-
-  const promptFields = [
-    { key: 'system', label: 'Prompt del sistema', state: promptSystem, setter: setPromptSystem, defaultVal: DEFAULT_SYSTEM_PROMPT },
-    { key: 'layer1', label: 'Capa 1 — Extracción clínica base', state: promptLayer1, setter: setPromptLayer1, defaultVal: DEFAULT_LAYER1_PROMPT },
-    { key: 'layer2', label: 'Capa 2 — Informe clínico', state: promptLayer2, setter: setPromptLayer2, defaultVal: DEFAULT_LAYER2_PROMPT },
-    { key: 'layer3', label: 'Capa 3 — Informe para el paciente', state: promptLayer3, setter: setPromptLayer3, defaultVal: DEFAULT_LAYER3_PROMPT },
-  ];
 
   return (
     <div className="space-y-6">
@@ -436,8 +416,8 @@ export function AISettingsSection() {
             Por cumplimiento RGPD, las transcripciones originales se eliminan automáticamente. Los resúmenes generados se conservan indefinidamente.
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <Select value={String(retentionDays)} onValueChange={(v) => setRetentionDays(Number(v))}>
+        <CardContent className="space-y-3">
+          <Select value={String(retentionDays)} onValueChange={(v) => setRetentionDays(Number(v))} disabled>
             <SelectTrigger className="w-full max-w-xs"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="0">Eliminar inmediatamente tras procesar (máxima privacidad)</SelectItem>
@@ -447,41 +427,15 @@ export function AISettingsSection() {
               <SelectItem value="90">90 días</SelectItem>
             </SelectContent>
           </Select>
-        </CardContent>
-      </Card>
-
-      {/* Custom Prompts */}
-      <Card>
-        <CardContent className="pt-6">
-          <Collapsible open={promptsOpen} onOpenChange={setPromptsOpen}>
-            <CollapsibleTrigger className="flex w-full items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Icon name="psychology" className="h-4 w-4" />
-                <span className="font-medium">Prompts personalizados</span>
-                <Badge variant="secondary" className="text-xs">Avanzado</Badge>
-              </div>
-              <Icon name="expand_more" className={cn("h-4 w-4 transition-transform", promptsOpen && "rotate-180")} />
-            </CollapsibleTrigger>
-            <CollapsibleContent className="mt-4 space-y-4">
-              {promptFields.map(({ key, label, state, setter, defaultVal }) => (
-                <div key={key} className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label>{label}</Label>
-                    <Button variant="ghost" size="sm" onClick={() => setter('')}>
-                      <Icon name="restart_alt" className="h-3 w-3 mr-1" />
-                      Restaurar por defecto
-                    </Button>
-                  </div>
-                  <Textarea
-                    value={state}
-                    onChange={(e) => setter(e.target.value)}
-                    className="min-h-[120px] text-xs font-mono"
-                    placeholder={defaultVal.slice(0, 200) + '...'}
-                  />
-                </div>
-              ))}
-            </CollapsibleContent>
-          </Collapsible>
+          <Alert>
+            <Icon name="info" className="h-4 w-4" />
+            <AlertDescription>
+              Este selector todavía no tiene efecto: el sistema borra las transcripciones de las
+              grabaciones de Plaud a los 30 días de forma fija, sea cual sea el valor elegido aquí.
+              Lo dejamos deshabilitado para no prometer un control que hoy no se aplica; en cuanto
+              el borrado respete este ajuste, se reactivará.
+            </AlertDescription>
+          </Alert>
         </CardContent>
       </Card>
 

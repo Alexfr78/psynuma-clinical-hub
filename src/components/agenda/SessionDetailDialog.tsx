@@ -22,6 +22,7 @@ import { useToast } from '@/hooks/use-toast';
 import { SessionWithRelations, useUpdateSession } from '@/hooks/useSessions';
 import { useGoogleCalendarUpdate } from '@/hooks/useGoogleCalendarUpdate';
 import { Icon } from '@/components/ui/icon';
+import { useSessionAiDocuments } from '@/hooks/useAIDocuments';
 
 interface SessionDetailDialogProps {
   session: SessionWithRelations | null;
@@ -45,6 +46,10 @@ export function SessionDetailDialog({ session, open, onOpenChange, onAnalyzeTran
   const updateSession = useUpdateSession();
   const { syncToGoogle } = useGoogleCalendarUpdate(session?.professional_id);
   const [isUpdating, setIsUpdating] = useState(false);
+  // Fuente de verdad para saber si ya hay informes IA de esta sesión: `ai_generated_documents`,
+  // no las columnas espejo `ai_summary_clinical`/`ai_summary_patient` que se usaban antes —
+  // ver `TranscriptionAnalysisDialog.tsx` y el contrato de la migración.
+  const { data: sessionAiDocuments } = useSessionAiDocuments(open ? session?.id : undefined);
 
   if (!session) return null;
 
@@ -236,7 +241,7 @@ export function SessionDetailDialog({ session, open, onOpenChange, onAnalyzeTran
               }}
             >
               <Icon name="psychology" className="mr-2 h-4 w-4" />
-              {(session as { ai_summary_clinical?: string | null; ai_summary_patient?: string | null }).ai_summary_clinical || (session as { ai_summary_clinical?: string | null; ai_summary_patient?: string | null }).ai_summary_patient
+              {sessionAiDocuments && sessionAiDocuments.length > 0
                 ? 'Ver / Regenerar informes'
                 : 'Analizar transcripción'}
             </Button>

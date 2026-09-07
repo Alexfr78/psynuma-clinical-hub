@@ -1,17 +1,30 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { decryptSecret } from "../_shared/crypto.ts";
 import { logAuditEvent } from "../_shared/auditLogger.ts";
 import { hasAuthenticatedJWT, unauthorizedResponse } from "../_shared/authGuard.ts";
 import { checkPatientConsent, type ConsentCheckResult, type ConsentPurpose } from "../_shared/consent.ts";
 import { buildTranscriptFromTurns, type DiarizedTurn } from "../_shared/transcriptDiarization.ts";
+import {
+  buildJsonFormatInstruction,
+  parseModelJson,
+  parseSections,
+  renderMarkdown,
+  validateSections,
+  type AiDocumentSection,
+} from "../_shared/aiDocuments.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const SYSTEM_PROMPT = `Actúas como psicólogo clínico especializado en psicoterapia integradora.
+// ─── Fallback system prompt ─────────────────────────────────────────────────
+// Used when the center has no `ai_prompt_system` set. Per-template user prompts no longer
+// have a code-level fallback: when no published `ai_prompt_versions` row resolves for a
+// document type (§4 rule 4), the fallback is `ai_document_types.default_user_prompt` —
+// the seed prompt stored on the template itself — not a hardcoded map here.
+const DEFAULT_SYSTEM_PROMPT = `Actúas como psicólogo clínico especializado en psicoterapia integradora.
 
 Vas a analizar la transcripción de una sesión terapéutica y generar documentos clínicos.
 
@@ -51,139 +64,696 @@ INDICACIONES DE REDACCIÓN:
 - Mantén un tono profesional y natural.
 - Si no hay tareas explícitas en la sesión, no las inventes; formula propuestas prudentes y deja claro que son sugerencias.`;
 
-const LAYER1_PROMPT = `Realiza la CAPA 1 — Extracción clínica base.
+// ─── Provider errors ───────────────────────────────────────────────────────────
+// Distinguishes transport-level failures (network drop, timeout, 5xx) — which are worth one
+// automatic retry — from provider-side rejections (bad request, auth, quota) that a retry
+// cannot fix.
+class ProviderError extends Error {
+  retryable: boolean;
+  constructor(message: string, retryable: boolean) {
+    super(message);
+    this.name = 'ProviderError';
+    this.retryable = retryable;
+  }
+}
 
-Analiza la transcripción y extrae de forma estructurada:
-1. TEMAS Y FOCOS PRINCIPALES: Los motivos o focos principales trabajados en la sesión.
-2. SITUACIONES RELATADAS: Situaciones concretas relatadas por el paciente.
-3. EMOCIONES Y ESTADOS INTERNOS: Emociones, estados internos y reacciones relevantes detectadas.
-4. PATRONES COGNITIVOS Y CONDUCTUALES: Cogniciones, creencias, conflictos, patrones relacionales o conductuales.
-5. INTERVENCIONES DEL TERAPEUTA: Preguntas relevantes, reformulaciones, señalamientos, psicoeducación, confrontaciones suaves, validación, propuestas de tarea.
-6. INSIGHTS Y PUNTOS DE INFLEXIÓN: Momentos clave de comprensión o cambio.
-7. ACUERDOS Y TAREAS: Acuerdos explícitos, tareas o elementos a seguir explorando.
-8. DUDAS O AMBIGÜEDADES: Aspectos que no quedan claros o que requieren más exploración.
-9. DIFERENCIACIÓN: Distingue claramente entre hechos observados/expresados e interpretaciones/hipótesis clínicas.
+// A message meant to reach the client as-is (already in correct Spanish), as opposed to an
+// unexpected internal error that should be masked behind a generic message.
+class UserFacingError extends Error {
+  status: number;
+  constructor(message: string, status = 500) {
+    super(message);
+    this.name = 'UserFacingError';
+    this.status = status;
+  }
+}
 
-Formato: texto estructurado con los apartados numerados, redactado de forma clara y concisa.`;
-
-const LAYER2_PROMPT = `Usando la base clínica extraída, genera el INFORME CLÍNICO PARA PROFESIONALES.
-
-Criterios de estilo:
-- Lenguaje técnico, claro y profesional
-- Buena capacidad de conceptualización
-- Distinguir observación de hipótesis
-- Incluir intervenciones terapéuticas
-- Señalar líneas de exploración y planificación
-- No redactar como una simple transcripción
-
-FORMATO:
-
-1. RESUMEN RÁPIDO
-Síntesis breve de 5 a 8 líneas con el foco principal de la sesión, los temas trabajados y el sentido clínico general.
-
-2. RESUMEN CLÍNICO EXTENDIDO
-Texto estructurado por bloques temáticos. En cada bloque, integra de forma natural:
-- Situación o contenido relatado por el paciente
-- Emociones o respuestas observadas
-- Patrones cognitivos, conductuales o relacionales implicados
-- Intervenciones del terapeuta
-- Hipótesis o formulaciones clínicas tentativas
-- Conceptos psicológicos explicados en sesión, si los hubo
-No lo conviertas en una lista telegráfica. Debe leerse como una síntesis clínica ordenada y útil.
-
-3. INTERVENCIONES TERAPÉUTICAS RELEVANTES
-Describe de forma breve y técnica qué hizo el TERAPEUTA durante la sesión y con qué finalidad aparente. Distingue entre exploración, validación, psicoeducación, reformulación, confrontación, clarificación, focalización, trabajo emocional o planificación.
-
-4. SIGUIENTES PASOS
-Divide en dos subapartados:
-a) Para el PACIENTE: Tareas, observaciones, ejercicios, autorregistros, focos de reflexión o conductas a observar entre sesiones.
-b) Para el TERAPEUTA: Aspectos a seguir explorando, hipótesis a contrastar, focos de intervención y objetivos clínicos inmediatos.
-
-5. PROPUESTA DE INTERVENCIÓN
-Propón líneas de trabajo para próximas sesiones basadas únicamente en el contenido de esta sesión. Puedes incluir objetivos, técnicas o estrategias compatibles con el material trabajado. No propongas intervenciones desconectadas de la transcripción.`;
-
-const LAYER3_PROMPT = `Usando la base clínica extraída, genera el INFORME DE SESIÓN PARA EL PACIENTE.
-
-Criterios de estilo:
-- Lenguaje claro, cercano, comprensible y respetuoso
-- Explicar ideas psicológicas de forma sencilla
-- Centrarse en lo trabajado, lo comprendido y lo que puede ayudar entre sesiones
-- Evitar tecnicismos innecesarios
-- Evitar tono excesivamente solemne o infantilizante
-- No atribuyas aprendizajes profundos, cambios internos ni conclusiones transformadoras si no emergen con claridad en la sesión
-- Prioriza una formulación honesta y ajustada: qué se habló, qué se observó y qué puede seguir explorándose
-- No confundas contenido verbalizado por el paciente con formulación clínica del terapeuta
-
-FORMATO:
-
-1. LO MÁS IMPORTANTE DE LA SESIÓN
-Síntesis breve y clara, en lenguaje accesible, de 4 a 6 líneas.
-
-2. LO QUE TRABAJAMOS HOY
-Explica con claridad los temas tratados durante la sesión, organizados por apartados con títulos útiles y naturales. Incluye:
-- Situaciones comentadas
-- Cómo te sentiste o qué te fue pasando
-- Ideas o patrones que aparecieron
-- Nuevas formas de entender lo que está ocurriendo
-Si aparece algún concepto psicológico, explícalo de forma sencilla y aplicada a lo hablado en sesión.
-
-3. IDEAS IMPORTANTES PARA QUEDARTE
-Resume en 3 a 6 ideas claras los aprendizajes, observaciones o reflexiones más valiosas de la sesión. Deben ser concretas, no frases genéricas.
-
-4. PROPUESTAS PARA ESTA SEMANA
-Indica acciones, ejercicios, observaciones o pequeñas tareas que puedan ser útiles hasta la próxima sesión. Escríbelas de forma clara, realista y aplicable.
-
-5. CIERRE DE LA SESIÓN
-Escribe un cierre breve, humano y respetuoso, que recoja el sentido del trabajo realizado y ayude al paciente a continuar el proceso.`;
+function jsonResponse(body: unknown, status: number): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
 
 // ─── AI Router ───────────────────────────────────────────────────────────────
-async function callAI(
+const PROVIDER_TIMEOUT_MS = 120_000;
+
+async function callAIOnce(
   systemPrompt: string,
   userPrompt: string,
   provider: string,
   model: string,
   apiKey: string,
-  temperature = 0.3,
+  temperature: number,
+  maxTokens: number,
+  jsonMode: boolean,
 ): Promise<string> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), PROVIDER_TIMEOUT_MS);
 
-  if (provider === 'gemini') {
-    const fullPrompt = `${systemPrompt}\n\n${userPrompt}`;
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: fullPrompt }] }],
-          generationConfig: { temperature },
-        }),
+  try {
+    if (provider === 'gemini') {
+      const fullPrompt = `${systemPrompt}\n\n${userPrompt}`;
+      let response: Response;
+      try {
+        response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: fullPrompt }] }],
+              generationConfig: {
+                temperature,
+                maxOutputTokens: maxTokens,
+                ...(jsonMode ? { responseMimeType: 'application/json' } : {}),
+              },
+            }),
+            signal: controller.signal,
+          }
+        );
+      } catch (fetchErr) {
+        throw new ProviderError(`Error de red al contactar con Gemini: ${(fetchErr as Error).message}`, true);
       }
-    );
+      const data = await response.json();
+      if (!response.ok) {
+        throw new ProviderError(data.error?.message || `Gemini API error: ${response.status}`, response.status >= 500);
+      }
+      return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    }
+
+    // Default: OpenAI-compatible
+    let response: Response;
+    try {
+      response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt },
+          ],
+          temperature,
+          max_tokens: maxTokens,
+          ...(jsonMode ? { response_format: { type: 'json_object' } } : {}),
+        }),
+        signal: controller.signal,
+      });
+    } catch (fetchErr) {
+      throw new ProviderError(`Error de red al contactar con OpenAI: ${(fetchErr as Error).message}`, true);
+    }
     const data = await response.json();
-    if (!response.ok) throw new Error(data.error?.message || `Gemini API error: ${response.status}`);
-    return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    if (!response.ok) {
+      throw new ProviderError(data.error?.message || `OpenAI API error: ${response.status}`, response.status >= 500);
+    }
+    return data.choices?.[0]?.message?.content || '';
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+/** One retry on network failure / timeout / 5xx, with a 1s backoff. */
+async function callAIWithRetry(
+  systemPrompt: string,
+  userPrompt: string,
+  provider: string,
+  model: string,
+  apiKey: string,
+  temperature: number,
+  maxTokens: number,
+  jsonMode: boolean,
+): Promise<string> {
+  try {
+    return await callAIOnce(systemPrompt, userPrompt, provider, model, apiKey, temperature, maxTokens, jsonMode);
+  } catch (error) {
+    if (error instanceof ProviderError && error.retryable) {
+      console.warn(`[analyze] Error transitorio del proveedor, reintentando una vez: ${error.message}`);
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      return await callAIOnce(systemPrompt, userPrompt, provider, model, apiKey, temperature, maxTokens, jsonMode);
+    }
+    throw error;
+  }
+}
+
+/**
+ * Llama al proveedor pidiendo JSON, valida que todas las secciones `required` lleguen con
+ * contenido y, si falla, hace UN reintento con una instrucción de corrección explícita
+ * (§6.8 / §7). Si el segundo intento también falla, lanza un error claro en español.
+ */
+async function generateSectionsFromModel(
+  systemPrompt: string,
+  basePrompt: string,
+  sections: AiDocumentSection[],
+  provider: string,
+  model: string,
+  apiKey: string,
+  temperature: number,
+  maxTokens: number,
+): Promise<Record<string, string>> {
+  const formatInstruction = buildJsonFormatInstruction(sections);
+  const fullPrompt = `${basePrompt}\n\n${formatInstruction}`;
+
+  let raw: string;
+  try {
+    raw = await callAIWithRetry(systemPrompt, fullPrompt, provider, model, apiKey, temperature, maxTokens, true);
+  } catch (error) {
+    const message = error instanceof ProviderError ? error.message : (error as Error).message;
+    throw new UserFacingError(`No se pudo generar el documento: error al conectar con el proveedor de IA (${message}).`);
   }
 
-  // Default: OpenAI-compatible
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      temperature,
-    }),
-  });
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.error?.message || `OpenAI API error: ${response.status}`);
-  return data.choices?.[0]?.message?.content || '';
+  let parsed = parseModelJson(raw);
+  let missing = validateSections(sections, parsed);
+
+  if (missing.length > 0) {
+    console.warn(`[analyze] Respuesta del modelo incompleta (faltan: ${missing.join(', ')}), reintentando con instrucción de corrección`);
+    const correctionPrompt = `${fullPrompt}\n\nTu respuesta anterior no era un JSON válido o dejaba vacías estas claves obligatorias: ${missing.join(', ')}. Devuelve de nuevo el objeto JSON COMPLETO, exclusivamente el JSON, con todas las claves obligatorias rellenas con contenido real y no vacío.`;
+
+    let retryRaw: string;
+    try {
+      retryRaw = await callAIWithRetry(systemPrompt, correctionPrompt, provider, model, apiKey, temperature, maxTokens, true);
+    } catch (error) {
+      const message = error instanceof ProviderError ? error.message : (error as Error).message;
+      throw new UserFacingError(`No se pudo generar el documento: error al conectar con el proveedor de IA (${message}).`);
+    }
+    parsed = parseModelJson(retryRaw);
+    missing = validateSections(sections, parsed);
+
+    if (missing.length > 0) {
+      throw new UserFacingError(
+        `El modelo de IA no devolvió un documento válido: faltan las secciones obligatorias "${missing.join('", "')}" tras reintentar. Prueba de nuevo o revisa el prompt de la plantilla en Ajustes → Inteligencia Artificial.`
+      );
+    }
+  }
+
+  return parsed;
 }
+
+// ─── Document type catalog access ─────────────────────────────────────────────
+
+interface DocumentTypeRow {
+  id: string;
+  center_id: string | null;
+  key: string;
+  label: string;
+  scope: 'session' | 'multi_session' | 'patient' | string;
+  requires: string[];
+  sections: unknown;
+  required_consent_purposes: string[];
+  mirror_column: 'ai_summary_clinical' | 'ai_summary_patient' | null;
+  is_active: boolean;
+  /** Prompt semilla de la plantilla. Red de seguridad cuando no hay ninguna versión publicada
+   *  aplicable en `ai_prompt_versions` (§4 regla 4 del contrato). */
+  default_user_prompt: string | null;
+}
+
+/** Plantilla del centro si existe; si no, la plantilla de sistema (`center_id IS NULL`). */
+async function loadDocumentType(
+  supabase: SupabaseClient,
+  key: string,
+  centerId: string,
+): Promise<DocumentTypeRow | null> {
+  const { data, error } = await supabase
+    .from('ai_document_types')
+    .select('id, center_id, key, label, scope, requires, sections, required_consent_purposes, mirror_column, is_active, default_user_prompt')
+    .eq('key', key)
+    .eq('is_active', true)
+    .or(`center_id.eq.${centerId},center_id.is.null`);
+
+  if (error || !data || data.length === 0) return null;
+
+  const rows = data as unknown as DocumentTypeRow[];
+  return rows.find((row) => row.center_id === centerId) ?? rows.find((row) => row.center_id === null) ?? null;
+}
+
+interface PromptVersionRow {
+  id: string;
+  system_prompt: string | null;
+  user_prompt: string;
+  model: string | null;
+  temperature: number | null;
+  professional_id: string | null;
+  session_type_id: string | null;
+  version: number;
+}
+
+/**
+ * Resuelve la versión de prompt publicada aplicable según la precedencia del §4:
+ * 1. session_type_id de la sesión (con professional_id NULL o el del usuario, el específico gana)
+ * 2. professional_id del usuario, sin session_type_id
+ * 3. comodín del centro (ambos NULL)
+ * Las reglas 4 y 5 (semilla de sistema / constante de código) se resuelven fuera de esta
+ * función, en el llamador, porque dependen de si el `documentTypeKey` tiene un prompt de
+ * respaldo embebido en el código.
+ */
+async function resolvePromptVersion(
+  supabase: SupabaseClient,
+  documentTypeId: string,
+  centerId: string,
+  professionalId: string | null,
+  sessionTypeId: string | null,
+): Promise<PromptVersionRow | null> {
+  const { data, error } = await supabase
+    .from('ai_prompt_versions')
+    .select('id, system_prompt, user_prompt, model, temperature, professional_id, session_type_id, version')
+    .eq('document_type_id', documentTypeId)
+    .eq('center_id', centerId)
+    .eq('is_published', true);
+
+  if (error || !data || data.length === 0) return null;
+
+  let best: { row: PromptVersionRow; tier: number; subtier: number } | null = null;
+
+  for (const row of data as unknown as PromptVersionRow[]) {
+    let tier: number | null = null;
+    let subtier = 1;
+
+    if (sessionTypeId && row.session_type_id === sessionTypeId) {
+      if (row.professional_id === professionalId && professionalId) {
+        tier = 1; subtier = 0;
+      } else if (row.professional_id === null) {
+        tier = 1; subtier = 1;
+      }
+    }
+    if (tier === null && professionalId && row.professional_id === professionalId && row.session_type_id === null) {
+      tier = 2; subtier = 0;
+    }
+    if (tier === null && row.professional_id === null && row.session_type_id === null) {
+      tier = 3; subtier = 0;
+    }
+    if (tier === null) continue;
+
+    if (
+      !best ||
+      tier < best.tier ||
+      (tier === best.tier && subtier < best.subtier) ||
+      (tier === best.tier && subtier === best.subtier && row.version > best.row.version)
+    ) {
+      best = { row, tier, subtier };
+    }
+  }
+
+  return best?.row ?? null;
+}
+
+interface ExistingDocumentRow {
+  id: string;
+  content_sections: Record<string, string> | null;
+  content_markdown: string;
+  edited_sections: Record<string, string> | null;
+  edited_markdown: string | null;
+  prompt_version_id: string | null;
+  model_used: string | null;
+}
+
+/** Documento ya generado reutilizable para esta sesión (o para el paciente, si no hay sesión). */
+async function findExistingGeneratedDocument(
+  supabase: SupabaseClient,
+  documentTypeId: string,
+  sessionId: string | null,
+  patientId: string,
+): Promise<ExistingDocumentRow | null> {
+  let query = supabase
+    .from('ai_generated_documents')
+    .select('id, content_sections, content_markdown, edited_sections, edited_markdown, prompt_version_id, model_used')
+    .eq('document_type_id', documentTypeId)
+    .order('generated_at', { ascending: false })
+    .limit(1);
+
+  query = sessionId ? query.eq('session_id', sessionId) : query.eq('patient_id', patientId).is('session_id', null);
+
+  const { data, error } = await query.maybeSingle();
+  if (error || !data) return null;
+  return data as unknown as ExistingDocumentRow;
+}
+
+interface PriorDocumentRow {
+  session_id: string | null;
+  content_markdown: string;
+  edited_markdown: string | null;
+  generated_at: string;
+}
+
+/** Documentos previos del paciente para plantillas `multi_session`, en orden cronológico. */
+async function loadPatientPriorDocuments(
+  supabase: SupabaseClient,
+  centerId: string,
+  patientId: string,
+  sourceSessionIds: string[] | null,
+): Promise<PriorDocumentRow[]> {
+  let query = supabase
+    .from('ai_generated_documents')
+    .select('session_id, content_markdown, edited_markdown, generated_at')
+    .eq('center_id', centerId)
+    .eq('patient_id', patientId)
+    .order('generated_at', { ascending: false });
+
+  query = sourceSessionIds && sourceSessionIds.length > 0
+    ? query.in('session_id', sourceSessionIds)
+    : query.limit(10);
+
+  const { data, error } = await query;
+  if (error || !data) return [];
+  return (data as unknown as PriorDocumentRow[]).slice().reverse();
+}
+
+// ─── Recursive resolution of `requires` ───────────────────────────────────────
+
+interface CenterAiConfig {
+  provider: string;
+  model: string;
+  apiKey: string;
+  temperature: number;
+  systemPrompt: string;
+}
+
+/**
+ * Loads the center's AI provider configuration and decrypts its API key.
+ * Throws UserFacingError (400) when the center has no key for the selected provider,
+ * so both the generation flow and the connection test report the same message.
+ */
+async function loadCenterAiConfig(
+  supabaseService: SupabaseClient,
+  centerId: string,
+): Promise<CenterAiConfig> {
+  let provider = 'openai';
+  let model = 'gpt-4.1';
+  let apiKey = '';
+  let temperature = 0.3;
+  let systemPrompt = DEFAULT_SYSTEM_PROMPT;
+
+  const { data: center } = await supabaseService
+    .from('centers')
+    .select(`
+      ai_provider, openai_model, gemini_model,
+      openai_api_key_encrypted, gemini_api_key_encrypted,
+      ai_prompt_system, ai_temperature
+    `)
+    .eq('id', centerId)
+    .single();
+
+  if (center) {
+    provider = (center.ai_provider || 'openai').toString().trim().toLowerCase();
+    temperature = center.ai_temperature ?? 0.3;
+
+    if (provider === 'gemini') {
+      model = center.gemini_model || 'gemini-2.5-pro';
+      if (!center.gemini_api_key_encrypted) {
+        throw new UserFacingError('API key de Gemini no configurada. Ve a Ajustes → Inteligencia Artificial.', 400);
+      }
+      apiKey = (await decryptSecret(center.gemini_api_key_encrypted)).replace(/[^\x20-\x7E]/g, '').trim();
+    } else {
+      model = center.openai_model || 'gpt-4.1';
+      if (!center.openai_api_key_encrypted) {
+        throw new UserFacingError('API key de OpenAI no configurada. Ve a Ajustes → Inteligencia Artificial.', 400);
+      }
+      apiKey = (await decryptSecret(center.openai_api_key_encrypted)).replace(/[^\x20-\x7E]/g, '').trim();
+    }
+
+    if (center.ai_prompt_system) systemPrompt = center.ai_prompt_system;
+  }
+
+  if (!apiKey) {
+    throw new UserFacingError('API key no configurada. Ve a Ajustes → Inteligencia Artificial.', 400);
+  }
+
+  return { provider, model, apiKey, temperature, systemPrompt };
+}
+
+interface GenerationContext {
+  supabaseService: SupabaseClient;
+  req: Request;
+  centerId: string;
+  professionalId: string | null;
+  regenerate: boolean;
+  aiConfig: CenterAiConfig;
+  // Session-scoped generation
+  sessionId: string | null;
+  sessionTypeId: string | null;
+  effectiveTranscription: string | null;
+  transcriptSource: string;
+  plaudRecordingId: string | null;
+  // Multi-session / patient-scoped generation
+  patientId: string;
+  sourceSessionIds: string[] | null;
+  inputs: Record<string, unknown> | null;
+  // Per-request bookkeeping for the `requires` graph
+  visiting: Set<string>;
+  cache: Map<string, GeneratedResult>;
+}
+
+interface GeneratedResult {
+  documentId: string;
+  documentTypeKey: string;
+  sections: Record<string, string>;
+  markdown: string;
+  promptVersionId: string | null;
+  modelUsed: string | null;
+  reused: boolean;
+}
+
+const MAX_DEPENDENCY_DEPTH = 3;
+
+async function generateSingleDocument(
+  dt: DocumentTypeRow,
+  depResults: GeneratedResult[],
+  ctx: GenerationContext,
+): Promise<GeneratedResult> {
+  const sections = parseSections(dt.sections);
+  if (sections.length === 0) {
+    throw new UserFacingError(`La plantilla "${dt.label}" no tiene secciones configuradas.`, 400);
+  }
+
+  const promptVersion = await resolvePromptVersion(ctx.supabaseService, dt.id, ctx.centerId, ctx.professionalId, ctx.sessionTypeId);
+  let userPromptBase = promptVersion?.user_prompt;
+
+  if (!userPromptBase && dt.default_user_prompt) {
+    // §4 regla 4: sin ninguna versión publicada aplicable, se cae al prompt semilla de la
+    // propia plantilla. Esto no debería ocurrir en un centro sembrado normalmente (el
+    // trigger de centros nuevos y el backfill de la migración crean siempre una versión 1
+    // publicada), así que si llegamos aquí es que al centro le faltan versiones — anomalía
+    // digna de investigar, aunque el documento pueda generarse igualmente.
+    console.warn(`[analyze] Sin versión de prompt publicada para "${dt.key}" en el centro ${ctx.centerId}; usando default_user_prompt de la plantilla como respaldo. Esto es una anomalía: revisa que el centro tenga versiones sembradas.`);
+    userPromptBase = dt.default_user_prompt;
+  }
+
+  if (!userPromptBase) {
+    throw new UserFacingError(
+      `No hay ninguna versión de prompt publicada para la plantilla "${dt.label}" en este centro. Publica una en Ajustes → Inteligencia Artificial.`,
+      400
+    );
+  }
+
+  const systemPrompt = promptVersion?.system_prompt || ctx.aiConfig.systemPrompt;
+  const model = promptVersion?.model || ctx.aiConfig.model;
+  const temperature = promptVersion?.temperature ?? ctx.aiConfig.temperature;
+  const maxTokens = dt.key === 'base_extraction' ? 6000 : 4000;
+
+  const promptParts: string[] = [userPromptBase];
+
+  for (const dep of depResults) {
+    promptParts.push(`--- DOCUMENTO DE APOYO (${dep.documentTypeKey}) ---\n\n${dep.markdown}`);
+  }
+
+  if (dt.scope === 'multi_session') {
+    const priorDocs = await loadPatientPriorDocuments(ctx.supabaseService, ctx.centerId, ctx.patientId, ctx.sourceSessionIds);
+    if (priorDocs.length === 0) {
+      throw new UserFacingError('No hay documentos previos del contacto a partir de los cuales generar este informe.', 400);
+    }
+    const docsBlock = priorDocs
+      .map((doc) => {
+        const label = `Documento del ${new Date(doc.generated_at).toLocaleDateString('es-ES')}`;
+        return `### ${label}\n\n${doc.edited_markdown || doc.content_markdown}`;
+      })
+      .join('\n\n---\n\n');
+    promptParts.push(`DOCUMENTOS PREVIOS DEL CONTACTO:\n\n${docsBlock}`);
+  } else {
+    if (!ctx.effectiveTranscription) {
+      throw new UserFacingError('Se requiere la transcripción de la sesión para generar este documento.', 400);
+    }
+    promptParts.push(`TRANSCRIPCIÓN DE LA SESIÓN:\n\n${ctx.effectiveTranscription}`);
+  }
+
+  if (ctx.inputs && Object.keys(ctx.inputs).length > 0) {
+    promptParts.push(`INFORMACIÓN ADICIONAL PROPORCIONADA:\n\n${JSON.stringify(ctx.inputs, null, 2)}`);
+  }
+
+  const basePrompt = promptParts.join('\n\n');
+
+  console.log(`[analyze] Generando "${dt.key}" | Provider: ${ctx.aiConfig.provider} | Model: ${model} | Deps: ${depResults.map((d) => d.documentTypeKey).join(', ') || 'ninguna'}`);
+
+  const sectionsContent = await generateSectionsFromModel(
+    systemPrompt, basePrompt, sections, ctx.aiConfig.provider, model, ctx.aiConfig.apiKey, temperature, maxTokens
+  );
+  const markdown = renderMarkdown(sections, sectionsContent);
+
+  const isMultiSession = dt.scope === 'multi_session';
+  const sourceSessionIdsToStore = isMultiSession
+    ? (ctx.sourceSessionIds ?? [])
+    : (ctx.sessionId ? [ctx.sessionId] : []);
+
+  const { data: inserted, error: insertError } = await ctx.supabaseService
+    .from('ai_generated_documents')
+    .insert({
+      center_id: ctx.centerId,
+      session_id: isMultiSession ? null : ctx.sessionId,
+      patient_id: ctx.patientId,
+      document_type_id: dt.id,
+      prompt_version_id: promptVersion?.id ?? null,
+      source_session_ids: sourceSessionIdsToStore,
+      content_sections: sectionsContent,
+      content_markdown: markdown,
+      transcript_source: isMultiSession ? null : ctx.transcriptSource,
+      plaud_recording_id: isMultiSession ? null : ctx.plaudRecordingId,
+      model_used: model,
+      generated_by: ctx.professionalId,
+    })
+    .select('id')
+    .single();
+
+  if (insertError || !inserted) {
+    console.error('[analyze] Error al guardar el documento generado:', insertError);
+    throw new UserFacingError('No se pudo guardar el documento generado. Inténtalo de nuevo.');
+  }
+
+  // ─── Mirror write ────────────────────────────────────────────────────────
+  // Only when the template declares a mirror column AND we have a real session to attach it
+  // to. NEVER writes to sessions.notes — that column is for the therapist's own free-text
+  // notes and a previous version of this function used to clobber it, which was a bug.
+  if (dt.mirror_column && ctx.sessionId) {
+    const { error: mirrorError } = await ctx.supabaseService
+      .from('sessions')
+      .update({ [dt.mirror_column]: markdown, transcript_processed_at: new Date().toISOString() })
+      .eq('id', ctx.sessionId);
+    if (mirrorError) {
+      console.error(`[analyze] Error al espejar en sessions.${dt.mirror_column}:`, mirrorError);
+    }
+  }
+
+  return {
+    documentId: inserted.id as string,
+    documentTypeKey: dt.key,
+    sections: sectionsContent,
+    markdown,
+    promptVersionId: promptVersion?.id ?? null,
+    modelUsed: model,
+    reused: false,
+  };
+}
+
+/**
+ * Resuelve (generando si hace falta) el documento de tipo `key`, incluyendo recursivamente
+ * sus `requires`. Reutiliza documentos ya generados para la sesión/paciente salvo que
+ * `ctx.regenerate` sea true — pero SOLO para dependencias (`depth > 0`): el documento
+ * pedido explícitamente en el request (`depth === 0`) se genera siempre de nuevo, porque
+ * llamar a esta función ya es, en sí, una petición explícita de generación.
+ *
+ * Profundidad máxima 3 y detección de ciclos: `visiting` contiene las keys que están
+ * actualmente en construcción en la rama actual de la recursión. Si `key` ya está en
+ * `visiting`, hay un ciclo en la configuración de `requires` — se lanza un error claro en
+ * vez de recursar indefinidamente. El límite de profundidad es una segunda red de
+ * seguridad independiente, por si un ciclo lograra no pasar por `visiting` (p. ej. un bug
+ * futuro en esta función).
+ */
+async function resolveDocument(key: string, depth: number, ctx: GenerationContext): Promise<GeneratedResult> {
+  const cached = ctx.cache.get(key);
+  if (cached) return cached;
+
+  if (ctx.visiting.has(key)) {
+    throw new UserFacingError(
+      `Se ha detectado un ciclo de dependencias entre plantillas de documento (la plantilla "${key}" depende, directa o indirectamente, de sí misma). Revisa el campo "requires" de las plantillas en Ajustes → Inteligencia Artificial.`
+    );
+  }
+  if (depth > MAX_DEPENDENCY_DEPTH) {
+    throw new UserFacingError(
+      `Se ha superado la profundidad máxima de dependencias (${MAX_DEPENDENCY_DEPTH}) al resolver la plantilla "${key}".`
+    );
+  }
+
+  ctx.visiting.add(key);
+  try {
+    const dt = await loadDocumentType(ctx.supabaseService, key, ctx.centerId);
+    if (!dt) {
+      throw new UserFacingError(`La plantilla de documento requerida "${key}" no existe o está desactivada.`, 400);
+    }
+
+    if (depth > 0 && !ctx.regenerate) {
+      const existing = await findExistingGeneratedDocument(ctx.supabaseService, dt.id, ctx.sessionId, ctx.patientId);
+      if (existing) {
+        const result: GeneratedResult = {
+          documentId: existing.id,
+          documentTypeKey: key,
+          sections: existing.edited_sections ?? existing.content_sections ?? {},
+          markdown: existing.edited_markdown ?? existing.content_markdown,
+          promptVersionId: existing.prompt_version_id,
+          modelUsed: existing.model_used,
+          reused: true,
+        };
+        ctx.cache.set(key, result);
+        return result;
+      }
+    }
+
+    const depResults: GeneratedResult[] = [];
+    for (const depKey of dt.requires ?? []) {
+      depResults.push(await resolveDocument(depKey, depth + 1, ctx));
+    }
+
+    const result = await generateSingleDocument(dt, depResults, ctx);
+    ctx.cache.set(key, result);
+    return result;
+  } finally {
+    ctx.visiting.delete(key);
+  }
+}
+
+// ─── Plaud saved-transcript fallback ───────────────────────────────────────────
+// `plaud_recordings.transcript_text` is written by `sync-plaud-recordings/index.ts`
+// (`buildTranscriptText`, line ~276 of that file) as one line per segment in the
+// literal format `[${speaker ?? "desconocido"}] ${content}`, sorted by startTime,
+// joined by "\n" — using the RAW speaker label Plaud returned (e.g. "Speaker 1", or
+// occasionally a real name — see the warning in `transcriptDiarization.ts`). It is
+// NOT anonymized at write time. That means it must be run through
+// `buildTranscriptFromTurns` here, exactly like the `segments` path from the client,
+// before it can be used as a prompt input — never pass `transcript_text` straight
+// through. Skipping this step would let a real name Plaud captured reach the model;
+// running it twice is not a risk here because `buildTranscriptFromTurns` only ever
+// runs once, on the reconstructed turns, in this single code path.
+//
+// This parser reverses `buildTranscriptText`'s exact format to recover `speaker` /
+// `content` pairs. "desconocido" (the literal fallback used for `speaker: null`) is
+// mapped back to `null` so it becomes `UNLABELED_SPEAKER` in `buildTranscriptFromTurns`
+// instead of being anonymized into its own fake "Hablante N".
+function parseStoredPlaudTranscript(text: string): DiarizedTurn[] {
+  const turns: DiarizedTurn[] = [];
+  for (const line of text.split('\n')) {
+    const match = /^\[([^\]]*)\] ([\s\S]*)$/.exec(line);
+    if (!match) {
+      // Una línea sin la marca `[hablante]` es la continuación del segmento anterior:
+      // `buildTranscriptText` une los segmentos con '\n', así que un segmento cuyo propio
+      // contenido traiga saltos de línea queda repartido en varias líneas. Descartarlas
+      // perdería texto clínico en silencio, así que se anexan al turno en curso.
+      if (turns.length > 0 && line.trim()) {
+        turns[turns.length - 1].content += `\n${line}`;
+      }
+      continue;
+    }
+    const [, rawSpeaker, content] = match;
+    if (!content.trim()) continue;
+    turns.push({ speaker: rawSpeaker === 'desconocido' ? null : rawSpeaker, content });
+  }
+  return turns;
+}
+
+// ─── Legacy layer compatibility (§6) ───────────────────────────────────────────
+const LEGACY_LAYER_TO_DOCUMENT_TYPE_KEY: Record<number, string> = {
+  1: 'base_extraction',
+  2: 'clinical_report',
+  3: 'patient_report',
+};
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -203,6 +773,87 @@ serve(async (req) => {
   }
 
   try {
+    const body = await req.json();
+    let documentTypeKey: string | undefined = body.documentTypeKey;
+    const {
+      centerId,
+      sessionId,
+      patientId: requestPatientId,
+      sourceSessionIds,
+      transcription,
+      segments,
+      transcriptSource,
+      plaudRecordingId,
+      inputs,
+      regenerate,
+      layer,
+    } = body;
+
+    // ─── Connection test ─────────────────────────────────────────────────────
+    // Settings → Inteligencia Artificial needs a way to check that the center's
+    // provider and API key actually work. It cannot go through the normal path:
+    // there is no session and therefore no patient, and the consent gate below
+    // fails closed without one — which is why the old "Verificar conexión"
+    // button returned 400 every single time.
+    //
+    // This branch is safe precisely because it never touches patient data: it
+    // sends a fixed, content-free probe string, stores nothing, and audits
+    // nothing clinical. Auth and center membership are still enforced.
+    if (body.connectionTest === true) {
+      if (!centerId) {
+        return jsonResponse({ error: 'Falta el centro para verificar la conexión.' }, 400);
+      }
+
+      const testClient = createClient(
+        Deno.env.get('SUPABASE_URL')!,
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+      );
+
+      if (role === 'authenticated' && userId) {
+        const { data: prof } = await testClient.from('profiles').select('center_id').eq('id', userId).maybeSingle();
+        if (!prof || (prof as { center_id: string | null }).center_id !== centerId) {
+          return jsonResponse({ error: 'Forbidden' }, 403);
+        }
+      }
+
+      const testConfig = await loadCenterAiConfig(testClient, centerId);
+      const reply = await callAIWithRetry(
+        'Responde únicamente con la palabra OK.',
+        'Responde OK.',
+        testConfig.provider,
+        testConfig.model,
+        testConfig.apiKey,
+        0,
+        16,
+        false,
+      );
+
+      console.log(`[analyze] Connection test OK — provider: ${testConfig.provider}, model: ${testConfig.model}`);
+      return jsonResponse({
+        success: true,
+        connectionTest: true,
+        provider: testConfig.provider,
+        model: testConfig.model,
+        reply: reply.trim().slice(0, 40),
+      }, 200);
+    }
+
+    // ─── Compatibilidad con el sistema de "3 capas" ─────────────────────────
+    // Si llega `layer` y no `documentTypeKey`, se traduce a la plantilla de sistema
+    // equivalente. Esto permite desplegar esta función y el cliente por separado: un
+    // cliente todavía no actualizado sigue funcionando contra la nueva función.
+    if (!documentTypeKey && (layer === 1 || layer === 2 || layer === 3)) {
+      documentTypeKey = LEGACY_LAYER_TO_DOCUMENT_TYPE_KEY[layer];
+      console.warn(`[analyze] Compatibilidad: layer=${layer} traducido a documentTypeKey="${documentTypeKey}". Actualiza el llamador para enviar documentTypeKey directamente.`);
+    }
+
+    if (!documentTypeKey) {
+      return jsonResponse({ error: 'Se requiere documentTypeKey (o, en modo de compatibilidad, layer: 1, 2 o 3).' }, 400);
+    }
+    if (!centerId) {
+      return jsonResponse({ error: 'Se requiere centerId.' }, 400);
+    }
+
     // ─── Entrada de la transcripción ──────────────────────────────────────────
     // Dos formas de aportar el contenido de la sesión, pensadas para coexistir:
     //
@@ -225,60 +876,48 @@ serve(async (req) => {
     //    ya mezclado con el contenido.
     //
     // `transcriptSource` ('manual' | 'plaud') y `plaudRecordingId` son solo
-    // metadatos para el registro de auditoría (punto 3 de la tarea): no
-    // cambian la lógica de generación ni el control de consentimiento, que
+    // metadatos para el registro de auditoría y para `ai_generated_documents`:
+    // no cambian la lógica de generación ni el control de consentimiento, que
     // se aplica exactamente igual sea cual sea el origen.
+    //
+    // Ambas rutas solo aplican a plantillas de ámbito `session`. Las plantillas
+    // `multi_session` (informe de evolución, informe de alta) no reciben una
+    // transcripción: su entrada son los documentos ya generados del paciente
+    // (ver `loadPatientPriorDocuments`), montados en el prompt más abajo.
     //
     // Punto de enganche para cuando una grabación de Plaud quede emparejada
     // y confirmada (fuera de este ámbito: la tabla `plaud_recordings` y su
     // UI de confirmación las está construyendo otro agente en paralelo):
     // quien dispare la generación de informes tras la confirmación debe
     // leer `plaud_recordings.transcript_text`, convertirlo en `DiarizedTurn[]`
-    // y llamar a esta función una vez por capa (1, 2 y 3, igual que hace hoy
-    // useTranscriptionAnalysis.tsx) con
-    // `{ sessionId, centerId, layer, segments, transcriptSource: 'plaud', plaudRecordingId }`.
+    // y llamar a esta función una vez por plantilla de documento con
+    // `{ sessionId, centerId, documentTypeKey, segments, transcriptSource: 'plaud', plaudRecordingId }`.
     // Esta función no consulta `plaud_recordings` por sí misma ni dispara
     // nada automáticamente: la generación sigue siendo una acción explícita.
-    const { transcription, segments, layer, baseAnalysis, centerId, sessionId, transcriptSource, plaudRecordingId } = await req.json();
-
     const rawSegments: DiarizedTurn[] = Array.isArray(segments) ? segments : [];
     const hasSegments = rawSegments.some(
       (s) => s && typeof s === 'object' && typeof (s as { content?: unknown }).content === 'string' && (s as { content: string }).content.trim().length > 0
     );
     const hasTranscriptionText = typeof transcription === 'string' && transcription.trim().length > 0;
 
-    if ((!hasTranscriptionText && !hasSegments) || !layer) {
-      return new Response(
-        JSON.stringify({ error: 'Se requiere transcription o segments, y layer (1, 2 o 3)' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // `effectiveTranscription` sustituye a `transcription` en todo el resto
-    // de la función: si llegan `segments`, se reconstruye un texto plano ya
-    // anonimizado (y con la nota de cautela sobre diarización antepuesta si
-    // corresponde); si no, se usa el `transcription` de siempre sin tocarlo.
-    let effectiveTranscription: string;
+    let effectiveTranscription: string | null = null;
     let diarizationApplied = false;
     if (hasSegments) {
       const built = buildTranscriptFromTurns(rawSegments);
       diarizationApplied = built.hasDiarization;
-      effectiveTranscription = built.transcript.trim() || (hasTranscriptionText ? transcription : '');
-    } else {
+      effectiveTranscription = built.transcript.trim() || (hasTranscriptionText ? transcription : null);
+    } else if (hasTranscriptionText) {
       effectiveTranscription = transcription;
     }
 
-    if (!effectiveTranscription || !effectiveTranscription.trim()) {
-      return new Response(
-        JSON.stringify({ error: 'La transcripción o los segmentos recibidos están vacíos' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const originSource = transcriptSource === 'plaud' ? 'plaud' : 'manual';
+    // `let`, not `const`: both are overwritten further down by the Plaud saved-transcript
+    // fallback when the request arrives with neither `transcription` nor `segments` (see
+    // that block, right after the consent gate).
+    let originSource = transcriptSource === 'plaud' ? 'plaud' : 'manual';
+    let effectivePlaudRecordingId: string | null = typeof plaudRecordingId === 'string' ? plaudRecordingId : null;
 
     // Single service-role client reused for center validation, consent checks,
-    // AI configuration lookup and audit logging.
+    // AI configuration lookup, template/prompt resolution and audit logging.
     const supabaseService = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -295,29 +934,72 @@ serve(async (req) => {
       }
     }
 
-    // ─── Consent gate: never send session content to the AI provider without ──
-    // the patient's consent for 'ai_processing' AND 'report_generation'.
-    // The client always supplies sessionId (the dialog only opens against a
-    // real session — see TranscriptionAnalysisDialog.tsx). Without it we cannot
-    // identify the patient, so we fail closed rather than skip the check.
+    // ─── Load the requested document type ─────────────────────────────────────
+    const docType = await loadDocumentType(supabaseService, documentTypeKey, centerId);
+    if (!docType) {
+      return jsonResponse({ error: `No existe la plantilla de documento "${documentTypeKey}" para este centro.` }, 400);
+    }
+
+    if (docType.scope !== 'session' && docType.scope !== 'multi_session') {
+      return jsonResponse({ error: `El ámbito "${docType.scope}" de la plantilla "${docType.label}" todavía no está soportado.` }, 400);
+    }
+
+    // ─── Resolve sessionId / patientId / sessionTypeId depending on scope ──────
     let patientId: string | null = null;
-    if (sessionId) {
+    let sessionTypeId: string | null = null;
+
+    if (docType.scope === 'session') {
+      if (!sessionId) {
+        return jsonResponse({ error: 'Esta plantilla requiere sessionId.' }, 400);
+      }
+      // NOTE: no longer 400s here when there is neither `transcription` nor `segments`.
+      // The client may be regenerating a document after closing the dialog that held the
+      // transcription in memory — in that case we try the Plaud saved-transcript fallback
+      // (see below), but only AFTER the consent gate, since reusing a stored transcript is
+      // handling patient data exactly like receiving it fresh from the caller.
+
+      // ─── Consent gate: never send session content to the AI provider without ──
+      // the patient's consent. The client always supplies sessionId (the dialog only
+      // opens against a real session — see TranscriptionAnalysisDialog.tsx). Without it
+      // we cannot identify the patient, so we fail closed rather than skip the check.
       const { data: sessionRow } = await supabaseService
         .from('sessions')
-        .select('patient_id')
+        .select('patient_id, session_type_id')
         .eq('id', sessionId)
         .maybeSingle();
       patientId = (sessionRow as { patient_id: string | null } | null)?.patient_id ?? null;
+      sessionTypeId = (sessionRow as { session_type_id: string | null } | null)?.session_type_id ?? null;
+
+      if (!patientId) {
+        return jsonResponse(
+          { error: 'No se pudo verificar el consentimiento del contacto: falta la sesión o el contacto asociado.' },
+          400
+        );
+      }
+    } else {
+      // scope === 'multi_session'
+      if (!requestPatientId) {
+        return jsonResponse({ error: 'Esta plantilla requiere patientId.' }, 400);
+      }
+      const { data: patientRow } = await supabaseService
+        .from('patients')
+        .select('id, center_id')
+        .eq('id', requestPatientId)
+        .maybeSingle();
+      if (!patientRow || (patientRow as { center_id: string }).center_id !== centerId) {
+        return jsonResponse({ error: 'El contacto indicado no pertenece a este centro.' }, 403);
+      }
+      patientId = requestPatientId;
     }
 
-    if (!patientId) {
-      return new Response(
-        JSON.stringify({ error: 'No se pudo verificar el consentimiento del contacto: falta la sesión o el contacto asociado.' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    // ─── Consentimiento: se mantiene íntegro y sigue fallando cerrado. La única ──
+    // diferencia con el sistema de capas es que los propósitos exigidos salen de
+    // `required_consent_purposes` de la plantilla en vez de estar hardcodeados.
+    const requiredPurposes: ConsentPurpose[] =
+      docType.required_consent_purposes && docType.required_consent_purposes.length > 0
+        ? (docType.required_consent_purposes as ConsentPurpose[])
+        : ['ai_processing', 'report_generation'];
 
-    const requiredPurposes: ConsentPurpose[] = ['ai_processing', 'report_generation'];
     const consentResults = await Promise.all(
       requiredPurposes.map((purpose) => checkPatientConsent(supabaseService, patientId!, purpose))
     );
@@ -338,222 +1020,162 @@ serve(async (req) => {
           status: 'denied',
           routeOrEndpoint: 'analyze-session-transcription',
           metadata: {
-            layer, purpose: deniedPurpose, reason: deniedResult.reason, sessionId,
+            documentTypeKey, purpose: deniedPurpose, reason: deniedResult.reason, sessionId: sessionId ?? null,
             transcriptSource: originSource,
             ...(plaudRecordingId ? { plaudRecordingId } : {}),
           },
         });
       }
 
-      return new Response(
-        JSON.stringify({
-          error: 'No se puede generar el informe: el contacto no ha otorgado el consentimiento necesario para el procesamiento por IA.',
+      return jsonResponse(
+        {
+          error: 'No se puede generar el documento: el contacto no ha otorgado el consentimiento necesario para el procesamiento por IA.',
           consentDenied: true,
           purpose: deniedPurpose,
           reason: deniedResult.reason,
-        }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        },
+        403
       );
+    }
+
+    // ─── Fallback: transcripción guardada de Plaud ─────────────────────────────
+    // Solo para plantillas de ámbito `session` y solo cuando el cliente no ha mandado
+    // `transcription` ni `segments` (p. ej. el profesional cerró el diálogo y ha vuelto a
+    // pulsar "Regenerar", sin la transcripción ya en memoria del navegador). Se ejecuta
+    // aquí a propósito, DESPUÉS de la puerta de consentimiento: leer una transcripción
+    // guardada de `plaud_recordings` es tratar datos del paciente exactamente igual que
+    // recibirla del llamador, así que tiene que pasar por la misma verificación.
+    if (docType.scope === 'session' && !effectiveTranscription) {
+      const { data: recordings, error: recordingsError } = await supabaseService
+        .from('plaud_recordings')
+        .select('id, transcript_text, transcript_expires_at')
+        .eq('session_id', sessionId)
+        .order('transcript_fetched_at', { ascending: false });
+
+      if (recordingsError) {
+        console.error('[analyze] Error al buscar grabación de Plaud para la sesión:', recordingsError.message);
+      }
+
+      const nowIso = new Date().toISOString();
+      const validRecording = (recordings ?? []).find(
+        (r) => typeof r.transcript_text === 'string' && r.transcript_text.trim().length > 0
+          && typeof r.transcript_expires_at === 'string' && r.transcript_expires_at > nowIso
+      ) as { id: string; transcript_text: string; transcript_expires_at: string } | undefined;
+
+      if (validRecording) {
+        const turns = parseStoredPlaudTranscript(validRecording.transcript_text);
+        const built = buildTranscriptFromTurns(turns);
+        const rebuilt = built.transcript.trim();
+        if (rebuilt) {
+          effectiveTranscription = rebuilt;
+          diarizationApplied = built.hasDiarization;
+          originSource = 'plaud';
+          effectivePlaudRecordingId = validRecording.id;
+          console.log(`[analyze] Transcripción recuperada de plaud_recordings (${validRecording.id}) para la sesión ${sessionId}, vigente hasta ${validRecording.transcript_expires_at}.`);
+        }
+      }
+
+      if (!effectiveTranscription) {
+        const hadAnyRecording = (recordings ?? []).length > 0;
+        const message = hadAnyRecording
+          ? 'La transcripción de esta sesión ya no está disponible: Plaud la conserva solo 30 días y ese plazo ya ha pasado. Sube el audio de la sesión manualmente para poder generar el documento.'
+          : 'No se puede generar el documento: esta sesión no tiene ninguna grabación de Plaud asociada ni transcripción proporcionada. Sube el audio de la sesión o aporta la transcripción manualmente.';
+        return jsonResponse({ error: message }, 400);
+      }
     }
 
     // ─── Load center AI configuration ────────────────────────────────────────
-    let provider = 'openai';
-    let model = 'gpt-4.1';
-    let apiKey = '';
-    let temperature = 0.3;
-    let analysisMode = 'layered';
-    let systemPrompt = SYSTEM_PROMPT;
-    let layer1Prompt = LAYER1_PROMPT;
-    let layer2Prompt = LAYER2_PROMPT;
-    let layer3Prompt = LAYER3_PROMPT;
+    const { provider, model, apiKey, temperature, systemPrompt } = await loadCenterAiConfig(supabaseService, centerId);
 
-    if (centerId) {
-      const { data: center } = await supabaseService
-        .from('centers')
-        .select(`
-          ai_provider, openai_model, gemini_model,
-          openai_api_key_encrypted, gemini_api_key_encrypted,
-          ai_prompt_system, ai_prompt_layer1, ai_prompt_layer2, ai_prompt_layer3,
-          ai_temperature, ai_analysis_mode
-        `)
-        .eq('id', centerId)
-        .single();
+    console.log(`[analyze] documentTypeKey: ${documentTypeKey} | Provider: ${provider} | Model: ${model} | Temp: ${temperature} | Source: ${originSource} | Diarization: ${diarizationApplied}`);
 
-      if (center) {
-        provider = (center.ai_provider || 'openai').toString().trim().toLowerCase();
-        temperature = center.ai_temperature ?? 0.3;
-        analysisMode = (center.ai_analysis_mode || 'layered').toString().trim().toLowerCase();
-        console.log(`[analyze] Center config — provider: ${provider}, analysisMode: "${analysisMode}", raw: "${center.ai_analysis_mode}"`);
+    // ─── Resolver `requires` recursivamente y generar el documento pedido ──────
+    const ctx: GenerationContext = {
+      supabaseService,
+      req,
+      centerId,
+      professionalId: role === 'authenticated' ? (userId ?? null) : null,
+      regenerate: regenerate === true,
+      aiConfig: { provider, model, apiKey, temperature, systemPrompt },
+      sessionId: docType.scope === 'session' ? sessionId : null,
+      sessionTypeId,
+      effectiveTranscription,
+      transcriptSource: originSource,
+      plaudRecordingId: effectivePlaudRecordingId,
+      patientId: patientId!,
+      sourceSessionIds: Array.isArray(sourceSessionIds) ? sourceSessionIds : null,
+      inputs: inputs && typeof inputs === 'object' ? inputs : null,
+      visiting: new Set<string>(),
+      cache: new Map<string, GeneratedResult>(),
+    };
 
-        if (provider === 'gemini') {
-          model = center.gemini_model || 'gemini-2.5-pro';
-          if (!center.gemini_api_key_encrypted) {
-            return new Response(
-              JSON.stringify({ error: 'API key de Gemini no configurada. Ve a Ajustes → Inteligencia Artificial.' }),
-              { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-            );
-          }
-          apiKey = (await decryptSecret(center.gemini_api_key_encrypted)).replace(/[^\x20-\x7E]/g, '').trim();
-        } else {
-          model = center.openai_model || 'gpt-4.1';
-          if (!center.openai_api_key_encrypted) {
-            return new Response(
-              JSON.stringify({ error: 'API key de OpenAI no configurada. Ve a Ajustes → Inteligencia Artificial.' }),
-              { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-            );
-          }
-          apiKey = (await decryptSecret(center.openai_api_key_encrypted)).replace(/[^\x20-\x7E]/g, '').trim();
-        }
-
-        // Use custom prompts if provided
-        if (center.ai_prompt_system) systemPrompt = center.ai_prompt_system;
-        if (center.ai_prompt_layer1) layer1Prompt = center.ai_prompt_layer1;
-        if (center.ai_prompt_layer2) layer2Prompt = center.ai_prompt_layer2;
-        if (center.ai_prompt_layer3) layer3Prompt = center.ai_prompt_layer3;
+    let result: GeneratedResult;
+    try {
+      result = await resolveDocument(documentTypeKey, 0, ctx);
+    } catch (error) {
+      if (error instanceof UserFacingError) {
+        console.error(`[analyze] ${error.message}`);
+        return jsonResponse({ error: error.message }, error.status);
       }
+      throw error;
     }
 
-    if (!apiKey) {
-      return new Response(
-        JSON.stringify({ error: 'API key no configurada. Ve a Ajustes → Inteligencia Artificial.' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // ─── Single mode: generate both reports in one call ──────────────────────
-    if (analysisMode === 'single' && layer === 1) {
-      const singlePrompt = `A partir de la siguiente transcripción de sesión terapéutica, genera DOS informes en una sola respuesta.
-
-Devuelve tu respuesta EXCLUSIVAMENTE como un JSON válido con esta estructura exacta:
-{"clinical": "...", "patient": "..."}
-
-Donde:
-- "clinical" contiene el INFORME CLÍNICO PARA PROFESIONALES siguiendo estas instrucciones:
-${layer2Prompt}
-
-- "patient" contiene el INFORME DE SESIÓN PARA EL PACIENTE siguiendo estas instrucciones:
-${layer3Prompt}
-
-IMPORTANTE: Devuelve SOLO el JSON, sin markdown, sin bloques de código, sin texto adicional.
-
-TRANSCRIPCIÓN DE LA SESIÓN:
-
-${effectiveTranscription}`;
-
-      console.log(`[analyze] Single mode | Provider: ${provider} | Model: ${model} | Temp: ${temperature} | Source: ${originSource} | Diarization: ${diarizationApplied}`);
-
-      const content = await callAI(systemPrompt, singlePrompt, provider, model, apiKey, temperature);
-
-      // Try to parse JSON from the response
-      let parsed: { clinical: string; patient: string };
-      try {
-        // Remove potential markdown code block wrapping and find JSON
-        let cleaned = content.replace(/^```(?:json)?\s*/, '').replace(/\s*```$/, '').trim();
-        // If there's extra text before/after JSON, extract it
-        const firstBrace = cleaned.indexOf('{');
-        const lastBrace = cleaned.lastIndexOf('}');
-        if (firstBrace !== -1 && lastBrace > firstBrace) {
-          cleaned = cleaned.slice(firstBrace, lastBrace + 1);
-        }
-        parsed = JSON.parse(cleaned);
-        if (!parsed.clinical || !parsed.patient) {
-          throw new Error('Missing clinical or patient keys in parsed JSON');
-        }
-      } catch (parseErr) {
-        // If parsing fails, return raw content as clinical report with explicit mode marker
-        console.warn('[analyze] Single mode: failed to parse JSON:', parseErr, 'Raw content length:', content.length);
-        return new Response(
-          JSON.stringify({ success: true, content, layer: 1, mode: 'single', clinical: content, patient: '' }),
-          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      console.log(`[analyze] Single mode completed — clinical: ${parsed.clinical?.split(/\s+/).length} words, patient: ${parsed.patient?.split(/\s+/).length} words`);
-
-      // Audit: transcription analysis (single mode) — consent was verified above
-      if (centerId) {
-        logAuditEvent({
-          supabase: supabaseService, req,
-          userId: null,
-          organizationId: centerId,
-          patientId,
-          resourceType: 'clinical_notes', action: 'VIEW',
-          routeOrEndpoint: 'analyze-session-transcription',
-          metadata: {
-            layer: 1, mode: 'single', consentVerified: true,
-            transcriptSource: originSource, diarizationApplied,
-            ...(plaudRecordingId ? { plaudRecordingId } : {}),
-          },
-        });
-      }
-
-      return new Response(
-        JSON.stringify({ success: true, content: JSON.stringify(parsed), layer: 1, mode: 'single', clinical: parsed.clinical, patient: parsed.patient }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // ─── Layered mode: Build prompt for the requested layer ──────────────────
-    let userPrompt: string;
-
-    if (layer === 1) {
-      userPrompt = `${layer1Prompt}\n\nTRANSCRIPCIÓN DE LA SESIÓN:\n\n${effectiveTranscription}`;
-    } else if (layer === 2) {
-      if (!baseAnalysis) {
-        return new Response(
-          JSON.stringify({ error: 'La capa 2 requiere el análisis base (baseAnalysis)' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      userPrompt = `BASE CLÍNICA EXTRAÍDA (CAPA 1):\n\n${baseAnalysis}\n\nTRANSCRIPCIÓN ORIGINAL:\n\n${effectiveTranscription}\n\n${layer2Prompt}`;
-    } else if (layer === 3) {
-      if (!baseAnalysis) {
-        return new Response(
-          JSON.stringify({ error: 'La capa 3 requiere el análisis base (baseAnalysis)' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      userPrompt = `BASE CLÍNICA EXTRAÍDA (CAPA 1):\n\n${baseAnalysis}\n\nTRANSCRIPCIÓN ORIGINAL:\n\n${effectiveTranscription}\n\n${layer3Prompt}`;
-    } else {
-      return new Response(
-        JSON.stringify({ error: 'Layer debe ser 1, 2 o 3' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    console.log(`[analyze] Layer ${layer} | Provider: ${provider} | Model: ${model} | Temp: ${temperature} | Source: ${originSource} | Diarization: ${diarizationApplied}`);
-
-    const content = await callAI(systemPrompt, userPrompt, provider, model, apiKey, temperature);
-
-    console.log(`[analyze] Layer ${layer} completed — ${content.split(/\s+/).length} words`);
+    const dependencies = (docType.requires ?? []).map((depKey) => {
+      const dep = ctx.cache.get(depKey);
+      return { key: depKey, documentId: dep?.documentId ?? null, reused: dep?.reused ?? false };
+    });
 
     // Audit: transcription analysis performed — consent was verified above
-    if (centerId) {
-      logAuditEvent({
-        supabase: supabaseService, req,
-        userId: null,
-        organizationId: centerId,
-        patientId,
-        resourceType: 'clinical_notes', action: 'VIEW',
-        routeOrEndpoint: 'analyze-session-transcription',
-        metadata: {
-          layer, mode: 'layered', consentVerified: true,
-          transcriptSource: originSource, diarizationApplied,
-          ...(plaudRecordingId ? { plaudRecordingId } : {}),
-        },
-      });
-    }
+    logAuditEvent({
+      supabase: supabaseService, req,
+      userId: null,
+      organizationId: centerId,
+      patientId,
+      resourceType: 'clinical_notes', action: 'VIEW',
+      routeOrEndpoint: 'analyze-session-transcription',
+      metadata: {
+        documentTypeKey, promptVersionId: result.promptVersionId, consentVerified: true,
+        transcriptSource: originSource, diarizationApplied,
+        sessionId: sessionId ?? null,
+        dependencies: dependencies.map((d) => d.key),
+        ...(effectivePlaudRecordingId ? { plaudRecordingId: effectivePlaudRecordingId } : {}),
+      },
+    });
 
-    return new Response(
-      JSON.stringify({ success: true, content, layer }),
-      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    return jsonResponse(
+      {
+        success: true,
+        documentId: result.documentId,
+        documentTypeKey: result.documentTypeKey,
+        sections: result.sections,
+        markdown: result.markdown,
+        promptVersionId: result.promptVersionId,
+        modelUsed: result.modelUsed,
+        dependencies,
+      },
+      200
     );
 
   } catch (error) {
     console.error('Error in analyze-session-transcription:', error);
-    return new Response(
-      JSON.stringify({ error: "Error interno del servidor" }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+
+    // UserFacingError carries a message already written for the therapist ("API key de
+    // OpenAI no configurada…", "No existe la plantilla…") plus its own status. Masking it
+    // behind a generic 500 is what makes these failures undebuggable from the UI: the user
+    // is told "error interno" when the actual fix is one click away in Settings.
+    if (error instanceof UserFacingError) {
+      return jsonResponse({ error: error.message }, error.status);
+    }
+
+    // A provider rejection is not an internal error either: it usually means a bad key,
+    // an exhausted quota or a model the center no longer has access to.
+    if (error instanceof ProviderError) {
+      return jsonResponse(
+        { error: `El proveedor de IA ha rechazado la petición: ${error.message}` },
+        502
+      );
+    }
+
+    return jsonResponse({ error: 'Error interno del servidor' }, 500);
   }
 });

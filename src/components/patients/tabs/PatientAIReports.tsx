@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
@@ -12,9 +12,18 @@ import { useCenter } from '@/hooks/useCenter';
 import { Icon } from '@/components/ui/icon';
 import { checkPatientConsent, type ConsentCheckResult } from '@/lib/consent-verification';
 import { consentSendBlockReason } from '@/lib/consent-block-messages';
+import { useAIDocuments } from '@/hooks/useAIDocuments';
+import { effectiveMarkdown } from '@/lib/ai-documents';
+import type { AiGeneratedDocumentWithType } from '@/types/ai-documents';
 
 interface PatientAIReportsProps {
   patientId: string;
+}
+
+interface SessionMeta {
+  id: string;
+  session_date: string;
+  session_type: string | null;
 }
 
 export function PatientAIReports({ patientId }: PatientAIReportsProps) {
@@ -41,27 +50,81 @@ export function PatientAIReports({ patientId }: PatientAIReportsProps) {
   const whatsappBlockReason = consentSendBlockReason('whatsapp', consentResults?.channel_whatsapp);
   const emailBlockReason = consentSendBlockReason('email', consentResults?.channel_email);
 
-  const { data: sessions, isLoading } = useQuery({
-    queryKey: ['patient-ai-reports', patientId],
+  const { data: patientContact } = useQuery({
+    queryKey: ['patient-ai-reports-contact', patientId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('sessions')
-        .select('id, session_date, session_type, ai_summary_clinical, ai_summary_patient, transcript_processed_at, patient:patients!sessions_patient_id_fkey(phone, email)')
-        .eq('patient_id', patientId)
-        .not('ai_summary_clinical', 'is', null)
-        .order('session_date', { ascending: false });
-
+      const { data, error } = await supabase.from('patients').select('phone, email').eq('id', patientId).maybeSingle();
       if (error) throw error;
-      return data;
+      return data as { phone: string | null; email: string | null } | null;
     },
     enabled: !!patientId,
   });
 
-  type AIReportSession = NonNullable<typeof sessions>[number];
+  // Fuente de verdad: `ai_generated_documents`, no las columnas espejo de `sessions`. Antes
+  // esta pestaña filtraba por `ai_summary_clinical not null`, lo que ocultaba sesiones que
+  // solo tuvieran informe de paciente (o cualquier otro tipo de documento) generado. Ahora
+  // se listan todos los documentos del paciente, de cualquier tipo, agrupados por sesión.
+  const aiDocs = useAIDocuments({ patientId, scope: 'multi_session' });
+  const evolutionTemplate = aiDocs.templates.find((t) => t.key === 'evolution_report');
 
-  const handleSend = async (session: AIReportSession, channel: 'whatsapp' | 'email') => {
-    if (!session.ai_summary_patient || !centerId) return;
-    const recipient = channel === 'whatsapp' ? session.patient?.phone : session.patient?.email;
+  const sessionIds = useMemo(
+    () => Array.from(new Set(aiDocs.documents.filter((d) => d.session_id).map((d) => d.session_id as string))),
+    [aiDocs.documents],
+  );
+
+  const { data: sessionsMeta } = useQuery({
+    queryKey: ['patient-ai-reports-sessions', patientId, sessionIds],
+    queryFn: async () => {
+      if (sessionIds.length === 0) return [] as SessionMeta[];
+      const { data, error } = await supabase
+        .from('sessions')
+        .select('id, session_date, session_type')
+        .in('id', sessionIds);
+      if (error) throw error;
+      return (data ?? []) as SessionMeta[];
+    },
+    enabled: sessionIds.length > 0,
+  });
+
+  const sessionMetaById = useMemo(() => {
+    const map = new Map<string, SessionMeta>();
+    for (const s of sessionsMeta ?? []) map.set(s.id, s);
+    return map;
+  }, [sessionsMeta]);
+
+  const { sessionGroups, patientLevelDocs } = useMemo(() => {
+    const bySession = new Map<string, AiGeneratedDocumentWithType[]>();
+    const patientLevel: AiGeneratedDocumentWithType[] = [];
+
+    for (const doc of aiDocs.documents) {
+      // `base_extraction` (audience 'internal') es solo un paso intermedio para el
+      // servidor — nunca se pensó para que lo viera el profesional directamente, igual que
+      // en `TranscriptionAnalysisDialog.tsx`.
+      if (doc.document_type.audience === 'internal') continue;
+
+      if (!doc.session_id) {
+        patientLevel.push(doc);
+        continue;
+      }
+      const list = bySession.get(doc.session_id) ?? [];
+      list.push(doc);
+      bySession.set(doc.session_id, list);
+    }
+
+    const groups = Array.from(bySession.entries())
+      .map(([sessionId, docs]) => ({ sessionId, docs, meta: sessionMetaById.get(sessionId) ?? null }))
+      .sort((a, b) => {
+        const dateA = a.meta?.session_date ?? '';
+        const dateB = b.meta?.session_date ?? '';
+        return dateB.localeCompare(dateA);
+      });
+
+    return { sessionGroups: groups, patientLevelDocs: patientLevel };
+  }, [aiDocs.documents, sessionMetaById]);
+
+  const handleSend = async (doc: AiGeneratedDocumentWithType, channel: 'whatsapp' | 'email') => {
+    if (!centerId) return;
+    const recipient = channel === 'whatsapp' ? patientContact?.phone : patientContact?.email;
     if (!recipient) return;
 
     // Client-side defense in depth — send-notification enforces this for
@@ -72,13 +135,13 @@ export function PatientAIReports({ patientId }: PatientAIReportsProps) {
       return;
     }
 
-    setSendingId(session.id);
+    setSendingId(doc.id);
     try {
       const { data: notification } = await supabase
         .from('notifications')
         .insert({
           center_id: centerId,
-          session_id: session.id,
+          session_id: doc.session_id,
           patient_id: patientId,
           type: channel,
           recipient,
@@ -89,7 +152,7 @@ export function PatientAIReports({ patientId }: PatientAIReportsProps) {
           // sending via WhatsApp cannot bypass the gate the way it used to
           // when only the email path set `subject`.
           purpose: 'clinical_report',
-          message: session.ai_summary_patient,
+          message: effectiveMarkdown(doc),
           status: 'pending',
         })
         .select('id')
@@ -115,7 +178,16 @@ export function PatientAIReports({ patientId }: PatientAIReportsProps) {
     }
   };
 
-  if (isLoading) {
+  const handleGenerateEvolution = async () => {
+    try {
+      await aiDocs.generate('evolution_report');
+      toast.success('Informe de evolución generado');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Error al generar el informe de evolución');
+    }
+  };
+
+  if (aiDocs.isLoadingDocuments) {
     return (
       <div className="flex items-center justify-center py-12">
         <Icon name="progress_activity" className="h-8 w-8 animate-spin text-primary" />
@@ -123,114 +195,191 @@ export function PatientAIReports({ patientId }: PatientAIReportsProps) {
     );
   }
 
-  if (!sessions || sessions.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12 text-center">
-        <Icon name="psychology" className="h-12 w-12 text-muted-foreground" />
-        <h3 className="mt-4 font-display text-lg font-semibold">Sin informes IA</h3>
-        <p className="mt-2 max-w-sm text-sm text-muted-foreground">
-          Los informes se generan desde el detalle de cada sesión → "Analizar transcripción".
-        </p>
-      </div>
-    );
-  }
+  const hasAnyDocs = sessionGroups.length > 0 || patientLevelDocs.length > 0;
 
   return (
-    <div className="space-y-3">
-      {sessions.map((session) => (
-        <Collapsible key={session.id}>
-          <CollapsibleTrigger asChild>
-            <div className="flex items-center justify-between rounded-lg border p-3 cursor-pointer hover:bg-muted/50 transition-colors">
-              <div className="flex items-center gap-2">
-                <Icon name="psychology" className="h-4 w-4 text-primary" />
-                <div>
-                  <p className="text-sm font-medium">
-                    {format(new Date(session.session_date), "d 'de' MMMM 'de' yyyy", { locale: es })}
-                  </p>
-                  {session.session_type && (
-                    <p className="text-xs text-muted-foreground capitalize">{session.session_type}</p>
-                  )}
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                {session.ai_summary_clinical && (
-                  <Badge variant="outline" className="text-xs">Clínico</Badge>
-                )}
-                {session.ai_summary_patient && (
-                  <Badge variant="outline" className="text-xs">Paciente</Badge>
-                )}
-                <Icon name="expand_more" className="h-4 w-4 text-muted-foreground" />
-              </div>
+    <div className="space-y-4">
+      {evolutionTemplate && (
+        <div className="flex items-center justify-between gap-2 rounded-lg border bg-muted/30 p-3">
+          <div>
+            <p className="text-sm font-medium">Informe de evolución</p>
+            <p className="text-xs text-muted-foreground">
+              Genera un informe a partir de los documentos ya generados de este contacto.
+            </p>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleGenerateEvolution}
+            disabled={aiDocs.isGenerating || sessionGroups.length === 0}
+          >
+            {aiDocs.isGenerating ? (
+              <Icon name="progress_activity" className="h-3 w-3 mr-1 animate-spin" />
+            ) : (
+              <Icon name="auto_awesome" className="h-3 w-3 mr-1" />
+            )}
+            Generar
+          </Button>
+        </div>
+      )}
+
+      {!hasAnyDocs ? (
+        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12 text-center">
+          <Icon name="psychology" className="h-12 w-12 text-muted-foreground" />
+          <h3 className="mt-4 font-display text-lg font-semibold">Sin informes IA</h3>
+          <p className="mt-2 max-w-sm text-sm text-muted-foreground">
+            Los informes se generan desde el detalle de cada sesión → "Analizar transcripción".
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {patientLevelDocs.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                Documentos del contacto
+              </p>
+              {patientLevelDocs.map((doc) => (
+                <DocumentCard
+                  key={doc.id}
+                  doc={doc}
+                  onSend={handleSend}
+                  sending={sendingId === doc.id}
+                  isConsentLoading={isConsentLoading}
+                  whatsappBlockReason={whatsappBlockReason}
+                  emailBlockReason={emailBlockReason}
+                  hasPhone={!!patientContact?.phone}
+                  hasEmail={!!patientContact?.email}
+                />
+              ))}
             </div>
-          </CollapsibleTrigger>
-          <CollapsibleContent className="px-3 pb-3 space-y-3">
-            {session.ai_summary_clinical && (
-              <div className="space-y-1 mt-3">
-                <p className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
-                  <Icon name="description" className="h-3 w-3" />
-                  Informe clínico
-                </p>
-                <div className="rounded-md bg-muted p-3 text-sm whitespace-pre-wrap max-h-64 overflow-y-auto">
-                  {session.ai_summary_clinical}
-                </div>
-              </div>
-            )}
-            {session.ai_summary_patient && (
-              <div className="space-y-2">
-                <p className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
-                  <Icon name="person" className="h-3 w-3" />
-                  Informe para el paciente
-                </p>
-                <div className="rounded-md bg-muted p-3 text-sm whitespace-pre-wrap max-h-64 overflow-y-auto">
-                  {session.ai_summary_patient}
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {session.patient?.phone && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={sendingId === session.id || isConsentLoading || !!whatsappBlockReason}
-                      title={whatsappBlockReason || undefined}
-                      onClick={() => handleSend(session, 'whatsapp')}
-                    >
-                      {sendingId === session.id ? <Icon name="progress_activity" className="h-3 w-3 mr-1 animate-spin" /> : <Icon name="call" className="h-3 w-3 mr-1" />}
-                      WhatsApp
-                    </Button>
-                  )}
-                  {session.patient?.email && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={sendingId === session.id || isConsentLoading || !!emailBlockReason}
-                      title={emailBlockReason || undefined}
-                      onClick={() => handleSend(session, 'email')}
-                    >
-                      {sendingId === session.id ? <Icon name="progress_activity" className="h-3 w-3 mr-1 animate-spin" /> : <Icon name="mail" className="h-3 w-3 mr-1" />}
-                      Email
-                    </Button>
-                  )}
-                </div>
-                {(whatsappBlockReason || emailBlockReason) && (
-                  <div className="space-y-1">
-                    {whatsappBlockReason && (
-                      <p className="text-xs text-muted-foreground">
-                        <Icon name="lock" className="h-3 w-3 mr-1 inline align-text-bottom" />
-                        {whatsappBlockReason}
+          )}
+
+          {sessionGroups.map(({ sessionId, docs, meta }) => (
+            <Collapsible key={sessionId}>
+              <CollapsibleTrigger asChild>
+                <div className="flex items-center justify-between rounded-lg border p-3 cursor-pointer hover:bg-muted/50 transition-colors">
+                  <div className="flex items-center gap-2">
+                    <Icon name="psychology" className="h-4 w-4 text-primary" />
+                    <div>
+                      <p className="text-sm font-medium">
+                        {meta ? format(new Date(meta.session_date), "d 'de' MMMM 'de' yyyy", { locale: es }) : 'Sesión'}
                       </p>
-                    )}
-                    {emailBlockReason && (
-                      <p className="text-xs text-muted-foreground">
-                        <Icon name="lock" className="h-3 w-3 mr-1 inline align-text-bottom" />
-                        {emailBlockReason}
-                      </p>
-                    )}
+                      {meta?.session_type && (
+                        <p className="text-xs text-muted-foreground capitalize">{meta.session_type}</p>
+                      )}
+                    </div>
                   </div>
-                )}
-              </div>
+                  <div className="flex items-center gap-2">
+                    {docs.map((doc) => (
+                      <Badge key={doc.id} variant="outline" className="text-xs">
+                        {doc.document_type.label}
+                      </Badge>
+                    ))}
+                    <Icon name="expand_more" className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                </div>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="px-3 pb-3 space-y-3">
+                {docs.map((doc) => (
+                  <DocumentCard
+                    key={doc.id}
+                    doc={doc}
+                    onSend={handleSend}
+                    sending={sendingId === doc.id}
+                    isConsentLoading={isConsentLoading}
+                    whatsappBlockReason={whatsappBlockReason}
+                    emailBlockReason={emailBlockReason}
+                    hasPhone={!!patientContact?.phone}
+                    hasEmail={!!patientContact?.email}
+                  />
+                ))}
+              </CollapsibleContent>
+            </Collapsible>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DocumentCard({
+  doc,
+  onSend,
+  sending,
+  isConsentLoading,
+  whatsappBlockReason,
+  emailBlockReason,
+  hasPhone,
+  hasEmail,
+}: {
+  doc: AiGeneratedDocumentWithType;
+  onSend: (doc: AiGeneratedDocumentWithType, channel: 'whatsapp' | 'email') => void;
+  sending: boolean;
+  isConsentLoading: boolean;
+  whatsappBlockReason: string | null;
+  emailBlockReason: string | null;
+  hasPhone: boolean;
+  hasEmail: boolean;
+}) {
+  // El envío al paciente se limita al documento que espeja `ai_summary_patient` — el resto
+  // (informe clínico, notas SOAP, evolución...) no está pensado para mandarse tal cual.
+  const canSend = doc.document_type.mirror_column === 'ai_summary_patient';
+
+  return (
+    <div className="space-y-1 mt-1">
+      <p className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
+        <Icon name={doc.document_type.audience === 'patient' ? 'person' : 'description'} className="h-3 w-3" />
+        {doc.document_type.label}
+      </p>
+      <div className="rounded-md bg-muted p-3 text-sm whitespace-pre-wrap max-h-64 overflow-y-auto">
+        {effectiveMarkdown(doc) || 'Sin contenido.'}
+      </div>
+      {canSend && (
+        <>
+          <div className="flex flex-wrap gap-2">
+            {hasPhone && (
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={sending || isConsentLoading || !!whatsappBlockReason}
+                title={whatsappBlockReason || undefined}
+                onClick={() => onSend(doc, 'whatsapp')}
+              >
+                {sending ? <Icon name="progress_activity" className="h-3 w-3 mr-1 animate-spin" /> : <Icon name="call" className="h-3 w-3 mr-1" />}
+                WhatsApp
+              </Button>
             )}
-          </CollapsibleContent>
-        </Collapsible>
-      ))}
+            {hasEmail && (
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={sending || isConsentLoading || !!emailBlockReason}
+                title={emailBlockReason || undefined}
+                onClick={() => onSend(doc, 'email')}
+              >
+                {sending ? <Icon name="progress_activity" className="h-3 w-3 mr-1 animate-spin" /> : <Icon name="mail" className="h-3 w-3 mr-1" />}
+                Email
+              </Button>
+            )}
+          </div>
+          {(whatsappBlockReason || emailBlockReason) && (
+            <div className="space-y-1">
+              {whatsappBlockReason && (
+                <p className="text-xs text-muted-foreground">
+                  <Icon name="lock" className="h-3 w-3 mr-1 inline align-text-bottom" />
+                  {whatsappBlockReason}
+                </p>
+              )}
+              {emailBlockReason && (
+                <p className="text-xs text-muted-foreground">
+                  <Icon name="lock" className="h-3 w-3 mr-1 inline align-text-bottom" />
+                  {emailBlockReason}
+                </p>
+              )}
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }

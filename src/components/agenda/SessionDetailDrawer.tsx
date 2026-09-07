@@ -116,6 +116,8 @@ import { CancellationPolicyIndicator } from './CancellationPolicyIndicator';
 import { Receipt, Brain } from 'lucide-react';
 import { useAuditLog } from '@/hooks/useAuditLog';
 import { Icon } from '@/components/ui/icon';
+import { useSessionAiDocuments } from '@/hooks/useAIDocuments';
+import { effectiveMarkdown } from '@/lib/ai-documents';
 
 interface SessionDetailDrawerProps {
   session: SessionWithRelations | null;
@@ -277,6 +279,12 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
   const aiReportWhatsappBlockReason = consentSendBlockReason('whatsapp', reportConsentResults?.channel_whatsapp);
   const aiReportEmailBlockReason = consentSendBlockReason('email', reportConsentResults?.channel_email);
 
+  // Fuente de verdad de los informes IA de esta sesión: `ai_generated_documents`, no las
+  // columnas espejo `sessions.ai_summary_*` (que se siguen escribiendo, pero solo como
+  // espejo — ver contrato de la migración). Se listan aquí, no en `sessionData`, porque no
+  // dependen del resto del estado local de edición de la sesión.
+  const { data: sessionAiDocuments } = useSessionAiDocuments(open ? session?.id : undefined);
+
   useEffect(() => {
     if (open && session && !hasLoggedAudit.current) {
       hasLoggedAudit.current = true;
@@ -331,6 +339,11 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
     video_provider: localVideoProvider ?? sessionRaw.video_provider,
   };
   const selectedLocation = locations?.find(l => l.id === sessionData.location_id);
+  const clinicalReportDoc = sessionAiDocuments?.find((d) => d.document_type.key === 'clinical_report');
+  const patientReportDoc = sessionAiDocuments?.find((d) => d.document_type.key === 'patient_report');
+  const otherAiDocuments = (sessionAiDocuments ?? []).filter(
+    (d) => d.document_type.audience !== 'internal' && d.document_type.key !== 'clinical_report' && d.document_type.key !== 'patient_report',
+  );
   
   // Check if this is a recurring session
   const isRecurringSession = !!sessionData.recurring_series_id;
@@ -527,7 +540,8 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
   };
 
   const handleSendAIReport = async (channel: 'whatsapp' | 'email') => {
-    if (!sessionData.ai_summary_patient || !session.center_id) return;
+    const reportMarkdown = patientReportDoc ? effectiveMarkdown(patientReportDoc) : sessionData.ai_summary_patient;
+    if (!reportMarkdown || !session.center_id) return;
     const recipient = channel === 'whatsapp' ? session.patient?.phone : session.patient?.email;
     if (!recipient) return;
 
@@ -555,7 +569,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
           // sending via WhatsApp cannot bypass the gate the way it used to
           // when only the email path set `subject`.
           purpose: 'clinical_report',
-          message: sessionData.ai_summary_patient,
+          message: reportMarkdown,
           status: 'pending',
         })
         .select('id')
@@ -2174,8 +2188,10 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
               </CollapsibleContent>
             </Collapsible>
 
-            {/* AI Reports Section */}
-            {(sessionData.ai_summary_clinical || sessionData.ai_summary_patient) && (
+            {/* AI Reports Section — fuente de verdad: ai_generated_documents (las columnas
+                sessions.ai_summary_* se siguen escribiendo como espejo, pero ya no son lo
+                que se lee aquí). */}
+            {(clinicalReportDoc || patientReportDoc || otherAiDocuments.length > 0) && (
               <>
                 <Separator />
                 <Collapsible>
@@ -2189,26 +2205,26 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                     </Button>
                   </CollapsibleTrigger>
                   <CollapsibleContent className="pt-3 space-y-3">
-                    {sessionData.ai_summary_clinical && (
+                    {clinicalReportDoc && (
                       <div className="space-y-1">
                         <p className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
                           <Icon name="description" className="h-3 w-3" />
                           Informe clínico
                         </p>
                         <div className="rounded-md bg-muted p-3 text-sm whitespace-pre-wrap max-h-48 overflow-y-auto">
-                          {sessionData.ai_summary_clinical}
+                          {effectiveMarkdown(clinicalReportDoc)}
                         </div>
                       </div>
                     )}
 
-                    {sessionData.ai_summary_patient && (
+                    {patientReportDoc && (
                       <div className="space-y-2">
                         <p className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
                           <Icon name="person" className="h-3 w-3" />
                           Informe para el paciente
                         </p>
                         <div className="rounded-md bg-muted p-3 text-sm whitespace-pre-wrap max-h-48 overflow-y-auto">
-                          {sessionData.ai_summary_patient}
+                          {effectiveMarkdown(patientReportDoc)}
                         </div>
                         <div className="flex flex-wrap gap-2">
                           {session.patient?.phone && (
@@ -2254,6 +2270,18 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                         )}
                       </div>
                     )}
+
+                    {otherAiDocuments.map((doc) => (
+                      <div key={doc.id} className="space-y-1">
+                        <p className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
+                          <Icon name="description" className="h-3 w-3" />
+                          {doc.document_type.label}
+                        </p>
+                        <div className="rounded-md bg-muted p-3 text-sm whitespace-pre-wrap max-h-48 overflow-y-auto">
+                          {effectiveMarkdown(doc)}
+                        </div>
+                      </div>
+                    ))}
 
                     {onAnalyzeTranscription && (
                       <Button

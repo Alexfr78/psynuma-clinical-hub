@@ -50,6 +50,7 @@ import { SecuritySection } from '@/components/settings/SecuritySection';
 import { ScheduleExceptionsSection } from '@/components/settings/ScheduleExceptionsSection';
 import { SpecialDaysSection } from '@/components/settings/SpecialDaysSection';
 import { AISettingsSection } from '@/components/settings/integrations/AISettingsSection';
+import { AIDocumentTemplatesSection } from '@/components/settings/integrations/AIDocumentTemplatesSection';
 import { VersionManagementSection } from '@/components/settings/VersionManagementSection';
 import { TariffPlansSection } from '@/components/settings/TariffPlansSection';
 import { ExpenseCategoriesSection } from '@/components/settings/ExpenseCategoriesSection';
@@ -112,6 +113,7 @@ type SettingsSection =
   | 'integraciones-google-drive'
   | 'integraciones-stripe'
   | 'integraciones-ia'
+  | 'integraciones-ia-plantillas'
   | 'integraciones-plaud'
   | 'seguridad'
   | 'versiones';
@@ -198,6 +200,7 @@ const navItems: NavItem[] = [
 
   { id: 'integraciones-credenciales', label: 'Configuración avanzada', icon: 'tune', parent: 'Conexiones Externas', subgroup: 'Avanzado' },
   { id: 'integraciones-ia', label: 'Inteligencia Artificial', icon: 'psychology', parent: 'Conexiones Externas', subgroup: 'Avanzado' },
+  { id: 'integraciones-ia-plantillas', label: 'Plantillas de documentos', icon: 'description', parent: 'Conexiones Externas', subgroup: 'Avanzado' },
   { id: 'integraciones-plaud', label: 'Plaud (grabaciones)', icon: 'mic', parent: 'Conexiones Externas', subgroup: 'Avanzado' },
 
   // Seguridad
@@ -452,6 +455,8 @@ export default function Settings() {
         return <StripeIntegrationSection onOpenPaymentSettings={() => setActiveSection('pagos-config')} />;
       case 'integraciones-ia':
         return <AISettingsSection />;
+      case 'integraciones-ia-plantillas':
+        return <AIDocumentTemplatesSection />;
       case 'integraciones-plaud':
         return <PlaudIntegrationSection />;
       case 'seguridad':

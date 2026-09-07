@@ -18,6 +18,7 @@ import type { Json } from '@/integrations/supabase/types';
 import { useAuth } from './useAuth';
 import { checkPatientConsent, type ConsentCheckResult, type ConsentDenialReason, type ConsentPurpose } from '@/lib/consent-verification';
 import { describePlaudGenerationBlock } from '@/components/plaud/plaudReviewLabels';
+import { useGenerateAiDocument, AiDocumentGenerationError, type AiDiarizedTurn } from './useAIDocuments';
 
 // ---------------------------------------------------------------------------
 // Augmented Database (temporal, ver cabecera del archivo)
@@ -390,26 +391,26 @@ export function usePlaudGenerationConsent(patientId: string | null, enabled: boo
   });
 }
 
+// Se conservan los nombres históricos ('layer1'/'layer2'/'layer3') aunque ya no exista una
+// "capa 1" visible desde aquí (la extracción base la resuelve el servidor como dependencia
+// interna, sin una llamada aparte) — `PlaudGenerateReportsButton.tsx` (fuera de este lote)
+// tipa su propio estado de progreso contra estos mismos literales y no hay motivo para
+// forzar tocarlo solo por un renombrado. 'layer2' se emite al empezar `clinical_report` y
+// 'layer3' al empezar `patient_report`; 'layer1' ya no se emite.
 type PlaudGenerationStage = 'layer1' | 'layer2' | 'layer3';
 
 interface GeneratePlaudReportsInput {
   recording: PlaudRecordingRow;
-  /** Para que la bandeja pueda mostrar en qué capa va (ver `PlaudGenerateReportsButton.tsx`). */
+  /** Para que la bandeja pueda mostrar en qué documento va (ver `PlaudGenerateReportsButton.tsx`). */
   onProgress?: (stage: PlaudGenerationStage) => void;
 }
 
-/** Traduce la respuesta de bloqueo por consentimiento de `analyze-session-transcription` al mismo texto que ya usa el resto de la bandeja. */
-function buildServerConsentError(data: Record<string, unknown> | null | undefined): Error {
-  const purpose: ConsentPurpose = data?.purpose === 'report_generation' ? 'report_generation' : 'ai_processing';
-  const reason = typeof data?.reason === 'string' ? (data.reason as ConsentDenialReason) : undefined;
+/** Traduce el bloqueo por consentimiento de `analyze-session-transcription` al mismo texto que ya usa el resto de la bandeja. */
+function buildServerConsentError(payload: Record<string, unknown> | null): Error {
+  const purpose: ConsentPurpose = payload?.purpose === 'report_generation' ? 'report_generation' : 'ai_processing';
+  const reason = typeof payload?.reason === 'string' ? (payload.reason as ConsentDenialReason) : undefined;
   const message = describePlaudGenerationBlock({ [purpose]: { granted: false, reason } });
   return new Error(message ?? 'No se pueden generar informes: el contacto no ha otorgado el consentimiento necesario.');
-}
-
-function buildAnalysisError(data: Record<string, unknown> | null | undefined, fallback: string): Error {
-  if (data?.consentDenied) return buildServerConsentError(data);
-  const message = typeof data?.error === 'string' ? data.error : fallback;
-  return new Error(message);
 }
 
 /**
@@ -423,16 +424,17 @@ function buildAnalysisError(data: Record<string, unknown> | null | undefined, fa
  * arrastrara sin querer un envío a IA — justo el tipo de automatismo silencioso que este
  * encargo pide evitar. Ver `PlaudGenerateReportsButton.tsx` para el botón dedicado.
  *
- * Reconstruye `segments` desde `transcript_text` (ver `parsePlaudTranscriptText`) y llama a
- * `analyze-session-transcription` una vez por capa, replicando el mismo patrón que
- * `useTranscriptionAnalysis.tsx` usa para el flujo de audio subido a mano (incluido el modo
- * `single`, si el centro lo tiene activado). El control de consentimiento real ocurre en el
- * servidor en cada llamada — esto no lo repite, solo traduce su respuesta si deniega.
+ * Reconstruye `segments` desde `transcript_text` (ver `parsePlaudTranscriptText`) y pide, con
+ * `useGenerateAiDocument` (`@/hooks/useAIDocuments`), los documentos `clinical_report` y
+ * `patient_report` — el servidor resuelve por su cuenta la dependencia `base_extraction`, así
+ * que ya no hace falta encadenar "capas" a mano aquí. El control de consentimiento real ocurre
+ * en el servidor en cada llamada — esto no lo repite, solo traduce su respuesta si deniega.
  */
 export function useGeneratePlaudReports() {
   const queryClient = useQueryClient();
   const { profile } = useAuth();
   const centerId = profile?.center_id;
+  const generateDocument = useGenerateAiDocument();
 
   return useMutation({
     mutationFn: async ({ recording, onProgress }: GeneratePlaudReportsInput) => {
@@ -462,55 +464,24 @@ export function useGeneratePlaudReports() {
       const baseBody = {
         centerId,
         sessionId: recording.session_id,
-        segments,
+        segments: segments as AiDiarizedTurn[],
         transcriptSource: 'plaud' as const,
         plaudRecordingId: recording.id,
       };
 
-      const invoke = (body: Record<string, unknown>) =>
-        supabase.functions.invoke('analyze-session-transcription', { body });
+      const generate = async (documentTypeKey: 'clinical_report' | 'patient_report', stage: PlaudGenerationStage) => {
+        onProgress?.(stage);
+        try {
+          return await generateDocument.mutateAsync({ ...baseBody, documentTypeKey });
+        } catch (err) {
+          const payload = err instanceof AiDocumentGenerationError ? err.payload : null;
+          if (payload?.consentDenied) throw buildServerConsentError(payload);
+          throw err;
+        }
+      };
 
-      onProgress?.('layer1');
-      const layer1 = await invoke({ ...baseBody, layer: 1 });
-      if (layer1.error) throw new Error(layer1.error.message || 'Error al generar la extracción clínica base.');
-      const layer1Data = layer1.data as Record<string, unknown> | null;
-      if (!layer1Data?.success) throw buildAnalysisError(layer1Data, 'Error al generar la extracción clínica base.');
-
-      let clinical: string | null = null;
-      let patient: string | null = null;
-
-      if (layer1Data.mode === 'single') {
-        clinical = typeof layer1Data.clinical === 'string' ? layer1Data.clinical : null;
-        patient = typeof layer1Data.patient === 'string' ? layer1Data.patient : null;
-        if (!clinical) throw new Error('La respuesta del análisis no contenía un informe clínico válido.');
-      } else {
-        const baseAnalysis = layer1Data.content as string;
-
-        onProgress?.('layer2');
-        const layer2 = await invoke({ ...baseBody, layer: 2, baseAnalysis });
-        if (layer2.error) throw new Error(layer2.error.message || 'Error al generar el informe clínico.');
-        const layer2Data = layer2.data as Record<string, unknown> | null;
-        if (!layer2Data?.success) throw buildAnalysisError(layer2Data, 'Error al generar el informe clínico.');
-        clinical = layer2Data.content as string;
-
-        onProgress?.('layer3');
-        const layer3 = await invoke({ ...baseBody, layer: 3, baseAnalysis });
-        if (layer3.error) throw new Error(layer3.error.message || 'Error al generar el informe para el paciente.');
-        const layer3Data = layer3.data as Record<string, unknown> | null;
-        if (!layer3Data?.success) throw buildAnalysisError(layer3Data, 'Error al generar el informe para el paciente.');
-        patient = layer3Data.content as string;
-      }
-
-      const { error: sessionUpdateError } = await supabase
-        .from('sessions')
-        .update({
-          notes: clinical,
-          ai_summary_clinical: clinical,
-          ai_summary_patient: patient,
-          transcript_processed_at: new Date().toISOString(),
-        })
-        .eq('id', recording.session_id);
-      if (sessionUpdateError) throw sessionUpdateError;
+      await generate('clinical_report', 'layer2');
+      await generate('patient_report', 'layer3');
 
       const reportUpdate: PlaudRecordingUpdate = {
         report_generated_at: new Date().toISOString(),
