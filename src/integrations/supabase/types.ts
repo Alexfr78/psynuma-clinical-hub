@@ -14,6 +14,93 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_document_defaults: {
+        Row: {
+          audience: string
+          center_id: string
+          document_type_id: string
+          id: string
+          professional_id: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          audience: string
+          center_id: string
+          document_type_id: string
+          id?: string
+          professional_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          audience?: string
+          center_id?: string
+          document_type_id?: string
+          id?: string
+          professional_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_document_defaults_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_document_defaults_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_document_defaults_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "portal_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_document_defaults_document_type_id_fkey"
+            columns: ["document_type_id"]
+            isOneToOne: false
+            referencedRelation: "ai_document_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_document_defaults_professional_id_fkey"
+            columns: ["professional_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_document_defaults_professional_id_fkey"
+            columns: ["professional_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_document_defaults_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_document_defaults_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_document_types: {
         Row: {
           audience: string
@@ -27,6 +114,7 @@ export type Database = {
           key: string
           label: string
           mirror_column: string | null
+          professional_id: string | null
           required_consent_purposes: string[]
           requires: string[]
           scope: string
@@ -46,6 +134,7 @@ export type Database = {
           key: string
           label: string
           mirror_column?: string | null
+          professional_id?: string | null
           required_consent_purposes?: string[]
           requires?: string[]
           scope?: string
@@ -65,6 +154,7 @@ export type Database = {
           key?: string
           label?: string
           mirror_column?: string | null
+          professional_id?: string | null
           required_consent_purposes?: string[]
           requires?: string[]
           scope?: string
@@ -92,6 +182,20 @@ export type Database = {
             columns: ["center_id"]
             isOneToOne: false
             referencedRelation: "portal_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_document_types_professional_id_fkey"
+            columns: ["professional_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_document_types_professional_id_fkey"
+            columns: ["professional_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
             referencedColumns: ["id"]
           },
         ]
@@ -8740,6 +8844,10 @@ export type Database = {
         Returns: Json
       }
       sanitize_error_payload: { Args: { payload: Json }; Returns: Json }
+      seed_ai_document_defaults_for_center: {
+        Args: { p_center_id: string }
+        Returns: undefined
+      }
       seed_ai_prompt_versions_for_center: {
         Args: { p_center_id: string }
         Returns: undefined
