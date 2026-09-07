@@ -1,3 +1,44 @@
+-- =====================================================================
+-- Catálogo de plantillas de documentos clínicos generados por IA
+-- =====================================================================
+-- Sustituye el sistema de "3 capas" fijas (centers.ai_prompt_layer1/2/3)
+-- por plantillas de documento versionadas, con salida en secciones
+-- tipadas y ámbito por centro / profesional / tipo de sesión.
+--
+-- Decisiones no obvias de este fichero, por si hay que tocarlo:
+--
+--  * ai_document_types.center_id es NULLABLE: NULL = plantilla de
+--    sistema, común a todos los centros. Por eso la unicidad de
+--    (center_id, key) va en un índice FUNCIONAL sobre
+--    coalesce(center_id, '000…000'): un UNIQUE normal no serviría,
+--    porque en Postgres dos NULL no se consideran iguales y podrían
+--    colarse keys de sistema repetidas.
+--
+--  * ai_generated_documents.prompt_version_id lleva ON DELETE SET NULL.
+--    ai_prompt_versions se borra en cascada al borrar el profesional o
+--    el tipo de sesión al que está atada; sin ese SET NULL la cascada
+--    chocaría contra los documentos que la referencian y borrar un
+--    profesional sería imposible.
+--
+--  * El trigger de inmutabilidad protege también professional_id y
+--    session_type_id, no solo el texto: reapuntar el ámbito de una
+--    versión publicada cambiaría retroactivamente el significado de los
+--    documentos ya sellados con ella. Despublicar tampoco se permite.
+--
+--  * El trigger de siembra para centros nuevos captura cualquier error y
+--    sigue. Un centro se crea en el primer login (CenterSetupWizard): si
+--    la siembra abortara el INSERT, el usuario se quedaría sin poder
+--    entrar. La generación ya tiene su red en
+--    ai_document_types.default_user_prompt.
+--
+--  * NO se eliminan columnas de centers ni de sessions.
+--    sessions.ai_summary_clinical / ai_summary_patient se siguen
+--    escribiendo como espejo mientras dure la transición.
+--
+-- Nota: los GRANT de más abajo son imprescindibles en este proyecto,
+-- donde las tablas nuevas no tienen permisos por defecto para la API.
+-- =====================================================================
+
 CREATE TABLE IF NOT EXISTS public.ai_document_types (
   id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   center_id     uuid REFERENCES public.centers(id) ON DELETE CASCADE,
