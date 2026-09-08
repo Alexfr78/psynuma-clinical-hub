@@ -211,7 +211,16 @@ export function usePlaudRecordings(scope: 'needs_review' | 'resolved', options?:
   });
 }
 
-/** Cuenta rápida de pendientes, para mostrar un aviso/badge en la navegación. */
+/**
+ * Cuenta rápida de pendientes, para mostrar un aviso/badge en la navegación (menú lateral
+ * y panel principal). Es un `head: true` con `count: 'exact'` — solo pide el número a
+ * Postgres, no trae ninguna fila ni dato de las grabaciones.
+ *
+ * La ingesta (`sync-plaud-recordings`) corre cada 15 minutos en el servidor, así que no hay
+ * nada que ganar sondeando cada pocos segundos — `refetchInterval` a 5 minutos, más el
+ * refetch-on-focus que ya trae TanStack Query por defecto, es suficiente para que el aviso
+ * no se quede desactualizado durante una sesión larga sin resultar ruidoso.
+ */
 export function usePlaudNeedsReviewCount() {
   const { profile } = useAuth();
   const centerId = profile?.center_id;
@@ -230,6 +239,7 @@ export function usePlaudNeedsReviewCount() {
     },
     enabled: !!centerId,
     staleTime: 60_000,
+    refetchInterval: 5 * 60 * 1000,
   });
 }
 

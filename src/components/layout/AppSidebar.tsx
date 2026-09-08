@@ -17,12 +17,18 @@ import {
 import { useSidebar } from '@/components/ui/sidebar-context';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/hooks/useAuth';
-import { useState, useEffect } from 'react';
+import { usePlaudNeedsReviewCount } from '@/hooks/usePlaudRecordings';
+import { useState, useEffect, useMemo } from 'react';
 import { MyProfileDialog } from '@/components/layout/MyProfileDialog';
 import { Icon } from '@/components/ui/icon';
 
-type NavItemDef = { title: string; url: string; icon: string };
+// `badgeAriaText` es el texto completo para lectores de pantalla (p.ej. "3 grabaciones por
+// revisar") — se define en el punto donde se sabe de qué trata el aviso, en vez de que el
+// grupo colapsable (compartido por varias secciones) tenga que adivinar el sustantivo a partir
+// del número.
+type NavItemDef = { title: string; url: string; icon: string; badgeCount?: number; badgeAriaText?: string };
 
 // Top-level, always visible
 const mainNavItems: NavItemDef[] = [
@@ -38,8 +44,10 @@ const financeNavItems: NavItemDef[] = [
   { title: 'Gastos', url: '/gastos', icon: 'payments' },
 ];
 
-// Secondary tools, tucked away in a collapsed "Más" group
-const moreNavItems: NavItemDef[] = [
+// Secondary tools, tucked away in a collapsed "Más" group.
+// "Grabaciones" lleva su `badgeCount` aparte porque depende de una consulta (ver
+// `usePlaudNeedsReviewCount` más abajo) — la lista base se completa con él en el componente.
+const baseMoreNavItems: NavItemDef[] = [
   { title: 'Sesiones', url: '/sesiones', icon: 'description' },
   { title: 'Consentimientos', url: '/consentimientos', icon: 'edit_document' },
   { title: 'Evaluaciones', url: '/evaluaciones', icon: 'assignment_turned_in' },
@@ -66,6 +74,26 @@ export function AppSidebar() {
   const { setOpenMobile, isMobile } = useSidebar();
   const [isDark, setIsDark] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+
+  // Grabaciones Plaud pendientes de revisión humana (ver CLAUDE.md / usePlaudRecordings.tsx):
+  // avisa en el menú para que esa bandeja no se quede sin atender. `data` es `undefined`
+  // mientras carga y `0` en cuanto no hay nada pendiente — en ambos casos no se pinta nada.
+  const { data: plaudNeedsReviewCount } = usePlaudNeedsReviewCount();
+
+  const moreNavItems: NavItemDef[] = useMemo(
+    () => baseMoreNavItems.map((item) =>
+      item.url === '/grabaciones'
+        ? {
+          ...item,
+          badgeCount: plaudNeedsReviewCount,
+          badgeAriaText: plaudNeedsReviewCount
+            ? `${plaudNeedsReviewCount} ${plaudNeedsReviewCount === 1 ? 'grabación' : 'grabaciones'} por revisar`
+            : undefined,
+        }
+        : item,
+    ),
+    [plaudNeedsReviewCount],
+  );
 
   useEffect(() => {
     const isDarkMode = document.documentElement.classList.contains('dark');
@@ -126,6 +154,9 @@ export function AppSidebar() {
   }) => {
     const hasActive = groupHasActiveItem(items);
     const [open, setOpen] = useState(hasActive);
+    // Suma de avisos de los ítems del grupo, para que se note en el disparador "Más" aunque
+    // esté cerrado — si no, un aviso escondido dentro de un submenú plegado no avisa de nada.
+    const groupBadgeCount = items.reduce((sum, item) => sum + (item.badgeCount ?? 0), 0);
 
     return (
       <Collapsible open={open} onOpenChange={setOpen}>
@@ -134,9 +165,19 @@ export function AppSidebar() {
             <SidebarMenuButton
               isActive={hasActive}
               className="cursor-pointer transition-colors"
+              aria-label={groupBadgeCount > 0 ? `${label}, ${groupBadgeCount} ${groupBadgeCount === 1 ? 'pendiente' : 'pendientes'}` : undefined}
             >
               <Icon name={icon} className="h-4 w-4 shrink-0" />
               <span className="truncate flex-1 text-left">{label}</span>
+              {groupBadgeCount > 0 && (
+                <Badge
+                  variant="destructive"
+                  aria-hidden="true"
+                  className="h-5 min-w-5 shrink-0 items-center justify-center rounded-full px-1 text-[10px] leading-none"
+                >
+                  {groupBadgeCount}
+                </Badge>
+              )}
               <Icon
                 name="expand_more"
                 className={`h-4 w-4 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`}
@@ -159,9 +200,19 @@ export function AppSidebar() {
                         if (isMobile) setOpenMobile(false);
                       }}
                       className="flex items-center gap-2"
+                      aria-label={item.badgeAriaText ? `${item.title}, ${item.badgeAriaText}` : undefined}
                     >
                       <Icon name={item.icon} className="h-3.5 w-3.5 shrink-0" />
-                      <span className="truncate">{item.title}</span>
+                      <span className="truncate flex-1">{item.title}</span>
+                      {!!item.badgeCount && (
+                        <Badge
+                          variant="destructive"
+                          aria-hidden="true"
+                          className="h-4 min-w-4 shrink-0 items-center justify-center rounded-full px-1 text-[10px] leading-none"
+                        >
+                          {item.badgeCount}
+                        </Badge>
+                      )}
                     </a>
                   </SidebarMenuSubButton>
                 </SidebarMenuSubItem>

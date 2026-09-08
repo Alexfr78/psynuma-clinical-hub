@@ -8,6 +8,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { SessionDetailDrawer } from '@/components/agenda/SessionDetailDrawer';
 import { useDebtStats, useDebts } from '@/hooks/useDebts';
+import { usePlaudNeedsReviewCount } from '@/hooks/usePlaudRecordings';
 import type { SessionWithRelations } from '@/hooks/useSessions';
 import { Icon } from '@/components/ui/icon';
 import { cn } from '@/lib/utils';
@@ -158,6 +159,10 @@ export default function Dashboard() {
   const pendingDebts = debtStats?.totalPending ?? stats?.pendingDebts ?? 0;
   const { data: todaySessions, isLoading: sessionsLoading } = useTodaySessions();
   const { data: pendingDebtsList, isLoading: debtsListLoading } = useDebts();
+  // Grabaciones Plaud sin emparejar con seguridad, a la espera de que alguien decida (ver
+  // `/grabaciones` y `usePlaudRecordings.tsx`). `undefined` mientras carga y `0` sin pendientes
+  // se tratan igual: no se muestra el aviso.
+  const { data: plaudNeedsReviewCount } = usePlaudNeedsReviewCount();
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
 
   // Always read the selected session fresh from the DB so edits (date, price,
@@ -236,6 +241,27 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* Aviso de grabaciones Plaud pendientes de revisión — solo aparece si hay alguna
+          (ver criterio en el encargo: un cero permanente enseña a ignorar el aviso). No
+          muestra ningún dato de las grabaciones, solo el recuento y el enlace a la bandeja. */}
+      {!!plaudNeedsReviewCount && (
+        <Link
+          to="/grabaciones"
+          className="flex items-center gap-3 rounded-2xl border border-destructive/30 bg-destructive/5 p-4 shadow-card transition-colors hover:bg-destructive/10"
+        >
+          <Icon name="graphic_eq" className="h-5 w-5 shrink-0 text-destructive" />
+          <div className="flex-1">
+            <p className="text-sm font-medium text-destructive">
+              {plaudNeedsReviewCount} {plaudNeedsReviewCount === 1 ? 'grabación necesita' : 'grabaciones necesitan'} revisión
+            </p>
+            <p className="text-xs text-muted-foreground">
+              El sistema no {plaudNeedsReviewCount === 1 ? 'pudo emparejarla' : 'pudo emparejarlas'} con seguridad. Revísa{plaudNeedsReviewCount === 1 ? 'la' : 'las'} antes de que pase{plaudNeedsReviewCount === 1 ? '' : 'n'} a la ficha de un paciente.
+            </p>
+          </div>
+          <Icon name="chevron_right" className="h-5 w-5 shrink-0 text-muted-foreground" />
+        </Link>
+      )}
 
       {/* Metrics */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">

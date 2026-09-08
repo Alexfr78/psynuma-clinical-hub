@@ -350,6 +350,31 @@ export function useUpdateDocumentType() {
   });
 }
 
+/**
+ * Elimina definitivamente una plantilla propia (del centro o de un profesional). Nunca se
+ * ofrece para plantillas de sistema (`center_id === null`): esas se duplican, no se borran.
+ * Borra en cascada su historial de versiones de prompt vía FK en la base de datos.
+ */
+export function useDeleteDocumentType() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await aiDb.from(AI_DOCUMENT_TABLES.types).delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ai-document-types'] });
+      queryClient.invalidateQueries({ queryKey: ['ai-document-defaults'] });
+      toast.success('Plantilla eliminada');
+    },
+    onError: (error) => {
+      toast.error('Error al eliminar la plantilla');
+      console.error(error);
+    },
+  });
+}
+
 /** Activa o desactiva una plantilla del centro (no elimina el historial de versiones). */
 export function useSetDocumentTypeActive() {
   const queryClient = useQueryClient();

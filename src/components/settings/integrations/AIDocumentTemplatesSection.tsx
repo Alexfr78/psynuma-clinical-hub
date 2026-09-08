@@ -27,6 +27,18 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { Icon } from '@/components/ui/icon';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
@@ -50,6 +62,7 @@ import {
   useUpdateDocumentType,
   useSetDocumentTypeActive,
   useDuplicateSystemDocumentType,
+  useDeleteDocumentType,
   useAIDocumentDefaults,
   useSetDocumentDefault,
   useClearOwnDocumentDefault,
@@ -145,11 +158,20 @@ function formatDate(iso: string): string {
   }
 }
 
+/** Icono representativo por destinatario, para dar identidad visual rápida a cada tarjeta. */
+const AUDIENCE_ICONS: Record<AiDocumentAudience, string> = {
+  professional: 'stethoscope',
+  patient: 'favorite',
+  internal: 'lock',
+  third_party: 'share',
+};
+
 export function AIDocumentTemplatesSection() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, profile } = useAuth();
   const { data: documentTypes = [], isLoading } = useAIDocumentTypes();
   const [selected, setSelected] = useState<AiDocumentType | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const [tab, setTab] = useState<'mine' | 'system'>('system');
 
   // Mantiene sincronizado el diálogo de detalle con los datos frescos tras una mutación
   // (activar/desactivar, editar), sin depender de una referencia obsoleta del array.
@@ -163,6 +185,30 @@ export function AIDocumentTemplatesSection() {
     [documentTypes]
   );
 
+  // "Mis plantillas": todo lo que no es de sistema (propias del profesional + del centro,
+  // ambas personalizables y borrables). "Plantillas del sistema": las de Psycma, comunes a
+  // todos los centros (solo duplicables, nunca editables ni borrables desde aquí).
+  const mine = useMemo(
+    () => documentTypes.filter((dt) => getDocumentTypeOrigin(dt) !== 'system'),
+    [documentTypes]
+  );
+  const system = useMemo(
+    () => documentTypes.filter((dt) => getDocumentTypeOrigin(dt) === 'system'),
+    [documentTypes]
+  );
+
+  const groupsFor = (list: AiDocumentType[]) => {
+    const groups = new Map<AiDocumentScope, AiDocumentType[]>();
+    for (const dt of list) {
+      const arr = groups.get(dt.scope) ?? [];
+      arr.push(dt);
+      groups.set(dt.scope, arr);
+    }
+    return (Object.keys(SCOPE_LABELS) as AiDocumentScope[])
+      .map((scope) => ({ scope, items: groups.get(scope) ?? [] }))
+      .filter((g) => g.items.length > 0);
+  };
+
   return (
     <div className="space-y-4">
       <DefaultTemplatesCard documentTypes={documentTypes} />
@@ -175,9 +221,8 @@ export function AIDocumentTemplatesSection() {
               Plantillas de documentos
             </CardTitle>
             <CardDescription>
-              Catálogo de documentos clínicos generados con IA. Cada uno tiene su propio historial
-              de versiones de prompt, con ámbito de centro, de un profesional concreto o de un
-              tipo de sesión concreto.
+              Documentos clínicos generados con IA. Cada plantilla tiene su propio historial de
+              versiones de prompt.
             </CardDescription>
           </div>
           <Button size="sm" onClick={() => setCreateOpen(true)}>
@@ -195,40 +240,38 @@ export function AIDocumentTemplatesSection() {
               No hay plantillas disponibles todavía.
             </p>
           ) : (
-            <div className="space-y-2">
-              {documentTypes.map((dt) => {
-                const origin = getDocumentTypeOrigin(dt);
-                return (
-                  <button
-                    key={dt.id}
-                    type="button"
-                    onClick={() => setSelected(dt)}
-                    className={cn(
-                      'flex w-full items-start justify-between gap-3 rounded-lg border p-4 text-left transition-colors hover:border-primary/50',
-                      !dt.is_active && 'opacity-60'
-                    )}
-                  >
-                    <div className="min-w-0 flex-1 space-y-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-medium">{dt.label}</span>
-                        <OriginBadge origin={origin} />
-                        <Badge variant="outline">{AUDIENCE_LABELS[dt.audience]}</Badge>
-                        <Badge variant="outline">{SCOPE_LABELS[dt.scope]}</Badge>
-                        {!dt.is_active && (
-                          <Badge variant="outline" className="text-muted-foreground">
-                            Inactiva
-                          </Badge>
-                        )}
-                      </div>
-                      {dt.description && (
-                        <p className="line-clamp-2 text-xs text-muted-foreground">{dt.description}</p>
-                      )}
-                    </div>
-                    <Icon name="chevron_right" className="mt-1 h-5 w-5 shrink-0 text-muted-foreground" />
-                  </button>
-                );
-              })}
-            </div>
+            <Tabs value={tab} onValueChange={(v) => setTab(v as 'mine' | 'system')}>
+              <TabsList>
+                <TabsTrigger value="system">Plantillas del sistema</TabsTrigger>
+                <TabsTrigger value="mine">Mis plantillas{mine.length > 0 ? ` (${mine.length})` : ''}</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="system" className="mt-4 space-y-6">
+                {system.length === 0 ? (
+                  <p className="py-8 text-center text-sm text-muted-foreground">
+                    No hay plantillas de sistema todavía.
+                  </p>
+                ) : (
+                  groupsFor(system).map((group) => (
+                    <TemplateGroup key={group.scope} scope={group.scope} items={group.items} onSelect={setSelected} />
+                  ))
+                )}
+              </TabsContent>
+
+              <TabsContent value="mine" className="mt-4 space-y-6">
+                {mine.length === 0 ? (
+                  <div className="py-8 text-center text-sm text-muted-foreground">
+                    Todavía no tienes plantillas propias.
+                    <br />
+                    Crea una nueva o duplica una desde "Plantillas del sistema" para personalizarla.
+                  </div>
+                ) : (
+                  groupsFor(mine).map((group) => (
+                    <TemplateGroup key={group.scope} scope={group.scope} items={group.items} onSelect={setSelected} />
+                  ))
+                )}
+              </TabsContent>
+            </Tabs>
           )}
         </CardContent>
 
@@ -250,6 +293,72 @@ export function AIDocumentTemplatesSection() {
         />
       </Card>
     </div>
+  );
+}
+
+/** Subcategoría por ámbito temporal ("Sesión >", "Multi-sesión >"...), en el espíritu de
+ *  las categorías de Plaud, con sus plantillas en tarjetas dentro. */
+function TemplateGroup({
+  scope,
+  items,
+  onSelect,
+}: {
+  scope: AiDocumentScope;
+  items: AiDocumentType[];
+  onSelect: (dt: AiDocumentType) => void;
+}) {
+  return (
+    <div className="space-y-3">
+      <h3 className="text-sm font-semibold text-muted-foreground">{SCOPE_LABELS[scope]}</h3>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {items.map((dt) => (
+          <TemplateCard key={dt.id} documentType={dt} onSelect={onSelect} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function TemplateCard({
+  documentType: dt,
+  onSelect,
+}: {
+  documentType: AiDocumentType;
+  onSelect: (dt: AiDocumentType) => void;
+}) {
+  const origin = getDocumentTypeOrigin(dt);
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(dt)}
+      className={cn(
+        'group flex h-full flex-col gap-2 rounded-xl border bg-card p-4 text-left transition-all hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-md',
+        !dt.is_active && 'opacity-60'
+      )}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+          <Icon name={AUDIENCE_ICONS[dt.audience]} className="h-5 w-5" />
+        </div>
+        <OriginBadge origin={origin} />
+      </div>
+      <div className="min-w-0 flex-1 space-y-1">
+        <p className="font-medium leading-tight">{dt.label}</p>
+        <p className="line-clamp-2 text-xs text-muted-foreground">
+          {dt.description || 'Sin descripción.'}
+        </p>
+      </div>
+      <div className="mt-auto flex flex-wrap items-center gap-1.5 pt-1">
+        <Badge variant="outline" className="text-[10px] font-normal">
+          {AUDIENCE_LABELS[dt.audience]}
+        </Badge>
+        {!dt.is_active && (
+          <Badge variant="outline" className="text-[10px] font-normal text-muted-foreground">
+            Inactiva
+          </Badge>
+        )}
+      </div>
+    </button>
   );
 }
 
@@ -407,6 +516,7 @@ function DocumentTypeDetailDialog({
   const { versions, isLoading: versionsLoading } = usePromptVersions(documentType.id);
   const setActive = useSetDocumentTypeActive();
   const duplicate = useDuplicateSystemDocumentType();
+  const deleteType = useDeleteDocumentType();
 
   const sections = parseSections(documentType.sections);
   const origin = getDocumentTypeOrigin(documentType);
@@ -417,6 +527,11 @@ function DocumentTypeDetailDialog({
   const handleClose = (nextOpen: boolean) => {
     if (!nextOpen) setMode('view');
     onOpenChange(nextOpen);
+  };
+
+  const handleDelete = async () => {
+    await deleteType.mutateAsync(documentType.id);
+    onOpenChange(false);
   };
 
   return (
@@ -475,10 +590,40 @@ function DocumentTypeDetailDialog({
                       {documentType.is_active ? 'Activa' : 'Inactiva'}
                     </Label>
                   </div>
-                  <Button size="sm" variant="outline" onClick={() => setMode('edit-type')}>
-                    <Icon name="edit" className="mr-2 h-4 w-4" />
-                    Editar datos de la plantilla
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="outline" onClick={() => setMode('edit-type')}>
+                      <Icon name="edit" className="mr-2 h-4 w-4" />
+                      Editar datos de la plantilla
+                    </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button size="sm" variant="outline" className="text-destructive hover:text-destructive">
+                          <Icon name="delete" className="mr-2 h-4 w-4" />
+                          Eliminar
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>¿Eliminar "{documentType.label}"?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Se borrará también su historial de versiones de prompt. Esta acción no
+                            se puede deshacer. Los documentos ya generados con esta plantilla no se
+                            ven afectados.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                          <AlertDialogAction
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            disabled={deleteType.isPending}
+                            onClick={handleDelete}
+                          >
+                            Eliminar
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
                 </div>
               )
             )}
@@ -528,6 +673,21 @@ function DocumentTypeDetailDialog({
               )}
             </div>
 
+            {documentType.default_user_prompt && (
+              <div>
+                <p className="mb-1 text-xs font-medium text-muted-foreground">
+                  Prompt base de la plantilla
+                </p>
+                <p className="mb-2 text-xs text-muted-foreground">
+                  Es el que se usa mientras no haya ninguna versión publicada que aplique. No es
+                  editable directamente: para cambiarlo, crea una versión nueva y publícala.
+                </p>
+                <pre className="whitespace-pre-wrap rounded bg-muted p-2 text-xs">
+                  {documentType.default_user_prompt}
+                </pre>
+              </div>
+            )}
+
             <Separator />
 
             <div className="flex items-center justify-between">
@@ -544,7 +704,10 @@ function DocumentTypeDetailDialog({
               </div>
             ) : versions.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                Todavía no hay ninguna versión de prompt para esta plantilla en tu centro.
+                Todavía no hay ninguna versión de prompt para esta plantilla en tu centro
+                {documentType.default_user_prompt
+                  ? ': se está usando el prompt base de arriba.'
+                  : '.'}
               </p>
             ) : (
               <div className="space-y-2">
