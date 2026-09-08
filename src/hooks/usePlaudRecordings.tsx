@@ -17,7 +17,7 @@ import { supabase } from '@/integrations/supabase/client';
 import type { Json } from '@/integrations/supabase/types';
 import { useAuth } from './useAuth';
 import { checkPatientConsent, type ConsentCheckResult, type ConsentDenialReason, type ConsentPurpose } from '@/lib/consent-verification';
-import { describePlaudGenerationBlock } from '@/components/plaud/plaudReviewLabels';
+import { describePlaudGenerationBlock, FLAGGED_AFTER_CONFIRMATION_MESSAGE } from '@/components/plaud/plaudReviewLabels';
 import { useGenerateAiDocument, AiDocumentGenerationError, type AiDiarizedTurn } from './useAIDocuments';
 
 // ---------------------------------------------------------------------------
@@ -43,6 +43,14 @@ export interface PlaudRecordingRow {
   serial_number: string | null;
   status: PlaudRecordingStatus;
   contains_multiple_sessions: boolean;
+  /**
+   * `true` mientras `contains_multiple_sessions` y el resto de campos de segmentación NO se
+   * han podido calcular a partir de una transcripción real (todavía no ha llegado, ver
+   * reintento de hasta 3 días en `sync-plaud-recordings`). Necesaria porque
+   * `contains_multiple_sessions = false` por sí solo es ambiguo entre "se comprobó y no hay
+   * riesgo" y "nunca se pudo comprobar".
+   */
+  segmentation_unverified: boolean;
   segmentation_score: number | null;
   segmentation_signals: Json | null;
   segment_boundaries: Json | null;
@@ -58,6 +66,18 @@ export interface PlaudRecordingRow {
   transcript_text: string | null;
   transcript_fetched_at: string | null;
   transcript_expires_at: string | null;
+  transcript_attempts: number;
+  /** Se rellena solo si se agota el reintento de transcripción (3 días) sin que llegara texto. */
+  transcript_retry_gave_up_at: string | null;
+  /**
+   * `true` cuando, DESPUÉS de que una persona ya confirmara a mano el emparejamiento
+   * (`matched_by = 'manual'`), llega la transcripción y la segmentación recalculada detecta
+   * sospecha de varias sesiones — el archivo puede mezclar el relato de dos pacientes
+   * distintos. La ingesta nunca deshace la confirmación anterior por su cuenta: se limita a
+   * levantar esta bandera, que se queda activa hasta que una persona la revise (ver
+   * `useConfirmPlaudMatch` y `useDiscardPlaudRecording`, que la limpian al resolverla).
+   */
+  flagged_after_confirmation: boolean;
   report_generated_at: string | null;
   last_error: string | null;
   created_at: string;
@@ -102,6 +122,12 @@ export interface PlaudRecordingWithContext extends PlaudRecordingRow {
   confirmedByProfile: PlaudConfirmedByRef | null;
 }
 
+/**
+ * Estados que, por sí solos, ya no necesitan una decisión humana. OJO: una fila con este
+ * `status` puede seguir necesitando atención si tiene `flagged_after_confirmation` — ver el
+ * enrutado explícito en `usePlaudRecordings` de abajo, que la saca de este grupo mientras
+ * la bandera siga activa.
+ */
 const RESOLVED_STATUSES: PlaudRecordingStatus[] = ['matched', 'ignored', 'processed'];
 
 async function attachContext(
@@ -176,9 +202,13 @@ async function attachContext(
 }
 
 /**
- * Bandeja de grabaciones Plaud. `scope: 'needs_review'` trae solo las pendientes de
- * decisión humana; `scope: 'resolved'` trae el historial (emparejadas, descartadas o
- * procesadas) para consulta.
+ * Bandeja de grabaciones Plaud. `scope: 'needs_review'` trae las pendientes de una decisión
+ * humana — `status = 'needs_review'` de toda la vida, MÁS cualquier grabación ya confirmada
+ * a mano que `flagged_after_confirmation` haya marcado tras recibir su transcripción (ver
+ * cabecera de `PlaudRecordingRow.flagged_after_confirmation`): esa fila necesita que alguien
+ * la reconfirme o la corrija tanto como una sin emparejar, así que no tiene sentido dejarla
+ * escondida en el historial. `scope: 'resolved'` trae el resto del historial (emparejadas,
+ * descartadas o procesadas) sin ninguna bandera activa, para consulta.
  */
 export function usePlaudRecordings(scope: 'needs_review' | 'resolved', options?: { enabled?: boolean }) {
   const { profile } = useAuth();
@@ -195,8 +225,8 @@ export function usePlaudRecordings(scope: 'needs_review' | 'resolved', options?:
         .eq('center_id', centerId);
 
       query = scope === 'needs_review'
-        ? query.eq('status', 'needs_review')
-        : query.in('status', RESOLVED_STATUSES);
+        ? query.or('status.eq.needs_review,flagged_after_confirmation.eq.true')
+        : query.in('status', RESOLVED_STATUSES).eq('flagged_after_confirmation', false);
 
       query = scope === 'needs_review'
         ? query.order('start_at', { ascending: true })
@@ -229,11 +259,45 @@ export function usePlaudNeedsReviewCount() {
     queryKey: ['plaud-recordings-count', centerId],
     queryFn: async () => {
       if (!centerId) return 0;
+      // Mismo criterio que el scope 'needs_review' de usePlaudRecordings: cuenta también las
+      // grabaciones ya confirmadas a mano que flagged_after_confirmation marcó después — si no,
+      // el aviso del menú/dashboard se quedaría en 0 con una grabación de riesgo esperando
+      // revisión, justo el hueco que este lote cierra.
       const { count, error } = await plaudClient
         .from('plaud_recordings')
         .select('id', { count: 'exact', head: true })
         .eq('center_id', centerId)
-        .eq('status', 'needs_review');
+        .or('status.eq.needs_review,flagged_after_confirmation.eq.true');
+      if (error) throw error;
+      return count ?? 0;
+    },
+    enabled: !!centerId,
+    staleTime: 60_000,
+    refetchInterval: 5 * 60 * 1000,
+  });
+}
+
+/**
+ * Cuenta de grabaciones importadas que siguen esperando a que Plaud termine de transcribirlas
+ * (`status = 'pending'`). No es un problema — es el estado normal mientras dura el reintento
+ * de hasta 3 días (ver `sync-plaud-recordings`) — así que deliberadamente no se mezcla con el
+ * aviso de "necesita atención" (`usePlaudNeedsReviewCount`): solo sirve para que la bandeja
+ * explique por qué faltan grabaciones recientes, en vez de dar la impresión de que se han
+ * perdido.
+ */
+export function usePlaudPendingCount() {
+  const { profile } = useAuth();
+  const centerId = profile?.center_id;
+
+  return useQuery({
+    queryKey: ['plaud-recordings-pending-count', centerId],
+    queryFn: async () => {
+      if (!centerId) return 0;
+      const { count, error } = await plaudClient
+        .from('plaud_recordings')
+        .select('id', { count: 'exact', head: true })
+        .eq('center_id', centerId)
+        .eq('status', 'pending');
       if (error) throw error;
       return count ?? 0;
     },
@@ -250,9 +314,12 @@ function invalidatePlaudQueries(queryClient: ReturnType<typeof useQueryClient>) 
 
 /**
  * Confirma el emparejamiento de una grabación con una sesión y paciente concretos —
- * ya sea la sugerencia del sistema o una elegida a mano en el buscador. Siempre queda
- * registrado como `matched_by: 'manual'` porque pasó por una decisión humana, y guarda
- * quién y cuándo.
+ * ya sea la sugerencia del sistema, una elegida a mano en el buscador, o la reconfirmación
+ * de una grabación que ya estaba `matched_by: 'manual'` y que `flagged_after_confirmation`
+ * marcó después (ver cabecera de esa columna en `PlaudRecordingRow`). Siempre queda
+ * registrado como `matched_by: 'manual'` porque pasó por una decisión humana, guarda quién y
+ * cuándo, y limpia `flagged_after_confirmation` — es precisamente la revisión humana que esa
+ * bandera pedía, así que su trabajo termina aquí.
  */
 export function useConfirmPlaudMatch() {
   const queryClient = useQueryClient();
@@ -269,6 +336,7 @@ export function useConfirmPlaudMatch() {
         confirmed_by: user.id,
         confirmed_at: new Date().toISOString(),
         status: 'matched',
+        flagged_after_confirmation: false,
       };
 
       const { error } = await plaudClient
@@ -281,7 +349,12 @@ export function useConfirmPlaudMatch() {
   });
 }
 
-/** Descarta una grabación por no corresponder a contenido clínico (ruido, prueba, etc.). */
+/**
+ * Descarta una grabación por no corresponder a contenido clínico (ruido, prueba, etc.), o por
+ * decidir tras revisarla que ninguna sesión/paciente es la correcta. También limpia
+ * `flagged_after_confirmation` si la tenía activa: descartar es, igual que reconfirmar, una
+ * forma válida de resolver ese aviso.
+ */
 export function useDiscardPlaudRecording() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -294,6 +367,7 @@ export function useDiscardPlaudRecording() {
         status: 'ignored',
         confirmed_by: user.id,
         confirmed_at: new Date().toISOString(),
+        flagged_after_confirmation: false,
       };
 
       const { error } = await plaudClient
@@ -452,6 +526,20 @@ export function useGeneratePlaudReports() {
       if (!recording.session_id) throw new Error('Esta grabación no está emparejada con ninguna sesión.');
       if (!recording.transcript_text || !recording.transcript_text.trim()) {
         throw new Error('Esta grabación no tiene transcripción disponible.');
+      }
+
+      // Cierre del hueco de seguridad señalado en el encargo: una grabación puede estar
+      // `matched_by: 'manual'` (confirmada a mano en su momento) y AUN ASÍ tener
+      // `flagged_after_confirmation` activa, si su transcripción llegó después y la
+      // segmentación recalculada detectó sospecha de mezcla — la ingesta nunca deshace esa
+      // confirmación por su cuenta. El bloqueo de más abajo (basado en `matched_by !==
+      // 'manual'`) no cubre este caso porque esta fila SÍ está confirmada a mano; hace falta
+      // esta comprobación aparte. Por construcción (`usePlaudRecordings` saca estas filas de
+      // la pestaña "Resueltas" mientras la bandera siga activa, y `useConfirmPlaudMatch` /
+      // `useDiscardPlaudRecording` la limpian al resolverla) esto no debería dispararse nunca
+      // en la práctica — pero si ocurriera, se bloquea en vez de asumir que está bien.
+      if (recording.flagged_after_confirmation) {
+        throw new Error(FLAGGED_AFTER_CONFIRMATION_MESSAGE);
       }
 
       // Defensa en profundidad — ver punto 5 del encargo. Por construcción

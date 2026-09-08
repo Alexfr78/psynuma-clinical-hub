@@ -34,6 +34,8 @@ const PRIMARY_REVIEW_REASON_LABELS: Record<string, string> = {
   ambiguous_candidates: 'Hay más de una cita que encaja igual de bien.',
   no_session_that_day: 'No se ha encontrado ninguna cita cercana a la hora de esta grabación.',
   low_confidence: 'La coincidencia encontrada no llega al nivel de confianza necesario para confirmarla sola.',
+  transcript_retry_exhausted:
+    'Se agotó el plazo de espera de la transcripción (3 días) y la grabación se clasificó solo por sus metadatos (fecha y duración), sin haber podido leer su contenido.',
 };
 
 /** Códigos de `match_reasons` que aportan contexto sobre la sesión sugerida, no sobre el bloqueo. */
@@ -105,6 +107,36 @@ export function formatConfidencePct(confidence: number | null): string {
   if (confidence === null || Number.isNaN(confidence)) return '—';
   return `${Math.round(confidence * 100)}%`;
 }
+
+// ---------------------------------------------------------------------------
+// Transcripción tardía o ausente: casos de incertidumbre que el reintento de
+// hasta 3 días (`sync-plaud-recordings`) introduce y que la bandeja debe explicar
+// ---------------------------------------------------------------------------
+
+/**
+ * Explica que la clasificación de esta grabación (si mezcla o no el contenido de más de una
+ * sesión) todavía no se ha podido comprobar, porque nunca llegó a analizarse su
+ * transcripción — `segmentation_unverified` en `plaud_recordings`. Es una situación distinta
+ * de "se comprobó y no hay riesgo": `contains_multiple_sessions = false` por sí solo no
+ * distingue entre ambas, de ahí esta columna aparte. Devuelve `null` cuando sí se pudo
+ * comprobar (para poder usarlo directamente como condición de render).
+ */
+export function describeSegmentationUnverified(segmentationUnverified: boolean): string | null {
+  if (!segmentationUnverified) return null;
+  return 'No se ha podido comprobar si este archivo contiene más de una sesión: su transcripción nunca llegó a tiempo. La clasificación se basa solo en la fecha y la duración de la grabación, no en su contenido.';
+}
+
+/**
+ * Mensaje para el caso de riesgo señalado explícitamente en el encargo: una grabación que ya
+ * se había confirmado a mano (`matched_by = 'manual'`) y que, al llegar más tarde su
+ * transcripción, resulta tener indicios de mezclar el contenido de más de una sesión
+ * (`flagged_after_confirmation` en `plaud_recordings`). La ingesta nunca deshace esa
+ * confirmación anterior por su cuenta — la bandera se queda activa hasta que una persona la
+ * revise y reconfirme el emparejamiento (o lo corrija) — así que este mismo texto sirve tanto
+ * para bloquear la generación de informes de IA como para explicar el aviso en la bandeja.
+ */
+export const FLAGGED_AFTER_CONFIRMATION_MESSAGE =
+  'Esta grabación se confirmó a mano, pero al llegar su transcripción se han detectado indicios de que el archivo contiene el contenido de más de una sesión, posiblemente de otro paciente. La confirmación anterior no se ha deshecho: revisa el contenido y confirma que el emparejamiento sigue siendo correcto, o corrígelo, antes de generar ningún informe.';
 
 // ---------------------------------------------------------------------------
 // Bloqueo por consentimiento al generar informes de IA sobre una grabación

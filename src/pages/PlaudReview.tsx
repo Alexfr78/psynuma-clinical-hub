@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Skeleton } from '@/components/ui/skeleton';
 import { Icon } from '@/components/ui/icon';
 import { PlaudRecordingCard } from '@/components/plaud/PlaudRecordingCard';
-import { usePlaudRecordings, usePlaudReviewStats } from '@/hooks/usePlaudRecordings';
+import { usePlaudPendingCount, usePlaudRecordings, usePlaudReviewStats } from '@/hooks/usePlaudRecordings';
 
 /**
  * Bandeja de revisión de grabaciones Plaud.
@@ -21,6 +21,7 @@ export default function PlaudReview() {
   const needsReview = usePlaudRecordings('needs_review');
   const resolved = usePlaudRecordings('resolved', { enabled: tab === 'resolved' });
   const stats = usePlaudReviewStats(needsReview.data);
+  const pendingCount = usePlaudPendingCount();
 
   const activeQuery = tab === 'needs_review' ? needsReview : resolved;
 
@@ -32,10 +33,24 @@ export default function PlaudReview() {
           Grabaciones Plaud
         </h1>
         <p className="text-muted-foreground">
-          Revisa las grabaciones que el sistema no ha podido emparejar con confianza antes de
-          que pasen a la ficha de un paciente.
+          Revisa las grabaciones que el sistema no ha podido emparejar con confianza, y las que
+          se confirmaron a mano pero levantaron un aviso al llegar su transcripción, antes de
+          que su contenido llegue a la ficha de un paciente.
         </p>
       </div>
+
+      {/* Recordatorio informativo, no un aviso: grabaciones importadas que Plaud todavía no ha
+          transcrito. Es el estado normal mientras dura el reintento (hasta 3 días) — no
+          aparecen en ninguna pestaña de abajo hasta entonces, así que sin esta nota podrían
+          parecer grabaciones perdidas en vez de trabajo en curso. */}
+      {!!pendingCount.data && (
+        <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
+          <Icon name="hourglass_top" className="h-4 w-4 shrink-0" />
+          {pendingCount.data} {pendingCount.data === 1 ? 'grabación importada' : 'grabaciones importadas'} en
+          espera de que Plaud termine de transcribir{pendingCount.data === 1 ? 'la' : 'las'}. Es normal — puede
+          tardar hasta 3 días — y no requiere ninguna acción todavía.
+        </p>
+      )}
 
       {stats.total > 0 && (stats.multiSession > 0 || stats.overlap > 0) && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -79,7 +94,7 @@ export default function PlaudReview() {
             recordings={needsReview.data}
             emptyIcon="task_alt"
             emptyTitle="No hay nada pendiente de revisión"
-            emptyDescription="Todas las grabaciones se han emparejado con confianza o ya han sido resueltas a mano. Cuando llegue una nueva grabación que el sistema no pueda confirmar por sí solo, aparecerá aquí."
+            emptyDescription="Todas las grabaciones se han emparejado con confianza o ya han sido resueltas a mano, sin avisos pendientes. Cuando llegue una nueva grabación que el sistema no pueda confirmar por sí solo — o cuando la transcripción de una ya confirmada levante un aviso — aparecerá aquí."
             readOnly={false}
           />
         </TabsContent>

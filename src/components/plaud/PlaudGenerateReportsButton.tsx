@@ -10,7 +10,7 @@ import {
   usePlaudGenerationConsent,
   type PlaudRecordingWithContext,
 } from '@/hooks/usePlaudRecordings';
-import { describePlaudGenerationBlock } from './plaudReviewLabels';
+import { describePlaudGenerationBlock, FLAGGED_AFTER_CONFIRMATION_MESSAGE } from './plaudReviewLabels';
 
 type GenerationStage = 'layer1' | 'layer2' | 'layer3' | null;
 
@@ -41,9 +41,17 @@ export function PlaudGenerateReportsButton({ recording }: { recording: PlaudReco
   const isRiskUnconfirmed =
     (recording.contains_multiple_sessions || recording.overlap_flag) && recording.matched_by !== 'manual';
 
+  // Cierre del hueco de seguridad del encargo: una grabación confirmada a mano
+  // (`matched_by: 'manual'`) puede llevar igualmente `flagged_after_confirmation` activa si
+  // su transcripción llegó después y se detectó sospecha de mezcla — el bloqueo de arriba no
+  // la cubre porque esta fila SÍ está confirmada a mano. Por construcción
+  // (`usePlaudRecordings` la saca de la pestaña "Resueltas" mientras la bandera siga activa)
+  // este botón no debería llegar a montarse con una grabación así, pero se comprueba igual.
+  const isFlaggedAfterConfirmation = recording.flagged_after_confirmation;
+
   const { data: consentResults, isLoading: isConsentLoading } = usePlaudGenerationConsent(
     recording.patient_id,
-    !isRiskUnconfirmed,
+    !isRiskUnconfirmed && !isFlaggedAfterConfirmation,
   );
   const consentBlockReason = describePlaudGenerationBlock(consentResults);
 
@@ -63,6 +71,15 @@ export function PlaudGenerateReportsButton({ recording }: { recording: PlaudReco
       },
     );
   };
+
+  if (isFlaggedAfterConfirmation) {
+    return (
+      <Alert variant="destructive" className="mt-2">
+        <Icon name="report" className="h-4 w-4" />
+        <AlertDescription>{FLAGGED_AFTER_CONFIRMATION_MESSAGE}</AlertDescription>
+      </Alert>
+    );
+  }
 
   if (isRiskUnconfirmed) {
     return (

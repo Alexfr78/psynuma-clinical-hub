@@ -12,11 +12,13 @@ import { PlaudDiscardDialog } from '@/components/plaud/PlaudDiscardDialog';
 import { PlaudGenerateReportsButton } from '@/components/plaud/PlaudGenerateReportsButton';
 import {
   describePrimaryReviewReasons,
+  describeSegmentationUnverified,
   describeSegmentBoundaries,
   describeSegmentationSignals,
   describeSuggestionDetails,
   formatConfidencePct,
   formatDurationMs,
+  FLAGGED_AFTER_CONFIRMATION_MESSAGE,
 } from '@/components/plaud/plaudReviewLabels';
 import {
   useConfirmPlaudMatch,
@@ -56,6 +58,16 @@ export function PlaudRecordingCard({ recording, readOnly }: PlaudRecordingCardPr
   // La confianza queda anulada a 0 por diseño cuando hay riesgo de mezcla (ver plaud-matching.ts):
   // no tiene sentido mostrarla como si fuera un porcentaje real en ese caso.
   const confidenceDisplay = hasRiskFlags ? null : recording.match_confidence;
+
+  // Caso de riesgo del encargo: ya se confirmó a mano, pero su transcripción (llegada
+  // después) levantó sospecha de mezcla. `usePlaudRecordings` mantiene estas filas en la
+  // pestaña "Por revisar" (nunca en "Resueltas") mientras la bandera siga activa, así que
+  // aquí siempre se renderizan con las acciones de emparejamiento visibles.
+  const isFlagged = recording.flagged_after_confirmation;
+  // "No lo sabemos" explícito: la clasificación de este archivo es solo por metadatos porque
+  // su transcripción nunca llegó a tiempo — menos fiable que una ya analizada.
+  const unverifiedMessage = describeSegmentationUnverified(recording.segmentation_unverified);
+  const previousConfirmationText = describePreviousConfirmation(recording);
 
   const startDate = parseISO(recording.start_at);
 
@@ -111,7 +123,13 @@ export function PlaudRecordingCard({ recording, readOnly }: PlaudRecordingCardPr
               · {format(startDate, 'HH:mm', { locale: es })} · {formatDurationMs(recording.duration_ms)}
             </span>
           </div>
-          {!readOnly && recording.status === 'needs_review' && (
+          {!readOnly && isFlagged && (
+            <Badge variant="outline" className="text-destructive border-destructive/40 bg-destructive/5 gap-1">
+              <Icon name="report" className="h-3 w-3" />
+              Confirmada, con aviso posterior
+            </Badge>
+          )}
+          {!readOnly && !isFlagged && recording.status === 'needs_review' && (
             <Badge variant="outline" className="text-amber-600 border-amber-200 bg-amber-50 gap-1">
               <Icon name="pending_actions" className="h-3 w-3" />
               Pendiente de revisión
@@ -121,6 +139,32 @@ export function PlaudRecordingCard({ recording, readOnly }: PlaudRecordingCardPr
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Aviso de mayor prioridad: ya se confirmó a mano, y la transcripción (llegada
+            después) levantó sospecha de mezcla. Va antes que cualquier otra explicación
+            porque reencuadra todo lo demás: esto no es una grabación nueva sin decidir, es
+            una decisión anterior que hay que revisar. */}
+        {isFlagged && (
+          <Alert variant="destructive">
+            <Icon name="report" className="h-4 w-4" />
+            <AlertDescription className="space-y-1.5">
+              <p className="font-medium">
+                Esta grabación ya se había{previousConfirmationText ? ` ${previousConfirmationText}` : ' confirmado a mano'},
+                pero al llegar su transcripción se ha detectado que probablemente contiene el
+                relato de más de una sesión.
+              </p>
+              <p>{FLAGGED_AFTER_CONFIRMATION_MESSAGE}</p>
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* "No lo sabemos" explícito: se clasificó sin haber podido leer el contenido. */}
+        {unverifiedMessage && (
+          <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-2.5 text-sm text-amber-800">
+            <Icon name="help" className="h-4 w-4 mt-0.5 shrink-0" />
+            <p>{unverifiedMessage}</p>
+          </div>
+        )}
+
         {/* Por qué está aquí */}
         <div className="space-y-1.5">
           <p className="text-sm font-medium text-muted-foreground">Por qué está en revisión</p>
@@ -131,7 +175,7 @@ export function PlaudRecordingCard({ recording, readOnly }: PlaudRecordingCardPr
                 {reason}
               </li>
             ))}
-            {primaryReasons.length === 0 && (
+            {primaryReasons.length === 0 && !isFlagged && (
               <li className="text-sm text-muted-foreground">Sin motivo específico registrado.</li>
             )}
           </ul>
@@ -191,13 +235,16 @@ export function PlaudRecordingCard({ recording, readOnly }: PlaudRecordingCardPr
           </Alert>
         )}
 
-        {/* Sugerencia del sistema */}
+        {/* Sugerencia del sistema — o, si ya está confirmada y con aviso, el emparejamiento
+            actual a reconfirmar (distinto de una simple propuesta sin decidir). */}
         <div className="rounded-md border p-3 space-y-2">
-          <p className="text-sm font-medium text-muted-foreground">Propuesta del sistema</p>
+          <p className="text-sm font-medium text-muted-foreground">
+            {isFlagged ? 'Emparejamiento actual (a reconfirmar)' : 'Propuesta del sistema'}
+          </p>
           {recording.suggestedSession ? (
             <>
               <p className="text-sm">
-                Podría corresponder a{' '}
+                {isFlagged ? 'Está asignada a' : 'Podría corresponder a'}{' '}
                 <span className="font-medium">
                   {recording.suggestedSession.patient_first_name} {recording.suggestedSession.patient_last_name}
                 </span>
@@ -236,7 +283,7 @@ export function PlaudRecordingCard({ recording, readOnly }: PlaudRecordingCardPr
             {recording.suggestedSession && (
               <Button size="sm" onClick={openConfirmForSuggestion} className="gap-2">
                 <Icon name="check" className="h-4 w-4" />
-                Confirmar propuesta
+                {isFlagged ? 'Confirmar que sigue siendo correcto' : 'Confirmar propuesta'}
               </Button>
             )}
             <PlaudSessionPicker onSelect={openConfirmForChosenSession} />
@@ -278,7 +325,35 @@ export function PlaudRecordingCard({ recording, readOnly }: PlaudRecordingCardPr
   );
 }
 
+/**
+ * Frase "confirmado a mano por X el Y" para contextualizar el aviso de `flagged_after_confirmation`
+ * — quién tomó la decisión que ahora hay que revisar de nuevo, y cuándo. `null` cuando no hay
+ * fecha registrada (no debería ocurrir en una fila `matched_by: 'manual'`, pero se cubre).
+ */
+function describePreviousConfirmation(recording: PlaudRecordingWithContext): string | null {
+  const who = recording.confirmedByProfile
+    ? `${recording.confirmedByProfile.first_name ?? ''} ${recording.confirmedByProfile.last_name ?? ''}`.trim()
+    : null;
+  const when = recording.confirmed_at ? parseISO(recording.confirmed_at) : null;
+  if (!when) return null;
+  const whenText = format(when, "d 'de' MMMM 'de' yyyy 'a las' HH:mm", { locale: es });
+  return who ? `confirmado a mano por ${who} el ${whenText}` : `confirmado a mano el ${whenText}`;
+}
+
 function ResolvedBadge({ recording }: { recording: PlaudRecordingWithContext }) {
+  // Defensa en profundidad: `usePlaudRecordings` ya saca estas filas de la pestaña
+  // "Resueltas" mientras la bandera siga activa (así que este componente, que solo se monta
+  // en modo solo lectura, no debería recibir nunca una `flagged`) — pero si ocurriera, más
+  // vale una insignia de aviso que la verde de "confirmada manualmente", que aquí sería
+  // engañosa: es precisamente el supuesto ("confirmada a mano = segura") que este lote rompe.
+  if (recording.flagged_after_confirmation) {
+    return (
+      <Badge variant="outline" className="text-destructive border-destructive/40 bg-destructive/5 gap-1">
+        <Icon name="report" className="h-3 w-3" />
+        Confirmada, con aviso posterior
+      </Badge>
+    );
+  }
   if (recording.status === 'ignored') {
     return (
       <Badge variant="outline" className="text-muted-foreground gap-1">

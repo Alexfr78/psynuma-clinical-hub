@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
   describePrimaryReviewReasons,
+  describeSegmentationUnverified,
   describeSegmentBoundaries,
   describeSegmentationSignals,
   describeSuggestionDetails,
   formatConfidencePct,
   formatDurationMs,
   formatOffset,
+  FLAGGED_AFTER_CONFIRMATION_MESSAGE,
 } from '@/components/plaud/plaudReviewLabels';
 
 describe('describePrimaryReviewReasons', () => {
@@ -25,6 +27,13 @@ describe('describePrimaryReviewReasons', () => {
     expect(labels).toHaveLength(2);
     expect(labels).toContain('Se solapa en el tiempo con otra grabación.');
     expect(labels).toContain('Hay más de una cita que encaja igual de bien.');
+  });
+
+  it('traduce el agotamiento del reintento de transcripción a una frase que explica que se clasificó sin leer el contenido', () => {
+    const labels = describePrimaryReviewReasons(['transcript_retry_exhausted']);
+    expect(labels).toEqual([
+      'Se agotó el plazo de espera de la transcripción (3 días) y la grabación se clasificó solo por sus metadatos (fecha y duración), sin haber podido leer su contenido.',
+    ]);
   });
 
   it('devuelve una lista vacía si no hay motivos reconocidos, sin lanzar sobre entradas raras', () => {
@@ -105,5 +114,25 @@ describe('formatConfidencePct', () => {
   it('muestra un guion cuando no hay confianza calculada', () => {
     expect(formatConfidencePct(null)).toBe('—');
     expect(formatConfidencePct(Number.NaN)).toBe('—');
+  });
+});
+
+describe('describeSegmentationUnverified', () => {
+  it('explica que la clasificación no se pudo comprobar cuando la columna es true', () => {
+    const message = describeSegmentationUnverified(true);
+    expect(message).toMatch(/no se ha podido comprobar/i);
+    expect(message).toMatch(/transcripción/i);
+  });
+
+  it('devuelve null cuando sí se pudo comprobar la segmentación', () => {
+    expect(describeSegmentationUnverified(false)).toBeNull();
+  });
+});
+
+describe('FLAGGED_AFTER_CONFIRMATION_MESSAGE', () => {
+  it('explica en lenguaje claro que una grabación confirmada a mano puede seguir teniendo indicios de mezcla', () => {
+    expect(FLAGGED_AFTER_CONFIRMATION_MESSAGE).toMatch(/confirmó a mano/i);
+    expect(FLAGGED_AFTER_CONFIRMATION_MESSAGE).toMatch(/más de una sesión/i);
+    expect(FLAGGED_AFTER_CONFIRMATION_MESSAGE).toMatch(/revisa/i);
   });
 });
