@@ -31,6 +31,7 @@ import ConsentSignature from "./pages/ConsentSignature";
 import PatientPortal from "./pages/PatientPortal";
 import PatientPortalDashboard from "./pages/PatientPortalDashboard";
 import InvoiceView from "./pages/InvoiceView";
+import PatientReportView from "./pages/PatientReportView";
 import PublicBooking from "./pages/PublicBooking";
 import PublicBookingManage from "./pages/PublicBookingManage";
 import Assessments from "./pages/Assessments";
@@ -73,6 +74,7 @@ const App = () => (
             <Route path="/evaluacion/:token" element={<AssessmentPublic />} />
             <Route path="/emo/:token" element={<EMOPublic />} />
             <Route path="/factura/:token" element={<InvoiceView />} />
+            <Route path="/informe/:token" element={<PatientReportView />} />
             <Route path="/instalar" element={<Install />} />
             <Route path="/portal/:slug" element={<PatientPortal />} />
             <Route path="/portal/:slug/dashboard" element={<PatientPortalDashboard />} />

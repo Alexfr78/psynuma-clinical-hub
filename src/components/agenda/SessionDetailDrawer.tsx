@@ -118,6 +118,7 @@ import { useAuditLog } from '@/hooks/useAuditLog';
 import { Icon } from '@/components/ui/icon';
 import { useSessionAiDocuments } from '@/hooks/useAIDocuments';
 import { effectiveMarkdown } from '@/lib/ai-documents';
+import { createPatientReportLink, buildPatientReportNotice, PATIENT_REPORT_EMAIL_SUBJECT } from '@/lib/patient-report-links';
 
 interface SessionDetailDrawerProps {
   session: SessionWithRelations | null;
@@ -541,7 +542,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
 
   const handleSendAIReport = async (channel: 'whatsapp' | 'email') => {
     const reportMarkdown = patientReportDoc ? effectiveMarkdown(patientReportDoc) : sessionData.ai_summary_patient;
-    if (!reportMarkdown || !session.center_id) return;
+    if (!reportMarkdown || !session.center_id || !session.patient_id) return;
     const recipient = channel === 'whatsapp' ? session.patient?.phone : session.patient?.email;
     if (!recipient) return;
 
@@ -554,6 +555,18 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
     }
 
     try {
+      // El informe ya no viaja en el mensaje: se guarda como foto en
+      // patient_report_links y solo se manda un aviso con el enlace. Ver
+      // src/lib/patient-report-links.ts para la justificación completa.
+      const { url } = await createPatientReportLink(supabase, {
+        centerId: session.center_id,
+        patientId: session.patient_id,
+        sessionId: session.id,
+        aiGeneratedDocumentId: patientReportDoc?.id ?? null,
+        contentMarkdown: reportMarkdown,
+      });
+      const noticeMessage = buildPatientReportNotice(url, session.patient?.first_name);
+
       const { data: notification } = await supabase
         .from('notifications')
         .insert({
@@ -562,14 +575,16 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
           patient_id: session.patient_id,
           type: channel,
           recipient,
-          subject: 'Resumen de tu sesión',
+          // Asunto neutro: debe poder leerse en una notificación de pantalla
+          // de bloqueo sin revelar que es terapia, el motivo o un diagnóstico.
+          subject: PATIENT_REPORT_EMAIL_SUBJECT,
           // Explicit purpose marker on every channel — this is the primary
           // signal send-notification's consent gate relies on to recognize
           // a clinical AI report delivery. Set here regardless of channel so
           // sending via WhatsApp cannot bypass the gate the way it used to
           // when only the email path set `subject`.
           purpose: 'clinical_report',
-          message: reportMarkdown,
+          message: noticeMessage,
           status: 'pending',
         })
         .select('id')

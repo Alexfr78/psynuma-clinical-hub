@@ -4,15 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useCenter } from './useCenter';
 import { checkPatientConsent, type ConsentCheckResult, type ConsentPurpose } from '@/lib/consent-verification';
-
-// The exact, literal subject used for every clinical AI report send (email
-// subject shown to the patient, and — for WhatsApp, where `subject` is not
-// otherwise used by the app — an internal marker only). Kept for backward
-// compatibility with send-notification's legacy fallback detection, but the
-// column below (`purpose`) is now the primary signal it relies on. Keep this
-// in sync with CLINICAL_REPORT_SUBJECT_MARKER in
-// supabase/functions/send-notification/index.ts.
-const CLINICAL_REPORT_SUBJECT_MARKER = 'Resumen de tu sesión';
+import { createPatientReportLink, buildPatientReportNotice, PATIENT_REPORT_EMAIL_SUBJECT } from '@/lib/patient-report-links';
 
 // Explicit purpose marker (see migration in
 // migracion-notifications-purpose.sql). send-notification's consent gate
@@ -159,29 +151,39 @@ export function useTranscriptionAnalysis(options: UseTranscriptionAnalysisOption
       // First create a notification record, then invoke send-notification with notificationId
       const { data: session } = await supabase
         .from('sessions')
-        .select('patient_id')
+        .select('patient_id, patient:patients(first_name)')
         .eq('id', sessionId)
         .single();
+
+      if (!session?.patient_id) throw new Error('No se pudo resolver el contacto de esta sesión');
+
+      // El informe ya no viaja en el mensaje: se guarda como foto en
+      // patient_report_links y solo se manda un aviso con el enlace. Ver
+      // src/lib/patient-report-links.ts para la justificación completa.
+      const { url } = await createPatientReportLink(supabase, {
+        centerId,
+        patientId: session.patient_id,
+        sessionId,
+        contentMarkdown: reportContent,
+      });
+      const noticeMessage = buildPatientReportNotice(url, session.patient?.first_name);
 
       const { data: notification, error: insertError } = await supabase
         .from('notifications')
         .insert({
           center_id: centerId,
           session_id: sessionId,
-          patient_id: session?.patient_id,
+          patient_id: session.patient_id,
           type: channel,
           recipient,
-          // Set on both channels: it's the real email subject shown to the
-          // patient, and — for WhatsApp, where `subject` isn't otherwise used
-          // — an internal marker. Kept for the legacy fallback in
-          // send-notification's consent gate; `purpose` below is now the
-          // primary signal.
-          subject: CLINICAL_REPORT_SUBJECT_MARKER,
+          // Asunto neutro: debe poder leerse en una notificación de pantalla
+          // de bloqueo sin revelar que es terapia, el motivo o un diagnóstico.
+          subject: PATIENT_REPORT_EMAIL_SUBJECT,
           // Primary signal for send-notification's consent gate — set on
           // every channel so a clinical report can never bypass it by going
           // out over a channel that doesn't otherwise use `subject`.
           purpose: CLINICAL_REPORT_PURPOSE,
-          message: reportContent,
+          message: noticeMessage,
           status: 'pending' as const,
         })
         .select('id')

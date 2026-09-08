@@ -61,6 +61,7 @@ export default defineConfig(({ mode }) => ({
         // Toda ruta pública nueva debe añadirse aquí.
         navigateFallbackDenylist: [
           /^\/factura\//,
+          /^\/informe\//,
           /^\/pagar\//,
           /^\/cita\//,
           /^\/consentimiento\//,

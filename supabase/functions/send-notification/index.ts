@@ -69,11 +69,17 @@ interface ResendEmailResult {
 // FALLBACK ONLY (rows created before this column existed, or by any code
 // path that is not yet updated to set `purpose`) — kept as a legacy net, not
 // as the primary mechanism:
-//   1. `subject` equals the exact marker string used for these sends
-//      ("Resumen de tu sesión").
+//   1. `subject` equals the exact marker string these sends used to carry
+//      ("Resumen de tu sesión") — pre-dates the switch (see
+//      `patient_report_links` migration) to a neutral subject and a message
+//      that is just a notice + a `/informe/:token` link, never the report
+//      itself. New rows always set `purpose` and never match this string,
+//      so this branch only ever fires for genuinely old rows.
 //   2. The notification is tied to a session (`session_id`) whose stored
 //      `ai_summary_clinical` / `ai_summary_patient` text matches the
-//      notification's `message` verbatim.
+//      notification's `message` verbatim. Same story: only pre-migration
+//      rows carried the full report text in `message`, so this only ever
+//      matches historical data too.
 // Fail-closed rule: if the notification carries clinical-report-shaped
 // content (matches the session's stored AI summary) but we cannot positively
 // confirm consent was granted, IT DOES NOT SEND. This function never treats
@@ -158,6 +164,8 @@ function linkifyUrls(text: string): string {
         ? 'Pagar con tarjeta'
       : /\/cita\//.test(cleanUrl)
         ? 'Gestionar mi cita'
+      : /\/informe\//.test(cleanUrl)
+        ? 'Ver documento'
         : 'Abrir enlace';
     return `<a href="${escapeHtml(cleanUrl)}" style="color: #1d4ed8; text-decoration: underline;">${label}</a>${url.slice(cleanUrl.length)}`;
   });

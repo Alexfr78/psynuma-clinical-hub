@@ -63,8 +63,8 @@ export const CONSENT_PURPOSE_LABELS: Record<ConsentPurpose, string> = {
   recording: 'Grabación de sesiones',
   ai_processing: 'Tratamiento con IA',
   report_generation: 'Generación de informes',
-  channel_whatsapp: 'Envío por WhatsApp',
-  channel_email: 'Envío por email',
+  channel_whatsapp: 'Aviso de informe por WhatsApp',
+  channel_email: 'Aviso de informe por email',
 };
 
 export function consentPurposeStatusReason(result: ConsentCheckResult | undefined): string | null {

@@ -14,6 +14,7 @@ import { checkPatientConsent, type ConsentCheckResult } from '@/lib/consent-veri
 import { consentSendBlockReason } from '@/lib/consent-block-messages';
 import { useAIDocuments } from '@/hooks/useAIDocuments';
 import { effectiveMarkdown } from '@/lib/ai-documents';
+import { createPatientReportLink, buildPatientReportNotice, PATIENT_REPORT_EMAIL_SUBJECT } from '@/lib/patient-report-links';
 import type { AiGeneratedDocumentWithType } from '@/types/ai-documents';
 
 interface PatientAIReportsProps {
@@ -74,9 +75,9 @@ export function PatientAIReports({ patientId }: PatientAIReportsProps) {
   const { data: patientContact } = useQuery({
     queryKey: ['patient-ai-reports-contact', patientId],
     queryFn: async () => {
-      const { data, error } = await supabase.from('patients').select('phone, email').eq('id', patientId).maybeSingle();
+      const { data, error } = await supabase.from('patients').select('phone, email, first_name').eq('id', patientId).maybeSingle();
       if (error) throw error;
-      return data as { phone: string | null; email: string | null } | null;
+      return data as { phone: string | null; email: string | null; first_name: string | null } | null;
     },
     enabled: !!patientId,
   });
@@ -158,6 +159,19 @@ export function PatientAIReports({ patientId }: PatientAIReportsProps) {
 
     setSendingId(doc.id);
     try {
+      // El informe ya no viaja en el mensaje: se guarda como foto en
+      // patient_report_links y solo se manda un aviso con el enlace. Ver
+      // src/lib/patient-report-links.ts para la justificación completa.
+      const { url } = await createPatientReportLink(supabase, {
+        centerId,
+        patientId,
+        sessionId: doc.session_id,
+        aiGeneratedDocumentId: doc.id,
+        title: doc.document_type.label,
+        contentMarkdown: effectiveMarkdown(doc),
+      });
+      const noticeMessage = buildPatientReportNotice(url, patientContact?.first_name);
+
       const { data: notification } = await supabase
         .from('notifications')
         .insert({
@@ -166,14 +180,16 @@ export function PatientAIReports({ patientId }: PatientAIReportsProps) {
           patient_id: patientId,
           type: channel,
           recipient,
-          subject: 'Resumen de tu sesión',
+          // Asunto neutro: debe poder leerse en una notificación de pantalla
+          // de bloqueo sin revelar que es terapia, el motivo o un diagnóstico.
+          subject: PATIENT_REPORT_EMAIL_SUBJECT,
           // Explicit purpose marker on every channel — this is the primary
           // signal send-notification's consent gate relies on to recognize
           // a clinical AI report delivery. Set here regardless of channel so
           // sending via WhatsApp cannot bypass the gate the way it used to
           // when only the email path set `subject`.
           purpose: 'clinical_report',
-          message: effectiveMarkdown(doc),
+          message: noticeMessage,
           status: 'pending',
         })
         .select('id')
