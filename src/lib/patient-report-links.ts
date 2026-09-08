@@ -77,5 +77,5 @@ export async function createPatientReportLink(
  */
 export function buildPatientReportNotice(url: string, patientFirstName?: string | null): string {
   const greeting = patientFirstName ? `Hola ${patientFirstName},` : 'Hola,';
-  return `${greeting} tienes disponible un resumen de tu sesión. Puedes consultarlo aquí: ${url}\n\nEste enlace es personal e intransferible.`;
+  return `${greeting} tienes disponible un resumen. Puedes consultarlo aquí: ${url}\n\nEste enlace es personal e intransferible.`;
 }
