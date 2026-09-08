@@ -443,7 +443,7 @@ async function handleBonoPurchase(
 
   const { data: existingBono, error: existingBonoError } = await supabase
     .from('bonos')
-    .select('id')
+    .select('id, expires_at')
     .eq('stripe_checkout_session_id', stripeSessionId)
     .maybeSingle();
   if (existingBonoError) throw existingBonoError;
@@ -468,7 +468,7 @@ async function handleBonoPurchase(
         expires_at: expiresAt.toISOString(),
         stripe_checkout_session_id: stripeSessionId,
       })
-      .select('id')
+      .select('id, expires_at')
       .single();
 
     if (bonoError || !insertedBono) {
@@ -578,6 +578,9 @@ async function handleBonoPurchase(
   let invoiceId = existingInvoiceItem?.invoice_id || paymentRecord.invoice_id || null;
   if (!invoiceId) {
     const description = `${bonoName} - ${totalSessions} sesiones`;
+    // La compra de bono no tiene sesión asociada de la que colgar una
+    // confirmación de cita, así que el aviso al paciente viaja con la factura:
+    // createInvoice envía la confirmación de compra con el PDF adjunto.
     const invoiceResult = await createInvoice(
       supabase,
       centerId,
@@ -585,7 +588,12 @@ async function handleBonoPurchase(
       description,
       paymentAmount,
       null,
-      bonoData.id
+      bonoData.id,
+      {
+        name: bonoName,
+        totalSessions,
+        expiresAt: bonoData.expires_at ?? null,
+      }
     );
     invoiceId = invoiceResult.invoiceId;
   }

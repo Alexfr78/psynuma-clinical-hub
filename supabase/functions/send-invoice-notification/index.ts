@@ -14,6 +14,24 @@ interface RequestBody {
   patientEmail?: string | null;
   patientPhone?: string | null;
   channel: 'email' | 'whatsapp' | 'both';
+  // Cuando la factura proviene de la compra de un bono, el aviso al paciente se
+  // redacta como confirmación de compra y lleva la factura en PDF adjunta, en
+  // lugar del texto genérico de envío de factura.
+  bonoContext?: BonoContext | null;
+}
+
+interface BonoContext {
+  name: string;
+  totalSessions: number;
+  expiresAt?: string | null;
+}
+
+function formatSpanishDate(value: string): string {
+  try {
+    return new Date(value).toLocaleDateString('es-ES');
+  } catch {
+    return value;
+  }
 }
 
 function uint8ToBase64(bytes: Uint8Array): string {
@@ -350,6 +368,11 @@ Deno.serve(async (req) => {
 
     const body: RequestBody = await req.json();
     const { invoiceId, patientId, patientEmail, patientPhone, channel } = body;
+    const bonoContext = body.bonoContext ?? null;
+
+    if (!invoiceId) {
+      throw new Error('invoiceId is required');
+    }
 
     console.log('Sending invoice notification:', { invoiceId, channel });
 
@@ -434,13 +457,27 @@ Deno.serve(async (req) => {
                 <tr>
                   <td style="background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
                     <h1 style="margin: 0; font-size: 24px;">${center?.name || 'Centro'}</h1>
-                    <p style="margin: 10px 0 0 0; opacity: 0.9;">Factura ${invoiceNumber}</p>
+                    <p style="margin: 10px 0 0 0; opacity: 0.9;">${bonoContext ? `Compra confirmada &middot; ${bonoContext.name}` : `Factura ${invoiceNumber}`}</p>
                   </td>
                 </tr>
                 <tr>
                   <td style="background: #f8fafc; padding: 30px; border: 1px solid #e2e8f0; border-top: none;">
                     <p style="margin: 0 0 15px 0;">Estimado/a ${patientName},</p>
-                    <p style="margin: 0 0 20px 0;">Le enviamos su factura correspondiente a los servicios prestados.</p>
+                    <p style="margin: 0 0 20px 0;">${bonoContext
+                      ? `Su compra del bono <strong>${bonoContext.name}</strong> se ha confirmado correctamente. Adjuntamos la factura en PDF.`
+                      : 'Le enviamos su factura correspondiente a los servicios prestados.'}</p>
+
+                    ${bonoContext ? `
+                    <table width="100%" cellpadding="0" cellspacing="0" style="background: white; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0; margin: 20px 0;">
+                      <tr>
+                        <td>
+                          <p style="margin: 0 0 10px 0;"><strong>Bono:</strong> ${bonoContext.name}</p>
+                          <p style="margin: 0 0 10px 0;"><strong>Sesiones incluidas:</strong> ${bonoContext.totalSessions}</p>
+                          ${bonoContext.expiresAt ? `<p style="margin: 0;"><strong>Válido hasta:</strong> ${formatSpanishDate(bonoContext.expiresAt)}</p>` : ''}
+                        </td>
+                      </tr>
+                    </table>
+                    ` : ''}
                     
                     <table width="100%" cellpadding="0" cellspacing="0" style="background: white; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0; margin: 20px 0;">
                       <tr>
@@ -491,7 +528,9 @@ Deno.serve(async (req) => {
     return v;
   })()}>`,
             to: [email],
-            subject: `Factura ${invoiceNumber} - ${center?.name || 'Psycma'}`,
+            subject: bonoContext
+              ? `Compra confirmada: ${bonoContext.name} (factura ${invoiceNumber}) - ${center?.name || 'Psycma'}`
+              : `Factura ${invoiceNumber} - ${center?.name || 'Psycma'}`,
             html: emailHtml,
             ...(pdf ? { attachments: [{ filename: pdfFileName, content: uint8ToBase64(pdf.bytes) }] } : {}),
           });
@@ -526,7 +565,17 @@ Deno.serve(async (req) => {
       const total = invoice.total?.toFixed(2) || '0.00';
 
       // Build message with download link
-      let message = `Hola ${patientName}, le enviamos su factura ${invoiceNumber} por un total de ${total}€.`;
+      let message: string;
+      if (bonoContext) {
+        message = `Hola ${patientName}, su compra del bono "${bonoContext.name}" se ha confirmado correctamente.`;
+        message += `\n\n• Sesiones incluidas: ${bonoContext.totalSessions}`;
+        if (bonoContext.expiresAt) {
+          message += `\n• Válido hasta: ${formatSpanishDate(bonoContext.expiresAt)}`;
+        }
+        message += `\n• Importe: ${total}€ (factura ${invoiceNumber})`;
+      } else {
+        message = `Hola ${patientName}, le enviamos su factura ${invoiceNumber} por un total de ${total}€.`;
+      }
       
       if (invoiceUrl) {
         message += `\n\n📄 Ver y descargar factura:\n${invoiceUrl}`;

@@ -13,6 +13,15 @@ interface InvoiceSeries {
   is_archived: boolean;
 }
 
+// Contexto opcional de compra de bono. Cuando se pasa, la notificación al
+// paciente se redacta como confirmación de compra del bono (con la factura en
+// PDF adjunta) en lugar del texto genérico de envío de factura.
+export interface BonoNotificationContext {
+  name: string;
+  totalSessions: number;
+  expiresAt?: string | null;
+}
+
 export async function createInvoice(
   // The webhook and cancellation functions currently use different Supabase
   // client package versions. Keep this shared boundary structural until the
@@ -25,6 +34,7 @@ export async function createInvoice(
   amount: number,
   linkedSessionId: string | null,
   linkedBonoId: string | null,
+  bonoContext: BonoNotificationContext | null = null,
 ): Promise<{ invoiceId: string | null; accessToken: string | null }> {
   console.log('Creating invoice for:', { centerId, patientId, amount });
 
@@ -217,19 +227,45 @@ export async function createInvoice(
     const patientData = patient;
 
     if (patientData) {
+      // send-invoice-notification espera camelCase. Un desajuste aquí deja la
+      // factura emitida pero nunca enviada, así que el fallo se registra como
+      // notificación fallida para que sea visible en vez de perderse en los logs.
       try {
         console.log('Sending invoice notification via:', sendChannel);
-        await supabase.functions.invoke('send-invoice-notification', {
-          body: {
-            invoice_id: invoiceData.id,
-            patient_id: patientId,
-            patient_email: patientData.email,
-            patient_phone: patientData.phone,
-            channel: sendChannel,
+        const { data: notifData, error: notifInvokeError } = await supabase.functions.invoke(
+          'send-invoice-notification',
+          {
+            body: {
+              invoiceId: invoiceData.id,
+              patientId,
+              patientEmail: patientData.email,
+              patientPhone: patientData.phone,
+              channel: sendChannel,
+              ...(bonoContext ? { bonoContext } : {}),
+            },
           },
-        });
+        );
+
+        const notifFailure = notifInvokeError
+          ? (notifInvokeError.message || 'Error invocando send-invoice-notification')
+          : (notifData && notifData.success === false
+            ? (notifData.error || 'send-invoice-notification devolvió success=false')
+            : null);
+
+        if (notifFailure) {
+          await recordInvoiceNotificationFailure(
+            supabase, centerId, patientId, invoiceData.id, invoiceNumber,
+            sendChannel === 'whatsapp' ? patientData.phone : patientData.email,
+            sendChannel, notifFailure,
+          );
+        }
       } catch (notifError) {
-        console.error('Error sending invoice notification:', notifError);
+        await recordInvoiceNotificationFailure(
+          supabase, centerId, patientId, invoiceData.id, invoiceNumber,
+          sendChannel === 'whatsapp' ? patientData.phone : patientData.email,
+          sendChannel,
+          notifError instanceof Error ? notifError.message : String(notifError),
+        );
       }
     }
 
@@ -237,5 +273,37 @@ export async function createInvoice(
   } catch (error) {
     console.error('Error in createInvoice:', error);
     return { invoiceId: null, accessToken: null };
+  }
+}
+
+// Deja constancia visible de que una factura se emitió pero no se pudo enviar:
+// una fila fallida en notifications, que es lo que ve el usuario en la pantalla
+// de Notificaciones. Nunca lanza: el cobro y la factura ya son válidos y no
+// deben revertirse porque falle el aviso al paciente.
+async function recordInvoiceNotificationFailure(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  centerId: string,
+  patientId: string,
+  invoiceId: string,
+  invoiceNumber: string,
+  recipient: string | null,
+  channel: string,
+  message: string,
+): Promise<void> {
+  console.error('Error sending invoice notification:', { invoiceId, channel, message });
+  try {
+    await supabase.from('notifications').insert({
+      center_id: centerId,
+      patient_id: patientId,
+      type: channel === 'whatsapp' ? 'whatsapp' : 'email',
+      recipient: recipient || '',
+      subject: `Factura ${invoiceNumber}`,
+      message: `No se pudo enviar automáticamente la factura ${invoiceNumber} al paciente.`,
+      status: 'failed',
+      error_message: message,
+    });
+  } catch (logError) {
+    console.error('Error logging invoice notification failure:', logError);
   }
 }
