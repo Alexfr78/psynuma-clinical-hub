@@ -10672,6 +10672,454 @@ GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON
 GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.whatsapp_sessions TO service_role;
 
 -- -----------------------------------------------------------------------------
+-- Permisos de ejecución de las funciones
+--
+-- PostgreSQL concede EXECUTE a PUBLIC en toda función nueva, así que sin este
+-- bloque un entorno nuevo dejaría las 146 al alcance de cualquiera. En
+-- producción no son uniformes: 57 excluyen a `anon`, y cinco
+-- (weekly_db_maintenance, record_audit_event, find_portal_patient_by_identifier
+-- y los dos cerrojos de sincronización de Google) están reservadas a
+-- service_role. Se reproduce el estado exacto de producción.
+-- -----------------------------------------------------------------------------
+REVOKE ALL ON FUNCTION public._calculate_professional_variable_amount_internal(p_professional_id uuid, p_center_id uuid, p_period_start date, p_period_end date, p_percentage_rate numeric, p_basis compensation_basis) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._calculate_professional_variable_amount_internal(p_professional_id uuid, p_center_id uuid, p_period_start date, p_period_end date, p_percentage_rate numeric, p_basis compensation_basis) TO authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.acquire_verifactu_chain_lock(p_center_id uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.acquire_verifactu_chain_lock(p_center_id uuid) TO PUBLIC, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.acquire_verifactu_chain_lock_v2(p_center_id uuid, p_nif_emisor text, p_lock_timeout_seconds integer) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.acquire_verifactu_chain_lock_v2(p_center_id uuid, p_nif_emisor text, p_lock_timeout_seconds integer) TO PUBLIC, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.apply_bono_to_session(p_bono_id uuid, p_session_id uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.apply_bono_to_session(p_bono_id uuid, p_session_id uuid) TO PUBLIC, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.apply_resolved_price_to_session() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.apply_resolved_price_to_session() TO PUBLIC, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.assert_invoice_items_mutable(p_invoice_id uuid, p_operation text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.assert_invoice_items_mutable(p_invoice_id uuid, p_operation text) TO PUBLIC, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.audit_clinical_change() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.audit_clinical_change() TO PUBLIC, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.audit_invoice_item_change() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.audit_invoice_item_change() TO PUBLIC, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.audit_trigger_function() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.audit_trigger_function() TO PUBLIC, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.auto_complete_past_sessions() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.auto_complete_past_sessions() TO PUBLIC, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.bootstrap_create_center(p_name text, p_tax_id text, p_address text, p_city text, p_postal_code text, p_phone text, p_email text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.bootstrap_create_center(p_name text, p_tax_id text, p_address text, p_city text, p_postal_code text, p_phone text, p_email text) TO authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.calculate_professional_variable_amount(p_professional_id uuid, p_period_start date, p_period_end date) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.calculate_professional_variable_amount(p_professional_id uuid, p_period_start date, p_period_end date) TO PUBLIC, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.check_custom_price_overlap() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.check_custom_price_overlap() TO PUBLIC, anon, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.check_single_online_location() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.check_single_online_location() TO PUBLIC, anon, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.check_tariff_assignment_overlap() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.check_tariff_assignment_overlap() TO PUBLIC, anon, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.claim_stripe_webhook_event(p_event_id text, p_event_type text, p_connected_account_id text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.claim_stripe_webhook_event(p_event_id text, p_event_type text, p_connected_account_id text) TO authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.cleanup_expired_plaud_transcripts() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.cleanup_expired_plaud_transcripts() TO PUBLIC, anon, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.cleanup_old_rate_limit_entries() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.cleanup_old_rate_limit_entries() TO PUBLIC, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.collect_session_payment_v2(p_session_id uuid, p_patient_id uuid, p_amount numeric, p_payment_method text, p_payment_date date, p_reference text, p_notes text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.collect_session_payment_v2(p_session_id uuid, p_patient_id uuid, p_amount numeric, p_payment_method text, p_payment_date date, p_reference text, p_notes text) TO PUBLIC, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.compute_patient_status(p_patient_id uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.compute_patient_status(p_patient_id uuid) TO PUBLIC, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.confirm_cancellation_charge(p_charge_id uuid, p_amount numeric, p_review_note text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.confirm_cancellation_charge(p_charge_id uuid, p_amount numeric, p_review_note text) TO authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.convert_calendar_event_to_session(p_calendar_event_id uuid, p_patient_id uuid, p_session_type text, p_price numeric, p_session_modality text, p_location_id uuid, p_notes text, p_bono_id uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.convert_calendar_event_to_session(p_calendar_event_id uuid, p_patient_id uuid, p_session_type text, p_price numeric, p_session_modality text, p_location_id uuid, p_notes text, p_bono_id uuid) TO PUBLIC, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.convert_calendar_event_to_session(p_calendar_event_id uuid, p_patient_id uuid, p_session_type text, p_price numeric, p_session_modality text, p_location_id uuid, p_notes text, p_bono_id uuid, p_session_type_id uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.convert_calendar_event_to_session(p_calendar_event_id uuid, p_patient_id uuid, p_session_type text, p_price numeric, p_session_modality text, p_location_id uuid, p_notes text, p_bono_id uuid, p_session_type_id uuid) TO PUBLIC, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.create_bono_with_debt(p_patient_id uuid, p_name text, p_total_sessions integer, p_price_per_session numeric, p_total_price numeric, p_expires_at timestamp with time zone, p_center_id uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.create_bono_with_debt(p_patient_id uuid, p_name text, p_total_sessions integer, p_price_per_session numeric, p_total_price numeric, p_expires_at timestamp with time zone, p_center_id uuid) TO PUBLIC, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.create_f3_replacement(p_original_invoice_id uuid, p_series_id uuid, p_recipient jsonb, p_update_patient boolean, p_idempotency_key uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.create_f3_replacement(p_original_invoice_id uuid, p_series_id uuid, p_recipient jsonb, p_update_patient boolean, p_idempotency_key uuid) TO authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.create_rectificativa_substitution(p_original_invoice_id uuid, p_series_id uuid, p_recipient jsonb, p_update_patient boolean, p_idempotency_key uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.create_rectificativa_substitution(p_original_invoice_id uuid, p_series_id uuid, p_recipient jsonb, p_update_patient boolean, p_idempotency_key uuid) TO authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.create_session_type_with_order(p_center_id uuid, p_name text, p_default_price numeric, p_duration_minutes integer, p_color text, p_commission_rate numeric, p_tax_treatment text, p_vat_rate numeric, p_exemption_code text, p_non_subject_code text, p_vat_regime_key text, p_is_public boolean) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.create_session_type_with_order(p_center_id uuid, p_name text, p_default_price numeric, p_duration_minutes integer, p_color text, p_commission_rate numeric, p_tax_treatment text, p_vat_rate numeric, p_exemption_code text, p_non_subject_code text, p_vat_regime_key text, p_is_public boolean) TO PUBLIC, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.delete_bono_safely(p_bono_id uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.delete_bono_safely(p_bono_id uuid) TO PUBLIC, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.delete_email(queue_name text, message_id bigint) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.delete_email(queue_name text, message_id bigint) TO authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.delete_patient_gdpr(p_patient_id uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.delete_patient_gdpr(p_patient_id uuid) TO PUBLIC, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.delete_payment_and_recompute_debt_v2(p_payment_id uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.delete_payment_and_recompute_debt_v2(p_payment_id uuid) TO authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.email_queue_dispatch() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.email_queue_dispatch() TO authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.email_queue_wake() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.email_queue_wake() TO authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.enforce_single_current_version() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.enforce_single_current_version() TO PUBLIC, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.enforce_single_default_per_day() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.enforce_single_default_per_day() TO PUBLIC, anon, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.enforce_single_default_tariff_plan() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.enforce_single_default_tariff_plan() TO PUBLIC, anon, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.enqueue_email(queue_name text, payload jsonb) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.enqueue_email(queue_name text, payload jsonb) TO authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.find_debt_id_for_payment(p_payment_id uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.find_debt_id_for_payment(p_payment_id uuid) TO authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.find_portal_patient_by_identifier(p_center_id uuid, p_identifier text, p_channel text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.find_portal_patient_by_identifier(p_center_id uuid, p_identifier text, p_channel text) TO service_role;
+
+REVOKE ALL ON FUNCTION public.format_invoice_number_from_series(p_format text, p_series_name text, p_next_number integer, p_issue_date date) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.format_invoice_number_from_series(p_format text, p_series_name text, p_next_number integer, p_issue_date date) TO anon, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.generate_pending_debts_db() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.generate_pending_debts_db() TO PUBLIC, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.generate_session_access_token() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.generate_session_access_token() TO PUBLIC, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.get_assessment_token() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.get_assessment_token() TO PUBLIC, anon, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.get_audit_logs(p_from timestamp with time zone, p_to timestamp with time zone, p_user_id uuid, p_patient_id uuid, p_action text, p_resource_type text, p_status text, p_anomalous_only boolean, p_search text, p_limit integer, p_offset integer) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.get_audit_logs(p_from timestamp with time zone, p_to timestamp with time zone, p_user_id uuid, p_patient_id uuid, p_action text, p_resource_type text, p_status text, p_anomalous_only boolean, p_search text, p_limit integer, p_offset integer) TO authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.get_autoregistro_token() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.get_autoregistro_token() TO PUBLIC, anon, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.get_bono_sessions(p_bono_id uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.get_bono_sessions(p_bono_id uuid) TO PUBLIC, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.get_center_address_for_session_token() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.get_center_address_for_session_token() TO PUBLIC, anon, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.get_center_for_debt(p_center_id uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.get_center_for_debt(p_center_id uuid) TO PUBLIC, anon, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.get_center_for_invoice(p_center_id uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.get_center_for_invoice(p_center_id uuid) TO PUBLIC, anon, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.get_center_for_session_token(p_session_id uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.get_center_for_session_token(p_session_id uuid) TO PUBLIC, anon, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.get_consent_token() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.get_consent_token() TO PUBLIC, anon, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.get_debt_id_for_payment_by_invoice(p_payment_id uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.get_debt_id_for_payment_by_invoice(p_payment_id uuid) TO authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.get_invoice_token() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.get_invoice_token() TO PUBLIC, anon, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.get_invoice_type_correction_context(p_original_invoice_id uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.get_invoice_type_correction_context(p_original_invoice_id uuid) TO authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.get_patient_for_invoice_token(p_token text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.get_patient_for_invoice_token(p_token text) TO anon, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.get_patient_for_session_token(p_session_id uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.get_patient_for_session_token(p_session_id uuid) TO PUBLIC, anon, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.get_platform_verifactu_software_info() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.get_platform_verifactu_software_info() TO anon, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.get_portal_center(p_slug text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.get_portal_center(p_slug text) TO PUBLIC, anon, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.get_professional_for_session_token(p_session_id uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.get_professional_for_session_token(p_session_id uuid) TO PUBLIC, anon, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.get_public_bono_templates_for_debt(p_token text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.get_public_bono_templates_for_debt(p_token text) TO anon, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.get_public_bono_templates_for_session(p_token text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.get_public_bono_templates_for_session(p_token text) TO anon, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.get_public_center_by_slug(p_slug text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.get_public_center_by_slug(p_slug text) TO anon, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.get_public_center_info(p_center_id uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.get_public_center_info(p_center_id uuid) TO anon, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.get_public_debt_by_token(p_token text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.get_public_debt_by_token(p_token text) TO anon, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.get_public_referral_specialties(center_slug text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.get_public_referral_specialties(center_slug text) TO PUBLIC, anon, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.get_safe_center(p_center_id uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.get_safe_center(p_center_id uuid) TO PUBLIC, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.get_session_token() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.get_session_token() TO PUBLIC, anon, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.get_user_center_id(_user_id uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.get_user_center_id(_user_id uuid) TO PUBLIC, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.handle_google_webhook_debounce(p_professional_id uuid, p_calendar_id text, p_debounce_seconds integer) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.handle_google_webhook_debounce(p_professional_id uuid, p_calendar_id text, p_debounce_seconds integer) TO PUBLIC, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.handle_new_user() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.handle_new_user() TO PUBLIC, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.handle_rectificativa_payments(p_original_invoice_id uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.handle_rectificativa_payments(p_original_invoice_id uuid) TO PUBLIC, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.has_role(_user_id uuid, _role app_role) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.has_role(_user_id uuid, _role app_role) TO PUBLIC, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.has_role_in_center(_user_id uuid, _role app_role, _center_id uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.has_role_in_center(_user_id uuid, _role app_role, _center_id uuid) TO PUBLIC, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.is_admin(_user_id uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.is_admin(_user_id uuid) TO PUBLIC, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.is_professional(_user_id uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.is_professional(_user_id uuid) TO PUBLIC, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.log_integration_error(p_professional_id uuid, p_provider text, p_source text, p_step text, p_http_status integer, p_error_code text, p_message text, p_raw jsonb, p_correlation_id text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.log_integration_error(p_professional_id uuid, p_provider text, p_source text, p_step text, p_http_status integer, p_error_code text, p_message text, p_raw jsonb, p_correlation_id text) TO PUBLIC, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.merge_patients(p_primary_id uuid, p_secondary_id uuid, p_field_overrides jsonb) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.merge_patients(p_primary_id uuid, p_secondary_id uuid, p_field_overrides jsonb) TO PUBLIC, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.move_invoice_financials_for_replacement(p_original_invoice_id uuid, p_target_invoice_id uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.move_invoice_financials_for_replacement(p_original_invoice_id uuid, p_target_invoice_id uuid) TO authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.move_to_dlq(source_queue text, dlq_name text, message_id bigint, payload jsonb) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.move_to_dlq(source_queue text, dlq_name text, message_id bigint, payload jsonb) TO authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.normalize_portal_phone(p_phone text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.normalize_portal_phone(p_phone text) TO anon, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.portal_list_locations(p_center_slug text, p_location_type location_type_enum) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.portal_list_locations(p_center_slug text, p_location_type location_type_enum) TO PUBLIC, anon, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.portal_list_professionals(_portal_slug text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.portal_list_professionals(_portal_slug text) TO PUBLIC, anon, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.prevent_profile_center_self_change() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.prevent_profile_center_self_change() TO PUBLIC, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.prevent_published_prompt_version_modification() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.prevent_published_prompt_version_modification() TO PUBLIC, anon, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.prevent_signed_invoice_modification() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.prevent_signed_invoice_modification() TO PUBLIC, anon, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.protect_consent_anon_update() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.protect_consent_anon_update() TO PUBLIC, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.protect_invoice_immutability() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.protect_invoice_immutability() TO PUBLIC, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.protect_invoice_items_immutability() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.protect_invoice_items_immutability() TO PUBLIC, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.protect_issued_invoices() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.protect_issued_invoices() TO PUBLIC, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.protect_professional_payment_category() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.protect_professional_payment_category() TO PUBLIC, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.protect_session_anon_update() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.protect_session_anon_update() TO PUBLIC, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.protect_used_invoice_series_classification() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.protect_used_invoice_series_classification() TO PUBLIC, anon, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.read_email_batch(queue_name text, batch_size integer, vt integer) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.read_email_batch(queue_name text, batch_size integer, vt integer) TO authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.reassign_payment_to_invoice_v2(p_payment_id uuid, p_target_invoice_id uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.reassign_payment_to_invoice_v2(p_payment_id uuid, p_target_invoice_id uuid) TO PUBLIC, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.recompute_all_patient_statuses(p_center_id uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.recompute_all_patient_statuses(p_center_id uuid) TO PUBLIC, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.recompute_debt_by_invoice(p_debt_id uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.recompute_debt_by_invoice(p_debt_id uuid) TO authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.record_audit_event(p_user_id uuid, p_user_role text, p_organization_id uuid, p_patient_id uuid, p_resource_type text, p_resource_id text, p_action text, p_status text, p_ip_address text, p_user_agent text, p_session_id text, p_request_method text, p_route_or_endpoint text, p_justification text, p_metadata jsonb) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.record_audit_event(p_user_id uuid, p_user_role text, p_organization_id uuid, p_patient_id uuid, p_resource_type text, p_resource_id text, p_action text, p_status text, p_ip_address text, p_user_agent text, p_session_id text, p_request_method text, p_route_or_endpoint text, p_justification text, p_metadata jsonb) TO service_role;
+
+REVOKE ALL ON FUNCTION public.record_client_audit_event(p_resource_type text, p_resource_id text, p_patient_id uuid, p_action text, p_route_or_endpoint text, p_user_agent text, p_metadata jsonb) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.record_client_audit_event(p_resource_type text, p_resource_id text, p_patient_id uuid, p_action text, p_route_or_endpoint text, p_user_agent text, p_metadata jsonb) TO anon, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.record_custom_price_history() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.record_custom_price_history() TO PUBLIC, anon, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.release_google_sync_lock(p_professional_id uuid, p_lock_token uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.release_google_sync_lock(p_professional_id uuid, p_lock_token uuid) TO service_role;
+
+REVOKE ALL ON FUNCTION public.release_verifactu_chain_lock(p_center_id uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.release_verifactu_chain_lock(p_center_id uuid) TO PUBLIC, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.release_verifactu_chain_lock_v2(p_center_id uuid, p_lock_id text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.release_verifactu_chain_lock_v2(p_center_id uuid, p_lock_id text) TO PUBLIC, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.remove_bono_from_session(p_session_id uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.remove_bono_from_session(p_session_id uuid) TO PUBLIC, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.remove_patient_discharged(p_patient_id uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.remove_patient_discharged(p_patient_id uuid) TO PUBLIC, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.reorder_session_types(p_center_id uuid, p_ordered_ids uuid[]) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.reorder_session_types(p_center_id uuid, p_ordered_ids uuid[]) TO PUBLIC, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.reset_reminder_on_reschedule() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.reset_reminder_on_reschedule() TO PUBLIC, anon, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.resolve_applicable_price(p_patient_id uuid, p_target_type text, p_target_id uuid, p_reference_date date) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.resolve_applicable_price(p_patient_id uuid, p_target_type text, p_target_id uuid, p_reference_date date) TO PUBLIC, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.resolve_effective_price(p_patient_id uuid, p_target_type text, p_target_id uuid, p_reference_date date) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.resolve_effective_price(p_patient_id uuid, p_target_type text, p_target_id uuid, p_reference_date date) TO PUBLIC, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.sanitize_error_payload(payload jsonb) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.sanitize_error_payload(payload jsonb) TO PUBLIC, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.seed_ai_document_defaults_for_center(p_center_id uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.seed_ai_document_defaults_for_center(p_center_id uuid) TO PUBLIC, service_role;
+
+REVOKE ALL ON FUNCTION public.seed_ai_prompt_versions_for_center(p_center_id uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.seed_ai_prompt_versions_for_center(p_center_id uuid) TO PUBLIC, service_role;
+
+REVOKE ALL ON FUNCTION public.seed_default_expense_categories() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.seed_default_expense_categories() TO PUBLIC, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.set_default_invoice_series(p_series_id uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.set_default_invoice_series(p_series_id uuid) TO PUBLIC, anon, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.set_patient_discharged(p_patient_id uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.set_patient_discharged(p_patient_id uuid) TO PUBLIC, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.special_days_set_updated_at() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.special_days_set_updated_at() TO PUBLIC, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.trg_seed_ai_document_defaults_for_new_center() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.trg_seed_ai_document_defaults_for_new_center() TO PUBLIC, anon, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.trg_seed_ai_prompt_versions_for_new_center() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.trg_seed_ai_prompt_versions_for_new_center() TO PUBLIC, anon, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.trigger_update_patient_status_on_session_change() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.trigger_update_patient_status_on_session_change() TO PUBLIC, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.try_acquire_google_sync_lock(p_professional_id uuid, p_lock_token uuid, p_lease_seconds integer) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.try_acquire_google_sync_lock(p_professional_id uuid, p_lock_token uuid, p_lease_seconds integer) TO service_role;
+
+REVOKE ALL ON FUNCTION public.update_calendar_events_updated_at() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.update_calendar_events_updated_at() TO PUBLIC, anon, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.update_patient_custom_prices_updated_at() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.update_patient_custom_prices_updated_at() TO PUBLIC, anon, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.update_payment_and_recompute_debt_v2(p_payment_id uuid, p_amount numeric, p_payment_date timestamp with time zone, p_payment_method text, p_reference text, p_notes text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.update_payment_and_recompute_debt_v2(p_payment_id uuid, p_amount numeric, p_payment_date timestamp with time zone, p_payment_method text, p_reference text, p_notes text) TO authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.update_ptpa_updated_at() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.update_ptpa_updated_at() TO PUBLIC, anon, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.update_session_datetime_force(p_session_id uuid, p_session_date date, p_start_time time without time zone, p_end_time time without time zone) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.update_session_datetime_force(p_session_id uuid, p_session_date date, p_start_time time without time zone, p_end_time time without time zone) TO PUBLIC, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.update_tariff_plan_items_updated_at() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.update_tariff_plan_items_updated_at() TO PUBLIC, anon, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.update_tariff_plans_updated_at() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.update_tariff_plans_updated_at() TO PUBLIC, anon, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.update_updated_at_column() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.update_updated_at_column() TO PUBLIC, anon, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.user_can_create_center(_user_id uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.user_can_create_center(_user_id uuid) TO PUBLIC, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.uuid_to_lock_id(p_uuid uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.uuid_to_lock_id(p_uuid uuid) TO PUBLIC, anon, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.validate_invoice_series_document_type() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.validate_invoice_series_document_type() TO PUBLIC, anon, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.validate_no_session_overlap() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.validate_no_session_overlap() TO PUBLIC, anon, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.verify_assessment_token(assessment_uuid uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.verify_assessment_token(assessment_uuid uuid) TO PUBLIC, anon, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.verify_assessment_token_for_patient(patient_uuid uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.verify_assessment_token_for_patient(patient_uuid uuid) TO PUBLIC, anon, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.verify_assessment_token_for_template(template_uuid uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.verify_assessment_token_for_template(template_uuid uuid) TO PUBLIC, anon, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.verify_autoregistro_token(link_uuid uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.verify_autoregistro_token(link_uuid uuid) TO PUBLIC, anon, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.verify_consent_token(consent_uuid uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.verify_consent_token(consent_uuid uuid) TO PUBLIC, anon, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.verify_consent_token_for_center(center_uuid uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.verify_consent_token_for_center(center_uuid uuid) TO PUBLIC, anon, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.verify_consent_token_for_patient(patient_uuid uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.verify_consent_token_for_patient(patient_uuid uuid) TO PUBLIC, anon, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.verify_consent_token_for_professional(professional_uuid uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.verify_consent_token_for_professional(professional_uuid uuid) TO PUBLIC, anon, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.verify_consent_token_for_template(template_uuid uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.verify_consent_token_for_template(template_uuid uuid) TO PUBLIC, anon, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.verify_invoice_token_for_center(center_uuid uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.verify_invoice_token_for_center(center_uuid uuid) TO PUBLIC, anon, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.verify_session_token_for_center(center_uuid uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.verify_session_token_for_center(center_uuid uuid) TO PUBLIC, anon, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.verify_session_token_for_location(location_uuid uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.verify_session_token_for_location(location_uuid uuid) TO PUBLIC, anon, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.verify_session_token_for_patient(patient_uuid uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.verify_session_token_for_patient(patient_uuid uuid) TO PUBLIC, anon, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.verify_session_token_for_professional(professional_uuid uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.verify_session_token_for_professional(professional_uuid uuid) TO PUBLIC, anon, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.weekly_db_maintenance() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.weekly_db_maintenance() TO service_role;
+
+-- -----------------------------------------------------------------------------
 -- Revocaciones deliberadas
 --
 -- Supabase concede permisos por defecto a `anon` y `authenticated` sobre las
