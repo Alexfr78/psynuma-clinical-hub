@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { Icon } from '@/components/ui/icon';
 import { parseSections, effectiveSections, effectiveMarkdown } from "@/lib/ai-documents";
+import { describeEdgeFunctionError } from "@/lib/edge-function-error";
 import type { AiDocumentType, AiGeneratedDocumentWithType } from "@/types/ai-documents";
 
 /**
@@ -268,7 +269,7 @@ export function TranscriptionAnalysisDialog({
         body: formData,
       });
 
-      if (error) throw new Error(error.message);
+      if (error) throw new Error(await describeEdgeFunctionError(error, "Error al transcribir"));
       if (!data?.success) throw new Error(data?.error || "Error al transcribir");
 
       setTranscription(data.transcription);

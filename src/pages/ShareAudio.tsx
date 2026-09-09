@@ -10,6 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useCenter } from '@/hooks/useCenter';
 import { useSessions, type SessionWithRelations } from '@/hooks/useSessions';
 import { clearSharedAudio, readSharedAudio, type SharedAudio } from '@/lib/shared-audio';
+import { describeEdgeFunctionError } from '@/lib/edge-function-error';
 import { TranscriptionAnalysisDialog } from '@/components/agenda/TranscriptionAnalysisDialog';
 
 /** Ventana de sesiones ofrecidas para emparejar: se comparte la grabación justo tras la sesión. */
@@ -125,7 +126,7 @@ export default function ShareAudio() {
         body: formData,
       });
 
-      if (error) throw new Error(error.message);
+      if (error) throw new Error(await describeEdgeFunctionError(error, 'Error al transcribir'));
       if (!data?.success) throw new Error(data?.error || 'Error al transcribir');
 
       setTranscription(data.transcription);
