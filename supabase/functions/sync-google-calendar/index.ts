@@ -95,7 +95,7 @@ async function alertProfessionalSyncChange(
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-cron-secret',
 };
 
 // ============================================================
@@ -1932,7 +1932,16 @@ serve(async (req) => {
     const bearerToken = authorization.startsWith('Bearer ')
       ? authorization.slice('Bearer '.length).trim()
       : '';
-    const isServiceRequest = Boolean(serviceRoleKey) && bearerToken === serviceRoleKey;
+    // El cron llamaba con la anon key, que no es ni la service role key ni un
+    // token de usuario, así que supabase.auth.getUser fallaba y la
+    // sincronización devolvía 401 en cada ejecución. Se acepta también el
+    // secreto compartido de cron, como hacen el resto de funciones que dispara
+    // pg_cron, sin tener que meter la service role key en la base de datos.
+    const cronSecret = req.headers.get('x-cron-secret');
+    const expectedCronSecret = Deno.env.get('CRON_SECRET');
+    const isCronRequest = Boolean(expectedCronSecret) && cronSecret === expectedCronSecret;
+    const isServiceRequest =
+      (Boolean(serviceRoleKey) && bearerToken === serviceRoleKey) || isCronRequest;
 
     if (!isServiceRequest) {
       if (!bearerToken) {
