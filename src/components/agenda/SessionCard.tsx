@@ -70,15 +70,6 @@ export function SessionCard({
   
   const displayName = getDisplayName();
 
-  // On mobile the columns are very narrow: show only the first name so it is
-  // actually readable instead of a truncated full name
-  const getShortDisplayName = () => {
-    if (isGoogleEvent || session.status === 'blocked') return displayName;
-    return session.patient?.first_name || displayName;
-  };
-
-  const compactName = isMobile ? getShortDisplayName() : displayName;
-
   const cardRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [showMoveHint, setShowMoveHint] = useState(false);
@@ -233,7 +224,7 @@ export function SessionCard({
                 time is omitted (the grid already shows the hour) */}
             <div className="flex items-center gap-0.5 min-w-0">
               {isRecurring && <Icon name="refresh" className="h-3 w-3 opacity-60 flex-shrink-0" />}
-              <div className="font-medium truncate min-w-0">{compactName}</div>
+              <div className="font-medium truncate min-w-0">{displayName}</div>
             </div>
             {!isGoogleEvent && (
               <div className="flex items-center gap-1 opacity-90">
