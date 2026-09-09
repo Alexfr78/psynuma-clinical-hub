@@ -380,6 +380,29 @@ export function useDiscardPlaudRecording() {
   });
 }
 
+/**
+ * Borra por completo una grabación de `plaud_recordings` — a diferencia de
+ * `useDiscardPlaudRecording` (que solo la marca `ignored` y la conserva como
+ * historial), esta acción no deja ningún rastro: ni de las pendientes de
+ * revisión ni de las ya resueltas. Requiere la política de DELETE añadida en
+ * `20260908160000_plaud_recordings_delete_policy.sql` (admin o profesional
+ * del centro) — la tabla no traía ninguna hasta entonces.
+ */
+export function useDeletePlaudRecording() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (recordingId: string) => {
+      const { error } = await plaudClient
+        .from('plaud_recordings')
+        .delete()
+        .eq('id', recordingId);
+      if (error) throw error;
+    },
+    onSuccess: () => invalidatePlaudQueries(queryClient),
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Generación de informes de IA sobre una grabación ya emparejada y confirmada
 // ---------------------------------------------------------------------------

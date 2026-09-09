@@ -9,6 +9,7 @@ import { Icon } from '@/components/ui/icon';
 import { PlaudSessionPicker } from '@/components/plaud/PlaudSessionPicker';
 import { PlaudConfirmMatchDialog, type PlaudConfirmMatchTarget } from '@/components/plaud/PlaudConfirmMatchDialog';
 import { PlaudDiscardDialog } from '@/components/plaud/PlaudDiscardDialog';
+import { PlaudDeleteDialog } from '@/components/plaud/PlaudDeleteDialog';
 import { PlaudGenerateReportsButton } from '@/components/plaud/PlaudGenerateReportsButton';
 import {
   describePrimaryReviewReasons,
@@ -23,6 +24,7 @@ import {
 import {
   useConfirmPlaudMatch,
   useDiscardPlaudRecording,
+  useDeletePlaudRecording,
   type PlaudRecordingWithContext,
   type PlaudSessionSearchResult,
 } from '@/hooks/usePlaudRecordings';
@@ -45,9 +47,11 @@ export function PlaudRecordingCard({ recording, readOnly }: PlaudRecordingCardPr
     display: PlaudConfirmMatchTarget;
   } | null>(null);
   const [discardOpen, setDiscardOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   const confirmMatch = useConfirmPlaudMatch();
   const discardRecording = useDiscardPlaudRecording();
+  const deleteRecording = useDeletePlaudRecording();
 
   const primaryReasons = describePrimaryReviewReasons(recording.match_reasons);
   const suggestionDetails = describeSuggestionDetails(recording.match_reasons);
@@ -110,6 +114,10 @@ export function PlaudRecordingCard({ recording, readOnly }: PlaudRecordingCardPr
 
   const handleDiscard = () => {
     discardRecording.mutate(recording.id, { onSuccess: () => setDiscardOpen(false) });
+  };
+
+  const handleDelete = () => {
+    deleteRecording.mutate(recording.id, { onSuccess: () => setDeleteOpen(false) });
   };
 
   return (
@@ -296,6 +304,15 @@ export function PlaudRecordingCard({ recording, readOnly }: PlaudRecordingCardPr
               <Icon name="block" className="h-4 w-4" />
               No es una sesión clínica
             </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="gap-2 text-destructive hover:text-destructive"
+              onClick={() => setDeleteOpen(true)}
+            >
+              <Icon name="delete" className="h-4 w-4" />
+              Borrar por completo
+            </Button>
           </div>
         )}
 
@@ -303,6 +320,17 @@ export function PlaudRecordingCard({ recording, readOnly }: PlaudRecordingCardPr
           <>
             <ResolvedDetails recording={recording} />
             <PlaudGenerateReportsButton recording={recording} />
+            <div className="flex pt-1">
+              <Button
+                size="sm"
+                variant="ghost"
+                className="gap-2 text-destructive hover:text-destructive"
+                onClick={() => setDeleteOpen(true)}
+              >
+                <Icon name="delete" className="h-4 w-4" />
+                Borrar por completo
+              </Button>
+            </div>
           </>
         )}
       </CardContent>
@@ -320,6 +348,12 @@ export function PlaudRecordingCard({ recording, readOnly }: PlaudRecordingCardPr
         onOpenChange={setDiscardOpen}
         onConfirm={handleDiscard}
         isSubmitting={discardRecording.isPending}
+      />
+      <PlaudDeleteDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        onConfirm={handleDelete}
+        isSubmitting={deleteRecording.isPending}
       />
     </Card>
   );
