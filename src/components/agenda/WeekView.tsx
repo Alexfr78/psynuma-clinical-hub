@@ -242,7 +242,7 @@ export function WeekView({ currentDate, sessions, onSessionClick, onSlotClick, o
 
   // Calculate column template based on device
   // On mobile: smaller hour column, equal day columns that fit the screen
-  const hourColumnWidth = isMobile ? '28px' : '40px';
+  const hourColumnWidth = isMobile ? '32px' : '40px';
 
   // Current-time indicator: a red line tracking the local time, refreshed every minute
   const [now, setNow] = useState(() => new Date());
@@ -285,12 +285,12 @@ export function WeekView({ currentDate, sessions, onSessionClick, onSlotClick, o
                 isToday(day) && 'bg-primary/10'
               )}
             >
-              <div className="text-[10px] sm:text-xs font-medium text-muted-foreground truncate">
+              <div className="text-[11px] sm:text-xs font-medium text-muted-foreground truncate">
                 {format(day, isMobile ? 'EEEEE' : 'EEE', { locale: es })}
               </div>
               <div
                 className={cn(
-                  'mt-0.5 inline-flex h-5 w-5 sm:h-7 sm:w-7 items-center justify-center rounded-full text-[10px] sm:text-sm font-semibold',
+                  'mt-0.5 inline-flex h-6 w-6 sm:h-7 sm:w-7 items-center justify-center rounded-full text-[13px] sm:text-sm font-semibold',
                   isToday(day) && 'bg-primary text-primary-foreground'
                 )}
               >
@@ -337,7 +337,7 @@ export function WeekView({ currentDate, sessions, onSessionClick, onSlotClick, o
             {/* Hour labels column */}
             <div className="border-r bg-background">
               {displayHours.map((hour) => (
-                <div key={hour} className="flex h-16 items-start justify-center p-0.5 sm:p-1 text-[10px] sm:text-xs text-muted-foreground border-b">
+                <div key={hour} className="flex h-16 items-start justify-center p-0.5 sm:p-1 text-[11px] sm:text-xs font-medium text-muted-foreground border-b">
                   {hour.toString().padStart(2, '0')}
                 </div>
               ))}

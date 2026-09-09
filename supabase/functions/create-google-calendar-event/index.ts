@@ -192,8 +192,11 @@ function formatEventText(
   };
   const cancellationPolicy = (session.cancellation_policy ? cancellationPolicies[session.cancellation_policy] : undefined) || session.cancellation_policy || '';
   
+  const patientFirstName = (patient?.first_name || '').trim() || patientName;
+
   return template
     .replace(/{paciente}/g, patientName)
+    .replace(/{nombre}/g, patientFirstName)
     .replace(/{profesional}/g, professionalName)
     .replace(/{tipo}/g, session.session_type || 'Sesión')
     .replace(/{hora}/g, session.start_time || '')
@@ -300,7 +303,7 @@ serve(async (req) => {
       .eq('professional_id', professional_id)
       .single();
 
-    const titleFormat = integrations?.google_event_title_format || '{tipo} - {paciente}';
+    const titleFormat = integrations?.google_event_title_format || '{nombre}';
     const descriptionFormat = integrations?.google_event_description_format || 'Profesional: {profesional}\nTipo: {tipo}\nNotas: {notas}';
 
     console.log('Using title format:', titleFormat);

@@ -65,7 +65,7 @@ export function useConvertCalendarEvent() {
             body: {
               professional_id: professionalId,
               event_id: googleEventId,
-              title: `Sesión con ${patientName}`,
+              title: patientName.split(' ')[0] || patientName,
               psycma_session_id: sessionId,
             },
           }

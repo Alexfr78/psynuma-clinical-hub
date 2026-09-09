@@ -704,8 +704,11 @@ function formatEventText(
   };
   const cancellationPolicy = (session.cancellation_policy ? cancellationPolicies[session.cancellation_policy] : undefined) || session.cancellation_policy || '';
   
+  const patientFirstName = (patient?.first_name || '').trim() || patientName;
+
   return template
     .replace(/{paciente}/g, patientName)
+    .replace(/{nombre}/g, patientFirstName)
     .replace(/{profesional}/g, professionalName)
     .replace(/{tipo}/g, session.session_type || 'Sesión')
     .replace(/{hora}/g, session.start_time || '')
@@ -737,7 +740,7 @@ async function createGoogleCalendarEvent(
   const startDateTime = `${session.session_date}T${session.start_time}`;
   const endDateTime = `${session.session_date}T${session.end_time}`;
 
-  const defaultTitle = '{tipo} - {paciente}';
+  const defaultTitle = '{nombre}';
   const defaultDescription = 'Profesional: {profesional}\nTipo: {tipo}\nNotas: {notas}';
   
   const title = formatEventText(titleFormat || defaultTitle, session, patient, professional, location, bono);
@@ -796,7 +799,7 @@ async function updateGoogleCalendarEvent(
   const startDateTime = `${session.session_date}T${session.start_time}`;
   const endDateTime = `${session.session_date}T${session.end_time}`;
 
-  const defaultTitle = '{tipo} - {paciente}';
+  const defaultTitle = '{nombre}';
   const defaultDescription = 'Profesional: {profesional}\nTipo: {tipo}\nNotas: {notas}';
   
   const title = formatEventText(titleFormat || defaultTitle, session, patient, professional, location, bono);
@@ -1382,7 +1385,7 @@ async function syncProfessional(
     return result;
   }
 
-  const titleFormat = integrations?.google_event_title_format || '{tipo} - {paciente}';
+  const titleFormat = integrations?.google_event_title_format || '{nombre}';
   const descriptionFormat = integrations?.google_event_description_format || 'Profesional: {profesional}\nTipo: {tipo}\nNotas: {notas}';
 
   const sessionIds = (sessions || []).map((session) => session.id);

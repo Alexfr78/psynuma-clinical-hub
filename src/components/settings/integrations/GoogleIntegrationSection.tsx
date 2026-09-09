@@ -51,7 +51,7 @@ export function GoogleIntegrationSection() {
   const [isLoadingCalendars, setIsLoadingCalendars] = useState(false);
   
   // Format settings
-  const [titleFormat, setTitleFormat] = useState('{tipo} - {paciente}');
+  const [titleFormat, setTitleFormat] = useState('{nombre}');
   const [descriptionFormat, setDescriptionFormat] = useState('Profesional: {profesional}\nTipo: {tipo}\nNotas: {notas}');
   const [showFormatSettings, setShowFormatSettings] = useState(false);
   
@@ -188,7 +188,7 @@ export function GoogleIntegrationSection() {
       setCalendarEnabled(integrations.google_calendar_enabled);
       setMeetEnabled(integrations.google_meet_enabled);
       setSyncMode(integrations.google_calendar_sync_mode);
-      setTitleFormat(integrations.google_event_title_format || '{tipo} - {paciente}');
+      setTitleFormat(integrations.google_event_title_format || '{nombre}');
       setDescriptionFormat(integrations.google_event_description_format || 'Profesional: {profesional}\nTipo: {tipo}\nNotas: {notas}');
       setSyncDaysPast(integrations.google_sync_days_past ?? 30);
       setSyncDaysFuture(integrations.google_sync_days_future ?? 90);
@@ -506,7 +506,8 @@ export function GoogleIntegrationSection() {
   }
 
   const formatVariables = [
-    { var: '{paciente}', desc: 'Nombre del paciente' },
+    { var: '{nombre}', desc: 'Nombre de pila del paciente' },
+    { var: '{paciente}', desc: 'Nombre completo del paciente' },
     { var: '{profesional}', desc: 'Nombre del profesional' },
     { var: '{tipo}', desc: 'Tipo de sesión' },
     { var: '{hora}', desc: 'Hora de la sesión' },
@@ -1132,7 +1133,7 @@ export function GoogleIntegrationSection() {
                         <Input
                           value={titleFormat}
                           onChange={(e) => setTitleFormat(e.target.value)}
-                          placeholder="{tipo} - {contacto}"
+                          placeholder="{nombre}"
                         />
                       </div>
                       

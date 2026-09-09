@@ -113,10 +113,9 @@ export function useGoogleCalendarUpdate(overrideProfessionalId?: string) {
       return await createGoogleEventForSession(session, updates);
     }
 
-    // Update the existing event
-    const patientName = session.patient
-      ? `${session.patient.first_name} ${session.patient.last_name}`
-      : 'Contacto';
+    // Update the existing event. The Google event title is just the first name
+    // so the calendar stays discreet.
+    const patientName = session.patient?.first_name || 'Contacto';
 
     // "2" = sage green when confirmed; null resets to calendar default for any other status
     const effectiveStatus = updates.status ?? session.status;
@@ -132,7 +131,7 @@ export function useGoogleCalendarUpdate(overrideProfessionalId?: string) {
         session_date: updates.session_date || session.session_date,
         start_time: updates.start_time || session.start_time,
         end_time: updates.end_time || session.end_time,
-        title: updates.title || `Sesión con ${patientName}`,
+        title: updates.title || patientName,
         color_id: colorId,
         create_if_not_exists: false,
       },

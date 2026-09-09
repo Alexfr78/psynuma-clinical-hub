@@ -69,7 +69,16 @@ export function SessionCard({
   };
   
   const displayName = getDisplayName();
-  
+
+  // On mobile the columns are very narrow: show only the first name so it is
+  // actually readable instead of a truncated full name
+  const getShortDisplayName = () => {
+    if (isGoogleEvent || session.status === 'blocked') return displayName;
+    return session.patient?.first_name || displayName;
+  };
+
+  const compactName = isMobile ? getShortDisplayName() : displayName;
+
   const cardRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [showMoveHint, setShowMoveHint] = useState(false);
@@ -193,7 +202,8 @@ export function SessionCard({
       <div
         ref={cardRef}
         className={cn(
-          'cursor-pointer rounded-md border-l-2 px-2 py-1 text-xs transition-all hover:opacity-80 h-full select-none relative',
+          'cursor-pointer rounded-md border-l-2 py-1 text-xs transition-all hover:opacity-80 h-full select-none relative overflow-hidden',
+          isMobile ? 'px-1' : 'px-2',
           draggable && !isMobile && 'cursor-grab active:cursor-grabbing',
           isDragging && 'opacity-50 scale-105',
           showMoveHint && 'ring-2 ring-primary ring-offset-2',
@@ -217,34 +227,58 @@ export function SessionCard({
             <span className="text-xs font-medium">Soltar para mover</span>
           </div>
         )}
-        <div className="flex items-center gap-1">
-          {draggable && !isMobile && <Icon name="drag_indicator" className="h-3 w-3 opacity-50 flex-shrink-0" />}
-          {isRecurring && (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Icon name="refresh" className="h-3 w-3 opacity-60 flex-shrink-0" />
-                </TooltipTrigger>
-                <TooltipContent>Cita recurrente</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          )}
-          <div className="font-medium truncate flex-1">{displayName}</div>
-          {!isGoogleEvent && (
-            <div className="flex shrink-0 items-center gap-1">
-              <CancellationPolicyIndicator status={session.cancellation_policy_status} compact />
-              <PaymentStatusIndicator
-                paymentStatus={session.payment_status}
-                price={session.price}
-                bonoId={session.bono_id}
-                compact
-              />
+        {isMobile ? (
+          <>
+            {/* Mobile: the name takes the full width; indicators move below and the
+                time is omitted (the grid already shows the hour) */}
+            <div className="flex items-center gap-0.5 min-w-0">
+              {isRecurring && <Icon name="refresh" className="h-3 w-3 opacity-60 flex-shrink-0" />}
+              <div className="font-medium truncate min-w-0">{compactName}</div>
             </div>
-          )}
-        </div>
-        <div className="text-[10px] opacity-75">
-          {session.start_time?.slice(0, 5)} - {session.end_time?.slice(0, 5)}
-        </div>
+            {!isGoogleEvent && (
+              <div className="flex items-center gap-1 opacity-90">
+                <CancellationPolicyIndicator status={session.cancellation_policy_status} compact />
+                <PaymentStatusIndicator
+                  paymentStatus={session.payment_status}
+                  price={session.price}
+                  bonoId={session.bono_id}
+                  compact
+                />
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            <div className="flex items-center gap-1">
+              {draggable && <Icon name="drag_indicator" className="h-3 w-3 opacity-50 flex-shrink-0" />}
+              {isRecurring && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Icon name="refresh" className="h-3 w-3 opacity-60 flex-shrink-0" />
+                    </TooltipTrigger>
+                    <TooltipContent>Cita recurrente</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+              <div className="font-medium truncate flex-1">{displayName}</div>
+              {!isGoogleEvent && (
+                <div className="flex shrink-0 items-center gap-1">
+                  <CancellationPolicyIndicator status={session.cancellation_policy_status} compact />
+                  <PaymentStatusIndicator
+                    paymentStatus={session.payment_status}
+                    price={session.price}
+                    bonoId={session.bono_id}
+                    compact
+                  />
+                </div>
+              )}
+            </div>
+            <div className="text-[10px] opacity-75">
+              {session.start_time?.slice(0, 5)} - {session.end_time?.slice(0, 5)}
+            </div>
+          </>
+        )}
       </div>
     );
   }

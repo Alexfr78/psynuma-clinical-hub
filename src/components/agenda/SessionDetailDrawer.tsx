@@ -811,6 +811,8 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
       const patientDisplayName = displayPatient
         ? `${displayPatient.first_name} ${displayPatient.last_name}`
         : 'Contacto';
+      // Google Calendar events are titled with the first name only
+      const patientFirstName = displayPatient?.first_name || 'Contacto';
 
       // Calculate duration in minutes
       const [startH, startM] = session.start_time.split(':').map(Number);
@@ -836,7 +838,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
             session_date: session.session_date,
             start_time: session.start_time,
             end_time: session.end_time,
-            title: `Sesión con ${patientDisplayName}`,
+            title: patientFirstName,
             description: `Sesión de ${session.session_type || 'terapia'}`,
             include_meet: true,
           },
