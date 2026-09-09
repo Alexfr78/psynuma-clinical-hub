@@ -22,6 +22,13 @@ GRANT ALL ON public.patient_report_links TO service_role;
 
 ALTER TABLE public.patient_report_links ENABLE ROW LEVEL SECURITY;
 
+-- Duplica exactamente 20260908120000_patient_report_links.sql, escrita a mano y aplicada por
+-- separado. Se conservan las dos porque no consta cuál quedó registrada como aplicada; los
+-- guards hacen que ejecutar ambas en orden ya no rompa la cadena (el CREATE TABLE y los
+-- CREATE INDEX de arriba ya eran idempotentes, las políticas no).
+DROP POLICY IF EXISTS "View report links in center" ON public.patient_report_links;
+DROP POLICY IF EXISTS "Create report links in center" ON public.patient_report_links;
+
 CREATE POLICY "View report links in center"
   ON public.patient_report_links
   FOR SELECT
