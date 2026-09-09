@@ -1,0 +1,4 @@
+# Los ficheros SQL deben conservar finales de linea LF: un  dentro del
+# cuerpo de una funcion acaba guardado en su definicion y hace que el esquema
+# difiera del de produccion.
+*.sql text eol=lf

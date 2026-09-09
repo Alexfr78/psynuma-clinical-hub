@@ -1,3 +1,68 @@
+-- =============================================================================
+-- MIGRACIÓN BASE (baseline) — Psycma
+--
+-- Refleja el esquema de la base de datos de PRODUCCIÓN a fecha 2026-09-09
+-- (proyecto Supabase zprkdxmluvirxfhswrzq, Lovable Cloud, Europa/Zúrich,
+-- PostgreSQL 17.6).
+--
+-- POR QUÉ EXISTE
+-- El historial anterior eran 329 migraciones que NO se podían reproducir desde
+-- cero: Lovable regeneraba migraciones ya escritas a mano, con otro nombre de
+-- archivo y el mismo SQL. Al replicar la cadena en una base limpia fallaban 12
+-- migraciones (columnas, tipos, triggers y tablas duplicados, dependencias fuera
+-- de orden y un choque de tipos en un UNION), y el resultado tenía 91 tablas en
+-- vez de 92. Además el registro estaba incompleto: 263 filas en
+-- supabase_migrations.schema_migrations frente a 329 archivos, de las que solo 72
+-- coincidían exactamente con un nombre de archivo.
+--
+-- El histórico se conserva en docs/migrations-archive/ y, por supuesto, en git.
+--
+-- CÓMO SE GENERÓ
+-- El bloque del esquema `public` se extrajo de producción por introspección de
+-- catálogos (pg_get_functiondef, pg_get_viewdef, pg_get_indexdef,
+-- pg_get_constraintdef, pg_get_triggerdef, pg_policies y aclexplode sobre
+-- pg_class.relacl). Se excluyen a propósito los objetos que pertenecen a
+-- extensiones: btree_gist está instalada EN public y aporta 188 funciones que no
+-- son de la aplicación.
+--
+-- El resto (extensiones, buckets, políticas de storage, trigger sobre auth.users
+-- y trabajos de pg_cron) no aparece en un volcado de `public` y se añadió aparte.
+--
+-- CONTENIDO
+--   20 enums · 92 tablas · 146 funciones · 5 vistas · 445 constraints
+--   282 índices · 92 triggers · 221 políticas RLS · 277 grants
+--   4 buckets · 16 políticas sobre storage.objects · 18 trabajos de cron
+--
+-- AVISO SOBRE SECRETOS
+-- Los trabajos de cron leen el secreto de `vault`. En producción, 7 de ellos lo
+-- llevaban escrito en claro dentro de cron.job.command; se migraron a vault el
+-- 2026-09-09. Antes de levantar un entorno nuevo hay que crear los secretos de
+-- vault que se listan en la sección de crons.
+-- =============================================================================
+
+-- =============================================================================
+-- 1. EXTENSIONES
+-- =============================================================================
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp"    WITH SCHEMA extensions;
+CREATE EXTENSION IF NOT EXISTS pgcrypto       WITH SCHEMA extensions;
+CREATE EXTENSION IF NOT EXISTS pg_net         WITH SCHEMA extensions;
+CREATE EXTENSION IF NOT EXISTS pg_stat_statements WITH SCHEMA extensions;
+CREATE EXTENSION IF NOT EXISTS pg_cron        WITH SCHEMA pg_catalog;
+CREATE EXTENSION IF NOT EXISTS btree_gist     WITH SCHEMA public;
+CREATE EXTENSION IF NOT EXISTS supabase_vault WITH SCHEMA vault;
+-- pgmq@pgmq y plpgsql@pg_catalog los provisiona Supabase; no se recrean aquí.
+
+
+-- =============================================================================
+-- 2. ESQUEMA public
+-- =============================================================================
+
+-- Las funciones se crean en el orden en que las devuelve el catálogo, que no es
+-- orden de dependencias. Las funciones LANGUAGE sql validan su cuerpo al crearse,
+-- así que una que referencie a otra definida más abajo fallaría. Desactivamos esa
+-- validación durante la carga, igual que hace pg_restore.
+SET check_function_bodies = off;
+
 CREATE TYPE public.app_role AS ENUM ('admin', 'professional', 'patient');
 
 CREATE TYPE public.assessment_status AS ENUM ('pending', 'completed', 'expired', 'revoked');
@@ -10605,3 +10670,298 @@ GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON
 GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.whatsapp_sessions TO authenticated;
 
 GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.whatsapp_sessions TO service_role;
+
+-- -----------------------------------------------------------------------------
+-- Revocaciones deliberadas
+--
+-- Supabase concede permisos por defecto a `anon` y `authenticated` sobre las
+-- tablas nuevas. En producción se revocaron sobre estas 7 tablas, que guardan
+-- tokens OAuth, cerrojos de sincronización y códigos OTP del portal. Sin estas
+-- líneas, un entorno nuevo quedaría más abierto que producción: RLS seguiría
+-- protegiendo, pero se perdería la segunda barrera.
+-- -----------------------------------------------------------------------------
+REVOKE ALL ON TABLE public.center_drive_connections  FROM anon, authenticated;
+REVOKE ALL ON TABLE public.center_plaud_connections  FROM anon, authenticated;
+REVOKE ALL ON TABLE public.google_session_sync_state FROM anon, authenticated;
+REVOKE ALL ON TABLE public.google_sync_locks         FROM anon, authenticated;
+REVOKE ALL ON TABLE public.patient_portal_otp_codes  FROM anon, authenticated;
+REVOKE ALL ON TABLE public.plaud_oauth_states        FROM anon, authenticated;
+REVOKE ALL ON TABLE public.public_short_links        FROM anon, authenticated;
+
+-- =============================================================================
+-- 3. STORAGE, AUTH Y CRON (fuera del esquema public)
+-- =============================================================================
+-- ---------------------------------------------------------------------------
+-- 2. Buckets de storage
+-- ---------------------------------------------------------------------------
+INSERT INTO storage.buckets (id, name, public) VALUES
+  ('consent-documents', 'consent-documents', false),
+  ('expense-receipts',  'expense-receipts',  false),
+  ('invoice-documents', 'invoice-documents', false),
+  ('invoice-logos',     'invoice-logos',     true)
+ON CONFLICT (id) DO NOTHING;
+
+-- ---------------------------------------------------------------------------
+-- 3. Políticas RLS sobre storage.objects (16 en producción)
+--    Viven en el esquema `storage`, fuera de cualquier volcado de `public`.
+-- ---------------------------------------------------------------------------
+DROP POLICY IF EXISTS "Anyone can view invoice logos" ON storage.objects;
+CREATE POLICY "Anyone can view invoice logos" ON storage.objects
+  FOR SELECT TO public
+  USING (bucket_id = 'invoice-logos');
+
+DROP POLICY IF EXISTS "Authenticated users can upload invoice logos" ON storage.objects;
+CREATE POLICY "Authenticated users can upload invoice logos" ON storage.objects
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    bucket_id = 'invoice-logos'
+    AND (storage.foldername(name))[1] = (
+      SELECT profiles.center_id::text FROM profiles WHERE profiles.id = auth.uid()
+    )
+  );
+
+DROP POLICY IF EXISTS "Users can update their center logos" ON storage.objects;
+CREATE POLICY "Users can update their center logos" ON storage.objects
+  FOR UPDATE TO authenticated
+  USING (
+    bucket_id = 'invoice-logos'
+    AND (storage.foldername(name))[1] = (
+      SELECT profiles.center_id::text FROM profiles WHERE profiles.id = auth.uid()
+    )
+  );
+
+DROP POLICY IF EXISTS "Users can delete their center logos" ON storage.objects;
+CREATE POLICY "Users can delete their center logos" ON storage.objects
+  FOR DELETE TO authenticated
+  USING (
+    bucket_id = 'invoice-logos'
+    AND (storage.foldername(name))[1] = (
+      SELECT profiles.center_id::text FROM profiles WHERE profiles.id = auth.uid()
+    )
+  );
+
+DROP POLICY IF EXISTS "Read consent docs from own center" ON storage.objects;
+CREATE POLICY "Read consent docs from own center" ON storage.objects
+  FOR SELECT TO authenticated
+  USING (
+    bucket_id = 'consent-documents'
+    AND (is_admin(auth.uid()) OR is_professional(auth.uid()))
+    AND (storage.foldername(name))[1] = (
+      SELECT profiles.center_id::text FROM profiles WHERE profiles.id = auth.uid()
+    )
+  );
+
+DROP POLICY IF EXISTS "Insert consent docs into own center" ON storage.objects;
+CREATE POLICY "Insert consent docs into own center" ON storage.objects
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    bucket_id = 'consent-documents'
+    AND (is_admin(auth.uid()) OR is_professional(auth.uid()))
+    AND (storage.foldername(name))[1] = (
+      SELECT profiles.center_id::text FROM profiles WHERE profiles.id = auth.uid()
+    )
+  );
+
+DROP POLICY IF EXISTS "Update consent docs in own center" ON storage.objects;
+CREATE POLICY "Update consent docs in own center" ON storage.objects
+  FOR UPDATE TO authenticated
+  USING (
+    bucket_id = 'consent-documents'
+    AND (is_admin(auth.uid()) OR is_professional(auth.uid()))
+    AND (storage.foldername(name))[1] = (
+      SELECT profiles.center_id::text FROM profiles WHERE profiles.id = auth.uid()
+    )
+  );
+
+DROP POLICY IF EXISTS "Delete consent docs in own center" ON storage.objects;
+CREATE POLICY "Delete consent docs in own center" ON storage.objects
+  FOR DELETE TO authenticated
+  USING (
+    bucket_id = 'consent-documents'
+    AND (is_admin(auth.uid()) OR is_professional(auth.uid()))
+    AND (storage.foldername(name))[1] = (
+      SELECT profiles.center_id::text FROM profiles WHERE profiles.id = auth.uid()
+    )
+  );
+
+DROP POLICY IF EXISTS "Read expense receipts from own center" ON storage.objects;
+CREATE POLICY "Read expense receipts from own center" ON storage.objects
+  FOR SELECT TO authenticated
+  USING (
+    bucket_id = 'expense-receipts'
+    AND (is_admin(auth.uid()) OR is_professional(auth.uid()))
+    AND (storage.foldername(name))[1] = (
+      SELECT profiles.center_id::text FROM profiles WHERE profiles.id = auth.uid()
+    )
+  );
+
+DROP POLICY IF EXISTS "Insert expense receipts into own center" ON storage.objects;
+CREATE POLICY "Insert expense receipts into own center" ON storage.objects
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    bucket_id = 'expense-receipts'
+    AND (is_admin(auth.uid()) OR is_professional(auth.uid()))
+    AND (storage.foldername(name))[1] = (
+      SELECT profiles.center_id::text FROM profiles WHERE profiles.id = auth.uid()
+    )
+  );
+
+DROP POLICY IF EXISTS "Update expense receipts in own center" ON storage.objects;
+CREATE POLICY "Update expense receipts in own center" ON storage.objects
+  FOR UPDATE TO authenticated
+  USING (
+    bucket_id = 'expense-receipts'
+    AND (is_admin(auth.uid()) OR is_professional(auth.uid()))
+    AND (storage.foldername(name))[1] = (
+      SELECT profiles.center_id::text FROM profiles WHERE profiles.id = auth.uid()
+    )
+  );
+
+DROP POLICY IF EXISTS "Delete expense receipts in own center" ON storage.objects;
+CREATE POLICY "Delete expense receipts in own center" ON storage.objects
+  FOR DELETE TO authenticated
+  USING (
+    bucket_id = 'expense-receipts'
+    AND (is_admin(auth.uid()) OR is_professional(auth.uid()))
+    AND (storage.foldername(name))[1] = (
+      SELECT profiles.center_id::text FROM profiles WHERE profiles.id = auth.uid()
+    )
+  );
+
+DROP POLICY IF EXISTS "Read invoice docs from own center" ON storage.objects;
+CREATE POLICY "Read invoice docs from own center" ON storage.objects
+  FOR SELECT TO authenticated
+  USING (
+    bucket_id = 'invoice-documents'
+    AND (is_admin(auth.uid()) OR is_professional(auth.uid()))
+    AND (storage.foldername(name))[1] = (
+      SELECT profiles.center_id::text FROM profiles WHERE profiles.id = auth.uid()
+    )
+  );
+
+DROP POLICY IF EXISTS "Insert invoice docs into own center" ON storage.objects;
+CREATE POLICY "Insert invoice docs into own center" ON storage.objects
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    bucket_id = 'invoice-documents'
+    AND (is_admin(auth.uid()) OR is_professional(auth.uid()))
+    AND (storage.foldername(name))[1] = (
+      SELECT profiles.center_id::text FROM profiles WHERE profiles.id = auth.uid()
+    )
+  );
+
+DROP POLICY IF EXISTS "Update invoice docs in own center" ON storage.objects;
+CREATE POLICY "Update invoice docs in own center" ON storage.objects
+  FOR UPDATE TO authenticated
+  USING (
+    bucket_id = 'invoice-documents'
+    AND (is_admin(auth.uid()) OR is_professional(auth.uid()))
+    AND (storage.foldername(name))[1] = (
+      SELECT profiles.center_id::text FROM profiles WHERE profiles.id = auth.uid()
+    )
+  );
+
+DROP POLICY IF EXISTS "Delete invoice docs in own center" ON storage.objects;
+CREATE POLICY "Delete invoice docs in own center" ON storage.objects
+  FOR DELETE TO authenticated
+  USING (
+    bucket_id = 'invoice-documents'
+    AND (is_admin(auth.uid()) OR is_professional(auth.uid()))
+    AND (storage.foldername(name))[1] = (
+      SELECT profiles.center_id::text FROM profiles WHERE profiles.id = auth.uid()
+    )
+  );
+
+-- ---------------------------------------------------------------------------
+-- 4. Trigger sobre auth.users
+-- ---------------------------------------------------------------------------
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+-- ---------------------------------------------------------------------------
+-- 5. Trabajos de pg_cron (18 activos en producción el 2026-09-09)
+--    Viven en el esquema `cron`, fuera de cualquier volcado de `public`.
+--
+--    AVISO: en producción, 7 de estos trabajos llevan el CRON_SECRET escrito
+--    en claro dentro de cron.job.command. Aquí NO se reproduce ese literal:
+--    todos leen el secreto de `vault`. Antes de levantar un entorno nuevo hay
+--    que crear los secretos de vault que se listan abajo.
+--
+--    Secretos de vault necesarios:
+--      cron_secret                          (genérico, para los 7 migrados)
+--      payment_automation_cron_secret
+--      drive_token_refresh_cron_secret
+--      plaud_token_refresh_cron_secret
+--      plaud_sync_cron_secret
+--      plaud_transcript_cleanup_cron_secret
+--      email_queue_service_role_key
+-- ---------------------------------------------------------------------------
+DO $cron$
+DECLARE
+  base_url text := current_setting('app.settings.functions_url', true);
+  anon_key text := current_setting('app.settings.anon_key', true);
+
+  FUNCTION_HEADERS jsonb;
+
+  jobs CONSTANT jsonb := '[
+    {"name":"send-payment-reminders-hourly",      "sched":"0 * * * *",    "fn":"send-payment-reminders",           "secret":"cron_secret"},
+    {"name":"sync-google-calendar-all",           "sched":"*/15 * * * *", "fn":"sync-google-calendar",             "secret":null,  "body":"{\"sync_all_professionals\": true}"},
+    {"name":"send-session-reminders-hourly",      "sched":"0 * * * *",    "fn":"send-session-reminders",           "secret":"cron_secret"},
+    {"name":"renew-google-calendar-watches",      "sched":"0 */12 * * *", "fn":"renew-google-calendar-watches",     "secret":"cron_secret"},
+    {"name":"renew-zoom-tokens-cron",             "sched":"0 */12 * * *", "fn":"renew-zoom-tokens",                "secret":"cron_secret"},
+    {"name":"recompute-patient-statuses-daily",   "sched":"0 3 * * *",    "fn":"recompute-patient-statuses",       "secret":"cron_secret"},
+    {"name":"retry-pending-verifactu",            "sched":"*/15 * * * *", "fn":"retry-pending-verifactu",          "secret":"cron_secret",                        "body":"{\"source\": \"cron\"}"},
+    {"name":"process-advance-payment-deadlines",  "sched":"*/15 * * * *", "fn":"process-advance-payment-deadlines","secret":"cron_secret",                        "body":"{\"source\": \"cron\"}"},
+    {"name":"process-payment-automation",         "sched":"*/10 * * * *", "fn":"process-advance-payment-deadlines","secret":"payment_automation_cron_secret"},
+    {"name":"refresh-google-drive-tokens",        "sched":"*/15 * * * *", "fn":"refresh-google-drive-tokens",      "secret":"drive_token_refresh_cron_secret"},
+    {"name":"generate-recurring-expenses",        "sched":"0 3 * * *",    "fn":"generate-recurring-expenses",      "secret":"payment_automation_cron_secret"},
+    {"name":"generate-professional-payments",     "sched":"0 4 1 * *",    "fn":"generate-professional-payments",   "secret":"payment_automation_cron_secret"},
+    {"name":"refresh-plaud-tokens",               "sched":"*/15 * * * *", "fn":"refresh-plaud-tokens",             "secret":"plaud_token_refresh_cron_secret"},
+    {"name":"sync-plaud-recordings",              "sched":"*/15 * * * *", "fn":"sync-plaud-recordings",            "secret":"plaud_sync_cron_secret"},
+    {"name":"cleanup-plaud-transcripts",          "sched":"30 3 * * *",   "fn":"cleanup-plaud-transcripts",        "secret":"plaud_transcript_cleanup_cron_secret"}
+  ]'::jsonb;
+
+  j jsonb;
+BEGIN
+  IF base_url IS NULL OR base_url = '' THEN
+    RAISE NOTICE 'app.settings.functions_url sin definir: se omite el alta de crons HTTP.';
+  ELSE
+    FOR j IN SELECT * FROM jsonb_array_elements(jobs) LOOP
+      PERFORM cron.unschedule(j->>'name') WHERE EXISTS (SELECT 1 FROM cron.job WHERE jobname = j->>'name');
+      PERFORM cron.schedule(
+        j->>'name',
+        j->>'sched',
+        format(
+          $sql$SELECT net.http_post(
+                 url := %L,
+                 headers := jsonb_build_object(
+                   'Content-Type','application/json',
+                   'Authorization','Bearer '||%L,
+                   'x-cron-secret', COALESCE((SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = %L LIMIT 1),'')
+                 ),
+                 body := %L::jsonb
+               );$sql$,
+          base_url || '/' || (j->>'fn'),
+          COALESCE(anon_key,''),
+          COALESCE(j->>'secret',''),
+          COALESCE(j->>'body','{}')
+        )
+      );
+    END LOOP;
+  END IF;
+
+  -- Trabajos que sólo llaman a funciones SQL locales: no dependen de secretos.
+  PERFORM cron.unschedule('auto-complete-past-sessions') WHERE EXISTS (SELECT 1 FROM cron.job WHERE jobname='auto-complete-past-sessions');
+  PERFORM cron.schedule('auto-complete-past-sessions', '0 23 * * *', 'SELECT public.auto_complete_past_sessions();');
+
+  PERFORM cron.unschedule('generate-pending-debts-db') WHERE EXISTS (SELECT 1 FROM cron.job WHERE jobname='generate-pending-debts-db');
+  PERFORM cron.schedule('generate-pending-debts-db', '0 6 * * *', 'SELECT public.generate_pending_debts_db();');
+
+  PERFORM cron.unschedule('weekly-db-maintenance') WHERE EXISTS (SELECT 1 FROM cron.job WHERE jobname='weekly-db-maintenance');
+  PERFORM cron.schedule('weekly-db-maintenance', '0 4 * * 0', 'SELECT public.weekly_db_maintenance();');
+END
+$cron$;
+
+SET check_function_bodies = on;

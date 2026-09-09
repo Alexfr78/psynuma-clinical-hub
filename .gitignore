@@ -26,3 +26,8 @@ dist-ssr
 # Supabase CLI temp
 supabase/.temp/
 
+
+# Artefactos locales que no deben viajar al repo
+.codex-remote-attachments/
+*.tsbuildinfo
+supabase/.branches/
