@@ -46,6 +46,7 @@ import Autoregistros from "./pages/Autoregistros";
 import AutoregistroPublic from "./pages/AutoregistroPublic";
 import PlaudReview from "./pages/PlaudReview";
 import PublicShortLinkRedirect from "./pages/PublicShortLinkRedirect";
+import ShareAudio from "./pages/ShareAudio";
 
 const queryClient = new QueryClient();
 
@@ -97,6 +98,13 @@ const App = () => (
             <Route path="/agenda" element={
               <ProtectedRoute>
                 <AppLayout><Agenda /></AppLayout>
+              </ProtectedRoute>
+            } />
+
+            {/* Destino del share target de Android (ver `share_target` en vite.config.ts) */}
+            <Route path="/compartir-audio" element={
+              <ProtectedRoute>
+                <AppLayout><ShareAudio /></AppLayout>
               </ProtectedRoute>
             } />
             

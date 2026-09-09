@@ -27,6 +27,24 @@ export default defineConfig(({ mode }) => ({
         orientation: "portrait",
         scope: "/",
         start_url: "/",
+        // Hace que Psycma aparezca en el menú "Compartir" de Android para archivos de audio.
+        // Android manda el fichero por POST a esta ruta; lo intercepta el service worker
+        // (`public/share-target-sw.js`), porque la SPA no puede atender un POST. Solo funciona
+        // con la app instalada en el móvil, y no existe en iOS: Safari no soporta share target.
+        share_target: {
+          action: "/compartir-audio",
+          method: "POST",
+          enctype: "multipart/form-data",
+          params: {
+            title: "title",
+            files: [
+              {
+                name: "audio",
+                accept: ["audio/*", ".mp3", ".m4a", ".wav", ".webm", ".ogg", ".flac"],
+              },
+            ],
+          },
+        },
         icons: [
           {
             src: "/pwa-192x192.png",
@@ -51,6 +69,11 @@ export default defineConfig(({ mode }) => ({
       workbox: {
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5MB
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
+        // Se carga al principio del service worker generado, antes de que workbox registre sus
+        // rutas — por eso su listener de fetch atrapa el POST del share target primero.
+        // Excluido del precaché porque no es un asset de la app: lo carga el propio SW.
+        importScripts: ["/share-target-sw.js"],
+        globIgnores: ["**/share-target-sw.js"],
         // Public invoice and payment links must never be served by a stale SPA
         // navigation fallback, especially on installed PWAs and iOS Safari.
         // /cita/ now also drives a Stripe checkout (session + bono purchase),

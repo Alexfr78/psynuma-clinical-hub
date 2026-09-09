@@ -37,6 +37,12 @@ interface TranscriptionAnalysisDialogProps {
   patientPhone?: string;
   patientEmail?: string;
   sessionDate?: string;
+  /**
+   * Transcripción ya obtenida antes de abrir el diálogo — la usa la pantalla de audio
+   * compartido (`ShareAudio.tsx`), que transcribe primero y abre esto después con el texto ya
+   * hecho, en vez de pedir al profesional que vuelva a subir el archivo aquí.
+   */
+  initialTranscription?: string;
 }
 
 // Mínimo de caracteres para considerar que hay una transcripción "real" pegada en el
@@ -58,8 +64,9 @@ export function TranscriptionAnalysisDialog({
   patientPhone,
   patientEmail,
   sessionDate,
+  initialTranscription,
 }: TranscriptionAnalysisDialogProps) {
-  const [transcription, setTranscription] = useState("");
+  const [transcription, setTranscription] = useState(initialTranscription ?? "");
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [audioFileName, setAudioFileName] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -221,6 +228,12 @@ export function TranscriptionAnalysisDialog({
     patientName?.replace(/\s+/g, "_") || "sesion",
     sessionDate || new Date().toISOString().split("T")[0],
   ].join("_");
+
+  // `handleClose` limpia el estado al cerrar, así que sin esto una transcripción recibida por
+  // prop se perdería al cerrar y reabrir el diálogo sin haber salido de la pantalla.
+  useEffect(() => {
+    if (open && initialTranscription) setTranscription(initialTranscription);
+  }, [open, initialTranscription]);
 
   useEffect(() => {
     if (open) {
