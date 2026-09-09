@@ -8417,10 +8417,6 @@ export type Database = {
         Args: { p_bono_id: string; p_session_id: string }
         Returns: Json
       }
-      apply_bono_to_session_service: {
-        Args: { p_bono_id: string; p_session_id: string }
-        Returns: Json
-      }
       assert_invoice_items_mutable: {
         Args: { p_invoice_id: string; p_operation: string }
         Returns: undefined
