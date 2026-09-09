@@ -5621,6 +5621,7 @@ export type Database = {
           contains_multiple_sessions: boolean
           created_at: string
           duration_ms: number
+          flagged_after_confirmation: boolean
           id: string
           last_error: string | null
           match_confidence: number | null
@@ -5634,12 +5635,15 @@ export type Database = {
           segment_boundaries: Json | null
           segmentation_score: number | null
           segmentation_signals: Json | null
+          segmentation_unverified: boolean
           serial_number: string | null
           session_id: string | null
           start_at: string
           status: string
+          transcript_attempts: number
           transcript_expires_at: string | null
           transcript_fetched_at: string | null
+          transcript_retry_gave_up_at: string | null
           transcript_text: string | null
           updated_at: string
         }
@@ -5650,6 +5654,7 @@ export type Database = {
           contains_multiple_sessions?: boolean
           created_at?: string
           duration_ms: number
+          flagged_after_confirmation?: boolean
           id?: string
           last_error?: string | null
           match_confidence?: number | null
@@ -5663,12 +5668,15 @@ export type Database = {
           segment_boundaries?: Json | null
           segmentation_score?: number | null
           segmentation_signals?: Json | null
+          segmentation_unverified?: boolean
           serial_number?: string | null
           session_id?: string | null
           start_at: string
           status?: string
+          transcript_attempts?: number
           transcript_expires_at?: string | null
           transcript_fetched_at?: string | null
+          transcript_retry_gave_up_at?: string | null
           transcript_text?: string | null
           updated_at?: string
         }
@@ -5679,6 +5687,7 @@ export type Database = {
           contains_multiple_sessions?: boolean
           created_at?: string
           duration_ms?: number
+          flagged_after_confirmation?: boolean
           id?: string
           last_error?: string | null
           match_confidence?: number | null
@@ -5692,12 +5701,15 @@ export type Database = {
           segment_boundaries?: Json | null
           segmentation_score?: number | null
           segmentation_signals?: Json | null
+          segmentation_unverified?: boolean
           serial_number?: string | null
           session_id?: string | null
           start_at?: string
           status?: string
+          transcript_attempts?: number
           transcript_expires_at?: string | null
           transcript_fetched_at?: string | null
+          transcript_retry_gave_up_at?: string | null
           transcript_text?: string | null
           updated_at?: string
         }
