@@ -525,45 +525,21 @@ async function handleBonoPurchase(
   // If there's a session associated, apply bono to it
   if (sessionId) {
     console.log('Applying bono to session:', sessionId);
-    
-    // Use the RPC function to apply bono
+
+    // Variante de servicio de apply_bono_to_session: la original exige
+    // auth.uid() con rol profesional/admin, que el webhook no tiene, así que
+    // fallaba siempre y la deuda de la sesión se quedaba pendiente.
     const { error: applyError } = await supabase
-      .rpc('apply_bono_to_session', {
+      .rpc('apply_bono_to_session_service', {
         p_bono_id: bonoData.id,
         p_session_id: sessionId,
       });
 
     if (applyError) {
       console.error('Error applying bono to session:', applyError);
-      const { data: existingItem } = await supabase
-        .from('bono_items')
-        .select('id')
-        .eq('bono_id', bonoData.id)
-        .eq('session_id', sessionId)
-        .maybeSingle();
-
-      if (!existingItem) {
-        await supabase
-          .from('bono_items')
-          .insert({
-            bono_id: bonoData.id,
-            session_id: sessionId,
-            used_at: new Date().toISOString(),
-          });
-
-        await supabase
-          .from('bonos')
-          .update({ used_sessions: 1 })
-          .eq('id', bonoData.id);
-
-        await supabase
-          .from('sessions')
-          .update({
-            bono_id: bonoData.id,
-            payment_status: 'bono',
-          })
-          .eq('id', sessionId);
-      }
+      // Propagamos para que Stripe reintente el webhook en lugar de dejar la
+      // sesión enlazada al bono con la deuda aún abierta.
+      throw new Error(`Failed to apply bono to session: ${applyError.message}`);
     }
   }
 
