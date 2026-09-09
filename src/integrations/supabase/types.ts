@@ -5108,6 +5108,95 @@ export type Database = {
           },
         ]
       }
+      patient_report_links: {
+        Row: {
+          access_token: string
+          ai_generated_document_id: string | null
+          center_id: string
+          content_markdown: string
+          created_at: string
+          expires_at: string
+          id: string
+          patient_id: string
+          session_id: string | null
+          title: string
+        }
+        Insert: {
+          access_token?: string
+          ai_generated_document_id?: string | null
+          center_id: string
+          content_markdown: string
+          created_at?: string
+          expires_at: string
+          id?: string
+          patient_id: string
+          session_id?: string | null
+          title?: string
+        }
+        Update: {
+          access_token?: string
+          ai_generated_document_id?: string | null
+          center_id?: string
+          content_markdown?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          patient_id?: string
+          session_id?: string | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_report_links_ai_generated_document_id_fkey"
+            columns: ["ai_generated_document_id"]
+            isOneToOne: false
+            referencedRelation: "ai_generated_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_report_links_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_report_links_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_report_links_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "portal_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_report_links_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_report_links_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_report_links_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       patient_tariff_plan_assignments: {
         Row: {
           center_id: string
@@ -5532,6 +5621,7 @@ export type Database = {
           contains_multiple_sessions: boolean
           created_at: string
           duration_ms: number
+          flagged_after_confirmation: boolean
           id: string
           last_error: string | null
           match_confidence: number | null
@@ -5545,12 +5635,15 @@ export type Database = {
           segment_boundaries: Json | null
           segmentation_score: number | null
           segmentation_signals: Json | null
+          segmentation_unverified: boolean
           serial_number: string | null
           session_id: string | null
           start_at: string
           status: string
+          transcript_attempts: number
           transcript_expires_at: string | null
           transcript_fetched_at: string | null
+          transcript_retry_gave_up_at: string | null
           transcript_text: string | null
           updated_at: string
         }
@@ -5561,6 +5654,7 @@ export type Database = {
           contains_multiple_sessions?: boolean
           created_at?: string
           duration_ms: number
+          flagged_after_confirmation?: boolean
           id?: string
           last_error?: string | null
           match_confidence?: number | null
@@ -5574,12 +5668,15 @@ export type Database = {
           segment_boundaries?: Json | null
           segmentation_score?: number | null
           segmentation_signals?: Json | null
+          segmentation_unverified?: boolean
           serial_number?: string | null
           session_id?: string | null
           start_at: string
           status?: string
+          transcript_attempts?: number
           transcript_expires_at?: string | null
           transcript_fetched_at?: string | null
+          transcript_retry_gave_up_at?: string | null
           transcript_text?: string | null
           updated_at?: string
         }
@@ -5590,6 +5687,7 @@ export type Database = {
           contains_multiple_sessions?: boolean
           created_at?: string
           duration_ms?: number
+          flagged_after_confirmation?: boolean
           id?: string
           last_error?: string | null
           match_confidence?: number | null
@@ -5603,12 +5701,15 @@ export type Database = {
           segment_boundaries?: Json | null
           segmentation_score?: number | null
           segmentation_signals?: Json | null
+          segmentation_unverified?: boolean
           serial_number?: string | null
           session_id?: string | null
           start_at?: string
           status?: string
+          transcript_attempts?: number
           transcript_expires_at?: string | null
           transcript_fetched_at?: string | null
+          transcript_retry_gave_up_at?: string | null
           transcript_text?: string | null
           updated_at?: string
         }
