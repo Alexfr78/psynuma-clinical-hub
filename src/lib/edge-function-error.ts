@@ -14,13 +14,26 @@ export async function describeEdgeFunctionError(error: unknown, fallback: string
   const context = (error as { context?: unknown } | null)?.context;
 
   if (context instanceof Response) {
+    let raw = '';
     try {
-      const body = await context.clone().json();
-      const message = (body as { error?: unknown })?.error;
+      raw = await context.clone().text();
+    } catch {
+      // Cuerpo ilegible: queda al menos el código de estado, más abajo.
+    }
+
+    // Caso normal: la función devolvió su propio motivo en español.
+    try {
+      const message = (JSON.parse(raw) as { error?: unknown })?.error;
       if (typeof message === 'string' && message.trim()) return message;
     } catch {
-      // El cuerpo no era JSON (p. ej. un 504 del proxy): se cae al mensaje genérico.
+      // No era JSON.
     }
+
+    // Cuando falla la plataforma y no la función —sin memoria, tiempo agotado, arranque
+    // fallido— el cuerpo no es JSON y no lo escribimos nosotros. Sin el estado y el texto
+    // crudo el fallo es indiagnosticable, así que se muestran tal cual.
+    const detail = raw.trim().replace(/\s+/g, ' ').slice(0, 200);
+    return `${context.status} ${context.statusText || ''}`.trim() + (detail ? ` — ${detail}` : '');
   }
 
   if (error instanceof Error && error.message.trim()) return error.message;
