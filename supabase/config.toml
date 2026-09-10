@@ -5,6 +5,16 @@ project_id = "zprkdxmluvirxfhswrzq"
     verify_jwt = false
   [functions.approve-session-request]
     verify_jwt = true
+  [functions.create-audio-ingestion]
+    verify_jwt = true
+  [functions.complete-audio-upload]
+    verify_jwt = true
+  [functions.get-audio-ingestion-status]
+    verify_jwt = true
+  [functions.cleanup-audio-ingestions]
+    verify_jwt = false
+  [functions.cleanup-transcripts]
+    verify_jwt = false
   [functions.auth-email-hook]
     verify_jwt = false
   [functions.cancel-registro-facturacion]
