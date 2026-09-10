@@ -804,6 +804,87 @@ export type Database = {
           },
         ]
       }
+      audio_ingestions: {
+        Row: {
+          center_id: string
+          channels: number | null
+          checksum: string | null
+          codec: string | null
+          created_at: string
+          deleted_at: string | null
+          device_installation_id: string | null
+          duration_ms: number | null
+          expires_at: string | null
+          id: string
+          matching_status: string
+          mime_type: string | null
+          patient_id: string | null
+          professional_id: string
+          received_at: string
+          recorded_at: string | null
+          sample_rate: number | null
+          session_id: string | null
+          size_bytes: number | null
+          source: string
+          status: string
+          storage_path: string | null
+          updated_at: string
+          uploaded_at: string | null
+        }
+        Insert: {
+          center_id: string
+          channels?: number | null
+          checksum?: string | null
+          codec?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          device_installation_id?: string | null
+          duration_ms?: number | null
+          expires_at?: string | null
+          id?: string
+          matching_status?: string
+          mime_type?: string | null
+          patient_id?: string | null
+          professional_id: string
+          received_at?: string
+          recorded_at?: string | null
+          sample_rate?: number | null
+          session_id?: string | null
+          size_bytes?: number | null
+          source: string
+          status?: string
+          storage_path?: string | null
+          updated_at?: string
+          uploaded_at?: string | null
+        }
+        Update: {
+          center_id?: string
+          channels?: number | null
+          checksum?: string | null
+          codec?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          device_installation_id?: string | null
+          duration_ms?: number | null
+          expires_at?: string | null
+          id?: string
+          matching_status?: string
+          mime_type?: string | null
+          patient_id?: string | null
+          professional_id?: string
+          received_at?: string
+          recorded_at?: string | null
+          sample_rate?: number | null
+          session_id?: string | null
+          size_bytes?: number | null
+          source?: string
+          status?: string
+          storage_path?: string | null
+          updated_at?: string
+          uploaded_at?: string | null
+        }
+        Relationships: []
+      }
       audit_log: {
         Row: {
           action: string
@@ -6228,6 +6309,36 @@ export type Database = {
         }
         Relationships: []
       }
+      recording_commands: {
+        Row: {
+          acknowledged_at: string | null
+          command: string
+          device_installation_id: string
+          expires_at: string
+          id: string
+          issued_at: string
+          professional_id: string
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          command: string
+          device_installation_id: string
+          expires_at?: string
+          id?: string
+          issued_at?: string
+          professional_id: string
+        }
+        Update: {
+          acknowledged_at?: string | null
+          command?: string
+          device_installation_id?: string
+          expires_at?: string
+          id?: string
+          issued_at?: string
+          professional_id?: string
+        }
+        Relationships: []
+      }
       recurring_series: {
         Row: {
           base_start_datetime: string
@@ -7447,6 +7558,130 @@ export type Database = {
           },
         ]
       }
+      transcription_jobs: {
+        Row: {
+          attempts: number
+          audio_ingestion_id: string
+          cancelled_at: string | null
+          completed_at: string | null
+          created_at: string
+          error_code: string | null
+          error_message_sanitized: string | null
+          id: string
+          mode: string
+          next_retry_at: string | null
+          progress: number
+          provider: string | null
+          provider_job_id: string | null
+          provider_model: string | null
+          started_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          audio_ingestion_id: string
+          cancelled_at?: string | null
+          completed_at?: string | null
+          created_at?: string
+          error_code?: string | null
+          error_message_sanitized?: string | null
+          id?: string
+          mode?: string
+          next_retry_at?: string | null
+          progress?: number
+          provider?: string | null
+          provider_job_id?: string | null
+          provider_model?: string | null
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          audio_ingestion_id?: string
+          cancelled_at?: string | null
+          completed_at?: string | null
+          created_at?: string
+          error_code?: string | null
+          error_message_sanitized?: string | null
+          id?: string
+          mode?: string
+          next_retry_at?: string | null
+          progress?: number
+          provider?: string | null
+          provider_job_id?: string | null
+          provider_model?: string | null
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transcription_jobs_audio_ingestion_id_fkey"
+            columns: ["audio_ingestion_id"]
+            isOneToOne: false
+            referencedRelation: "audio_ingestions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      transcripts: {
+        Row: {
+          audio_ingestion_id: string | null
+          center_id: string
+          created_at: string
+          deleted_at: string | null
+          diarization_available: boolean
+          expires_at: string
+          id: string
+          language: string | null
+          normalized_text: string | null
+          patient_id: string | null
+          segments: Json | null
+          session_id: string | null
+          source: string | null
+        }
+        Insert: {
+          audio_ingestion_id?: string | null
+          center_id: string
+          created_at?: string
+          deleted_at?: string | null
+          diarization_available?: boolean
+          expires_at?: string
+          id?: string
+          language?: string | null
+          normalized_text?: string | null
+          patient_id?: string | null
+          segments?: Json | null
+          session_id?: string | null
+          source?: string | null
+        }
+        Update: {
+          audio_ingestion_id?: string | null
+          center_id?: string
+          created_at?: string
+          deleted_at?: string | null
+          diarization_available?: boolean
+          expires_at?: string
+          id?: string
+          language?: string | null
+          normalized_text?: string | null
+          patient_id?: string | null
+          segments?: Json | null
+          session_id?: string | null
+          source?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transcripts_audio_ingestion_id_fkey"
+            columns: ["audio_ingestion_id"]
+            isOneToOne: false
+            referencedRelation: "audio_ingestions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           center_id: string
@@ -8459,7 +8694,9 @@ export type Database = {
         Returns: boolean
       }
       cleanup_expired_plaud_transcripts: { Args: never; Returns: Json }
+      cleanup_expired_transcripts: { Args: never; Returns: Json }
       cleanup_old_rate_limit_entries: { Args: never; Returns: undefined }
+      cleanup_orphan_audio_ingestions: { Args: never; Returns: Json }
       collect_session_payment_v2: {
         Args: {
           p_amount: number
