@@ -9,6 +9,13 @@ project_id = "zprkdxmluvirxfhswrzq"
     verify_jwt = true
   [functions.complete-audio-upload]
     verify_jwt = true
+  [functions.process-transcription-job]
+    # Doble camino de autenticación gestionado dentro de la función:
+    # JWT de usuario para invocación manual, x-cron-secret para el cron.
+    # verify_jwt debe quedar en false (igual que sync-google-calendar) o la
+    # plataforma bloquearía las llamadas de cron, que no llevan JWT, antes de
+    # que el código llegue a comprobar x-cron-secret.
+    verify_jwt = false
   [functions.get-audio-ingestion-status]
     verify_jwt = true
   [functions.cleanup-audio-ingestions]
