@@ -179,7 +179,11 @@ async function callAIOnce(
             { role: 'user', content: userPrompt },
           ],
           temperature,
-          max_tokens: maxTokens,
+          // `max_tokens` está en desuso en la API de chat completions de OpenAI: los modelos
+          // de razonamiento (o1/o3/GPT-5...) lo rechazan de plano, y `max_completion_tokens`
+          // ya es compatible con el resto de modelos de chat, así que no hace falta ramificar
+          // por modelo.
+          max_completion_tokens: maxTokens,
           ...(jsonMode ? { response_format: { type: 'json_object' } } : {}),
         }),
         signal: controller.signal,
