@@ -621,7 +621,12 @@ async function generateSingleDocument(
   const model = requestModelOverride || promptVersionModel || ctx.aiConfig.model;
 
   const temperature = promptVersion?.temperature ?? ctx.aiConfig.temperature;
-  const maxTokens = dt.key === 'base_extraction' ? 6000 : 4000;
+  // En modelos de razonamiento (o1/o3/GPT-5...) los tokens de "pensamiento" interno consumen
+  // el mismo presupuesto que max_completion_tokens antes de llegar a la respuesta visible.
+  // Los límites anteriores (6000/4000) estaban ajustados para modelos sin razonamiento y se
+  // quedaban sin margen para el JSON real con transcripciones largas, devolviendo secciones
+  // obligatorias vacías. Se amplía con margen suficiente para ambos tipos de modelo.
+  const maxTokens = dt.key === 'base_extraction' ? 24000 : 16000;
 
   const promptParts: string[] = [userPromptBase];
 
