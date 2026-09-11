@@ -8669,6 +8669,10 @@ export type Database = {
         Args: { p_invoice_id: string; p_operation: string }
         Returns: undefined
       }
+      auto_apply_bono_to_pending_sessions: {
+        Args: { p_bono_id: string }
+        Returns: Json
+      }
       auto_apply_bono_to_pending_sessions_service: {
         Args: { p_bono_id: string }
         Returns: Json
