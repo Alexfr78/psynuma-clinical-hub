@@ -17,8 +17,101 @@ const MAX_ATTEMPTS = 3;
 
 interface Body { transcriptionJobId?: string; jobId?: string; }
 interface JobRow { id: string; audio_ingestion_id: string; attempts: number; status: string; }
-interface IngestionRow { id: string; center_id: string; patient_id: string | null; session_id: string | null; source: string; storage_path: string | null; mime_type: string | null; }
+interface IngestionRow { id: string; center_id: string; professional_id: string; patient_id: string | null; session_id: string | null; source: string; storage_path: string | null; mime_type: string | null; }
 type ServiceClient = SupabaseClient<any>;
+
+type AutomaticReportAudience = "clinical" | "patient";
+
+async function generateAutomaticReports(
+  supabase: ServiceClient,
+  ingestion: IngestionRow,
+  transcription: string,
+): Promise<void> {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!supabaseUrl || !serviceRoleKey) {
+    console.error("[process-transcription-job] No se pudo generar informes automáticos: faltan secretos de Supabase.");
+    return;
+  }
+
+  const audiences: AutomaticReportAudience[] = ["clinical", "patient"];
+  for (const audience of audiences) {
+    try {
+      const audienceValues = audience === "clinical" ? ["clinical", "professional"] : [audience];
+      let defaultRow: { document_type_id: string; audience: string } | null = null;
+
+      for (const audienceValue of audienceValues) {
+        const { data: professionalDefault, error: professionalDefaultError } = await supabase
+          .from("ai_document_defaults")
+          .select("document_type_id, audience")
+          .eq("center_id", ingestion.center_id)
+          .eq("professional_id", ingestion.professional_id)
+          .eq("audience", audienceValue)
+          .maybeSingle();
+        if (professionalDefaultError) throw professionalDefaultError;
+        if (professionalDefault) {
+          defaultRow = professionalDefault as { document_type_id: string; audience: string };
+          break;
+        }
+
+        const { data: centerDefault, error: centerDefaultError } = await supabase
+          .from("ai_document_defaults")
+          .select("document_type_id, audience")
+          .eq("center_id", ingestion.center_id)
+          .is("professional_id", null)
+          .eq("audience", audienceValue)
+          .maybeSingle();
+        if (centerDefaultError) throw centerDefaultError;
+        if (centerDefault) {
+          defaultRow = centerDefault as { document_type_id: string; audience: string };
+          break;
+        }
+      }
+
+      if (!defaultRow) {
+        console.log(`[process-transcription-job] Se omite informe automático para audience ${audience}: no hay default configurado.`);
+        continue;
+      }
+
+      const { data: documentType, error: documentTypeError } = await supabase
+        .from("ai_document_types")
+        .select("key")
+        .eq("id", defaultRow.document_type_id)
+        .maybeSingle();
+      if (documentTypeError) throw documentTypeError;
+      const documentTypeKey = (documentType as { key?: string } | null)?.key;
+      if (!documentTypeKey) {
+        console.log(`[process-transcription-job] Se omite informe automático para audience ${audience}: el default no tiene document type válido.`);
+        continue;
+      }
+
+      const response = await fetch(`${supabaseUrl.replace(/\/$/, "")}/functions/v1/analyze-session-transcription`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${serviceRoleKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          sessionId: ingestion.session_id,
+          centerId: ingestion.center_id,
+          documentTypeKey,
+          transcription,
+          transcriptSource: "manual",
+        }),
+      });
+
+      if (!response.ok) {
+        const responseText = await response.text();
+        console.error(`[process-transcription-job] Error generando informe automático para audience ${audience} (${documentTypeKey}): HTTP ${response.status} ${responseText}`);
+        continue;
+      }
+
+      console.log(`[process-transcription-job] Informe automático generado para audience ${audience}: ${documentTypeKey}.`);
+    } catch (error) {
+      console.error(`[process-transcription-job] Error no bloqueante generando informe automático para audience ${audience}:`, error);
+    }
+  }
+}
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -92,7 +185,7 @@ Deno.serve(async (req) => {
 
   try {
     const { data: ingestion, error: ingestionError } = await supabase.from("audio_ingestions")
-      .select("id, center_id, patient_id, session_id, source, storage_path, mime_type").eq("id", job.audio_ingestion_id).maybeSingle();
+      .select("id, center_id, professional_id, patient_id, session_id, source, storage_path, mime_type").eq("id", job.audio_ingestion_id).maybeSingle();
     if (ingestionError || !ingestion) throw new Error("audio_ingestion_not_found");
     const row = ingestion as IngestionRow;
     if (!row.storage_path) throw new Error("audio_storage_path_missing");
@@ -118,6 +211,11 @@ Deno.serve(async (req) => {
     if (transcriptError) throw new Error("transcript_persist_failed");
     await supabase.from("transcription_jobs").update({ status: "completed", progress: 100, completed_at: new Date().toISOString(), next_retry_at: null }).eq("id", job.id);
     await supabase.from("audio_ingestions").update({ status: "transcription_verified" }).eq("id", row.id);
+    if (row.session_id && row.patient_id) {
+      await generateAutomaticReports(supabase, row, result.normalizedText);
+    } else {
+      console.log("[process-transcription-job] Se omiten informes automáticos: la ingestión no tiene session_id y patient_id confirmados.");
+    }
     return jsonResponse({ processed: true, transcriptionJobId: job.id, status: "completed" });
   } catch (error) {
     console.error("[process-transcription-job] Job failed:", safeError(error));
