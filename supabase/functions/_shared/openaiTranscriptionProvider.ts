@@ -7,8 +7,23 @@ import {
   TranscriptionProviderResult,
 } from "./transcriptionProvider.ts";
 
-const MAX_CHUNK_SIZE = 24 * 1024 * 1024;
+export const MAX_CHUNK_SIZE = 24 * 1024 * 1024;
 const MODEL = "whisper-1";
+
+export function getAudioChunkCount(audioSize: number): number {
+  return Math.max(1, Math.ceil(audioSize / MAX_CHUNK_SIZE));
+}
+
+export async function getAudioChunk(audio: Blob, chunkIndex: number, mimeType: string): Promise<Blob> {
+  if (chunkIndex < 0 || chunkIndex >= getAudioChunkCount(audio.size)) {
+    throw new Error("audio_chunk_index_out_of_range");
+  }
+  if (audio.size <= MAX_CHUNK_SIZE) return audio;
+
+  const bytes = await audio.arrayBuffer();
+  const start = chunkIndex * MAX_CHUNK_SIZE;
+  return new Blob([bytes.slice(start, Math.min(start + MAX_CHUNK_SIZE, bytes.byteLength))], { type: mimeType });
+}
 
 interface StoredResult {
   result: TranscriptionProviderResult;
@@ -80,39 +95,26 @@ export class OpenAITranscriptionProvider implements TranscriptionProvider {
   }
 
   private async transcribeAudio(audio: Blob, extension: string, mimeType: string, apiKey: string): Promise<string[]> {
-    const chunks: Blob[] = [];
-    if (audio.size <= MAX_CHUNK_SIZE) {
-      chunks.push(audio);
-    } else {
-      const bytes = await audio.arrayBuffer();
-      for (let start = 0; start < bytes.byteLength; start += MAX_CHUNK_SIZE) {
-        chunks.push(new Blob([bytes.slice(start, Math.min(start + MAX_CHUNK_SIZE, bytes.byteLength))], { type: mimeType }));
-      }
-    }
+    const chunk = await getAudioChunk(audio, 0, mimeType);
+    const formData = new FormData();
+    formData.append("file", new File([chunk], `audio_1${extension}`, { type: mimeType }));
+    formData.append("model", MODEL);
+    formData.append("language", "es");
+    formData.append("response_format", "text");
 
-    const transcriptions: string[] = [];
-    for (let index = 0; index < chunks.length; index++) {
-      const formData = new FormData();
-      formData.append("file", new File([chunks[index]], `audio_${index + 1}${extension}`, { type: mimeType }));
-      formData.append("model", MODEL);
-      formData.append("language", "es");
-      formData.append("response_format", "text");
-
-      const response = await fetch("https://api.openai.com/v1/audio/transcriptions", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${apiKey}` },
-        body: formData,
-      });
-      if (!response.ok) {
-        throw providerError(
-          response.status === 401 ? "authentication_failed" : "openai_transcription_failed",
-          "OpenAI transcription request failed.",
-          response.status >= 500 || response.status === 429,
-        );
-      }
-      transcriptions.push((await response.text()).trim());
+    const response = await fetch("https://api.openai.com/v1/audio/transcriptions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}` },
+      body: formData,
+    });
+    if (!response.ok) {
+      throw providerError(
+        response.status === 401 ? "authentication_failed" : "openai_transcription_failed",
+        "OpenAI transcription request failed.",
+        response.status >= 500 || response.status === 429,
+      );
     }
-    return transcriptions;
+    return [(await response.text()).trim()];
   }
 }
 

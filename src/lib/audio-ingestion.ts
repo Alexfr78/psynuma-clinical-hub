@@ -22,9 +22,11 @@ import { describeEdgeFunctionError } from "@/lib/edge-function-error";
 
 const BUCKET = "session-audio";
 const POLL_INTERVAL_MS = 5000;
-// Cubre el peor caso: hasta 5 min hasta el siguiente tick del cron de reintento
-// más el propio tiempo de transcripción.
-const POLL_TIMEOUT_MS = 8 * 60 * 1000;
+// La transcripción avanza como mucho un fragmento (~24MB) por ciclo del cron
+// (cada 5 min): un audio largo con varios fragmentos puede tardar varios
+// ciclos en completarse, no solo uno. 30 min cubre con margen una sesión de
+// hasta ~2h a la cadencia actual del cron.
+const POLL_TIMEOUT_MS = 30 * 60 * 1000;
 
 export interface UploadAndTranscribeParams {
   file: File;
