@@ -7573,6 +7573,7 @@ export type Database = {
           audio_ingestion_id: string
           cancelled_at: string | null
           completed_at: string | null
+          completed_chunk_count: number
           created_at: string
           error_code: string | null
           error_message_sanitized: string | null
@@ -7585,6 +7586,8 @@ export type Database = {
           provider_model: string | null
           started_at: string | null
           status: string
+          total_chunks: number | null
+          transcript_chunks: string[]
           updated_at: string
         }
         Insert: {
@@ -7592,6 +7595,7 @@ export type Database = {
           audio_ingestion_id: string
           cancelled_at?: string | null
           completed_at?: string | null
+          completed_chunk_count?: number
           created_at?: string
           error_code?: string | null
           error_message_sanitized?: string | null
@@ -7604,6 +7608,8 @@ export type Database = {
           provider_model?: string | null
           started_at?: string | null
           status?: string
+          total_chunks?: number | null
+          transcript_chunks?: string[]
           updated_at?: string
         }
         Update: {
@@ -7611,6 +7617,7 @@ export type Database = {
           audio_ingestion_id?: string
           cancelled_at?: string | null
           completed_at?: string | null
+          completed_chunk_count?: number
           created_at?: string
           error_code?: string | null
           error_message_sanitized?: string | null
@@ -7623,6 +7630,8 @@ export type Database = {
           provider_model?: string | null
           started_at?: string | null
           status?: string
+          total_chunks?: number | null
+          transcript_chunks?: string[]
           updated_at?: string
         }
         Relationships: [
