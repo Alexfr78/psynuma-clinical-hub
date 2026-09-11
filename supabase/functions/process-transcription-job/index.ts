@@ -216,7 +216,12 @@ Deno.serve(async (req) => {
     } else {
       console.log("[process-transcription-job] Se omiten informes automáticos: la ingestión no tiene session_id y patient_id confirmados.");
     }
-    return jsonResponse({ processed: true, transcriptionJobId: job.id, status: "completed" });
+    return jsonResponse({
+      processed: true,
+      transcriptionJobId: job.id,
+      status: "completed",
+      normalizedText: result.normalizedText,
+    });
   } catch (error) {
     console.error("[process-transcription-job] Job failed:", safeError(error));
     await failJob(supabase, job, error);

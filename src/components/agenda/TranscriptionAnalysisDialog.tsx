@@ -13,12 +13,12 @@ import { useTranscriptionAnalysis } from "@/hooks/useTranscriptionAnalysis";
 import { modelOptionsForProvider } from '@/lib/ai-models';
 import { useAIDocuments, useSessionPlaudTranscriptAvailability } from "@/hooks/useAIDocuments";
 import { useCenter } from "@/hooks/useCenter";
-import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { uploadAndTranscribeAudio } from "@/lib/audio-ingestion";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { Icon } from '@/components/ui/icon';
 import { parseSections, effectiveSections, effectiveMarkdown } from "@/lib/ai-documents";
-import { describeEdgeFunctionError } from "@/lib/edge-function-error";
 import type { AiDocumentType, AiGeneratedDocumentWithType } from "@/types/ai-documents";
 
 /**
@@ -83,6 +83,7 @@ export function TranscriptionAnalysisDialog({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { centerId, center } = useCenter();
+  const { user } = useAuth();
   const isOpenAI = center?.ai_provider !== "gemini";
 
   const { consent, sendPatientReport, downloadTxt, isSending } = useTranscriptionAnalysis({
@@ -252,8 +253,8 @@ export function TranscriptionAnalysisDialog({
   }, [open]);
 
   const handleAudioUpload = async (file: File) => {
-    if (!centerId) {
-      toast.error("No se pudo determinar el centro");
+    if (!centerId || !user?.id) {
+      toast.error("No se pudo determinar el centro o el profesional");
       return;
     }
 
@@ -261,19 +262,17 @@ export function TranscriptionAnalysisDialog({
     setAudioFileName(file.name);
 
     try {
-      const formData = new FormData();
-      formData.append("audio", file);
-      formData.append("centerId", centerId);
-
-      const { data, error } = await supabase.functions.invoke("transcribe-session-audio", {
-        body: formData,
+      const { transcription: text } = await uploadAndTranscribeAudio({
+        file,
+        centerId,
+        professionalId: user.id,
+        sessionId,
+        source: "manual_upload",
       });
 
-      if (error) throw new Error(await describeEdgeFunctionError(error, "Error al transcribir"));
-      if (!data?.success) throw new Error(data?.error || "Error al transcribir");
-
-      setTranscription(data.transcription);
-      toast.success(`Audio transcrito — ${data.wordCount} palabras`);
+      setTranscription(text);
+      const wordCount = text.split(/\s+/).filter(Boolean).length;
+      toast.success(`Audio transcrito — ${wordCount} palabras`);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Error al transcribir el audio";
       toast.error(message);

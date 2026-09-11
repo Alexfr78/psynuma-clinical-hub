@@ -6,11 +6,11 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Icon } from '@/components/ui/icon';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
 import { useCenter } from '@/hooks/useCenter';
+import { useAuth } from '@/hooks/useAuth';
 import { useSessions, type SessionWithRelations } from '@/hooks/useSessions';
 import { clearSharedAudio, readSharedAudio, type SharedAudio } from '@/lib/shared-audio';
-import { describeEdgeFunctionError } from '@/lib/edge-function-error';
+import { uploadAndTranscribeAudio } from '@/lib/audio-ingestion';
 import { TranscriptionAnalysisDialog } from '@/components/agenda/TranscriptionAnalysisDialog';
 
 /** Ventana de sesiones ofrecidas para emparejar: se comparte la grabación justo tras la sesión. */
@@ -65,6 +65,7 @@ function patientName(session: SessionWithRelations): string {
  */
 export default function ShareAudio() {
   const { centerId } = useCenter();
+  const { user } = useAuth();
 
   const [shared, setShared] = useState<SharedAudio | null>(null);
   const [isLoadingShared, setIsLoadingShared] = useState(true);
@@ -114,27 +115,25 @@ export default function ShareAudio() {
     ?? null;
 
   const handleTranscribe = async () => {
-    if (!shared || !selectedSession || !centerId) return;
+    if (!shared || !selectedSession || !centerId || !user?.id) return;
 
     setIsTranscribing(true);
     try {
-      const formData = new FormData();
-      formData.append('audio', shared.file);
-      formData.append('centerId', centerId);
-
-      const { data, error } = await supabase.functions.invoke('transcribe-session-audio', {
-        body: formData,
+      const { transcription: text } = await uploadAndTranscribeAudio({
+        file: shared.file,
+        centerId,
+        professionalId: user.id,
+        sessionId: selectedSession.id,
+        source: 'share_target',
       });
 
-      if (error) throw new Error(await describeEdgeFunctionError(error, 'Error al transcribir'));
-      if (!data?.success) throw new Error(data?.error || 'Error al transcribir');
-
-      setTranscription(data.transcription);
+      setTranscription(text);
       setDialogOpen(true);
       // El audio ya cumplió su función: si se queda en caché, la próxima visita a esta página
       // lo ofrecería otra vez como si fuera una grabación nueva sin procesar.
       await clearSharedAudio();
-      toast.success(`Audio transcrito — ${data.wordCount} palabras`);
+      const wordCount = text.split(/\s+/).filter(Boolean).length;
+      toast.success(`Audio transcrito — ${wordCount} palabras`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Error al transcribir el audio');
     } finally {
