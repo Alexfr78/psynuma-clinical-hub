@@ -217,9 +217,12 @@ export type Database = {
           prompt_version_id: string | null
           session_id: string | null
           source_session_ids: string[]
+          status: string
           tokens_in: number | null
           tokens_out: number | null
           transcript_source: string | null
+          validated_at: string | null
+          validated_by: string | null
         }
         Insert: {
           center_id: string
@@ -237,9 +240,12 @@ export type Database = {
           prompt_version_id?: string | null
           session_id?: string | null
           source_session_ids?: string[]
+          status?: string
           tokens_in?: number | null
           tokens_out?: number | null
           transcript_source?: string | null
+          validated_at?: string | null
+          validated_by?: string | null
         }
         Update: {
           center_id?: string
@@ -257,9 +263,12 @@ export type Database = {
           prompt_version_id?: string | null
           session_id?: string | null
           source_session_ids?: string[]
+          status?: string
           tokens_in?: number | null
           tokens_out?: number | null
           transcript_source?: string | null
+          validated_at?: string | null
+          validated_by?: string | null
         }
         Relationships: [
           {
