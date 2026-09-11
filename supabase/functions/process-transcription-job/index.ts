@@ -212,7 +212,20 @@ Deno.serve(async (req) => {
     await supabase.from("transcription_jobs").update({ status: "completed", progress: 100, completed_at: new Date().toISOString(), next_retry_at: null }).eq("id", job.id);
     await supabase.from("audio_ingestions").update({ status: "transcription_verified" }).eq("id", row.id);
     if (row.session_id && row.patient_id) {
-      await generateAutomaticReports(supabase, row, result.normalizedText);
+      // No se espera aquí: generar los informes cuesta 1-2 llamadas más a un LLM y puede tardar
+      // varios minutos. Bloquear la respuesta de este job por eso corría el riesgo real de
+      // sobrepasar el límite de inactividad de Supabase (IDLE_TIMEOUT a los 150s) en sesiones
+      // normales, dejando al cliente sin respuesta aunque la transcripción ya hubiera terminado.
+      // `EdgeRuntime.waitUntil` deja que siga en segundo plano tras devolver la respuesta.
+      const edgeRuntime = (globalThis as unknown as { EdgeRuntime?: { waitUntil?: (promise: Promise<unknown>) => void } }).EdgeRuntime;
+      const reportsPromise = generateAutomaticReports(supabase, row, result.normalizedText);
+      if (edgeRuntime?.waitUntil) {
+        edgeRuntime.waitUntil(reportsPromise);
+      } else {
+        // Entorno sin EdgeRuntime (p. ej. deno check/tests locales): no bloquear el import,
+        // pero tampoco dejar la promesa sin capturar.
+        reportsPromise.catch((error) => console.error("[process-transcription-job] generateAutomaticReports sin EdgeRuntime:", error));
+      }
     } else {
       console.log("[process-transcription-job] Se omiten informes automáticos: la ingestión no tiene session_id y patient_id confirmados.");
     }

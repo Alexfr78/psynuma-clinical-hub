@@ -11,11 +11,20 @@ import { describeEdgeFunctionError } from "@/lib/edge-function-error";
  * plano para estos flujos guiados por el profesional, que ya controlan qué
  * documento generar desde el propio diálogo — evita duplicar informes.
  *
- * Invoca `process-transcription-job` directamente (no espera al cron) para
- * mantener la misma latencia percibida que el flujo síncrono anterior.
+ * Intenta invocar `process-transcription-job` directamente (no espera al
+ * cron) para mantener una latencia similar a la del flujo síncrono anterior.
+ * Si esa llamada falla o tarda demasiado — puede pasar en sesiones largas,
+ * el edge function puede superar el límite de inactividad de Supabase antes
+ * de terminar — NO se trata como error: la transcripción puede seguir
+ * completándose en el servidor, así que se cae a sondear el estado hasta
+ * que aparezca el resultado o venza un margen razonable.
  */
 
 const BUCKET = "session-audio";
+const POLL_INTERVAL_MS = 5000;
+// Cubre el peor caso: hasta 5 min hasta el siguiente tick del cron de reintento
+// más el propio tiempo de transcripción.
+const POLL_TIMEOUT_MS = 8 * 60 * 1000;
 
 export interface UploadAndTranscribeParams {
   file: File;
@@ -52,6 +61,39 @@ interface ProcessTranscriptionJobResponse {
   normalizedText?: string;
   reason?: string;
   error?: string;
+}
+
+async function pollForTranscript(audioIngestionId: string): Promise<string> {
+  const deadline = Date.now() + POLL_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+
+    const { data: ingestion } = await supabase
+      .from("audio_ingestions")
+      .select("status")
+      .eq("id", audioIngestionId)
+      .maybeSingle();
+    const status = (ingestion as { status?: string } | null)?.status;
+
+    if (status === "transcription_verified") {
+      const { data: transcript } = await supabase
+        .from("transcripts")
+        .select("normalized_text")
+        .eq("audio_ingestion_id", audioIngestionId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      const text = (transcript as { normalized_text?: string | null } | null)?.normalized_text;
+      if (text) return text;
+      // Estado ya verificado pero la fila de transcripción aún no es visible (replicación);
+      // se reintenta en la siguiente vuelta en vez de fallar.
+    } else if (status === "failed") {
+      throw new Error("No se pudo transcribir el audio tras varios intentos. Revisa el archivo o inténtalo de nuevo.");
+    }
+  }
+  throw new Error(
+    "La transcripción está tardando más de lo normal, pero sigue en proceso en segundo plano. Vuelve a abrir esta sesión en unos minutos.",
+  );
 }
 
 export async function uploadAndTranscribeAudio({
@@ -92,34 +134,22 @@ export async function uploadAndTranscribeAudio({
   if (completeError) throw new Error(await describeEdgeFunctionError(completeError, "No se pudo confirmar la subida del audio"));
   if (!completed?.success) throw new Error(completed?.error || "No se pudo confirmar la subida del audio");
 
-  const { data: processed, error: processError } = await supabase.functions.invoke<ProcessTranscriptionJobResponse>(
-    "process-transcription-job",
-    { body: { transcriptionJobId: completed.transcriptionJobId } },
-  );
-  if (processError) {
-    // `process-transcription-job` devuelve 502 (no 2xx) cuando la transcripción falla, así que
-    // supabase-js lo trata como error de red aunque el cuerpo sea JSON válido con el motivo real.
-    const context = (processError as { context?: unknown } | null)?.context;
-    let failureBody: ProcessTranscriptionJobResponse | null = null;
-    if (context instanceof Response) {
-      try {
-        failureBody = (await context.clone().json()) as ProcessTranscriptionJobResponse;
-      } catch {
-        // Cuerpo no leíble como JSON: cae al mensaje genérico de abajo.
-      }
+  // Intento directo: si responde a tiempo con el texto, listo — misma latencia percibida que
+  // el flujo síncrono de siempre. Si falla por cualquier motivo (incluido un timeout de
+  // inactividad de la plataforma), no se trata como fallo real: se cae al sondeo de abajo,
+  // porque el job puede seguir procesándose en el servidor pese a que esta petición no volvió.
+  try {
+    const { data: processed, error: processError } = await supabase.functions.invoke<ProcessTranscriptionJobResponse>(
+      "process-transcription-job",
+      { body: { transcriptionJobId: completed.transcriptionJobId } },
+    );
+    if (!processError && processed?.processed && processed.status === "completed" && processed.normalizedText) {
+      return { audioIngestionId, transcription: processed.normalizedText };
     }
-    if (failureBody?.processed) {
-      throw new Error(
-        failureBody.status === "queued"
-          ? "La transcripción falló pero se reintentará automáticamente en unos minutos. Vuelve a abrir esta sesión más tarde."
-          : "No se pudo transcribir el audio tras varios intentos. Revisa el archivo o inténtalo de nuevo.",
-      );
-    }
-    throw new Error(await describeEdgeFunctionError(processError, "Error al transcribir el audio"));
-  }
-  if (!processed?.processed || processed.status !== "completed" || !processed.normalizedText) {
-    throw new Error(processed?.error || "No se pudo completar la transcripción. Vuelve a intentarlo en unos minutos.");
+  } catch {
+    // Error de red/timeout en la propia llamada: se ignora aquí, se resuelve por sondeo.
   }
 
-  return { audioIngestionId, transcription: processed.normalizedText };
+  const transcription = await pollForTranscript(audioIngestionId);
+  return { audioIngestionId, transcription };
 }
