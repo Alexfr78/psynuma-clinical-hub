@@ -543,6 +543,20 @@ async function handleBonoPurchase(
     }
   }
 
+  const { data: autoApplyResult, error: autoApplyError } = await supabase
+    .rpc('auto_apply_bono_to_pending_sessions_service', {
+      p_bono_id: bonoData.id,
+    });
+
+  if (autoApplyError) {
+    console.error('Error auto-applying bono to pending sessions:', autoApplyError);
+  } else {
+    console.log(
+      'Auto-applied bono to additional sessions:',
+      autoApplyResult?.applied_session_ids?.length ?? 0,
+    );
+  }
+
   const { data: existingInvoiceItem, error: invoiceLookupError } = await supabase
     .from('invoice_items')
     .select('invoice_id')

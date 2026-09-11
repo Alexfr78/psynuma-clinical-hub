@@ -1,0 +1,91 @@
+-- El webhook puede cobrar un bono iniciado desde una sesión, pero el paciente
+-- puede tener otras sesiones pendientes que también deben quedar cubiertas.
+-- Se reutiliza apply_bono_to_session_service para conservar en un solo sitio
+-- la liquidación de deudas, eventos facturables y el contador del bono.
+
+CREATE OR REPLACE FUNCTION public.auto_apply_bono_to_pending_sessions_service(p_bono_id uuid)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_bono record;
+  v_candidate record;
+  v_remaining integer;
+  v_applied_session_ids uuid[] := ARRAY[]::uuid[];
+BEGIN
+  SELECT * INTO v_bono
+  FROM public.bonos
+  WHERE id = p_bono_id
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Bono % no existe', p_bono_id;
+  END IF;
+
+  IF v_bono.status IS DISTINCT FROM 'active' THEN
+    RAISE EXCEPTION 'Bono no está activo';
+  END IF;
+
+  v_remaining := GREATEST(
+    0,
+    COALESCE(v_bono.total_sessions, 0) - COALESCE(v_bono.used_sessions, 0)
+  );
+
+  FOR v_candidate IN
+    SELECT s.id AS session_id
+    FROM public.sessions s
+    JOIN public.debts d ON d.session_id = s.id
+    WHERE s.patient_id = v_bono.patient_id
+      AND s.center_id = v_bono.center_id
+      AND s.bono_id IS NULL
+      AND d.session_id IS NOT NULL
+      AND d.bono_id IS NULL
+      AND d.invoice_id IS NULL
+      AND COALESCE(d.paid_amount, 0) = 0
+      AND d.status = 'pending'
+    GROUP BY s.id, s.session_date, s.start_time
+    ORDER BY s.session_date ASC, s.start_time ASC
+  LOOP
+    EXIT WHEN v_remaining <= 0;
+
+    BEGIN
+      PERFORM public.apply_bono_to_session_service(p_bono_id, v_candidate.session_id);
+      v_applied_session_ids := array_append(v_applied_session_ids, v_candidate.session_id);
+    EXCEPTION WHEN OTHERS THEN
+      IF SQLERRM = 'Bono no está activo' OR SQLERRM LIKE 'Bono % no existe' THEN
+        RAISE;
+      END IF;
+      RAISE NOTICE 'No se pudo aplicar el bono % a la sesión %: %',
+        p_bono_id, v_candidate.session_id, SQLERRM;
+    END;
+
+    SELECT GREATEST(
+      0,
+      COALESCE(total_sessions, 0) - COALESCE(used_sessions, 0)
+    )
+    INTO v_remaining
+    FROM public.bonos
+    WHERE id = p_bono_id;
+  END LOOP;
+
+  SELECT GREATEST(
+    0,
+    COALESCE(total_sessions, 0) - COALESCE(used_sessions, 0)
+  )
+  INTO v_remaining
+  FROM public.bonos
+  WHERE id = p_bono_id;
+
+  RETURN jsonb_build_object(
+    'applied_session_ids', to_jsonb(v_applied_session_ids),
+    'remaining_sessions', v_remaining
+  );
+END;
+$function$;
+
+-- Es una operación interna del webhook y no comprueba auth.uid(); por eso no
+-- debe quedar disponible para usuarios autenticados ni para accesos anónimos.
+REVOKE ALL ON FUNCTION public.auto_apply_bono_to_pending_sessions_service(uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.auto_apply_bono_to_pending_sessions_service(uuid) TO service_role;

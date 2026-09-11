@@ -190,12 +190,24 @@ export function useCreateBonoWithDebt() {
       });
 
       if (error) throw error;
-      return data as unknown as CreateBonoWithDebtResult;
+      const result = data as unknown as CreateBonoWithDebtResult;
+      const { error: autoApplyError } = await supabase.rpc('auto_apply_bono_to_pending_sessions', {
+        p_bono_id: result.bono_id,
+      });
+
+      if (autoApplyError) {
+        console.error('No se pudieron aplicar automáticamente las sesiones pendientes al bono:', autoApplyError);
+      }
+
+      return result;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bonos'] });
       queryClient.invalidateQueries({ queryKey: ['patient-active-bonos'] });
+      queryClient.invalidateQueries({ queryKey: ['sessions'] });
+      queryClient.invalidateQueries({ queryKey: ['bono-sessions'] });
       queryClient.invalidateQueries({ queryKey: ['debts'] });
+      queryClient.invalidateQueries({ queryKey: ['session-payment-status'] });
       queryClient.invalidateQueries({ queryKey: ['debt-stats'] });
     },
     onError: (error) => {
